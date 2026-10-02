@@ -20,11 +20,10 @@ open VG.Proof.MdStream.X86 (contains_addr readW_writeW_addr)
 
 /-! ## Prologue and epilogue -/
 
-theorem prologue_eq : prologue = [.mov .eax (.mem (at_ .esp 28)), .store (at_ .eax 80) .ebx,
-    .store (at_ .eax 84) .esi, .store (at_ .eax 88) .edi, .mov .esi (.reg .eax),
-    .mov .edi (.mem (at_ .esp 8)), .mov .eax (.mem (at_ .esp 16)), .store (at_ .esi tloOff) .eax,
-    .mov .eax (.mem (at_ .esp 20)), .store (at_ .esi thiOff) .eax, .mov .ecx (.imm 0),
-    .mov .eax (.mem (at_ .esp 24)), .alu .test .eax (.reg .eax)] := rfl
+theorem prologue_eq : prologue = .mov .eax (.mem (at_ .esp 28)) :: (Spill.saveCode .eax saved ++
+    ([.mov .esi (.reg .eax), .mov .edi (.mem (at_ .esp 8)), .mov .eax (.mem (at_ .esp 16)),
+      .store (at_ .esi tloOff) .eax, .mov .eax (.mem (at_ .esp 20)), .store (at_ .esi thiOff) .eax,
+      .mov .ecx (.imm 0), .mov .eax (.mem (at_ .esp 24)), .alu .test .eax (.reg .eax)] : List Instr)) := rfl
 
 /-- Reading an argument after writing `scratch`. -/
 theorem readW_writeW_scr_arg {s₀ : State} (hp : Pre s₀) (m : Mem) (v : BitVec 32) {d e : Nat}
@@ -32,11 +31,18 @@ theorem readW_writeW_scr_arg {s₀ : State} (hp : Pre s₀) (m : Mem) (v : BitVe
     (m.writeW (addr (scr s₀) d) v).readW (addr (esp₀ s₀) e) 32 = m.readW (addr (esp₀ s₀) e) 32 :=
   Mem.readW_writeW_sep (hp.arg_scr.sep (hp.arg_contains he he') (hp.scr_contains hd)) (by decide)
 
+/-- The memory after the prologue's stores of the registers. -/
+abbrev spillMem (s₀ : State) : Mem := Spill.saveMem s₀.mem (addr (scr s₀)) s₀.gpr saved
+
 /-- The memory after the prologue. -/
 def saveMem (s₀ : State) : Mem :=
-  ((((s₀.mem.writeW (addr (scr s₀) 80) (s₀.gpr .ebx)).writeW (addr (scr s₀) 84) (s₀.gpr .esi)).writeW
-    (addr (scr s₀) 88) (s₀.gpr .edi)).writeW (addr (scr s₀) tloOff) (arg s₀ 3)).writeW
-    (addr (scr s₀) thiOff) (arg s₀ 4)
+  ((spillMem s₀).writeW (addr (scr s₀) tloOff) (arg s₀ 3)).writeW (addr (scr s₀) thiOff) (arg s₀ 4)
+
+/-- Reading an argument after saving the registers. -/
+theorem spill_arg {s₀ : State} (hp : Pre s₀) {e : Nat} (he : 4 ≤ e) (he' : e + 4 ≤ 32) :
+    (spillMem s₀).readW (addr (esp₀ s₀) e) 32 = s₀.mem.readW (addr (esp₀ s₀) e) 32 :=
+  Spill.saveMem_readW_of_sep _ _ (by decide) _ _ fun p h =>
+    hp.arg_scr.sep (hp.arg_contains he he') (hp.scr_contains (by have := saved_bound p h; omega))
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block prologue) s₀ fun s₁ =>
@@ -44,48 +50,70 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
       s₁.gpr .ebp = s₀.gpr .ebp ∧ s₁.gpr .ecx = 0 ∧ s₁.rd = s₀.rd ∧ s₁.wr = s₀.wr ∧
       s₁.mem = saveMem s₀ ∧ s₁.zf = some (arg s₀ 5 &&& arg s₀ 5 == 0) := by
   have hsa := readW_writeW_scr_arg hp
-  have i8 := hp.in_arg (s := s₀) rfl (d := 8) (by omega) (by omega)
-  have i16 := hp.in_arg (s := s₀) rfl (d := 16) (by omega) (by omega)
-  have i20 := hp.in_arg (s := s₀) rfl (d := 20) (by omega) (by omega)
-  have i24 := hp.in_arg (s := s₀) rfl (d := 24) (by omega) (by omega)
-  have i28 := hp.in_arg (s := s₀) rfl (d := 28) (by omega) (by omega)
-  have a8 : s₀.mem.readW (addr (esp₀ s₀) 8) 32 = bp s₀ := rfl
-  have a16 : s₀.mem.readW (addr (esp₀ s₀) 16) 32 = arg s₀ 3 := rfl
-  have a20 : s₀.mem.readW (addr (esp₀ s₀) 20) 32 = arg s₀ 4 := rfl
-  have a24 : s₀.mem.readW (addr (esp₀ s₀) 24) 32 = arg s₀ 5 := rfl
-  have a28 : s₀.mem.readW (addr (esp₀ s₀) 28) 32 = scr s₀ := rfl
-  have hout : ∀ d, d + 4 ≤ 512 → InRegions s₀.wr (addr (scr s₀) d) 4 := fun d hd => hp.in_scr rfl hd
-  apply WP.of_runBlock
   rw [prologue_eq]
-  simp (config := {decide := true}) (disch := decide) only [at_, runBlock_cons,
-    runBlock_nil, runStep_some, exec, execAlu, readSrc, ea_mk, RegUpd.gpr_setReg, RegUpd.mem_setReg,
-    RegUpd.rd_setReg, RegUpd.wr_setReg, arithFlags, RegUpd.gpr_setFlags, RegUpd.mem_setFlags,
-    RegUpd.rd_setFlags, RegUpd.wr_setFlags, State.load32, State.store32, i8, i16, i20, i24, i28, a8,
-    a16, a20, a24, a28, hout, hsa, ite_true, ite_false, Option.map_some, Option.bind_some,
-    Option.some.injEq, exists_eq_left']
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> trivial
+  refine wp_ldm rfl (hp.in_arg (s := s₀) rfl (d := 28) (by omega) (by omega)) fun s₁ u₁ => ?_
+  refine Spill.save_ok saved (fun p h => by
+    rw [u₁.gpr]; exact hp.in_scr u₁.wr (by have := saved_bound p h; omega)) fun s₂ u₂ => ?_
+  have hm : s₂.mem = spillMem s₀ := by
+    rw [u₂.mem, u₁.gpr, u₁.mem]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p h => u₁.other _ (by revert p h; decide)
+  have hesp : s₂.gpr .esp = esp₀ s₀ := by rw [u₂.gpr, u₁.other _ (by decide)]
+  have hrd : s₂.rd = s₀.rd := by rw [u₂.rd, u₁.rd]
+  have hwr : s₂.wr = s₀.wr := by rw [u₂.wr, u₁.wr]
+  refine wp_mov fun s₃ u₃ => ?_
+  have hesi : s₃.gpr .esi = scr s₀ := by rw [u₃.gpr, u₂.gpr, u₁.gpr]; rfl
+  refine wp_ldm (by rw [u₃.other _ (by decide), hesp]) (hp.in_arg (by rw [u₃.rd, hrd]) (d := 8) (by omega)
+    (by omega)) fun s₄ u₄ => ?_
+  refine wp_ldm (by rw [u₄.other _ (by decide), u₃.other _ (by decide), hesp])
+    (hp.in_arg (by rw [u₄.rd, u₃.rd, hrd]) (d := 16) (by omega) (by omega)) fun s₅ u₅ => ?_
+  refine wp_stm (by rw [u₅.other _ (by decide), u₄.other _ (by decide), hesi])
+    (hp.in_scr (by rw [u₅.wr, u₄.wr, u₃.wr, hwr]) (by decide)) fun s₆ u₆ => ?_
+  refine wp_ldm (by rw [u₆.gpr, u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), hesp])
+    (hp.in_arg (by rw [u₆.rd, u₅.rd, u₄.rd, u₃.rd, hrd]) (d := 20) (by omega) (by omega)) fun s₇ u₇ => ?_
+  refine wp_stm (by rw [u₇.other _ (by decide), u₆.gpr, u₅.other _ (by decide), u₄.other _ (by decide), hesi])
+    (hp.in_scr (by rw [u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, hwr]) (by decide)) fun s₈ u₈ => ?_
+  refine wp_movi fun s₉ u₉ => ?_
+  have esp₉ : s₉.gpr .esp = esp₀ s₀ := by
+    rw [u₉.other _ (by decide), u₈.gpr, u₇.other _ (by decide), u₆.gpr, u₅.other _ (by decide),
+      u₄.other _ (by decide), u₃.other _ (by decide), hesp]
+  have rd₉ : s₉.rd = s₀.rd := by rw [u₉.rd, u₈.rd, u₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd, hrd]
+  have m₉ : s₉.mem = saveMem s₀ := by
+    rw [u₉.mem, u₈.mem, u₇.gpr, u₇.mem, u₆.mem, u₅.gpr, u₅.mem, u₄.mem, u₃.mem, hm,
+      hsa _ _ (by decide) (by omega) (by omega), spill_arg hp (by omega) (by omega),
+      spill_arg hp (by omega) (by omega)]; rfl
+  refine wp_ldm esp₉ (hp.in_arg rd₉ (d := 24) (by omega) (by omega)) fun s₁₀ u₁₀ =>
+    wp_test fun s₁₁ f₁₁ z₁₁ => WP.block_nil ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [f₁₁.gpr, u₁₀.other _ (by decide), u₉.other _ (by decide), u₈.gpr, u₇.other _ (by decide), u₆.gpr,
+      u₅.other _ (by decide), u₄.other _ (by decide), hesi]
+  · rw [f₁₁.gpr, u₁₀.other _ (by decide), u₉.other _ (by decide), u₈.gpr, u₇.other _ (by decide), u₆.gpr,
+      u₅.other _ (by decide), u₄.gpr, u₃.mem, hm, spill_arg hp (by omega) (by omega)]; rfl
+  · rw [f₁₁.gpr, u₁₀.other _ (by decide), esp₉]
+  · rw [f₁₁.gpr, u₁₀.other _ (by decide), u₉.other _ (by decide), u₈.gpr, u₇.other _ (by decide), u₆.gpr,
+      u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, u₁.other _ (by decide)]
+  · rw [f₁₁.gpr, u₁₀.other _ (by decide), u₉.gpr]
+  · rw [f₁₁.rd, u₁₀.rd, rd₉]
+  · rw [f₁₁.wr, u₁₀.wr, u₉.wr, u₈.wr, u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, hwr]
+  · rw [f₁₁.mem, u₁₀.mem, m₉]
+  · rw [z₁₁, u₁₀.gpr, m₉, saveMem, hsa _ _ (by decide) (by omega) (by omega),
+      hsa _ _ (by decide) (by omega) (by omega), spill_arg hp (by omega) (by omega)]; rfl
 
-theorem epilogue_eq : epilogue = [.mov .ebx (.mem (at_ .esi 80)), .mov .edi (.mem (at_ .esi 88)),
-    .mov .esi (.mem (at_ .esi 84))] := rfl
+theorem epilogue_eq : epilogue = Spill.restoreCode .esi ([(.ebx, 80), (.edi, 88)] ++ [(.esi, 84)]) ++ [] := rfl
 
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block epilogue) s fun s' =>
       (∀ r ∈ calleeSaved, s'.gpr r = s₀.gpr r) ∧ s'.mem = s.mem := by
-  have hin : ∀ d, d + 4 ≤ 512 → InRegions (s.rd ++ s.wr) (addr (scr s₀) d) 4 :=
-    fun d hd => mem_rd (hp.in_scr hc.wr hd)
-  obtain ⟨g0, g1, g2⟩ := hc.saved
-  have hesi := hc.esi
-  have hesp := hc.esp
-  have hebp := hc.ebp
-  apply WP.of_runBlock
   rw [epilogue_eq]
-  simp (config := {decide := true}) (disch := decide) only [at_, runBlock_cons,
-    runBlock_nil, runStep_some, exec, readSrc, ea_mk, RegUpd.gpr_setReg, RegUpd.mem_setReg,
-    RegUpd.rd_setReg, RegUpd.wr_setReg, State.load32, hesi, hin, g0, g1, g2, ite_true, ite_false,
-    Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨fun r hr => ?_, trivial⟩
+  refine Spill.restoreBase_ok _ (by decide) (fun p h => by
+      rw [hc.esi]; exact mem_rd (hp.in_scr hc.wr (by have := saved_bound p (by revert p h; decide); omega)))
+    (by rw [hc.esi]; exact hc.saved.sub (by decide)) fun s' r' =>
+      WP.block_nil ⟨fun r hr => ?_, r'.mem⟩
   simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hesp, hebp]
+  rcases hr with rfl | rfl | rfl | rfl | rfl
+  · exact r'.gpr (.ebx, 80) (by decide)
+  · exact r'.gpr (.esi, 84) (by decide)
+  · exact r'.gpr (.edi, 88) (by decide)
+  · rw [r'.other _ (by decide), hc.ebp]
+  · rw [r'.other _ (by decide), hc.esp]
 
 /-! ## The final block flag and the count -/
 
@@ -102,7 +130,8 @@ theorem flag_ok {s₀ : State} (hp : Pre s₀) {s : State} (hesi : s.gpr .esi = 
       s'.zf = some (arg s₀ 2 &&& arg s₀ 2 == 0) := by
   have h12 : s₀.mem.readW (addr (esp₀ s₀) 12) 32 = arg s₀ 2 := rfl
   have a12 : (saveMem s₀).readW (addr (esp₀ s₀) 12) 32 = arg s₀ 2 := by
-    simp (disch := decide) only [saveMem, readW_writeW_scr_arg hp, h12]
+    rw [saveMem, readW_writeW_scr_arg hp _ _ (by decide) (by omega) (by omega),
+      readW_writeW_scr_arg hp _ _ (by decide) (by omega) (by omega), spill_arg hp (by omega) (by omega), h12]
   -- After the flag's `ite`: `ecx` holds it.
   refine WP.seq (WP.mono (Q := fun (s₁ : State) => s₁.gpr .ecx = flagW (fl s₀) ∧ s₁.gpr .esi = s.gpr .esi ∧
       s₁.gpr .edi = s.gpr .edi ∧ s₁.gpr .esp = s.gpr .esp ∧ s₁.gpr .ebp = s.gpr .ebp ∧ s₁.rd = s.rd ∧
@@ -144,9 +173,9 @@ theorem flagMem_frame {s₀ : State} (hp : Pre s₀) : Frame [scrR s₀] s₀.me
   have c : ∀ d, d + 4 ≤ 512 → (scrR s₀).Contains (addr (scr s₀) d) (32 / 8) := fun d hd =>
     hp.scr_contains hd
   simp only [flagMem, saveMem]
-  exact ((((((Frame.refl _ _).writeW m _ (c 80 (by omega))).writeW m _ (c 84 (by omega))).writeW m _
-    (c 88 (by omega))).writeW m _ (c tloOff (by decide))).writeW m _ (c thiOff (by decide))).writeW m _
-    (c fOff (by decide)) |>.writeW m _ (c nOff (by decide))
+  exact ((((Spill.saveMem_frame m _ _ _ _ fun p h => c _ (by have := saved_bound p h; omega)).writeW m _
+    (c tloOff (by decide))).writeW m _ (c thiOff (by decide))).writeW m _
+    (c fOff (by decide))).writeW m _ (c nOff (by decide))
 
 theorem common_zero {s₀ : State} (hp : Pre s₀) {s : State} (hesi : s.gpr .esi = scr s₀)
     (hesp : s.gpr .esp = esp₀ s₀) (hebp : s.gpr .ebp = s₀.gpr .ebp) (hrd : s.rd = s₀.rd)
@@ -161,10 +190,13 @@ theorem common_zero {s₀ : State} (hp : Pre s₀) {s : State} (hesi : s.gpr .es
         simp only [List.mem_singleton, forall_eq]; exact hp.st_scr) (by decide),
       ← hp.stateAt_get _ hk]
     rfl
-  · rw [hm]
-    simp only [Saved, flagMem, saveMem]
-    refine ⟨?_, ?_, ?_⟩ <;>
-    simp (config := {decide := true}) (disch := decide) only [Mem.readW_writeW_self32, hr]
+  · have sv := Spill.saveMem_saved_addr (B := scr s₀) s₀.mem s₀.gpr saved_fits (by omega)
+    have w : ∀ {m : Mem} (e : Nat), Saved s₀ m → e + 4 ≤ 512 → (∀ p ∈ saved, p.2 + 4 ≤ e ∨ e + 4 ≤ p.2) →
+        ∀ v : BitVec 32, Saved s₀ (m.writeW (addr (scr s₀) e) v) :=
+      fun e h he hsep v => h.writeW_addr (w := 32) fV (fun p hp => by have := saved_bound p hp; omega) he hsep v
+    rw [hm]
+    exact w _ (w _ (w _ (w _ sv (by decide) (by decide) _) (by decide) (by decide) _) (by decide) (by decide) _)
+      (by decide) (by decide) _
 
 theorem linv_zero {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 0 s) (hedi : s.gpr .edi = bp s₀)
     (hm : s.mem = flagMem s₀) : LInv s₀ 0 s := by

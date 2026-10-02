@@ -8,7 +8,7 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 The proof of `vg_mlkem768_decaps` (`Proof/MlKem/X86/Decaps*.lean`) for `k = 4`.
 The layout of the arguments (`Y`: `dk`, `ct`, `key`, `scratch`, and the 88 bytes
 of stack), which the contract's precondition implies (`pre_of`); the public
-data, `ρ` (`pub_of`), which is that of the encapsulation key in `dk` (`rho_eq`);
+data, `ρ` (`pub_of`), which is that of the encapsulation key in `dk` (`KPke.ekRho_dkEk`);
 and the values the body computes: `m'` (`mD`), and the inputs of the
 re-encryption (`I`). `dk`, `ct` and the values computed from them are
 irreducible, so that elaboration never evaluates their bytes.
@@ -55,13 +55,9 @@ abbrev I : Enc.Inp := ⟨ekD, mD, krD⟩
 theorem hS : Enc.SOK Y := ⟨by decide, by decide, by decide, rfl⟩
 
 /-- `ρ` of the encapsulation key in `dk`, which the contract lets decaps leak. -/
-theorem rho_eq (dk : List Byte) : ekRho mlKem1024 (dkEk1024 dk) = dkRho mlKem1024 dk := by
-  simp only [ekRho, dkRho, dkEk1024, List.drop_take, List.drop_drop, List.take_take]
-  rfl
-
 theorem hρ : Enc.RhoPub Y lk I := fun s₀ s₀' _ _ hq => by
   show ekRho mlKem1024 (ekD s₀) = ekRho mlKem1024 (ekD s₀')
-  rw [ekD_eq, ekD_eq, rho_eq, rho_eq]
+  rw [ekD_eq, ekD_eq, KPke.ekRho_dkEk, KPke.ekRho_dkEk]
   exact hq.2.2
 
 theorem addr0 (s₀ : State) (i l : Nat) : Buf.addr s₀ ⟨i, 0, l⟩ = (arg s₀ i).setWidth 64 := by
@@ -117,7 +113,7 @@ theorem pub_of {s₀ s₀' : State} (h : (Spec.MlKem1024.decapsContract X86.abi 
   · simp only [Y, Lay.n, List.length_cons, List.length_nil] at hi
     obtain rfl | rfl | rfl | rfl : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 := by omega
     exacts [e₃, e₄, e₅, e₆]
-  · have e := Sample.map_toNat_inj e₂
+  · have e := VG.Proof.MlKem.map_toNat_inj e₂
     show dkRho mlKem1024 (dk s₀) = dkRho mlKem1024 (dk s₀')
     rw [dk_eq, dk_eq, addr0, addr0]
     exact e

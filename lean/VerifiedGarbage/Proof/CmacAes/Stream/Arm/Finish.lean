@@ -18,7 +18,7 @@ open VG VG.Arm VG.Impl.CmacAes.Stream.Arm
 open VG.Impl.CmacAes.Arm (mov)
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd op2_imm op2_reg wp_mov wp_add wp_sub wp_and wp_orr wp_cmp wp_ldr
   wp_str wp_ldrSp saveMem saveList_ok saveMem_frame readW_writeW_save)
-open VG.Proof.CmacAes.Arm (restoreB_ok saveMem_congr addr_word in_word in_word0)
+open VG.Proof.CmacAes.Arm (saveMem_congr addr_word in_word in_word0)
 open VG.Proof.Cmac.Stream (held held_le held_zero)
 
 /-- The precondition, by name: the state `St`, `out` (`O`), the scratch
@@ -88,15 +88,12 @@ theorem finishPre_eq : finishPre = .ldrSp .r12 4 :: (fsaved.map (fun p => Instr.
 /-- The memory after saving the registers. -/
 def fsMem (s₀ : State) (S : BitVec 32) : Mem := saveMem s₀.mem (State.addr S) s₀.gpr fsaved
 
-set_option simprocs false in
 theorem fsMem_slot (s₀ : State) (S : BitVec 32) {r : Reg} {d : Nat} (h : (r, d) ∈ fsaved) :
-    (fsMem s₀ S).readW (State.addr S + BitVec.ofNat 64 d) 32 = s₀.gpr r := by
-  simp only [fsaved, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at h
-  rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
-  simp (disch := decide) only [fsMem, fsaved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+    (fsMem s₀ S).readW (State.addr S + BitVec.ofNat 64 d) 32 = s₀.gpr r :=
+  Spill.saveMem_saved (lo := 2176) (hi := 2188) (State.addr S) s₀.gpr s₀.mem fsaved (by decide) (r, d) h
 
 theorem fsMem_frame (s₀ : State) (S : BitVec 32) : Frame [⟨State.addr S, 2304⟩] s₀.mem (fsMem s₀ S) :=
-  saveMem_frame _ _ _ (by decide) fsaved fun p hp => by have := fsaved_bound p hp; omega
+  Spill.saveMem_frame _ _ _ (by decide) fsaved (by decide)
 
 /-- The memory after copying the block at `p` to `o`, a word at a time. -/
 def cvMem (m : Mem) (o p : Addr) : Mem :=
@@ -372,7 +369,7 @@ theorem finish_wp {s₀ : State} (h0 : finishArm.pre s₀) :
   have inS (d : Nat) (hd : d + 4 ≤ 2304) : InRegions (s₂.rd ++ s₂.wr) (State.addr S + BitVec.ofNat 64 d) 4 := by
     rw [rdwr]; exact ⟨⟨State.addr S, 2304⟩, by simp, Offset.contains_base _ hd (by omega)⟩
   rw [finishPost_eq]
-  refine restoreB_ok [(.r4, 2176), (.lr, 2184)] s₂ _ (by decide) (fun p hp' => ?_)
+  refine Spill.restoreList_ok [(.r4, 2176), (.lr, 2184)] s₂ _ (by decide) (fun p hp' => ?_)
     fun s₃ ld₃ ho₃ m₃ rd₃ wr₃ sp₃ => ?_
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hp'
     rw [e5]

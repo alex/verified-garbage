@@ -82,7 +82,7 @@ def updSat : State where
   sp := 0x90000
   mem _ := 0
   rd := [⟨0x30000, 0⟩]
-  wr := [⟨0x10000, 192⟩, ⟨0x40000, 224⟩]
+  wr := [⟨0x10000, 192⟩, ⟨0x40000, 688⟩]
 
 /-- A state satisfying `finK`'s precondition at the family's sizes. -/
 def finKSat : State where
@@ -92,14 +92,14 @@ def finKSat : State where
   sp := 0x90000
   mem _ := 0
   rd := []
-  wr := [⟨0x10000, 192⟩, ⟨0x20000, 64⟩, ⟨0x40000, 224⟩]
+  wr := [⟨0x10000, 192⟩, ⟨0x20000, 64⟩, ⟨0x40000, 688⟩]
 
-theorem upd_sat (R : Mem → Addr → List Byte → Prop) : ∃ s, (updK 192 224 R).pre s := by
+theorem upd_sat (R : Mem → Addr → List Byte → Prop) : ∃ s, (updK 192 688 R).pre s := by
   refine ⟨updSat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_⟩ <;>
     exact Region.disjoint_of_sep (by decide)
 
 theorem fin_sat (R : Mem → Addr → List Byte → Prop) (hash : List Byte → List Byte) (D : Nat) :
-    ∃ s, (finK 192 224 64 D R hash).pre s := by
+    ∃ s, (finK 192 688 64 D R hash).pre s := by
   refine ⟨finKSat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_⟩ <;>
     exact Region.disjoint_of_sep (by decide)
 
@@ -115,7 +115,7 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
     (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) (hiv : IVs iv) :
     Calls.StreamOK (hash v I D initN iv).stream where
   SH := I.S
-  Wb := 224
+  Wb := 688
   hS := hS
   hD := hDs
   hB := hB
@@ -126,8 +126,8 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
   hSB := show 192 ≤ 256 by decide
   hB0 := show 0 < 128 by decide
   hBB := Nat.le_refl 128
-  hWb := by show 224 ≤ 8 * ((Impl.Pbkdf2.AArch64.sha512.so + 48) / 8); decide
-  hW := by show (Impl.Pbkdf2.AArch64.sha512.so + 48) / 8 ≤ 64; decide
+  hWb := by show 688 ≤ 8 * ((Impl.Pbkdf2.AArch64.sha512.so + 48) / 8); decide
+  hW := by show (Impl.Pbkdf2.AArch64.sha512.so + 48) / 8 ≤ 134; decide
   repr := hR ▸ Hmac.Generic.Common.sha512_repr iv
   init := hR ▸ Proof.Sha512.AArch64.Stream.init_verified iv
   upd := hR ▸ v.update_verified.of_implies

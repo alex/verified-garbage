@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlKem.Arm.Lay
-import VerifiedGarbage.Proof.MlKem.Arm.Extra
+import VerifiedGarbage.Proof.MlKem.KPke
 
 /-!
 # ML-KEM-768 on 32-bit ARM: the hash routine

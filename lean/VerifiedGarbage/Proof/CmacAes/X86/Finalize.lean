@@ -174,28 +174,28 @@ theorem finSave_wp {s₀ : State} (hp : FPre s₀) : WP isa (.block finSave) s�
   rw [finSave_eq]
   refine wp_arg (s₀ := s₀) rfl (hp.arg_in (by decide)) rfl fun s₁ u₁ => ?_
   have h₁ : s₁.gpr .eax = S s₀ := u₁.gpr
-  refine saveList_ok saved s₁ _ (fun p hp' => ?_) fun s₂ g₂ rd₂ wr₂ m₂ => ?_
+  refine Spill.save_ofNat_ok saved saved_fits (by rw [h₁]; omega) (fun p hp' => ?_) fun s₂ u₂ => ?_
   · have hb := saved_bound p hp'
     rw [h₁, u₁.wr, hp.wr]
-    exact ⟨by omega, ⟨scrR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩⟩
+    exact ⟨scrR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩
   have hm₂ : s₂.mem = savedMem s₀ := by
-    rw [m₂, u₁.mem, h₁, savedMem]
-    exact saveMem_congr _ _ _ fun p hp' => u₁.other _ (saved_ne_eax p hp')
-  have esp₂ : s₂.gpr .esp = s₀.gpr .esp := by rw [g₂, u₁.other _ (by decide)]
-  have rw₂ : s₂.rd ++ s₂.wr = s₀.rd ++ s₀.wr := by rw [rd₂, wr₂, u₁.rd, u₁.wr]
+    rw [u₂.mem, u₁.mem, h₁, savedMem]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p hp' => u₁.other _ (saved_ne_eax p hp')
+  have esp₂ : s₂.gpr .esp = s₀.gpr .esp := by rw [u₂.gpr, u₁.other _ (by decide)]
+  have rw₂ : s₂.rd ++ s₂.wr = s₀.rd ++ s₀.wr := by rw [u₂.rd, u₂.wr, u₁.rd, u₁.wr]
   refine wp_mov fun s₃ u₃ => ?_
   refine wp_arg (s₀ := s₀) (by rw [u₃.other _ (by decide), esp₂])
     (by rw [u₃.rd, u₃.wr, rw₂]; exact hp.arg_in (by decide))
     (by rw [u₃.mem, hm₂]; exact hp.arg_keep (savedMem_big s₀) (by decide)) fun s₄ u₄ => ?_
   refine wp_cmpi fun s₅ f₅ _ z₅ => WP.block_nil ⟨fun r ha hc hb => ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · rw [f₅.gpr, u₄.other _ hc, u₃.other _ hb, g₂, u₁.other _ ha]
+  · rw [f₅.gpr, u₄.other _ hc, u₃.other _ hb, u₂.gpr, u₁.other _ ha]
   · rw [f₅.gpr, u₄.gpr]; exact arg_ofNat s₀ 4
-  · rw [f₅.gpr, u₄.other _ (by decide), u₃.gpr, g₂, h₁]
+  · rw [f₅.gpr, u₄.other _ (by decide), u₃.gpr, u₂.gpr, h₁]
   · rw [z₅, u₄.gpr, arg_ofNat s₀ 4, show (16 : BitVec 32) = BitVec.ofNat 32 16 from rfl,
       MdStream.X86.sub_beq (arg s₀ 4).isLt (by decide)]
   · rw [f₅.mem, u₄.mem, u₃.mem, hm₂]
-  · rw [f₅.rd, u₄.rd, u₃.rd, rd₂, u₁.rd]
-  · rw [f₅.wr, u₄.wr, u₃.wr, wr₂, u₁.wr]
+  · rw [f₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd]
+  · rw [f₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr]
 
 /-! ## The last block -/
 

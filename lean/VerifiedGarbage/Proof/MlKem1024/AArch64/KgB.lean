@@ -65,16 +65,6 @@ theorem allOk_succ {s₀ : State} {k : Nat} :
     · exact h e he
     · exact hk
 
-/-- The seed `ρ ‖ j ‖ i`. -/
-theorem seed_eq {m : Mem} {p : Addr} {ρ : List Byte} (hρ : bytesAt m p 32 = ρ) {j i : Byte}
-    (hj : m (p + BitVec.ofNat 64 32) = j) (hi : m (p + BitVec.ofNat 64 33) = i) :
-    bytesAt m p 34 = ρ ++ [j, i] := by
-  rw [show 34 = 32 + 2 from rfl, bytesAt_add, hρ]
-  refine congrArg (ρ ++ ·) (bytesAt_eq rfl fun k hk => ?_)
-  rcases (by omega : k = 0 ∨ k = 1) with rfl | rfl
-  · rw [ptr_zero]; exact hj
-  · rw [ptr_add]; exact hi
-
 /-- Before `SampleNTT(ρ ‖ j ‖ i)`: its seed, and its arguments. -/
 structure Mid (s₀ : State) (i j : Nat) (s : State) : Prop where
   b : BInv s₀ (4 * i + j) s

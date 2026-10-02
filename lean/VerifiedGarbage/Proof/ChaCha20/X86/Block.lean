@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.X86.Exec
+import VerifiedGarbage.Proof.Framework.X86.Spill
 import VerifiedGarbage.Proof.ChaCha20.Spec
 import VerifiedGarbage.Impl.ChaCha20.X86
 import VerifiedGarbage.Proof.Framework.X86.Taint
@@ -326,78 +327,65 @@ theorem frame_buf {s₀ : State} {m m' : Mem} (hf : Frame [workR (BA s₀)] m m'
 
 /-! ## Saving the callee-saved registers, and loading the pointers -/
 
-/-- The memory after the prologue's stores. -/
-def saveMem (s₀ : State) : Mem :=
-  ((s₀.mem.writeW (BA s₀ + BitVec.ofNat 64 64) (s₀.gpr .ebx)).writeW (BA s₀ + BitVec.ofNat 64 68)
-    (s₀.gpr .esi)).writeW (BA s₀ + BitVec.ofNat 64 72) (s₀.gpr .edi)
-
-/-- The callee-saved registers `ebx, esi, edi` are saved in `buf`. -/
-def Saved (s₀ : State) (m : Mem) : Prop :=
-  m.readW (BA s₀ + BitVec.ofNat 64 64) 32 = s₀.gpr .ebx ∧
-  m.readW (BA s₀ + BitVec.ofNat 64 68) 32 = s₀.gpr .esi ∧
-  m.readW (BA s₀ + BitVec.ofNat 64 72) 32 = s₀.gpr .edi
-
-theorem off_sep (p : Addr) {d e : Nat} (hd : d < 2 ^ 32) (he : e < 2 ^ 32)
-    (h : d + 4 ≤ e ∨ e + 4 ≤ d) :
-    Mem.Sep (p + BitVec.ofNat 64 d) 4 (p + BitVec.ofNat 64 e) 4 := Offset.sep p h (by lit_omega) (by lit_omega)
-
 theorem readW_writeW_off (m : Mem) (p : Addr) (v : Word) {d e : Nat} (hd : d < 2 ^ 32)
     (he : e < 2 ^ 32) (h : d + 4 ≤ e ∨ e + 4 ≤ d) :
     (m.writeW (p + BitVec.ofNat 64 e) v).readW (p + BitVec.ofNat 64 d) 32 =
       m.readW (p + BitVec.ofNat 64 d) 32 :=
-  Mem.readW_writeW_sep (off_sep p hd he h) (by decide)
+  Mem.readW_writeW_sep (Offset.sep p h (by lit_omega) (by lit_omega)) (by decide)
 
-theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) := by
-  simp only [Saved, saveMem]
-  refine ⟨?_, ?_, ?_⟩
-  · rw [readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega),
-      readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self32]
-  · rw [readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self32]
-  · rw [Mem.readW_writeW_self32]
+/-- The callee-saved registers `ebx, esi, edi` and their slots in `buf`. -/
+def blockSaved : Spill.Slots := [(.ebx, 64), (.esi, 68), (.edi, 72)]
 
-theorem saveMem_frame (s₀ : State) : Frame [bufR s₀] s₀.mem (saveMem s₀) := by
-  have c : ∀ d : Nat, d + 4 ≤ 256 → (bufR s₀).Contains (BA s₀ + BitVec.ofNat 64 d) (32 / 8) :=
-    fun d hd => contains_off hd (by lit_omega)
-  simp only [saveMem]
-  exact (((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 64 (by lit_omega))).writeW
-    (List.mem_singleton_self _) _ (c 68 (by lit_omega))).writeW (List.mem_singleton_self _) _
-    (c 72 (by lit_omega))
+theorem blockSaved_fits : Spill.Fits 76 blockSaved := by decide
+
+theorem blockSaved_addr {s₀ : State} (hp : Pre s₀) : ∀ p ∈ blockSaved, addr (bp s₀) p.2 = BA s₀ + BitVec.ofNat 64 p.2 :=
+  fun p h => hp.eaB (by have := blockSaved_fits.1 p h; lit_omega)
+
+/-- The memory after the prologue's stores. -/
+abbrev saveMem (s₀ : State) : Mem := Spill.saveMem s₀.mem (BA s₀ + BitVec.ofNat 64 ·) s₀.gpr blockSaved
+
+/-- The callee-saved registers `ebx, esi, edi` are saved in `buf`. -/
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (BA s₀ + BitVec.ofNat 64 ·) s₀.gpr blockSaved
+
+theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) :=
+  Spill.saveMem_saved_ofNat _ _ _ blockSaved_fits (by decide)
+
+theorem saveMem_frame (s₀ : State) : Frame [bufR s₀] s₀.mem (saveMem s₀) :=
+  Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p h =>
+    have := blockSaved_fits.1 p h; contains_off (by lit_omega) (by lit_omega)
 
 /-- The saved registers survive writes to the working state. -/
 theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) (hf : Frame [workR (BA s₀)] m m') :
-    Saved s₀ m' := by
-  have key : ∀ d : Nat, 64 ≤ d → d + 4 ≤ 76 →
-      m'.readW (BA s₀ + BitVec.ofNat 64 d) 32 = m.readW (BA s₀ + BitVec.ofNat 64 d) 32 := by
-    intro d h1 h2
-    refine hf.readW (r := ⟨BA s₀ + BitVec.ofNat 64 d, 4⟩) (Region.contains_self _ _) ?_ (by decide)
-    simp only [List.mem_singleton, forall_eq]
-    exact Offset.disjoint_base _ h1 (by lit_omega)
-  obtain ⟨h1, h2, h3⟩ := h
-  exact ⟨(key 64 (by lit_omega) (by lit_omega)).trans h1, (key 68 (by lit_omega) (by lit_omega)).trans h2,
-    (key 72 (by lit_omega) (by lit_omega)).trans h3⟩
+    Saved s₀ m' :=
+  h.of_frame hf (R := ⟨BA s₀ + BitVec.ofNat 64 64, 12⟩)
+    (fun p hp => by
+      have := blockSaved_fits.1 p hp
+      have : 64 ≤ p.2 := by revert p hp; decide
+      exact Offset.contains _ this (by lit_omega) (by lit_omega))
+    (by simp only [List.mem_singleton, forall_eq]; exact Offset.disjoint_base _ (by decide) (by lit_omega))
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block save) s₀ fun s₁ =>
       (∀ r, r ≠ .eax → r ≠ .ecx → r ≠ .esi → r ≠ .edi → s₁.gpr r = s₀.gpr r) ∧
       s₁.gpr .esi = bp s₀ ∧ s₁.gpr .edi = st s₀ ∧ s₁.rd = s₀.rd ∧ s₁.wr = s₀.wr ∧
       s₁.mem = saveMem s₀ := by
-  have i8 : InRegions (s₀.rd ++ s₀.wr) ((s₀.gpr .esp + BitVec.ofNat 32 8).setWidth 64) 4 :=
-    hp.in_arg (i := 1) (by lit_omega)
-  have i4 : InRegions (s₀.rd ++ s₀.wr) ((s₀.gpr .esp + BitVec.ofNat 32 4).setWidth 64) 4 :=
-    hp.in_arg (i := 0) (by lit_omega)
-  have v8 : s₀.mem.readW ((s₀.gpr .esp + BitVec.ofNat 32 8).setWidth 64) 32 = bp s₀ := rfl
-  have v4 : s₀.mem.readW ((s₀.gpr .esp + BitVec.ofNat 32 4).setWidth 64) 32 = st s₀ := rfl
-  have e64 : (bp s₀ + BitVec.ofNat 32 64).setWidth 64 = BA s₀ + BitVec.ofNat 64 64 := hp.eaB (by lit_omega)
-  have e68 : (bp s₀ + BitVec.ofNat 32 68).setWidth 64 = BA s₀ + BitVec.ofNat 64 68 := hp.eaB (by lit_omega)
-  have e72 : (bp s₀ + BitVec.ofNat 32 72).setWidth 64 = BA s₀ + BitVec.ofNat 64 72 := hp.eaB (by lit_omega)
-  have o64 := hp.out_buf (d := 64) (n := 4) (by lit_omega)
-  have o68 := hp.out_buf (d := 68) (n := 4) (by lit_omega)
-  have o72 := hp.out_buf (d := 72) (n := 4) (by lit_omega)
-  apply WP.of_runBlock
-  simp (config := {decide := true}) only [save, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, State.setReg,
-    State.ea, at_, State.load32, State.store32, i8, i4, v8, v4, e64, e68, e72, o64, o68, o72,
-    ite_true, ite_false, Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨fun r h1 h2 h3 h4 => by simp [h1, h2, h3, h4], by simp, by simp, trivial, trivial, rfl⟩
+  rw [show save = .mov .eax (.mem (at_ .esp 8)) :: .mov .ecx (.mem (at_ .esp 4)) :: (Spill.saveCode .eax blockSaved ++
+    ([.mov .esi (.reg .eax), .mov .edi (.reg .ecx)] : List Instr)) from rfl]
+  refine Wp.wp_ldm rfl (hp.in_arg (i := 1) (by lit_omega)) fun s₁ u₁ => ?_
+  refine Wp.wp_ldm (by rw [u₁.other _ (by decide)]) (by rw [u₁.rd, u₁.wr]; exact hp.in_arg (i := 0) (by lit_omega))
+    fun s₂ u₂ => ?_
+  have hB : s₂.gpr .eax = bp s₀ := by rw [u₂.other _ (by decide), u₁.gpr]; rfl
+  refine Spill.save_ok blockSaved (fun p h => by
+      rw [hB, u₂.wr, u₁.wr, blockSaved_addr hp p h]; exact hp.out_buf (by have := blockSaved_fits.1 p h; lit_omega))
+    fun s₃ u₃ => Wp.wp_mov fun s₄ u₄ => Wp.wp_mov fun s₅ u₅ => WP.block_nil ⟨fun r h1 h2 h3 h4 => ?_, ?_, ?_,
+      by rw [u₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd], by rw [u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr], ?_⟩
+  · rw [u₅.other _ h4, u₄.other _ h3, u₃.gpr, u₂.other _ h2, u₁.other _ h1]
+  · rw [u₅.other _ (by decide), u₄.gpr, u₃.gpr, hB]
+  · rw [u₅.gpr, u₄.other _ (by decide), u₃.gpr, u₂.gpr, u₁.mem]; rfl
+  · rw [u₅.mem, u₄.mem, u₃.mem, hB, u₂.mem, u₁.mem]
+    exact Spill.saveMem_congr _ _ (blockSaved_addr hp) fun p h => by
+      have : p.1 ≠ .ecx ∧ p.1 ≠ .eax := by revert p h; decide
+      rw [u₂.other _ this.1, u₁.other _ this.2]
 
 /-! ## Copying the state -/
 
@@ -481,21 +469,16 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hs : Saved s₀ s
     WP isa (.block restore) s fun s' =>
       s'.mem = s.mem ∧ s'.gpr .ebx = s₀.gpr .ebx ∧ s'.gpr .esi = s₀.gpr .esi ∧
       s'.gpr .edi = s₀.gpr .edi ∧ ∀ r, r ≠ .eax → r ≠ .ebx → r ≠ .esi → r ≠ .edi → s'.gpr r = s.gpr r := by
-  have e64 : (bp s₀ + BitVec.ofNat 32 64).setWidth 64 = BA s₀ + BitVec.ofNat 64 64 := hp.eaB (by lit_omega)
-  have e68 : (bp s₀ + BitVec.ofNat 32 68).setWidth 64 = BA s₀ + BitVec.ofNat 64 68 := hp.eaB (by lit_omega)
-  have e72 : (bp s₀ + BitVec.ofNat 32 72).setWidth 64 = BA s₀ + BitVec.ofNat 64 72 := hp.eaB (by lit_omega)
-  have i64 : InRegions (s.rd ++ s.wr) (BA s₀ + BitVec.ofNat 64 64) 4 := by
-    rw [hwr]; exact hp.in_buf (by lit_omega) _
-  have i68 : InRegions (s.rd ++ s.wr) (BA s₀ + BitVec.ofNat 64 68) 4 := by
-    rw [hwr]; exact hp.in_buf (by lit_omega) _
-  have i72 : InRegions (s.rd ++ s.wr) (BA s₀ + BitVec.ofNat 64 72) 4 := by
-    rw [hwr]; exact hp.in_buf (by lit_omega) _
-  obtain ⟨g1, g2, g3⟩ := hs
-  apply WP.of_runBlock
-  simp (config := {decide := true}) only [restore, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, State.setReg,
-    State.ea, at_, State.load32, hesi, e64, e68, e72, i64, i68, i72, g1, g2, g3, ite_true,
-    ite_false, Option.map_some, Option.some.injEq, exists_eq_left']
-  exact ⟨trivial, trivial, trivial, trivial, fun r h1 h2 h3 h4 => by simp [h1, h2, h3, h4]⟩
+  rw [show restore = .mov .eax (.reg .esi) :: (Spill.restoreCode .eax blockSaved ++ []) from rfl]
+  refine Wp.wp_mov fun s₁ u₁ => ?_
+  have hB : s₁.gpr .eax = bp s₀ := by rw [u₁.gpr, hesi]
+  refine Spill.restore_ok blockSaved (by decide)
+    (fun p h => by
+      rw [hB, u₁.rd, u₁.wr, hwr, blockSaved_addr hp p h]; exact hp.in_buf (by have := blockSaved_fits.1 p h; lit_omega) _)
+    (by rw [hB, u₁.mem]; exact hs.congr (fun p h => (blockSaved_addr hp p h).symm) fun _ _ => rfl)
+    fun s' r' => WP.block_nil ⟨by rw [r'.mem, u₁.mem], r'.gpr (.ebx, 64) (by decide),
+      r'.gpr (.esi, 68) (by decide), r'.gpr (.edi, 72) (by decide), fun r h1 h2 h3 h4 => ?_⟩
+  rw [r'.other r (by simp [blockSaved, h2, h3, h4]), u₁.other _ h1]
 
 /-! ## The whole function -/
 

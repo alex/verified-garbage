@@ -40,7 +40,7 @@ theorem okRow_succ (transpose : Bool) (ρ : List Byte) (i j : Nat) :
   simp only [okRow, List.range_succ, List.all_append, List.all_cons, List.all_nil, Bool.and_true]
 
 theorem rowAcc_three (a v : Nat → Poly) : rowAcc a v 3 = VG.Proof.MlKem.dot3 a v := by
-  simp only [rowAcc, VG.Proof.MlKem.zero_add_poly, VG.Proof.MlKem.dot3]
+  simp only [rowAcc, VG.Proof.MlKem.zero_add_poly]; rfl
 
 /-! ## The blocks -/
 

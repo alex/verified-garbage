@@ -74,7 +74,7 @@ theorem rn_pub (s₁ s₂ : State) (h : (rejNTTContract AArch64.abi 16).pub s₁
     bytesAt s₁.mem (s₁.gpr .x0) 34 = bytesAt s₂.mem (s₂.gpr .x0) 34 := by
   sig_pub [Spec.MlDsa.rejNTTContract, Spec.MlDsa.rejNTTSig, rnK, AArch64.abi, AArch64.argRegs] at h
   obtain ⟨_, hb, _⟩ := h
-  exact Proof.MlKem.AArch64.Sample.map_toNat_inj hb
+  exact VG.Proof.MlKem.map_toNat_inj hb
 
 theorem rn_ret {s s' : State} {tr : List Leak} (h : (rejNTTContract AArch64.abi 16).pre s)
     (e : Exec isa (Impl.MlDsa.AArch64.Sample.rejNTTWith keccak.callee) s tr s') :
@@ -93,7 +93,7 @@ theorem sb_pub (s₁ s₂ : State) (h : (sampleInBallContract AArch64.abi 16).pu
       bytesAt s₁.mem (s₁.gpr .x0) (s₁.gpr .x1).toNat = bytesAt s₂.mem (s₂.gpr .x0) (s₂.gpr .x1).toNat := by
   sig_pub [Spec.MlDsa.sampleInBallContract, Spec.MlDsa.sampleInBallSig, sbK, AArch64.abi, AArch64.argRegs] at h
   obtain ⟨_, hb, _, _, hx2, _, _⟩ := h
-  exact ⟨by rw [tauOf, tauOf, hx2], Proof.MlKem.AArch64.Sample.map_toNat_inj hb⟩
+  exact ⟨by rw [tauOf, tauOf, hx2], VG.Proof.MlKem.map_toNat_inj hb⟩
 
 theorem sb_ret {s s' : State} {tr : List Leak} (h : (sampleInBallContract AArch64.abi 16).pre s)
     (e : Exec isa (Impl.MlDsa.AArch64.Sample.sampleInBallWith keccak.callee) s tr s') :

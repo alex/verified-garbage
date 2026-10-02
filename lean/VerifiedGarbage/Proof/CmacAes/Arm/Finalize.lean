@@ -126,12 +126,9 @@ theorem finSave_eq : finSave = .ldrSp .r12 4 :: (fsaved.map (fun p => Instr.str 
 theorem fsMem_frame (s₀ : State) : Frame [scrR s₀] s₀.mem (fsMem s₀) :=
   saveMem_frame _ _ _ (by decide) fsaved (by decide)
 
-set_option simprocs false in
 theorem fsMem_slot (s₀ : State) {r : Reg} {d : Nat} (h : (r, d) ∈ fsaved) :
-    (fsMem s₀).readW (State.addr (S s₀) + BitVec.ofNat 64 d) 32 = s₀.gpr r := by
-  simp only [fsaved, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at h
-  rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
-  simp (disch := decide) only [fsMem, fsaved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+    (fsMem s₀).readW (State.addr (S s₀) + BitVec.ofNat 64 d) 32 = s₀.gpr r :=
+  Spill.saveMem_saved (lo := 2064) (hi := 2076) (State.addr (S s₀)) s₀.gpr s₀.mem fsaved (by decide) (r, d) h
 
 /-- What `finSave` leaves. -/
 structure FS (s₀ s : State) : Prop where

@@ -320,7 +320,7 @@ theorem v_ok {A : Arith} (hA : ArithOk A) {C : Ctx rbs wbs} (hc : vChk (rbs ++ w
   rw [L.keepBytes hP.b (hu 0 (by decide)), L.keepBytes hP.b (hu 1 (by decide)), L.keepBytes hP.b (hu 2 (by decide)),
     L.keepBytes hP.b (hu 3 (by decide)), h.u 0 (by decide), h.u 1 (by decide), h.u 2 (by decide), h.u 3 (by decide),
     hP₇.pa rbx_cs, hb₇, hp₆.2]
-  simp only [ct1024, encV1024, List.append_assoc]
+  simp only [ct1024_eq, List.append_assoc]
   rfl
 
 /-! ## The end of K-PKE.Encrypt -/

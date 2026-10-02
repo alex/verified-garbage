@@ -207,6 +207,14 @@ theorem map_bytes_lt (B : List Byte) : ∀ a ∈ B.map (·.toNat), a < 2 ^ 8 := 
   obtain ⟨x, _, rfl⟩ := List.mem_map.mp ha
   exact x.isLt
 
+theorem map_toNat_inj : ∀ {l₁ l₂ : List Byte}, l₁.map (·.toNat) = l₂.map (·.toNat) → l₁ = l₂
+  | [], [], _ => rfl
+  | a :: l₁, b :: l₂, h => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    rw [BitVec.eq_of_toNat_eq h.1, map_toNat_inj h.2]
+  | [], _ :: _, h => by simp at h
+  | _ :: _, [], h => by simp at h
+
 /-- `ByteDecode_d(B)[i]` is base-`2ᵈ` digit `i` of the number whose bytes
 are `B`, reduced modulo `m` (`2ᵈ`, or `q` for `d = 12`). -/
 theorem byteDecode_getElem (d : Nat) (B : List Byte) {i : Nat} (hi : i < n) :

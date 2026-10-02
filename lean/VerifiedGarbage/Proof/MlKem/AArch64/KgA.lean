@@ -185,9 +185,9 @@ theorem g_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s) : 
     rw [show kA s₀ 0 = kA s₀ 0 from rfl, KB.d h.kb, h.b3]
   obtain ⟨o₁, o₂, -⟩ := o'
   rw [msg, e] at o₁ o₂
-  have hG := G_eq (dB s₀ ++ [BitVec.ofNat 8 3])
+  have hG := G_eq (dB s₀ ++ [BitVec.ofNat 8 mlKem768.k])
   refine ⟨kb', by rw [k'.cs _ (by decide) (by decide), h.x24], ?_, ?_⟩
-  · rw [o₁, kgRho, hG]; rfl
-  · rw [o₂, kgSigma, hG]; rfl
+  · rw [o₁, kgRho, KPke.kgRho, hG]; rfl
+  · rw [o₂, kgSigma, KPke.kgSigma, hG]; rfl
 
 end VG.Proof.MlKem.AArch64.KeyGen

@@ -83,7 +83,7 @@ theorem kgLay {p : Params} (hF : PFacts p) {S : Nat} {σ s : State}
   have e25 := h.x25; have e26 := h.x26; have e27 := h.x27; have e28 := h.x28
   have mrd : ∀ r ∈ σ.rd ++ σ.wr, InRegions (s.rd ++ s.wr) r.base r.len := fun r hr => by
     rw [h.rd, h.wr]; exact inR_self hr
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, by rw [h.sp]; exact hS⟩
+  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, by rw [h.sp]; exact hS⟩
   · simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false]
     rintro b (rfl | rfl | rfl | rfl)
     exacts [by decide, hsm.1, hsm.2.1, hsm.2.2]
@@ -128,20 +128,12 @@ theorem inB_x28W (p : Params) (o l : Nat) : inB (kgW p) (.x28, o) l = decide (o 
 theorem inB_x26W (p : Params) (o l : Nat) : inB (kgW p) (.x26, o) l = decide (o + l ≤ p.pkLen) := rfl
 theorem inB_x27W (p : Params) (o l : Nat) : inB (kgW p) (.x27, o) l = decide (o + l ≤ p.skLen) := rfl
 
-theorem sepB_same (rbs wbs : List (Reg × Nat)) (r : Reg) (o l o' l' : Nat) :
-    sepB rbs wbs (r, o) l (r, o') l' =
-      (inB (rbs ++ wbs) (r, o) l && inB (rbs ++ wbs) (r, o') l' && (decide (o + l ≤ o') || decide (o' + l' ≤ o))) := by
-  simp [sepB]
-
 theorem sepB_kg {p : Params} {r r' : Reg} (h : r ≠ r') (hr : r ∈ [Reg.x25, .x26, .x27, .x28])
     (hr' : r' ∈ [Reg.x25, .x26, .x27, .x28]) (o l o' l' : Nat) :
     sepB kgR (kgW p) (r, o) l (r', o') l' = (inB (kgR ++ kgW p) (r, o) l && inB (kgR ++ kgW p) (r', o') l') := by
-  have h1 : (r != r') = true := bne_iff_ne.mpr h
-  have h2 : (r == r') = false := beq_eq_false_iff_ne.mpr h
-  have h3 : (isW (kgW p) r || isW (kgW p) r') = true := by
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr hr'
-    rcases hr with rfl | rfl | rfl | rfl <;> rcases hr' with rfl | rfl | rfl | rfl <;> first | exact absurd rfl h | rfl
-  simp only [sepB, h1, h2, h3, Bool.false_and, Bool.or_false, Bool.and_true]
+  refine sepB_ne h ?_ o l o' l'
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr hr'
+  rcases hr with rfl | rfl | rfl | rfl <;> rcases hr' with rfl | rfl | rfl | rfl <;> first | exact absurd rfl h | rfl
 
 /-- Unfolds the checks of pointers into the layout into arithmetic, then
 `omega` (in each case of `η`). -/
@@ -150,8 +142,8 @@ macro_rules
   | `(tactic| lay) => `(tactic| lay [])
   | `(tactic| lay [$ls,*]) => `(tactic| (
       set_option linter.unusedSimpArgs false in
-      simp (config := { decide := true }) only [VG.Proof.MlDsa.AArch64.KeyGen.keepB,
-        VG.Proof.MlDsa.AArch64.KeyGen.sepB_same, VG.Proof.MlDsa.AArch64.KeyGen.sepB_kg,
+      simp (config := { decide := true }) only [VG.Proof.MlDsa.AArch64.keepB,
+        VG.Proof.MlDsa.AArch64.sepB_same, VG.Proof.MlDsa.AArch64.KeyGen.sepB_kg,
         VG.Proof.MlDsa.AArch64.KeyGen.inB_x25, VG.Proof.MlDsa.AArch64.KeyGen.inB_x26,
         VG.Proof.MlDsa.AArch64.KeyGen.inB_x27, VG.Proof.MlDsa.AArch64.KeyGen.inB_x28,
         VG.Proof.MlDsa.AArch64.KeyGen.inB_x26W, VG.Proof.MlDsa.AArch64.KeyGen.inB_x27W,

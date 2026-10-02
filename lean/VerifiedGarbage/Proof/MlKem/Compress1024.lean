@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.MlKem.Arith
+import VerifiedGarbage.Proof.MlKem.Compress
 import VerifiedGarbage.Spec.MlKem.Contract1024
 
 /-!
@@ -15,6 +15,9 @@ multiply-low, an addition and shifts:
   `2¹⁸ - 64`, which is too large for `d = 11`) serves both widths.
 * `Decompress_d(y) = (q · y + 2ᵈ⁻¹) >> d` for every `y < 2ᵈ`, which is less
   than `q` (`decompress1024_val`).
+
+Both use `Compress.lean`'s kernel check (`compress_formula`) and decompress
+formula (`decompress_val_of_le`).
 
 The compress formula is checked for each of the `q` inputs by the kernel.
 -/
@@ -34,25 +37,13 @@ theorem mem_compressWidths1024 {d : Nat} (hd : d ∈ Spec.MlKem1024.compressWidt
     d = 5 ∨ d = 11 := by
   simpa [Spec.MlKem1024.compressWidths] using hd
 
-private theorem compress5' : ∀ a < 53, ∀ b < 64, 64 * a + b < 3329 →
-    roundDiv (2 ^ 5 * (64 * a + b)) 3329 % 2 ^ 5 =
-      ((64 * a + b) * 5040 + 261888) / 2 ^ 19 % 2 ^ 5 := by
-  decide +kernel
-
 private theorem compress5 (x : Nat) (hx : x < 3329) :
-    roundDiv (2 ^ 5 * x) 3329 % 2 ^ 5 = (x * 5040 + 261888) / 2 ^ 19 % 2 ^ 5 := by
-  have := compress5' (x / 64) (by omega) (x % 64) (Nat.mod_lt _ (by decide)) (by omega)
-  rwa [Nat.div_add_mod] at this
-
-private theorem compress11' : ∀ a < 53, ∀ b < 64, 64 * a + b < 3329 →
-    roundDiv (2 ^ 11 * (64 * a + b)) 3329 % 2 ^ 11 =
-      ((64 * a + b) * 322542 + 261888) / 2 ^ 19 % 2 ^ 11 := by
-  decide +kernel
+    roundDiv (2 ^ 5 * x) 3329 % 2 ^ 5 = (x * 5040 + 261888) / 2 ^ 19 % 2 ^ 5 :=
+  compress_formula (by decide +kernel) x hx
 
 private theorem compress11 (x : Nat) (hx : x < 3329) :
-    roundDiv (2 ^ 11 * x) 3329 % 2 ^ 11 = (x * 322542 + 261888) / 2 ^ 19 % 2 ^ 11 := by
-  have := compress11' (x / 64) (by omega) (x % 64) (Nat.mod_lt _ (by decide)) (by omega)
-  rwa [Nat.div_add_mod] at this
+    roundDiv (2 ^ 11 * x) 3329 % 2 ^ 11 = (x * 322542 + 261888) / 2 ^ 19 % 2 ^ 11 :=
+  compress_formula (by decide +kernel) x hx
 
 /-- `Compress_d(x)` with a multiplication, an addition and a shift, for `d`
 in ML-KEM-1024's `compressWidths`. -/
@@ -82,12 +73,8 @@ theorem compress11_eq (x : Zq) : compress 11 x = (x.val * 322542 + 261888) / 2 ^
 `q`. -/
 theorem decompress1024_val {d : Nat} (hd : d ∈ Spec.MlKem1024.compressWidths) {y : Nat}
     (hy : y < 2 ^ d) :
-    (decompress d y).val = (q * y + 2 ^ (d - 1)) / 2 ^ d ∧ (q * y + 2 ^ (d - 1)) / 2 ^ d < q := by
-  have h : roundDiv (q * y) (2 ^ d) = (q * y + 2 ^ (d - 1)) / 2 ^ d ∧
-      (q * y + 2 ^ (d - 1)) / 2 ^ d < q := by
-    simp only [roundDiv, q_eq]
-    rcases mem_compressWidths1024 hd with rfl | rfl <;> constructor <;> omega
-  rw [decompress, ofNat_of_lt (h.1 ▸ h.2), h.1]
-  exact ⟨rfl, h.2⟩
+    (decompress d y).val = (q * y + 2 ^ (d - 1)) / 2 ^ d ∧ (q * y + 2 ^ (d - 1)) / 2 ^ d < q :=
+  decompress_val_of_le (by rcases mem_compressWidths1024 hd with rfl | rfl <;> decide)
+    (by rcases mem_compressWidths1024 hd with rfl | rfl <;> decide) hy
 
 end VG.Proof.MlKem

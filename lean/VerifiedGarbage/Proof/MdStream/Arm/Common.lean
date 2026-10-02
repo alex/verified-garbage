@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.MdStream.Spec
 import VerifiedGarbage.Proof.Framework.Arm.Call
 import VerifiedGarbage.Proof.Framework.Arm.Taint
+import VerifiedGarbage.Proof.Framework.Arm.Spill
 import VerifiedGarbage.Impl.MdStream.Arm
 import VerifiedGarbage.Proof.Framework.Offset
 
@@ -248,28 +249,7 @@ theorem and_pow_sub_one (x : BitVec 32) {n : Nat} (hn : n ≤ 32) :
 
 /-! ## Saving and restoring registers -/
 
-/-- The memory after storing the registers `l` (values `g`) at `B + offset`. -/
-def saveMem (m : Mem) (B : Addr) (g : Reg → BitVec 32) : List (Reg × Nat) → Mem
-  | [] => m
-  | (r, d) :: l => saveMem (m.writeW (B + BitVec.ofNat 64 d) (g r)) B g l
-
-theorem saveList_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
-    ∀ (s : State) (Q : State → Prop),
-    (∀ p ∈ l, p.2 < 4096 ∧ (s.gpr b).toNat + p.2 < 2 ^ 32 ∧
-      InRegions s.wr (State.addr (s.gpr b) + BitVec.ofNat 64 p.2) 4) →
-    (∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
-      s'.mem = saveMem s.mem (State.addr (s.gpr b)) s.gpr l → WP isa (.block rest) s' Q) →
-    WP isa (.block (l.map (fun p => Instr.str p.1 b p.2) ++ rest)) s Q := by
-  induction l with
-  | nil => intro s Q _ k; exact k s rfl rfl rfl rfl rfl
-  | cons p l ih =>
-    intro s Q hl k
-    obtain ⟨h1, h2, h3⟩ := hl p (by simp)
-    refine wp_str h1 (addr_add h2) h3 fun s₁ u₁ => ?_
-    refine ih s₁ Q (fun q hq => ?_) fun s' g rd wr sp m => k s' (g.trans u₁.gpr) (rd.trans u₁.rd)
-      (wr.trans u₁.wr) (sp.trans u₁.sp) ?_
-    · rw [u₁.gpr, u₁.wr]; exact hl q (List.mem_cons_of_mem _ hq)
-    · rw [m, u₁.mem, u₁.gpr]; rfl
+export VG.Arm.Spill (saveMem saveList_ok saveMem_frame restoreList_ok)
 
 theorem save_sep (B : Addr) {d e : Nat} (hd : d < 2 ^ 32) (he : e < 2 ^ 32)
     (h : d + 4 ≤ e ∨ e + 4 ≤ d) : Mem.Sep (B + BitVec.ofNat 64 d) 4 (B + BitVec.ofNat 64 e) 4 := by
@@ -294,42 +274,6 @@ theorem readW_writeW_save_so_l {so : Nat} (hso : so ≤ 256) (m : Mem) (B : Addr
       m.readW (B + BitVec.ofNat 64 so) 32 :=
   readW_writeW_save m B v (by omega) (by omega) (by omega)
 
-
-theorem saveMem_frame (m : Mem) (B : Addr) (g : Reg → BitVec 32) {L : Nat} (hL : L < 2 ^ 32) :
-    ∀ (l : List (Reg × Nat)), (∀ p ∈ l, p.2 + 4 ≤ L) → Frame [⟨B, L⟩] m (saveMem m B g l) := by
-  intro l
-  induction l generalizing m with
-  | nil => intro _; exact Frame.refl _ _
-  | cons p l ih =>
-    intro hl
-    have h := hl p (by simp)
-    exact ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_offset (n := 32 / 8) h (by omega))).trans
-      (ih _ fun q hq => hl q (List.mem_cons_of_mem _ hq))
-
-theorem restoreList_ok {rest : List Instr} (l : List (Reg × Nat)) :
-    ∀ (s : State) (Q : State → Prop), (l.map Prod.fst).Nodup →
-    (∀ p ∈ l, p.1 ≠ .r3 ∧ p.2 < 4096 ∧ (s.gpr .r3).toNat + p.2 < 2 ^ 32 ∧
-      InRegions (s.rd ++ s.wr) (State.addr (s.gpr .r3) + BitVec.ofNat 64 p.2) 4) →
-    (∀ s', (∀ p ∈ l, s'.gpr p.1 = s.mem.readW (State.addr (s.gpr .r3) + BitVec.ofNat 64 p.2) 32) →
-      (∀ r, r ∉ l.map Prod.fst → s'.gpr r = s.gpr r) → s'.mem = s.mem → s'.rd = s.rd → s'.wr = s.wr →
-      s'.sp = s.sp → WP isa (.block rest) s' Q) →
-    WP isa (.block (l.map (fun p => Instr.ldr p.1 .r3 p.2) ++ rest)) s Q := by
-  induction l with
-  | nil => intro s Q _ _ k; exact k s (fun _ h => by cases h) (fun _ _ => rfl) rfl rfl rfl rfl
-  | cons p l ih =>
-    intro s Q hnd hl k
-    obtain ⟨h0, h1, h2, h3⟩ := hl p (by simp)
-    simp only [List.map_cons, List.nodup_cons] at hnd
-    refine wp_ldr h1 (addr_add h2) h3 fun s₁ u₁ => ?_
-    have e3 : s₁.gpr .r3 = s.gpr .r3 := u₁.other _ (Ne.symm h0)
-    refine ih s₁ Q hnd.2 (fun q hq => ?_) fun s' hl' ho hm hrd hwr hsp => k s' (fun q hq => ?_)
-      (fun r hr => ?_) (hm.trans u₁.mem) (hrd.trans u₁.rd) (hwr.trans u₁.wr) (hsp.trans u₁.sp)
-    · rw [e3, u₁.rd, u₁.wr]; exact hl q (List.mem_cons_of_mem _ hq)
-    · rcases List.mem_cons.mp hq with rfl | hq
-      · rw [ho _ hnd.1, u₁.gpr]
-      · rw [hl' q hq, u₁.mem, e3]
-    · simp only [List.map_cons, List.mem_cons, not_or] at hr
-      rw [ho r hr.2, u₁.other r hr.1]
 
 /-! ## Sizes -/
 

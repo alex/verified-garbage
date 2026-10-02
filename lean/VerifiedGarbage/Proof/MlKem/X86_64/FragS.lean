@@ -79,12 +79,6 @@ end
 
 /-! ## The seed of `SampleNTT` -/
 
-theorem seed_eq {m : Mem} {p : Addr} {ρ : List Byte} (hρ : bytesAt m p 32 = ρ) {j i : Byte}
-    (hj : bytesAt m (p + BitVec.ofNat 64 32) 1 = [j]) (hi : bytesAt m (p + BitVec.ofNat 64 33) 1 = [i]) :
-    bytesAt m p 34 = ρ ++ [j, i] := by
-  rw [show (34 : Nat) = 32 + (1 + 1) from rfl, bytesAt_add, bytesAt_add, off_add, hρ, hj, hi]
-  rfl
-
 /-- What `SampleNTT` leaves, as `PostB`. -/
 theorem SampPost.b {a : Ptr} {s s' : State} (h : SampPost a s s') :
     PPostB s s' [(a, 1024), (sc oSS, 2048)] :=
@@ -130,8 +124,8 @@ theorem setIJ_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
   have hib : bytesAt s₂.mem (pa s₂ (sc (oSB + 33))) 1 = [BitVec.ofNat 8 i] := by
     rw [e2]; exact hb₂
   refine ⟨PPost.app hP₁ hP₂ (by decide), seed_eq hρ ?_ ?_⟩
-  · rw [← hjb, pa, pa, off_add]
-  · rw [← hib, pa, pa, off_add]
+  · refine mem_of_bytesAt_one ?_; rw [← hjb, pa, pa, off_add]
+  · refine mem_of_bytesAt_one ?_; rw [← hib, pa, pa, off_add]
 
 theorem sampleIJ_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
     (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {i j : Nat} (hi : i < 256) (hj : j < 256)

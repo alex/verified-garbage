@@ -4,10 +4,12 @@ import VerifiedGarbage.TCB.AArch64.Isa
 /-!
 # SHA-512 compression with FEAT_SHA512 (Rust's `sha3` feature)
 
-State pairs AB/CD/EF/GH occupy v0–v3; v16–v23 hold the sixteen-word
-schedule window. v24–v27 hold the hash value across the blocks (loaded once,
-updated and stored after each block), and v31 is zero throughout. All
-registers are caller-saved, and scratch is unused.
+The state pairs AB/CD/EF/GH and the two results of each pair of rounds
+occupy v0–v5, renamed rather than moved from one pair of rounds to the next
+(`reg`); v16–v23 hold the sixteen-word schedule window. v24–v27 hold the
+hash value across the blocks (loaded once, updated and stored after each
+block), and v31 is zero throughout. All registers are caller-saved, and
+scratch is unused.
 
 Each pair of rounds runs SHA512H twice. The usual sequence adds CD to
 SHA512H's result to get the next EF, and extracts the next rounds' operands
@@ -30,14 +32,22 @@ open VG.Spec.Sha512 (K)
 def msg (i : Nat) : VReg :=
   [.v16, .v17, .v18, .v19, .v20, .v21, .v22, .v23].getD (i % 8) .v16
 
-def constant (i j : Nat) : List Instr :=
+/-- The register of state pair AB, CD, EF or GH (`k = 0 … 3`) in pair of
+rounds `i`, and of its two results (`k = 4, 5`): the next AB and EF. Each
+pair of rounds renames them, with period 3. -/
+def reg (i k : Nat) : VReg :=
+  ([[.v0, .v1, .v2, .v3, .v4, .v5], [.v4, .v0, .v5, .v2, .v1, .v3],
+    [.v1, .v4, .v3, .v5, .v0, .v2]].getD (i % 3) []).getD k .v0
+
+/-- `Kᵢ` pairs into `d`. -/
+def constant (i j : Nat) (d : VReg) : List Instr :=
   [.movz .x .x4 ((K (2 * i + j)).extractLsb' 0 16) 0,
    .movk .x .x4 ((K (2 * i + j)).extractLsb' 16 16) 1,
    .movk .x .x4 ((K (2 * i + j)).extractLsb' 32 16) 2,
    .movk .x .x4 ((K (2 * i + j)).extractLsb' 48 16) 3,
-   -- A full write for the first lane breaks the dependency on the previous
-   -- round's v4. Inserting both lanes would keep that SHA512H2 result live.
-   .vop (if j = 0 then .dup .d2 .v4 .x4 else .ins .d2 .v4 j .x4)]
+   -- A full write for the first lane breaks the dependency on the register's
+   -- previous value. Inserting both lanes would keep it live.
+   .vop (if j = 0 then .dup .d2 d .x4 else .ins .d2 d j .x4)]
 
 def schedule (i : Nat) : List Instr :=
   if i < 8 then
@@ -47,23 +57,26 @@ def schedule (i : Nat) : List Instr :=
      .vop (.sha512su0 (msg i) (msg (i + 1))),
      .vop (.sha512su1 (msg i) (msg (i + 7)) .v6)]
 
+/-- Pair of rounds `i` with the state pairs in `ab`, `cd`, `ef`, `gh`, leaving
+the next AB in `t` and the next EF in `f`. -/
+def rounds2With (i : Nat) (ab cd ef gh t f : VReg) : List Instr :=
+  constant i 0 t ++ constant i 1 t ++
+  [.vop (.add .d2 t t (msg i)),
+   .vop (.ext t t t 8),
+   -- t = GH + K + W, the accumulator of the usual SHA512H; f = t + CD.
+   .vop (.add .d2 t t gh),
+   .vop (.add .d2 f t cd),
+   .vop (.ext .v6 ef gh 8),
+   .vop (.ext .v7 .v31 ef 8),
+   .vop (.ext .v28 cd ef 8),
+   -- f := the next EF, from (0, e); t := the usual sums, from (d, e); then
+   -- t := the next AB.
+   .vop (.sha512h f .v6 .v7),
+   .vop (.sha512h t .v6 .v28),
+   .vop (.sha512h2 t cd ab)]
+
 def rounds2 (i : Nat) : List Instr :=
-  constant i 0 ++ constant i 1 ++
-  [.vop (.add .d2 .v4 .v4 (msg i)),
-   .vop (.ext .v4 .v4 .v4 8),
-   -- v4 = GH + K + W, the accumulator of the usual SHA512H; v5 = v4 + CD.
-   .vop (.add .d2 .v4 .v4 .v3),
-   .vop (.add .d2 .v5 .v4 .v1),
-   .vop (.ext .v6 .v2 .v3 8),
-   -- v5 := the next EF, from (0, e).
-   .vop (.ext .v7 .v31 .v2 8),
-   .vop (.sha512h .v5 .v6 .v7),
-   -- v4 := the usual sums, from (d, e); v4 := the next AB.
-   .vop (.ext .v7 .v1 .v2 8),
-   .vop (.sha512h .v4 .v6 .v7),
-   .vop (.sha512h2 .v4 .v1 .v0),
-   .vop (.mov .v3 .v2), .vop (.mov .v1 .v0),
-   .vop (.mov .v0 .v4), .vop (.mov .v2 .v5)]
+  rounds2With i (reg i 0) (reg i 1) (reg i 2) (reg i 3) (reg i 4) (reg i 5)
 
 def rounds : Nat → Prog isa
   | 0 => .block []
@@ -78,9 +91,10 @@ def load : List Instr :=
   [.vop (.mov .v0 .v24), .vop (.mov .v1 .v25),
    .vop (.mov .v2 .v26), .vop (.mov .v3 .v27)]
 
+/-- After the 40 pairs of rounds the state is in `reg 40 0 … reg 40 3`. -/
 def store : List Instr :=
-  [.vop (.add .d2 .v24 .v0 .v24), .vop (.add .d2 .v25 .v1 .v25),
-   .vop (.add .d2 .v26 .v2 .v26), .vop (.add .d2 .v27 .v3 .v27),
+  [.vop (.add .d2 .v24 (reg 40 0) .v24), .vop (.add .d2 .v25 (reg 40 1) .v25),
+   .vop (.add .d2 .v26 (reg 40 2) .v26), .vop (.add .d2 .v27 (reg 40 3) .v27),
    .strq .v24 .x0 0, .strq .v25 .x0 16, .strq .v26 .x0 32, .strq .v27 .x0 48,
    .addImm .x .x1 .x1 128, .subImm .x .x2 .x2 1]
 

@@ -105,7 +105,7 @@ theorem pub_of {s₀ s₀' : State} (h : (encapsContract X86.abi 88).pub s₀ s�
   · simp only [Y, Lay.n, List.length_cons, List.length_nil] at hi
     obtain rfl | rfl | rfl | rfl | rfl : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 := by omega
     exacts [e₃, e₄, e₅, e₆, e₇]
-  · have e := Sample.map_toNat_inj e₂
+  · have e := map_toNat_inj e₂
     show ekRho mlKem768 (ek s₀) = ekRho mlKem768 (ek s₀')
     rw [ek_eq, ek_eq, addr0, addr0]
     exact e

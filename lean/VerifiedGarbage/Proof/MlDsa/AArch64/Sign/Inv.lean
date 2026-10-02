@@ -14,36 +14,10 @@ consecutive slots (`Fam`), kept by pieces that write apart from them
 namespace VG.Proof.MlDsa.AArch64.Sign
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
-
-/-! ## Parts of buffers -/
-
-theorem inB_sub {bs : List (Reg × Nat)} {r : Reg} {o L o' l : Nat} (h : inB bs (r, o) L = true)
-    (h2 : o' + l ≤ o + L) : inB bs (r, o') l = true := by
-  unfold inB at h ⊢
-  split at h
-  · rename_i n hn
-    simp only [hn, decide_eq_true_eq] at h ⊢
-    omega
-  · cases h
-
-theorem sepB_sub {bs : List (Reg × Nat)} {r : Reg} {o L o' l : Nat} {q : Ptr} {k : Nat}
-    (h : sepB bs (r, o) L q k = true) (h1 : o ≤ o') (h2 : o' + l ≤ o + L) : sepB bs (r, o') l q k = true := by
-  unfold sepB at h ⊢
-  simp only [Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq] at h ⊢
-  obtain ⟨⟨hp, hq⟩, hs⟩ := h
-  refine ⟨⟨inB_sub hp h2, hq⟩, ?_⟩
-  rcases hs with hs | ⟨he, hs⟩
-  · exact .inl hs
-  · exact .inr ⟨he, by omega⟩
-
-theorem keepB_sub {bs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {r : Reg} {o L o' l : Nat} (h : keepB bs ws (r, o) L = true)
-    (h1 : o ≤ o') (h2 : o' + l ≤ o + L) : keepB bs ws (r, o') l = true := by
-  unfold keepB at h ⊢
-  simp only [Bool.and_eq_true, List.all_eq_true] at h ⊢
-  exact ⟨⟨h.1.1, inB_sub h.1.2 h2⟩, fun w hw => sepB_sub (h.2 w hw) h1 h2⟩
 
 /-! ## The inputs -/
 
@@ -72,8 +46,8 @@ structure St (p : Params) (S : Nat) (σ s : State) : Prop where
 
 /-- A piece that writes `ws` keeps `St`. -/
 def stChk (p : Params) (ws : List (Ptr × Nat)) : Bool :=
-  topChk (sgB p) ws && keepB (sgB p) ws (.x25, 0) p.skLen && keepB (sgB p) ws (.x26, 0) 64 &&
-    keepB (sgB p) ws (.x27, 0) 32
+  topChk (sgR p) (sgW p) ws && keepB (sgR p) (sgW p) ws (.x25, 0) p.skLen && keepB (sgR p) (sgW p) ws (.x26, 0) 64 &&
+    keepB (sgR p) (sgW p) ws (.x27, 0) 32
 
 theorem St.step {p : Params} {S : Nat} {σ s s' : State} (h : St p S σ s) {ws : List (Ptr × Nat)}
     (hP : PPostB S s s' ws) (hc : stChk p ws = true) : St p S σ s' := by
@@ -91,10 +65,11 @@ abbrev Pl (s : State) (j : Nat) (f : Poly) : Prop := PolyIs s.mem (pa s (pS j)) 
 def Fam (s : State) (b m : Nat) (f : Nat → Poly) : Prop := ∀ j < m, Pl s (b + j) (f j)
 
 /-- The `m` slots from `b` lie apart from `ws`. -/
-def famChk (bs : List (Reg × Nat)) (ws : List (Ptr × Nat)) (b m : Nat) : Bool := m == 0 || keepB bs ws (pS b) (1024 * m)
+def famChk (rbs wbs : List (Reg × Nat)) (ws : List (Ptr × Nat)) (b m : Nat) : Bool :=
+  m == 0 || keepB rbs wbs ws (pS b) (1024 * m)
 
-theorem famChk_one {bs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {b m j : Nat} (h : famChk bs ws b m = true) (hj : j < m) :
-    keepB bs ws (pS (b + j)) 1024 = true := by
+theorem famChk_one {rbs wbs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {b m j : Nat} (h : famChk rbs wbs ws b m = true)
+    (hj : j < m) : keepB rbs wbs ws (pS (b + j)) 1024 = true := by
   simp only [famChk, Bool.or_eq_true, beq_iff_eq] at h
   rcases h with rfl | h
   · exact absurd hj (Nat.not_lt_zero _)
@@ -102,12 +77,12 @@ theorem famChk_one {bs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {b m j : Na
 
 theorem Fam.keep {S : Nat} {rbs wbs : List (Reg × Nat)} {s s' : State} (L : Lay S rbs wbs s)
     {ws : List (Ptr × Nat)} (hP : PPostB S s s' ws) {b m : Nat} {f : Nat → Poly}
-    (hc : famChk (rbs ++ wbs) ws b m = true) (h : Fam s b m f) : Fam s' b m f :=
+    (hc : famChk rbs wbs ws b m = true) (h : Fam s b m f) : Fam s' b m f :=
   fun j hj => L.keepPoly hP (famChk_one hc hj) (h j hj)
 
 theorem Pl.keep {S : Nat} {rbs wbs : List (Reg × Nat)} {s s' : State} (L : Lay S rbs wbs s)
     {ws : List (Ptr × Nat)} (hP : PPostB S s s' ws) {j : Nat} {f : Poly}
-    (hc : keepB (rbs ++ wbs) ws (pS j) 1024 = true) (h : Pl s j f) : Pl s' j f :=
+    (hc : keepB rbs wbs ws (pS j) 1024 = true) (h : Pl s j f) : Pl s' j f :=
   L.keepPoly hP hc h
 
 theorem Fam.congr {s : State} {b m : Nat} {f g : Nat → Poly} (h : Fam s b m f) (e : ∀ j < m, f j = g j) :

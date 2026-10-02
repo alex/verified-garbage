@@ -56,30 +56,30 @@ def finalizeWide : Contract AArch64.isa :=
 
 theorem pfx {a : Addr} {m n : Nat} (h : Nat.ble m n = true) : Region.Prefix ⟨a, m⟩ ⟨a, n⟩ :=
   ⟨rfl, Nat.le_of_ble_eq_true h⟩
-theorem sub176 (a : Addr) : Region.Sub ⟨a, 176⟩ ⟨a, 1328⟩ := Region.sub_prefix (by decide)
-theorem sub224 (a : Addr) : Region.Sub ⟨a, 224⟩ ⟨a, 1376⟩ := Region.sub_prefix (by decide)
+theorem sub640 (a : Addr) : Region.Sub ⟨a, 640⟩ ⟨a, 1328⟩ := Region.sub_prefix (by decide)
+theorem sub688 (a : Addr) : Region.Sub ⟨a, 688⟩ ⟨a, 1376⟩ := Region.sub_prefix (by decide)
 
 theorem compressWide_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha512.compressAArch64) (hsat : ∃ s, compressWide.pre s) :
     Verified AArch64.target code compressWide :=
   Verified.widen hv
-    (fun s => [⟨s.gpr .x0, 64⟩, ⟨s.gpr .x3, 176⟩])
-    (fun _ ⟨h₁, _, h₃, h₄, h₅⟩ => ⟨h₁, rfl, h₃.sub_right (sub176 _), h₄, h₅.sub_right (sub176 _)⟩)
+    (fun s => [⟨s.gpr .x0, 64⟩, ⟨s.gpr .x3, 640⟩])
+    (fun _ ⟨h₁, _, h₃, h₄, h₅⟩ => ⟨h₁, rfl, h₃.sub_right (sub640 _), h₄, h₅.sub_right (sub640 _)⟩)
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl) .nil))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
 
 theorem updateWide_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha512.updateAArch64) (hsat : ∃ s, updateWide.pre s) :
     Verified AArch64.target code updateWide :=
   Verified.widen hv
-    (fun s => [⟨s.gpr .x0, 192⟩, ⟨s.gpr .x4, 224⟩])
-    (fun _ ⟨h₁, _, h₃, h₄, h₅⟩ => ⟨h₁, rfl, h₃.sub_right (sub224 _), h₄, h₅.sub_right (sub224 _)⟩)
+    (fun s => [⟨s.gpr .x0, 192⟩, ⟨s.gpr .x4, 688⟩])
+    (fun _ ⟨h₁, _, h₃, h₄, h₅⟩ => ⟨h₁, rfl, h₃.sub_right (sub688 _), h₄, h₅.sub_right (sub688 _)⟩)
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl) .nil))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
 
 theorem finalizeWide_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha512.finalizeAArch64) (hsat : ∃ s, finalizeWide.pre s) :
     Verified AArch64.target code finalizeWide :=
   Verified.widen hv
-    (fun s => [⟨s.gpr .x0, 192⟩, ⟨s.gpr .x2, 64⟩, ⟨s.gpr .x3, 224⟩])
-    (fun _ ⟨h₁, _, h₃, h₄, h₅⟩ => ⟨h₁, rfl, h₃, h₄.sub_right (sub224 _), h₅.sub_right (sub224 _)⟩)
+    (fun s => [⟨s.gpr .x0, 192⟩, ⟨s.gpr .x2, 64⟩, ⟨s.gpr .x3, 688⟩])
+    (fun _ ⟨h₁, _, h₃, h₄, h₅⟩ => ⟨h₁, rfl, h₃, h₄.sub_right (sub688 _), h₅.sub_right (sub688 _)⟩)
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl)
       (.cons (pfx rfl) .nil)))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat

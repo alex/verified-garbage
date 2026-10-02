@@ -102,7 +102,7 @@ theorem Pub3.kA {σ₁ σ₂ : State} (h : Pub3 σ₁ σ₂) : ∀ b, kA σ₁ b
 theorem Pub3.sp {σ₁ σ₂ : State} (h : Pub3 σ₁ σ₂) : σ₁.sp = σ₂.sp := h.2.2.2.2.2.2.1
 
 theorem Pub3.rho {σ₁ σ₂ : State} (h : Pub3 σ₁ σ₂) : rhoK σ₁ = rhoK σ₂ := by
-  have e := Sample.map_toNat_inj h.2.2.2.2.2.2.2
+  have e := VG.Proof.MlKem.map_toNat_inj h.2.2.2.2.2.2.2
   show kgRho1024 (bytesAt σ₁.mem (σ₁.gpr .x0 + BitVec.ofNat 64 0) 32) =
     kgRho1024 (bytesAt σ₂.mem (σ₂.gpr .x0 + BitVec.ofNat 64 0) 32)
   rw [ptr_zero, ptr_zero]
