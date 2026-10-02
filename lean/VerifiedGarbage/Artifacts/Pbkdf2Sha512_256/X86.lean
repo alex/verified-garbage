@@ -47,7 +47,6 @@ def artifacts : List Artifact := [
     code := Proof.Pbkdf2.Whole.X86.sha512_256F.pbkdf2
     contract := Spec.Hmac.sha512_256I.pbkdf2Contract X86.abi 76
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.pbkdf2Contract; rfl⟩
-    writeArgs := true
     stack := 76
     verified := Proof.Pbkdf2.Whole.X86.sha512_256
     spSafe := Code.all_of_allInstrs (by lit_decide) }]

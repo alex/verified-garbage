@@ -31,7 +31,6 @@ def artifacts (v : Proof.Sha256.X86.Variants.Backend) : List Artifact := [
     code := (Proof.Pbkdf2.Whole.X86.sha256FnsOf v).pbkdf2
     contract := Spec.Hmac.sha256I.pbkdf2Contract X86.abi 76
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.pbkdf2Contract; rfl⟩
-    writeArgs := true
     stack := 76
     verified := Proof.Pbkdf2.Whole.X86.sha256_verified v
     spSafe := v.pbkdf2Sp

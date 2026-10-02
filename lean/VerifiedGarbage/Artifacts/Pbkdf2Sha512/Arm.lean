@@ -47,7 +47,6 @@ def artifacts : List Artifact := [
     code := Proof.Pbkdf2.Whole.Arm.sha512F.pbkdf2
     contract := Spec.Hmac.sha512I.pbkdf2Contract Arm.abi 24
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.pbkdf2Contract; rfl⟩
-    writeArgs := true
     stack := 24
     verified := Proof.Pbkdf2.Whole.Arm.sha512
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
