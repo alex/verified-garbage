@@ -48,9 +48,7 @@ def pubArm (s₁ s₂ : Arm.State) : Prop :=
   s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
+/-- `vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
 def sealArm : Contract Arm.isa where
   pre := preArm
   post s s' :=
@@ -62,9 +60,7 @@ def sealArm : Contract Arm.isa where
   pub := pubArm
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
+/-- `vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
 def openArm : Contract Arm.isa where
   pre := preArm
   post s s' :=

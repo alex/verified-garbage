@@ -16,9 +16,8 @@ namespace VG.Proof.MlKem
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against; the artifact's is the
-shared contract of `Spec/`, which implies it. AArch64 contract for
-`keyGen(seed = x0, ek = x1, dk = x2, scratch = x3) -> w0`. -/
+/-- AArch64 contract for `keyGen(seed = x0, ek = x1, dk = x2, scratch = x3) ->
+w0`. -/
 def keyGenAArch64 : Contract AArch64.isa where
   pre s :=
     let seed : Region := ⟨s.gpr .x0, 64⟩

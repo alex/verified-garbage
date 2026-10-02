@@ -9,7 +9,7 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function: the AArch64 contracts
 
-**Untrusted**: the contracts the proofs are written against, as on x86-64
+The contracts the proofs are written against, as on x86-64
 (`Proof/Hmac/Generic/X86_64/Hash.lean`).
 
 * `initK`, `updK` and `finK` are the AArch64 contracts of a hash function's

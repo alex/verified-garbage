@@ -17,11 +17,9 @@ namespace VG.Proof.Scrypt
 open Spec.Scrypt
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_scrypt_blockmix(b = x0, r = x1, y = x2, ry = x3, scratch = x4)`:
-if `ry = r > 0`, writes scryptBlockMix of the `128 r` bytes at `b` to `y`.
-Its frame (saving `x30`) is the 16 bytes below the stack pointer. -/
+/-- AArch64 contract for `vg_scrypt_blockmix(b = x0, r = x1, y = x2, ry = x3,
+scratch = x4)`: if `ry = r > 0`, writes scryptBlockMix of the `128 r` bytes at
+`b` to `y`. Its frame (saving `x30`) is the 16 bytes below the stack pointer. -/
 def blockMixAArch64 : Contract AArch64.isa where
   pre s :=
     let r := (s.gpr .x1).toNat
@@ -42,14 +40,12 @@ def blockMixAArch64 : Contract AArch64.isa where
     s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for
-`vg_scrypt_romix(b = x0, r = x1, v = x2, vlen = x3, scratch = x4, slen = x5)`:
-if `r > 0`, `vlen = N r` for a power of two `N`, and `slen = r + 2`, replaces
-the `128 r` bytes at `b` by their scryptROMix. It has no frame (it saves `x30`
-in `scratch`); its calls of `vg_scrypt_blockmix` use the 16 bytes below the
-stack pointer. The indices `j` of step 3 are public. -/
+/-- AArch64 contract for `vg_scrypt_romix(b = x0, r = x1, v = x2, vlen = x3,
+scratch = x4, slen = x5)`: if `r > 0`, `vlen = N r` for a power of two `N`,
+and `slen = r + 2`, replaces the `128 r` bytes at `b` by their scryptROMix. It
+has no frame (it saves `x30` in `scratch`); its calls of `vg_scrypt_blockmix`
+use the 16 bytes below the stack pointer. The indices `j` of step 3 are
+public. -/
 def roMixAArch64 : Contract AArch64.isa where
   pre s :=
     let r := (s.gpr .x1).toNat

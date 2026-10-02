@@ -18,9 +18,8 @@ namespace VG.Proof.MlKem1024
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against; the artifact's is the
-shared contract of `Spec/`, which implies it. AArch64 contract for
-`(encapsWith keccak.callee)(ek = x0, m = x1, key = x2, ct = x3, scratch = x4) -> w0`. -/
+/-- AArch64 contract for `(encapsWith keccak.callee)(ek = x0, m = x1, key = x2,
+ct = x3, scratch = x4) -> w0`. -/
 def encaps1024AArch64 : Contract AArch64.isa where
   pre s :=
     let ek : Region := ⟨s.gpr .x0, 1568⟩

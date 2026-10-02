@@ -211,9 +211,10 @@ end VG.Proof.Md5.AArch64
 /-!
 ## MD5: the AArch64 contract
 
-**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the AArch64
-implementations of the compression function and the streaming interface, in
-terms of `Spec/Md5.lean`.
+The contracts the proofs are written against; the artifacts are emitted with the
+shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the AArch64 implementations of the compression function and the
+streaming interface, in terms of `Spec/Md5.lean`.
 
 The return address is in the link register `x30`, which the target's
 calling convention requires to be preserved (`VG.AArch64.abiPreserved`), not

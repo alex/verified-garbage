@@ -139,10 +139,9 @@ namespace VG.Proof.ChaCha20
 
 open Spec.ChaCha20 VG.AArch64
 
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`:
-writes `block` of the state at `state` to the first 16 words of `buf`.
+/-- AArch64 contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut
+[u32; 64])`: writes `block` of the state at `state` to the first 16 words of
+`buf`.
 
 The same function and Rust signature on every target: the code may
 read `state` (64 bytes) and read and write `buf` (256 bytes; its first 64

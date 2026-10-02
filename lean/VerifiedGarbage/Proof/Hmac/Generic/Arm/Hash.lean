@@ -13,8 +13,8 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC and PBKDF2-HMAC over any streaming hash function: the 32-bit ARM contracts
 
-**Untrusted**: the contracts the proofs are written against, as on x86-64
-and AArch64 (`Proof/Hmac/Generic/AArch64/Hash.lean`).
+The contracts the proofs are written against, as on x86-64 and AArch64
+(`Proof/Hmac/Generic/AArch64/Hash.lean`).
 
 * `initK`, `updK` and `finK` are the 32-bit ARM contracts of a hash
   function's streaming `init`, `update` and `finalize` (`Proof.Sha1.initArm`

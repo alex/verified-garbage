@@ -278,9 +278,10 @@ end VG.Proof.Sha1.X86_64
 /-!
 ## SHA-1: the x86-64 contract
 
-**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86-64
-implementations of the compression function and the streaming interface, in
-terms of `Spec/Sha1.lean`.
+The contracts the proofs are written against; the artifacts are emitted with the
+shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the x86-64 implementations of the compression function and the
+streaming interface, in terms of `Spec/Sha1.lean`.
 -/
 
 namespace VG.Proof.Sha1

@@ -17,9 +17,9 @@ section
 /-!
 # SHA-3: the x86 (32-bit) contracts
 
-**Untrusted**: the contracts the proofs are written against; the artifacts
-are emitted with the shared contracts of `Spec/`, which imply these
-(`Contract.Implies`), with the arguments on the stack (cdecl).
+The contracts the proofs are written against; the artifacts are emitted with
+the shared contracts of `Spec/`, which imply these (`Contract.Implies`), with
+the arguments on the stack (cdecl).
 
 The streaming functions call the permutation, each call pushing its two
 arguments and storing its return address in the 12 bytes of stack below

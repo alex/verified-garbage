@@ -17,9 +17,9 @@ section
 /-!
 # SHA-3: the 32-bit ARM contracts
 
-**Untrusted**: the contracts the proofs are written against; the artifacts
-are emitted with the shared contracts of `Spec/`, which imply these
-(`Contract.Implies`), with the arguments where AAPCS passes them.
+The contracts the proofs are written against; the artifacts are emitted with
+the shared contracts of `Spec/`, which imply these (`Contract.Implies`), with
+the arguments where AAPCS passes them.
 
 The return address is in `lr`, which the target's calling convention
 requires to be preserved (`VG.Arm.abiPreserved`); the streaming functions

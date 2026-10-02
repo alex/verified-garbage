@@ -15,9 +15,7 @@ open VG.Spec.X25519 (P Fe bytesAt)
 open VG.Proof.X25519 (leBytes toFe ladderAfter ladderAfter_swap_le)
 open Fin.CommRing
 
-/-- The contract the proof is written against; the artifact's is the shared
-contract of `Spec/`, which implies it.
-`vg_x25519(out = r0, scalar = r1, point = r2, scratch = r3)`. -/
+/-- `vg_x25519(out = r0, scalar = r1, point = r2, scratch = r3)`. -/
 def x25519Arm : Contract Arm.isa where
   pre s :=
     let out : Region := ⟨State.addr (s.gpr .r0), 32⟩

@@ -23,10 +23,8 @@ namespace VG.Proof.Scrypt
 open Spec.Scrypt
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32; 16])`:
-replaces the 64 bytes at `b` by their Salsa20/8 Core.
+/-- 32-bit ARM contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32;
+16])`: replaces the 64 bytes at `b` by their Salsa20/8 Core.
 
 The code may read and write `b` (in `r0`) and `scratch` (in `r1`; 64 bytes
 each, the contents of `scratch` on exit unspecified), which may not overlap
@@ -43,13 +41,10 @@ def salsaArm : Contract Arm.isa where
   pub s₁ s₂ := s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧ s₁.sp = s₂.sp
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for
-`vg_scrypt_blockmix(b = r0, r = r1, y = r2, ry = r3, scratch = [sp])`:
-if `ry = r > 0`, writes scryptBlockMix of the `128 r` bytes at `b` to `y`.
-The code may read `b` and the stack argument, and read and write `y` and
-`scratch` (128 bytes). -/
+/-- 32-bit ARM contract for `vg_scrypt_blockmix(b = r0, r = r1, y = r2, ry =
+r3, scratch = [sp])`: if `ry = r > 0`, writes scryptBlockMix of the `128 r`
+bytes at `b` to `y`. The code may read `b` and the stack argument, and read
+and write `y` and `scratch` (128 bytes). -/
 def blockMixArm : Contract Arm.isa where
   pre s :=
     let r := (s.gpr .r1).toNat
@@ -71,14 +66,11 @@ def blockMixArm : Contract Arm.isa where
     s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for
-`vg_scrypt_romix(b = r0, r = r1, v = r2, vlen = r3, scratch = [sp], slen = [sp + 4])`:
-if `r > 0`, `vlen = N r` for a power of two `N`, and `slen = r + 2`, replaces
-the `128 r` bytes at `b` by their scryptROMix. The code may read the stack
-arguments, and read and write `b`, `v` and `scratch`. The indices `j` of
-step 3 are public. -/
+/-- 32-bit ARM contract for `vg_scrypt_romix(b = r0, r = r1, v = r2, vlen = r3,
+scratch = [sp], slen = [sp + 4])`: if `r > 0`, `vlen = N r` for a power of two
+`N`, and `slen = r + 2`, replaces the `128 r` bytes at `b` by their scryptROMix.
+The code may read the stack arguments, and read and write `b`, `v` and
+`scratch`. The indices `j` of step 3 are public. -/
 def roMixArm : Contract Arm.isa where
   pre s :=
     let r := (s.gpr .r1).toNat

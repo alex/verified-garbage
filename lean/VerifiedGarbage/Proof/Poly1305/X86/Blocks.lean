@@ -2387,9 +2387,7 @@ namespace VG.Proof.Poly1305
 open Spec.Poly1305
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
+/-- `vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
 def initX86 : Contract X86.isa where
   pre s :=
     let state : Region := ⟨(arg s 0).setWidth 64, 128⟩
@@ -2403,9 +2401,8 @@ def initX86 : Contract X86.isa where
   pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ arg s₁ 0 = arg s₂ 0 ∧ arg s₁ 1 = arg s₂ 1
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n: usize)`. -/
+/-- `vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n:
+usize)`. -/
 def blocksX86 : Contract X86.isa where
   pre s :=
     let state : Region := ⟨(arg s 0).setWidth 64, 128⟩
@@ -2421,19 +2418,14 @@ def blocksX86 : Contract X86.isa where
   pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ arg s₁ 0 = arg s₂ 0 ∧ arg s₁ 1 = arg s₂ 1 ∧
     arg s₁ 2 = arg s₂ 2
 
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-The message's length so far, `count`, from the arguments 1 and 2 (cdecl:
+/-- The message's length so far, `count`, from the arguments 1 and 2 (cdecl:
 the low word first). -/
 def countX86 (s : X86.State) : BitVec 64 := X86.arg s 2 ++ X86.arg s 1
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len: usize, scratch: *mut
-    [u64; 16])`:
-the arguments `state`, the low and high words of `count`, `data`, `len` and
-`scratch`. -/
+/-- `vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len:
+usize, scratch: *mut [u64; 16])`: the arguments `state`, the low and high words
+of `count`, `data`, `len` and `scratch`. -/
 def updateX86 : Contract X86.isa where
   pre s :=
     let state : Region := ⟨(arg s 0).setWidth 64, 128⟩
@@ -2453,13 +2445,10 @@ def updateX86 : Contract X86.isa where
   pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 6, arg s₁ i = arg s₂ i
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], scratch: *mut [u64;
-    16])`:
-the arguments `state`, the low and high words of `count`, `out` and
-`scratch`. Only the message's length modulo 16 matters (as on x86-64), so
-a caller whose message is whole blocks may pass `count = 0`. -/
+/-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16],
+scratch: *mut [u64; 16])`: the arguments `state`, the low and high words of
+`count`, `out` and `scratch`. Only the message's length modulo 16 matters (as on
+x86-64), so a caller whose message is whole blocks may pass `count = 0`. -/
 def finalizeX86 : Contract X86.isa where
   pre s :=
     let state : Region := ⟨(arg s 0).setWidth 64, 128⟩

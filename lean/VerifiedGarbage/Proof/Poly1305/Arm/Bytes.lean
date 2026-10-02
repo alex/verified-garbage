@@ -2204,9 +2204,7 @@ namespace VG.Proof.Poly1305
 open Spec.Poly1305
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
+/-- `vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
 def initArm : Contract Arm.isa where
   pre s :=
     let state : Region := ⟨State.addr (s.gpr .r0), 128⟩
@@ -2217,9 +2215,8 @@ def initArm : Contract Arm.isa where
   pub s₁ s₂ := s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n: usize)`. -/
+/-- `vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n:
+usize)`. -/
 def blocksArm : Contract Arm.isa where
   pre s :=
     let state : Region := ⟨State.addr (s.gpr .r0), 128⟩
@@ -2232,19 +2229,14 @@ def blocksArm : Contract Arm.isa where
   pub s₁ s₂ := s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧ s₁.gpr .r2 = s₂.gpr .r2
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-The 64-bit `count` argument of `update`/`finalize`, in `r2:r3` (AAPCS: the
+/-- The 64-bit `count` argument of `update`/`finalize`, in `r2:r3` (AAPCS: the
 low word in `r2`). -/
 def countArm (s : Arm.State) : BitVec 64 := s.gpr .r3 ++ s.gpr .r2
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len: usize, scratch: *mut
-    [u64; 16])`:
-`state` in `r0`, `count` in `r2:r3`, and `data`, `len` and `scratch` the stack
-arguments 0, 1 and 2. -/
+/-- `vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len:
+usize, scratch: *mut [u64; 16])`: `state` in `r0`, `count` in `r2:r3`, and
+`data`, `len` and `scratch` the stack arguments 0, 1 and 2. -/
 def updateArm : Contract Arm.isa where
   pre s :=
     let state : Region := ⟨State.addr (s.gpr .r0), 128⟩
@@ -2265,12 +2257,9 @@ def updateArm : Contract Arm.isa where
     stackArg s₁ 0 = stackArg s₂ 0 ∧ stackArg s₁ 1 = stackArg s₂ 1 ∧ stackArg s₁ 2 = stackArg s₂ 2
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], scratch: *mut [u64;
-    16])`:
-`state` in `r0`, `count` in `r2:r3`, and `out` and `scratch` the stack
-arguments 0 and 1. -/
+/-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16],
+scratch: *mut [u64; 16])`: `state` in `r0`, `count` in `r2:r3`, and `out` and
+`scratch` the stack arguments 0 and 1. -/
 def finalizeArm : Contract Arm.isa where
   pre s :=
     let state : Region := ⟨State.addr (s.gpr .r0), 128⟩

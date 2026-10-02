@@ -420,9 +420,7 @@ def pubX86_64 (s₁ s₂ : X86_64.State) : Prop :=
   s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
+/-- `vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
 def sealX86_64 : Contract X86_64.isa where
   pre := preX86_64
   post s s' :=
@@ -433,9 +431,7 @@ def sealX86_64 : Contract X86_64.isa where
   pub := pubX86_64
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
+/-- `vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
 def openX86_64 : Contract X86_64.isa where
   pre := preX86_64
   post s s' :=

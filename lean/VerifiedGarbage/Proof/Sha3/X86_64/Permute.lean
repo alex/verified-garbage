@@ -205,11 +205,8 @@ namespace VG.Proof.Sha3
 open Spec.Sha3
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for
-`vg_keccak_f1600(state: *mut [u64; 25], scratch: *mut [u64; 64])`: applies
-Keccak-f[1600] to the state at `state`.
+/-- X86-64 contract for `vg_keccak_f1600(state: *mut [u64; 25], scratch: *mut
+[u64; 64])`: applies Keccak-f[1600] to the state at `state`.
 
 The code may read and write `state` (200 bytes) and `scratch` (512 bytes,
 whose contents on exit are unspecified). These may not overlap each other,
@@ -228,11 +225,9 @@ def permuteX86_64 : Contract X86_64.isa where
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for `vg_keccak_absorb(state = rdi, rate = rsi, pos = rdx,
-data = rcx, len = r8, scratch = r9) -> rax`: absorbs `data` into the
-streaming state (`Repr`) and returns the new position in the block.
+/-- X86-64 contract for `vg_keccak_absorb(state = rdi, rate = rsi, pos = rdx,
+data = rcx, len = r8, scratch = r9) -> rax`: absorbs `data` into the streaming
+state (`Repr`) and returns the new position in the block.
 
 The code may read `data`, read and write `state` (200 bytes) and `scratch`
 (640 bytes), and store a return address in the 8 bytes below `rsp`, none of
@@ -262,9 +257,7 @@ def absorbX86_64 : Contract X86_64.isa where
     s₁.gpr .rsp = s₂.gpr .rsp
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for `vg_keccak_pad(state = rdi, rate = rsi, pos = rdx,
+/-- X86-64 contract for `vg_keccak_pad(state = rdi, rate = rsi, pos = rdx,
 suffix = rcx, scratch = r8)`: absorbs the padding (with the low byte of
 `suffix`) into the streaming state.
 
@@ -291,12 +284,10 @@ def padX86_64 : Contract X86_64.isa where
     s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for `vg_keccak_squeeze(state = rdi, rate = rsi, pos = rdx,
-out = rcx, outlen = r8, scratch = r9) -> rax`: writes `outlen` bytes of
-output from byte `pos` on to `out`, and returns the position after them,
-leaving a state from which the output continues.
+/-- X86-64 contract for `vg_keccak_squeeze(state = rdi, rate = rsi, pos = rdx,
+out = rcx, outlen = r8, scratch = r9) -> rax`: writes `outlen` bytes of output
+from byte `pos` on to `out`, and returns the position after them, leaving a
+state from which the output continues.
 
 The code may read and write `state` (200 bytes), `out` (`outlen` bytes) and
 `scratch` (640 bytes), and store a return address in the 8 bytes below

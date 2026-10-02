@@ -272,10 +272,8 @@ namespace VG.Proof.Scrypt
 open Spec.Scrypt
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32; 16])`:
-replaces the 64 bytes at `b` by their Salsa20/8 Core.
+/-- X86-64 contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32;
+16])`: replaces the 64 bytes at `b` by their Salsa20/8 Core.
 
 The code may read and write `b` and `scratch` (64 bytes each; the contents of
 `scratch` on exit are unspecified), which may not overlap each other or the

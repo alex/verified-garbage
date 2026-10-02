@@ -192,9 +192,10 @@ end VG.Proof.Md5.X86_64
 /-!
 ## MD5: the x86-64 contract
 
-**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86-64
-implementations of the compression function and the streaming interface, in
-terms of `Spec/Md5.lean`.
+The contracts the proofs are written against; the artifacts are emitted with the
+shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the x86-64 implementations of the compression function and the
+streaming interface, in terms of `Spec/Md5.lean`.
 -/
 
 namespace VG.Proof.Md5

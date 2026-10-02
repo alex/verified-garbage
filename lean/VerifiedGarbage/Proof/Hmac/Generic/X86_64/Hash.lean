@@ -10,7 +10,7 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function: the x86-64 contracts
 
-**Untrusted**: the contracts the proofs are written against.
+The contracts the proofs are written against.
 
 * `initK`, `updK` and `finK` are the x86-64 contracts of a hash function's
   streaming `init`, `update` and `finalize`, with the sizes and the

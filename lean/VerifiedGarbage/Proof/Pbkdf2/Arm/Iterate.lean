@@ -26,14 +26,12 @@ open Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
 open Spec.Sha256 (Repr bytesAt)
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for
-`vg_pbkdf2_hmac_sha256_iterate(key: *const [u8; 192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 48])`:
-if, for a 64-byte key `K₀`, the streaming state at `key` represents
-`K₀ ⊕ ipad` and the one at `key + 96` represents `K₀ ⊕ opad`, runs `n` steps
-`U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` from the `U` at `u` and the `T` at
-`t`, leaving the final `T` at `t`.
+/-- 32-bit ARM contract for `vg_pbkdf2_hmac_sha256_iterate(key: *const [u8;
+192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 48])`:
+if, for a 64-byte key `K₀`, the streaming state at `key` represents `K₀ ⊕ ipad`
+and the one at `key + 96` represents `K₀ ⊕ opad`, runs `n` steps `U ←
+HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` from the `U` at `u` and the `T` at `t`,
+leaving the final `T` at `t`.
 
 Under AAPCS, `key`, `u`, `n` and `t` are in `r0`–`r3`, and `scratch` is the
 stack argument 0. The code may read that argument (4 bytes at `sp`), `key`

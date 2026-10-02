@@ -13,12 +13,12 @@ import VerifiedGarbage.Proof.Sha512.Arm.Lit
 /-!
 ## SHA-512: the 32-bit ARM contracts
 
-**Untrusted**: the contracts the proofs are written against; the artifacts
-are emitted with the shared contracts of `Spec/`, which imply these
-(`Contract.Implies`). The contracts of the 32-bit ARM implementations of the
-compression function and of the streaming functions (`init`, `update`,
-`finalize`; see `VG.Spec.Sha512.Repr`), in terms of `Spec/Sha512.lean`, with
-the arguments where AAPCS passes them.
+The contracts the proofs are written against; the artifacts are emitted with
+the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the 32-bit ARM implementations of the compression function and of
+the streaming functions (`init`, `update`, `finalize`; see
+`VG.Spec.Sha512.Repr`), in terms of `Spec/Sha512.lean`, with the arguments
+where AAPCS passes them.
 -/
 
 namespace VG.Proof.Sha512

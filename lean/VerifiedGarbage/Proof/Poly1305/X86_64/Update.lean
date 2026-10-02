@@ -20,13 +20,11 @@ namespace VG.Proof.Poly1305
 open Spec.Poly1305 (bytesAt Buffered)
 
 open VG.X86_64 in
-/-- The contract the proof is written against; the artifact's is the shared
-contract of `Spec/`, which implies it.
-`vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 16])`:
-only `count mod 16`, the number of bytes buffered, matters. The call of
-`vg_poly1305_blocks` uses the 24 bytes of stack below the return address
-(its return address, and up to 16 bytes for its own calls, see
-`BlocksImpl`). -/
+/-- `vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len:
+usize, scratch: *mut [u64; 16])`: only `count mod 16`, the number of bytes
+buffered, matters. The call of `vg_poly1305_blocks` uses the 24 bytes of stack
+below the return address (its return address, and up to 16 bytes for its own
+calls, see `BlocksImpl`). -/
 def updateX86_64 : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 128⟩

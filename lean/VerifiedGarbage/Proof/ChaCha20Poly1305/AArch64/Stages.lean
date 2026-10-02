@@ -250,9 +250,7 @@ def pubAArch64 (s₁ s₂ : AArch64.State) : Prop :=
   s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
+/-- `vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
 def sealAArch64 : Contract AArch64.isa where
   pre := preAArch64
   post s s' :=
@@ -263,9 +261,7 @@ def sealAArch64 : Contract AArch64.isa where
   pub := pubAArch64
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
+/-- `vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
 def openAArch64 : Contract AArch64.isa where
   pre := preAArch64
   post s s' :=

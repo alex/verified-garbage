@@ -670,9 +670,7 @@ namespace VG.Proof.Poly1305
 open Spec.Poly1305
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
+/-- `vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
 def initX86_64 : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 128⟩
@@ -683,9 +681,8 @@ def initX86_64 : Contract X86_64.isa where
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n: usize)`. -/
+/-- `vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n:
+usize)`. -/
 def blocksX86_64 : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 128⟩
@@ -698,12 +695,10 @@ def blocksX86_64 : Contract X86_64.isa where
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], …)`:
-only `count mod 16`, the number of bytes buffered, matters, and it returns
-with `rcx = out`. The state and `out` must be writable, and it may be
-permitted to write other regions (which it does not). -/
+/-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16],
+…)`: only `count mod 16`, the number of bytes buffered, matters, and it returns
+with `rcx = out`. The state and `out` must be writable, and it may be permitted
+to write other regions (which it does not). -/
 def finalizeX86_64 : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 128⟩

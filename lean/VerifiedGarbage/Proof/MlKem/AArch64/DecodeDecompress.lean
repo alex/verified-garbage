@@ -14,12 +14,10 @@ namespace VG.Proof.MlKem
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against (and verified callers use);
-the artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_mlkem_decode_decompress(b = x0, len = x1, d = w2,
+/-- AArch64 contract for `vg_mlkem_decode_decompress(b = x0, len = x1, d = w2,
 f = x3)`: if `d` is 1, 4 or 10 and `len = 32 d`, writes
-`Decompress_d(ByteDecode_d(B))` of the `len` bytes `B` at `b` to `f`,
-reduced. The code may read `b` and write `f`, which do not overlap. -/
+`Decompress_d(ByteDecode_d(B))` of the `len` bytes `B` at `b` to `f`, reduced.
+The code may read `b` and write `f`, which do not overlap. -/
 def decodeDecompressAArch64 : Contract AArch64.isa where
   pre s :=
     s.rd = [⟨s.gpr .x0, (s.gpr .x1).toNat⟩] ∧ s.wr = [⟨s.gpr .x3, 1024⟩] ∧

@@ -593,11 +593,8 @@ namespace VG.Proof.Sha3
 open Spec.Sha3
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for
-`vg_keccak_f1600(state: *mut [u64; 25], scratch: *mut [u64; 64])`: applies
-Keccak-f[1600] to the state at `state`.
+/-- AArch64 contract for `vg_keccak_f1600(state: *mut [u64; 25], scratch: *mut
+[u64; 64])`: applies Keccak-f[1600] to the state at `state`.
 
 The code may read and write `state` (200 bytes) and `scratch` (512 bytes,
 whose contents on exit are unspecified), which may not overlap. The pointers
@@ -611,9 +608,7 @@ def permuteAArch64 : Contract AArch64.isa where
   pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.sp = s₂.sp
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_keccak_absorb(state = x0, rate = x1, pos = x2,
+/-- AArch64 contract for `vg_keccak_absorb(state = x0, rate = x1, pos = x2,
 data = x3, len = x4, scratch = x5) -> x0`: absorbs `data` into the streaming
 state (`Repr`) and returns the new position in the block.
 
@@ -643,9 +638,7 @@ def absorbAArch64 : Contract AArch64.isa where
     s₁.sp = s₂.sp
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_keccak_pad(state = x0, rate = x1, pos = x2,
+/-- AArch64 contract for `vg_keccak_pad(state = x0, rate = x1, pos = x2,
 suffix = x3, scratch = x4)`: absorbs the padding (with the low byte of
 `suffix`) into the streaming state.
 
@@ -670,9 +663,7 @@ def padAArch64 : Contract AArch64.isa where
     s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_keccak_squeeze(state = x0, rate = x1, pos = x2,
+/-- AArch64 contract for `vg_keccak_squeeze(state = x0, rate = x1, pos = x2,
 out = x3, outlen = x4, scratch = x5) -> x0`: writes `outlen` bytes of output
 from byte `pos` on to `out`, and returns the position after them, leaving a
 state from which the output continues.

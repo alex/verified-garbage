@@ -15,12 +15,9 @@ namespace VG.Proof.ChaCha20
 
 open Spec.ChaCha20 VG.X86_64
 
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for
-`vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`:
-XORs the first `len` bytes of the keystream of the state at `state` into the
-`len` bytes at `data`.
+/-- X86-64 contract for `vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8,
+len: usize, buf: *mut [u32; 80])`: XORs the first `len` bytes of the keystream
+of the state at `state` into the `len` bytes at `data`.
 
 The code may read and write `state` (64 bytes; its contents on exit are
 unspecified), `data` (`len` bytes) and `buf` (320 bytes of working space).

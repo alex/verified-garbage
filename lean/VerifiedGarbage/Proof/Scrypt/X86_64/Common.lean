@@ -19,12 +19,10 @@ namespace VG.Proof.Scrypt
 open Spec.Scrypt
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for `vg_scrypt_blockmix(b = rdi, r = rsi, y = rdx, ry = rcx, scratch = r8)`:
-if `ry = r > 0`, writes scryptBlockMix of the `128 r` bytes at `b` to `y`.
-Its call of `vg_salsa20_8` stores a return address in the 8 bytes below the
-stack pointer. -/
+/-- X86-64 contract for `vg_scrypt_blockmix(b = rdi, r = rsi, y = rdx, ry = rcx,
+scratch = r8)`: if `ry = r > 0`, writes scryptBlockMix of the `128 r` bytes at
+`b` to `y`. Its call of `vg_salsa20_8` stores a return address in the 8 bytes
+below the stack pointer. -/
 def blockMixX86_64 : Contract X86_64.isa where
   pre s :=
     let r := (s.gpr .rsi).toNat
@@ -47,15 +45,12 @@ def blockMixX86_64 : Contract X86_64.isa where
     s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for
-`vg_scrypt_romix(b = rdi, r = rsi, v = rdx, vlen = rcx, scratch = r8, slen = r9)`:
-if `r > 0`, `vlen = N r` for a power of two `N`, and `slen = r + 2`, replaces
-the `128 r` bytes at `b` by their scryptROMix. Its calls of
-`vg_scrypt_blockmix` (and that function's of `vg_salsa20_8`) store return
-addresses in the 16 bytes below the stack pointer. The indices `j` of step 3
-are public. -/
+/-- X86-64 contract for `vg_scrypt_romix(b = rdi, r = rsi, v = rdx, vlen = rcx,
+scratch = r8, slen = r9)`: if `r > 0`, `vlen = N r` for a power of two `N`, and
+`slen = r + 2`, replaces the `128 r` bytes at `b` by their scryptROMix. Its
+calls of `vg_scrypt_blockmix` (and that function's of `vg_salsa20_8`) store
+return addresses in the 16 bytes below the stack pointer. The indices `j` of
+step 3 are public. -/
 def roMixX86_64 : Contract X86_64.isa where
   pre s :=
     let r := (s.gpr .rsi).toNat

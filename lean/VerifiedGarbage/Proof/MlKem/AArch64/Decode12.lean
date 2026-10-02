@@ -14,11 +14,9 @@ namespace VG.Proof.MlKem
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against (and verified callers use);
-the artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_mlkem_decode12(b = x0, f = x1)`: writes
-`ByteDecode₁₂` of the 384 bytes at `b` to `f`, reduced. The code may read
-`b` and write `f`, which do not overlap. -/
+/-- AArch64 contract for `vg_mlkem_decode12(b = x0, f = x1)`: writes
+`ByteDecode₁₂` of the 384 bytes at `b` to `f`, reduced. The code may read `b`
+and write `f`, which do not overlap. -/
 def decode12AArch64 : Contract AArch64.isa where
   pre s :=
     s.rd = [⟨s.gpr .x0, 384⟩] ∧ s.wr = [⟨s.gpr .x1, 1024⟩] ∧
