@@ -8,8 +8,15 @@ The state pairs AB/CD/EF/GH and the two results of each pair of rounds
 occupy v0–v5, renamed rather than moved from one pair of rounds to the next
 (`reg`); v16–v23 hold the sixteen-word schedule window. v24–v27 hold the
 hash value across the blocks (loaded once, updated and stored after each
-block), and v31 is zero throughout. All registers are caller-saved, and
-scratch is unused.
+block), and v31 is zero throughout. All registers are caller-saved.
+
+The round constants are a table in `scratch[0..640)`, `Kₜ` at `8t`: each
+pair of rounds loads its two with one `ldr q`. The first block builds the
+table as it goes, two pairs of rounds ahead (`build`: four `movz`/`movk` and
+a `str` per constant, in general-purpose registers), and later blocks only
+load from it. Building a constant and moving it into a vector register
+(`dup`/`ins`) instead costs ten instructions per pair of rounds, and those
+moves are slow on some cores (Neoverse N2).
 
 Each pair of rounds runs SHA512H twice. The usual sequence adds CD to
 SHA512H's result to get the next EF, and extracts the next rounds' operands
@@ -39,15 +46,18 @@ def reg (i k : Nat) : VReg :=
   ([[.v0, .v1, .v2, .v3, .v4, .v5], [.v4, .v0, .v5, .v2, .v1, .v3],
     [.v1, .v4, .v3, .v5, .v0, .v2]].getD (i % 3) []).getD k .v0
 
-/-- `Kᵢ` pairs into `d`. -/
-def constant (i j : Nat) (d : VReg) : List Instr :=
-  [.movz .x .x4 ((K (2 * i + j)).extractLsb' 0 16) 0,
-   .movk .x .x4 ((K (2 * i + j)).extractLsb' 16 16) 1,
-   .movk .x .x4 ((K (2 * i + j)).extractLsb' 32 16) 2,
-   .movk .x .x4 ((K (2 * i + j)).extractLsb' 48 16) 3,
-   -- A full write for the first lane breaks the dependency on the register's
-   -- previous value. Inserting both lanes would keep it live.
-   .vop (if j = 0 then .dup .d2 d .x4 else .ins .d2 d j .x4)]
+/-- Store `K₂ⱼ` and `K₂ⱼ₊₁` at `scratch + 16j`. -/
+def build (j : Nat) : List Instr :=
+  [.movz .x .x4 ((K (2 * j)).extractLsb' 0 16) 0,
+   .movk .x .x4 ((K (2 * j)).extractLsb' 16 16) 1,
+   .movk .x .x4 ((K (2 * j)).extractLsb' 32 16) 2,
+   .movk .x .x4 ((K (2 * j)).extractLsb' 48 16) 3,
+   .str .x .x4 .x3 (16 * j),
+   .movz .x .x5 ((K (2 * j + 1)).extractLsb' 0 16) 0,
+   .movk .x .x5 ((K (2 * j + 1)).extractLsb' 16 16) 1,
+   .movk .x .x5 ((K (2 * j + 1)).extractLsb' 32 16) 2,
+   .movk .x .x5 ((K (2 * j + 1)).extractLsb' 48 16) 3,
+   .str .x .x5 .x3 (16 * j + 8)]
 
 def schedule (i : Nat) : List Instr :=
   if i < 8 then
@@ -60,8 +70,8 @@ def schedule (i : Nat) : List Instr :=
 /-- Pair of rounds `i` with the state pairs in `ab`, `cd`, `ef`, `gh`, leaving
 the next AB in `t` and the next EF in `f`. -/
 def rounds2With (i : Nat) (ab cd ef gh t f : VReg) : List Instr :=
-  constant i 0 t ++ constant i 1 t ++
-  [.vop (.add .d2 t t (msg i)),
+  [.ldrq t .x3 (16 * i),
+   .vop (.add .d2 t t (msg i)),
    .vop (.ext t t t 8),
    -- t = GH + K + W, the accumulator of the usual SHA512H; f = t + CD.
    .vop (.add .d2 t t gh),
@@ -78,9 +88,12 @@ def rounds2With (i : Nat) (ab cd ef gh t f : VReg) : List Instr :=
 def rounds2 (i : Nat) : List Instr :=
   rounds2With i (reg i 0) (reg i 1) (reg i 2) (reg i 3) (reg i 4) (reg i 5)
 
-def rounds : Nat → Prog isa
-  | 0 => .block []
-  | n + 1 => .seq (rounds n) (.block (schedule n ++ rounds2 n))
+/-- Pairs of rounds `0 … n-1`; for the first block (`first`), also building
+the table two pairs of rounds ahead. -/
+def roundsWith (first : Bool) : Nat → Prog isa
+  | 0 => .block (if first then build 0 ++ build 1 else [])
+  | n + 1 => .seq (roundsWith first n)
+      (.block ((if first && n + 2 < 40 then build (n + 2) else []) ++ schedule n ++ rounds2 n))
 
 /-- Load the hash value into v24–v27 and zero v31, once. -/
 def init : List Instr :=
@@ -98,8 +111,15 @@ def store : List Instr :=
    .strq .v24 .x0 0, .strq .v25 .x0 16, .strq .v26 .x0 32, .strq .v27 .x0 48,
    .addImm .x .x1 .x1 128, .subImm .x .x2 .x2 1]
 
-def body : Prog isa := .seq (.block load) (.seq (rounds 40) (.block store))
+/-- A block, building the table (`first`) or with it built. -/
+def blockWith (first : Bool) : Prog isa :=
+  .seq (.block load) (.seq (roundsWith first 40) (.block store))
+
+def body : Prog isa := blockWith false
+
 def compress : Prog isa :=
-  .ite (.zero .x .x2) (.block []) (.seq (.block init) (.loop body (.nonzero .x .x2)))
+  .ite (.zero .x .x2) (.block [])
+    (.seq (.block init) (.seq (blockWith true)
+      (.ite (.zero .x .x2) (.block []) (.loop body (.nonzero .x .x2)))))
 
 end VG.Impl.Sha512.AArch64.Sha3
