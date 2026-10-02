@@ -187,9 +187,9 @@ theorem g_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s) : 
     rw [show kA s₀ 0 = kA s₀ 0 from rfl, KB.d h.kb, h.b4]
   obtain ⟨o₁, o₂, -⟩ := o'
   rw [msg, e] at o₁ o₂
-  have hG := G_eq (dB s₀ ++ [BitVec.ofNat 8 4])
+  have hG := G_eq (dB s₀ ++ [BitVec.ofNat 8 mlKem1024.k])
   refine ⟨kb', by rw [k'.cs _ (by decide) (by decide), h.x24], ?_, ?_⟩
-  · rw [o₁, kgRho1024, hG]; rfl
-  · rw [o₂, kgSigma1024, hG]; rfl
+  · rw [o₁, kgRho1024, KPke.kgRho, hG]; rfl
+  · rw [o₂, kgSigma1024, KPke.kgSigma, hG]; rfl
 
 end VG.Proof.MlKem1024.AArch64.KeyGen

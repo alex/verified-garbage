@@ -32,13 +32,10 @@ theorem drop_take_slice (L : List Byte) {a n b c : Nat} (h : b + c ≤ n) :
 theorem ekT_eq (s₀ : State) : ∀ j < 3,
     decode12 (bytesAt s₀.mem (kA s₀ (deL.slot 0) + BitVec.ofNat 64 (1152 + 384 * j)) 384) =
       ekT (dkEk (dkD s₀)) j := fun j hj => by
-  rw [ekT, dkEk, drop_take_slice _ (show 384 * j + 384 ≤ 1184 by omega),
+  rw [ekT, dkEk, KPke.dkEk, drop_take_slice _ (show 384 * j + 384 ≤ 384 * mlKem768.k + 32 by show _ ≤ 1184; omega),
+    show 384 * mlKem768.k = 1152 from rfl,
     bytesAt_slice _ _ (show 1152 + 384 * j + 384 ≤ 2400 by omega)]
   rfl
-
-theorem rho_eq (dk : List Byte) : dkRho mlKem768 dk = ekRho mlKem768 (dkEk dk) := by
-  show (dk.drop 2304).take 32 = (((dk.drop 1152).take 1184).drop 1152).take 32
-  rw [drop_take_slice _ (show 1152 + 32 ≤ 1184 by decide)]
 
 /-- `c'`. -/
 abbrev cpr (s₀ : State) (mB : Mem) : List Byte := ct768 (aM deL s₀ mB) (dkEk (dkD s₀)) (mD s₀) (gD s₀).2
@@ -167,12 +164,12 @@ theorem post_of {s₀ sB s' : State} {mA : Mem} (hB : BInv deL s₀ mA (rhoD s�
     refine .inl ⟨rfl, 280, ?_⟩
     show decapsInternal mlKem768 280 (dkD s₀) (cD s₀) = _
     rw [decapsInternal768, kpkeEncrypt768_some (a := aM deL s₀ sB.mem) fun i hi j hj => by
-      rw [← rho_eq]; exact hs i hi j hj]
+      rw [KPke.ekRho_dkEk]; exact hs i hi j hj]
     rfl
   · rw [h0]
     refine .inr ⟨rfl, ?_⟩
     show decapsInternal mlKem768 280 (dkD s₀) (cD s₀) = none
-    rw [decapsInternal768, kpkeEncrypt768_none hi hj (by rw [← rho_eq]; exact hn)]
+    rw [decapsInternal768, kpkeEncrypt768_none hi hj (by rw [KPke.ekRho_dkEk]; exact hn)]
     rfl
 
 theorem correct {s₀ : State} (hs : decapsAArch64.pre s₀) :
@@ -192,7 +189,7 @@ theorem Pub3.two {σ₁ σ₂ : State} (h : Pub3 σ₁ σ₂) : Two deL σ₁ σ
   ⟨pre_of h.1, pre_of h.2.1, h.2.2.2.2.2.1, h.2.2.2.2.2.2.1⟩
 
 theorem Pub3.rho {σ₁ σ₂ : State} (h : Pub3 σ₁ σ₂) : rhoD σ₁ = rhoD σ₂ :=
-  Sample.map_toNat_inj h.2.2.2.2.2.2.2
+  map_toNat_inj h.2.2.2.2.2.2.2
 
 theorem b_rct : RelCT isa (fun s₁ s₂ => True ∧ ∃ σ₁ σ₂, Pub3 σ₁ σ₂ ∧ AfterA σ₁ s₁ ∧ AfterA σ₂ s₂) (kemMatrixWith keccak.callee)
     fun s₁ s₂ => ∃ σ₁ σ₂ m₁ m₂, Pub3 σ₁ σ₂ ∧ BInv deL σ₁ m₁ (rhoD σ₁) 9 s₁ ∧ BInv deL σ₂ m₂ (rhoD σ₁) 9 s₂ := by

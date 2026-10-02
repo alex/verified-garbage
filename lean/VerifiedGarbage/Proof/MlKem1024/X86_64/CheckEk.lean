@@ -1,6 +1,6 @@
 import VerifiedGarbage.Impl.MlKem1024.X86_64.CheckEk
 import VerifiedGarbage.Proof.MlKem.X86_64.CheckEk
-import VerifiedGarbage.Proof.MlKem.EkCheck1024
+import VerifiedGarbage.Proof.MlKem.EkCheck
 import VerifiedGarbage.Spec.MlKem.Contract1024
 
 /-!

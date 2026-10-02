@@ -132,7 +132,7 @@ theorem u_step {s₀ : State} (hp : Pre deL s₀) {i : Nat} (hi : i < 3) {s : St
 theorem dcS_eq (s₀ : State) {j : Nat} (hj : j < 3) :
     ((bytesAt s₀.mem (kA s₀ 0) (deL.len 0)).drop (384 * j)).take 384 =
       ((dkPke (dkD s₀)).drop (384 * j)).take 384 := by
-  rw [dkPke, slice_take _ (show 384 * j + 384 ≤ 1152 by omega)]
+  rw [dkPke, KPke.dkPke, slice_take _ (show 384 * j + 384 ≤ 384 * mlKem768.k by show _ ≤ 1152; omega)]
   rfl
 
 /-- `ŝ[0] û'[0] + ŝ[1] û'[1] + ŝ[2] û'[2]`. -/
@@ -231,7 +231,7 @@ theorem m_ok {s₀ : State} (hp : Pre deL s₀) {s : State} (h : DInv s₀ 0 s) 
   refine WP.mono (ce_ok hp (off := EP) (d := 1) (k := 3) (o := MB) po_EP (by decide) (by decide) (by decide)
     (by decide) (.inr ⟨by decide, .inl (by decide)⟩) kb₇ p₇.1) fun s₈ ⟨kb₈, f₈, b₈, x₈⟩ => ?_
   refine ⟨kb₈, by rw [x₈, x₇, x₆, x₅, h₄.x24], ?_⟩
-  rw [show sA deL s₀ MB = kA s₀ (deL.slot 3) + BitVec.ofNat 64 MB from rfl, b₈, p₇.2, mD, decM, kpkeDecrypt768]
+  rw [show sA deL s₀ MB = kA s₀ (deL.slot 3) + BitVec.ofNat 64 MB from rfl, b₈, p₇.2, mD, decM, KPke.decM, kpkeDecrypt768]
   rfl
 
 /-! ## `G(m' ‖ h)` and `ρ` -/

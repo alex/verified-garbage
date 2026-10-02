@@ -109,7 +109,7 @@ theorem s_ok {σ : State} (hp : decaps1024K.pre σ) {i : Nat} (hi : i < 4) {s : 
   · exact hk.sh k hk'
   · rw [hP.pa rbx_cs]
     rw [Decaps.slice_of h.dc.dk (show 384 * k + 384 ≤ 3168 by omega)] at hq
-    rw [dcS, dkPke1024, slice_take _ (show 384 * k + 384 ≤ 1536 by omega)]
+    rw [dcS, dkPke1024, KPke.dkPke, slice_take _ (show 384 * k + 384 ≤ 384 * mlKem1024.k by show _ ≤ 1536; omega)]
     exact hq
 
 theorem s_tr {i : Nat} (hi : i < 4) : RelCT isa (R (DR 4 i)) (sHat i) fun _ _ => True := by
@@ -169,7 +169,7 @@ theorem tail_ok {A : Arith} (hA : ArithOk A) {σ : State} (hp : decaps1024K.pre 
   refine ⟨h.dc.step hp hP.b hkc, ?_, ?_⟩
   · rw [hP₅.cs .r15 (by decide), hP₄.cs .r15 (by decide), hP₃.cs .r15 (by decide), hP₂.cs .r15 (by decide),
       hP₁.cs .r15 (by decide), h.r15]
-  · rw [hP₅.pa rbx_cs, hb₅, hp₄.2, decM1024, kpkeDecrypt1024]
+  · rw [hP₅.pa rbx_cs, hb₅, hp₄.2, decM1024, KPke.decM, kpkeDecrypt1024]
     rfl
 
 theorem tail_tr {A : Arith} (hA : ArithOk A) : RelCT isa (R (DR 4 4)) (tail A) fun _ _ => True := by

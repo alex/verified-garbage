@@ -11,13 +11,13 @@ implementation does (with `Bits.lean`), for reduced inputs:
   `[f₀ mod 256, ⌊f₀/256⌋ + 16(f₁ mod 16), ⌊f₁/16⌋]` (`encode12_eq`);
   `ByteDecode₁₂`: `B₀ + 256(B₁ mod 16)` and `⌊B₁/16⌋ + 16B₂`, reduced modulo `q`
   (`decode12_even`, `decode12_odd`);
-* `ByteEncode_d ∘ Compress_d` for `d` = 1 (8 coefficients per byte), 4 (2 per
-  byte) and 10 (4 per 5 bytes) (`compressEncode1`, `compressEncode4`,
+* `ByteEncode_d ∘ Compress_d` for any `d`, group by group
+  (`compressEncode_group`), and for `d` = 1 (8 coefficients per byte), 4 (2
+  per byte) and 10 (4 per 5 bytes) (`compressEncode1`, `compressEncode4`,
   `compressEncode10_*`), and `Decompress_d ∘ ByteDecode_d`
-  (`decodeDecompress1`, `…4_*`, `…10_*`);
+  (`decodeDecompress_group`, `decodeDecompress1`, `…4_*`, `…10_*`);
 * `SamplePolyCBD₂`: coefficient `i` from nibble `i` of `B`
-  (`samplePolyCBD2_get`, `samplePolyCBD2_val`);
-* the modulus check of ML-KEM-768 (`ekCheck768`).
+  (`samplePolyCBD2_get`, `samplePolyCBD2_val`).
 
 Byte `k` of a list `B` is written `B.getD k 0`, which `bytesAt_getD`
 (`Mem.lean`) reads from memory.
@@ -156,6 +156,20 @@ theorem decode12_odd (B : List Byte) (hB : B.length = 384) {i : Nat} (hi : i < 1
 theorem compressEncode_length (d : Nat) (f : Poly) : (compressEncode d f).length = 32 * d :=
   byteEncode_length d _
 
+/-- Byte `b·g + j` of `ByteEncode_d(Compress_d(f))`, when each group of `b`
+bytes holds `c` coefficients (`d · c = 8 · b`): byte `j` of the number whose
+base-`2ᵈ` digits are the compressed coefficients `c·g … c·g + c - 1`. -/
+theorem compressEncode_group {d c b : Nat} (hd : 0 < d) (hdc : d * c = 8 * b) (f : Poly) {g j : Nat}
+    (hg : c * g + c ≤ 256) (hj : j < b) :
+    (compressEncode d f)[b * g + j]! =
+      BitVec.ofNat 8 (digits d ((List.range c).map fun i => compress d f[c * g + i]!) / 2 ^ (8 * j)) := by
+  have h₁ : d * (c * (g + 1)) ≤ d * 256 := Nat.mul_le_mul_left d (by rw [Nat.mul_succ]; exact hg)
+  have h₂ : d * (c * (g + 1)) = 8 * (b * g + b) := by rw [← Nat.mul_assoc, hdc, Nat.mul_assoc, Nat.mul_succ]
+  rw [compressEncode, byteEncode_group hd hdc (map_toList_lt f (compress_lt d)) hj (by omega),
+    take_drop_eq _ 0 (by rw [map_toList_length]; omega)]
+  refine congrArg (fun L => BitVec.ofNat 8 (digits d L / 2 ^ (8 * j))) (List.map_congr_left fun i hi => ?_)
+  exact map_toList_getD f _ (by have := List.mem_range.mp hi; omega)
+
 /-- Byte `k` of `ByteEncode₁(Compress₁(f))`: the compressed coefficients
 `8k … 8k + 7` as its bits. -/
 theorem compressEncode1 (f : Poly) {k : Nat} (hk : k < 32) :
@@ -163,14 +177,13 @@ theorem compressEncode1 (f : Poly) {k : Nat} (hk : k < 32) :
       4 * compress 1 f[8 * k + 2]! + 8 * compress 1 f[8 * k + 3]! + 16 * compress 1 f[8 * k + 4]! +
       32 * compress 1 f[8 * k + 5]! + 64 * compress 1 f[8 * k + 6]! +
       128 * compress 1 f[8 * k + 7]!) := by
-  have h := byteEncode_group (c := 8) (b := 1) (g := k) (j := 0) (by decide) (by decide)
-    (map_toList_lt f (compress_lt 1)) (by decide) (by omega)
+  have h := compressEncode_group (d := 1) (c := 8) (b := 1) (g := k) (j := 0) (by decide) (by decide) f (by omega)
+    (by decide)
   rw [show 1 * k + 0 = k by omega] at h
-  rw [compressEncode, h, take_drop_eq _ 0 (by rw [map_toList_length]; omega)]
+  rw [h]
   clear h
   simp only [range8, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero,
     Nat.mul_zero, Nat.pow_zero, Nat.div_one]
-  simp (disch := omega) only [map_toList_getD]
   refine congrArg (BitVec.ofNat 8) ?_
   omega
 
@@ -178,14 +191,13 @@ theorem compressEncode1 (f : Poly) {k : Nat} (hk : k < 32) :
 and `2k + 1`. -/
 theorem compressEncode4 (f : Poly) {k : Nat} (hk : k < 128) :
     (compressEncode 4 f)[k]! = BitVec.ofNat 8 (compress 4 f[2 * k]! + 16 * compress 4 f[2 * k + 1]!) := by
-  have h := byteEncode_group (c := 2) (b := 1) (g := k) (j := 0) (by decide) (by decide)
-    (map_toList_lt f (compress_lt 4)) (by decide) (by omega)
+  have h := compressEncode_group (d := 4) (c := 2) (b := 1) (g := k) (j := 0) (by decide) (by decide) f (by omega)
+    (by decide)
   rw [show 1 * k + 0 = k by omega] at h
-  rw [compressEncode, h, take_drop_eq _ 0 (by rw [map_toList_length]; omega)]
+  rw [h]
   clear h
   simp only [range2, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero,
     Nat.mul_zero, Nat.pow_zero, Nat.div_one]
-  simp (disch := omega) only [map_toList_getD]
 
 /-- Byte `5g + j` of `ByteEncode₁₀(Compress₁₀(f))`: byte `j` of the 40-bit
 number of the compressed coefficients `4g … 4g + 3`. -/
@@ -193,10 +205,8 @@ private theorem compressEncode10_group (f : Poly) {g j : Nat} (hg : g < 64) (hj 
     (compressEncode 10 f)[5 * g + j]! = BitVec.ofNat 8 ((compress 10 f[4 * g]! +
       1024 * compress 10 f[4 * g + 1]! + 1048576 * compress 10 f[4 * g + 2]! +
       1073741824 * compress 10 f[4 * g + 3]!) / 2 ^ (8 * j)) := by
-  rw [compressEncode, byteEncode_group (c := 4) (by decide) (by decide)
-    (map_toList_lt f (compress_lt 10)) hj (by omega), take_drop_eq _ 0 (by rw [map_toList_length]; omega)]
+  rw [compressEncode_group (c := 4) (by decide) (by decide) f (by omega) hj]
   simp only [range4, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero]
-  simp (disch := omega) only [map_toList_getD]
   refine congrArg (BitVec.ofNat 8) (congrArg (· / 2 ^ (8 * j)) ?_)
   omega
 
@@ -257,6 +267,16 @@ theorem decodeDecompress_get (d : Nat) (B : List Byte) {k : Nat} (hk : k < n) :
   rw [getElem!_eq _ hk, getElem!_pos (byteDecode d B) k hk]
   simp only [decodeDecompress, Vector.getElem_map]
 
+/-- Coefficient `c·g + e` of `Decompress_d(ByteDecode_d(B))`, when each group
+of `b` bytes holds `c` coefficients (`d · c = 8 · b`): `d`-bit field `e` of
+the number whose bytes are `B[b·g … b·g + b - 1]`, decompressed. -/
+theorem decodeDecompress_group {d c b : Nat} (hd : d < 12) (hdc : d * c = 8 * b) (B : List Byte) {g e : Nat}
+    (hB : b * g + b ≤ B.length) (he : e < c) (hi : c * g + e < n) :
+    (decodeDecompress d B)[c * g + e]! =
+      decompress d (digits 8 ((List.range b).map fun i => (B.getD (b * g + i) 0).toNat) / 2 ^ (d * e) % 2 ^ d) := by
+  rw [decodeDecompress_get d B hi, byteDecode_group hdc B he hi, bytes_map_take_drop B hB]
+  simp only [hd, ↓reduceIte, Nat.mod_mod]
+
 /-- Coefficient `i` of `Decompress₁(ByteDecode₁(B))`: bit `i mod 8` of byte
 `⌊i / 8⌋`, decompressed. -/
 theorem decodeDecompress1 (B : List Byte) {i : Nat} (hi : i < n) :
@@ -270,10 +290,9 @@ theorem decodeDecompress1 (B : List Byte) {i : Nat} (hi : i < n) :
 private theorem decodeDecompress4_group (B : List Byte) (hB : B.length = 128) {i e : Nat}
     (hi : i < 128) (he : e < 2) :
     (decodeDecompress 4 B)[2 * i + e]! = decompress 4 ((B.getD i 0).toNat / 2 ^ (4 * e) % 16) := by
-  rw [decodeDecompress_get 4 B (by rw [n_eq]; omega), byteDecode_group (c := 2) (b := 1) (by decide) B he
-    (by rw [n_eq]; omega), bytes_map_take_drop B (by omega)]
+  rw [decodeDecompress_group (c := 2) (b := 1) (by decide) (by decide) B (by omega) he (by rw [n_eq]; omega)]
   simp only [List.range_one, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero,
-    Nat.mul_zero, Nat.reduceLT, ↓reduceIte, Nat.mod_mod, Nat.one_mul]
+    Nat.mul_zero, Nat.one_mul]
 
 /-- Coefficient `2i` of `Decompress₄(ByteDecode₄(B))`: the low nibble of
 `B[i]`, decompressed. -/
@@ -299,10 +318,8 @@ private theorem decodeDecompress10_group (B : List Byte) (hB : B.length = 320) {
       256 * (B.getD (5 * g + 1) 0).toNat + 65536 * (B.getD (5 * g + 2) 0).toNat +
       16777216 * (B.getD (5 * g + 3) 0).toNat + 4294967296 * (B.getD (5 * g + 4) 0).toNat) /
         2 ^ (10 * e) % 1024) := by
-  rw [decodeDecompress_get 10 B (by rw [n_eq]; omega), byteDecode_group (c := 4) (b := 5) (by decide) B
-    he (by rw [n_eq]; omega), bytes_map_take_drop B (by omega)]
-  simp only [range5, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero,
-    Nat.reduceLT, ↓reduceIte, Nat.mod_mod]
+  rw [decodeDecompress_group (c := 4) (b := 5) (by decide) (by decide) B (by omega) he (by rw [n_eq]; omega)]
+  simp only [range5, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero]
   refine congrArg (decompress 10) (congrArg (· % 1024) (congrArg (· / 2 ^ (10 * e)) ?_))
   omega
 

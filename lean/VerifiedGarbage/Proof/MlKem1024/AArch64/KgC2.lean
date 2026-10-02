@@ -117,6 +117,6 @@ theorem s_step {s₀ : State} (hp : Pre s₀) {mB : Mem} {v : BitVec 64} {j : Na
         bytesAt_frame f₁ (cnW_apart hp (by decide) (by simp only [kL]; omega) (.inl (by decide)) hoL)
           (by decide)]
       exact h.dk j' hj'
-    · rw [b₂, p₁.2, kgS1024]
+    · rw [b₂, p₁.2, kgS1024, KPke.kgS]
 
 end VG.Proof.MlKem1024.AArch64.KeyGen
