@@ -102,8 +102,8 @@ end
 theorem clobbers_esp (i : Instr) : Taint.clobbers i .esp = isa.writesSp i := by
   cases i <;> rfl
 
-theorem all_eq (p : Instr → Bool) (c : Prog isa) : c.all p = (VG.X86.instrs c).all p := by
-  induction c <;> simp_all [Code.all, VG.X86.instrs, List.all_append, Bool.and_assoc]
+theorem all_eq (p : Instr → Bool) (c : Prog isa) : c.all p = (VG.instrs c).all p := by
+  induction c <;> simp_all [Code.all, VG.instrs, List.all_append, Bool.and_assoc]
 
 /-- Code whose instructions never write `esp`, but by its frames, keeps it. -/
 theorem nosp_of_all {c : Prog isa} (h : c.all (fun i => !isa.writesSp i) = true) : NoSp c := by

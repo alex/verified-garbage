@@ -15,12 +15,12 @@ open VG VG.X86
 open VG.Impl.MlDsa.X86.KeyGen (Arg argRegs setArgs argRs callP callPR seqR)
 
 theorem NoSp.seq {a b : Prog isa} (ha : NoSp a) (hb : NoSp b) : NoSp (.seq a b) := fun i hi => by
-  simp only [X86.instrs, List.mem_append] at hi
+  simp only [VG.instrs, List.mem_append] at hi
   rcases hi with h | h
   exacts [ha i h, hb i h]
 
 theorem NoSp.seqR {f : Nat → Prog isa} (h : ∀ k, NoSp (f k)) : ∀ a n, NoSp (seqR f a n)
-  | _, 0 => fun i hi => by simp [Impl.MlDsa.X86.KeyGen.seqR, X86.instrs] at hi
+  | _, 0 => fun i hi => by simp [Impl.MlDsa.X86.KeyGen.seqR, VG.instrs] at hi
   | a, n + 1 => NoSp.seq (h a) (NoSp.seqR h (a + 1) n)
 
 theorem setArgs_nosp (sc : Nat) : ∀ (rs : List Reg) (as : List Arg), (∀ r ∈ rs, r ≠ .esp) →
@@ -44,7 +44,7 @@ theorem setArgs_nosp (sc : Nat) : ∀ (rs : List Reg) (as : List Arg), (∀ r �
 theorem NoSp.callP {sc : Nat} {nm : String} {c : Prog isa} {as : List Arg} (hc : NoSp c) :
     NoSp (callP sc nm c as) := by
   refine NoSp.seq (fun i hi => setArgs_nosp sc argRegs as (by decide) i hi) fun i hi => ?_
-  simp only [Impl.MlKem.X86.callWith, X86.instrs, List.mem_cons, List.mem_append, List.not_mem_nil, or_false] at hi
+  simp only [Impl.MlKem.X86.callWith, VG.instrs, List.mem_cons, List.mem_append, List.not_mem_nil, or_false] at hi
   rcases hi with (rfl | hi) | rfl
   · rfl
   · exact hc i hi
@@ -53,7 +53,7 @@ theorem NoSp.callP {sc : Nat} {nm : String} {c : Prog isa} {as : List Arg} (hc :
 theorem NoSp.callPR {sc : Nat} {nm : String} {c : Prog isa} {as : List Arg} (hc : NoSp c) :
     NoSp (callPR sc nm c as) := by
   refine NoSp.seq (fun i hi => setArgs_nosp sc argRegs as (by decide) i hi) fun i hi => ?_
-  simp only [Impl.MlKem.X86.callRet, X86.instrs, List.mem_cons, List.mem_append, List.not_mem_nil, or_false] at hi
+  simp only [Impl.MlKem.X86.callRet, VG.instrs, List.mem_cons, List.mem_append, List.not_mem_nil, or_false] at hi
   rcases hi with (rfl | hi) | rfl
   · rfl
   · exact hc i hi

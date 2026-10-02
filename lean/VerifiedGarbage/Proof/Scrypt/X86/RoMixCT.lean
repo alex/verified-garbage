@@ -241,7 +241,7 @@ theorem exec_keeps {c : Prog isa} {rs : List Reg} (hc : c.allInstrs (free rs) = 
   intro r hr
   rw [Code.allInstrs_eq, List.all_eq_true] at hc
   refine Exec.gpr (fun i hi => ?_) he
-  have := hc i (instrs_eq_instrs c ▸ hi)
+  have := hc i hi
   simp only [free, List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at this
   exact this r hr
 

@@ -12,15 +12,12 @@ registers pushed as its arguments, the last one first (`callEntry_arg`).
 
 namespace VG.X86
 
-theorem instrs_eq_instrs (c : Prog isa) : instrs c = VG.instrs c := by
-  induction c <;> simp [instrs, VG.instrs, *]
-
 /-- `NoSp`, from a check the kernel evaluates (`by decide +kernel`). -/
 theorem NoSp.of_all {c : Prog isa} (h : c.allInstrs (fun i => !Taint.clobbers i .esp) = true) :
     NoSp c := by
   intro i hi
   rw [Code.allInstrs_eq, List.all_eq_true] at h
-  simpa using h i (instrs_eq_instrs c ▸ hi)
+  simpa using h i hi
 
 /-! ## The frame's pop -/
 
