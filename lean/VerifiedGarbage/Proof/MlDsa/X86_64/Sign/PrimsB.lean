@@ -443,7 +443,7 @@ theorem mask4Call_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs w
     (by simp only [List.all_cons, List.all_nil, Arg.ok, b1, o1, b2, o2, decide_true, Bool.and_true,
       decide_eq_true hγ']; decide)
     (fun s1 hA hm k => mask4Pre hP.expandMask4.hS (At.of L hm k) hγ hc hA)
-    (covers_append (L.cR i1) (covers_wr (covers_cons (L.cW w1) (L.cW w2)))) (covers_cons (L.cW w1) (L.cW w2)))
+    (Covers.append_left (L.cR i1) (Covers.right (Covers.cons (L.cW w1) (L.cW w2)))) (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3, _⟩ := argsIn4 hA
@@ -462,10 +462,10 @@ theorem mask4Call_tr {P : Prims} (hP : PrimsOk P D) {γ : Nat} {a w : Ptr} (hγ 
     fun x y x1 y1 R ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, mask4Pre hP.expandMask4.hS (At.of R.lx hmx kx) hγ hc hAx,
         mask4Pre hP.expandMask4.hS (At.of R.ly hmy ky) hγ hc hAy, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2))),
-        by rw [kx.2.2]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2))),
-        by rw [ky.2.2]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (Covers.cons (R.lx.cW w1) (R.lx.cW w2))),
+        by rw [kx.2.2]; exact Covers.cons (R.lx.cW w1) (R.lx.cW w2),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (Covers.cons (R.ly.cW w1) (R.ly.cW w2))),
+        by rw [ky.2.2]; exact Covers.cons (R.ly.cW w1) (R.ly.cW w2),
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3, hx4⟩ := argsIn4 hAx
   obtain ⟨hy1, hy2, hy3, hy4⟩ := argsIn4 hAy
