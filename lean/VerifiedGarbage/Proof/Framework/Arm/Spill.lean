@@ -117,6 +117,15 @@ theorem save_slots_ok {b : Reg} {rest : List Instr} {lo hi : Nat} {l : List (Reg
     have := hs.bound hp
     exact ⟨by omega, by omega, hin _ this.1 this.2.1⟩) k
 
+/-- `save_slots_ok` for the code alone. -/
+theorem save_block_ok {b : Reg} {lo hi : Nat} {l : List (Reg × Nat)} (hs : Slots lo hi l) {s : State}
+    (hfit : (s.gpr b).toNat + hi ≤ 2 ^ 32)
+    (hin : ∀ d, lo ≤ d → d + 4 ≤ hi → InRegions s.wr (State.addr (s.gpr b) + BitVec.ofNat 64 d) 4) :
+    WP isa (.block (l.map (fun p => Instr.str p.1 b p.2))) s fun s' =>
+      s'.gpr = s.gpr ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.mem = saveMem s.mem (State.addr (s.gpr b)) s.gpr l := by
+  rw [← List.append_nil (List.map _ l)]
+  exact save_slots_ok hs hfit hin (WP.block_nil ⟨rfl, rfl, rfl, rfl⟩)
+
 /-- Saving changes only bytes of a region containing every slot. -/
 theorem saveMem_frame_of (B : Addr) (g : Reg → BitVec 32) {rs : List Region} {R : Region} (hR : R ∈ rs) :
     ∀ (m : Mem) (l : List (Reg × Nat)), (∀ p ∈ l, R.Contains (B + BitVec.ofNat 64 p.2) 4) →
@@ -249,6 +258,17 @@ theorem restore_slots_ok {b : Reg} {rest : List Instr} {lo hi : Nat} {l : List (
       have := hs.bound hp
       exact ⟨hr.ne hp, by omega, by omega, hin _ this.1 this.2.1⟩)
     fun s' ho => k s' (hsv.restored ho)
+
+/-- `restore_slots_ok` for the code alone. -/
+theorem restore_block_ok {b : Reg} {lo hi : Nat} {l : List (Reg × Nat)} (hs : Slots lo hi l)
+    (hr : Restorable b l) {s : State} {g : Reg → BitVec 32} (hfit : (s.gpr b).toNat + hi ≤ 2 ^ 32)
+    (hin : ∀ d, lo ≤ d → d + 4 ≤ hi → InRegions (s.rd ++ s.wr) (State.addr (s.gpr b) + BitVec.ofNat 64 d) 4)
+    (hsv : Saved s.mem (State.addr (s.gpr b)) g l) :
+    WP isa (.block (l.map (fun p => Instr.ldr p.1 b p.2))) s fun s' =>
+      (∀ p ∈ l, s'.gpr p.1 = g p.1) ∧ (∀ r, r ∉ l.map Prod.fst → s'.gpr r = s.gpr r) ∧
+      s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.sp = s.sp := by
+  rw [← List.append_nil (List.map _ l)]
+  exact restore_slots_ok hs hr hfit hin hsv fun s' h₁ h₂ h₃ h₄ h₅ h₆ => WP.block_nil ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩
 
 /-- `restoreList_ok`, then the base `b` itself, from offset `d`, last. -/
 theorem restoreBase_ok {b : Reg} {rest : List Instr} {l : List (Reg × Nat)} {d : Nat} (hr : Restorable b l)
