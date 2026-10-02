@@ -74,6 +74,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_224_init(inner: *mut [u8; 192], o
         "add edx, 64",
         "test ecx, ecx",
         "je 20f",
+        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [edi]",
         "xor eax, 54",

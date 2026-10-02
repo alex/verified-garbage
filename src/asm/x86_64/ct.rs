@@ -23,6 +23,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ct_eq(a: *const u8, a_len: usize, b: *co
         "mov r8, 0",
         "cmp r8, rsi",
         "je 22f",
+        ".p2align 6",
         "24:",
         "movzx r9d, BYTE PTR [rdi+r8*1]",
         "movzx r10d, BYTE PTR [rdx+r8*1]",

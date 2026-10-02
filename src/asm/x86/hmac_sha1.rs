@@ -58,6 +58,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *
         "add edx, 20",
         "test ecx, ecx",
         "je 20f",
+        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [edi]",
         "xor eax, 54",

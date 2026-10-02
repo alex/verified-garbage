@@ -54,6 +54,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_init(inner: *mut [u8; 80], oute
         "mov r14d, 0",
         "test r13, r13",
         "je 20f",
+        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [rbp+r14*1]",
         "xor eax, 54",
