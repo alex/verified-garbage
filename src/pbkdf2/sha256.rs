@@ -25,12 +25,15 @@
     target_arch = "x86"
 ))]
 
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use core::num::NonZeroU32;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use crate::arch::pbkdf2_sha256::vg_pbkdf2_hmac_sha256;
 #[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use crate::arch::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_iterate;
+#[cfg(target_arch = "x86")]
+use crate::arch::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_iterate_shani;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::pbkdf2_sha256::{
     VG_PBKDF2_HMAC_SHA256_AVX2_FEATURES, VG_PBKDF2_HMAC_SHA256_SHANI_FEATURES,
@@ -80,6 +83,7 @@ fn iterate(key: &[u8; 192], u: &[u8; 32], n: u32, t: &mut [u8; 32]) {
     {
         let iterate = match Sha256Backend::select(crate::cpu::detected()) {
             Sha256Backend::Scalar => vg_pbkdf2_hmac_sha256_iterate,
+            Sha256Backend::ShaNi => vg_pbkdf2_hmac_sha256_iterate_shani,
         };
         // SAFETY: the buffers satisfy the contract described above; selecting
         // the hash backend also selects every PBKDF2 caller of that backend.
@@ -99,16 +103,4 @@ impl super::Pbkdf2Hash for Sha256 {
             iterate,
         );
     }
-}
-
-/// Fills `out` with the key derived from `password` and `salt` with
-/// `iterations` iterations of PBKDF2 with HMAC-SHA-256
-/// (`pbkdf2_hmac::<Sha256>`).
-///
-/// # Panics
-///
-/// If `out` is longer than (2³² − 1) · 32 bytes ("derived key too long" in
-/// RFC 8018).
-pub fn pbkdf2_hmac_sha256(password: &[u8], salt: &[u8], iterations: NonZeroU32, out: &mut [u8]) {
-    super::pbkdf2_hmac::<Sha256>(password, salt, iterations, out);
 }

@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointDecode
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyPoints
+import VerifiedGarbage.Proof.Ed25519.Group.Decode
 
 /-! Untrusted: the verification inputs remain readable and outside the workspace. -/
 
@@ -23,7 +24,6 @@ structure VerifyContext (s : State) (base pk sig challenge : Addr) : Prop where
   scalarRead : ∀ d, d + 8 ≤ 32 → InRegions (s.rd ++ s.wr) (off (off sig 32) d) 8
   scalarBytes : ∀ i < 32, InRegions (s.rd ++ s.wr) (off (off sig 32) i) 1
   challengeRead : ∀ i < 64, InRegions (s.rd ++ s.wr) (off challenge i) 1
-  challengeWords : ∀ d, d + 8 ≤ 32 → InRegions (s.rd ++ s.wr) (off (off challenge 32) d) 8
   pkFar : ∀ i < 32, 8192 ≤ ofs base (off pk i)
   rFar : ∀ i < 32, 8192 ≤ ofs base (off sig i)
   scalarFar : ∀ i < 32, 8192 ≤ ofs base (off (off sig 32) i)
@@ -36,14 +36,13 @@ theorem VerifyContext.of_keep {s t : State} {base pk sig challenge : Addr}
     (k.header (by decide) (by decide) (by decide)).trans h.pkHeader,
     (k.header (by decide) (by decide) (by decide)).trans h.sigHeader,
     (k.header (by decide) (by decide) (by decide)).trans h.challengeHeader,
-    ?_, ?_, ?_, ?_, ?_, ?_, h.pkFar, h.rFar, h.scalarFar, h.challengeFar⟩
+    ?_, ?_, ?_, ?_, ?_, h.pkFar, h.rFar, h.scalarFar, h.challengeFar⟩
   all_goals intros; rw [k.rd, k.wr]
   · exact h.pkRead _ ‹_›
   · exact h.rRead _ ‹_›
   · exact h.scalarRead _ ‹_›
   · exact h.scalarBytes _ ‹_›
   · exact h.challengeRead _ ‹_›
-  · exact h.challengeWords _ ‹_›
 
 theorem verifyKeep_bytes {base p : Addr} {len : Nat} {s t : State}
     (h : VerifyKeep base s t) (hf : ∀ i < len, 8192 ≤ ofs base (off p i)) :

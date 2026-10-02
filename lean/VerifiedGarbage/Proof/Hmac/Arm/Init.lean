@@ -12,8 +12,8 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 # HMAC-SHA-256 on ARMv7: `init`
 
 Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 and AArch64 proofs (`VG.Proof.Hmac.X86_64.Init`,
-`VG.Proof.Hmac.AArch64.Init`), with `inner` in `r0`, `outer` in `r4`, the key
+generic x86-64 and AArch64 proofs (`VG.Proof.Hmac.Generic.X86_64.Init`,
+`VG.Proof.Hmac.Generic.AArch64.Init`), with `inner` in `r0`, `outer` in `r4`, the key
 pointer in `r5`, the bytes left in `r6`, the byte index in `r7` and `ipad`,
 `opad` in `r8`, `r9`.
 -/

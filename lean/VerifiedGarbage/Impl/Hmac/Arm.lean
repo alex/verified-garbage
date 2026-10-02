@@ -3,9 +3,9 @@ import VerifiedGarbage.Impl.Sha256.Arm.Stream
 /-!
 # HMAC-SHA-256: 32-bit ARM implementation
 
-The same algorithm as on x86-64 and AArch64 (`VG.Impl.Hmac.X86_64`,
-`VG.Impl.Hmac.AArch64`): two SHA-256 streaming states (`inner`, `outer`; see
-`VG.Spec.Hmac`).
+The same algorithm as the generic code of x86-64 and AArch64
+(`VG.Impl.Hmac.Generic.X86_64`, `VG.Impl.Hmac.Generic.AArch64`), for SHA-256
+alone: two SHA-256 streaming states (`inner`, `outer`; see `VG.Spec.Hmac`).
 
 * `init(inner = r0, outer = r1, key = r2, key_len = r3, scratch = [sp])`
   stores `H⁽⁰⁾` in both states, the block `K₀ ⊕ ipad` in the inner buffer
