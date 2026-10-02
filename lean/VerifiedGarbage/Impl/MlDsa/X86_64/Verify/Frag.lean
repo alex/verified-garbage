@@ -171,7 +171,7 @@ def ballAt (ct : Ptr) (len tau : Nat) (c : Ptr) : Prog isa :=
     [(.rdi, .ptr ct), (.rsi, .imm len), (.rdx, .imm tau), (.rcx, .ptr c), (.r8, .ptr (sc oSS))]
 
 def useHintAt (h r : Ptr) (g2 : Nat) (out : Ptr) : Prog isa :=
-  callAt "vg_mldsa_use_hint" P.useHint [(.rdi, .ptr h), (.rsi, .ptr r), (.rdx, .imm g2), (.rcx, .ptr out)]
+  callAt ("vg_mldsa_use_hint" ++ P.sfx) P.useHint [(.rdi, .ptr h), (.rsi, .ptr r), (.rdx, .imm g2), (.rcx, .ptr out)]
 
 def sbpAt (f : Ptr) (b : Nat) (out : Ptr) (len : Nat) : Prog isa :=
   callAt "vg_mldsa_simple_bit_pack" P.simpleBitPack

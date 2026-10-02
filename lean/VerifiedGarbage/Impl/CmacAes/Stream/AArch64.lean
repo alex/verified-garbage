@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.CmacAes.AArch64
+import VerifiedGarbage.Impl.CmacAes.AArch64.Callee
 
 /-!
 # Streaming AES-CMAC: AArch64 implementation
@@ -8,10 +8,10 @@ import VerifiedGarbage.Impl.CmacAes.AArch64
 and `vg_cmac_aes_finish(state = x0, rounds = x1, count = x2, out = x3, scratch = x4)`
 (see `VG.Spec.Cmac.aesInitContract` and the others), composed of calls of
 the verified `vg_aes_expand_key`, `vg_cmac_aes_subkeys`, `vg_cmac_aes_update`
-and `vg_cmac_aes_finalize`. Like those, they are generic over the
-implementation of AES they call (`Ctr32`, the `ExpandKey` that goes with it,
-and `sfx`, the suffix of the names of the CMAC functions made with it): e.g.
-`vg_cmac_aes_absorb_aes` calls `vg_cmac_aes_update_aes`.
+and `vg_cmac_aes_finalize`. Initialization and finalization are generic
+over AES (`Ctr32`, its `ExpandKey`, and their symbol suffix). Absorption is
+generic over whole-block CMAC chaining (`Update`), so a specialized chaining
+loop reaches streaming callers without changing their buffering proof.
 
 The state (`VG.Spec.Cmac.Repr`) is the key schedule (bytes 0–239), the
 subkeys (240–271), the chaining value (272–287) and the bytes held back
@@ -150,10 +150,10 @@ def absorbPre : Prog isa := .seq (.block save) (.seq held (.seq fill (.seq copy 
 /-- Everything after the second call. -/
 def absorbPost : Prog isa := .seq (.block rest) (.seq copy (.block restore))
 
-def absorb (c : Ctr32) (sfx : String) : Prog isa :=
+def absorb (u : Impl.CmacAes.AArch64.Update) : Prog isa :=
   .seq absorbPre
-    (.seq (.call ("vg_cmac_aes_update" ++ sfx) (Impl.CmacAes.AArch64.update c))
-      (.seq chain2 (.seq (.call ("vg_cmac_aes_update" ++ sfx) (Impl.CmacAes.AArch64.update c)) absorbPost)))
+    (.seq (.call u.name u.code)
+      (.seq chain2 (.seq (.call u.name u.code) absorbPost)))
 
 /-! ## `vg_cmac_aes_finish` -/
 

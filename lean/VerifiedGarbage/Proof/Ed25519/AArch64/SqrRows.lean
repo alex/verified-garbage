@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.RowAcc
 /-! The three blocks of a four-word squaring (`sqrCross`,
 `sqrDouble`, `sqrDiag`), each run once on its registers. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 
 /-- The products `aᵢ aⱼ` (`i < j`) of four words, at word `i + j - 1`. -/

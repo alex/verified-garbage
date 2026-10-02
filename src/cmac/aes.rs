@@ -16,7 +16,10 @@
 //! `vg_aes_expand_key_aesni` and `vg_aes_ctr32_aesni` rather than
 //! `vg_aes_expand_key` and `vg_aes_ctr32`. On AArch64, CPUs with the AES
 //! extension run the `_aes` functions, calling `vg_aes_expand_key_aes` and
-//! `vg_aes_ctr32_aes`. ARMv7 and x86 have only the scalar implementation.
+//! `vg_aes_ctr32_aes`. Updates longer than 32 bytes use `_aes_cbc`, whose
+//! whole-block chaining keeps the round keys and chaining value in vector
+//! registers. On x86, CPUs with AES-NI run the `_aesni` functions; SSSE3
+//! is not required. ARMv7 has only the scalar implementation.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -29,11 +32,11 @@ use super::{InvalidKeyLength, InvalidMac};
 use crate::aes::Backend;
 #[cfg(target_arch = "aarch64")]
 use crate::arch::cmac_aes::{
-    VG_CMAC_AES_ABSORB_AES_FEATURES, VG_CMAC_AES_FINISH_AES_FEATURES,
-    VG_CMAC_AES_INIT_AES_FEATURES, vg_cmac_aes_absorb_aes, vg_cmac_aes_finish_aes,
-    vg_cmac_aes_init_aes,
+    VG_CMAC_AES_ABSORB_AES_CBC_FEATURES, VG_CMAC_AES_ABSORB_AES_FEATURES,
+    VG_CMAC_AES_FINISH_AES_FEATURES, VG_CMAC_AES_INIT_AES_FEATURES, vg_cmac_aes_absorb_aes,
+    vg_cmac_aes_absorb_aes_cbc, vg_cmac_aes_finish_aes, vg_cmac_aes_init_aes,
 };
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::cmac_aes::{
     VG_CMAC_AES_ABSORB_AESNI_FEATURES, VG_CMAC_AES_FINISH_AESNI_FEATURES,
     VG_CMAC_AES_INIT_AESNI_FEATURES, vg_cmac_aes_absorb_aesni, vg_cmac_aes_finish_aesni,
@@ -52,7 +55,7 @@ const SCRATCH: usize = 288;
 
 /// The best implementation of AES a CPU with the features `f` can run, with
 /// the CMAC functions for it.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 fn select(f: Features) -> Backend {
     Backend::select_for(
         f,
@@ -73,6 +76,7 @@ fn select(f: Features) -> Backend {
         &[
             VG_CMAC_AES_INIT_AES_FEATURES,
             VG_CMAC_AES_ABSORB_AES_FEATURES,
+            VG_CMAC_AES_ABSORB_AES_CBC_FEATURES,
             VG_CMAC_AES_FINISH_AES_FEATURES,
         ],
     )
@@ -80,7 +84,7 @@ fn select(f: Features) -> Backend {
 
 /// The best implementation a CPU with the features `f` can run: there is
 /// only one here.
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
 fn select(f: Features) -> Backend {
     Backend::select(f)
 }
@@ -130,7 +134,7 @@ impl AesCmac {
         let mut scratch = MaybeUninit::<[u64; SCRATCH]>::uninit();
         let f = match c.backend {
             Backend::Scalar => vg_cmac_aes_init,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_cmac_aes_init_aesni,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => vg_cmac_aes_init_aes,
@@ -162,10 +166,16 @@ impl AesCmac {
         let mut scratch = MaybeUninit::<[u64; SCRATCH]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_cmac_aes_absorb,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_cmac_aes_absorb_aesni,
             #[cfg(target_arch = "aarch64")]
-            Backend::Aes => vg_cmac_aes_absorb_aes,
+            Backend::Aes => {
+                if data.len() > 32 {
+                    vg_cmac_aes_absorb_aes_cbc
+                } else {
+                    vg_cmac_aes_absorb_aes
+                }
+            }
         };
         // SAFETY: `self.state` is valid for reads and writes of 304 bytes,
         // `data` for reads of `data.len()` bytes and `scratch`
@@ -198,7 +208,7 @@ impl AesCmac {
         let mut scratch = MaybeUninit::<[u64; SCRATCH]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_cmac_aes_finish,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_cmac_aes_finish_aesni,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => vg_cmac_aes_finish_aes,
@@ -294,6 +304,38 @@ mod tests {
         assert_eq!(c.finalize(), AesCmac::mac(&key, &msg).unwrap());
     }
 
+    /// The bulk AES loop agrees with the baseline for every key width,
+    /// around block boundaries, and when short updates surround a bulk one.
+    #[test]
+    fn bulk() {
+        let key: [u8; 32] = core::array::from_fn(|i| (11 * i + 3) as u8);
+        let msg: [u8; 4097] = core::array::from_fn(|i| (i.wrapping_mul(7) ^ (i >> 8)) as u8);
+        for key_len in [16, 24, 32] {
+            let fresh = AesCmac::new(&key[..key_len]).unwrap();
+            let mut scalar = fresh.clone();
+            scalar.backend = Backend::Scalar;
+            for len in [
+                0, 1, 15, 16, 17, 31, 32, 33, 47, 48, 49, 255, 256, 257, 4096, 4097,
+            ] {
+                let mut reference = scalar.clone();
+                reference.update(&msg[..len]);
+                let expected = reference.finalize();
+                assert_eq!(
+                    AesCmac::mac(&key[..key_len], &msg[..len]).unwrap(),
+                    expected
+                );
+                for chunk in [1, 16, 31, 32, 33, 63, 257] {
+                    let mut c = fresh.clone();
+                    for part in msg[..len].chunks(chunk) {
+                        c.update(part);
+                        c.update(&[]);
+                    }
+                    assert_eq!(c.finalize(), expected, "{key_len}/{len}/{chunk}");
+                }
+            }
+        }
+    }
+
     /// A message of 2⁶⁴ bytes or more is refused.
     #[test]
     #[should_panic(expected = "message too long")]
@@ -311,6 +353,11 @@ mod tests {
         {
             assert_eq!(select(Features::of(&["aes", "ssse3"])), Backend::AesNi);
             assert_eq!(select(Features::of(&["aes"])), Backend::Scalar);
+        }
+        #[cfg(target_arch = "x86")]
+        {
+            assert_eq!(select(Features::of(&["aes"])), Backend::AesNi);
+            assert_eq!(select(Features::of(&["ssse3"])), Backend::Scalar);
         }
         #[cfg(target_arch = "aarch64")]
         assert_eq!(select(Features::of(&["aes"])), Backend::Aes);

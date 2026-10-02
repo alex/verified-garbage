@@ -14,6 +14,8 @@ their arguments pinned by `IMid₁` and `IMid₂`.
 namespace VG.Proof.CmacAes.Stream.X86
 
 open VG VG.X86 VG.Impl.CmacAes.Stream.X86
+
+variable (v : Proof.Aes.X86.Ctr32Impl)
 open VG.Impl.CmacAes.X86 (at_ argOp)
 open VG.Proof.MdStream.X86 (Upd wp_mov wp_addi wp_shr)
 open VG.Proof.CmacAes.X86 (wp_arg zero4_ok saveMem_congr)
@@ -201,8 +203,8 @@ theorem IMid₁.after {s₀ s s' : State} (hp : IPre s₀) (h : IMid₁ s₀ s)
   · exact ⟨below (iE s₀) 48, by simp, below_sub (by decide) hp.esp48⟩
 
 theorem ek_after {s₀ s : State} (hp : IPre s₀) (h : IMid₁ s₀ s) :
-    WP isa (call4 "vg_aes_expand_key" Impl.Aes.X86.expandKey) s (IAft s₀) :=
-  WP.mono (ek_call h.args) fun _ h' => h.after hp h'
+    WP isa (call4 v.expand.name v.expand.code) s (IAft s₀) :=
+  WP.mono ((ek_call v) h.args) fun _ h' => h.after hp h'
 
 /-! ## Between the calls -/
 
@@ -295,8 +297,8 @@ theorem IMid₂.after {s₀ s s' : State} (hp : IPre s₀) (h : IMid₂ s₀ s)
   · exact ⟨below (iE s₀) 48, by simp, fun _ h => h⟩
 
 theorem sub_after {s₀ s : State} (hp : IPre s₀) (h : IMid₂ s₀ s) :
-    WP isa (call4 "vg_cmac_aes_subkeys" Impl.CmacAes.X86.subkeys) s (IAft s₀) :=
-  WP.mono (sub_call h.args) fun _ h' => h.after hp h'
+    WP isa (call4 ("vg_cmac_aes_subkeys" ++ v.suffix) (Impl.CmacAes.X86.subkeys v.callee)) s (IAft s₀) :=
+  WP.mono ((sub_call v) h.args) fun _ h' => h.after hp h'
 
 /-! ## After the calls -/
 
@@ -343,7 +345,7 @@ theorem initPost_wp {s₀ s : State} (hp : IPre s₀) (h : IAft s₀ s)
 /-! ## The whole function -/
 
 theorem init_wp {s₀ : State} (h0 : initX86.pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ initX86.post s₀ s' := by
+    WP isa (init v.expand v.callee v.suffix) s₀ fun s' => abiPreserved s₀ s' ∧ initX86.post s₀ s' := by
   have hp := IPre.of h0
   have fS : (arg s₀ 3).toNat + 2304 ≤ 2 ^ 32 := hp.fS
   have fSt : (arg s₀ 0).toNat + 304 ≤ 2 ^ 32 := hp.fSt
@@ -351,10 +353,10 @@ theorem init_wp {s₀ : State} (h0 : initX86.pre s₀) :
   have e48 := hp.esp48
   unfold init
   refine WP.seq (WP.mono (initPre_wp hp) fun s₁ h₁ => ?_)
-  refine WP.seq (WP.mono (ek_call h₁.args) fun s₂ h₂ => ?_)
+  refine WP.seq (WP.mono ((ek_call v) h₁.args) fun s₂ h₂ => ?_)
   have a₂ := h₁.after hp h₂
   refine WP.seq (WP.mono (initMid_wp hp a₂) fun s₃ ⟨h₃, m₃⟩ => ?_)
-  refine WP.seq (WP.mono (sub_call h₃.args) fun s₄ h₄ => ?_)
+  refine WP.seq (WP.mono ((sub_call v) h₃.args) fun s₄ h₄ => ?_)
   have a₄ := h₃.after hp h₄
   have f₂ : Frame [⟨(iSt s₀).setWidth 64, 240⟩, ⟨(iSc s₀).setWidth 64, 512⟩, below (iE s₀) 48] s₁.mem s₂.mem := by
     have := h₂.frame
@@ -448,7 +450,7 @@ theorem init_wp {s₀ : State} (h0 : initX86.pre s₀) :
 /-! ## Constant time -/
 
 theorem init_rel {s₀ s₀' : State} (h0 : initX86.pre s₀) (h0' : initX86.pre s₀') (hq : initX86.pub s₀ s₀') :
-    RelCT isa (fun a b => a = s₀ ∧ b = s₀') init fun _ _ => True := by
+    RelCT isa (fun a b => a = s₀ ∧ b = s₀') (init v.expand v.callee v.suffix) fun _ _ => True := by
   have hp := IPre.of h0
   have hp' := IPre.of h0'
   obtain ⟨qE, qa⟩ := hq
@@ -463,24 +465,24 @@ theorem init_rel {s₀ s₀' : State} (h0 : initX86.pre s₀) (h0' : initX86.pre
     (c := .block initPre) (by taint_decide)).wp (F₁ := IMid₁ s₀) (F₂ := IMid₁ s₀')
     fun a b h => by obtain ⟨rfl, rfl⟩ := h; exact ⟨initPre_wp hp, initPre_wp hp'⟩).mono (fun _ _ h => h)
     fun _ _ h => h.2
-  have e := ((ek_rel (E := iE s₀) (P := fun a b => IMid₁ s₀ a ∧ IMid₁ s₀' b) fun a b h =>
+  have e := ((ek_rel v (E := iE s₀) (P := fun a b => IMid₁ s₀ a ∧ IMid₁ s₀' b) fun a b h =>
       ⟨h.1.args, by rw [e0, e1, e2, e3]; exact h.2.args, h.1.esp, by rw [h.2.esp]; exact qE.symm⟩).wp
-      (F₁ := IAft s₀) (F₂ := IAft s₀') fun _ _ h => ⟨ek_after hp h.1, ek_after hp' h.2⟩).mono
+      (F₁ := IAft s₀) (F₂ := IAft s₀') fun _ _ h => ⟨(ek_after v) hp h.1, (ek_after v) hp' h.2⟩).mono
       (fun _ _ h => h) fun _ _ h => h.2
   have m := ((RelCT.taint (A := taint) (P := fun a b => IAft s₀ a ∧ IAft s₀' b) (argTaint [] (4 + 4 * 4))
     (fun _ _ h => ag (h.1.pt hp) (h.2.pt hp')) (c := .block initMid) (by taint_decide)).wp
     (F₁ := fun s => IMid₂ s₀ s) (F₂ := fun s => IMid₂ s₀' s)
     fun _ _ h => ⟨WP.mono (initMid_wp hp h.1) fun _ h => h.1, WP.mono (initMid_wp hp' h.2) fun _ h => h.1⟩).mono
     (fun _ _ h => h) fun _ _ h => h.2
-  have sk := ((sub_rel (E := iE s₀) (P := fun a b => IMid₂ s₀ a ∧ IMid₂ s₀' b) fun a b h =>
+  have sk := ((sub_rel v (E := iE s₀) (P := fun a b => IMid₂ s₀ a ∧ IMid₂ s₀' b) fun a b h =>
       ⟨h.1.args, by rw [e0, e2, e3]; exact h.2.args, h.1.aft.esp, by rw [h.2.aft.esp]; exact qE.symm⟩).wp
-      (F₁ := IAft s₀) (F₂ := IAft s₀') fun _ _ h => ⟨sub_after hp h.1, sub_after hp' h.2⟩).mono
+      (F₁ := IAft s₀) (F₂ := IAft s₀') fun _ _ h => ⟨(sub_after v) hp h.1, (sub_after v) hp' h.2⟩).mono
       (fun _ _ h => h) fun _ _ h => h.2
   have p := RelCT.taint (A := taint) (P := fun a b => IAft s₀ a ∧ IAft s₀' b) (argTaint [] (4 + 4 * 4))
     (fun _ _ h => ag (h.1.pt hp) (h.2.pt hp')) (c := .block initPost) (by taint_decide)
   exact a.seq (e.seq (m.seq (sk.seq p)))
 
-theorem init_ct : ConstantTime isa initX86.pre initX86.pub init :=
-  fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => (init_rel h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+theorem init_ct : ConstantTime isa initX86.pre initX86.pub (init v.expand v.callee v.suffix) :=
+  fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => ((init_rel v) h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
 
 end VG.Proof.CmacAes.Stream.X86

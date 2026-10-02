@@ -58,8 +58,8 @@ theorem copyScalar_ok {s : State} {base : Addr} (hs : Scr s base)
   refine WP.mono (store4_ok (hs.of_keeps hk (by decide)) ho) fun u hu => ?_
   subst u
   refine ⟨?_, hk.gpr, hk.rd, hk.wr, hk.sp, ?_⟩
-  · rw [fe_st4 _ _ (by have := ho.2; omega)]; exact hv
-  · rw [hk.mem]; exact st4_outside _ _ (by have := ho.2; omega) _ _ _ _
+  · rw [fe_st4 _ _ (by have hh := ho.2; change o + 32 ≤ 8192 at hh; omega)]; exact hv
+  · rw [hk.mem]; exact st4_outside _ _ (by have hh := ho.2; change o + 32 ≤ 8192 at hh; omega) _ _ _ _
 
 theorem Saved.outside {base : Addr} {g : Reg → BitVec 64} {m m' : Mem} (h : Saved base g m)
     {o n : Nat} (ho : Outside base o n m m') (hn : 48 ≤ o) : Saved base g m' := by
