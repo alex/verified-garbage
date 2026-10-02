@@ -118,16 +118,17 @@ def trHash (p : Params) : Prog isa :=
 
 /-! ## The functions -/
 
-/-- `esi ← scratch + oE p`, for `scratch` argument `si`, and `0 ‖ ctx_len`
+/-- `esi ← scratch + oE p`, for `scratch` argument `si`; then `0 ‖ ctx_len`
 at `esi + 944`. -/
-def enter (si : Nat) (p : Params) : List Instr :=
-  [.mov .esi (.mem (argAt si)), .alu .add .esi (.imm (BitVec.ofNat 32 (oE p))), .mov .eax (.imm 0),
-    .store8 (at_ .esi oHdr) .al, .mov .eax (.mem (argAt 4)), .store8 (at_ .esi (oHdr + 1)) .al]
+def enter (si : Nat) (p : Params) : Prog isa :=
+  .seq (.block [.mov .esi (.mem (argAt si)), .alu .add .esi (.imm (BitVec.ofNat 32 (oE p)))])
+    (.block [.mov .eax (.imm 0), .store8 (at_ .esi oHdr) .al, .mov .eax (.mem (argAt 4)),
+      .store8 (at_ .esi (oHdr + 1)) .al])
 
 /-- The body: if `ctx_len ≥ 256`, return 2; otherwise `enter` and `rest`. -/
-def top (ent : List Instr) (rest : Prog isa) : Prog isa :=
+def top (ent rest : Prog isa) : Prog isa :=
   leaf (.seq (.block [.mov .eax (.mem (argAt 4)), .alu .cmp .eax (.imm 256)])
-    (.ite .ae (.block [.mov .eax (.imm 2)]) (.seq (.block ent) rest)))
+    (.ite .ae (.block [.mov .eax (.imm 2)]) (.seq ent rest)))
 
 /-- `vg_mldsa*_sign_message` for the parameter set `p`, calling the signing
 function on `μ` `f`, named `n`. -/
