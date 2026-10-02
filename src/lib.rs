@@ -93,6 +93,7 @@ pub mod mldsa87;
 mod mldsa_common;
 pub mod mlkem1024;
 pub mod mlkem768;
+mod mlkem_common;
 pub mod pbkdf2;
 pub mod poly1305;
 pub mod rc2_cbc;
