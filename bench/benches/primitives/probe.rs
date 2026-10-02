@@ -13683,51 +13683,31 @@ unsafe extern "C" fn vgp_mixed() {
     )
 }
 #[cfg(target_arch = "aarch64")]
-pub fn bench(c: &mut Criterion) {
-    c.benchmark_group("probe_add_chain")
-        .bench_function("verified-garbage/1200", |b| {
-            b.iter(|| unsafe { vgp_add_chain() })
-        });
-    c.benchmark_group("probe_umlal_tput")
-        .bench_function("verified-garbage/1200", |b| {
-            b.iter(|| unsafe { vgp_umlal_tput() })
-        });
-    c.benchmark_group("probe_umlal_lat")
-        .bench_function("verified-garbage/400", |b| {
-            b.iter(|| unsafe { vgp_umlal_lat() })
-        });
-    c.benchmark_group("probe_umlal2_tput")
-        .bench_function("verified-garbage/1200", |b| {
-            b.iter(|| unsafe { vgp_umlal2_tput() })
-        });
-    c.benchmark_group("probe_vadd_tput")
-        .bench_function("verified-garbage/1200", |b| {
-            b.iter(|| unsafe { vgp_vadd_tput() })
-        });
-    c.benchmark_group("probe_mac_tput")
-        .bench_function("verified-garbage/300", |b| {
-            b.iter(|| unsafe { vgp_mac_tput() })
-        });
-    c.benchmark_group("probe_umulh_tput")
-        .bench_function("verified-garbage/1200", |b| {
-            b.iter(|| unsafe { vgp_umulh_tput() })
-        });
-    c.benchmark_group("probe_mul_tput")
-        .bench_function("verified-garbage/1200", |b| {
-            b.iter(|| unsafe { vgp_mul_tput() })
-        });
-    c.benchmark_group("probe_adds_tput")
-        .bench_function("verified-garbage/1200", |b| {
-            b.iter(|| unsafe { vgp_adds_tput() })
-        });
-    c.benchmark_group("probe_alu_tput")
-        .bench_function("verified-garbage/1200", |b| {
-            b.iter(|| unsafe { vgp_alu_tput() })
-        });
-    c.benchmark_group("probe_mixed")
-        .bench_function("verified-garbage/300", |b| {
-            b.iter(|| unsafe { vgp_mixed() })
-        });
+fn time(name: &str, f: unsafe extern "C" fn()) {
+    let mut best = f64::MAX;
+    for _ in 0..50 {
+        let t = std::time::Instant::now();
+        for _ in 0..20000 {
+            unsafe { f() };
+        }
+        best = best.min(t.elapsed().as_nanos() as f64 / 20000.0);
+    }
+    eprintln!("PROBE {name} {best:.2} ns");
+}
+
+#[cfg(target_arch = "aarch64")]
+pub fn bench(_: &mut Criterion) {
+    time("add_chain/1200", vgp_add_chain);
+    time("umlal_tput/1200", vgp_umlal_tput);
+    time("umlal_lat/400", vgp_umlal_lat);
+    time("umlal2_tput/1200", vgp_umlal2_tput);
+    time("vadd_tput/1200", vgp_vadd_tput);
+    time("mac_tput/300", vgp_mac_tput);
+    time("umulh_tput/1200", vgp_umulh_tput);
+    time("mul_tput/1200", vgp_mul_tput);
+    time("adds_tput/1200", vgp_adds_tput);
+    time("alu_tput/1200", vgp_alu_tput);
+    time("mixed/300", vgp_mixed);
 }
 
 #[cfg(not(target_arch = "aarch64"))]
