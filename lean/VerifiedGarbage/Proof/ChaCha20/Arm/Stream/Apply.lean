@@ -349,17 +349,19 @@ theorem part1_eq : part1 = .seq (.block start)
     (.seq xorBytes (.block [.mov .r2 (.shifted .r6 .lsr 6), .mov .r2 (.shifted .r2 .lsl 6), .cmp .r2 (.imm 0)])))) :=
   rfl
 
-theorem part1_ok {s₀ : State} (hp : APre s₀) (hle : L s₀ ≤ N s₀) {s : State} (h : Q0 s₀ s) :
-    WP isa part1 s (Q1 s₀) := by
+/-- After the bytes left in the buffered block to use are chosen. -/
+def rest1 : Prog isa :=
+  .seq (.block [.dp .add .r3 .r4 (.imm 128), .dp .sub .r3 .r3 (.reg .r12), .dp .sub .r6 .r6 (.reg .r2)])
+    (.seq xorBytes (.block [.mov .r2 (.shifted .r6 .lsr 6), .mov .r2 (.shifted .r2 .lsl 6), .cmp .r2 (.imm 0)]))
+
+theorem rest1_ok {s₀ : State} (hp : APre s₀) {s₂ : State} (h₂ : R1 s₀ (H s₀) s₂) :
+    WP isa rest1 s₂ (Q1 s₀) := by
   have hL := L_lt s₀
   have hH := H_le s₀
   have hHO := H_le_O s₀
   have hO := O_lt s₀
   have hst := hp.st_fit
   have hd := hp.d_fit
-  rw [part1_eq]
-  refine WP.seq (WP.mono (start_ok hp hle h) fun s₁ ⟨h₁, hz₁⟩ => ?_)
-  refine WP.seq (WP.mono (sel_ok h₁ hz₁) fun s₂ h₂ => ?_)
   -- The pointer to the bytes left in the buffered block, and the length left.
   refine WP.seq (wp_add (op2_imm (by decide)) fun s₃ u₃ => wp_sub (op2_reg _ _) fun s₄ u₄ =>
     wp_sub (op2_reg _ _) fun s₅ u₅ => WP.block_nil ?_)
@@ -429,6 +431,12 @@ theorem part1_ok {s₀ : State} (hp : APre s₀) (hle : L s₀ ≤ N s₀) {s : 
       simp only [List.mem_singleton] at hr; subst hr
       exact ⟨dR s₀, by simp, prefix_sub _ hH⟩)
 
+theorem part1_ok {s₀ : State} (hp : APre s₀) (hle : L s₀ ≤ N s₀) {s : State} (h : Q0 s₀ s) :
+    WP isa part1 s (Q1 s₀) := by
+  rw [part1_eq]
+  exact WP.seq (WP.mono (start_ok hp hle h) fun s₁ ⟨h₁, hz₁⟩ =>
+    WP.seq (WP.mono (sel_ok h₁ hz₁) fun s₂ h₂ => rest1_ok hp h₂))
+
 /-! ## The whole blocks -/
 
 /-- After `part2`: the whole blocks XORed, and the counter advanced past
@@ -465,9 +473,21 @@ theorem blocksArgs_eq : blocksArgs = copyWords .r0 .r4 .r4 0 192 16 ++ ctrInstrs
 theorem shr_nb {nb : Nat} (h : 64 * nb < 2 ^ 32) : BitVec.ofNat 32 (64 * nb) >>> 6 = BitVec.ofNat 32 nb := by
   rw [VG.Proof.MdStream.Arm.shr6 h, show 64 * nb / 64 = nb by omega]
 
-theorem blocks_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s) (hnb : 0 < NB s₀) :
-    WP isa (.seq (.block blocksArgs) (.seq (.call "vg_chacha20_xor" Impl.ChaCha20.Arm.Xor.xor)
-      (.block [.dp .add .r5 .r5 (.reg .r7), .dp .sub .r6 .r6 (.reg .r7)]))) s (Q2 s₀) := by
+/-- The arguments of the call of `vg_chacha20_xor`. -/
+structure Args (s₀ s : State) : Prop where
+  r0 : s.gpr .r0 = ST s₀ + BitVec.ofNat 32 192
+  r1 : s.gpr .r1 = DP s₀ + BitVec.ofNat 32 (H s₀)
+  r2 : s.gpr .r2 = BitVec.ofNat 32 (64 * NB s₀)
+  r3 : s.gpr .r3 = ST s₀ + BitVec.ofNat 32 256
+  r7 : s.gpr .r7 = BitVec.ofNat 32 (64 * NB s₀)
+  rd : s.rd = []
+  wr : s.wr = [stR s₀, dR s₀]
+
+theorem args_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s) :
+    WP isa (.block blocksArgs) s fun s₉ => Args s₀ s₉ ∧
+      (∀ r, r ≠ .r0 → r ≠ .r1 → r ≠ .r3 → r ≠ .r7 → s₉.gpr r = s.gpr r) ∧ s₉.sp = s₀.sp ∧
+      stateAt s₉.mem (st s₀) = ctr (S0 s₀) (NB s₀) ∧ stateAt s₉.mem (st s₀ + BitVec.ofNat 64 192) = S0 s₀ ∧
+      Frame [cpR s₀, ⟨st s₀ + BitVec.ofNat 64 48, 4⟩] s.mem s₉.mem := by
   have hL := L_lt s₀
   have hH := H_le s₀
   have hHNB := HNB_le s₀
@@ -480,9 +500,7 @@ theorem blocks_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s) (h
       fun i n' hi => by rw [hrw]; exact ⟨stR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩,
       fun i n' hi => by rw [h.wr]; exact hp.w_st (by omega),
       Offset.disjoint _ (by omega) (by omega) (by omega)⟩
-  rw [blocksArgs_eq]
-  refine WP.seq ?_
-  rw [WP.block_append_iff]
+  rw [blocksArgs_eq, WP.block_append_iff]
   refine WP.mono (copy_ok hc) fun s₁ h₁ => ?_
   have r4₁ : s₁.gpr .r4 = ST s₀ := by rw [h₁.gpr _ (by decide), h.r4]
   have rd₁ : s₁.rd ++ s₁.wr = [stR s₀, dR s₀] := by rw [h₁.rd, h₁.wr, hrw]
@@ -523,6 +541,40 @@ theorem blocks_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s) (h
   have hwr₉ : s₉.wr = [stR s₀, dR s₀] := by
     rw [u₉.wr, u₈.wr, u₇.wr, u₆.wr, g₅.wr, u₄.wr, u₃.wr, u₂.wr, h₁.wr, h.wr, hp.wr]
   have hsp₉ : s₉.sp = s₀.sp := by rw [u₉.sp, u₈.sp, u₇.sp, u₆.sp, g₅.sp, u₄.sp, u₃.sp, u₂.sp, h₁.sp, h.sp]
+  have f₁ : Frame [cpR s₀] s.mem s₁.mem := h₁.frame
+  have f₉ : Frame [⟨st s₀ + BitVec.ofNat 64 48, 4⟩] s₁.mem s₉.mem := by
+    rw [hm₉]; exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (Region.contains_self _ _)
+  have st₁ : stateAt s₁.mem (st s₀) = S0 s₀ := by
+    rw [Proof.ChaCha20.Arm.Xor.stateAt_frame f₁ (fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; exact Offset.base_disjoint _ (by omega) (by omega)),
+      h.mid.state]
+  have e12 : s₁.mem.readW (st s₀ + BitVec.ofNat 64 48) 32 = (S0 s₀)[12] := by
+    rw [← st₁]; simp [stateAt]
+  have st₉ : stateAt s₉.mem (st s₀) = ctr (S0 s₀) (NB s₀) := by
+    rw [hm₉, Proof.ChaCha20.Arm.Xor.stateAt_writeW_counter, st₁, e12]; rfl
+  have cp₉ : stateAt s₉.mem (st s₀ + BitVec.ofNat 64 192) = S0 s₀ := by
+    refine stateAt_congr fun i hi => ?_
+    rw [Offset.add_add, hm₉, byte_writeW_ofNat _ _ _ (by omega) (by omega) (by omega)]
+    have := h₁.copied i (by omega)
+    rw [Nat.zero_add] at this
+    rw [this]
+    exact h.mid.keep i (by omega)
+  have fc : Frame [cpR s₀, ⟨st s₀ + BitVec.ofNat 64 48, 4⟩] s.mem s₉.mem :=
+    (f₁.mono (by simp)).trans (f₉.mono (by simp))
+  exact ⟨⟨x0, x1, r2₉, x3, x7, hrd₉, hwr₉⟩, g, hsp₉, st₉, cp₉, fc⟩
+
+theorem blocks_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s) (hnb : 0 < NB s₀) :
+    WP isa (.seq (.block blocksArgs) (.seq (.call "vg_chacha20_xor" Impl.ChaCha20.Arm.Xor.xor)
+      (.block [.dp .add .r5 .r5 (.reg .r7), .dp .sub .r6 .r6 (.reg .r7)]))) s (Q2 s₀) := by
+  have hL := L_lt s₀
+  have hH := H_le s₀
+  have hHNB := HNB_le s₀
+  have hT := T_eq s₀
+  have hst := hp.st_fit
+  have hd := hp.d_fit
+  refine WP.seq (WP.mono (args_ok hp h) fun s₉ ⟨⟨x0, x1, r2₉, x3, x7, hrd₉, hwr₉⟩, g, hsp₉, st₉, cp₉, fc⟩ =>
+    ?_)
+  have r4₉ : s₉.gpr .r4 = ST s₀ := by rw [g _ (by decide) (by decide) (by decide) (by decide), h.r4]
   have e192 := hp.eaS (d := 192) (by decide)
   have e256 := hp.eaS (d := 256) (by decide)
   have eH := hp.eaD (d := H s₀) (by omega)
@@ -557,9 +609,6 @@ theorem blocks_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s) (h
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
     exacts [h₁, h₂, h₃]
-  have f₁ : Frame [cpR s₀] s.mem s₁.mem := h₁.frame
-  have f₉ : Frame [⟨st s₀ + BitVec.ofNat 64 48, 4⟩] s₁.mem s₉.mem := by
-    rw [hm₉]; exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (Region.contains_self _ _)
   have c48s : Region.Sub ⟨st s₀ + BitVec.ofNat 64 48, 4⟩ (stR s₀) := Offset.sub_base _ (by omega)
   have stS : Region.Sub ⟨st s₀, 64⟩ (stR s₀) := prefix_sub _ (by omega)
   have bufS : Region.Sub ⟨st s₀ + BitVec.ofNat 64 64, 64⟩ (stR s₀) := Offset.sub_base _ (by omega)
@@ -568,23 +617,6 @@ theorem blocks_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s) (h
     (hp.st_d.sub_left hR).sub_right (blR_sub s₀)
   have ds : ∀ R R', Region.Sub R (dR s₀) → Region.Sub R' (stR s₀) → R.Disjoint R' := fun R R' h₁ h₂ =>
     (hp.st_d.symm.sub_left h₁).sub_right h₂
-  have st₁ : stateAt s₁.mem (st s₀) = S0 s₀ := by
-    rw [Proof.ChaCha20.Arm.Xor.stateAt_frame f₁ (fun r hr => by
-      simp only [List.mem_singleton] at hr; subst hr; exact Offset.base_disjoint _ (by omega) (by omega)),
-      h.mid.state]
-  have e12 : s₁.mem.readW (st s₀ + BitVec.ofNat 64 48) 32 = (S0 s₀)[12] := by
-    rw [← st₁]; simp [stateAt]
-  have st₉ : stateAt s₉.mem (st s₀) = ctr (S0 s₀) (NB s₀) := by
-    rw [hm₉, Proof.ChaCha20.Arm.Xor.stateAt_writeW_counter, st₁, e12]; rfl
-  have cp₉ : stateAt s₉.mem (st s₀ + BitVec.ofNat 64 192) = S0 s₀ := by
-    refine stateAt_congr fun i hi => ?_
-    rw [Offset.add_add, hm₉, byte_writeW_ofNat _ _ _ (by omega) (by omega) (by omega)]
-    have := h₁.copied i (by omega)
-    rw [Nat.zero_add] at this
-    rw [this]
-    exact h.mid.keep i (by omega)
-  have fc : Frame [cpR s₀, ⟨st s₀ + BitVec.ofNat 64 48, 4⟩] s.mem s₉.mem :=
-    (f₁.mono (by simp)).trans (f₉.mono (by simp))
   refine ⟨by rw [g₁₂ _ (by decide) (by decide), gc .r4 (by simp), r4₉], ?_, ?_, fun r hr => ?_,
     by rw [u₁₂.rd, u₁₁.rd, k₁₀.rd, hrd₉, hp.rd], by rw [u₁₂.wr, u₁₁.wr, k₁₀.wr, hwr₉, hp.wr],
     by rw [u₁₂.sp, u₁₁.sp, k₁₀.sp, hsp₉], ?_, fun i hi => ?_, ?_, fun k hk => ?_, ?_⟩
@@ -847,6 +879,15 @@ theorem tail_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Q2 s₀ s) (ht 
     · simp only [List.mem_singleton] at hr; subst hr; exact ⟨stR s₀, by simp, c48⟩
     · simp only [List.mem_singleton] at hr; subst hr; exact ⟨dR s₀, by simp, tR⟩
 
+theorem cmp6_ok {s₀ : State} {s : State} (h : Q2 s₀ s) :
+    WP isa (.block [.cmp .r6 (.imm 0)]) s fun s₁ => Q2 s₀ s₁ ∧ s₁.z = decide (T s₀ = 0) := by
+  have hT64 : T s₀ < 64 := Nat.mod_lt _ (by decide)
+  refine wp_cmp (n := .r6) (op2_imm imm0) fun s₁ f₁ hz => WP.block_nil ?_
+  exact ⟨⟨by rw [f₁.gpr, h.r4], by rw [f₁.gpr, h.r5], by rw [f₁.gpr, h.r6],
+    fun r hr => by rw [f₁.gpr, h.keep r hr], by rw [f₁.rd, h.rd], by rw [f₁.wr, h.wr], by rw [f₁.sp, h.sp],
+    by rw [f₁.mem, h.state], fun i hi => by rw [f₁.mem, h.buf i hi], f₁.mem ▸ h.saved, f₁.mem ▸ h.done,
+    f₁.mem ▸ h.frame⟩, by rw [hz, h.r6, sub_zero', ofNat_beq_zero (by omega)]⟩
+
 theorem part3_eq : part3 = .seq (.block [.cmp .r6 (.imm 0)]) (.ite .eq (.block [])
     (.seq (.block [.mov .r0 (.reg .r4), .dp .add .r1 .r4 (.imm 64)])
       (.seq (.call "vg_chacha20_block" Impl.ChaCha20.Arm.block) tailXor))) := rfl
@@ -854,14 +895,10 @@ theorem part3_eq : part3 = .seq (.block [.cmp .r6 (.imm 0)]) (.ite .eq (.block [
 theorem part3_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Q2 s₀ s) : WP isa part3 s (Q3 s₀) := by
   have hT64 : T s₀ < 64 := Nat.mod_lt _ (by decide)
   rw [part3_eq]
-  refine WP.seq (wp_cmp (n := .r6) (op2_imm imm0) fun s₁ f₁ hz => WP.block_nil ?_)
-  have h₁ : Q2 s₀ s₁ := ⟨by rw [f₁.gpr, h.r4], by rw [f₁.gpr, h.r5], by rw [f₁.gpr, h.r6],
-    fun r hr => by rw [f₁.gpr, h.keep r hr], by rw [f₁.rd, h.rd], by rw [f₁.wr, h.wr], by rw [f₁.sp, h.sp],
-    by rw [f₁.mem, h.state], fun i hi => by rw [f₁.mem, h.buf i hi], f₁.mem ▸ h.saved, f₁.mem ▸ h.done,
-    f₁.mem ▸ h.frame⟩
+  refine WP.seq (WP.mono (cmp6_ok h) fun s₁ ⟨h₁, hz⟩ => ?_)
   refine WP.ite (decide (T s₀ = 0)) (by
       have e : isa.eval .eq s₁ = some s₁.z := eval_eq s₁
-      rw [e, hz, h.r6, sub_zero', ofNat_beq_zero (by omega)])
+      rw [e, hz])
     (fun h0 => WP.block_nil (M := isa) (t_zero_ok h₁ (by simpa using h0)))
     (fun h0 => tail_ok hp h₁ (by simpa using h0))
 
