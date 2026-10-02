@@ -69,6 +69,7 @@ structure BackendOk (B : Backend) : Prop where
   lowBits : FnOk (fun S => Spec.MlDsa.lowBitsContract X86_64.abi S) B.lowBits
   normLt : FnOk (fun S => Spec.MlDsa.normLtContract X86_64.abi S) B.normLt
   makeHint : FnOk (fun S => Spec.MlDsa.makeHintContract X86_64.abi S) B.makeHint
+  useHint : FnOk (fun S => Spec.MlDsa.useHintContract X86_64.abi S) B.useHint
   rej4 : Rej4Ok B.rej4
   expandMask4 : Mask4Ok B.expandMask4
 
@@ -108,6 +109,8 @@ def ArithImpl.sse2 : ArithImpl where
       normLt := FnOk.of Round.normLt_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       makeHint := FnOk.of Round.makeHint_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      useHint := FnOk.of Round.useHint_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       rej4 := ⟨Rej4.rejNTT4_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
         by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4_ret⟩

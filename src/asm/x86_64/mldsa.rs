@@ -5287,6 +5287,158 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_use_hint(h: *const [u32; 256], r: 
     )
 }
 
+/// The CPU features `vg_mldsa_use_hint_avx2` requires (`Artifact.features`).
+pub(crate) const VG_MLDSA_USE_HINT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+
+/// `UseHint` (FIPS 204 Algorithm 40) of each pair of coefficients of `*h` (a hint bit: true if it is not 0) and `*r`, with `gamma2` = `γ₂`: writes the results to `*out`.
+///
+/// Contract: `VG.Spec.MlDsa.useHintContract`. Constant time: only the pointers and `gamma2` may affect timing, not the data.
+///
+/// The function computes on eight coefficients at a time in AVX2 registers, multiplying by shifts and additions; it needs AVX and AVX2.
+///
+/// # Safety
+///
+/// * `h` must be valid for reads of 1024 bytes.
+/// * `r` must be valid for reads of 1024 bytes.
+/// * `out` must be valid for reads and writes of 1024 bytes.
+/// * `gamma2` must be (q - 1)/88 = 95232 or (q - 1)/32 = 261888.
+/// * Each of the 256 `u32`s of `r` must be less than `q` = 8380417.
+/// * `out` must not overlap `h` or `r` (distinct Rust objects never do).
+/// * None of `h`, `r` and `out` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `avx` and `avx2` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_mldsa_use_hint_avx2(h: *const [u32; 256], r: *const [u32; 256], gamma2: u32, out: *mut [u32; 256]) {
+    core::arch::naked_asm!(
+        "mov edx, edx",
+        "cmp edx, 261888",
+        "mov r10, rcx",
+        "je 20f",
+        "mov eax, 127",
+        "vmovq xmm8, rax",
+        "vpbroadcastd ymm8, xmm8",
+        "mov eax, 8388608",
+        "vmovq xmm9, rax",
+        "vpbroadcastd ymm9, xmm9",
+        "mov eax, 44",
+        "vmovq xmm10, rax",
+        "vpbroadcastd ymm10, xmm10",
+        "mov eax, 8380417",
+        "vmovq xmm15, rax",
+        "vpbroadcastd ymm15, xmm15",
+        "mov ecx, 32",
+        "22:",
+        "vmovdqu ymm0, YMMWORD PTR [rsi]",
+        "vmovdqu ymm5, YMMWORD PTR [rdi]",
+        "vmovdqa ymm3, ymm0",
+        "vpaddd ymm0, ymm0, ymm8",
+        "vpsrld ymm0, ymm0, 7",
+        "vmovdqa ymm1, ymm0",
+        "vpslld ymm2, ymm1, 1",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 3",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 10",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 11",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 13",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpaddd ymm0, ymm0, ymm9",
+        "vpsrld ymm0, ymm0, 24",
+        "vmovdqa ymm4, ymm0",
+        "vpslld ymm1, ymm0, 11",
+        "vpslld ymm2, ymm0, 13",
+        "vpaddd ymm1, ymm1, ymm2",
+        "vpslld ymm2, ymm0, 14",
+        "vpaddd ymm1, ymm1, ymm2",
+        "vpslld ymm2, ymm0, 15",
+        "vpaddd ymm1, ymm1, ymm2",
+        "vpslld ymm2, ymm0, 17",
+        "vpaddd ymm1, ymm1, ymm2",
+        "vpsubd ymm1, ymm1, ymm3",
+        "vpsrad ymm1, ymm1, 31",
+        "vpaddd ymm1, ymm1, ymm1",
+        "vpxor ymm2, ymm2, ymm2",
+        "vpsubd ymm2, ymm2, ymm5",
+        "vpor ymm2, ymm2, ymm5",
+        "vpsrad ymm2, ymm2, 31",
+        "vpandn ymm1, ymm1, ymm2",
+        "vpaddd ymm4, ymm4, ymm1",
+        "vpaddd ymm4, ymm4, ymm10",
+        "vpsubd ymm4, ymm4, ymm10",
+        "vpsrad ymm1, ymm4, 31",
+        "vpand ymm1, ymm1, ymm10",
+        "vpaddd ymm4, ymm4, ymm1",
+        "vpsubd ymm4, ymm4, ymm10",
+        "vpsrad ymm1, ymm4, 31",
+        "vpand ymm1, ymm1, ymm10",
+        "vpaddd ymm4, ymm4, ymm1",
+        "vmovdqu YMMWORD PTR [r10], ymm4",
+        "add rdi, 32",
+        "add rsi, 32",
+        "add r10, 32",
+        "sub rcx, 1",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "mov eax, 127",
+        "vmovq xmm8, rax",
+        "vpbroadcastd ymm8, xmm8",
+        "mov eax, 2097152",
+        "vmovq xmm9, rax",
+        "vpbroadcastd ymm9, xmm9",
+        "mov eax, 16",
+        "vmovq xmm10, rax",
+        "vpbroadcastd ymm10, xmm10",
+        "mov eax, 8380417",
+        "vmovq xmm15, rax",
+        "vpbroadcastd ymm15, xmm15",
+        "mov ecx, 32",
+        "23:",
+        "vmovdqu ymm0, YMMWORD PTR [rsi]",
+        "vmovdqu ymm5, YMMWORD PTR [rdi]",
+        "vmovdqa ymm3, ymm0",
+        "vpaddd ymm0, ymm0, ymm8",
+        "vpsrld ymm0, ymm0, 7",
+        "vmovdqa ymm1, ymm0",
+        "vpslld ymm2, ymm1, 10",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpaddd ymm0, ymm0, ymm9",
+        "vpsrld ymm0, ymm0, 22",
+        "vmovdqa ymm4, ymm0",
+        "vpslld ymm1, ymm0, 19",
+        "vpslld ymm2, ymm0, 9",
+        "vpsubd ymm1, ymm1, ymm2",
+        "vpsubd ymm1, ymm1, ymm3",
+        "vpsrad ymm1, ymm1, 31",
+        "vpaddd ymm1, ymm1, ymm1",
+        "vpxor ymm2, ymm2, ymm2",
+        "vpsubd ymm2, ymm2, ymm5",
+        "vpor ymm2, ymm2, ymm5",
+        "vpsrad ymm2, ymm2, 31",
+        "vpandn ymm1, ymm1, ymm2",
+        "vpaddd ymm4, ymm4, ymm1",
+        "vpaddd ymm4, ymm4, ymm10",
+        "vpsubd ymm4, ymm4, ymm10",
+        "vpsrad ymm1, ymm4, 31",
+        "vpand ymm1, ymm1, ymm10",
+        "vpaddd ymm4, ymm4, ymm1",
+        "vpsubd ymm4, ymm4, ymm10",
+        "vpsrad ymm1, ymm4, 31",
+        "vpand ymm1, ymm1, ymm10",
+        "vpaddd ymm4, ymm4, ymm1",
+        "vmovdqu YMMWORD PTR [r10], ymm4",
+        "add rdi, 32",
+        "add rsi, 32",
+        "add r10, 32",
+        "sub rcx, 1",
+        "jne 23b",
+        "21:",
+        "vzeroupper",
+        "ret",
+    )
+}
+
 /// `RejNTTPoly` (FIPS 204 Algorithm 30): writes the element of `T_q` sampled from the SHAKE128 output of the 34 bytes `*seed` to `*a` (256 coefficients less than `q` = 8380417), and returns 1. Returns 0 if the loop reaches its bound, which is at least 894 bytes of SHAKE128 output (FIPS 204 Appendix C; this happens with probability about 2^-256 or less): `*a` is then unspecified, and the caller must destroy it and treat the operation as failed.
 ///
 /// Contract: `VG.Spec.MlDsa.rejNTTContract`. Not constant time in the seed: timing may depend on the pointers and on `*seed` (public in ML-DSA: the seed `ρ` of the matrix and two indices), but not on anything else.
