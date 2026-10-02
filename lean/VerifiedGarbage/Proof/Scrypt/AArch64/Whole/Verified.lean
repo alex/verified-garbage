@@ -91,7 +91,7 @@ open VG.Proof.Pbkdf2.Md.AArch64 (hmacInit_fdepth hmacFin_fdepth iterate_fdepth)
 /-- How deeply frames nest in `pbkdf2`. -/
 theorem pbkdf2_fdepth {H : Hash} (hi : H.initC.aarch64Depth ≤ 1) (hu : H.updC.aarch64Depth ≤ 1)
     (hf : H.finC.aarch64Depth ≤ 1) (hc : H.compC.noFrames = true) : H.pbkdf2.aarch64Depth ≤ 1 := by
-  have := hmacInit_fdepth hi hu
+  have := hmacInit_fdepth hi hc
   have := hmacFin_fdepth hf hc
   have := iterate_fdepth hc
   simp only [Hash.pbkdf2, Hash.key, Hash.hashKey, Hash.setup, Hash.block, Hash.outLen, Hash.outLoop,

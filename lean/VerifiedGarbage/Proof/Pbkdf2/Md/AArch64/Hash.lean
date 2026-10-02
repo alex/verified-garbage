@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.Pbkdf2.Md.AArch64
-import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Hash
+import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Calls
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.Proof.Pbkdf2.AArch64.IterateCT
 
@@ -10,8 +10,8 @@ As on x86-64 (`Proof/Pbkdf2/Md/X86_64/Hash.lean`), `HashOK H` is what the
 proofs know of the hash function whose code `H` describes: it is a
 Merkle–Damgård hash function `md` (`Md`) whose length field and digest code do
 what they should (`Shape`), with a verified compression function (`CompOk`);
-its streaming functions are verified against the contracts HMAC's generic
-proofs call them with (`stream`); its specification is `md` from the initial
+its streaming functions are verified against the contracts HMAC's and
+PBKDF2's proofs call them with (`stream`, `Calls.lean`); its specification is `md` from the initial
 hash value `iv`, with the digest the first `D` bytes of `md`'s; and its sizes
 fit.
 -/
@@ -36,7 +36,7 @@ structure HashOK (H : Hash) where
   /-- The length field is right for every message shorter than 2⁶⁴ bytes. -/
   lenOk : ∀ n, n < 2 ^ 64 → md.lenOk n
   /-- The streaming functions, verified. -/
-  stream : Hmac.Generic.AArch64.HashOK H.stream
+  stream : Calls.StreamOK H.stream
   /-- Checked no-clobber facts for the MD wrapper call graph. -/
   initKeepsV : H.initC.allInstrs keepsV = true
   updKeepsV : H.updC.allInstrs keepsV = true
@@ -101,8 +101,32 @@ theorem finOut_keepsV : H.finOut.all keepsV = true := by
   have ho := hH.shape.outKeepsV
   by_cases hDN : H.D < H.P.N <;>
   simp only [Hash.finOut, hDN, ↓reduceIte, List.all_append, List.all_cons, ho, Bool.and_true, Bool.true_and] <;>
-  simp [Hash.copy32, Impl.Pbkdf2.AArch64.cp32, Impl.Hmac.Generic.AArch64.Hash.restore,
-    Impl.Hmac.Generic.AArch64.Hash.saved, Impl.MdStream.AArch64.mov, keepsV, vdstOf]
+  simp [Hash.copy32, Impl.Pbkdf2.AArch64.cp32, Impl.Pbkdf2.Md.AArch64.Stream.restore,
+    Impl.Pbkdf2.Md.AArch64.Stream.saved, Impl.MdStream.AArch64.mov, keepsV, vdstOf]
+
+include hH in
+/-- HMAC's `init` writes no SIMD register but in the functions it calls,
+which write none either. -/
+theorem hmacInit_keepsV : H.hmacInit.allInstrs keepsV = true := by
+  have hi := hH.initKeepsV
+  have hc := hH.comp.keepsV
+  have h1 : H.ipadFill.all keepsV = true := by
+    rw [List.all_eq_true]; intro i hi
+    simp only [Hash.ipadFill, List.mem_append, List.mem_cons, List.mem_map, List.mem_range,
+      List.not_mem_nil, or_false] at hi
+    rcases hi with ((rfl | rfl) | ⟨k, -, rfl⟩) | rfl <;> rfl
+  have h2 : H.opadFill.all keepsV = true := by
+    rw [List.all_eq_true]; intro i hi
+    simp only [Hash.opadFill, Hash.opadW, List.mem_append, List.mem_cons, List.mem_flatMap, List.mem_range,
+      List.not_mem_nil, or_false] at hi
+    rcases hi with ((rfl | rfl) | ⟨k, -, rfl | rfl | rfl⟩) | rfl <;> rfl
+  rw [Code.allInstrs_eq] at hi hc ⊢
+  simp only [Hash.hmacInit, Hash.initKeys, Hash.keyLoop, Impl.Pbkdf2.Md.AArch64.Stream.callInit,
+    Impl.MdStream.AArch64.compressAt, Impl.MdStream.AArch64.compressWith, Hash.stream, instrs,
+    List.all_append, hi, hc, h1, h2, Bool.and_true, Bool.true_and]
+  simp [Hash.initPrologue, Hash.initOuter, Hash.stream, Impl.Pbkdf2.Md.AArch64.Stream.save,
+    Impl.Pbkdf2.Md.AArch64.Stream.saved, Impl.Pbkdf2.Md.AArch64.Stream.restore, Impl.MdStream.AArch64.mov,
+    keepsV, vdstOf]
 
 include hH in
 /-- The MD PBKDF2 wrapper uses only scalar instructions around its certified callees. -/
@@ -112,20 +136,13 @@ theorem pbkdf2_keepsV : H.pbkdf2.allInstrs keepsV = true := by
   have hf := hH.finKeepsV
   have ht : H.iterate.allInstrs keepsV = true :=
     Pbkdf2.AArch64.iterate_keepsV hH.shape hH.comp.keepsV
-  have hinit : H.hmacInit.allInstrs keepsV = true := by
-    simp [Hash.hmacInit, Hash.stream, Impl.Hmac.Generic.AArch64.Hash.init,
-      Impl.Hmac.Generic.AArch64.Hash.initKeys, Impl.Hmac.Generic.AArch64.Hash.initPrologue,
-      Impl.Hmac.Generic.AArch64.Hash.keyLoop, Impl.Hmac.Generic.AArch64.Hash.padLoop,
-      Impl.Hmac.Generic.AArch64.Hash.callInit, Impl.Hmac.Generic.AArch64.Hash.callUpd,
-      Impl.Hmac.Generic.AArch64.Hash.save, Impl.Hmac.Generic.AArch64.Hash.saved,
-      Impl.Hmac.Generic.AArch64.Hash.restore, Impl.Hmac.Generic.AArch64.left,
-      Impl.Sha256.AArch64.Stream.mov, Code.allInstrs, keepsV, vdstOf, hi, hu]
+  have hinit : H.hmacInit.allInstrs keepsV = true := hH.hmacInit_keepsV
   have hfin : H.hmacFin.allInstrs keepsV = true := by
     rw [Code.allInstrs_eq] at hf ⊢
-    simp only [Hash.hmacFin, Impl.Hmac.Generic.AArch64.Hash.callFin, instrs, List.all_append,
+    simp only [Hash.hmacFin, Impl.Pbkdf2.Md.AArch64.Stream.callFin, instrs, List.all_append,
       hH.finMid_keepsV, hH.cmp_keepsV, hH.finOut_keepsV, Bool.and_true]
-    simp [Hash.stream, hf, Impl.Hmac.Generic.AArch64.Hash.finPrologue, Impl.Hmac.Generic.AArch64.Hash.save,
-      Impl.Hmac.Generic.AArch64.Hash.saved, Impl.MdStream.AArch64.mov, Impl.Sha256.AArch64.Stream.mov, keepsV,
+    simp [Hash.stream, hf, Impl.Pbkdf2.Md.AArch64.Stream.finPrologue, Impl.Pbkdf2.Md.AArch64.Stream.save,
+      Impl.Pbkdf2.Md.AArch64.Stream.saved, Impl.MdStream.AArch64.mov, Impl.MdStream.AArch64.mov, keepsV,
       vdstOf]
   have hk : H.key.allInstrs keepsV = true := by
     simp [Hash.key, Hash.keyShr, Hash.keySub, Hash.short, Hash.hashKey, Hash.hkInit,
@@ -141,8 +158,8 @@ theorem pbkdf2_keepsV : H.pbkdf2.allInstrs keepsV = true := by
       Hash.outLoop, Hash.advance, Hash.copy32, Impl.Pbkdf2.AArch64.cp32,
       Impl.MdStream.AArch64.mov, instrs, keepsV, vdstOf, hu, hfin, ht]
   simp [Hash.pbkdf2, Hash.entry, Hash.entryPre, Hash.entryPost, Hash.loopRegs,
-    Hash.exit, Impl.Hmac.Generic.AArch64.Hash.save, Impl.Hmac.Generic.AArch64.Hash.saved,
-    Impl.Hmac.Generic.AArch64.Hash.restore, Impl.MdStream.AArch64.mov,
+    Hash.exit, Impl.Pbkdf2.Md.AArch64.Stream.save, Impl.Pbkdf2.Md.AArch64.Stream.saved,
+    Impl.Pbkdf2.Md.AArch64.Stream.restore, Impl.MdStream.AArch64.mov,
     Code.allInstrs, keepsV, vdstOf, hk, hs, hb]
 
 end HashOK
