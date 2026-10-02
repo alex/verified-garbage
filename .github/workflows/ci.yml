@@ -472,6 +472,14 @@ jobs:
             arch: aarch64
             os: ubuntu-24.04-arm
             tests: aes_gcm cmac sha1 sha224 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          # AES-GCM's instances for AES's or GHASH's extension alone, which no
+          # x86-64 runner or chip has without the other.
+          - chip: native
+            cpu-features: aes,ssse3
+            tests: aes_gcm cpu
+          - chip: native
+            cpu-features: pclmulqdq,ssse3
+            tests: aes_gcm cpu
     name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }}${{ matrix.arch && format(', {0}', matrix.arch) || '' }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     container:

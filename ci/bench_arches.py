@@ -61,13 +61,17 @@ PLATFORMS = {
 # feature `_avx2_ifma` in verification. A runner without AVX512_IFMA
 # chooses `_adx` and `_avx2_adx` instead of those two, and no runner has
 # the SHA512 extension, so `_shani`, `_shani_adx` and `_shani_ifma` are
-# only tested (under SDE, in ci.yml).
+# only tested (under SDE, in ci.yml). `aes,ssse3` and `pclmulqdq,ssse3`
+# choose AES-GCM's `_aesni` and `_pclmul`, which a runner with both
+# extensions never does.
 CPU_FEATURES = {
     "x86_64": [
         "avx,avx2,bmi1,bmi2,adx",
         "avx,avx2,bmi1,bmi2",
         "bmi2,adx",
         "avx,avx2,bmi2,adx,avx512ifma,avx512vl",
+        "aes,ssse3",
+        "pclmulqdq,ssse3",
         "none",
     ],
     "aarch64": ["sha3", "none"],

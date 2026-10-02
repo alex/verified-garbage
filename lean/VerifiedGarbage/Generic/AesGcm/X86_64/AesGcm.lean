@@ -15,6 +15,11 @@ implementation. The emitter adds the `# Safety` items that depend on the
 target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract.
 
+Each function needs the CPU features of the implementations it calls:
+`init` calls only AES's, `stream_init` and `stream_aad` only GHASH's (so
+their `_aesni` or `_pclmul` instances are the baseline code under another
+name, which keeps every instance of a combination callable together).
+
 The stack is 8 bytes for every function: the return address of a call of
 `vg_aes_expand_key`, `vg_aes_ctr32` or `vg_ghash`, which make no calls.
 -/
@@ -38,7 +43,7 @@ def artifacts (v : GcmImpl) : List Artifact := [
     stack := 8
     verified := init_verified v
     spSafe := init_spSafe v
-    features := v.features },
+    features := (v.ctr.features ++ v.key.features).dedup },
   { Spec.Gcm.sealApi with
     name := Spec.Gcm.sealApi.name ++ v.suffix
     target := X86_64.target
@@ -68,7 +73,7 @@ def artifacts (v : GcmImpl) : List Artifact := [
     stack := 8
     verified := streamInit_verified v
     spSafe := streamInit_spSafe v
-    features := v.features },
+    features := v.gh.features },
   { Spec.Gcm.streamAadApi with
     name := Spec.Gcm.streamAadApi.name ++ v.suffix
     target := X86_64.target
@@ -78,7 +83,7 @@ def artifacts (v : GcmImpl) : List Artifact := [
     stack := 8
     verified := streamAad_verified v
     spSafe := streamAad_spSafe v
-    features := v.features },
+    features := v.gh.features },
   { Spec.Gcm.streamEncryptApi with
     name := Spec.Gcm.streamEncryptApi.name ++ v.suffix
     target := X86_64.target
