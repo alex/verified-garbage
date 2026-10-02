@@ -393,8 +393,8 @@ jobs:
   #   them, and Ed25519 with AVX2's SHA-512 and ADX's field (`_avx2_adx`);
   # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F or ADX, so ChaCha20
   #   and Poly1305 with AVX2 even where this runner has AVX-512F, X25519's
-  #   baseline, and Ed25519 with AVX2's SHA-512 and the baseline field
-  #   (`_avx2`);
+  #   baseline, Ed25519 with AVX2's SHA-512 and the baseline field
+  #   (`_avx2`), and ML-DSA with its polynomial arithmetic in AVX2;
   # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
   #   leaf 7, so the baseline ISA's implementations everywhere;
   # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
@@ -418,7 +418,7 @@ jobs:
       matrix:
         chip: [native, skx, hsw, p4p]
         # Ed25519's are `ed25519` and RFC 8032's other two.
-        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
+        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
         include:
           - chip: arl
             tests: sha384 sha512 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu

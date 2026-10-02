@@ -25,6 +25,45 @@ pub(crate) fn message_rep(tr: &[u8; 64], msg: &[u8], ctx: &[u8]) -> Option<[u8; 
     Some(mu)
 }
 
+/// The implementations of ML-DSA's verified functions: their instances for
+/// the polynomial arithmetic and Keccak they call (`Generic/MlDsaArith/` and
+/// the Keccak backend, `crate::hashes::sha3::Backend`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Backend {
+    /// The target's baseline ISA (on x86-64, SSE2 polynomial arithmetic),
+    /// with scalar Keccak.
+    Scalar,
+    /// AArch64 with the SHA-3 extension, for Keccak.
+    #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+    Sha3,
+    /// x86-64 with AVX2, for the polynomial arithmetic.
+    #[cfg(target_arch = "x86_64")]
+    Avx2,
+}
+
+impl Backend {
+    /// The implementation for the Keccak backend `keccak`, on a CPU with the
+    /// features `f`, of functions whose AVX2 instances need `avx2`.
+    #[cfg_attr(not(target_arch = "x86_64"), allow(unused_variables))]
+    pub(crate) fn select(
+        keccak: crate::hashes::sha3::Backend,
+        f: crate::cpu::Features,
+        avx2: &[&[&str]],
+    ) -> Backend {
+        match keccak {
+            crate::hashes::sha3::Backend::Scalar => {
+                #[cfg(target_arch = "x86_64")]
+                if f.contains(crate::cpu::Features::all(avx2)) {
+                    return Backend::Avx2;
+                }
+                Backend::Scalar
+            }
+            #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+            crate::hashes::sha3::Backend::Sha3 => Backend::Sha3,
+        }
+    }
+}
+
 /// Defines the API of one ML-DSA parameter set: its `Error`, `SigningKey`
 /// and `VerifyingKey`, over its verified `keygen`, `sign` and `verify`
 /// functions (which take `μ`) and its sizes.
@@ -39,6 +78,9 @@ macro_rules! ml_dsa {
         keygen_sha3: ($keygen_sha3:path, $keygen_sha3_features:path),
         sign_sha3: ($sign_sha3:path, $sign_sha3_features:path),
         verify_sha3: ($verify_sha3:path, $verify_sha3_features:path),
+        keygen_avx2: ($keygen_avx2:path, $keygen_avx2_features:path),
+        sign_avx2: ($sign_avx2:path, $sign_avx2_features:path),
+        verify_avx2: ($verify_avx2:path, $verify_avx2_features:path),
         pk: $pk:literal,
         sk: $sk:literal,
         sig: $sig:literal,
@@ -46,10 +88,12 @@ macro_rules! ml_dsa {
     ) => {
         use $crate::mldsa_common::message_rep;
         use $crate::zeroize::zeroize;
-        use $crate::hashes::sha3::Backend;
+        use $crate::mldsa_common::Backend;
 
-        /// Follow the shared Keccak backend only when all generated callers'
-        /// feature requirements are met. The draft's default stays scalar.
+        /// The implementation to call: the Keccak backend, followed only
+        /// when all generated callers' feature requirements are met (the
+        /// draft's default stays scalar), and AVX2 for the polynomial
+        /// arithmetic on x86-64 when the CPU has what its callers need.
         fn backend() -> Backend {
             #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
             if !$crate::cpu::detected().contains($crate::cpu::Features::all(&[
@@ -59,7 +103,11 @@ macro_rules! ml_dsa {
             ])) {
                 return Backend::Scalar;
             }
-            Backend::detected()
+            #[cfg(target_arch = "x86_64")]
+            const AVX2: &[&[&str]] = &[$keygen_avx2_features, $sign_avx2_features, $verify_avx2_features];
+            #[cfg(not(target_arch = "x86_64"))]
+            const AVX2: &[&[&str]] = &[];
+            Backend::select($crate::hashes::sha3::Backend::detected(), $crate::cpu::detected(), AVX2)
         }
 
         /// Why an operation failed.
@@ -140,6 +188,8 @@ macro_rules! ml_dsa {
                         Backend::Scalar => $verify(&self.bytes, mu, sig, &mut scratch),
                         #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
                         Backend::Sha3 => $verify_sha3(&self.bytes, mu, sig, &mut scratch),
+                        #[cfg(target_arch = "x86_64")]
+                        Backend::Avx2 => $verify_avx2(&self.bytes, mu, sig, &mut scratch),
                     }
                 };
                 if r == 1 { Ok(()) } else { Err(Error::InvalidSignature) }
@@ -196,6 +246,8 @@ macro_rules! ml_dsa {
                         Backend::Scalar => $keygen(seed, &mut key.vk.bytes, &mut key.sk, &mut scratch),
                         #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
                         Backend::Sha3 => $keygen_sha3(seed, &mut key.vk.bytes, &mut key.sk, &mut scratch),
+                        #[cfg(target_arch = "x86_64")]
+                        Backend::Avx2 => $keygen_avx2(seed, &mut key.vk.bytes, &mut key.sk, &mut scratch),
                     }
                 };
                 zeroize(&mut scratch);
@@ -274,6 +326,8 @@ macro_rules! ml_dsa {
                         Backend::Scalar => $sign(&self.sk, mu, rnd, &mut sig, &mut scratch),
                         #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
                         Backend::Sha3 => $sign_sha3(&self.sk, mu, rnd, &mut sig, &mut scratch),
+                        #[cfg(target_arch = "x86_64")]
+                        Backend::Avx2 => $sign_avx2(&self.sk, mu, rnd, &mut sig, &mut scratch),
                     }
                 };
                 zeroize(&mut scratch);
