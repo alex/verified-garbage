@@ -123,7 +123,7 @@ theorem slay_ok {p : Params} (hp : p ∈ params) {s : State} (h : SPre p s) (h8 
     (slay p s).Ok := by
   have hX := slay_X p s
   have hXs := hX.sub
-  refine ⟨h8, oE_lt hp, (skLen_ge hp).2, ?_, ⟨rScr p s, by simp [slay, h.wr], hX⟩, by simp [slay, h.rd],
+  refine ⟨h8, oE_lt hp, skLen_ge hp, ?_, ⟨rScr p s, by simp [slay, h.wr], hX⟩, by simp [slay, h.rd],
     by simp [slay, h.rd], by simp [slay, h.rd], h.skScr.symm.sub_left hXs, h.msgScr.symm.sub_left hXs,
     h.ctxScr.symm.sub_left hXs, h.stkScr.sub_right hXs, h.stkSk, h.stkMsg, h.stkCtx, h.nSk, h.nMsg, h.nCtx, ?_⟩
   · have := h.sp; have := (s.gpr .rsp).isLt

@@ -136,7 +136,7 @@ abbrev CTX : Region := ⟨L.ctx, L.ctxLen.toNat⟩
 structure Ok : Prop where
   ctxLt : L.ctxLen.toNat < 256
   hE : L.E + 1024 < 2 ^ 31
-  hKey : L.keyLen < 2 ^ 31
+  hKey : 128 ≤ L.keyLen ∧ L.keyLen < 2 ^ 31
   nB : L.B.toNat + 104 < 2 ^ 64
   inX : ∃ R ∈ L.wr, Within L.XS R
   inKey : L.KEY ∈ L.rd
@@ -227,6 +227,13 @@ theorem regs (hc : Ctx L g mx m₀ t) (hrd : t'.rd = t.rd) (hwr : t'.wr = t.wr) 
     by rw [hm]; exact hc.pCtxLen, by rw [hm]; exact hc.pCtx, by rw [hm]; exact hc.pLen,
     by rw [hm]; exact hc.pMsg, by rw [hm]; exact hc.pKey, by rw [hm]; exact hc.hdr,
     by rw [hm]; exact hc.frame⟩
+
+/-- The same state, with the entry registers, MXCSR and memory given by others equal to them. -/
+theorem congr (hc : Ctx L g mx m₀ t) {g' : Reg → BitVec 64} {mx' : BitVec 32} {m₀' : Mem}
+    (hg : ∀ r ∈ calleeSaved, r ≠ .rsp → g r = g' r) (hmx : mx = mx') (hm : m₀ = m₀') : Ctx L g' mx' m₀' t := by
+  subst hmx hm
+  exact ⟨hc.rd, hc.wr, hc.rsp, fun r hr hr' => (hc.cs r hr hr').trans (hg r hr hr'), hc.mx, hc.pScr, hc.pRnd,
+    hc.pSig, hc.pCtxLen, hc.pCtx, hc.pLen, hc.pMsg, hc.pKey, hc.hdr, hc.frame⟩
 
 /-- A slot of the frame is readable. -/
 theorem inFr (hc : Ctx L g mx m₀ t) {d : Nat} (h₂ : d + 8 ≤ 72) :

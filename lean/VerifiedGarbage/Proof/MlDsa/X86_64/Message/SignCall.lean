@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MlDsa.X86_64.Message.SignPre
+import VerifiedGarbage.Proof.MlDsa.X86_64.Message.Rel
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.Verified
 
 /-!
@@ -50,6 +51,61 @@ theorem below24 (B : Addr) : below (B + BitVec.ofNat 64 24) 24 = ⟨B, 24⟩ := 
   show (⟨B + BitVec.ofNat 64 24 - BitVec.ofNat 64 24, 24⟩ : Region) = _
   rw [BitVec.add_sub_cancel]
 
+/-- The regions the signing function on `μ` reads and writes. -/
+abbrev signRd (p : Params) (s : State) : List Region :=
+  [⟨s.gpr .rdi, p.skLen⟩, ⟨(slay p s).MU, 64⟩, ⟨s.gpr .r9, 32⟩]
+abbrev signWr (p : Params) (s : State) : List Region := [⟨stackArg s 0, p.sigLen⟩, rScrMu p s]
+
+theorem signArgs_ok (hp : p ∈ params) : (signArgs p).all Arg.ok = true := by
+  have := oE_lt hp
+  simp only [signArgs, Impl.MlDsa.X86_64.Message.aMu, List.all_cons, List.all_nil, Arg.ok, fKey, fRnd, fSig,
+    fScr, Bool.and_true, Bool.and_eq_true, decide_eq_true_eq]
+  omega
+
+/-- The registers after the moves of the arguments. -/
+theorem signRegs_of {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : Mem} {t t1 : State}
+    (hc : Ctx (slay p s) g mx m₀ t) (hm : Moved (signArgs p) t t1) :
+    t1.gpr .rdi = s.gpr .rdi ∧ t1.gpr .rsi = (slay p s).MU ∧ t1.gpr .rdx = s.gpr .r9 ∧
+      t1.gpr .rcx = stackArg s 0 ∧ t1.gpr .r8 = stackArg s 1 := by
+  obtain ⟨e1, e2, e3, e4, e5⟩ := argsIn5 hm.1.1
+  rw [hc.slot, fKey, hc.pKey] at e1
+  rw [hc.aMu p rfl] at e2
+  rw [hc.slot, fRnd, hc.pRnd] at e3
+  rw [hc.slot, fSig, hc.pSig] at e4
+  rw [hc.slot, fScr, hc.pScr] at e5
+  exact ⟨e1, e2, e3, e4, e5⟩
+
+/-- The precondition of the signing function on `μ`, on entry to it. -/
+theorem signK_pre (hp : p ∈ params) (h : SPre p s) (h8 : (s.gpr .r8).toNat < 256) {g : Reg → BitVec 64}
+    {mx : BitVec 32} {m₀ : Mem} {t t1 : State} (hc : Ctx (slay p s) g mx m₀ t) (hm : Moved (signArgs p) t t1) :
+    (signK p 24).pre (t1.callEntry.withRegions (signRd p s) (signWr p s)) := by
+  have hL := slay_ok hp h h8
+  have hc1 : Ctx (slay p s) g mx m₀ t1 :=
+    hc.regs hm.2.2.1 hm.2.2.2 hm.1.2.1 hm.1.2.2 fun r hr => hm.2.gpr (argRegs_cs r hr)
+  obtain ⟨e1, e2, e3, e4, e5⟩ := signRegs_of hc hm
+  simp only [signK, State.withRegions_rd, State.withRegions_wr, gpr_ce t1 _ _ (by decide : Reg.rdi ≠ .rsp),
+    gpr_ce t1 _ _ (by decide : Reg.rsi ≠ .rsp), gpr_ce t1 _ _ (by decide : Reg.rdx ≠ .rsp),
+    gpr_ce t1 _ _ (by decide : Reg.rcx ≠ .rsp), gpr_ce t1 _ _ (by decide : Reg.r8 ≠ .rsp), rsp_ce,
+    e1, e2, e3, e4, e5, Sign.retR, hc1.rsp, sp_sub8, below24]
+  have hsub := scrMu_sub p s
+  have hmu := (mu_within p s).sub
+  have hB := hL.nB
+  have hn := h.nScr
+  have hE := oE_lt hp
+  refine ⟨trivial, trivial, h.skSig, h.skScr.sub_right hsub, h.sigScr.symm.sub_left hmu, mu_scrMu hp s, h.rndSig,
+    h.rndScr.sub_right hsub, h.sigScr.sub_right hsub, hL.stk_r h.stkSk (by omega),
+    hL.stk_x (d := 24) (n := 8) (e := 840) (k := 64) (by omega) (by omega), hL.stk_r h.stkRnd (by omega),
+    hL.stk_r h.stkSig (by omega), hL.stk_r (h.stkScr.sub_right hsub) (by omega), ?_, ?_, ?_, ?_, ?_, h.nSk, ?_,
+    h.nRnd, h.nSig, by simp only [mScrLen, scrLen, messageScratchWords] at hn ⊢; omega, ?_⟩
+  · exact h.stkSk.sub_left (Region.sub_prefix (by omega))
+  · exact (hL.kX.sub_left (Region.sub_prefix (by omega))).sub_right (Offset.sub_base _ (by omega))
+  · exact h.stkRnd.sub_left (Region.sub_prefix (by omega))
+  · exact h.stkSig.sub_left (Region.sub_prefix (by omega))
+  · exact (h.stkScr.sub_right hsub).sub_left (Region.sub_prefix (by omega))
+  · exact mu_nowrap h
+  · rw [toNat_add_ofNat (by omega)]; omega
+
+
 /-- The call of the signing function on `μ`. -/
 theorem signCall_ok {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ params) (h : SPre p s)
     (h8 : (s.gpr .r8).toNat < 256) {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : Mem} {t : State}
@@ -62,43 +118,12 @@ theorem signCall_ok {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
           (bytesAt t.mem (s.gpr .r9) 32)) ((s'.gpr .rax).setWidth 32)
         (bytesAt s'.mem (stackArg s 0) p.sigLen) := by
   have hL := slay_ok hp h h8
-  have hok : (signArgs p).all Arg.ok = true := by
-    have := hL.hE
-    simp only [signArgs, Impl.MlDsa.X86_64.Message.aMu, List.all_cons, List.all_nil, Arg.ok, fKey, fRnd, fSig,
-      fScr, Bool.and_true, Bool.and_eq_true, decide_eq_true_eq]
-    simp only [slay] at this
-    omega
-  refine WP.seq (WP.mono (setArgs_ok _ hok t hc.frOk) fun t1 ⟨⟨hA, hm, hx⟩, k⟩ => ?_)
-  have hc1 : Ctx (slay p s) g mx m₀ t1 := hc.regs k.2.1 k.2.2 hm hx fun r hr => k.gpr (argRegs_cs r hr)
-  obtain ⟨e1, e2, e3, e4, e5⟩ := argsIn5 hA
-  rw [hc.slot, fKey, hc.pKey] at e1
-  rw [hc.aMu p rfl] at e2
-  rw [hc.slot, fRnd, hc.pRnd] at e3
-  rw [hc.slot, fSig, hc.pSig] at e4
-  rw [hc.slot, fScr, hc.pScr] at e5
-  have hpre : (signK p 24).pre (t1.callEntry.withRegions
-      [⟨s.gpr .rdi, p.skLen⟩, ⟨(slay p s).MU, 64⟩, ⟨s.gpr .r9, 32⟩] [⟨stackArg s 0, p.sigLen⟩, rScrMu p s]) := by
-    simp only [signK, State.withRegions_rd, State.withRegions_wr, gpr_ce t1 _ _ (by decide : Reg.rdi ≠ .rsp),
-      gpr_ce t1 _ _ (by decide : Reg.rsi ≠ .rsp), gpr_ce t1 _ _ (by decide : Reg.rdx ≠ .rsp),
-      gpr_ce t1 _ _ (by decide : Reg.rcx ≠ .rsp), gpr_ce t1 _ _ (by decide : Reg.r8 ≠ .rsp), rsp_ce,
-      e1, e2, e3, e4, e5, Sign.retR, hc1.rsp, sp_sub8, below24]
-    have hsub := scrMu_sub p s
-    have hmu := (mu_within p s).sub
-    have hB := hL.nB
-    have hn := h.nScr
-    have hE := oE_lt hp
-    refine ⟨rfl, rfl, h.skSig, h.skScr.sub_right hsub, h.sigScr.symm.sub_left hmu, mu_scrMu hp s, h.rndSig,
-      h.rndScr.sub_right hsub, h.sigScr.sub_right hsub, hL.stk_r h.stkSk (by omega),
-      hL.stk_x (d := 24) (n := 8) (e := 840) (k := 64) (by omega) (by omega), hL.stk_r h.stkRnd (by omega),
-      hL.stk_r h.stkSig (by omega), hL.stk_r (h.stkScr.sub_right hsub) (by omega), ?_, ?_, ?_, ?_, ?_, h.nSk, ?_,
-      h.nRnd, h.nSig, by simp only [slay, mScrLen, scrLen, messageScratchWords] at hn ⊢; omega, ?_⟩
-    · exact h.stkSk.sub_left (Region.sub_prefix (by omega))
-    · exact (hL.kX.sub_left (Region.sub_prefix (by omega))).sub_right (Offset.sub_base _ (by omega))
-    · exact h.stkRnd.sub_left (Region.sub_prefix (by omega))
-    · exact h.stkSig.sub_left (Region.sub_prefix (by omega))
-    · exact (h.stkScr.sub_right hsub).sub_left (Region.sub_prefix (by omega))
-    · exact mu_nowrap h
-    · rw [toNat_add_ofNat (by omega)]; omega
+  refine WP.seq (WP.mono (setArgs_ok _ (signArgs_ok hp) t hc.frOk) fun t1 hm => ?_)
+  obtain ⟨⟨hA, hm', hx⟩, k⟩ := hm
+  have hc1 : Ctx (slay p s) g mx m₀ t1 := hc.regs k.2.1 k.2.2 hm' hx fun r hr => k.gpr (argRegs_cs r hr)
+  obtain ⟨e1, e2, e3, e4, e5⟩ := signRegs_of hc ⟨⟨hA, hm', hx⟩, k⟩
+  have hpre := signK_pre hp h h8 hc ⟨⟨hA, hm', hx⟩, k⟩
+  have hm := hm'
   have hdep := hS.depth
   have hsub := scrMu_sub p s
   have hrsp1 : t1.gpr .rsp = (slay p s).SP := hc1.rsp
@@ -136,9 +161,9 @@ theorem signCall_ok {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
       gpr_ce t1 _ _ (by decide : Reg.rsi ≠ .rsp), gpr_ce t1 _ _ (by decide : Reg.rdx ≠ .rsp),
       gpr_ce t1 _ _ (by decide : Reg.rcx ≠ .rsp), e1, e2, e3, e4, hm₂] at hq
     have hL := slay_ok hp h h8
-    rw [hc1.ce_bytesAt (p := (slay p s).key) (hL.stk_r h.stkSk (by omega)) (by have := h.nSk; omega),
+    rw [hc1.ce_bytesAt (p := s.gpr .rdi) (hL.stk_r h.stkSk (by omega)) (by have := h.nSk; omega),
       hc1.ce_bytesAt (p := (slay p s).MU) (hL.stk_x (d := 24) (n := 8) (e := 840) (k := 64) (by omega)
         (by omega)) (by omega),
-      hc1.ce_bytesAt (p := (slay p s).rnd) (hL.stk_r h.stkRnd (by omega)) (by omega), hm,
+      hc1.ce_bytesAt (p := s.gpr .r9) (hL.stk_r h.stkRnd (by omega)) (by omega), hm,
       hg₂ _ (by decide)] at hq
     exact hq

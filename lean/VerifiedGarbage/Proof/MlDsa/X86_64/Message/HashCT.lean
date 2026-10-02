@@ -82,7 +82,7 @@ theorem kabs_tr {Φ : Lay → Mem → State → Prop} (hΦ : ∀ L m t, Φ L m t
   refine call_tr hok Proof.Sha3.X86_64.Stream.Absorb.absorb_correct
     Proof.Sha3.X86_64.Stream.Absorb.absorb_ct (fun L => [⟨dp L, n L⟩]) (fun L => [⟨L.ST, 200⟩, ⟨L.KS, 640⟩])
     (fun L g mx m₀ t t1 hL hc hφ hm => absorb_pre (args L g mx m₀ t t1 hL hc hφ hm))
-    (fun L g₁ g₂ mx₁ mx₂ m₁ m₂ a b a1 b1 hL _ c₁ c₂ φ₁ φ₂ f₁ f₂ => ?_) fun L hL => ?_
+    (fun L g₁ g₂ mx₁ mx₂ m₁ m₂ a b a1 b1 hL _ c₁ c₂ φ₁ φ₂ f₁ f₂ => ?_) fun L _ _ _ _ hL _ _ => ?_
   · have x := args L g₁ mx₁ m₁ a a1 hL c₁ φ₁ f₁
     have y := args L g₂ mx₂ m₂ b b1 hL c₂ φ₂ f₂
     simp only [Proof.Sha3.absorbX86_64, gpr_ce _ _ _ (by decide : Reg.rdi ≠ .rsp),
@@ -117,7 +117,7 @@ theorem kpad_tr {Φ : Lay → Mem → State → Prop} (hΦ : ∀ L m t, Φ L m t
   refine call_tr hok Proof.Sha3.X86_64.Stream.Pad.pad_correct Proof.Sha3.X86_64.Stream.Pad.pad_ct
     (fun _ => []) (fun L => [⟨L.ST, 200⟩, ⟨L.KS, 640⟩])
     (fun L g mx m₀ t t1 hL hc hφ hm => pad_pre (args L g mx m₀ t t1 hL hc hφ hm))
-    (fun L g₁ g₂ mx₁ mx₂ m₁ m₂ a b a1 b1 hL _ c₁ c₂ φ₁ φ₂ f₁ f₂ => ?_) fun L hL => ?_
+    (fun L g₁ g₂ mx₁ mx₂ m₁ m₂ a b a1 b1 hL _ c₁ c₂ φ₁ φ₂ f₁ f₂ => ?_) fun L _ _ _ _ hL _ _ => ?_
   · have x := args L g₁ mx₁ m₁ a a1 hL c₁ φ₁ f₁
     have y := args L g₂ mx₂ m₂ b b1 hL c₂ φ₂ f₂
     simp only [Proof.Sha3.padX86_64, gpr_ce _ _ _ (by decide : Reg.rdi ≠ .rsp),
@@ -148,7 +148,7 @@ theorem ksqz_tr {Φ : Lay → Mem → State → Prop} (hΦ : ∀ L m t, Φ L m t
   refine call_tr hok Proof.Sha3.X86_64.Stream.Squeeze.squeeze_correct
     Proof.Sha3.X86_64.Stream.Squeeze.squeeze_ct (fun _ => []) (fun L => [⟨L.ST, 200⟩, ⟨L.MU, 64⟩, ⟨L.KS, 640⟩])
     (fun L g mx m₀ t t1 hL hc hφ hm => squeeze_pre (args L g mx m₀ t t1 hL hc hφ hm))
-    (fun L g₁ g₂ mx₁ mx₂ m₁ m₂ a b a1 b1 hL _ c₁ c₂ φ₁ φ₂ f₁ f₂ => ?_) fun L hL => ?_
+    (fun L g₁ g₂ mx₁ mx₂ m₁ m₂ a b a1 b1 hL _ c₁ c₂ φ₁ φ₂ f₁ f₂ => ?_) fun L _ _ _ _ hL _ _ => ?_
   · have x := args L g₁ mx₁ m₁ a a1 hL c₁ φ₁ f₁
     have y := args L g₂ mx₂ m₂ b b1 hL c₂ φ₂ f₂
     simp only [Proof.Sha3.squeezeX86_64, gpr_ce _ _ _ (by decide : Reg.rdi ≠ .rsp),
@@ -282,7 +282,7 @@ theorem trHash_tr (hE : oE p + 1024 < 2 ^ 31) (hk : p.pkLen < 2 ^ 31) {Φ : Lay 
       (∃ R ∈ L.rd ++ L.FR :: L.wr, Within ⟨L.key, L.keyLen⟩ R) ∧
       Region.Disjoint ⟨L.key, L.keyLen⟩ ⟨L.ST, 200⟩ ∧ Region.Disjoint ⟨L.key, L.keyLen⟩ ⟨L.KS, 640⟩ ∧
       Region.Disjoint ⟨L.B, 32⟩ ⟨L.key, L.keyLen⟩ := fun L hL =>
-    ⟨by decide, by have := hL.hKey; omega, ⟨L.KEY, List.mem_append_left _ hL.inKey, within_self _⟩,
+    ⟨by decide, by have := hL.hKey.2; omega, ⟨L.KEY, List.mem_append_left _ hL.inKey, within_self _⟩,
       by have := hL.x_r hL.xKey (e := 0) (k := 200) (by decide); simpa only [x0] using this.symm,
       (hL.x_r hL.xKey (e := 200) (k := 640) (by decide)).symm,
       hL.kKey.sub_left (Region.sub_prefix (by decide))⟩

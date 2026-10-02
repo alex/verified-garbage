@@ -69,6 +69,25 @@ theorem setArgs_spOnly (as : List Arg) : ∀ i ∈ setArgs as, SpOnly i := by
   have hd : d ∈ argRegs6 := (List.of_mem_zip hm).1
   exact arg_spOnly d (fun e => by subst e; revert hd; decide) a i hi
 
+/-! ## Runs related through their entry states -/
+
+/-- Two runs whose states are related to entry states `x`, `y` by `A`, with
+`P x y`. -/
+def Ghost (P A : State → State → Prop) (a b : State) : Prop := ∃ x y, P x y ∧ A x a ∧ A y b
+
+/-- What each run satisfies by correctness, from its entry state, carries over. -/
+theorem ghost_step {P A B : State → State → Prop} {c : Prog isa}
+    (hct : RelCT isa (Ghost P A) c fun _ _ => True)
+    (hw : ∀ x y a b, P x y → A x a → A y b → WP isa c a (B x) ∧ WP isa c b (B y)) :
+    RelCT isa (Ghost P A) c (Ghost P B) := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  obtain ⟨ht, -⟩ := hct _ _ _ _ _ _ hp e₁ e₂
+  obtain ⟨x, y, hxy, a₁, a₂⟩ := hp
+  obtain ⟨⟨_, u₁, x₁, y₁⟩, ⟨_, u₂, x₂, y₂⟩⟩ := hw x y s₁ s₂ hxy a₁ a₂
+  obtain ⟨-, rfl⟩ := Exec.det e₁ x₁
+  obtain ⟨-, rfl⟩ := Exec.det e₂ x₂
+  exact ⟨ht, x, y, hxy, y₁, y₂⟩
+
 /-! ## Two runs -/
 
 /-- Two runs with the layout `L`, inputs related by `I`, each satisfying `Φ`. -/
@@ -116,8 +135,8 @@ theorem call_tr {Φ : Lay → Mem → State → Prop} {as : List Arg} (hok : as.
     (hpub : ∀ (L : Lay) g₁ g₂ mx₁ mx₂ m₁ m₂ (a b a1 b1 : State), L.Ok → I L m₁ m₂ → Ctx L g₁ mx₁ m₁ a →
       Ctx L g₂ mx₂ m₂ b → Φ L m₁ a → Φ L m₂ b → Moved as a a1 → Moved as b b1 →
       k.pub (a1.callEntry.withRegions (rd L) (wr L)) (b1.callEntry.withRegions (rd L) (wr L)))
-    (hcov : ∀ L : Lay, L.Ok → (∀ r ∈ rd L, ∃ R ∈ L.rd ++ L.FR :: L.wr, Within r R) ∧
-      (∀ r ∈ wr L, ∃ R ∈ L.wr, Within r R)) :
+    (hcov : ∀ (L : Lay) g mx m₀ (t : State), L.Ok → Ctx L g mx m₀ t → Φ L m₀ t →
+      (∀ r ∈ rd L, ∃ R ∈ L.rd ++ L.FR :: L.wr, Within r R) ∧ (∀ r ∈ wr L, ∃ R ∈ L.wr, Within r R)) :
     RelCT isa (Two I Φ) (callA n c as) fun _ _ => True := by
   refine RelCT.seq (RelCT.postDep (Q := fun a1 b1 => ∃ a b, Two I Φ a b ∧ Moved as a a1 ∧ Moved as b b1)
     (block_rsp_tr (setArgs_spOnly as) fun _ _ h => h.rsp)
@@ -126,7 +145,7 @@ theorem call_tr {Φ : Lay → Mem → State → Prop} {as : List Arg} (hok : as.
     fun x y x1 y1 hp f₁ f₂ => ⟨x, y, hp, f₁, f₂⟩) ?_
   refine RelCT.callEx hv hct fun a1 b1 ⟨a, b, hp, f₁, f₂⟩ => ?_
   obtain ⟨L, g₁, g₂, mx₁, mx₂, m₁, m₂, hL, hi, c₁, c₂, φ₁, φ₂⟩ := hp
-  obtain ⟨hr, hw⟩ := hcov L hL
+  obtain ⟨hr, hw⟩ := hcov L g₁ mx₁ m₁ a hL c₁ φ₁
   have cov : ∀ {t t1 : State} {g mx m₀}, Ctx L g mx m₀ t → Moved as t t1 →
       Covers (rd L ++ wr L) (t1.rd ++ t1.wr) ∧ Covers (wr L) t1.wr := fun hc f => by
     rw [f.2.2.1, f.2.2.2, hc.rd, hc.wr]

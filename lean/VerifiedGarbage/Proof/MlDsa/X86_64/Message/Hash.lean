@@ -324,7 +324,7 @@ theorem muHash_ok (hL : L.Ok) (hE : oE p = L.E) {t : State} (hc : Ctx L g mx m�
 theorem trHash_ok (hL : L.Ok) (hE : oE p = L.E) (hk : L.keyLen = p.pkLen) {t : State} (hc : Ctx L g mx m₀ t) :
     WP isa (trHash p) t fun t' => Ctx L g mx m₀ t' ∧ Frame [L.XS, ⟨L.B, 32⟩] t.mem t'.mem ∧
       bytesAt t'.mem L.MU 64 = Spec.MlDsa.H (bytesAt m₀ L.key L.keyLen) 64 := by
-  have hkl := hL.hKey
+  have hkl := hL.hKey.2
   refine WP.seq (WP.mono (zeroSt_ok hL hE hc) fun t1 ⟨hc1, hf1, hz⟩ => ?_)
   have hR1 : Repr t1.mem L.ST 136 [] := Proof.MlKem.repr_nil hz
   have wk : ∃ R ∈ L.rd ++ L.FR :: L.wr, Within ⟨L.key, L.keyLen⟩ R :=
