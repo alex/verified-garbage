@@ -12,7 +12,7 @@
 ))]
 
 use serde::Deserialize;
-use verified_garbage::chacha20poly1305::{ChaCha20Poly1305, InvalidTag};
+use verified_garbage::chacha20poly1305::{ChaCha20Poly1305, Error};
 
 use crate::harness::{self, Expectation, Hex};
 use crate::require_vectors;
@@ -56,11 +56,11 @@ fn chacha20_poly1305() {
             let mut data = c.msg.0.clone();
             let sealed = aead.encrypt_in_place(&nonce, &c.aad.0, &mut data);
             assert_eq!(data, c.ct.0, "tcId {}", test.tc_id);
-            assert_eq!(sealed, tag, "tcId {}", test.tc_id);
+            assert_eq!(sealed, Ok(tag), "tcId {}", test.tc_id);
         } else {
             // There are no acceptable vectors.
             assert_eq!(test.result, Expectation::Invalid, "tcId {}", test.tc_id);
-            assert_eq!(opened, Err(InvalidTag), "tcId {}", test.tc_id);
+            assert_eq!(opened, Err(Error::TagMismatch), "tcId {}", test.tc_id);
             assert!(data.iter().all(|&b| b == 0), "tcId {}", test.tc_id);
         }
         checked += 1;
