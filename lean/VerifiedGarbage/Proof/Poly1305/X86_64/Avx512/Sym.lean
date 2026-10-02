@@ -13,7 +13,8 @@ a block of such instructions as a term (`Q`) in the quadwords, general-purpose
 registers and memory before it, and `srun_ok` proves the machine agrees.
 Every instruction but the loads, `vpunpck{l,h}qdq`, `vshufi32x4`, `vmovq` and
 `vpbroadcastq` acts on each quadword on its own, so a term is evaluated at a
-quadword `k < 8`.
+quadword `k < 8`. The second source of `vpmuludq`, `vpandq` and `vporq` may
+be a quadword of the state at `rdi`, broadcast (`zbcst`).
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx512
@@ -119,6 +120,8 @@ inductive Q
   | bc (a : Q)
   /-- Quadword `i + k` of memory at `rsi`. -/
   | ld (i : Nat)
+  /-- The quadword of memory at `rdi + d`, in every quadword. -/
+  | mb (d : Nat)
   | add (a b : Q)
   /-- The product of the low doublewords. -/
   | mul (a b : Q)
@@ -150,6 +153,7 @@ def Q.eval (s₀ : State) : Q → Nat → BitVec 64
   | .lane0 a, k => if k = 0 then a.eval s₀ 0 else 0
   | .bc a, _ => a.eval s₀ 0
   | .ld i, k => s₀.mem.readW (s₀.gpr .rsi + BitVec.ofNat 64 (8 * (i + k))) 64
+  | .mb d, _ => s₀.mem.readW (s₀.gpr .rdi + BitVec.ofInt 64 (d : Int)) 64
   | .add a b, k => a.eval s₀ k + b.eval s₀ k
   | .mul a b, k => lo32 (a.eval s₀ k) * lo32 (b.eval s₀ k)
   | .and a b, k => a.eval s₀ k &&& b.eval s₀ k
@@ -203,11 +207,23 @@ def ldIdx (m : MemOp) : Option Nat :=
     if m.disp = 0 then some 0 else if m.disp = 64 then some 8 else none
   else none
 
+/-- A quadword at `rdi + d` (for `56 ≤ d`, `d + 8 ≤ 120`). -/
+def mbIdx (m : MemOp) : Option Nat :=
+  if m.base = .rdi ∧ m.index = none ∧ 56 ≤ m.disp ∧ m.disp + 8 ≤ 120 then some m.disp.toNat else none
+
+/-- `op` with the quadword at `rdi + e` broadcast as its second source. -/
+def Sym.bcst (σ : Sym) (op : ZBcstOp) (d a : XReg) (e : Nat) : Sym :=
+  match op with
+  | .vpmuludq => σ.set d (.mul (σ.reg (xi a)) (.mb e))
+  | .vpandq => σ.set d (.and (σ.reg (xi a)) (.mb e))
+  | .vporq => σ.set d (.or (σ.reg (xi a)) (.mb e))
+
 /-- One instruction; loads only if `ld`. -/
 def Sym.step (ld : Bool) (σ : Sym) : Instr → Option Sym
   | .zop o => σ.zop o
   | .vop (.vmovq d r) => some (σ.set d (.lane0 (.gpr r)))
   | .vmovdqu32Load d m => if ld then (ldIdx m).map fun i => σ.set d (.ld i) else none
+  | .zbcst op d a m => if ld then (mbIdx m).map (σ.bcst op d a) else none
   | _ => none
 
 def Sym.run (ld : Bool) (σ : Sym) : List Instr → Option Sym
@@ -252,9 +268,11 @@ theorem SRel.set {σ : Sym} {s₀ s : State} (h : SRel σ s₀ s) {d : XReg} {t 
   · rfl
   · exact h.reg r k hk
 
-/-- What the loads may read: 128 bytes at `rsi`. -/
-def Ctx (s₀ : State) : Prop :=
-  ∀ i, i = 0 ∨ i = 8 → InRegions (s₀.rd ++ s₀.wr) (s₀.gpr .rsi + BitVec.ofNat 64 (8 * i)) 64
+/-- What the loads may read: 128 bytes at `rsi`, and quadwords of the state
+at `rdi`. -/
+structure Ctx (s₀ : State) : Prop where
+  ld : ∀ i, i = 0 ∨ i = 8 → InRegions (s₀.rd ++ s₀.wr) (s₀.gpr .rsi + BitVec.ofNat 64 (8 * i)) 64
+  mb : ∀ d : Nat, 56 ≤ d → d + 8 ≤ 120 → InRegions (s₀.rd ++ s₀.wr) (s₀.gpr .rdi + BitVec.ofInt 64 (d : Int)) 8
 
 theorem ldIdx_ok {m : MemOp} {i : Nat} (h : ldIdx m = some i) :
     (i = 0 ∨ i = 8) ∧ ∀ s : State, s.ea m = s.gpr .rsi + BitVec.ofNat 64 (8 * i) := by
@@ -271,6 +289,32 @@ theorem ldIdx_ok {m : MemOp} {i : Nat} (h : ldIdx m = some i) :
         simp only [State.ea, hb.2, hb.1, *]; rfl
       · cases h
   · cases h
+
+theorem mbIdx_ok {m : MemOp} {e : Nat} (h : mbIdx m = some e) :
+    56 ≤ e ∧ e + 8 ≤ 120 ∧ ∀ s : State, s.ea m = s.gpr .rdi + BitVec.ofInt 64 (e : Int) := by
+  unfold mbIdx at h
+  split at h
+  · rename_i hb
+    obtain ⟨hr, hi, h₁, h₂⟩ := hb
+    cases h
+    have e : ((m.disp.toNat : Nat) : Int) = m.disp := Int.toNat_of_nonneg (by omega)
+    refine ⟨by omega, by omega, fun s => ?_⟩
+    simp only [State.ea, hi, hr, e]
+  · cases h
+
+theorem qword_vv (v : BitVec 64) {j : Nat} (hj : j < 2) : qword (v ++ v) j = v := by
+  rcases (by omega : j = 0 ∨ j = 1) with rfl | rfl
+  · exact Avx2.qword_app0 v v
+  · exact Avx2.qword_app1 v v
+
+theorem qz_bcst (op : ZBcstOp) (s : State) (d a r : XReg) (v : BitVec 64) {k : Nat} (hk : k < 8) :
+    qz (s.setZ d (op.sse.eval (s.zlane a 0) (v ++ v)) (op.sse.eval (s.zlane a 1) (v ++ v))
+      (op.sse.eval (s.zlane a 2) (v ++ v)) (op.sse.eval (s.zlane a 3) (v ++ v))) r k =
+      if r = d then qword (op.sse.eval (s.zlane a (k / 2)) (v ++ v)) (k % 2) else qz s r k := by
+  simp only [qz]
+  rw [State.zlane_setZ _ _ _ _ _ _ _ (div2_lt hk),
+    pick4_lanes (fun j => op.sse.eval (s.zlane a j) (v ++ v)) (div2_lt hk)]
+  split <;> rfl
 
 theorem hv_of {s s' : State} {d : XReg} {f : Nat → BitVec 64} (hd : ∀ k, k < 8 → qz s' d k = f k)
     (ho : ∀ r, r ≠ d → ∀ k, k < 8 → qz s' r k = qz s r k) :
@@ -355,13 +399,38 @@ theorem sstep_ok {ld : Bool} {s₀ : State} (hc : ld = true → Ctx s₀) {σ σ
     obtain ⟨hi, hea⟩ := ldIdx_ok hs
     have ea : s.ea m = s₀.gpr .rsi + BitVec.ofNat 64 (8 * i) := by rw [hea, h.gpr]
     have hin : InRegions (s.rd ++ s.wr) (s₀.gpr .rsi + BitVec.ofNat 64 (8 * i)) 64 := by
-      rw [h.rd, h.wr]; exact hc hld i hi
+      rw [h.rd, h.wr]; exact (hc hld).ld i hi
     let v := s.mem.readW (s₀.gpr .rsi + BitVec.ofNat 64 (8 * i)) 512
     refine ⟨s.setZ d (v.extractLsb' 0 128) (v.extractLsb' 128 128) (v.extractLsb' 256 128)
       (v.extractLsb' 384 128), by simp only [exec, ea, State.load512, hin, ite_true, Option.map_some, v], ?_⟩
     refine h.set (hv_of (fun k hk => ?_) (fun r hr k hk => by rw [qz_load _ _ _ _ hk, ite_eq_right hr]))
       (vec_setZ h.eq _ _ _ _ _)
     rw [qz_load _ _ _ _ hk, ite_eq_left rfl, h.mem, Offset.add_add]; simp only [Q.eval, Nat.mul_add]
+  · rename_i op d a m
+    split at e
+    case isFalse => cases e
+    rename_i hld
+    obtain ⟨i, hs, rfl⟩ := Option.map_eq_some_iff.1 e
+    obtain ⟨h₁, h₂, hea⟩ := mbIdx_ok hs
+    have ea : s.ea m = s₀.gpr .rdi + BitVec.ofInt 64 (i : Int) := by rw [hea, h.gpr]
+    have hin : InRegions (s.rd ++ s.wr) (s₀.gpr .rdi + BitVec.ofInt 64 (i : Int)) 8 := by
+      rw [h.rd, h.wr]; exact (hc hld).mb i h₁ h₂
+    have hv : s.mem.readW (s₀.gpr .rdi + BitVec.ofInt 64 (i : Int)) 64 =
+        s₀.mem.readW (s₀.gpr .rdi + BitVec.ofInt 64 (i : Int)) 64 := by rw [h.mem]
+    let v := s.mem.readW (s₀.gpr .rdi + BitVec.ofInt 64 (i : Int)) 64
+    have hv' : v = s₀.mem.readW (s₀.gpr .rdi + BitVec.ofInt 64 (i : Int)) 64 := hv
+    refine ⟨s.setZ d (op.sse.eval (s.zlane a 0) (v ++ v)) (op.sse.eval (s.zlane a 1) (v ++ v))
+      (op.sse.eval (s.zlane a 2) (v ++ v)) (op.sse.eval (s.zlane a 3) (v ++ v)),
+      by simp only [exec, ea, State.load64, hin, ite_true, Option.map_some, v], ?_⟩
+    have he := vec_setZ h.eq d (op.sse.eval (s.zlane a 0) (v ++ v)) (op.sse.eval (s.zlane a 1) (v ++ v))
+      (op.sse.eval (s.zlane a 2) (v ++ v)) (op.sse.eval (s.zlane a 3) (v ++ v))
+    cases op <;>
+      refine h.set (hv_of (fun k hk => ?_) (fun r hr k hk => by rw [qz_bcst _ _ _ _ _ _ hk, ite_eq_right hr]))
+        he <;>
+      rw [qz_bcst _ _ _ _ _ _ hk, ite_eq_left rfl] <;> simp only [ZBcstOp.sse, Q.eval]
+    · rw [qword_pmuludq _ _ (mod2_lt k), qz_lane, hR a k hk, qword_vv _ (mod2_lt k), hv']
+    · rw [XBinOp.eval, qword_and, qz_lane, hR a k hk, qword_vv _ (mod2_lt k), hv']
+    · rw [XBinOp.eval, qword_or, qz_lane, hR a k hk, qword_vv _ (mod2_lt k), hv']
   · cases e
 
 /-- A block of instructions. -/

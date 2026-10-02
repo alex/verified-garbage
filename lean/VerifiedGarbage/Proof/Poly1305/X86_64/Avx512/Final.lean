@@ -110,7 +110,9 @@ def sumB : Bnds :=
     | .xmm0 | .xmm1 | .xmm2 | .xmm3 | .xmm4 => 2 ^ 27 - 1
     | _ => 2 ^ 64 - 1,
    fun _ => 2 ^ 32 - 1,
-   fun g => if g = .r8 then 2 ^ 26 - 1 else 2 ^ 64 - 1⟩
+   fun g => if g = .r8 then 2 ^ 26 - 1 else 2 ^ 64 - 1,
+   fun _ => 2 ^ 64 - 1,
+   fun _ => 2 ^ 32 - 1⟩
 
 def smS : Sym := (Sym.init.run false sumLanes).get (by decide +kernel)
 theorem smS_eq : Sym.init.run false sumLanes = some smS := (Option.some_get _).symm
@@ -133,7 +135,8 @@ theorem smS_nat (E : Env) : ∀ i < 5, (smS.reg (xi (hreg i))).nat E 0 =
 
 theorem sumB_env {s : State} (hr8 : s.gpr .r8 = 0x3ffffff) (hb : ∀ k < 8, ∀ i < 5, hv s k i < 2 ^ 27) :
     EnvOK s sumB := by
-  refine ⟨fun r k hk => ?_, fun r k hk => ?_, fun g => ?_⟩
+  refine ⟨fun r k hk => ?_, fun r k hk => ?_, fun g => ?_, fun _ => Nat.le_sub_one_of_lt (BitVec.isLt _),
+    fun _ => Nat.le_sub_one_of_lt (Nat.mod_lt _ (by decide))⟩
   · have := BitVec.isLt (qz s r k)
     cases r <;> simp only [sumB] <;> first
       | omega
