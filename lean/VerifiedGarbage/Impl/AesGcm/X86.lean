@@ -21,9 +21,11 @@ Every function has a buffer `W` of 2560 bytes (`scratch` or `work`):
   lengths block;
 * `[112, 128)`: the tag `open` computes;
 * `[128, 144)`: our caller's `ebx`, `esi`, `edi`, `ebp`;
-* `[144, 240)`: the values kept for the whole function (`ctxO`, …), copied
+* `[144, 196)`: the values kept for the whole function (`ctxO`, …), copied
   from the arguments on entry;
-* `[240, 256)` and `[256, 272)`: the two tags compared, padded with zeros;
+* `[196, 212)` and `[240, 256)`: the received tag and the computed one,
+  compared, padded with zeros (the first is kept by the pieces, like the
+  values before it);
 * `[272, 288)`: the arguments of the piece running (`dO`, `nO`, `bO`);
 * `[512, 2560)`: the working space of the functions called.
 
@@ -97,7 +99,7 @@ abbrev auxO : Nat := 184
 abbrev zO : Nat := 188
 abbrev nlO : Nat := 192
 abbrev vO : Nat := 240
-abbrev rO : Nat := 256
+abbrev rO : Nat := 196
 abbrev dO : Nat := 272
 abbrev nO : Nat := 276
 abbrev bO : Nat := 280

@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.AesGcm.X86.StreamAad
 import VerifiedGarbage.Proof.AesGcm.X86.StreamInit
 import VerifiedGarbage.Proof.AesGcm.X86.StreamDecrypt
 import VerifiedGarbage.Proof.AesGcm.X86.StreamFinish
+import VerifiedGarbage.Proof.AesGcm.X86.StreamVerify
 import VerifiedGarbage.Proof.AesGcm.X86.Init
 import VerifiedGarbage.Proof.Framework.Contract
 
@@ -152,6 +153,36 @@ theorem streamFinish_verified : Verified X86.target streamFinish (Spec.Gcm.strea
     sig_implies [Spec.Gcm.streamFinishContract, Spec.Gcm.streamFinishSig, streamFinishX86, finPre, pubN,
       roundsOk, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
       [a0, a1, a2, a3, a4, a5, a6, a7, e, esp] using finSat)
+
+/-- A state satisfying `vg_aes_gcm_stream_verify`'s precondition: as
+`finSat`, with a `tag_len` of 0. -/
+def verSat : State where
+  gpr r := match r with | .esp => 0x8000 | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem a := if a = 0x8005 then 0x10 else if a = 0x8008 then 10 else if a = 0x800d then 0x30
+    else if a = 0x8021 then 0x40 else 0
+  rd := [⟨0x1000, 256⟩]
+  wr := [⟨0x3000, 80⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 36⟩]
+
+theorem streamVerify_verified : Verified X86.target streamVerify (Spec.Gcm.streamVerifyContract X86.abi 28) :=
+  Verified.of_correct streamVerify_correct streamVerify_ct (by
+    have a0 : arg verSat 0 = 0x1000 := by decide
+    have a1 : arg verSat 1 = 10 := by decide
+    have a2 : arg verSat 2 = 0x3000 := by decide
+    have a3 : arg verSat 3 = 0 := by decide
+    have a4 : arg verSat 4 = 0 := by decide
+    have a5 : arg verSat 5 = 0 := by decide
+    have a6 : arg verSat 6 = 0 := by decide
+    have a7 : arg verSat 7 = 0x4000 := by decide
+    have a8 : arg verSat 8 = 0 := by decide
+    have e : argAddr verSat 0 = 0x8004 := by decide
+    have esp : verSat.gpr .esp = 0x8000 := rfl
+    sig_implies [Spec.Gcm.streamVerifyContract, Spec.Gcm.streamVerifySig, streamVerifyX86, verifyPre, pubN,
+      roundsOk, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      [a0, a1, a2, a3, a4, a5, a6, a7, a8, e, esp] using verSat)
 
 /-- A state satisfying `vg_aes_gcm_init`'s precondition: a 16-byte key at
 `0x1000`, the context at `0x2000` and `scratch` at `0x4000`. -/

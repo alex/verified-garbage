@@ -230,10 +230,10 @@ theorem cmpTail_ok {W : BitVec 32} {s : State} (he : WEnv W s) :
     generalize s.mem.readW (w64 W + BitVec.ofNat 64 244) 32 = a₁
     generalize s.mem.readW (w64 W + BitVec.ofNat 64 248) 32 = a₂
     generalize s.mem.readW (w64 W + BitVec.ofNat 64 252) 32 = a₃
-    generalize s.mem.readW (w64 W + BitVec.ofNat 64 256) 32 = b₀
-    generalize s.mem.readW (w64 W + BitVec.ofNat 64 260) 32 = b₁
-    generalize s.mem.readW (w64 W + BitVec.ofNat 64 264) 32 = b₂
-    generalize s.mem.readW (w64 W + BitVec.ofNat 64 268) 32 = b₃
+    generalize s.mem.readW (w64 W + BitVec.ofNat 64 196) 32 = b₀
+    generalize s.mem.readW (w64 W + BitVec.ofNat 64 200) 32 = b₁
+    generalize s.mem.readW (w64 W + BitVec.ofNat 64 204) 32 = b₂
+    generalize s.mem.readW (w64 W + BitVec.ofNat 64 208) 32 = b₃
     have e := xor4_eq_zero a₀ a₁ a₂ a₃ b₀ b₁ b₂ b₃
     by_cases h : a₀ = b₀ ∧ a₁ = b₁ ∧ a₂ = b₂ ∧ a₃ = b₃
     · obtain ⟨rfl, rfl, rfl, rfl⟩ := h
@@ -269,18 +269,18 @@ theorem recv_ok {W : BitVec 32} {t : Nat} {s : State} (he : WEnv W s) (hv : slot
   have rIn : ∀ {o}, o + 4 ≤ 2560 → InRegions (s.rd ++ s.wr) (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn' ho
   rw [slotv_eq] at hv
   simp only [tglO] at hv
-  have hz := zero4_fold s.mem W 256
+  have hz := zero4_fold s.mem W 196
   simp only [Nat.reduceAdd] at hz
-  have hv' : (Cmac.zero4 s.mem (w64 W + BitVec.ofNat 64 256)).readW (w64 W + BitVec.ofNat 64 180) 32 =
+  have hv' : (Cmac.zero4 s.mem (w64 W + BitVec.ofNat 64 196)).readW (w64 W + BitVec.ofNat 64 180) 32 =
       BitVec.ofNat 32 t := by
-    have fz : Frame [⟨w64 W + BitVec.ofNat 64 256, 16⟩] s.mem (Cmac.zero4 s.mem (w64 W + BitVec.ofNat 64 256)) :=
+    have fz : Frame [⟨w64 W + BitVec.ofNat 64 196, 16⟩] s.mem (Cmac.zero4 s.mem (w64 W + BitVec.ofNat 64 196)) :=
       Cmac.frame_store4 _ _ _ _ _
     rw [slot_frame (W := W) (o := 180) fz (fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr
-      exact Lay.w_w (W := W) (a := 180) (n := 4) (d := 256) (k := 16) (by decide) (by decide) (by decide))]
+      exact Lay.w_w (W := W) (a := 180) (n := 4) (d := 196) (k := 16) (by decide) (by decide) (by decide))]
     exact hv
   refine WP.seq (WP.of_runBlock ⟨_, by xrun [recv, zero4, he.ebp, aW, wIn, rIn, readW_writeW_off, hv, hz, hv'], ?_⟩)
-  refine WP.mono (padLoop_ok (o := 0) (d := 256) (t := t) (m := s.mem) (he.keep (by regs []) (by mems []))
+  refine WP.mono (padLoop_ok (o := 0) (d := 196) (t := t) (m := s.mem) (he.keep (by regs []) (by mems []))
     (by mems []) (by regs [he.ebp]; exact (BitVec.add_zero W).symm) (by regs [he.ebp]) (by regs []) ht1 ht
     (.inl (by decide)) (by decide) (by decide)) fun s' ⟨b, f, g, rd, wr⟩ => ⟨?_, f, ?_, ?_, ?_, ?_, ?_⟩
   · simpa using b
@@ -309,5 +309,109 @@ theorem recv_ct {I : State → Prop} {W : BitVec 32} {t : Nat}
   simp only [tglO] at hv
   exact WP.of_runBlock ⟨_, by xrun [zero4, he.ebp, aW, wIn, rIn, readW_writeW_off, hv], by regs [he.ebp],
     by regs [he.ebp], by regs []⟩
+
+/-- `cmp o`: the first `t` bytes at `W + o`, padded, compared with the 16 at `W + rO`. -/
+theorem cmp_ok {W : BitVec 32} {t o : Nat} {s : State} (he : WEnv W s) (hv : slotv s.mem W tglO = BitVec.ofNat 32 t)
+    (ht1 : 1 ≤ t) (ht : t ≤ 16) (ho : o + 16 ≤ vO) :
+    WP isa (cmp o) s fun s' => s'.gpr .eax = BitVec.ofNat 32
+        (if bytesAt s.mem (w64 W + BitVec.ofNat 64 o) t ++ zeros (16 - t) =
+            bytesAt s.mem (w64 W + BitVec.ofNat 64 rO) 16 then 1 else 0) ∧
+      Frame [⟨w64 W + BitVec.ofNat 64 vO, 16⟩] s.mem s'.mem ∧ s'.gpr .ebp = s.gpr .ebp ∧ s'.gpr .esi = s.gpr .esi ∧
+      s'.gpr .esp = s.gpr .esp ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  have aW : ∀ {o}, o < 2560 → w64 (W + BitVec.ofNat 32 o) = w64 W + BitVec.ofNat 64 o := fun ho => he.aW ho
+  have wIn : ∀ {o}, o + 4 ≤ 2560 → InRegions s.wr (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn ho
+  have rIn : ∀ {o}, o + 4 ≤ 2560 → InRegions (s.rd ++ s.wr) (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn' ho
+  rw [slotv_eq] at hv
+  simp only [tglO] at hv
+  simp only [vO] at ho
+  have hz := zero4_fold s.mem W 240
+  simp only [Nat.reduceAdd] at hz
+  have fz : Frame [⟨w64 W + BitVec.ofNat 64 240, 16⟩] s.mem (Cmac.zero4 s.mem (w64 W + BitVec.ofNat 64 240)) :=
+    Cmac.frame_store4 _ _ _ _ _
+  have hv' : (Cmac.zero4 s.mem (w64 W + BitVec.ofNat 64 240)).readW (w64 W + BitVec.ofNat 64 180) 32 =
+      BitVec.ofNat 32 t := by
+    rw [slot_frame (W := W) (o := 180) fz (fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr
+      exact Lay.w_w (W := W) (a := 180) (n := 4) (d := 240) (k := 16) (by decide) (by decide) (by decide))]
+    exact hv
+  refine WP.seq (WP.of_runBlock ⟨_, by xrun [zero4, he.ebp, aW, wIn, rIn, readW_writeW_off, hv, hz, hv'], ?_⟩)
+  refine WP.seq (WP.mono (padLoop_ok (o := o) (d := 240) (t := t) (m := s.mem) (he.keep (by regs []) (by mems []))
+    (by mems []) (by regs [he.ebp]) (by regs [he.ebp]) (by regs []) ht1 ht
+    (.inl (by omega)) (by omega) (by decide)) fun s' ⟨b, f, g, rd, wr⟩ => ?_)
+  have he' : WEnv W s' := ⟨by rw [g _ (by decide) (by decide) (by decide) (by decide)]; regs [he.ebp],
+    by rw [wr]; mems [he.wW], he.fw⟩
+  refine WP.mono (cmpTail_ok he') fun s'' ⟨a, m, rd', wr', g'⟩ => ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · have hr : bytesAt s'.mem (w64 W + BitVec.ofNat 64 rO) 16 = bytesAt s.mem (w64 W + BitVec.ofNat 64 rO) 16 :=
+      bytesAt_frame f (fun r hr => by
+        simp only [List.mem_singleton] at hr; subst hr
+        exact Lay.w_w (W := W) (a := 196) (n := 16) (d := 240) (k := 16) (by decide) (by decide) (by decide))
+        (by decide)
+    simp only [vO] at a
+    rw [a, b, hr]
+  · rw [m]; exact f
+  · rw [g' _ (by decide) (by decide), g _ (by decide) (by decide) (by decide) (by decide)]; regs []
+  · rw [g' _ (by decide) (by decide), g _ (by decide) (by decide) (by decide) (by decide)]; regs []
+  · rw [g' _ (by decide) (by decide), g _ (by decide) (by decide) (by decide) (by decide)]; regs []
+  · rw [rd', rd]; mems []
+  · rw [wr', wr]; mems []
+
+theorem cmp_ct {I : State → Prop} {W : BitVec 32} {t o : Nat} (ho : o = 0 ∨ o = uO)
+    (h : ∀ s, I s → WEnv W s ∧ slotv s.mem W tglO = BitVec.ofNat 32 t) : CT I (cmp o) := by
+  have hb : CT I (.block (zero4 vO ++ [.mov .edi (.reg .ebp), .alu .add .edi (imm o), .mov .edx (.reg .ebp),
+      .alu .add .edx (imm vO), .mov .ecx (slot tglO)])) := by
+    rcases ho with rfl | rfl <;>
+    exact CT.taint [.ebp] (fun s₁ s₂ h₁ h₂ r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; rw [(h _ h₁).1.ebp, (h _ h₂).1.ebp]) (by taint_decide)
+  refine CT.seq (J := fun s => s.gpr .edi = W + BitVec.ofNat 32 o ∧ s.gpr .edx = W + BitVec.ofNat 32 vO ∧
+      s.gpr .ecx = BitVec.ofNat 32 t ∧ s.gpr .ebp = W) hb
+    (fun s hs => ?_) (CT.taint [.edi, .edx, .ecx, .ebp] (fun s₁ s₂ h₁ h₂ r hr => by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl
+      · rw [h₁.1, h₂.1]
+      · rw [h₁.2.1, h₂.2.1]
+      · rw [h₁.2.2.1, h₂.2.2.1]
+      · rw [h₁.2.2.2, h₂.2.2.2]) (by taint_decide))
+  obtain ⟨he, hv⟩ := h s hs
+  have aW : ∀ {o}, o < 2560 → w64 (W + BitVec.ofNat 32 o) = w64 W + BitVec.ofNat 64 o := fun ho => he.aW ho
+  have wIn : ∀ {o}, o + 4 ≤ 2560 → InRegions s.wr (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn ho
+  have rIn : ∀ {o}, o + 4 ≤ 2560 → InRegions (s.rd ++ s.wr) (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn' ho
+  rw [slotv_eq] at hv
+  simp only [tglO] at hv
+  exact WP.of_runBlock ⟨_, by xrun [zero4, he.ebp, aW, wIn, rIn, readW_writeW_off, hv], by regs [he.ebp],
+    by regs [he.ebp], by regs [], by regs [he.ebp]⟩
+
+/-- `mask`: the tag at `W` kept if `eax` is 1, zeroed if it is 0. -/
+theorem mask_ok {W : BitVec 32} {b : Bool} {s : State} (he : WEnv W s)
+    (ha : s.gpr .eax = BitVec.ofNat 32 (if b then 1 else 0)) :
+    WP isa (.block mask) s fun s' => bytesAt s'.mem (w64 W) 16 = (if b then bytesAt s.mem (w64 W) 16 else zeros 16) ∧
+      Frame [⟨w64 W + BitVec.ofNat 64 0, 16⟩] s.mem s'.mem ∧ s'.gpr .eax = s.gpr .eax ∧ s'.gpr .ebp = s.gpr .ebp ∧
+      s'.gpr .esi = s.gpr .esi ∧ s'.gpr .esp = s.gpr .esp ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  have aW : ∀ {o}, o < 2560 → w64 (W + BitVec.ofNat 32 o) = w64 W + BitVec.ofNat 64 o := fun ho => he.aW ho
+  have wIn : ∀ {o}, o + 4 ≤ 2560 → InRegions s.wr (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn ho
+  have rIn : ∀ {o}, o + 4 ≤ 2560 → InRegions (s.rd ++ s.wr) (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn' ho
+  have hs := store4_eq s.mem W 0
+  simp only [Nat.reduceAdd] at hs
+  refine WP.of_runBlock ⟨_, by xrun [mask, he.ebp, aW, wIn, rIn, readW_writeW_off, ha], ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · mems [hs]
+    rw [show w64 W + 0#64 = w64 W from BitVec.add_zero _, Cmac.bytesAt_store4]
+    cases b
+    · simp only [Bool.false_eq_true, ↓reduceIte, BitVec.ofNat_eq_ofNat, BitVec.sub_zero, BitVec.and_zero,
+        Cmac.le4_zero]
+      rfl
+    · simp only [↓reduceIte, show (0#32 - BitVec.ofNat 32 1) = BitVec.allOnes 32 by decide, BitVec.and_allOnes,
+        Cmac.le4_readW]
+      rw [Cmac.bytesAt_split4]
+  · mems [hs]
+    exact Cmac.frame_store4 _ _ _ _ _
+  · regs []
+  · regs []
+  · regs []
+  · regs []
+  · mems []
+  · mems []
+
+theorem mask_ct {I : State → Prop} (h : ∀ s₁ s₂, I s₁ → I s₂ → s₁.gpr .ebp = s₂.gpr .ebp) : CT I (.block mask) :=
+  CT.taint [.ebp] (fun s₁ s₂ h₁ h₂ r hr => by
+    simp only [List.mem_singleton] at hr; subst hr; exact h _ _ h₁ h₂) (by taint_decide)
 
 end VG.Proof.AesGcm.X86

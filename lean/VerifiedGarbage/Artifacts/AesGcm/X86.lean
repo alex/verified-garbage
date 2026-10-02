@@ -75,6 +75,14 @@ def artifacts : List Artifact := [
     contract := Spec.Gcm.streamFinishContract X86.abi 28
     stack := 28
     verified := streamFinish_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Gcm.streamVerifyApi with
+    target := X86.target
+    doc := Spec.Gcm.streamVerifyApi.doc (notes := [callNote])
+    code := Impl.AesGcm.X86.streamVerify
+    contract := Spec.Gcm.streamVerifyContract X86.abi 28
+    stack := 28
+    verified := streamVerify_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.AesGcm.X86

@@ -191,8 +191,8 @@ def streamVerifyX86 : Contract isa where
       arg s 4 ++ arg s 3 = BitVec.ofNat 64 a.length → (arg s 6 ++ arg s 5).toNat = c.length →
       let t := fullTag ciph h iv a c
       if tagLenOk (arg s 8).toNat ∧ t.take (arg s 8).toNat = bytesAt s.mem ((arg s 7).setWidth 64) (arg s 8).toNat then
-        s'.gpr .eax = 1 ∧ bytesAt s'.mem ((arg s 7).setWidth 64) 16 = t
-      else s'.gpr .eax = 0 ∧ bytesAt s'.mem ((arg s 7).setWidth 64) 16 = zeros 16
+        (s'.gpr .edx ++ s'.gpr .eax).setWidth 32 = 1 ∧ bytesAt s'.mem ((arg s 7).setWidth 64) 16 = t
+      else (s'.gpr .edx ++ s'.gpr .eax).setWidth 32 = 0 ∧ bytesAt s'.mem ((arg s 7).setWidth 64) 16 = zeros 16
   pub := pubN 9
 
 /-- `vg_aes_gcm_seal` and `_open(ctx, rounds, nonce, nonce_len, aad, aad_len, data, len, work[, tag_len])`,
@@ -239,9 +239,16 @@ def openX86 : Contract isa where
   pre := onePre 10
   post s s' :=
     match openRes s with
-    | some pt => s'.gpr .eax = 1 ∧ bytesAt s'.mem ((arg s 6).setWidth 64) (arg s 7).toNat = pt
-    | none => s'.gpr .eax = 0 ∧
+    | some pt => (s'.gpr .edx ++ s'.gpr .eax).setWidth 32 = 1 ∧ bytesAt s'.mem ((arg s 6).setWidth 64) (arg s 7).toNat = pt
+    | none => (s'.gpr .edx ++ s'.gpr .eax).setWidth 32 = 0 ∧
       bytesAt s'.mem ((arg s 6).setWidth 64) (arg s 7).toNat = bytesAt s.mem ((arg s 6).setWidth 64) (arg s 7).toNat
   pub s₁ s₂ := pubN 10 s₁ s₂ ∧ (openRes s₁).isSome = (openRes s₂).isSome
+
+/-- The `u32` a function returns, from `edx:eax`: `eax`. -/
+theorem ret32_eq (a b : BitVec 32) : (a ++ b).setWidth 32 = b := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_setWidth, BitVec.toNat_append, Nat.shiftLeft_eq, Nat.mul_comm,
+    ← Nat.two_pow_add_eq_or_of_lt b.isLt]
+  omega
 
 end VG.Proof.AesGcm.X86
