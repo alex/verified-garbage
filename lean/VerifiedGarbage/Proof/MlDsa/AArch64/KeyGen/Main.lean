@@ -15,7 +15,7 @@ namespace VG.Proof.MlDsa.AArch64.KeyGen
 
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Poly IPoly toRq ntt polyAt Reduced PolyIs bitPack simpleBitPack keyGenInternal)
 open VG.Proof.MlDsa.KeyGen (dotK tK t1K t0K pkK skK)
 open VG.Spec.Sha3 (bytesAt)

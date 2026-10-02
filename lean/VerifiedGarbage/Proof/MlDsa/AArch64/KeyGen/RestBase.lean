@@ -14,7 +14,8 @@ first `nj` of `s₁` in the NTT domain, and the first `nr` rows of `t` packed to
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Keep)
 open VG.Spec.MlDsa (Params Poly IPoly toRq ntt polyAt coeffAt Reduced PolyIs bitPack simpleBitPack)
 open VG.Proof.MlDsa.KeyGen (t1K t0K Small ifp ifn)

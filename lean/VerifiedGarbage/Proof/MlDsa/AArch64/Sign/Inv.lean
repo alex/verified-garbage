@@ -13,7 +13,8 @@ consecutive slots (`Fam`), kept by pieces that write apart from them
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)

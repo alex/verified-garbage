@@ -12,7 +12,8 @@ agree leak the same (`…_tr`).
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 

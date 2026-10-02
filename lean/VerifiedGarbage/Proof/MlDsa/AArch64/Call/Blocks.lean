@@ -12,7 +12,8 @@ ML-KEM's `copy32`), and the AND of a callee's result into `x24` (`and24_ok`).
 
 namespace VG.Proof.MlDsa.AArch64
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call
+open VG VG.AArch64
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep wp_nil wp_movz wp_strb)
 open VG.Spec.Sha3 (bytesAt)
 

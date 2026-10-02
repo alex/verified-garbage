@@ -16,7 +16,8 @@ sequences of pieces indexed by a number (`seqR_ok`, `seqR_tr`).
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep wp_nil wp_movz wp_addImm wp_ldrx in_rd_wr)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -113,14 +114,11 @@ theorem sgLay (hsz : scrLen p < 2 ^ 32 ∧ p.skLen < 2 ^ 32 ∧ p.sigLen < 2 ^ 3
   · simp only [sgR, sgW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hb hb'
     have w : ∀ r, isW (sgW p) r = (r == .x28 || r == .x23) := fun r => by cases r <;> rfl
     rcases hb with rfl | rfl | rfl | rfl | rfl <;> rcases hb' with rfl | rfl | rfl | rfl | rfl <;>
-      simp only [w, e1, e2, e3, e4, e5] at hne hw ⊢ <;> revert hne hw
+      simp only [w, beq_iff_eq, reduceCtorEq, Bool.or_eq_true, or_self, or_false, false_or, ne_eq,
+        not_true_eq_false] at hne hw ⊢ <;> simp only [e1, e2, e3, e4, e5]
     all_goals first
-      | exact fun h => absurd rfl h
-      | exact fun _ h => absurd h (by decide)
-      | exact fun _ _ => d1 | exact fun _ _ => d2 | exact fun _ _ => d3 | exact fun _ _ => d4
-      | exact fun _ _ => d5 | exact fun _ _ => d6 | exact fun _ _ => d7 | exact fun _ _ => d1.symm
-      | exact fun _ _ => d2.symm | exact fun _ _ => d3.symm | exact fun _ _ => d4.symm | exact fun _ _ => d5.symm
-      | exact fun _ _ => d6.symm | exact fun _ _ => d7.symm
+      | exact d1 | exact d2 | exact d3 | exact d4 | exact d5 | exact d6 | exact d7
+      | exact d1.symm | exact d2.symm | exact d3.symm | exact d4.symm | exact d5.symm | exact d6.symm | exact d7.symm
   · simp only [sgR, sgW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hb
     rcases hb with rfl | rfl | rfl | rfl | rfl <;> simp only [e1, e2, e3, e4, e5, h.sp]
     exacts [k1, k2, k3, k5, k4]

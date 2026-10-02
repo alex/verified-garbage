@@ -11,7 +11,8 @@ in `bases`, which two runs agree on (`SameB`, `LRel`).
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call
+open VG VG.AArch64
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 
 /-- The registers the function keeps the addresses of its buffers in. -/
 abbrev bases : List Reg := [.x23, .x25, .x26, .x27, .x28]

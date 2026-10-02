@@ -12,7 +12,8 @@ runs.
 
 namespace VG.Proof.MlDsa.AArch64.Verify
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Poly IPoly toRq polyAt coeffAt Reduced PolyIs HintIs normRq hintBitUnpack bitUnpack)
 open VG.Spec.Sha3 (bytesAt)

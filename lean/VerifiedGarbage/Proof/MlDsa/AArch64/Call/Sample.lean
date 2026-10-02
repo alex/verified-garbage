@@ -11,7 +11,8 @@ layout registers agree, and whose sampler leaks the same, leak the same
 
 namespace VG.Proof.MlDsa.AArch64
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call
+open VG VG.AArch64
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 

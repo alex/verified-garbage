@@ -13,7 +13,7 @@ contracts' stack `S`.
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa
 
 /-- Implementations of the primitives, correct and constant time with `S`

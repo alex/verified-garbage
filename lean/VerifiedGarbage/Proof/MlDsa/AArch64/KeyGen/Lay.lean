@@ -14,7 +14,7 @@ into them, for any parameter set, which `lay` proves from the offsets by
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params scratchWords mlDsa44 mlDsa65 mlDsa87)
 open VG.Spec.Sha3 (bytesAt)
 

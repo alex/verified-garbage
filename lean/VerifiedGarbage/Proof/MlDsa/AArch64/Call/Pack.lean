@@ -11,7 +11,8 @@ For each call of `vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_pack` and
 
 namespace VG.Proof.MlDsa.AArch64
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call
+open VG VG.AArch64
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 

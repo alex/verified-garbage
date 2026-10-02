@@ -30,7 +30,8 @@ The framework of the proofs of `vg_mldsa*_keygen`, `vg_mldsa*_sign` and
 
 namespace VG.Proof.MlDsa.AArch64
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call
+open VG VG.AArch64
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep wp_nil wp_movz wp_movImm wp_addImm wp_add)
 open VG.Spec.Sha3 (bytesAt)
 
