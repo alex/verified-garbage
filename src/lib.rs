@@ -80,6 +80,7 @@ compile_error!("32-bit ARM needs an AAPCS target (not Apple's armv7s or armv7k)"
 
 mod aes;
 pub mod aes_gcm;
+pub mod argon2;
 pub mod chacha20;
 pub mod chacha20poly1305;
 pub mod cmac;

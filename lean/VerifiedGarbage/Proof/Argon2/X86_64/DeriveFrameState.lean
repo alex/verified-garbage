@@ -8,7 +8,7 @@ namespace VG.Proof.Argon2.X86_64.Derive
 open VG VG.X86_64
 
 theorem frameStart_sp (s : State) (rs : List Reg) :
-    (frameStart s rs).gpr .rsp = s.gpr .rsp - BitVec.ofNat 64 (120 + 8 * rs.length) := by
+    (frameStart s rs).gpr .rsp = s.gpr .rsp - BitVec.ofNat 64 (272 + 8 * rs.length) := by
   induction rs generalizing s with
   | nil => rw [frameStart, pushed_rsp]; rfl
   | cons r rs ih =>
@@ -29,15 +29,15 @@ theorem frameStart_rd (s : State) (rs : List Reg) : (frameStart s rs).rd = s.rd 
   | cons r rs ih => exact (ih (pushed [r] s)).trans (pushed_rd ..)
 
 theorem frameStart_frame (s : State) (rs : List Reg) (notSp : .rsp ∉ rs)
-    (space : 120 + 8 * rs.length ≤ (s.gpr .rsp).toNat) :
-    Frame [below (s.gpr .rsp) (120 + 8 * rs.length)] s.mem (frameStart s rs).mem := by
+    (space : 272 + 8 * rs.length ≤ (s.gpr .rsp).toNat) :
+    Frame [below (s.gpr .rsp) (272 + 8 * rs.length)] s.mem (frameStart s rs).mem := by
   induction rs generalizing s with
   | nil =>
-    exact (pushRegs_mem s (List.replicate 15 .rax) (by decide) (by simpa using space)).1
+    exact (pushRegs_mem s (List.replicate 34 .rax) (by decide) (by simpa using space)).1
   | cons r rs ih =>
     simp only [List.mem_cons, not_or] at notSp
     have enough : 8 ≤ (s.gpr .rsp).toNat := by simp only [List.length_cons] at space; omega
-    have innerSpace : 120 + 8 * rs.length ≤ ((pushed [r] s).gpr .rsp).toNat := by
+    have innerSpace : 272 + 8 * rs.length ≤ ((pushed [r] s).gpr .rsp).toNat := by
       rw [pushed_rsp]
       simp only [List.length_singleton, Nat.mul_one]
       rw [toNat_sub_ofNat enough]
@@ -57,7 +57,7 @@ theorem frameStart_frame (s : State) (rs : List Reg) (notSp : .rsp ∉ rs)
       rw [pushed_rsp]
       simp only [List.length_cons, List.length_nil, Nat.zero_add, Nat.mul_one, below]
       rw [BitVec.sub_sub, ← BitVec.ofNat_add,
-        show 8 + (120 + 8 * rs.length) = 120 + 8 * (rs.length + 1) by omega]
+        show 8 + (272 + 8 * rs.length) = 272 + 8 * (rs.length + 1) by omega]
       exact Region.sub_prefix (by omega)
 
 theorem frameEnd_mem (s : State) (rs : List Reg) : (frameEnd s rs).mem = s.mem := by

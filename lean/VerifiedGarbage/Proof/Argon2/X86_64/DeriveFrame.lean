@@ -1,18 +1,18 @@
 import VerifiedGarbage.Impl.Argon2.X86_64.Derive
 import VerifiedGarbage.Proof.Framework.X86_64.Frame
 
-/-! Compose the nested saved-register frames and the 120-byte local allocation. -/
+/-! Compose the nested saved-register frames and the 272-byte local allocation. -/
 
 namespace VG.Proof.Argon2.X86_64.Derive
 
 open VG VG.X86_64
 
 def frameStart (s : State) : List Reg → State
-  | [] => pushed (List.replicate 15 .rax) s
+  | [] => pushed (List.replicate 34 .rax) s
   | r :: rs => frameStart (pushed [r] s) rs
 
 def frameEnd (s : State) : List Reg → State
-  | [] => popped .rax 15 s
+  | [] => popped .rax 34 s
   | r :: rs => popped r 1 (frameEnd s rs)
 
 theorem frameEnd_metadata (s t : State) (rs : List Reg)
@@ -33,7 +33,7 @@ theorem frameEnd_metadata (s t : State) (rs : List Reg)
     · rw [frameEnd, popped_wr, innerWr, pushed_wr]; rfl
 
 theorem frame_ok (s : State) (rs : List Reg) (body : Prog isa) (Q : State → Prop)
-    (notSp : .rsp ∉ rs) (space : 120 + 8 * rs.length ≤ (s.gpr .rsp).toNat)
+    (notSp : .rsp ∉ rs) (space : 272 + 8 * rs.length ≤ (s.gpr .rsp).toNat)
     (run : WP isa body (frameStart s rs) fun t =>
       t.gpr .rsp = (frameStart s rs).gpr .rsp ∧ t.wr = (frameStart s rs).wr ∧ Q (frameEnd t rs)) :
     WP isa (Impl.Argon2.X86_64.Derive.frame body rs) s Q := by
@@ -46,7 +46,7 @@ theorem frame_ok (s : State) (rs : List Reg) (body : Prog isa) (Q : State → Pr
       rw [pushed_rsp]
       simp only [List.length_singleton, Nat.mul_one]
       exact toNat_sub_ofNat (by simp only [List.length_cons] at space; omega)
-    have innerSpace : 120 + 8 * rs.length ≤ ((pushed [r] s).gpr .rsp).toNat := by
+    have innerSpace : 272 + 8 * rs.length ≤ ((pushed [r] s).gpr .rsp).toNat := by
       rw [pushedBound]; simp only [List.length_cons] at space; omega
     apply WP.frame (by simp) (by simpa using notSp.1) (Ne.symm notSp.1)
       (by simp only [List.length_cons] at space; simp only [List.length_singleton, Nat.mul_one]; omega)

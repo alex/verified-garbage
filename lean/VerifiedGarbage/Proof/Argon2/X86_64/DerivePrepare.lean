@@ -35,11 +35,26 @@ structure Prepared (s t : State) : Prop where
   mxcsr : t.mxcsr = s.mxcsr
   frame : Frame (prepareWrites s) s.mem t.mem
 
-theorem prepare_ok (s : State) (frameWrite : Covers [⟨s.gpr .rsp, 120⟩] s.wr)
+theorem Prepared.other_word {s t : State} (h : Prepared s t) (d : Nat)
+    (afterFrame : 120 ≤ d) (bound : d + 8 < 2 ^ 64)
+    (separate : ∀ e ∈ normalizedOffsets, d + 8 ≤ e ∨ e + 8 ≤ d) :
+    t.mem.readW (t.gpr .rbp + BitVec.ofNat 64 d) 64 =
+      s.mem.readW (s.gpr .rsp + BitVec.ofNat 64 d) 64 := by
+  rw [h.bp]
+  apply h.frame.readW (r := ⟨s.gpr .rsp + BitVec.ofNat 64 d, 8⟩) (Region.contains_self _ _) ?_ (by decide)
+  intro region hr
+  rcases List.mem_cons.mp hr with rfl | hr
+  · simpa only [BitVec.add_zero] using Offset.disjoint (s.gpr .rsp) (d := d) (n := 8) (e := 0) (k := 120)
+      (Or.inr afterFrame) (Nat.le_of_lt bound) (by decide)
+  · obtain ⟨e, he, rfl⟩ := List.mem_map.mp hr
+    have bounds : ∀ e ∈ normalizedOffsets, e + 8 ≤ 2 ^ 64 := by decide
+    exact Offset.disjoint _ (separate e he) (Nat.le_of_lt bound) (bounds e he)
+
+theorem prepareLocal_ok (s : State) (frameWrite : Covers [⟨s.gpr .rsp, 120⟩] s.wr)
     (read : ∀ d ∈ 248 :: normalizedOffsets, InRegions (s.rd ++ s.wr) (s.gpr .rsp + BitVec.ofNat 64 d) 8)
     (write : ∀ d ∈ normalizedOffsets, InRegions s.wr (s.gpr .rsp + BitVec.ofNat 64 d) 8) :
-    WP isa Impl.Argon2.X86_64.Derive.prepare s (Prepared s) := by
-  unfold Impl.Argon2.X86_64.Derive.prepare
+    WP isa Impl.Argon2.X86_64.Derive.prepareLocal s (Prepared s) := by
+  unfold Impl.Argon2.X86_64.Derive.prepareLocal
   have scratchRead : InRegions (s.rd ++ s.wr) (s.gpr .rsp + 248) 8 := read 248 (List.mem_cons_self ..)
   refine WP.seq ((setup_ok s frameWrite scratchRead).mono ?_)
   intro a setup

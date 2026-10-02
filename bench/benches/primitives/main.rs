@@ -17,6 +17,7 @@ use openssl::pkey::PKey;
 use openssl::sign::Signer;
 
 mod aes_gcm;
+mod argon2;
 mod blake2b;
 mod blake2s;
 mod chacha20;
@@ -236,6 +237,7 @@ const BENCHES: &[Bench] = &[
     (poly1305::USES, poly1305::bench),
     (rc2_cbc::USES, rc2_cbc::bench),
     (triple_des_ecb::USES, triple_des_ecb::bench),
+    (argon2::USES, argon2::bench),
     (scrypt::USES, scrypt::bench),
     (sha1::USES, sha1::bench),
     (sha224::USES, sha224::bench),

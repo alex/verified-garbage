@@ -25,12 +25,21 @@ def normalizeArgs : List Nat → Prog isa
   | [d] => .block (normalize d)
   | d :: e :: ds => .seq (.block (normalize d)) (normalizeArgs (e :: ds))
 
-def prepare : Prog isa := .seq (.block setup) (normalizeArgs [176, 184, 192])
+def prepareLocal : Prog isa := .seq (.block setup) (normalizeArgs [176, 184, 192])
+
+/-- Copy the twelve read-only caller stack arguments into private slots.
+The original stack pointer is 320 bytes above this local frame. -/
+def copyArg (j : Nat) : List Instr :=
+  [.mov .rax (.mem (at_ .rsp (328 + 8 * j))), .store (at_ .rsp (176 + 8 * j)) .rax]
+
+def copyArgs : List Instr := (List.range 12).flatMap copyArg
+
+def prepare : Prog isa := .seq (.block copyArgs) prepareLocal
 
 /-- One nested frame per saved register restores every register separately.
-The inner fifteen words reserve the 120-byte local argument/hash frame. -/
+The inner thirty-four words reserve the 272-byte private argument/hash frame. -/
 def frame (body : Prog isa) : List Reg → Prog isa
-  | [] => .frame (.push (List.replicate 15 .rax)) body (.pop .rax 15)
+  | [] => .frame (.push (List.replicate 34 .rax)) body (.pop .rax 34)
   | r :: rs => .frame (.push [r]) (frame body rs) (.pop r 1)
 
 def body (name : String) (hash : HPrime.Hash) : Prog isa :=

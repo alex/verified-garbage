@@ -8,7 +8,7 @@ namespace VG.Proof.Argon2.X86_64.Derive
 open VG VG.X86_64
 
 theorem frameEnd_sp (s : State) (rs : List Reg) :
-    (frameEnd s rs).gpr .rsp = s.gpr .rsp + BitVec.ofNat 64 (120 + 8 * rs.length) := by
+    (frameEnd s rs).gpr .rsp = s.gpr .rsp + BitVec.ofNat 64 (272 + 8 * rs.length) := by
   induction rs with
   | nil => rw [frameEnd, popped_rsp]; rfl
   | cons r rs ih =>
@@ -25,7 +25,7 @@ theorem popped_one_reg (s : State) (r : Reg) (notSp : r ≠ .rsp) :
 theorem frameEnd_restore (s : State) (rs : List Reg) (values : Reg → Addr)
     (notSp : .rsp ∉ rs) (distinct : rs.Nodup)
     (words : ∀ j (hj : j < rs.length),
-      s.mem.readW (s.gpr .rsp + BitVec.ofNat 64 (120 + 8 * rs.length - 8 * (j + 1))) 64 = values rs[j]) :
+      s.mem.readW (s.gpr .rsp + BitVec.ofNat 64 (272 + 8 * rs.length - 8 * (j + 1))) 64 = values rs[j]) :
     ∀ r ∈ rs, (frameEnd s rs).gpr r = values r := by
   induction rs with
   | nil => intro r hr; exact False.elim (List.not_mem_nil hr)
@@ -33,11 +33,11 @@ theorem frameEnd_restore (s : State) (rs : List Reg) (values : Reg → Addr)
     simp only [List.mem_cons, not_or] at notSp
     have nodup := List.nodup_cons.mp distinct
     have innerWords : ∀ j (hj : j < rs.length),
-        s.mem.readW (s.gpr .rsp + BitVec.ofNat 64 (120 + 8 * rs.length - 8 * (j + 1))) 64 = values rs[j] := by
+        s.mem.readW (s.gpr .rsp + BitVec.ofNat 64 (272 + 8 * rs.length - 8 * (j + 1))) 64 = values rs[j] := by
       intro j hj
       have word := words (j + 1) (by simp only [List.length_cons]; omega)
-      have offset : 120 + 8 * (r :: rs).length - 8 * (j + 1 + 1) =
-          120 + 8 * rs.length - 8 * (j + 1) := by
+      have offset : 272 + 8 * (r :: rs).length - 8 * (j + 1 + 1) =
+          272 + 8 * rs.length - 8 * (j + 1) := by
         simp only [List.length_cons]; omega
       rw [offset] at word
       exact word
@@ -47,7 +47,7 @@ theorem frameEnd_restore (s : State) (rs : List Reg) (values : Reg → Addr)
     rcases hx with rfl | hx
     · rw [frameEnd, popped_one_reg _ _ (Ne.symm notSp.1), frameEnd_mem, frameEnd_sp]
       have word := words 0 (by simp)
-      have offset : 120 + 8 * (x :: rs).length - 8 * (0 + 1) = 120 + 8 * rs.length := by
+      have offset : 272 + 8 * (x :: rs).length - 8 * (0 + 1) = 272 + 8 * rs.length := by
         simp only [List.length_cons]; omega
       rw [offset] at word
       exact word
@@ -56,7 +56,7 @@ theorem frameEnd_restore (s : State) (rs : List Reg) (values : Reg → Addr)
       exact inner x hx
 
 theorem frame_restored (s t : State) (rs : List Reg) (notSp : .rsp ∉ rs)
-    (distinct : rs.Nodup) (space : 120 + 8 * rs.length ≤ (s.gpr .rsp).toNat)
+    (distinct : rs.Nodup) (space : 272 + 8 * rs.length ≤ (s.gpr .rsp).toNat)
     (sp : t.gpr .rsp = (frameStart s rs).gpr .rsp)
     (unchanged : ∀ j (_hj : j < rs.length),
       t.mem.readW (s.gpr .rsp - BitVec.ofNat 64 (8 * (j + 1))) 64 =
@@ -64,7 +64,7 @@ theorem frame_restored (s t : State) (rs : List Reg) (notSp : .rsp ∉ rs)
     ∀ r ∈ rs, (frameEnd t rs).gpr r = s.gpr r := by
   apply frameEnd_restore t rs s.gpr notSp distinct
   intro j hj
-  have offsetBound : 8 * (j + 1) ≤ 120 + 8 * rs.length := by omega
+  have offsetBound : 8 * (j + 1) ≤ 272 + 8 * rs.length := by omega
   rw [sp, frameStart_sp, ← Offset.ofNat_sub_ofNat offsetBound, Offset.sub_add_sub_cancel,
     unchanged j hj]
   exact frameStart_word s rs notSp space j hj

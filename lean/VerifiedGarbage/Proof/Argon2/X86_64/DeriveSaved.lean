@@ -7,14 +7,14 @@ namespace VG.Proof.Argon2.X86_64.Derive
 open VG VG.X86_64
 
 theorem frameStart_word (s : State) (rs : List Reg) (notSp : .rsp ∉ rs)
-    (space : 120 + 8 * rs.length ≤ (s.gpr .rsp).toNat) (j : Nat) (bound : j < rs.length) :
+    (space : 272 + 8 * rs.length ≤ (s.gpr .rsp).toNat) (j : Nat) (bound : j < rs.length) :
     (frameStart s rs).mem.readW (s.gpr .rsp - BitVec.ofNat 64 (8 * (j + 1))) 64 = s.gpr rs[j] := by
   induction rs generalizing s j with
   | nil => exact absurd bound (Nat.not_lt_zero _)
   | cons r rs ih =>
     simp only [List.mem_cons, not_or] at notSp
     have enough : 8 ≤ (s.gpr .rsp).toNat := by simp only [List.length_cons] at space; omega
-    have innerSpace : 120 + 8 * rs.length ≤ ((pushed [r] s).gpr .rsp).toNat := by
+    have innerSpace : 272 + 8 * rs.length ≤ ((pushed [r] s).gpr .rsp).toNat := by
       rw [pushed_rsp]
       simp only [List.length_singleton, Nat.mul_one]
       rw [toNat_sub_ofNat enough]
