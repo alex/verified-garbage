@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.MlDsa.X86_64.KeyGen.Samp
+import VerifiedGarbage.Proof.MlDsa.X86_64.KeyGen.Samp4
 import VerifiedGarbage.Proof.MlDsa.KeyGen.Rest
 
 /-!

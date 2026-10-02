@@ -15,8 +15,9 @@ what each layer of the code does to the bits (as its proof states it) into
 the transformation of FIPS 197 it computes on the states; the byte-level
 facts about `xtimes` are shared with the 64-bit layout.
 
-The last section gives each linear layer as atoms (as `Proof/Aes/Layers.lean`
-does), for the checks by evaluation (`Framework/Arm/Linear.lean`): bit `t`
+The last section gives each linear layer as atoms (as the last section of
+`Proof/Aes/Bitsliced.lean` does), for the checks by evaluation
+(`Framework/Arm/Linear.lean`): bit `t`
 of input word `i` is atom `32 i + t`.
 -/
 

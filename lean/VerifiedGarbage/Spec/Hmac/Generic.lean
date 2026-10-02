@@ -27,10 +27,9 @@ its functions `vg_hmac_<hash>_init` and `vg_hmac_<hash>_finalize` (and
 included, is an `Instance`, and a new one needs nothing else.
 
 SHA-256's functions also have contracts of their own
-(`Spec/Hmac/Contract.lean`), which its existing implementations are proven
-against: `vg_hmac_sha256_init`'s has less working space than `sha256I`'s,
-and `vg_hmac_sha256_finalize`'s leaves the MAC in `scratch` on the 64-bit
-targets. They are removed once `sha256I` is implemented on every target.
+(`Spec/Hmac/Contract.lean`), which its implementations on the 32-bit targets
+are proven against: they have less working space than `sha256I`'s. They are
+removed once `sha256I` is implemented on every target.
 
 `init` has two contracts. `initContract` (`Instance.initApi`) takes a key
 of at most a block, and leaves FIPS 198-1 §4's step 2 (hashing a longer
@@ -74,6 +73,10 @@ structure StreamingHash where
 
 /-- SHA-256: the 96-byte streaming state of `Spec/Sha256/Contract.lean`. -/
 def sha256S : StreamingHash := ⟨sha256, 96, 32, Sha256.Repr⟩
+
+/-- SHA-224: SHA-256's 96-byte streaming state, from SHA-224's initial hash
+value (`vg_sha224_init`, then SHA-256's `update` and `finalize`). -/
+def sha224S : StreamingHash := ⟨sha224, 96, 28, Sha256.ReprFrom Sha256.H0_224⟩
 
 /-- SHA-1: the 84-byte streaming state of `Spec/Sha1/Contract.lean`. -/
 def sha1S : StreamingHash := ⟨sha1, 84, 20, Sha1.Repr⟩
@@ -175,6 +178,10 @@ whose contract is `sha256I`'s.) -/
 def sha256I : Instance :=
   ⟨sha256S, "SHA-256", "sha256", "sha256I", "vg_sha256_update", 104⟩
 
+/-- SHA-224: as SHA-256, whose `vg_sha256_update` it absorbs the text with. -/
+def sha224I : Instance :=
+  ⟨sha224S, "SHA-224", "sha224", "sha224I", "vg_sha256_update", 104⟩
+
 /-- SHA-1: `vg_sha1_update` needs 20 words of working space. -/
 def sha1I : Instance := ⟨sha1S, "SHA-1", "sha1", "sha1I", "vg_sha1_update", 56⟩
 
@@ -218,6 +225,7 @@ def initApi : Api where
   module := s!"hmac_{I.rust}"
   name := s!"vg_hmac_{I.rust}_init"
   sig := initSig I.S I.scratch
+  writeArgs := true
   contracts := some fun A stack => I.initContract A stack
   summary := s!"Starts an HMAC-{I.alg} computation with a key of at most {I.S.H.blockSize} bytes: \
     makes the {I.alg} streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent \
@@ -269,6 +277,7 @@ def finalizeApi : Api where
   module := s!"hmac_{I.rust}"
   name := s!"vg_hmac_{I.rust}_finalize"
   sig := finalizeSig I.S I.scratch
+  writeArgs := true
   contracts := some fun A stack => I.finalizeContract A stack
   summary := s!"Finishes an HMAC-{I.alg} computation: if, for a {I.S.H.blockSize}-byte key `K₀` \
     and a text of fewer than 2⁶⁴ − {I.S.H.blockSize} bytes, the {I.alg} streaming state `*inner` \

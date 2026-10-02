@@ -14,8 +14,11 @@
 //! `vg_chacha20_poly1305_open_avx512` (with `vg_chacha20_xor_avx512` and
 //! `vg_poly1305_blocks_avx512`), and other CPUs with AVX2
 //! `vg_chacha20_poly1305_seal_avx2` and `vg_chacha20_poly1305_open_avx2`.
-//! On AArch64, the NEON variants use the NEON ChaCha20 block for both
-//! message encryption and the one-time Poly1305 key.
+//! On AArch64, CPUs with AdvSIMD (the baseline) run
+//! `vg_chacha20_poly1305_seal_neon` and `vg_chacha20_poly1305_open_neon`,
+//! which XOR the keystream into the data with `vg_chacha20_xor_neon`; like
+//! every variant, they compute the one-time Poly1305 key with the scalar
+//! `vg_chacha20_block`.
 
 #![cfg(any(
     target_arch = "x86_64",

@@ -8,7 +8,7 @@ Untrusted: everything here is checked by Lean. The prologue saves our
 caller's registers in `scratch`; `N` is computed by doubling; step 2 and
 step 3 are loops whose bodies call `vg_scrypt_blockmix` (through
 `BlockMixSpec`) in a frame of its arguments; the epilogue restores the
-registers. As on 32-bit ARM (`Proof/Scrypt/Arm/RoMixFun.lean`), with the
+registers. As on 32-bit ARM (`Proof/Scrypt/Arm/RoMixCT.lean`), with the
 pointers and `r` read from the arguments when needed.
 -/
 
