@@ -61220,7 +61220,7 @@ pub(crate) unsafe extern "C" fn vg_ed25519_verify_equation(pk: *const [u8; 32], 
 /// * `seed` must originate from a cryptographically secure random generator.
 /// * The contents of `scratch` on return are unspecified and may contain secrets; the caller must destroy them after use.
 /// * `out` and `scratch` must not overlap each other or `seed` (distinct Rust objects never do).
-/// * None of `out`, `seed` and `scratch` may overlap the 336 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+/// * None of `out`, `seed` and `scratch` may overlap the 352 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_ed25519_public_key(out: *mut [u8; 32], seed: *const [u8; 32], scratch: *mut [u64; 1024]) {
     core::arch::naked_asm!(
@@ -61394,7 +61394,7 @@ pub(crate) unsafe extern "C" fn vg_ed25519_public_key(out: *mut [u8; 32], seed: 
 /// * `seed` must originate from a cryptographically secure random generator.
 /// * The contents of `scratch` on return are unspecified and may contain secrets; the caller must destroy them after use.
 /// * `out` and `scratch` must not overlap each other, `seed`, `pk` or `message` (distinct Rust objects never do).
-/// * None of `out`, `seed`, `pk`, `message` and `scratch` may overlap the 336 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+/// * None of `out`, `seed`, `pk`, `message` and `scratch` may overlap the 352 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_ed25519_sign_cached(out: *mut [u8; 64], seed: *const [u8; 32], pk: *const [u8; 32], message: *const u8, len: usize, scratch: *mut [u64; 1024]) {
     core::arch::naked_asm!(
@@ -61657,7 +61657,7 @@ pub(crate) unsafe extern "C" fn vg_ed25519_sign_cached(out: *mut [u8; 64], seed:
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///
-/// Hashes R, the public key and the message with the selected SHA-512 backend, reduces the challenge modulo L, and checks the signature equation. The 336-byte stack frame holds the digest, challenge, saved arguments and return address.
+/// Hashes R, the public key and the message with the selected SHA-512 backend, reduces the challenge modulo L, and checks the signature equation. The 336-byte stack frame holds the digest, challenge, saved arguments and return address; the SHA-512 calls use another 16 bytes below it.
 ///
 /// # Safety
 ///
@@ -61667,7 +61667,7 @@ pub(crate) unsafe extern "C" fn vg_ed25519_sign_cached(out: *mut [u8; 64], seed:
 /// * `scratch` must be valid for reads and writes of 8192 bytes.
 /// * The contents of `scratch` on return are unspecified and may contain secrets; the caller must destroy them after use.
 /// * `scratch` must not overlap `pk`, `message` or `signature` (distinct Rust objects never do).
-/// * None of `pk`, `message`, `signature` and `scratch` may overlap the 336 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+/// * None of `pk`, `message`, `signature` and `scratch` may overlap the 352 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_ed25519_verify(pk: *const [u8; 32], message: *const u8, len: usize, signature: *const [u8; 64], scratch: *mut [u64; 1024]) -> u32 {
     core::arch::naked_asm!(
@@ -61773,7 +61773,7 @@ pub(crate) const VG_ED25519_PUBLIC_KEY_SHA3_FEATURES: &[&str] = &["sha3"];
 /// * `seed` must originate from a cryptographically secure random generator.
 /// * The contents of `scratch` on return are unspecified and may contain secrets; the caller must destroy them after use.
 /// * `out` and `scratch` must not overlap each other or `seed` (distinct Rust objects never do).
-/// * None of `out`, `seed` and `scratch` may overlap the 336 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+/// * None of `out`, `seed` and `scratch` may overlap the 352 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha3` target feature.
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_ed25519_public_key_sha3(out: *mut [u8; 32], seed: *const [u8; 32], scratch: *mut [u64; 1024]) {
@@ -61953,7 +61953,7 @@ pub(crate) const VG_ED25519_SIGN_CACHED_SHA3_FEATURES: &[&str] = &["sha3"];
 /// * `seed` must originate from a cryptographically secure random generator.
 /// * The contents of `scratch` on return are unspecified and may contain secrets; the caller must destroy them after use.
 /// * `out` and `scratch` must not overlap each other, `seed`, `pk` or `message` (distinct Rust objects never do).
-/// * None of `out`, `seed`, `pk`, `message` and `scratch` may overlap the 336 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+/// * None of `out`, `seed`, `pk`, `message` and `scratch` may overlap the 352 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha3` target feature.
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_ed25519_sign_cached_sha3(out: *mut [u8; 64], seed: *const [u8; 32], pk: *const [u8; 32], message: *const u8, len: usize, scratch: *mut [u64; 1024]) {
@@ -62222,7 +62222,7 @@ pub(crate) const VG_ED25519_VERIFY_SHA3_FEATURES: &[&str] = &["sha3"];
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///
-/// Hashes R, the public key and the message with the selected SHA-512 backend, reduces the challenge modulo L, and checks the signature equation. The 336-byte stack frame holds the digest, challenge, saved arguments and return address.
+/// Hashes R, the public key and the message with the selected SHA-512 backend, reduces the challenge modulo L, and checks the signature equation. The 336-byte stack frame holds the digest, challenge, saved arguments and return address; the SHA-512 calls use another 16 bytes below it.
 ///
 /// # Safety
 ///
@@ -62232,7 +62232,7 @@ pub(crate) const VG_ED25519_VERIFY_SHA3_FEATURES: &[&str] = &["sha3"];
 /// * `scratch` must be valid for reads and writes of 8192 bytes.
 /// * The contents of `scratch` on return are unspecified and may contain secrets; the caller must destroy them after use.
 /// * `scratch` must not overlap `pk`, `message` or `signature` (distinct Rust objects never do).
-/// * None of `pk`, `message`, `signature` and `scratch` may overlap the 336 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+/// * None of `pk`, `message`, `signature` and `scratch` may overlap the 352 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha3` target feature.
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_ed25519_verify_sha3(pk: *const [u8; 32], message: *const u8, len: usize, signature: *const [u8; 64], scratch: *mut [u64; 1024]) -> u32 {
