@@ -2,10 +2,11 @@ import VerifiedGarbage.Proof.Rc2.X86_64.Stream.Contract
 
 /-! # Streaming RC2-CBC on x86-64: the straight-line blocks -/
 
-set_option linter.unusedSimpArgs false
 namespace VG.Proof.Rc2.X86_64.Stream
 
 open VG VG.X86_64 VG.X86_64.RegUpd VG.Impl.Rc2.X86_64 VG.Impl.Rc2.X86_64.Stream
+
+theorem toNat_eq (x : BitVec 64) : x = BitVec.ofNat 64 x.toNat := by simp
 
 /-- `test r, r`: ZF is set iff `r` is 0. -/
 theorem test_ok (s : State) (r : Reg) {n : Nat} (hn : s.gpr r = BitVec.ofNat 64 n) (hn' : n < 2 ^ 64) :
@@ -32,7 +33,7 @@ theorem toOut_ok (s : State) :
       s'.gpr .r9 = s.gpr .r9 - s.gpr .rsi ∧ s'.gpr .r8 = s.gpr .r8 + s.gpr .rsi ∧ Keep [.r9, .r8] s s' := by
   refine ⟨_, by
     simp (config := {decide := true}) only [toOut, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc,
-      execAlu, Option.bind_some, gpr_setReg_self, gpr_setReg_of_ne, gpr_arithFlags]
+      execAlu, Option.bind_some, gpr_setReg_of_ne, gpr_arithFlags]
     rfl, ?_⟩
   refine ⟨?_, by rw [gpr_setReg_self], fun r hr => ?_, rfl, rfl, rfl⟩
   · rw [gpr_setReg_of_ne _ _ (by decide), gpr_arithFlags, gpr_setReg_self]
@@ -44,7 +45,7 @@ theorem toPending_ok (s : State) :
       s'.gpr .rdx = s.gpr .rdx + s.gpr .r9 ∧ s'.gpr .rcx = s.gpr .rcx - s.gpr .r9 ∧ Keep [.rdx, .rcx] s s' := by
   refine ⟨_, by
     simp (config := {decide := true}) only [toPending, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc,
-      execAlu, Option.bind_some, gpr_setReg_self, gpr_setReg_of_ne, gpr_arithFlags]
+      execAlu, Option.bind_some, gpr_setReg_of_ne, gpr_arithFlags]
     rfl, ?_⟩
   refine ⟨?_, by rw [gpr_setReg_self], fun r hr => ?_, rfl, rfl, rfl⟩
   · rw [gpr_setReg_of_ne _ _ (by decide), gpr_arithFlags, gpr_setReg_self]
@@ -65,7 +66,7 @@ theorem cbcArgs_ok (s : State) (h : InRegions (s.rd ++ s.wr) (s.gpr .rsp + BitVe
     rfl, ?_⟩
   refine ⟨?_, ?_, ?_, ?_, ?_, fun r hr => ?_, rfl, rfl, rfl⟩
   all_goals try simp (config := {decide := true}) only [gpr_setReg_self, gpr_setReg_of_ne, gpr_arithFlags,
-    gpr_setFlags, ne_eq, reduceCtorEq, not_false_eq_true]
+    gpr_setFlags, reduceCtorEq, not_false_eq_true]
   · rfl
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     obtain ⟨h₁, h₂, h₃, h₄, h₅⟩ := hr

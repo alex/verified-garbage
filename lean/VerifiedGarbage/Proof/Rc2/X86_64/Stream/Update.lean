@@ -1,8 +1,8 @@
 import VerifiedGarbage.Proof.Rc2.X86_64.Stream.Long
+import VerifiedGarbage.Proof.Rc2.X86_64.Stream.Lit
 
 /-! # Streaming RC2-CBC on x86-64: the update functions -/
 
-set_option linter.unusedSimpArgs false
 namespace VG.Proof.Rc2.X86_64.Stream
 
 open VG VG.X86_64 VG.X86_64.RegUpd VG.WriteBytes VG.Impl.Rc2.X86_64 VG.Impl.Rc2.X86_64.Stream
@@ -33,40 +33,35 @@ theorem cbc_noSp (d : Spec.Rc2.Direction) : NoSp (Cbc.cbc d) := by
 theorem cbc_depth (d : Spec.Rc2.Direction) : (Cbc.cbc d).depth = 1 := by
   cases d <;> rfl
 
-/-- The call of the CBC function, and the update's postcondition. -/
-theorem call_ok (d : Spec.Rc2.Direction) (s : State) (hs : (updateContract d).pre s)
+/-- The regions the CBC function is given: the schedule, and the chaining
+value, `out` and its scratch space. -/
+def callRd (s : State) : List Region := [⟨s.gpr .rdi, 128⟩]
+def callWr (s : State) : List Region :=
+  [⟨s.gpr .rdi + 128, 8⟩, ⟨s.gpr .r8, 8 * ((s.gpr .r9).toNat / 8)⟩, ⟨stackArg s 0, 512⟩]
+
+/-- The CBC function's precondition at the call, and its regions within ours. -/
+theorem call_pre (d : Spec.Rc2.Direction) (s : State) (hs : (updateContract d).pre s)
     (hnz : (s.gpr .r9).toNat ≠ 0) (t : State) (ht : Mid s t) :
-    WP isa (cbcCall d) t (fun s' => ((∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
-      s'.mem.readW (s.gpr .rsp) 64 = s.mem.readW (s.gpr .rsp) 64) ∧
-      (Spec.Rc2.contextAt s'.mem (s.gpr .rdi) d (((s.gpr .rsi).toNat + (s.gpr .rcx).toNat) % 8) =
-        (Spec.Rc2.update (Spec.Rc2.contextAt s.mem (s.gpr .rdi) d (s.gpr .rsi).toNat)
-          (Spec.Rc2.bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)).1 ∧
-      Spec.Rc2.bytesAt s'.mem (s.gpr .r8) (s.gpr .r9).toNat =
-        (Spec.Rc2.update (Spec.Rc2.contextAt s.mem (s.gpr .rdi) d (s.gpr .rsi).toNat)
-          (Spec.Rc2.bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)).2)) := by
+    (Cbc.contract d).pre (t.callEntry.withRegions (callRd s) (callWr s)) ∧
+      Covers (callRd s ++ callWr s) (t.rd ++ t.wr) ∧ Covers (callWr s) t.wr := by
   obtain ⟨hsp, _, hrd, hwr, ctxData, ctxOut, ctxBuf, _, dataOut, _, outBuf, _, _, retCtx, _, retOut, retBuf, _,
     stCtx, _, stOut, stBuf, _, _, _, fitOut, _, hp, hN⟩ := hs
   obtain ⟨rdi₁, rsi₁, rdx₁, rcx₁, r8₁, rsp₁, callee₁, rd₁, wr₁, frame₁, out₁, pend₁⟩ := ht
+  simp only [callRd, callWr]
   generalize hC : s.gpr .rdi = C at *
-  generalize hP : (s.gpr .rsi).toNat = P at *
-  generalize hA : s.gpr .rdx = A at *
-  generalize hL : (s.gpr .rcx).toNat = L at *
-  generalize hO : s.gpr .r8 = O at *
   generalize hNN : (s.gpr .r9).toNat = N at *
+  generalize hO : s.gpr .r8 = O at *
   generalize hB : stackArg s 0 = B at *
   generalize hSP : s.gpr .rsp = SP at *
   have h8 : 8 ≤ N := by omega
   have hNN8 : 8 * (N / 8) = N := by omega
   have e128 : C + 128 = C + BitVec.ofNat 64 128 := rfl
-  have e136 : C + 136 = C + BitVec.ofNat 64 136 := rfl
   have stackSub : Region.Sub (below (SP - 8) 8) (below SP 16) := below_callee _ _
   have retSub : Region.Sub ⟨SP - 8, 8⟩ (below SP 16) := Offset.sub_below SP (by decide) (by decide)
   have ivSub : Region.Sub ⟨C + BitVec.ofNat 64 128, 8⟩ ⟨C, 144⟩ := Offset.sub_base _ (by decide)
   have keySub : Region.Sub ⟨C, 128⟩ ⟨C, 144⟩ := Region.sub_prefix (by decide)
   have bufSub : Region.Sub ⟨B, 512⟩ ⟨B, 576⟩ := Region.sub_prefix (by decide)
-  rw [cbcCall_eq]
-  refine WP.call (k := Cbc.contract d) (cbc_correct d) (cbc_noSp d) (by rw [cbc_depth]; decide)
-    (rd := [⟨C, 128⟩]) (wr := [⟨C + 128, 8⟩, ⟨O, 8 * (N / 8)⟩, ⟨B, 512⟩]) ?_ ?_ ?_ ?_
+  refine ⟨?_, ?_, ?_⟩
   · simp only [Cbc.contract, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
       State.callEntry_rsp, State.callEntry_gpr _ (by decide : Reg.rdi ≠ .rsp),
       State.callEntry_gpr _ (by decide : Reg.rsi ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rdx ≠ .rsp),
@@ -96,6 +91,43 @@ theorem call_ok (d : Spec.Rc2.Direction) (s : State) (hs : (updateContract d).pr
     · exact ⟨⟨C, 144⟩, by simp, 128, rfl, by simp⟩
     · exact ⟨⟨O, N⟩, by simp, 0, by simp, by simp only [hNN8]; omega⟩
     · exact ⟨⟨B, 576⟩, by simp, 0, by simp, by simp⟩
+
+/-- The call of the CBC function, and the update's postcondition. -/
+theorem call_ok (d : Spec.Rc2.Direction) (s : State) (hs : (updateContract d).pre s)
+    (hnz : (s.gpr .r9).toNat ≠ 0) (t : State) (ht : Mid s t) :
+    WP isa (cbcCall d) t (fun s' => ((∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
+      s'.mem.readW (s.gpr .rsp) 64 = s.mem.readW (s.gpr .rsp) 64) ∧
+      (Spec.Rc2.contextAt s'.mem (s.gpr .rdi) d (((s.gpr .rsi).toNat + (s.gpr .rcx).toNat) % 8) =
+        (Spec.Rc2.update (Spec.Rc2.contextAt s.mem (s.gpr .rdi) d (s.gpr .rsi).toNat)
+          (Spec.Rc2.bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)).1 ∧
+      Spec.Rc2.bytesAt s'.mem (s.gpr .r8) (s.gpr .r9).toNat =
+        (Spec.Rc2.update (Spec.Rc2.contextAt s.mem (s.gpr .rdi) d (s.gpr .rsi).toNat)
+          (Spec.Rc2.bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)).2)) := by
+  obtain ⟨hpre, hcov, hwcov⟩ := call_pre d s hs hnz t ht
+  simp only [callRd, callWr] at hpre hcov hwcov
+  obtain ⟨hsp, _, hrd, hwr, ctxData, ctxOut, ctxBuf, _, dataOut, _, outBuf, _, _, retCtx, _, retOut, retBuf, _,
+    stCtx, _, stOut, stBuf, _, _, _, fitOut, _, hp, hN⟩ := hs
+  obtain ⟨rdi₁, rsi₁, rdx₁, rcx₁, r8₁, rsp₁, callee₁, rd₁, wr₁, frame₁, out₁, pend₁⟩ := ht
+  generalize hC : s.gpr .rdi = C at *
+  generalize hP : (s.gpr .rsi).toNat = P at *
+  generalize hA : s.gpr .rdx = A at *
+  generalize hL : (s.gpr .rcx).toNat = L at *
+  generalize hO : s.gpr .r8 = O at *
+  generalize hNN : (s.gpr .r9).toNat = N at *
+  generalize hB : stackArg s 0 = B at *
+  generalize hSP : s.gpr .rsp = SP at *
+  have h8 : 8 ≤ N := by omega
+  have hNN8 : 8 * (N / 8) = N := by omega
+  have e128 : C + 128 = C + BitVec.ofNat 64 128 := rfl
+  have e136 : C + 136 = C + BitVec.ofNat 64 136 := rfl
+  have stackSub : Region.Sub (below (SP - 8) 8) (below SP 16) := below_callee _ _
+  have retSub : Region.Sub ⟨SP - 8, 8⟩ (below SP 16) := Offset.sub_below SP (by decide) (by decide)
+  have ivSub : Region.Sub ⟨C + BitVec.ofNat 64 128, 8⟩ ⟨C, 144⟩ := Offset.sub_base _ (by decide)
+  have keySub : Region.Sub ⟨C, 128⟩ ⟨C, 144⟩ := Region.sub_prefix (by decide)
+  have bufSub : Region.Sub ⟨B, 512⟩ ⟨B, 576⟩ := Region.sub_prefix (by decide)
+  rw [cbcCall_eq]
+  refine WP.call (k := Cbc.contract d) (cbc_correct d) (cbc_noSp d) (by rw [cbc_depth]; decide)
+    (rd := [⟨C, 128⟩]) (wr := [⟨C + 128, 8⟩, ⟨O, 8 * (N / 8)⟩, ⟨B, 512⟩]) hpre hcov hwcov ?_
   intro s' rd' wr' callee' frame' _ ⟨s₂, mem₂, _, post₂⟩
   rw [cbc_depth, rsp₁, hNN8, e128] at frame'
   -- What the call leaves.
@@ -153,5 +185,22 @@ theorem call_ok (d : Spec.Rc2.Direction) (s : State) (hs : (updateContract d).pr
         ← e136, pend₁]
     · exact scheduleAt_frame frame' C (callSep _ (Offset.base_disjoint _ (by decide) (by decide))
         (ctxOut.sub_left keySub) (ctxBuf.sub_left keySub) (stCtx.symm.sub_left keySub))
+
+theorem update_body_correct (d : Spec.Rc2.Direction) (s : State) (hs : (updateContract d).pre s) :
+    WP isa (update d) s (fun s' => gprPreserved s s' ∧ (updateContract d).post s s') := by
+  obtain ⟨t₁, run₁, zf₁, keep₁⟩ := test_ok s .r9 (toNat_eq _) (s.gpr .r9).isLt
+  refine WP.seq (WP.of_runBlock ⟨t₁, run₁, ?_⟩)
+  refine WP.ite (decide ((s.gpr .r9).toNat = 0)) (by simpa [eval] using zf₁) (fun h => ?_) (fun h => ?_)
+  · exact short_ok d s hs (of_decide_eq_true h) t₁ keep₁
+  · exact WP.seq (WP.mono (long_ok d s hs (of_decide_eq_false h) t₁ keep₁) fun t ht =>
+      WP.mono (call_ok d s hs (of_decide_eq_false h) t ht) fun _ h => h)
+
+theorem update_correct (d : Spec.Rc2.Direction) (s : State) (hs : (updateContract d).pre s) :
+    ∃ t s', Exec isa (update d) s t s' ∧ abiPreserved s s' ∧ (updateContract d).post s s' := by
+  obtain ⟨t, s', he, ha, hp⟩ := update_body_correct d s hs
+  refine ⟨t, s', he, abiPreserved_of_exec ?_ he ha, hp⟩
+  cases d
+  · change encryptUpdate.allInstrs _ = true; lit_decide
+  · change decryptUpdate.allInstrs _ = true; lit_decide
 
 end VG.Proof.Rc2.X86_64.Stream

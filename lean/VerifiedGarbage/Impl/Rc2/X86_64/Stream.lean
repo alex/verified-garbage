@@ -5,7 +5,7 @@ import VerifiedGarbage.Impl.Rc2.X86_64.ExpandKey
 
 `vg_rc2_cbc_init(key = rdi, key_len = rsi, effective_bits = rdx, iv = rcx,
 iv_len = r8, ctx = r9, scratch = [rsp + 8])` checks the lengths, returning
-1, 2 or 3 for the first that is invalid, copies the IV to `ctx + 128` and
+1, 2 or 3 for the first that is invalid; otherwise it copies the IV to `ctx + 128` and
 calls `vg_rc2_expand_key` to write the schedule to `ctx`, and returns 0.
 
 `vg_rc2_cbc_{en,de}crypt_update(ctx = rdi, pending_len = rsi, data = rdx,
@@ -64,10 +64,15 @@ def checkBits : List Instr :=
 /-- 3 unless `iv_len` is 8. -/
 def checkIv : List Instr := [.mov32 .rax (.imm 3), .alu .cmp .r8 (.imm 8)]
 
-def init : Prog isa :=
-  .seq (.block checkKey) (.ite .ae (.block [])
+/-- The return code in `rax`: 1, 2 or 3 for the first invalid length, else 0;
+then ZF is set iff it is 0. -/
+def checks : Prog isa :=
+  .seq (.seq (.block checkKey) (.ite .ae (.block [])
     (.seq (.block checkBits) (.ite .ae (.block [])
-      (.seq (.block checkIv) (.ite .ne (.block []) initBody)))))
+      (.seq (.block checkIv) (.ite .ne (.block []) (.block [.mov32 .rax (.imm 0)])))))))
+    (.block [.alu .test .rax (.reg .rax)])
+
+def init : Prog isa := .seq checks (.ite .ne (.block []) initBody)
 
 /-! ## `update` -/
 
@@ -92,13 +97,15 @@ def cbcArgs : List Instr :=
   [.alu .sub .r8 (.reg .rsi), .alu .add .r9 (.reg .rsi), .shift .shr .r9 3, rr .rdx .r8,
    rr .rcx .r9, rr .rsi .rdi, .alu .add .rsi (.imm 128), .mov .r8 (.mem (memOp .rsp 8))]
 
-def long (d : Spec.Rc2.Direction) : Prog isa :=
+/-- Everything before the call of the CBC function. -/
+def longPre : Prog isa :=
   .seq (copy .rdi 136 .r8 0 .rsi)
     (.seq (.block toOut)
       (.seq (copy .rdx 0 .r8 0 .r9)
         (.seq (.block toPending)
-          (.seq (copy .rdx 0 .rdi 136 .rcx)
-            (.seq (.block cbcArgs) (cbcCall d))))))
+          (.seq (copy .rdx 0 .rdi 136 .rcx) (.block cbcArgs)))))
+
+def long (d : Spec.Rc2.Direction) : Prog isa := .seq longPre (cbcCall d)
 
 def update (d : Spec.Rc2.Direction) : Prog isa :=
   .seq (.block [.alu .test .r9 (.reg .r9)]) (.ite .e short (long d))

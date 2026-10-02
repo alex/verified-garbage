@@ -6,7 +6,6 @@ With `out_len ≠ 0`: the pending bytes and the first `out_len - pending_len`
 bytes of data to `out`, the rest of the data to `ctx + 136`, and the
 arguments of the CBC function (`Mid`). -/
 
-set_option linter.unusedSimpArgs false
 namespace VG.Proof.Rc2.X86_64.Stream
 
 open VG VG.X86_64 VG.X86_64.RegUpd VG.WriteBytes VG.Impl.Rc2.X86_64 VG.Impl.Rc2.X86_64.Stream
@@ -32,9 +31,8 @@ structure Mid (s t : State) : Prop where
       (((s.gpr .rsi).toNat + (s.gpr .rcx).toNat) % 8)
 
 theorem long_ok (d : Spec.Rc2.Direction) (s : State) (hs : (updateContract d).pre s)
-    (hnz : (s.gpr .r9).toNat ≠ 0) (t : State) (ht : Keep [] s t) {Q : State → Prop}
-    (hQ : ∀ t', Mid s t' → WP isa (cbcCall d) t' Q) :
-    WP isa (long d) t Q := by
+    (hnz : (s.gpr .r9).toNat ≠ 0) (t : State) (ht : Keep [] s t) :
+    WP isa longPre t (Mid s) := by
   obtain ⟨_, _, hrd, hwr, ctxData, ctxOut, _, ctxArgs, dataOut, _, _, outArgs, _, _, _, _, _, _,
     _, _, _, _, _, _, fitData, fitOut, _, hp, hN⟩ := hs
   -- Names for the arguments.
@@ -163,7 +161,7 @@ theorem long_ok (d : Spec.Rc2.Direction) (s : State) (hs : (updateContract d).pr
   obtain ⟨s₆, run₆, rdi₆, rsi₆, rdx₆, rcx₆, r8₆, keep₆⟩ := cbcArgs_ok s₅ (by
     rw [rd₅', wr₅', k₅ _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), ← argsAddr]
     exact rdrd (by rw [hrd]; exact ⟨_, by simp, Region.contains_self _ _⟩))
-  refine WP.seq (WP.of_runBlock ⟨s₆, run₆, ?_⟩)
+  refine WP.of_runBlock ⟨s₆, run₆, ?_⟩
   have s5rdi : s₅.gpr .rdi = C := by
     rw [k₅ _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hC]
   have s5rsi : s₅.gpr .rsi = BitVec.ofNat 64 P := by
@@ -173,7 +171,6 @@ theorem long_ok (d : Spec.Rc2.Direction) (s : State) (hs : (updateContract d).pr
   have s5r9 : s₅.gpr .r9 = BitVec.ofNat 64 (N - P) := by
     rw [g₅ _ (by decide) (by decide), keep₄.reg _ (by simp), k₃ _ (by decide) (by decide), r9₂]
   have mem₆ : s₆.mem = s₅.mem := keep₆.mem
-  apply hQ s₆
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [rdi₆, s5rdi, hC]
   · rw [rsi₆, s5rdi, hC]

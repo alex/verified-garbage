@@ -2,12 +2,9 @@ import VerifiedGarbage.Proof.Rc2.X86_64.Stream.Steps
 
 /-! # Streaming RC2-CBC on x86-64: an update without a complete block -/
 
-set_option linter.unusedSimpArgs false
 namespace VG.Proof.Rc2.X86_64.Stream
 
 open VG VG.X86_64 VG.X86_64.RegUpd VG.WriteBytes VG.Impl.Rc2.X86_64 VG.Impl.Rc2.X86_64.Stream
-
-theorem toNat_eq (x : BitVec 64) : x = BitVec.ofNat 64 x.toNat := by simp
 
 /-- With `out_len = 0` (so `pending_len + len < 8`), from a state `t` that
 differs from the entry state `s` only in its flags. -/
