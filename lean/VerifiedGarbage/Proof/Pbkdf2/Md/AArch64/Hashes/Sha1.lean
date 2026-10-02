@@ -59,10 +59,15 @@ theorem coreOK : CoreOK coreH where
     argU₁ := ⟨_, by taint_decide⟩
     argU₂ := ⟨_, by taint_decide⟩
     restore := ⟨_, by taint_decide⟩ }
+  hinitA := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
+    ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩⟩
   fitI := by decide
   fitF := by decide
+  fitA := by decide
+  dB := by decide
+  pow := by decide
 
 variable (v : Compress)
 
@@ -135,6 +140,11 @@ theorem satI : ∃ s, (Spec.Hmac.sha1I.initContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.initContract, Spec.Hmac.sha1I, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha1S, Spec.Hmac.sha1, AArch64.abi, AArch64.argRegs] using initSat 84 56
 
+theorem satA : ∃ s, (Spec.Hmac.sha1I.initAnyKeyContract AArch64.abi 16).pre s := by
+  inst_sat [Spec.Hmac.Instance.initAnyKeyContract, Spec.Hmac.Instance.initAnyKeyScratch, Spec.Hmac.sha1I,
+    Spec.Hmac.initAnyKeyContract, Spec.Hmac.initSig, Spec.Hmac.sha1S, Spec.Hmac.sha1, AArch64.abi,
+    AArch64.argRegs] using initSat 84 140
+
 theorem satF : ∃ s, (Spec.Hmac.sha1I.finalizeContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.sha1I, Spec.Hmac.finalizeContract,
     Spec.Hmac.finalizeSig, Spec.Hmac.sha1S, Spec.Hmac.sha1, AArch64.abi, AArch64.argRegs] using finSat 84 20 56
@@ -167,6 +177,6 @@ def stream : List StreamFn := [
 
 /-- Every construction follows the registered compression backend. -/
 def variant : MdHash :=
-  MdHash.of (ok v) coreOK rfl rfl satI satF satT satP v.suffix v.features (stream v)
+  MdHash.of (ok v) coreOK rfl rfl satI satA satF satT satP v.suffix v.features (stream v)
 
 end VG.Proof.Pbkdf2.Md.AArch64.Sha1

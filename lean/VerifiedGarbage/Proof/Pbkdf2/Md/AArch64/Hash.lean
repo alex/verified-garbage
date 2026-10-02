@@ -89,13 +89,14 @@ theorem pbkdf2_keepsV : H.pbkdf2.allInstrs keepsV = true := by
   have ht : H.iterate.allInstrs keepsV = true :=
     Pbkdf2.AArch64.iterate_keepsV hH.shape hH.comp.keepsV
   have hinit : H.hmacInit.allInstrs keepsV = true := by
-    simp [Hash.hmacInit, Hash.stream, Impl.Hmac.Generic.AArch64.Hash.init,
+    simp [Hash.hmacInit, Hash.stream, Impl.Hmac.Generic.AArch64.Hash.initAny,
+      Impl.Hmac.Generic.AArch64.Hash.hashKey, Impl.Hmac.Generic.AArch64.Hash.init,
       Impl.Hmac.Generic.AArch64.Hash.initKeys, Impl.Hmac.Generic.AArch64.Hash.initPrologue,
       Impl.Hmac.Generic.AArch64.Hash.keyLoop, Impl.Hmac.Generic.AArch64.Hash.padLoop,
       Impl.Hmac.Generic.AArch64.Hash.callInit, Impl.Hmac.Generic.AArch64.Hash.callUpd,
       Impl.Hmac.Generic.AArch64.Hash.save, Impl.Hmac.Generic.AArch64.Hash.saved,
       Impl.Hmac.Generic.AArch64.Hash.restore, Impl.Hmac.Generic.AArch64.left,
-      Impl.Sha256.AArch64.Stream.mov, Code.allInstrs, keepsV, vdstOf, hi, hu]
+      Impl.Sha256.AArch64.Stream.mov, Code.allInstrs, keepsV, vdstOf, hi, hu, hf]
   have hfin : H.hmacFin.allInstrs keepsV = true := by
     rw [Code.allInstrs_eq] at hf ⊢
     simp [Hash.hmacFin, Hash.finMid, Hash.finOut, Hash.copy32, Hash.stream,

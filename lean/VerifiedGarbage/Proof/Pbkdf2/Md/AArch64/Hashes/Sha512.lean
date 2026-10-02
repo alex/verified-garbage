@@ -68,10 +68,15 @@ theorem coreOK (D : Nat) (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) : CoreOK
         argU₁ := ⟨_, by taint_decide⟩
         argU₂ := ⟨_, by taint_decide⟩
         restore := ⟨_, by taint_decide⟩ }
+      hinitA := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
+        ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
       hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
         ⟨_, by taint_decide⟩⟩
       fitI := by decide
       fitF := by decide
+      fitA := by decide
+      dB := by decide
+      pow := by decide
   }
 
 /-- The initial hash values of the family. -/
@@ -205,6 +210,11 @@ theorem sha384_satI : ∃ s, (Spec.Hmac.sha384I.initContract AArch64.abi 16).pre
   inst_sat [Spec.Hmac.Instance.initContract, Spec.Hmac.sha384I, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha384S, Spec.Hmac.sha384, AArch64.abi, AArch64.argRegs] using initSat 192 234
 
+theorem sha384_satA : ∃ s, (Spec.Hmac.sha384I.initAnyKeyContract AArch64.abi 16).pre s := by
+  inst_sat [Spec.Hmac.Instance.initAnyKeyContract, Spec.Hmac.Instance.initAnyKeyScratch, Spec.Hmac.sha384I,
+    Spec.Hmac.initAnyKeyContract, Spec.Hmac.initSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, AArch64.abi,
+    AArch64.argRegs] using initSat 192 426
+
 theorem sha384_satF : ∃ s, (Spec.Hmac.sha384I.finalizeContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.sha384I, Spec.Hmac.finalizeContract,
     Spec.Hmac.finalizeSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, AArch64.abi, AArch64.argRegs] using finSat 192 48 234
@@ -225,13 +235,18 @@ theorem sha384_coreOK : CoreOK (coreH 48) := coreOK 48 (Or.inr (Or.inr (Or.inl r
 def sha384 (v : Compress) : MdHash :=
   MdHash.of (H := hash v Spec.Hmac.sha384I 48 Spec.Sha512.init384Api.name H0_384)
     (ok v rfl (fun _ => rfl) rfl rfl rfl (Or.inr (Or.inr (Or.inl rfl))) rfl (Or.inl rfl)) sha384_coreOK rfl rfl
-    sha384_satI sha384_satF sha384_satT sha384_satP v.suffix v.features
+    sha384_satI sha384_satA sha384_satF sha384_satT sha384_satP v.suffix v.features
 
 /-! ## SHA-512 -/
 
 theorem sha512_satI : ∃ s, (Spec.Hmac.sha512I.initContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.initContract, Spec.Hmac.sha512I, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha512S, Spec.Hmac.sha512, AArch64.abi, AArch64.argRegs] using initSat 192 234
+
+theorem sha512_satA : ∃ s, (Spec.Hmac.sha512I.initAnyKeyContract AArch64.abi 16).pre s := by
+  inst_sat [Spec.Hmac.Instance.initAnyKeyContract, Spec.Hmac.Instance.initAnyKeyScratch, Spec.Hmac.sha512I,
+    Spec.Hmac.initAnyKeyContract, Spec.Hmac.initSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, AArch64.abi,
+    AArch64.argRegs] using initSat 192 426
 
 theorem sha512_satF : ∃ s, (Spec.Hmac.sha512I.finalizeContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.sha512I, Spec.Hmac.finalizeContract,
@@ -253,7 +268,7 @@ theorem sha512_coreOK : CoreOK (coreH 64) := coreOK 64 (Or.inr (Or.inr (Or.inr r
 def sha512 (v : Compress) : MdHash :=
   { MdHash.of (H := hash v Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512)
     (ok v rfl (fun m => (List.take_of_length_le (Nat.le_of_eq (Hmac.Generic.Common.finalHash_length _ m))).symm) rfl rfl rfl (Or.inr (Or.inr (Or.inr rfl))) rfl (Or.inr (Or.inl rfl))) sha512_coreOK rfl rfl
-    sha512_satI sha512_satF sha512_satT sha512_satP v.suffix v.features (stream v) with
+    sha512_satI sha512_satA sha512_satF sha512_satT sha512_satP v.suffix v.features (stream v) with
     sha512 := some v }
 
 /-! ## SHA-512/224 -/
@@ -261,6 +276,11 @@ def sha512 (v : Compress) : MdHash :=
 theorem sha512_224_satI : ∃ s, (Spec.Hmac.sha512_224I.initContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.initContract, Spec.Hmac.sha512_224I, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, AArch64.abi, AArch64.argRegs] using initSat 192 234
+
+theorem sha512_224_satA : ∃ s, (Spec.Hmac.sha512_224I.initAnyKeyContract AArch64.abi 16).pre s := by
+  inst_sat [Spec.Hmac.Instance.initAnyKeyContract, Spec.Hmac.Instance.initAnyKeyScratch, Spec.Hmac.sha512_224I,
+    Spec.Hmac.initAnyKeyContract, Spec.Hmac.initSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, AArch64.abi,
+    AArch64.argRegs] using initSat 192 426
 
 theorem sha512_224_satF : ∃ s, (Spec.Hmac.sha512_224I.finalizeContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.sha512_224I, Spec.Hmac.finalizeContract,
@@ -282,13 +302,18 @@ theorem sha512_224_coreOK : CoreOK (coreH 28) := coreOK 28 (Or.inl rfl)
 def sha512_224 (v : Compress) : MdHash :=
   MdHash.of (H := hash v Spec.Hmac.sha512_224I 28 Spec.Sha512.init512_224Api.name H0_512_224)
     (ok v rfl (fun _ => rfl) rfl rfl rfl (Or.inl rfl) rfl (Or.inr (Or.inr (Or.inl rfl)))) sha512_224_coreOK rfl rfl
-    sha512_224_satI sha512_224_satF sha512_224_satT sha512_224_satP v.suffix v.features
+    sha512_224_satI sha512_224_satA sha512_224_satF sha512_224_satT sha512_224_satP v.suffix v.features
 
 /-! ## SHA-512/256 -/
 
 theorem sha512_256_satI : ∃ s, (Spec.Hmac.sha512_256I.initContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.initContract, Spec.Hmac.sha512_256I, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, AArch64.abi, AArch64.argRegs] using initSat 192 234
+
+theorem sha512_256_satA : ∃ s, (Spec.Hmac.sha512_256I.initAnyKeyContract AArch64.abi 16).pre s := by
+  inst_sat [Spec.Hmac.Instance.initAnyKeyContract, Spec.Hmac.Instance.initAnyKeyScratch, Spec.Hmac.sha512_256I,
+    Spec.Hmac.initAnyKeyContract, Spec.Hmac.initSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, AArch64.abi,
+    AArch64.argRegs] using initSat 192 426
 
 theorem sha512_256_satF : ∃ s, (Spec.Hmac.sha512_256I.finalizeContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.sha512_256I, Spec.Hmac.finalizeContract,
@@ -310,6 +335,6 @@ theorem sha512_256_coreOK : CoreOK (coreH 32) := coreOK 32 (Or.inr (Or.inl rfl))
 def sha512_256 (v : Compress) : MdHash :=
   MdHash.of (H := hash v Spec.Hmac.sha512_256I 32 Spec.Sha512.init512_256Api.name H0_512_256)
     (ok v rfl (fun _ => rfl) rfl rfl rfl (Or.inr (Or.inl rfl)) rfl (Or.inr (Or.inr (Or.inr rfl)))) sha512_256_coreOK rfl rfl
-    sha512_256_satI sha512_256_satF sha512_256_satT sha512_256_satP v.suffix v.features
+    sha512_256_satI sha512_256_satA sha512_256_satF sha512_256_satT sha512_256_satP v.suffix v.features
 
 end VG.Proof.Pbkdf2.Md.AArch64.Sha512

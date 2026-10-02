@@ -25,13 +25,13 @@ functions may use for a frame saving `x30`.
 namespace VG.Generic.MdHash.AArch64.Hmac
 
 def artifacts (v : Proof.Pbkdf2.Md.AArch64.MdHash) : List Artifact := [
-  { v.I.initApi with
-    name := v.I.initApi.name ++ v.suffix
+  { v.I.initAnyKeyApi with
+    name := v.I.initAnyKeyApi.name ++ v.suffix
     target := AArch64.target
-    doc := v.I.initApi.doc
+    doc := v.I.initAnyKeyApi.doc
     code := v.H.hmacInit
-    contract := v.I.initContract AArch64.abi 16
-    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
+    contract := v.I.initAnyKeyContract AArch64.abi 16
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initAnyKeyContract; rfl⟩
     writeArgs := true
     stack := 16
     verified := v.hmacInit

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Pbkdf2CT
 import VerifiedGarbage.Proof.Pbkdf2.AArch64.IterateCT
-import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Instances
+import VerifiedGarbage.Proof.Hmac.Generic.AArch64.InitAny
 import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.HmacFin
 
 /-!
@@ -26,7 +26,7 @@ namespace VG.Proof.Pbkdf2.Md.AArch64
 
 open VG.AArch64
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
-open VG.Proof.Hmac.Generic.AArch64 (initG finG)
+open VG.Proof.Hmac.Generic.AArch64 (initG initAnyG finG)
 open VG.Proof.Pbkdf2.AArch64 (iterK iterImp)
 
 /-- `H` without the functions it calls: its own code. -/
@@ -41,8 +41,10 @@ theorem fdepth_of_noFrames {c : Prog isa} (h : c.noFrames = true) : c.aarch64Dep
 section
 variable {H : Hash}
 
-theorem hmacInit_fdepth (hi : H.initC.aarch64Depth ≤ 1) (hu : H.updC.aarch64Depth ≤ 1) : H.hmacInit.aarch64Depth ≤ 1 := by
-  simp only [Hash.hmacInit, Hash.stream, Impl.Hmac.Generic.AArch64.Hash.init,
+theorem hmacInit_fdepth (hi : H.initC.aarch64Depth ≤ 1) (hu : H.updC.aarch64Depth ≤ 1)
+    (hf : H.finC.aarch64Depth ≤ 1) : H.hmacInit.aarch64Depth ≤ 1 := by
+  simp only [Hash.hmacInit, Hash.stream, Impl.Hmac.Generic.AArch64.Hash.initAny,
+    Impl.Hmac.Generic.AArch64.Hash.hashKey, Impl.Hmac.Generic.AArch64.Hash.init,
     Impl.Hmac.Generic.AArch64.Hash.initKeys, Impl.Hmac.Generic.AArch64.Hash.keyLoop,
     Impl.Hmac.Generic.AArch64.Hash.padLoop, Impl.Hmac.Generic.AArch64.Hash.callInit,
     Impl.Hmac.Generic.AArch64.Hash.callUpd, Code.aarch64Depth]
@@ -76,10 +78,18 @@ structure CoreOK (C : Hash) : Prop where
   pbk : Pbk.Checks C
   iter : VG.Proof.Pbkdf2.AArch64.Checks C.P C.D
   hinit : Hmac.Generic.AArch64.Init.Checks C.stream
+  hinitA : Hmac.Generic.AArch64.InitAny.Checks C.stream
   hfin : HmacFin.Checks C
   /-- HMAC's buffers fit in the working space. -/
   fitI : C.stream.buf + 2 * C.stream.B ≤ 8 * C.W
   fitF : C.stream.buf + C.stream.F ≤ 8 * C.W
+  /-- The streaming state and the digest of a long key fit after them, in
+  `init`'s working space for a key of any length. -/
+  fitA : C.stream.ext + C.stream.S + C.stream.F ≤ 8 * (C.W + C.S)
+  /-- A digest is a key of at most a block, and the block size is a power of
+  two (`init` tests `key_len >> log₂ B`). -/
+  dB : C.D ≤ C.P.B
+  pow : 2 ^ Nat.log2 C.P.B = C.P.B
 
 /-! ## The functions, verified -/
 
@@ -98,11 +108,21 @@ section
 variable {H : Hash} (hH : HashOK H) (C : CoreOK (core H))
 include hH C
 
+/-- HMAC's `init`, for a key of at most a block, as `pbkdf2` calls it. -/
 theorem hmacInit_ok (hsat : ∃ s, (Spec.Hmac.initContract hH.SH H.W AArch64.abi 16).pre s) :
     Verified AArch64.target H.hmacInit (initG hH.SH H.W) :=
-  Hmac.Generic.AArch64.Init.verified hH.stream
+  Hmac.Generic.AArch64.InitAny.verifiedShort hH.stream
     (Hmac.Generic.AArch64.Instances.Init.Checks.of_eq (H := (core H).stream) rfl rfl rfl C.hinit)
-    C.fitI (Hmac.Generic.AArch64.Instances.initImp _ _ hsat).sat_left
+    (Hmac.Generic.AArch64.Instances.InitAny.Checks.of_eq (H := (core H).stream) rfl rfl rfl rfl C.hinitA)
+    C.fitI C.pow (Hmac.Generic.AArch64.Instances.initImp _ _ hsat).sat_left
+
+/-- HMAC's `init`, for a key of any length. -/
+theorem hmacInitAny_ok (hsat : ∃ s, (Spec.Hmac.initAnyKeyContract hH.SH (H.W + H.S) AArch64.abi 16).pre s) :
+    Verified AArch64.target H.hmacInit (initAnyG hH.SH (H.W + H.S)) :=
+  Hmac.Generic.AArch64.InitAny.verifiedAny hH.stream
+    (Hmac.Generic.AArch64.Instances.Init.Checks.of_eq (H := (core H).stream) rfl rfl rfl C.hinit)
+    (Hmac.Generic.AArch64.Instances.InitAny.Checks.of_eq (H := (core H).stream) rfl rfl rfl rfl C.hinitA)
+    C.fitA C.dB C.pow (Hmac.Generic.AArch64.Instances.initAnyImp _ _ hsat).sat_left
 
 theorem hmacFin_ok (hsat : ∃ s, (Spec.Hmac.finalizeContract hH.SH H.W AArch64.abi 16).pre s) :
     Verified AArch64.target H.hmacFin (finG hH.SH H.W) :=
@@ -117,6 +137,12 @@ theorem iterate_ok (hsat : ∃ s, (Spec.Pbkdf2.iterateContract hH.SH H.W AArch64
 theorem hmacInit_verified (hsat : ∃ s, (Spec.Hmac.initContract hH.SH H.W AArch64.abi 16).pre s) :
     Verified AArch64.target H.hmacInit (Spec.Hmac.initContract hH.SH H.W AArch64.abi 16) :=
   (hmacInit_ok hH C hsat).of_implies (Hmac.Generic.AArch64.Instances.initImp _ _ hsat)
+
+/-- HMAC's `init` for a key of any length, verified against the shared contract. -/
+theorem hmacInitAny_verified
+    (hsat : ∃ s, (Spec.Hmac.initAnyKeyContract hH.SH (H.W + H.S) AArch64.abi 16).pre s) :
+    Verified AArch64.target H.hmacInit (Spec.Hmac.initAnyKeyContract hH.SH (H.W + H.S) AArch64.abi 16) :=
+  (hmacInitAny_ok hH C hsat).of_implies (Hmac.Generic.AArch64.Instances.initAnyImp _ _ hsat)
 
 /-- HMAC's `finalize`, verified against the shared contract. -/
 theorem hmacFin_verified (hsat : ∃ s, (Spec.Hmac.finalizeContract hH.SH H.W AArch64.abi 16).pre s) :
@@ -136,7 +162,7 @@ theorem pbkdf2_verified
     (hsat : ∃ s, (Spec.Pbkdf2.pbkdf2Contract hH.SH (H.W + H.S) AArch64.abi 16).pre s) :
     Verified AArch64.target H.pbkdf2 (Spec.Pbkdf2.pbkdf2Contract hH.SH (H.W + H.S) AArch64.abi 16) :=
   (Pbk.verified hH (Pbk.Checks.of_core C.pbk)
-    (hmacInit_ok hH C hsI) (hmacInit_fdepth hH.stream.initDepth hH.stream.updDepth)
+    (hmacInit_ok hH C hsI) (hmacInit_fdepth hH.stream.initDepth hH.stream.updDepth hH.stream.finDepth)
     (hmacFin_ok hH C hsF) (hmacFin_fdepth hH.stream.finDepth)
     (iterate_ok hH C hsT) (iterate_fdepth hH.comp.noFrames)
     (pbkImp _ _ hsat).sat_left).of_implies (pbkImp _ _ hsat)

@@ -57,10 +57,15 @@ theorem coreOK : CoreOK coreH where
     argU₁ := ⟨_, by taint_decide⟩
     argU₂ := ⟨_, by taint_decide⟩
     restore := ⟨_, by taint_decide⟩ }
+  hinitA := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
+    ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩⟩
   fitI := by decide
   fitF := by decide
+  fitA := by decide
+  dB := by decide
+  pow := by decide
 
 /-- The streaming functions, verified against the contracts HMAC's proofs
 call them with. -/
@@ -124,6 +129,11 @@ theorem satI : ∃ s, (Spec.Hmac.md5I.initContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.initContract, Spec.Hmac.md5I, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.md5S, Spec.Hmac.md5, AArch64.abi, AArch64.argRegs] using initSat 80 48
 
+theorem satA : ∃ s, (Spec.Hmac.md5I.initAnyKeyContract AArch64.abi 16).pre s := by
+  inst_sat [Spec.Hmac.Instance.initAnyKeyContract, Spec.Hmac.Instance.initAnyKeyScratch, Spec.Hmac.md5I,
+    Spec.Hmac.initAnyKeyContract, Spec.Hmac.initSig, Spec.Hmac.md5S, Spec.Hmac.md5, AArch64.abi,
+    AArch64.argRegs] using initSat 80 128
+
 theorem satF : ∃ s, (Spec.Hmac.md5I.finalizeContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.md5I, Spec.Hmac.finalizeContract,
     Spec.Hmac.finalizeSig, Spec.Hmac.md5S, Spec.Hmac.md5, AArch64.abi, AArch64.argRegs] using finSat 80 16 48
@@ -139,6 +149,6 @@ theorem satP : ∃ s, (Spec.Hmac.md5I.pbkdf2Contract AArch64.abi 16).pre s := by
     AArch64.argRegs] using pbkSat 128
 
 /-- MD5 with its compression function. -/
-def variant : MdHash := MdHash.of ok coreOK rfl rfl satI satF satT satP "" []
+def variant : MdHash := MdHash.of ok coreOK rfl rfl satI satA satF satT satP "" []
 
 end VG.Proof.Pbkdf2.Md.AArch64.Md5
