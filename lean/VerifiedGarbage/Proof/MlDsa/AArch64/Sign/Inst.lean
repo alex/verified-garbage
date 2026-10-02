@@ -1,8 +1,9 @@
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Rej4.Depth
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Depth
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.SignCT
 import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.AddSub
 import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Mul
-import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.NttInv
+import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Neon.NttInv
 import VerifiedGarbage.Proof.MlDsa.AArch64.Round.Bits
 import VerifiedGarbage.Proof.MlDsa.AArch64.Round.NormLt
 import VerifiedGarbage.Proof.MlDsa.AArch64.Round.MakeHint
@@ -38,12 +39,13 @@ open VG.Spec.Sha3 (bytesAt)
 /-- The AArch64 implementations of the primitives. -/
 def primsWith (c : Impl.Sha3.AArch64.Callee) : Prims where
   suffix := c.suffix
-  ntt := Impl.MlDsa.AArch64.Arith.ntt
-  invNtt := Impl.MlDsa.AArch64.Arith.nttInv
+  ntt := Impl.MlDsa.AArch64.Arith.Neon.ntt
+  invNtt := Impl.MlDsa.AArch64.Arith.Neon.nttInv
   mul := Impl.MlDsa.AArch64.Arith.mul
   mulAdd := Impl.MlDsa.AArch64.Arith.mulAdd
   add := Impl.MlDsa.AArch64.Arith.add
   sub := Impl.MlDsa.AArch64.Arith.sub
+  rej4 := Impl.MlDsa.AArch64.Sample.Rej4.rejNTT4With c.pairedSha3
   rejNTT := Impl.MlDsa.AArch64.Sample.rejNTTWith c
   expandMask := Impl.MlDsa.AArch64.Sample.expandMaskWith c
   ball := Impl.MlDsa.AArch64.Sample.sampleInBallWith c
@@ -84,6 +86,26 @@ theorem rn_ret {s s' : State} {tr : List Leak} (h : (rejNTTContract AArch64.abi 
   obtain ⟨-, rfl⟩ := Exec.det e e'
   exact hq.1
 
+theorem rn4_pre (s : State) (h : (rejNTT4Contract AArch64.abi 16).pre s) : Rej4.r4K.pre s := by
+  have hh : Rej4.preProps s := by
+    revert s h
+    sig_implies_pre [Spec.MlDsa.rejNTT4Contract,Spec.MlDsa.rejNTT4Sig,Rej4.preProps,
+      Rej4.seedsR,Rej4.aR,Rej4.scrR,Rej4.seedP,Rej4.aP,Rej4.scr,AArch64.abi,AArch64.argRegs]
+  exact ⟨hh.1,hh.2.1,hh.2.2.1,hh.2.2.2.1,hh.2.2.2.2⟩
+
+theorem rn4_pub (s₁ s₂ : State) (h : (rejNTT4Contract AArch64.abi 16).pub s₁ s₂) :
+    bytesAt s₁.mem (s₁.gpr .x0) 136 = bytesAt s₂.mem (s₂.gpr .x0) 136 := by
+  sig_pub [Spec.MlDsa.rejNTT4Contract,Spec.MlDsa.rejNTT4Sig,AArch64.abi,AArch64.argRegs] at h
+  obtain ⟨_,hb,_⟩ := h
+  exact Proof.MlKem.map_toNat_inj hb
+
+theorem rn4_ret {s s' : State} {tr : List Leak} (h : (rejNTT4Contract AArch64.abi 16).pre s)
+    (e : Exec isa (Impl.MlDsa.AArch64.Sample.Rej4.rejNTT4With keccak.callee.pairedSha3) s tr s') :
+    (s'.gpr .x0).setWidth 32 = rej4Res s.mem (s.gpr .x0) := by
+  obtain ⟨_,_,he',_,hq⟩ := Rej4.correct keccak.callee.pairedSha3 s (rn4_pre s h)
+  obtain ⟨_,rfl⟩ := Exec.det e he'
+  exact hq.1.trans (Rej4.mask_cast s)
+
 theorem sb_pre (s : State) (h : (sampleInBallContract AArch64.abi 16).pre s) : sbK.pre s := by
   revert s h
   sig_implies_pre [Spec.MlDsa.sampleInBallContract, Spec.MlDsa.sampleInBallSig, sbK, AArch64.abi, AArch64.argRegs]
@@ -112,17 +134,30 @@ theorem prims_okWith : PrimsOk (primsWith keccak.callee) signStack where
   s16 := by decide
   sl := by decide
   ntt := by
-    have h := Proof.MlDsa.AArch64.Arith.ntt_verified
+    have h := Proof.MlDsa.AArch64.Arith.Neon.ntt_verified
     unfold Spec.MlDsa.nttContract at h ⊢
     exact CalleeOk.of_verified (by decide) h (by decide) (by dsimp only [primsWith]; decide +kernel)
   invNtt := by
-    have h := Proof.MlDsa.AArch64.Arith.nttInv_verified
+    have h := Proof.MlDsa.AArch64.Arith.Neon.nttInv_verified
     unfold Spec.MlDsa.nttInvContract at h ⊢
     exact CalleeOk.of_verified (by decide) h (by decide) (by dsimp only [primsWith]; decide +kernel)
   mul := CalleeOk.of_verified (S := signStack) (by decide) Proof.MlDsa.AArch64.Arith.mul_verified (by decide) (by dsimp only [primsWith]; decide +kernel)
   mulAdd := CalleeOk.of_verified (S := signStack) (by decide) Proof.MlDsa.AArch64.Arith.mulAdd_verified (by decide) (by dsimp only [primsWith]; decide +kernel)
   add := CalleeOk.of_verified (S := signStack) (by decide) Proof.MlDsa.AArch64.Arith.add_verified (by decide) (by dsimp only [primsWith]; decide +kernel)
   sub := CalleeOk.of_verified (S := signStack) (by decide) Proof.MlDsa.AArch64.Arith.sub_verified (by decide) (by dsimp only [primsWith]; decide +kernel)
+  rej4 := CalleeOk.of_verified (S := signStack) (by decide)
+    (Proof.MlDsa.AArch64.Sample.Rej4.verified keccak.callee.pairedSha3) (by decide)
+    (by simp [primsWith,signStack,Proof.MlDsa.AArch64.Sample.Rej4.depth])
+  rej4Ret := fun s₁ s₂ t₁ t₂ s₁' s₂' ⟨h₁,h₂,hp⟩ e₁ e₂ =>
+    ⟨(Proof.MlDsa.AArch64.Sample.Rej4.ct keccak.callee.pairedSha3) s₁ s₂ t₁ t₂ s₁' s₂'
+      (rn4_pre s₁ h₁) (rn4_pre s₂ h₂) (by
+        sig_pub [Spec.MlDsa.rejNTT4Contract,Spec.MlDsa.rejNTT4Sig,AArch64.abi,AArch64.argRegs] at hp
+        obtain ⟨hsp,hb,h0,h1,h2⟩ := hp
+        exact ⟨h0,h1,h2,hsp,Proof.MlKem.map_toNat_inj hb⟩) e₁ e₂,
+      show _ = _ by rw [rn4_ret h₁ e₁,rn4_ret h₂ e₂]; exact Proof.MlDsa.Sample.rej4Res_congr (rn4_pub s₁ s₂ hp)⟩
+  rej4Max := fun s t s' h e h1 k hk => by
+    rw [rn4_ret h e] at h1
+    exact Proof.MlDsa.Sample.rej4Res_max h1 hk (by decide)
   rejNTT := CalleeOk.of_verified (S := signStack) (by decide) (Proof.MlDsa.AArch64.Sample.rejNTT_verifiedWith keccak) (by decide)
     (by simp [primsWith, signStack, Sample.rejNTT_depth keccak])
   expandMask := CalleeOk.of_verified (S := signStack) (by decide) (Proof.MlDsa.AArch64.Sample.expandMask_verifiedWith keccak) (by decide)

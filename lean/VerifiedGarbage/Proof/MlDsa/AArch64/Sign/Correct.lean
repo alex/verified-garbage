@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseA4
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseO
 
 /-!
@@ -173,7 +174,7 @@ theorem sign_correct {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 :
     unfold Impl.MlDsa.AArch64.Sign.signWith
     refine WP.seq (WP.mono (pro_ok hin) fun s₁ ⟨h₁, h15, hf₁⟩ => ?_)
     have S1 := entry_st h3 hpre h₁ hf₁
-    refine WP.seq (WP.mono (expandA_ok hP ha S1 h15) fun s₂ h₂ => ?_)
+    refine WP.seq (WP.mono (expandA_ok hP h3 ha S1 h15) fun s₂ h₂ => ?_)
     refine WP.seq (WP.mono (show WP isa (ifOk (restWith keccak.callee P p)) s₂ (FS p D σ) from ?_) fun s₄ h₄ => ?_)
     · unfold ifOk
       refine ifOkElse_ok (fun hne => ?_) fun he => ?_

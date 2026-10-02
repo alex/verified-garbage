@@ -100,9 +100,24 @@ variable (P : Prims) (p : Params)
 def sampleE (e : Nat) : Prog isa :=
   .seq (.block (setB (sc (oRS + 32)) (e % p.ℓ) ++ setB (sc (oRS + 33)) (e / p.ℓ))) (rejAt P (aP p (e / p.ℓ) (e % p.ℓ)))
 
-/-- `ρ` to `RS`, and the `kℓ` entries of `Â`. -/
+/-- Scratch for the four simultaneous SHAKE streams, after the matrix. -/
+def oR4 : Nat := oP (5+4*p.k+3*p.ℓ+p.k*p.ℓ)
+
+def seedSlot4 (e j : Nat) : Prog isa :=
+  .seq (.block (lea .x10 .x28 (oRS4+34*j) ++ Impl.MlKem.AArch64.copy32 .x28 oRS .x10 0))
+    (.block (setB (sc (oRS4+34*j+32)) ((e+j)%p.ℓ) ++ setB (sc (oRS4+34*j+33)) ((e+j)/p.ℓ)))
+
+def sample4 (g : Nat) : Prog isa :=
+  .seq (seqR (seedSlot4 p (4*g)) 0 4)
+    (.seq (callAt ("vg_mldsa_rej_ntt_poly4"++P.suffix) P.rej4
+      [(.x0,.ptr (sc oRS4)),(.x1,.ptr (pS (5+4*p.k+3*p.ℓ+4*g))),(.x2,.ptr (sc (oR4 p)))]) (.block and24))
+
+def sampleAll : Prog isa :=
+  .seq (seqR (sample4 P p) 0 (p.k*p.ℓ/4)) (seqR (sampleE P p) (4*(p.k*p.ℓ/4)) (p.k*p.ℓ%4))
+
+/-- `ρ` to four seed slots, and matrix expansion in batches of four. -/
 def expandA : Prog isa :=
-  .seq (.block (Impl.MlKem.AArch64.copy32 .x25 0 .x28 oRS)) (seqR (sampleE P p) 0 (p.k * p.ℓ))
+  .seq (.block (Impl.MlKem.AArch64.copy32 .x25 0 .x28 oRS)) (sampleAll P p)
 
 /-- `ŝ₁[r]`. -/
 def decS1 (r : Nat) : Prog isa :=

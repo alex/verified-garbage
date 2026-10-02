@@ -42,6 +42,7 @@ structure Prims where
   add : Prog isa
   sub : Prog isa
   rejNtt : Prog isa
+  rej4 : Prog isa
   rejBounded : Prog isa
   ball : Prog isa
   power2Round : Prog isa
@@ -73,6 +74,10 @@ def subAt (f g : Ptr) : Prog isa := callAt "vg_mldsa_sub" P.sub [(.x0, .ptr f), 
 
 def rejNttAt (seed a : Ptr) : Prog isa :=
   callAt ("vg_mldsa_rej_ntt_poly" ++ P.suffix) P.rejNtt [(.x0, .ptr seed), (.x1, .ptr a), (.x2, .ptr ss)]
+
+/-- Four `RejNTTPoly` outputs, with 136 bytes of seeds and 8192 bytes of scratch. -/
+def rej4At (seed a : Ptr) : Prog isa :=
+  callAt ("vg_mldsa_rej_ntt_poly4" ++ P.suffix) P.rej4 [(.x0,.ptr seed),(.x1,.ptr a),(.x2,.ptr ss)]
 
 def rejBoundedAt (seed : Ptr) (eta : Nat) (a : Ptr) : Prog isa :=
   callAt ("vg_mldsa_rej_bounded_poly" ++ P.suffix) P.rejBounded
@@ -119,6 +124,12 @@ that wrote it: unchanged if 1, and zero if 0, so that it is reduced either
 way, without a branch. `w8 ← -w0`, then each coefficient `∧ w8`. -/
 def mask (a : Ptr) : Prog isa :=
   .seq (.block ([.movz .x .x8 0 0, .sub .w .x8 .x8 .x0] ++ lea .x1 a.1 a.2 ++ [.movz .x .x2 256 0]))
+    (.loop (.block [.ldr .w .x9 .x1 0, .logic .and .w .x9 .x9 .x8, .str .w .x9 .x1 0, .addImm .x .x1 .x1 4,
+      .subImm .x .x2 .x2 1]) (.nonzero .x .x2))
+
+/-- Mask four consecutive sampled polynomials with their common result. -/
+def mask4 (a : Ptr) : Prog isa :=
+  .seq (.block ([.movz .x .x8 0 0, .sub .w .x8 .x8 .x0] ++ lea .x1 a.1 a.2 ++ [.movz .x .x2 1024 0]))
     (.loop (.block [.ldr .w .x9 .x1 0, .logic .and .w .x9 .x9 .x8, .str .w .x9 .x1 0, .addImm .x .x1 .x1 4,
       .subImm .x .x2 .x2 1]) (.nonzero .x .x2))
 
