@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Instances
-import VerifiedGarbage.Proof.Pbkdf2.Generic.Arm.Sha224
+import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Sha224
 
 /-!
 # PBKDF2-HMAC-SHA-224 on 32-bit ARM, the whole derivation
@@ -15,7 +15,7 @@ open VG.Arm
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
 open VG.Proof.Hmac.Generic.Arm (sha224H sha224OK)
 
-def sha224F : Fns := fnsOf Spec.Hmac.sha224I sha224H
+def sha224F : Fns := fnsOf Spec.Hmac.sha224I Md.Arm.sha224Md
 
 theorem sha224_checks : Checks sha224F := by
   constructor <;> exact ⟨_, by taint_decide⟩
@@ -26,8 +26,8 @@ def sha224OKF : FnsOK sha224F where
   Wf := 104
   Wt := 104
   hi := .of_verified Proof.Hmac.Generic.Arm.Instances.sha224_init
-  hf := .of_verified Proof.Hmac.Generic.Arm.Instances.sha224_finalize
-  it := .of_verified Proof.Pbkdf2.Generic.Arm.Instances.sha224
+  hf := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha224_finalize
+  it := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha224_iterate
   hiSt := by decide +kernel
   hfSt := by decide +kernel
   itSt := by decide +kernel

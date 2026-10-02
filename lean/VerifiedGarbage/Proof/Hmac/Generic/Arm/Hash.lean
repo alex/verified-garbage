@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Frame
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.MdStream.Arm.Common
-import VerifiedGarbage.Impl.Pbkdf2.Generic.Arm
+import VerifiedGarbage.Impl.Hmac.Generic.Arm
 import VerifiedGarbage.Proof.Framework.Offset
 import VerifiedGarbage.Proof.Framework.OffsetBelow
 import VerifiedGarbage.Proof.Framework.OmegaLit
