@@ -24,6 +24,7 @@ frame of 16 bytes (`After.of_hmac`).
 namespace VG.Proof.Pbkdf2.Whole.Arm
 
 open VG.Arm
+open VG.Arm.FrameStack
 open Spec.Hmac (StreamingHash xorPad ipad opad blockKey hmacBlockKey)
 open VG.Proof.Hmac.Generic.Arm (ce0 ce1 ce2 ce3)
 open Spec.Sha256 (bytesAt)

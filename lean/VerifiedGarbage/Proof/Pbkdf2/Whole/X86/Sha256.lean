@@ -21,19 +21,6 @@ open VG.X86
 open VG.Impl.Pbkdf2.Whole.X86 (Fns)
 open VG.Proof.Hmac.Generic.X86 (HashOK nosp_of)
 open VG.Proof.Sha256.X86.Variants (Backend)
-open VG.Proof.Hmac.Generic.Common (readW_reloc bytesAt_reloc)
-
-theorem sha256_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
-    (h : ∀ i < 96, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))
-    (hr : Spec.Sha256.Repr m p msg) : Spec.Sha256.Repr m' q msg := by
-  refine ⟨?_, ?_⟩
-  · rw [← hr.1]
-    apply Vector.ext
-    intro j hj
-    simp only [Spec.Sha256.stateAt, Vector.getElem_ofFn]
-    exact readW_reloc h (by omega)
-  · rw [← hr.2]
-    exact bytesAt_reloc h (o := 32) (k := msg.length % 64) (by omega)
 
 /-- The functions `pbkdf2` calls for SHA-256 with the backend `v`. -/
 abbrev sha256FnsOf (v : Backend) : Fns := sha256Fns v.suffix v.cmpN v.cmpC v.updC v.finC
@@ -54,7 +41,7 @@ def sha256OK (v : Backend) : HashOK (sha256FnsOf v).H where
   hBB := show 64 ≤ 128 by decide
   hWb := show 160 ≤ 8 * 20 by decide
   hW := show 20 ≤ 64 by decide
-  repr := sha256_repr
+  repr := Whole.sha256_repr
   init := Proof.Sha256.X86.Stream.init_verified
   upd := v.upd.of_implies
     { pre := fun _ h => h

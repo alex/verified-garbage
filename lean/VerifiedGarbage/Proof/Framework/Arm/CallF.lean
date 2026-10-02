@@ -15,7 +15,7 @@ the stack pointer: at most `armStack c` bytes of it (`Exec.frameSp`), which
 (`Proof/Framework/AArch64/Call.lean`, `Proof/Framework/X86/Call.lean`).
 -/
 
-namespace VG.Arm
+namespace VG.Arm.FrameStack
 
 /-- The bytes below the stack pointer that the frames of `c`, and of the
 functions it calls, use (a call keeps its return address in `lr`). -/
@@ -208,4 +208,4 @@ theorem WP.callF {n : String} {c : Prog isa} {k : Contract isa}
       rw [State.withRegions_withRegions, ← hr, ← hwr]; rfl
     rw [this]; exact hpost
 
-end VG.Arm
+end VG.Arm.FrameStack

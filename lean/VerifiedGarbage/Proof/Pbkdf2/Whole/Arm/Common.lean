@@ -19,6 +19,7 @@ of it keeps (`KR`).
 namespace VG.Proof.Pbkdf2.Whole.Arm
 
 open VG.Arm
+open VG.Arm.FrameStack
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
 open VG.Impl.Hmac.Generic.Arm (Hash scrAt)
 open VG.Proof.Hmac.Generic.Arm (HashOK SavedRegs saveR)
