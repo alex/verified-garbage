@@ -23,9 +23,9 @@ def finalizeArgs : List Instr :=
 def init : Prog isa := callWith initArgs Spec.Sha512.init512Api.name
   (Sha512.AArch64.Stream.init Spec.Sha512.H0_512)
 def update (compress : Prog isa) (suffix : String) (args : List Instr) : Prog isa :=
-  callWith args (Spec.Sha512.updateApi.name ++ suffix) (Sha512.AArch64.Stream.updateWith compress)
+  callWith args (Spec.Sha512.updateApi.name ++ suffix) (Sha512.AArch64.Stream.updateWith suffix compress)
 def finalize (compress : Prog isa) (suffix : String) : Prog isa :=
-  callWith finalizeArgs (Spec.Sha512.finalizeApi.name ++ suffix) (Sha512.AArch64.Stream.finalizeWith compress)
+  callWith finalizeArgs (Spec.Sha512.finalizeApi.name ++ suffix) (Sha512.AArch64.Stream.finalizeWith suffix compress)
 def hash (compress : Prog isa) (suffix : String) : Prog isa :=
   .seq init (.seq (update compress suffix (prefixArgs 3 0))
     (.seq (update compress suffix (prefixArgs 0 32))

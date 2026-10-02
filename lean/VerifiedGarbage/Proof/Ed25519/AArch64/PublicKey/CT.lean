@@ -9,7 +9,7 @@ theorem init_ct : RelCT isa (Two L g₁ g₂ v₁ v₂ m₁ m₂ (Slots L initVa
     (.call Spec.Sha512.init512Api.name (Impl.Sha512.AArch64.Stream.init Spec.Sha512.H0_512))
     (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
   apply call_ct (Proof.Sha512.AArch64.Stream.init_verified _).1
-    (Proof.Sha512.AArch64.Stream.init_verified _).2.1 rfl (fun _ h => init_ready h)
+    (Proof.Sha512.AArch64.Stream.init_verified _).2.1 (Whole.depth_of_noFrames rfl) (fun _ _ h => init_ready h)
   · intro a b ar aw br bw hsp hg
     exact ⟨hg (.x0, .caller 2 0) (by simp [initValues]), hsp⟩
   · simp [initValues, linkRegs]
@@ -18,7 +18,7 @@ theorem update_ct (v : Whole.Backend) (hL : L.Ok) :
     RelCT isa (Two L g₁ g₂ v₁ v₂ m₁ m₂ (Slots L updateValues))
       (.call (Spec.Sha512.updateApi.name ++ v.suffix) v.update)
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
-  apply call_ct v.update_verified.1 v.updateCT (Whole.update_noFrames v) (fun _ h => update_ready hL h)
+  apply call_ct v.update_verified.1 v.update_verified.2.1 (Whole.update_depth v) (fun _ hsp h => update_ready hL hsp h)
   · intro a b ar aw br bw hsp hg
     exact ⟨hg (.x0, .caller 2 0) (by simp [updateValues]), hg (.x1, .const 0) (by simp [updateValues]),
       hg (.x2, .caller 1 0) (by simp [updateValues]), hg (.x3, .const 32) (by simp [updateValues]),
@@ -29,7 +29,7 @@ theorem finalize_ct (v : Whole.Backend) (hL : L.Ok) :
     RelCT isa (Two L g₁ g₂ v₁ v₂ m₁ m₂ (Slots L finalizeValues))
       (.call (Spec.Sha512.finalizeApi.name ++ v.suffix) v.finalize)
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
-  apply call_ct v.finalize_verified.1 v.finalizeCT (Whole.finalize_noFrames v) (fun _ h => finalize_ready hL h)
+  apply call_ct v.finalize_verified.1 v.finalize_verified.2.1 (Whole.finalize_depth v) (fun _ hsp h => finalize_ready hL hsp h)
   · intro a b ar aw br bw hsp hg
     exact ⟨hg (.x0, .caller 2 0) (by simp [finalizeValues]), hg (.x1, .const 32) (by simp [finalizeValues]),
       hg (.x2, .frame 192) (by simp [finalizeValues]), hg (.x3, .caller 2 192) (by simp [finalizeValues]), hsp⟩
@@ -38,7 +38,7 @@ theorem finalize_ct (v : Whole.Backend) (hL : L.Ok) :
 theorem base_ct (hL : L.Ok) : RelCT isa (Two L g₁ g₂ v₁ v₂ m₁ m₂ (Slots L baseValues))
     (.call "vg_ed25519_scalar_base" Impl.Ed25519.AArch64.scalarBase)
     (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
-  apply call_ct scalarBase_ok scalarBase_ct base_noFrames (fun _ h => base_ready hL h)
+  apply call_ct scalarBase_ok scalarBase_ct (Whole.depth_of_noFrames base_noFrames) (fun _ _ h => base_ready hL h)
   · intro a b ar aw br bw hsp hg
     exact ⟨hsp, hg (.x0, .caller 0 0) (by simp [baseValues]), hg (.x1, .frame 32) (by simp [baseValues]),
       hg (.x2, .caller 2 0) (by simp [baseValues])⟩

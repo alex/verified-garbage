@@ -112,7 +112,7 @@ def ok : HashOK hash where
     show Spec.Md5.hash m = _
     rw [Proof.Md5.hash_eq]
     exact (List.take_of_length_le (Nat.le_of_eq (Proof.Md5.md.digest_length _))).symm
-  sizes := ⟨⟨by decide, by decide⟩, by decide, by decide, by decide, by decide, by decide, by decide,
+  sizes := ⟨⟨by decide, by decide, by decide, by decide⟩, by decide, by decide, by decide, by decide, by decide, by decide,
     by decide, by decide, by decide, by decide⟩
   L := by decide
   W := by decide

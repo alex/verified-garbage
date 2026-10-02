@@ -48,7 +48,7 @@ def satState : State where
   rd := [⟨0x2000, 32⟩, ⟨0x3000, 32⟩, ⟨0x4000, 0⟩]
   wr := [⟨0x1000, 64⟩, ⟨0x5000, 8192⟩]
 
-theorem sat : ∃ s, (Spec.Ed25519.signCachedContract AArch64.abi 336).pre s := by
+theorem sat : ∃ s, (Spec.Ed25519.signCachedContract AArch64.abi 352).pre s := by
   refine ⟨satState, ?_⟩
   sig_apply_check
   · decide +kernel

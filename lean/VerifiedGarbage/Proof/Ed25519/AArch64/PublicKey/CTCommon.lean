@@ -27,8 +27,8 @@ theorem setup_ct (hL : L.Ok) (ha : Arguments L m₁) (hb : Arguments L m₂)
 
 theorem call_ct {args : List (Reg × Value)} {k : Contract isa} {c : Prog isa} {name : String}
     (correct : ∀ s, k.pre s → ∃ tr s', Exec isa c s tr s' ∧ abiPreserved s s' ∧ k.post s s')
-    (ct : ConstantTime isa k.pre k.pub c) (hn : c.noFrames = true)
-    (ready : ∀ t, Slots L args t → Whole.CallReady k L.E L.inputs L.outputs t)
+    (ct : ConstantTime isa k.pre k.pub c) (hd : c.aarch64Depth ≤ 1)
+    (ready : ∀ t, t.sp = L.E → Slots L args t → Whole.CallReady k L.E L.inputs L.outputs t)
     (kp : ∀ (a b : State) ar aw br bw, a.sp = b.sp →
       (∀ p ∈ args, a.callEntry.gpr p.1 = b.callEntry.gpr p.1) →
       k.pub (a.callEntry.withRegions ar aw) (b.callEntry.withRegions br bw))
@@ -37,8 +37,8 @@ theorem call_ct {args : List (Reg × Value)} {k : Contract isa} {c : Prog isa} {
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
   refine Whole.rel_wp ?_ ?_ ?_
   · refine Whole.callEx correct ct fun a b h => ?_
-    let ra := ready a h.1.2
-    let rb := ready b h.2.2
+    let ra := ready a h.1.1.sp h.1.2
+    let rb := ready b h.2.1.sp h.2.2
     obtain ⟨ca, wa⟩ := ra.covers_state h.1.1
     obtain ⟨cb, wb⟩ := rb.covers_state h.2.1
     refine ⟨ra.reads, ra.writes, rb.reads, rb.writes, ra.pre, rb.pre,
@@ -46,8 +46,8 @@ theorem call_ct {args : List (Reg × Value)} {k : Contract isa} {c : Prog isa} {
     intro p hp
     rw [State.callEntry_gpr _ (hl p hp), State.callEntry_gpr _ (hl p hp), h.1.2 p hp, h.2.2 p hp]
   · intro t ⟨hc, hs⟩
-    exact WP.mono ((ready t hs).wp hc correct hn) fun _ hu => ⟨hu, trivial⟩
+    exact WP.mono ((ready t hc.sp hs).wpF hc correct hd) fun _ hu => ⟨hu, trivial⟩
   · intro t ⟨hc, hs⟩
-    exact WP.mono ((ready t hs).wp hc correct hn) fun _ hu => ⟨hu, trivial⟩
+    exact WP.mono ((ready t hc.sp hs).wpF hc correct hd) fun _ hu => ⟨hu, trivial⟩
 
 end VG.Proof.Ed25519.AArch64.PublicKey

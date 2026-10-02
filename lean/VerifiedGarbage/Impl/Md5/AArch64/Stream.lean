@@ -30,6 +30,8 @@ The generic streaming code (`Impl/MdStream/AArch64.lean`). -/
 
 def params : MdStream.AArch64.Params where
   N := 16
+  B := 64
+  L := 8
   so := 64
   len := MdStream.AArch64.len64 72 false
   out := MdStream.AArch64.out32 4 false

@@ -8,7 +8,7 @@ theorem reduce_call_ct (hL : L.Ok) (d : Nat) (hd : d + 32 ≤ 256) :
     RelCT isa (Two L g₁ g₂ v₁ v₂ m₁ m₂ (OutArgs L [(.x0, .frame d), (.x1, .frame 192), (.x2, .caller 5 0)]))
       (.call "vg_ed25519_scalar_reduce" Impl.Ed25519.AArch64.scalarReduce)
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
-  apply call_ct scalarReduce_ok scalarReduce_ct reduce_noFrames
+  apply call_ct scalarReduce_ok scalarReduce_ct (Whole.depth_of_noFrames reduce_noFrames)
   · intro g v m t _ hs
     have a0 := hs (.x0, .frame d) (by simp)
     have a1 := hs (.x1, .frame 192) (by simp)
@@ -26,7 +26,7 @@ theorem base_call_ct (hL : L.Ok) :
     RelCT isa (Two L g₁ g₂ v₁ v₂ m₁ m₂ (OutArgs L [(.x0, .caller 0 0), (.x1, .frame 96), (.x2, .caller 5 0)]))
       (.call "vg_ed25519_scalar_base" Impl.Ed25519.AArch64.scalarBase)
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
-  apply call_ct scalarBase_ok scalarBase_ct base_noFrames
+  apply call_ct scalarBase_ok scalarBase_ct (Whole.depth_of_noFrames base_noFrames)
   · intro g v m t _ hs
     have a0 := hs (.x0, .caller 0 0) (by simp)
     change t.gpr .x0 = L.out + 0#64 at a0
@@ -46,7 +46,7 @@ theorem mul_call_ct (hL : L.Ok) :
     RelCT isa (Two L g₁ g₂ v₁ v₂ m₁ m₂ (OutArgs L [(.x0, .caller 0 32), (.x1, .frame 96), (.x2, .frame 128), (.x3, .frame 32), (.x4, .caller 5 0)]))
       (.call "vg_ed25519_scalar_mul_add" Impl.Ed25519.AArch64.scalarMulAdd)
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
-  apply call_ct scalarMulAdd_ok scalarMulAdd_ct mul_noFrames
+  apply call_ct scalarMulAdd_ok scalarMulAdd_ct (Whole.depth_of_noFrames mul_noFrames)
   · intro g v m t _ hs
     have a0 := hs (.x0, .caller 0 32) (by simp)
     have a1 := hs (.x1, .frame 96) (by simp)

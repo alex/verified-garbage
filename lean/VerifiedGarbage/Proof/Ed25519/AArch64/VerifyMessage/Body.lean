@@ -33,14 +33,15 @@ theorem body_ok (backend : Whole.Backend) (hc : Ctx L g v m₀ s) (hL : L.Ok)
     hw.input_bytes hL (r := L.SIG) (by simp [Lay.inputs]) (by change 64≤2^64; decide),he] at eq
   exact eq
 
-theorem body_noFrames (backend : Whole.Backend) : (body backend.code backend.suffix).noFrames = true := by
-  have hu := Whole.update_noFrames backend
-  have hf := Whole.finalize_noFrames backend
-  change (Impl.Sha512.AArch64.Stream.updateWith backend.code).noFrames = true at hu
-  change (Impl.Sha512.AArch64.Stream.finalizeWith backend.code).noFrames = true at hf
+theorem body_depth (backend : Whole.Backend) : (body backend.code backend.suffix).aarch64Depth ≤ 1 := by
+  have hu := Whole.update_depth backend
+  have hf := Whole.finalize_depth backend
+  change (Impl.Sha512.AArch64.Stream.updateWith backend.suffix backend.code).aarch64Depth ≤ 1 at hu
+  change (Impl.Sha512.AArch64.Stream.finalizeWith backend.suffix backend.code).aarch64Depth ≤ 1 at hf
+  have hr := Whole.depth_zero_of_noFrames reduce_noFrames
+  have he := Whole.depth_zero_of_noFrames equation_noFrames
   simp only [body,Impl.Ed25519.AArch64.VerifyMessage.hash,init,update,finalize,Impl.Ed25519.AArch64.Whole.callWith,
-    Code.noFrames,Impl.Sha512.AArch64.Stream.init,hu,hf,Bool.and_self]
-  rw [reduce_noFrames,equation_noFrames]
-  rfl
+    Code.aarch64Depth,Impl.Sha512.AArch64.Stream.init,hr,he]
+  omega
 
 end VG.Proof.Ed25519.AArch64.VerifyMessage

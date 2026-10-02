@@ -264,14 +264,14 @@ open VG.AArch64 in
 updates the hash value at `state` with the `n` 128-byte blocks at `blocks`.
 
 The code may read `blocks` (`128 * n` bytes) and read and write `state`
-(64 bytes) and `scratch` (640 bytes, whose contents on exit are unspecified).
+(64 bytes) and `scratch` (`scratchBytes` bytes, whose contents on exit are unspecified).
 These may not overlap each other. The pointers and `n` are public; the hash
 value and the blocks are secret. -/
 def compressAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 64⟩
     let blocks : Region := ⟨s.gpr .x1, 128 * (s.gpr .x2).toNat⟩
-    let scratch : Region := ⟨s.gpr .x3, 640⟩
+    let scratch : Region := ⟨s.gpr .x3, Impl.Sha512.AArch64.scratchBytes⟩
     s.rd = [blocks] ∧ s.wr = [state, scratch] ∧
     state.Disjoint scratch ∧ blocks.Disjoint state ∧ blocks.Disjoint scratch
   post s s' :=
@@ -303,16 +303,19 @@ if the streaming state at `state` represents a message `m` of `count` bytes
 represents `m` followed by the `len` bytes at `data`, from the same one.
 
 The code may read `data` (`len` bytes) and read and write `state` (192
-bytes) and `scratch` (688 bytes, whose contents on exit are unspecified).
-These may not overlap each other. The pointers, `count` and `len` are public;
-the state and the data are secret. -/
+bytes) and `scratch` (`scratchBytes + 48` bytes, whose contents on exit are unspecified).
+These may not overlap each other, nor the 16 bytes below the stack pointer
+(the frame saving `x30`), which do not wrap around. The pointers, `count` and
+`len` are public; the state and the data are secret. -/
 def updateAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 192⟩
     let data : Region := ⟨s.gpr .x2, (s.gpr .x3).toNat⟩
-    let scratch : Region := ⟨s.gpr .x4, 688⟩
+    let scratch : Region := ⟨s.gpr .x4, Impl.Sha512.AArch64.scratchBytes + 48⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
     s.rd = [data] ∧ s.wr = [state, scratch] ∧
-    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch
+    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch
   post s s' := ∀ iv m, Repr iv s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
     Repr iv s'.mem (s.gpr .x0) (m ++ bytesAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
   pub s₁ s₂ :=
@@ -329,16 +332,19 @@ digest of SHA-384, SHA-512/224 or SHA-512/256 is its first 48, 28 or 32
 bytes.
 
 The code may read and write `state` (192 bytes, whose contents on exit are
-unspecified), `out` (64 bytes) and `scratch` (688 bytes, whose contents on
-exit are unspecified). These may not overlap each other. The pointers and
-`count` are public; the state is secret. -/
+unspecified), `out` (64 bytes) and `scratch` (`scratchBytes + 48` bytes, whose contents on
+exit are unspecified). These may not overlap each other, nor the 16 bytes
+below the stack pointer (the frame saving `x30`), which do not wrap around.
+The pointers and `count` are public; the state is secret. -/
 def finalizeAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 192⟩
     let out : Region := ⟨s.gpr .x2, 64⟩
-    let scratch : Region := ⟨s.gpr .x3, 688⟩
+    let scratch : Region := ⟨s.gpr .x3, Impl.Sha512.AArch64.scratchBytes + 48⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
     s.rd = [] ∧ s.wr = [state, out, scratch] ∧
-    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch
+    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch
   post s s' := ∀ iv m, Repr iv s.mem (s.gpr .x0) m → m.length < 2 ^ 64 →
     s.gpr .x1 = BitVec.ofNat 64 m.length → bytesAt s'.mem (s.gpr .x2) 64 = finalHash iv m
   pub s₁ s₂ :=
