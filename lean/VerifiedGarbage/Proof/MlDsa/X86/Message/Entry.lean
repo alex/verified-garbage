@@ -40,7 +40,6 @@ structure Shape (Pre : State → Prop) (Pub : State → State → Prop) (lay : S
   fd : ∀ s₀, Pre s₀ → (⟨(E0 s₀).setWidth 64 - 16#64, 16⟩ : Region).Disjoint ⟨argAddr s₀ 0, 4 * (lay s₀).nA⟩
   ain : ∀ s₀, Pre s₀ → (⟨argAddr s₀ 0, 4 * (lay s₀).nA⟩ : Region) ∈ s₀.rd ++ s₀.wr
   n5 : ∀ s₀, Pre s₀ → 5 ≤ (lay s₀).nA
-  hW : ∀ s₀, Pre s₀ → ∀ r ∈ [(lay s₀).SC, (lay s₀).STK], (frameR s₀).Disjoint r ∧ (retR s₀).Disjoint r
   pubE : ∀ s₀ s₀', Pre s₀ → Pre s₀' → Pub s₀ s₀' → E0 s₀ = E0 s₀'
   pubA : ∀ s₀ s₀', Pre s₀ → Pre s₀' → Pub s₀ s₀' → arg s₀ 4 = arg s₀' 4 ∧ arg s₀ si = arg s₀' si
   pubL : ∀ s₀ s₀', Pre s₀ → Pre s₀' → Pub s₀ s₀' → PubL (lay s₀) (lay s₀')
@@ -182,28 +181,35 @@ theorem enter_piece (hS : Shape Pre Pub lay si p) {ht : Taint.Hint VG.X86.Taint.
     · rw [o.gpr _ (by decide), o'.gpr _ (by decide), P0_esp, P0_esp, hS.pubE s₀ s₀' h₀ h₀' hq]
     · rw [hx, hx', hp.x]
 
-/-- The whole function: the check, and the entry and `rest` if `ctx_len < 256`, in a leaf. -/
+/-- The whole function: the check, and the entry and `rest` if `ctx_len < 256`, in a leaf
+that changes memory only within `W`. -/
 theorem top_piece (hS : Shape Pre Pub lay si p) {ht : Taint.Hint VG.X86.Taint.T}
     (tt : (VG.X86.taint.check (τr [.esp]) (.block [.mov .esi (.mem (argAt si)),
       .alu .add .esi (.imm (BitVec.ofNat 32 (oE p)))]) ht).isSome = true)
-    {rest : Prog isa} {B : State → State → Prop}
+    {rest : Prog isa} {B : State → State → Prop} (W : State → List Region)
+    (hW : ∀ s₀, Pre s₀ → ∀ r ∈ W s₀, (frameR s₀).Disjoint r ∧ (retR s₀).Disjoint r)
     (hsp : NoSp (.seq (.block [.mov .eax (.mem (argAt 4)), .alu .cmp .eax (.imm 256)])
       (.ite .ae (.block [.mov .eax (.imm 2)]) (.seq (enter si p) rest))))
-    (hr : Piece Pre Pub (CtxO lay) (fun s₀ s => CtxO lay s₀ s ∧ B s₀ s) rest) :
+    (hr : Piece Pre Pub (CtxO lay) (fun s₀ s => LeafEnd s₀ (W s₀) s ∧ B s₀ s) rest) :
     Piece Pre Pub (fun s₀ s => s = s₀) (fun s₀ s' => LeafPost (fun s => (256 ≤ (arg s₀ 4).toNat ∧
-      s.gpr .eax = 2) ∨ ((arg s₀ 4).toNat < 256 ∧ B s₀ s)) s₀ s') (top (enter si p) rest) := by
-  refine Piece.leaf (fun s₀ => [(lay s₀).SC, (lay s₀).STK]) hsp hS.e16 hS.hW hS.pubE ?_
+      s.gpr .eax = 2) ∨ B s₀ s) s₀ s') (top (enter si p) rest) := by
+  refine Piece.leaf W hsp hS.e16 hW hS.pubE ?_
   refine Piece.seq (chk_piece hS) (Piece.ite (fun s₀ => !decide ((arg s₀ 4).toNat < 256))
     (fun s₀ s h₀ h => ?_) (fun s₀ s₀' h₀ h₀' hq => ?_) (ret2_piece fun s₀ s h₀ o hc h2 => ?_)
-    (Piece.seq (enter_piece hS tt) (hr.mono (fun _ _ _ h => h) fun s₀ s h₀ ⟨hc, hb⟩ => ?_)))
+    (Piece.seq (enter_piece hS tt) (hr.mono (fun _ _ _ h => h) fun s₀ s h₀ ⟨he, hb⟩ => ⟨he, .inr hb⟩)))
   · show s.cf.map (!·) = _
     rw [h.2]; rfl
   · rw [(hS.pubA s₀ s₀' h₀ h₀' hq).1]
   · exact ⟨⟨by rw [o.mem]; exact Frame.refl _ _, o.gpr _ (by decide), o.rd, o.wr⟩, .inl ⟨hc, h2⟩⟩
-  · have hlt := hc.ok.ctxLt
-    rw [hS.ctxLen s₀ h₀] at hlt
-    exact ⟨⟨hc.ctx.frame, by rw [hc.ctx.esp, ← E0_E1 hS h₀, P0_esp], by rw [hc.ctx.rd, hS.rd s₀ h₀, pushed_rd],
-      by rw [hc.ctx.wr, P0_wr, hS.wr s₀ h₀, hS.sp s₀ h₀]⟩, .inr ⟨hlt, hb⟩⟩
+
+/-- `LeafEnd`, from `Ctx` and a frame of the memory from it. -/
+theorem CtxO.leafEnd (hS : Shape Pre Pub lay si p) {s₀ s s' : State} (h₀ : Pre s₀) (hc : CtxO lay s₀ s)
+    {W : List Region} (hW : ∀ r ∈ [(lay s₀).SC, (lay s₀).STK], r ∈ W) {rs : List Region}
+    (hf : Frame rs s.mem s'.mem) (hrs : ∀ r ∈ rs, ∃ R ∈ W, Region.Sub r R)
+    (hsp : s'.gpr .esp = s.gpr .esp) (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) : LeafEnd s₀ W s' := by
+  refine ⟨(hc.ctx.frame.sub fun r hr => ⟨r, hW r hr, fun _ h => h⟩).trans (hf.sub hrs),
+    by rw [hsp, hc.ctx.esp, ← E0_E1 hS h₀, P0_esp], by rw [hrd, hc.ctx.rd, hS.rd s₀ h₀, pushed_rd],
+    by rw [hwr, hc.ctx.wr, P0_wr, hS.wr s₀ h₀, hS.sp s₀ h₀]⟩
 
 end
 
