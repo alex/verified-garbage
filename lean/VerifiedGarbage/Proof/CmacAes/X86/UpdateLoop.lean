@@ -12,6 +12,9 @@ and the state is zeroed (`Cmac.chainMem4`), the call of `vg_aes_ctr32` leaves
 namespace VG.Proof.CmacAes.X86
 
 open VG VG.X86 VG.Impl.CmacAes.X86
+open VG.Proof.Aes.X86 (Ctr32Impl)
+
+variable (v : Ctr32Impl)
 open VG.Proof.MdStream.X86 (Upd Mupd Fupd wp_mov wp_movi wp_addi wp_add wp_cmp eval_ne)
 
 theorem take_succ_blks (s₀ : State) {k : Nat} (hk : k < N s₀) :
@@ -252,10 +255,10 @@ theorem bodyA_wp {s₀ : State} (hp : UPre s₀) {k : Nat} (hk : k < N s₀) {s 
   · exact wr₉
 
 theorem body_ok {s₀ : State} (hp : UPre s₀) {k : Nat} (hk : k < N s₀) {s : State} (h : LInv s₀ k s) :
-    WP isa body s fun s' => LInv s₀ (k + 1) s' ∧ s'.zf = some (decide (k + 1 = N s₀)) := by
+    WP isa (body v.callee) s fun s' => LInv s₀ (k + 1) s' ∧ s'.zf = some (decide (k + 1 = N s₀)) := by
   have hdf := hp.data_fit
   refine WP.seq (WP.mono (bodyA_wp hp hk h) fun s₁ a => ?_)
-  refine WP.seq (WP.mono (ctr_call a.pre) fun s₂ h₂ => ?_)
+  refine WP.seq (WP.mono (ctr_call v a.pre) fun s₂ h₂ => ?_)
   have esp₁ : s₁.gpr .esp = E s₀ := by rw [a.esp, h.esp]
   have hb : below (s₁.gpr .esp) 28 = stkR s₀ := by rw [esp₁]; exact hp.below_eq
   have cA : (Cb s₀).setWidth 64 = (S s₀).setWidth 64 + BitVec.ofNat 64 2048 := hp.scrA (by decide)
@@ -298,12 +301,12 @@ theorem body_ok {s₀ : State} (hp : UPre s₀) {k : Nat} (hk : k < N s₀) {s :
   rw [mem₃, out, take_succ_blks s₀ hk, Proof.Cmac.chain_append, Proof.Cmac.chain_single]
 
 theorem loop_ok {s₀ : State} (hp : UPre s₀) {k : Nat} (hk : k < N s₀) {s : State} (h : LInv s₀ k s) :
-    WP isa (.loop body .ne) s (LInv s₀ (N s₀)) := by
-  refine WP.loop (M := isa) (body := body) (c := .ne) (Q := LInv s₀ (N s₀))
+    WP isa (.loop (body v.callee) .ne) s (LInv s₀ (N s₀)) := by
+  refine WP.loop (M := isa) (body := (body v.callee)) (c := .ne) (Q := LInv s₀ (N s₀))
     (fun (n : Nat) (t : State) => ∃ j, n = N s₀ - j ∧ j < N s₀ ∧ LInv s₀ j t) ?_ (N s₀ - k) s
     ⟨k, rfl, hk, h⟩
   rintro n s ⟨k, rfl, hk, h⟩
-  refine WP.mono (body_ok hp hk h) fun s' ⟨h', hz⟩ => ?_
+  refine WP.mono (body_ok v hp hk h) fun s' ⟨h', hz⟩ => ?_
   have ev : isa.eval .ne s' = some !decide (k + 1 = N s₀) := by
     show VG.X86.eval .ne s' = _; rw [eval_ne, hz]; rfl
   by_cases hz' : k + 1 = N s₀
