@@ -11,7 +11,7 @@ structure TestUnchanged (s t : State) : Prop where
 
 theorem Saved.test {s₀ s t : State} {base : BitVec 32} (h : Saved s₀ base s) (k : TestUnchanged s t) : Saved s₀ base t :=
   ⟨(congrFun k.gpr _).trans h.edi, (congrFun k.gpr _).trans h.esp, k.rd.trans h.rd, k.wr.trans h.wr,
-    by rw [k.mem]; exact h.frame, fun j hj => by rw [k.mem]; exact h.saved j hj⟩
+    by rw [k.mem]; exact h.frame, by rw [k.mem]; exact h.saved⟩
 
 theorem DecodeResult.test {base : BitVec 32} {p : Option Spec.Ed25519.Point} {s t : State}
     (h : DecodeResult base p s) (k : TestUnchanged s t) : DecodeResult base p t := by

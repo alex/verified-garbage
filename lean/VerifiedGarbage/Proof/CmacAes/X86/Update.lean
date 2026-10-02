@@ -41,7 +41,7 @@ abbrev ciph : Spec.Cmac.Cipher := ciphAt s₀.mem ((W s₀).setWidth 64) (R s₀
 abbrev blks : List (List Byte) := Spec.Cmac.blocksAt s₀.mem ((Dp s₀).setWidth 64) 16 (N s₀)
 
 /-- The memory after saving the registers in the scratch buffer. -/
-def savedMem : Mem := saveMem s₀.mem ((S s₀).setWidth 64) s₀.gpr saved
+def savedMem : Mem := Spill.saveMem s₀.mem ((S s₀).setWidth 64 + BitVec.ofNat 64 ·) s₀.gpr saved
 
 end
 
@@ -159,7 +159,8 @@ theorem UPre.data_sub {s₀ : State} {k : Nat} (hk : k < N s₀) :
   Offset.sub_base _ (by omega)
 
 theorem savedMem_frame (s₀ : State) : Frame [scrR s₀] s₀.mem (savedMem s₀) :=
-  saveMem_frame _ _ _ (by decide) saved fun p hp => by have := saved_bound p hp; omega
+  Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p hp =>
+    have := saved_bound p hp; Offset.contains_base _ (by omega) (by omega)
 
 theorem savedMem_slot (s₀ : State) {r : Reg} {d : Nat} (h : (r, d) ∈ saved) :
     (savedMem s₀).readW ((S s₀).setWidth 64 + BitVec.ofNat 64 d) 32 = s₀.gpr r :=
@@ -185,15 +186,15 @@ theorem prologue_wp {s₀ : State} (hp : UPre s₀) :
   rw [setup_eq]
   refine wp_arg (s₀ := s₀) rfl (hp.arg_in (by decide)) rfl fun s₁ u₁ => ?_
   have h₁ : s₁.gpr .eax = S s₀ := u₁.gpr
-  refine saveList_ok saved s₁ _ (fun p hp' => ?_) fun s₂ g₂ rd₂ wr₂ m₂ => ?_
+  refine Spill.save_ofNat_ok saved saved_fits (by rw [h₁]; omega) (fun p hp' => ?_) fun s₂ u₂ => ?_
   · have hb := saved_bound p hp'
     rw [h₁, u₁.wr, hp.wr]
-    exact ⟨by omega, ⟨scrR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩⟩
+    exact ⟨scrR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩
   have hm₂ : s₂.mem = savedMem s₀ := by
-    rw [m₂, u₁.mem, h₁, savedMem]
-    exact saveMem_congr _ _ _ fun p hp' => u₁.other _ (saved_ne_eax p hp')
-  have esp₂ : s₂.gpr .esp = s₀.gpr .esp := by rw [g₂, u₁.other _ (by decide)]
-  have rw₂ : s₂.rd ++ s₂.wr = s₀.rd ++ s₀.wr := by rw [rd₂, wr₂, u₁.rd, u₁.wr]
+    rw [u₂.mem, u₁.mem, h₁, savedMem]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p hp' => u₁.other _ (saved_ne_eax p hp')
+  have esp₂ : s₂.gpr .esp = s₀.gpr .esp := by rw [u₂.gpr, u₁.other _ (by decide)]
+  have rw₂ : s₂.rd ++ s₂.wr = s₀.rd ++ s₀.wr := by rw [u₂.rd, u₂.wr, u₁.rd, u₁.wr]
   refine wp_arg (s₀ := s₀) esp₂ (by rw [rw₂]; exact hp.arg_in (by decide))
     (by rw [hm₂]; exact hp.arg_keep (savedMem_big s₀) (by decide)) fun s₃ u₃ => ?_
   refine wp_arg (s₀ := s₀) (by rw [u₃.other _ (by decide), esp₂])
@@ -202,8 +203,8 @@ theorem prologue_wp {s₀ : State} (hp : UPre s₀) :
   refine wp_test fun s₅ f₅ z₅ => WP.block_nil ⟨⟨?_, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
   · rw [f₅.gpr, u₄.other _ (by decide), u₃.gpr, Nat.mul_zero, add0']
   · rw [f₅.gpr, u₄.other _ (by decide), u₃.other _ (by decide), esp₂]
-  · rw [f₅.rd, u₄.rd, u₃.rd, rd₂, u₁.rd]
-  · rw [f₅.wr, u₄.wr, u₃.wr, wr₂, u₁.wr]
+  · rw [f₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd]
+  · rw [f₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr]
   · rw [f₅.mem, u₄.mem, u₃.mem, hm₂]; exact Frame.refl _ _
   · rw [f₅.mem, u₄.mem, u₃.mem, hm₂, Proof.Cmac.bytesAt_frame16 (savedMem_frame s₀) (fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr; exact hp.st_scr)]

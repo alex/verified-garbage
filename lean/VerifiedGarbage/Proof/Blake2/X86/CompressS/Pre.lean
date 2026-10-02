@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Blake2.X86.CompressS.Rounds
 import VerifiedGarbage.Proof.Blake2.X86.Contract
 import VerifiedGarbage.Proof.Framework.Offset
+import VerifiedGarbage.Proof.Framework.X86.Spill
 
 /-!
 # BLAKE2s on x86 (32-bit): the compression function's precondition
@@ -107,9 +108,11 @@ theorem pre_of (s₀ : State) (h : (Proof.Blake2.compressX86 Spec.Blake2.s).pre 
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩
 
 /-- The callee-saved registers are saved in `scratch`. -/
-def Saved (s₀ : State) (m : Mem) : Prop :=
-  m.readW (addr (scr s₀) 80) 32 = s₀.gpr .ebx ∧ m.readW (addr (scr s₀) 84) 32 = s₀.gpr .esi ∧
-  m.readW (addr (scr s₀) 88) 32 = s₀.gpr .edi
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (addr (scr s₀)) s₀.gpr saved
+
+theorem saved_fits : Spill.Fits 92 saved := by decide
+
+theorem saved_bound : ∀ p ∈ saved, 80 ≤ p.2 ∧ p.2 + 4 ≤ 92 := by decide
 
 namespace Pre
 variable {s₀ : State} (h : Pre s₀)
@@ -239,10 +242,8 @@ theorem work_frame {m m' : Mem} (hf : Frame [stR s₀] m m') {d : Nat} (hd : d +
   exact h.st_scr.symm
 
 theorem saved_frame {m m' : Mem} (hs : Saved s₀ m)
-    (hf : Frame [workR (scr s₀)] m m' ∨ Frame [stR s₀] m m') : Saved s₀ m' := by
-  obtain ⟨h1, h2, h3⟩ := hs
-  exact ⟨(h.high_frame hf (by omega) (by omega)).trans h1, (h.high_frame hf (by omega) (by omega)).trans h2,
-    (h.high_frame hf (by omega) (by omega)).trans h3⟩
+    (hf : Frame [workR (scr s₀)] m m' ∨ Frame [stR s₀] m m') : Saved s₀ m' :=
+  hs.of_readW fun p hp => have hb := saved_bound p hp; h.high_frame hf (by omega) (by omega)
 
 end Pre
 

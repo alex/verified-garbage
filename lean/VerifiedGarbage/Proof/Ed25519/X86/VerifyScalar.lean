@@ -42,7 +42,7 @@ theorem verifyScalar_ok {s₀ s : State}
   refine Wp.wp_test fun t kt zt => WP.block_nil ?_
   refine ⟨⟨(congrFun kt.gpr .edi).trans hb.edi, (congrFun kt.gpr .esp).trans hb.esp,
     kt.rd.trans hb.rd, kt.wr.trans hb.wr, by rw [kt.mem]; exact hb.frame,
-    fun j hj => by rw [kt.mem]; exact hb.saved j hj⟩, ?_⟩
+    by rw [kt.mem]; exact hb.saved⟩, ?_⟩
   rw [zt, BitVec.and_self, scalarCarry_compare vb, fa]
 
 end VG.Proof.Ed25519.X86

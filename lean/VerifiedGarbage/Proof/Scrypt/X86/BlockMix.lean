@@ -76,8 +76,7 @@ def xP32 : Nat → BitVec 32
   | k + 1 => yP s₀ + BitVec.ofNat 32 (64 * (rr s₀ + k))
 
 /-- Our caller's `ebx`, `esi`, `edi` and `ebp` are saved in the scratch space. -/
-def Saved (m : Mem) : Prop :=
-  ∀ p ∈ bmSaved, m.readW (scA s₀ + BitVec.ofNat 64 p.2) 32 = s₀.gpr p.1
+abbrev Saved (m : Mem) : Prop := Spill.Saved m (scA s₀ + BitVec.ofNat 64 ·) s₀.gpr bmSaved
 
 end
 
