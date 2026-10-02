@@ -131,14 +131,27 @@ pub fn scrypt(
     let mut b = chunks(r * p)?;
     let mut v = chunks(vlen)?;
     let mut scratch = chunks(r + 2 + PBKDF2_CHUNKS)?;
-    derive(password, salt, r, &mut b, &mut v, &mut scratch, out);
+    let backend = Sha256Backend::select(crate::cpu::detected());
+    derive(
+        backend,
+        password,
+        salt,
+        r,
+        &mut b,
+        &mut v,
+        &mut scratch,
+        out,
+    );
     Ok(())
 }
 
 /// scrypt with block size parameter `r`, cost parameter `N = v.len() / r`
 /// and parallelization parameter `p = b.len() / r`, for parameters that
-/// [`scrypt`] checked, with `r + 16` chunks of `scratch`.
+/// [`scrypt`] checked, with `r + 16` chunks of `scratch`, by the
+/// implementation `backend` (which must have been selected for this CPU).
+#[allow(clippy::too_many_arguments)]
 fn derive(
+    backend: Sha256Backend,
     password: &[u8],
     salt: &[u8],
     r: usize,
@@ -147,7 +160,7 @@ fn derive(
     scratch: &mut [[u8; 128]],
     out: &mut [u8],
 ) {
-    let scrypt = match Sha256Backend::select(crate::cpu::detected()) {
+    let scrypt = match backend {
         Sha256Backend::Scalar => vg_scrypt,
         #[cfg(target_arch = "aarch64")]
         Sha256Backend::Sha2 => vg_scrypt_sha2,
@@ -165,8 +178,8 @@ fn derive(
     // `out` are distinct objects from each other and the others (`password`
     // and `salt` are only read), so none of them overlaps another written
     // one or the call's stack frame, and, as Rust objects, none wraps around
-    // the address space. `scrypt` needs no CPU feature that the
-    // implementation of SHA-256 was not selected for
+    // the address space. `scrypt` needs no CPU feature that `backend`, the
+    // implementation of SHA-256, was not selected for
     // (`tests::backend_features`).
     unsafe {
         scrypt(
@@ -223,5 +236,48 @@ mod tests {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod derive_tests {
+    use super::*;
+
+    /// The implementation selected for this CPU derives the same key as the
+    /// baseline one (CI runs this on CPUs that select each of them).
+    #[test]
+    fn selected_matches_baseline() {
+        let (n, r, p) = (16, 2, 2);
+        let derive_with = |backend| {
+            let mut b = chunks(r * p).unwrap();
+            let mut v = chunks(n * r).unwrap();
+            let mut scratch = chunks(r + 2 + PBKDF2_CHUNKS).unwrap();
+            let mut out = [0u8; 80];
+            derive(
+                backend,
+                b"password",
+                b"salt",
+                r,
+                &mut b,
+                &mut v,
+                &mut scratch,
+                &mut out,
+            );
+            out
+        };
+        let selected = Sha256Backend::select(crate::cpu::detected());
+        assert_eq!(derive_with(selected), derive_with(Sha256Backend::Scalar));
+        let mut out = [0u8; 80];
+        scrypt(
+            b"password",
+            b"salt",
+            n as u64,
+            r as u32,
+            p as u32,
+            usize::MAX,
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(out, derive_with(selected));
     }
 }
