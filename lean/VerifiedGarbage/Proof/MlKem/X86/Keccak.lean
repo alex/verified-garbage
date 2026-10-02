@@ -11,7 +11,7 @@ import VerifiedGarbage.Impl.MlKem.X86.Basic
 
 Untrusted: everything here is checked by Lean. What a call of
 `vg_keccak_absorb`, `vg_keccak_pad` or `vg_keccak_squeeze` (with their
-per-target contracts, `Proof/Sha3/X86/Contract.lean`) needs of the state
+per-target contracts, `Proof/Sha3/X86/Permute.lean`) needs of the state
 it is made from (`CallPre`), with the arguments in `eax`, `ecx`, `edx`,
 `ebx`, (`ebp`,) `edi`, pushed in a frame of their own (`rs6`, `rs5`); and
 what holds when it returns. Each call uses the 40 bytes below `esp`: its
