@@ -13,7 +13,7 @@ theorem outputWords_ok {x p : BitVec 32} {s₀ : State} (hc : Ctx x s₀)
     (hp : s₀.gpr .esi = p) {src : Nat} (hd : src + 32 ≤ 8192)
     (hfit : p.toNat + 32 ≤ 2 ^ 32)
     (hi : ∀ j < 8, InRegions s₀.wr (addr p (4 * j)) 4)
-    (hs : (scR x).Disjoint (sub p 0 32)) :
+    (hs : (scR 8192 x).Disjoint (sub p 0 32)) :
     ∀ n ≤ 8, WP isa (.block (outputWords src n)) s₀ (OutputInv x p src s₀ n)
   | 0, _ => WP.block_nil ⟨Keep.refl _, Frame.refl _ _, fun _ h => by omega_using [h]⟩
   | n + 1, hn => by

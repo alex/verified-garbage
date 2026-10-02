@@ -25,7 +25,7 @@ structure Saved (s₀ s : State) : Prop where
   esp : s.gpr .esp = s₀.gpr .esp
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
-  frame : Frame [scR (arg s₀ 3)] s₀.mem s.mem
+  frame : Frame [scR 4096 (arg s₀ 3)] s₀.mem s.mem
   saved : Spill.Saved s.mem (addr (arg s₀ 3)) s₀.gpr savedSlots
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block save) s₀ (Saved s₀) := by
@@ -279,7 +279,7 @@ theorem bytes_ok {s₀ sA : State} (hp : Pre s₀) (hA : Saved s₀ sA) : ∀ n 
     have hfit := hp.sc_fit
     -- The byte of the scalar, unchanged.
     have hsame : s₁.mem (addr (arg s₀ 1) n) = s₀.mem (addr (arg s₀ 1) n) := by
-      have f : Frame [scR (arg s₀ 3)] s₀.mem s₁.mem := hA.frame.trans (h₁.frame.sub fun _ hr =>
+      have f : Frame [scR 4096 (arg s₀ 3)] s₀.mem s₁.mem := hA.frame.trans (h₁.frame.sub fun _ hr =>
         ⟨_, List.mem_singleton_self _, by
           rw [List.mem_singleton.mp hr, scR_eq]; exact sub_sub hfit (Nat.zero_le _) (by simp only [BITS]; decide)
             (by simp only [BITS]; decide)⟩)
@@ -379,7 +379,7 @@ theorem loadScalar_ok {s₀ sA : State} (hp : Pre s₀) (hA : Saved s₀ sA) :
 
 /-! ## The ladder's initial state -/
 
-theorem setSmall_step {x : BitVec 32} {s₀ s : State} (hc : Ctx x s) {o n : Nat} (ho : Below o) (hn : n < 8)
+theorem setSmall_step {x : BitVec 32} {s₀ s : State} (hc : Ctx 4096 x s) {o n : Nat} (ho : Below o) (hn : n < 8)
     (c : BitVec 32) (hk : Keep s₀ s) (hf : Frame [sub x o (4 * n)] s₀.mem s.mem)
     (hw : ∀ j < n, wd s.mem x (o + 4 * j) = if j = 0 then c else 0) :
     WP isa (.block [.mov .eax (.imm (if n = 0 then c else 0)), .store (sc (o + 4 * n)) .eax]) s fun s' =>
@@ -402,7 +402,7 @@ theorem setSmall_step {x : BitVec 32} {s₀ s : State} (hc : Ctx x s) {o n : Nat
         (by omega_using [hj, e])]
       exact hw j (by omega_using [hj, e])
 
-theorem setSmalls_ok {x : BitVec 32} {s₀ : State} (hc₀ : Ctx x s₀) {o : Nat} (ho : Below o) (c : BitVec 32) :
+theorem setSmalls_ok {x : BitVec 32} {s₀ : State} (hc₀ : Ctx 4096 x s₀) {o : Nat} (ho : Below o) (c : BitVec 32) :
     ∀ n ≤ 8, WP isa (.block ((List.range n).flatMap fun k =>
       [.mov .eax (.imm (if k = 0 then c else 0)), .store (sc (o + 4 * k)) .eax])) s₀ fun s' =>
       Keep s₀ s' ∧ Frame [sub x o (4 * n)] s₀.mem s'.mem ∧
@@ -414,7 +414,7 @@ theorem setSmalls_ok {x : BitVec 32} {s₀ : State} (hc₀ : Ctx x s₀) {o : Na
       setSmall_step (k₁.ctx hc₀) ho (by omega_using [hn]) c k₁ f₁ w₁)
 
 /-- `[o] = c`. -/
-theorem setSmall_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o : Nat} (ho : Below o) (c : BitVec 32) :
+theorem setSmall_ok {x : BitVec 32} {s : State} (hc : Ctx 4096 x s) {o : Nat} (ho : Below o) (c : BitVec 32) :
     WP isa (.block (setSmall o c)) s fun s' => Keep s s' ∧ Frame [sub x o 32] s.mem s'.mem ∧
       fe s'.mem x o = c.toNat :=
   WP.mono (setSmalls_ok hc ho c 8 (Nat.le_refl _)) fun _ ⟨k, f, w⟩ => ⟨k, f, by
@@ -429,14 +429,14 @@ theorem F_setSmall {x : BitVec 32} {s' : State} {o : Nat} (c : BitVec 32) (h : f
 
 /-- The slots, other than `o`, after a frame of `o`'s. -/
 theorem F_frame1 {m m' : Mem} {x : BitVec 32} {o q : Nat} (hx : x.toNat + 4096 ≤ 2 ^ 32)
-    (hf : Frame [sub x o 32] m m') (ho : isSlot o = true) (hq : isSlot q = true) (hne : q ≠ o) :
+    (hf : Frame [sub x o 32] m m') (ho : isSlot 288 o = true) (hq : isSlot 288 q = true) (hne : q ≠ o) :
     F m' x q = F m x q := by
   have hob := slot_below ho; have hqb := slot_below hq; simp only [Below, T] at hob hqb
   simp only [F]
   exact congrArg toFe (fe_frame1 hf hx (by omega_using [hob]) (by omega_using [hqb]) (slot_ne ho hq hne))
 
 theorem frame_slot {m m' : Mem} {x : BitVec 32} {o : Nat} (hx : x.toNat + 4096 ≤ 2 ^ 32)
-    (hf : Frame [sub x o 32] m m') (ho : isSlot o = true) : Frame [sub x 288 640] m m' := by
+    (hf : Frame [sub x o 32] m m') (ho : isSlot 288 o = true) : Frame [sub x 288 640] m m' := by
   have hob := slot_below ho; have ho' := slot_ge ho; simp only [Below, T] at hob
   exact frameWiden hf hx ho' (by omega_using [hob]) (by omega_using [hob])
 
@@ -485,12 +485,12 @@ theorem setup_ok {s₀ : State} (hp : Pre s₀) :
   refine WP.block_append (WP.mono (loadPoint_ok hp h₁) fun s₂ ⟨h₂, w₂⟩ => ?_)
   refine WP.block_append (WP.mono (loadScalar_ok hp h₂) fun s₃ ⟨h₃, f₃, b₃⟩ => ?_)
   have B₃ : Base (arg s₀ 3) (kOf s₀) s₀ s₃ :=
-    ⟨⟨h₃.edi, hfit, by rw [h₃.wr]; exact hp.sc_in⟩, h₃.esp, h₃.rd, h₃.wr, h₃.frame, h₃.saved, b₃⟩
+    ⟨⟨h₃.edi, hfit, by rw [h₃.wr]; exact hp.sc_in, by decide⟩, h₃.esp, h₃.rd, h₃.wr, h₃.frame, h₃.saved, b₃⟩
   have x1₃ : F s₃.mem (arg s₀ 3) X1 = uOf s₀ := by
     simp only [F, uOf]
     rw [← fe_X1 hp w₂]
     exact congrArg toFe (fe_frame1 f₃ hfit (by decide) (by decide) (.inr (by decide)))
-  have sl : ∀ q, isSlot q = true → Below q := fun q hq => slot_below hq
+  have sl : ∀ q, isSlot 288 q = true → Below q := fun q hq => slot_below hq
   refine WP.block_append (WP.mono (copy_ok B₃.ctx (o := X3) (a := X1) (by decide) (by decide) (by decide))
     fun s₄ ⟨k₄, f₄, e₄⟩ => ?_)
   have B₄ := B₃.ops k₄ (frame_slot hfit f₄ (by decide))
@@ -506,7 +506,7 @@ theorem setup_ok {s₀ : State} (hp : Pre s₀) :
   have m₉ : s₉.mem = s₇.mem.writeW (addr (arg s₀ 3) SWAP) (0 : BitVec 32) := by rw [u₉.mem, u₈.gpr, u₈.mem]
   have f₉ : Frame [sub (arg s₀ 3) SWAP 4] s₇.mem s₉.mem := by
     rw [m₉]; exact frame_write1 (Frame.refl _ _) hfit (by decide) (Nat.le_refl _) (Nat.le_refl _) _
-  have F₉ : ∀ q, isSlot q = true → F s₉.mem (arg s₀ 3) q = F s₇.mem (arg s₀ 3) q := fun q hq => by
+  have F₉ : ∀ q, isSlot 288 q = true → F s₉.mem (arg s₀ 3) q = F s₇.mem (arg s₀ 3) q := fun q hq => by
     have hq' := slot_ge hq; have hqb := slot_below hq; simp only [Below, T] at hqb
     simp only [F]
     exact congrArg toFe (fe_frame1 f₉ hfit (by decide) (by omega_using [hqb]) (.inr (by simp only [SWAP]; omega_using [hq'])))

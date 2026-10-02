@@ -129,7 +129,7 @@ theorem restore_eq : restore =
     .mov .eax (.reg .edi) :: (Spill.restoreCode .eax [(.ebx, 0), (.esi, 4), (.ebp, 12), (.edi, 8)] ++ []) := rfl
 
 /-- The saved registers restored. -/
-theorem restore_ok {x : BitVec 32} {s s₀ : State} (hc : Ctx x s) (hs : Spill.Saved s.mem (addr x) s₀.gpr savedSlots) :
+theorem restore_ok {x : BitVec 32} {s s₀ : State} (hc : Ctx 4096 x s) (hs : Spill.Saved s.mem (addr x) s₀.gpr savedSlots) :
     WP isa (.block restore) s fun s' =>
       s'.mem = s.mem ∧ s'.gpr .esp = s.gpr .esp ∧ ∀ r ∈ calleeSaved, r ≠ .esp → s'.gpr r = s₀.gpr r := by
   rw [restore_eq]

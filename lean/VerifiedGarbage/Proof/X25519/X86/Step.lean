@@ -26,11 +26,11 @@ theorem savedSlots_bound : ∀ p ∈ savedSlots, p.2 + 4 ≤ 16 := by decide
 `edi`), the saved registers (of the state on entry `s₀`), the bits of the
 scalar `k`, and memory outside the working space as on entry. -/
 structure Base (x : BitVec 32) (k : Nat) (s₀ s : State) : Prop where
-  ctx : Ctx x s
+  ctx : Ctx 4096 x s
   esp : s.gpr .esp = s₀.gpr .esp
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
-  frame : Frame [scR x] s₀.mem s.mem
+  frame : Frame [scR 4096 x] s₀.mem s.mem
   saved : Spill.Saved s.mem (addr x) s₀.gpr savedSlots
   bits : ∀ t < 255, s.mem (addr x (BITS + t)) = BitVec.ofNat 8 (bit k t)
 
@@ -91,7 +91,7 @@ theorem run_step (V : Nat → Fe) :
     Impl.X25519.X86.E, DA, CB]
   simp (config := {decide := true}) only [ite_true, ite_false]
 
-theorem stepOps_valid : ∀ op ∈ stepOps, opValid op = true := by decide
+theorem stepOps_valid : ∀ op ∈ stepOps, opValid 288 op = true := by decide
 
 theorem cswap_fst (sw : Nat) (a b : Fe) : (Spec.X25519.cswap sw a b).1 = if sw = 1 then b else a := by
   unfold Spec.X25519.cswap; split <;> rfl
@@ -133,7 +133,7 @@ theorem stepHead_ok {x : BitVec 32} {k : Nat} {x1 : Fe} {s₀ s : State} {n : Na
     (h : LInv x k x1 s₀ (n + 1) s) :
     WP isa (.block stepHead) s fun s' => Base x k s₀ s' ∧ s'.gpr .esi = BitVec.ofNat 32 n ∧
       s'.gpr .ecx = mask ((ladderAfter k x1 (n + 1)).swap ^^^ bit k n) ∧
-      (∀ q, isSlot q = true → F s'.mem x q = F s.mem x q) ∧
+      (∀ q, isSlot 288 q = true → F s'.mem x q = F s.mem x q) ∧
       wd s'.mem x SWAP = BitVec.ofNat 32 (bit k n) := by
   have hc := h.ctx
   have hfit := hc.fit
@@ -149,7 +149,7 @@ theorem stepHead_ok {x : BitVec 32} {k : Nat} {x1 : Fe} {s₀ s : State} {n : Na
   have m₃ : s₃.mem = s.mem := by rw [u₃.mem, u₂.mem, u₁.mem]
   have edi₃ : s₃.gpr .edi = x := by
     rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), hc.edi]
-  have c₃ : Ctx x s₃ := hc.keep (by rw [edi₃, hc.edi]) (by rw [u₃.wr, u₂.wr, u₁.wr])
+  have c₃ : Ctx 4096 x s₃ := hc.keep (by rw [edi₃, hc.edi]) (by rw [u₃.wr, u₂.wr, u₁.wr])
   refine wp_movzx8 (a := addr x (BITS + n)) (by rw [eax₃, addr_add_ofNat])
     (c₃.inRW (by simp only [BITS]; omega_using [hn]) (by decide)) fun s₄ u₄ => ?_
   have eax₄ : s₄.gpr .eax = BitVec.ofNat 32 (bit k n) := by
@@ -187,7 +187,7 @@ theorem stepHead_ok {x : BitVec 32} {k : Nat} {x1 : Fe} {s₀ s : State} {n : Na
 
 /-- A frame of two slots is one of the slots and `T`. -/
 theorem frame2_wide {m m' : Mem} {x : BitVec 32} {a b : Nat} (hx : x.toNat + 4096 ≤ 2 ^ 32)
-    (hf : Frame [sub x a 32, sub x b 32] m m') (ha : isSlot a = true) (hb : isSlot b = true) :
+    (hf : Frame [sub x a 32, sub x b 32] m m') (ha : isSlot 288 a = true) (hb : isSlot 288 b = true) :
     Frame [sub x 288 640] m m' := by
   have ha1 := slot_ge ha; have ha2 := slot_below ha; have hb1 := slot_ge hb; have hb2 := slot_below hb
   simp only [Below, T] at ha2 hb2
@@ -199,8 +199,8 @@ theorem frame2_wide {m m' : Mem} {x : BitVec 32} {a b : Nat} (hx : x.toNat + 409
 
 /-- A slot other than the two a frame's regions are. -/
 theorem F_frame2 {m m' : Mem} {x : BitVec 32} {a b q : Nat} (hx : x.toNat + 4096 ≤ 2 ^ 32)
-    (hf : Frame [sub x a 32, sub x b 32] m m') (ha : isSlot a = true) (hb : isSlot b = true)
-    (hq : isSlot q = true) (hqa : q ≠ a) (hqb : q ≠ b) : F m' x q = F m x q := by
+    (hf : Frame [sub x a 32, sub x b 32] m m') (ha : isSlot 288 a = true) (hb : isSlot 288 b = true)
+    (hq : isSlot 288 q = true) (hqa : q ≠ a) (hqb : q ≠ b) : F m' x q = F m x q := by
   have ha2 := slot_below ha; have hb2 := slot_below hb; have hq2 := slot_below hq
   simp only [Below, T] at ha2 hb2 hq2
   have sa := slot_ne ha hq hqa; have sb := slot_ne hb hq hqb
@@ -230,7 +230,7 @@ theorem step_ok {x : BitVec 32} {k : Nat} {x1 : Fe} {s₀ s : State} {n : Nat} (
   refine Wp.wp_test fun s₅ u₅ z₅ => WP.block_nil ?_
   -- The values after the swaps.
   have hstep := ladderAfter_step k x1 hn
-  have v₁ : ∀ q, isSlot q = true → F s₁.mem x q = F s.mem x q := F₁
+  have v₁ : ∀ q, isSlot 288 q = true → F s₁.mem x q = F s.mem x q := F₁
   have eX2 : F s₃.mem x X2 = (Spec.X25519.cswap ((ladderAfter k x1 (n + 1)).swap ^^^ bit k n)
       (ladderAfter k x1 (n + 1)).x2 (ladderAfter k x1 (n + 1)).x3).1 := by
     rw [F_frame2 hfit f₃ (by decide) (by decide) (by decide) (by decide) (by decide), F_ite _ x₂,

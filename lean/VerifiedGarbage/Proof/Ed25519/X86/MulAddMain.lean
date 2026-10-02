@@ -12,7 +12,7 @@ theorem scalarMulAdd_correct {s : State} (h : scalarMulAddLocal.pre s) :
   refine WP.seq (WP.block_append (WP.mono (abiSave_ok hp) fun u hu => ?_))
   refine WP.block_append (WP.mono (scalarMulInputs_ok hp hA hB hC hu) fun v ⟨hv, evA, evB, evC⟩ => ?_)
   refine WP.mono (scalarWideMul_ok (hv.ctx hp.fit hp.wr)) fun w ⟨kw, fw, ew⟩ => ?_
-  have hw := hv.of_offset hp.fit kw.scalar fw (by decide) (by decide) (by decide)
+  have hw := hv.of_offset hp.fit (Keep.scalar kw) fw (by decide) (by decide) (by decide)
   refine WP.seq (WP.mono (scalarEngine_ok (hw.ctx hp.fit hp.wr)) fun z ⟨kz, fz, ez⟩ => ?_)
   have hz := hw.scalarEngine hp.fit kz fz
   refine WP.mono (finishWords_ok hp ho hz (src := scalarR) (by decide)) fun t ⟨abi_t, et⟩ => ⟨abi_t, ?_⟩

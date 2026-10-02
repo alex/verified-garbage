@@ -6,7 +6,7 @@ open VG VG.X86 VG.Impl.X25519.X86 VG.Impl.Ed25519.X86
 structure OutputPre (s₀ : State) (scidx : Nat) : Prop where
   wr : (⟨(arg s₀ 0).setWidth 64, 32⟩ : Region) ∈ s₀.wr
   fit : (arg s₀ 0).toNat + 32 ≤ 2 ^ 32
-  sep : (⟨(arg s₀ 0).setWidth 64, 32⟩ : Region).Disjoint (scR (arg s₀ scidx))
+  sep : (⟨(arg s₀ 0).setWidth 64, 32⟩ : Region).Disjoint (scR 8192 (arg s₀ scidx))
   ret : (⟨(s₀.gpr .esp).setWidth 64, 4⟩ : Region).Disjoint ⟨(arg s₀ 0).setWidth 64, 32⟩
 
 theorem finishWords_ok {s₀ s : State} {scidx argc src : Nat}
@@ -25,7 +25,7 @@ theorem finishWords_ok {s₀ s : State} {scidx argc src : Nat}
     have hc := sub_contains (x := arg s₀ 0) (a := 0) (k := 32) (d := 4 * j) (n := 4)
       (by have := ho.fit; omega_using [this]) (Nat.zero_le _) (by omega_using [hj]) (by decide)
     rwa [sub, addr_zero] at hc
-  have hsep : (scR (arg s₀ scidx)).Disjoint (sub (arg s₀ 0) 0 32) := by
+  have hsep : (scR 8192 (arg s₀ scidx)).Disjoint (sub (arg s₀ 0) 0 32) := by
     rw [sub, addr_zero]; exact ho.sep.symm
   refine WP.block_append (WP.mono (outputWords_ok cu eu hsrc ho.fit hwr hsep 8 (by decide)) fun v hv => ?_)
   have cv := hv.keep.ctx cu
