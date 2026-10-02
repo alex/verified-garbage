@@ -207,29 +207,114 @@ theorem zero_step (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {sI : State} (h
   · rw [u₄.gpr, u₃.other _ (by decide), g₂.gpr, u₁.other _ (by decide), h.x11,
       sub_ofNat (by omega), Nat.sub_sub, Nat.sub_sub]
 
+theorem zero_loop_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {sI : State} (hC : Common P s₀ sI)
+    {n lim j₀ : Nat} (hlim : lim ≤ P.B) (hj : j₀ < lim - n) {s : State} (h : Zero P s₀ sI n lim j₀ s) :
+    WP isa (.loop (.block (zeroBody P)) (.nonzero .x .x11)) s (Zero P s₀ sI n lim (lim - n)) := by
+  have := hd.B
+  refine WP.loop (M := isa) (fun k s => ∃ j, k = lim - n - j ∧ j < lim - n ∧ Zero P s₀ sI n lim j s)
+    ?_ (lim - n - j₀) s ⟨j₀, rfl, hj, h⟩
+  rintro k s ⟨j, rfl, hj, hZ⟩
+  refine WP.mono (zero_step hd hp hC hlim hj hZ) fun s' ⟨hZ', h11⟩ => ?_
+  have hz' : isa.eval (.nonzero .x .x11) s' = some (decide (lim - n - (j + 1) ≠ 0)) := by
+    show VG.AArch64.eval (.nonzero .x .x11) s' = _
+    rw [eval_nonzero, h11, bne, ofNat_beq_zero (by omega)]
+    simp
+  by_cases hl : lim - n - (j + 1) = 0
+  · refine .inl ⟨by rw [hz']; simp [hl], ?_⟩
+    rwa [show j + 1 = lim - n by omega] at hZ'
+  · exact .inr ⟨by rw [hz']; simp [hl], _, by omega, j + 1, rfl, by omega, hZ'⟩
+
+theorem Zero.of_gpr {s₀ sI : State} {n lim j : Nat} {s s' : State} (h : Zero P s₀ sI n lim j s)
+    (hg : ∀ r, r ≠ .x13 → s'.gpr r = s.gpr r) (hm : s'.mem = s.mem) (hrd : s'.rd = s.rd)
+    (hwr : s'.wr = s.wr) (hsp : s'.sp = s.sp) : Zero P s₀ sI n lim j s' :=
+  ⟨h.j_le, fun r hr => by
+      have : r ≠ .x13 := by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide
+      rw [hg r this, h.keep r hr],
+    hrd.trans h.rd, hwr.trans h.wr, hsp.trans h.sp, by rw [hg _ (by decide), h.x9],
+    by rw [hg _ (by decide), h.x23], by rw [hg _ (by decide), h.x11], by rw [hm, h.mem]⟩
+
+theorem zero_word_step (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {sI : State} (hC : Common P s₀ sI)
+    {n lim j : Nat} (hlim : lim ≤ P.B) (hj : j + 8 ≤ lim - n) {s : State} (h : Zero P s₀ sI n lim j s) :
+    WP isa (.block (zeroWordBody P)) s fun s' =>
+      Zero P s₀ sI n lim (j + 8) s' ∧ s'.gpr .x13 = BitVec.ofNat 64 ((lim - n - (j + 8)) / 8) := by
+  have := hd.N; have := hd.B
+  have hx19 : s.gpr .x19 = st s₀ := by rw [h.keep _ (by simp), hC.x19]
+  have hout : InRegions s.wr (buf P s₀ + BitVec.ofNat 64 n + BitVec.ofNat 64 j) 8 := by
+    refine ⟨stR P s₀, by simp [h.wr, hC.wr, hp.wr], ?_⟩
+    rw [add_ofNat, buf_add]
+    exact contains_offset (by omega) (by omega)
+  unfold zeroWordBody
+  refine storeWord_ok (by omega) (a := buf P s₀ + BitVec.ofNat 64 n + BitVec.ofNat 64 j) ?_ hout
+    fun s₁ g₁ rd₁ wr₁ sp₁ m₁ => ?_
+  · rw [hx19, h.x23, buf, BitVec.ofNat_add]
+    ac_rfl
+  refine wp_addImm (by decide) fun s₂ u₂ => wp_subImm (by decide) fun s₃ u₃ =>
+    wp_lsr (by decide) fun s₄ u₄ => WP.block_nil ?_
+  have hx11₃ : s₃.gpr .x11 = BitVec.ofNat 64 (lim - n - (j + 8)) := by
+    rw [u₃.gpr, u₂.other _ (by decide), g₁ _ (by decide), h.x11, sub_ofNat (by omega), Nat.sub_sub]
+  refine ⟨⟨by omega, fun r hr => ?_, by rw [u₄.rd, u₃.rd, u₂.rd, rd₁, h.rd],
+    by rw [u₄.wr, u₃.wr, u₂.wr, wr₁, h.wr], by rw [u₄.sp, u₃.sp, u₂.sp, sp₁, h.sp], ?_, ?_,
+    by rw [u₄.other _ (by decide), hx11₃], ?_⟩, by rw [u₄.gpr, hx11₃, ofNat_shr (by omega)]⟩
+  · have : r ≠ .x13 ∧ r ≠ .x11 ∧ r ≠ .x23 ∧ r ≠ .x12 := by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide
+    rw [u₄.other r this.1, u₃.other r this.2.1, u₂.other r this.2.2.1, g₁ r this.2.2.2, h.keep r hr]
+  · rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), g₁ _ (by decide), h.x9]
+  · rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, g₁ _ (by decide), h.x23,
+      ← BitVec.ofNat_add, Nat.add_assoc]
+  · have hw : (List.range 8).map (fun k => (s.gpr .x9).extractLsb' (8 * k) 8) = List.replicate 8 0 := by
+      rw [h.x9]; decide
+    rw [u₄.mem, u₃.mem, u₂.mem, m₁, writeW_eq_writeBytes, hw, h.mem, ← List.replicate_append_replicate,
+      ← VG.WriteBytes.writeBytes_append _ _ _ _ (by simp only [List.length_replicate]; omega),
+      List.length_replicate]
+
+theorem zero_words_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {sI : State} (hC : Common P s₀ sI)
+    {n lim : Nat} (hlim : lim ≤ P.B) (hn : n ≤ lim) {s : State} (h : Zero P s₀ sI n lim 0 s)
+    (h13 : s.gpr .x13 = BitVec.ofNat 64 ((lim - n) / 8)) :
+    WP isa (.ite (.zero .x .x13) (.block []) (.loop (.block (zeroWordBody P)) (.nonzero .x .x13))) s
+      (Zero P s₀ sI n lim (8 * ((lim - n) / 8))) := by
+  have := hd.B
+  have hz : eval (.zero .x .x13) s = some (decide ((lim - n) / 8 = 0)) := by
+    rw [eval_zero, h13, ofNat_beq_zero (by omega)]
+  refine WP.ite (decide ((lim - n) / 8 = 0)) hz (fun hb => ?_) (fun hb => ?_)
+  · simp only [decide_eq_true_eq] at hb
+    exact WP.block_nil (by rw [hb]; exact h)
+  · simp only [decide_eq_false_iff_not] at hb
+    refine WP.loop (M := isa)
+      (fun k s => ∃ i, k = (lim - n) / 8 - i ∧ i < (lim - n) / 8 ∧ Zero P s₀ sI n lim (8 * i) s)
+      ?_ ((lim - n) / 8) s ⟨0, rfl, by omega, h⟩
+    rintro k s ⟨i, rfl, hi, hZ⟩
+    refine WP.mono (zero_word_step hd hp hC hlim (by omega) hZ) fun s' ⟨hZ', h13'⟩ => ?_
+    have hz' : isa.eval (.nonzero .x .x13) s' = some (decide ((lim - n) / 8 - (i + 1) ≠ 0)) := by
+      show VG.AArch64.eval (.nonzero .x .x13) s' = _
+      rw [eval_nonzero, h13', show (lim - n - (8 * i + 8)) / 8 = (lim - n) / 8 - (i + 1) by omega,
+        bne, ofNat_beq_zero (by omega)]
+      simp
+    rw [show 8 * i + 8 = 8 * (i + 1) by omega] at hZ'
+    by_cases hl : (lim - n) / 8 - (i + 1) = 0
+    · refine .inl ⟨by rw [hz']; simp [hl], ?_⟩
+      rwa [show i + 1 = (lim - n) / 8 by omega] at hZ'
+    · exact .inr ⟨by rw [hz']; simp [hl], _, by omega, i + 1, rfl, by omega, hZ'⟩
+
 theorem zero_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {sI : State} (hC : Common P s₀ sI) {n lim : Nat}
     (hlim : lim ≤ P.B) (hn : n ≤ lim) {s : State} (h : Zero P s₀ sI n lim 0 s) :
-    WP isa (.ite (.zero .x .x11) (.block []) (.loop (.block (zeroBody P)) (.nonzero .x .x11))) s
-      (Zero P s₀ sI n lim (lim - n)) := by
+    WP isa (zero P) s (Zero P s₀ sI n lim (lim - n)) := by
   have := hd.B
-  have hz : eval (.zero .x .x11) s = some (decide (lim - n = 0)) := by
-    rw [eval_zero, h.x11, Nat.sub_zero, ofNat_beq_zero (by omega)]
-  refine WP.ite (decide (lim - n = 0)) hz (fun hb => ?_) (fun hb => ?_)
+  unfold zero
+  refine WP.seq (wp_lsr (by decide) fun s₁ u₁ => WP.block_nil ?_)
+  have hZ₁ : Zero P s₀ sI n lim 0 s₁ := h.of_gpr u₁.other u₁.mem u₁.rd u₁.wr u₁.sp
+  have h13 : s₁.gpr .x13 = BitVec.ofNat 64 ((lim - n) / 8) := by
+    rw [u₁.gpr, h.x11, Nat.sub_zero, ofNat_shr (by omega)]
+  refine WP.seq (WP.mono (zero_words_ok hd hp hC hlim hn hZ₁ h13) fun s₂ hZ₂ => ?_)
+  have hz : eval (.zero .x .x11) s₂ = some (decide (lim - n - 8 * ((lim - n) / 8) = 0)) := by
+    rw [eval_zero, hZ₂.x11, ofNat_beq_zero (by omega)]
+  refine WP.ite (decide (lim - n - 8 * ((lim - n) / 8) = 0)) hz (fun hb => ?_) (fun hb => ?_)
   · simp only [decide_eq_true_eq] at hb
-    exact WP.block_nil (hb ▸ h)
+    exact WP.block_nil (by rwa [show 8 * ((lim - n) / 8) = lim - n by omega] at hZ₂)
   · simp only [decide_eq_false_iff_not] at hb
-    refine WP.loop (M := isa) (fun k s => ∃ j, k = lim - n - j ∧ j < lim - n ∧ Zero P s₀ sI n lim j s)
-      ?_ (lim - n) s ⟨0, rfl, by omega, h⟩
-    rintro k s ⟨j, rfl, hj, hZ⟩
-    refine WP.mono (zero_step hd hp hC hlim hj hZ) fun s' ⟨hZ', h11⟩ => ?_
-    have hz' : isa.eval (.nonzero .x .x11) s' = some (decide (lim - n - (j + 1) ≠ 0)) := by
-      show VG.AArch64.eval (.nonzero .x .x11) s' = _
-      rw [eval_nonzero, h11, bne, ofNat_beq_zero (by omega)]
-      simp
-    by_cases hl : lim - n - (j + 1) = 0
-    · refine .inl ⟨by rw [hz']; simp [hl], ?_⟩
-      rwa [show j + 1 = lim - n by omega] at hZ'
-    · exact .inr ⟨by rw [hz']; simp [hl], _, by omega, j + 1, rfl, by omega, hZ'⟩
+    exact zero_loop_ok hd hp hC hlim (by omega) hZ₂
 
 /-! ## One block -/
 

@@ -263,6 +263,20 @@ theorem setWidth_ofNat16 {n : Nat} (h : n < 2 ^ 16) :
   rw [BitVec.toNat_setWidth, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h,
     Nat.mod_eq_of_lt (by omega)]
 
+/-- A 64-bit store is a store of its eight bytes. -/
+theorem writeW_eq_writeBytes (m : Mem) (a : Addr) (v : BitVec 64) :
+    m.writeW a v = writeBytes m a ((List.range 8).map fun k => v.extractLsb' (8 * k) 8) := by
+  show m.write a 8 (v.setWidth 64) = _
+  rw [BitVec.setWidth_eq]
+  exact WriteBytes.write_eq_writeBytes m a 8 v
+
+/-- Byte `k` of a 64-bit load. -/
+theorem extractLsb'_readW (m : Mem) (a : Addr) {k : Nat} (hk : k < 8) :
+    (m.readW a 64).extractLsb' (8 * k) 8 = m (a + BitVec.ofNat 64 k) := by
+  show ((m.read a 8).setWidth 64).extractLsb' (8 * k) 8 = _
+  rw [BitVec.setWidth_eq]
+  exact Mem.extractLsb'_read m a hk
+
 theorem bytesAt_getD {m : Mem} {p : Addr} {n : Nat} {l : List Byte} (h : bytesAt m p n = l) {k : Nat}
     (hk : k < n) : m (p + BitVec.ofNat 64 k) = l.getD k 0 := by
   subst h; simp [bytesAt, List.getD_eq_getElem?_getD, hk]
@@ -529,6 +543,28 @@ theorem preserved_of {s₀ s' : State} (hsv : ∀ p ∈ saved P, s'.gpr p.1 = s�
 
 end
 
+/-! ## Storing a word in the buffer -/
+
+/-- `storeWord` stores `x9` at `x19 + x23 + N`, writing only `x12`. -/
+theorem storeWord_ok {P : Params} (hN : P.N < 4096) {rest : List Instr} {s : State} {Q : State → Prop}
+    {a : Addr} (ha : s.gpr .x19 + s.gpr .x23 + BitVec.ofNat 64 P.N = a) (hout : InRegions s.wr a 8)
+    (k : ∀ s', (∀ r, r ≠ .x12 → s'.gpr r = s.gpr r) → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
+      s'.mem = s.mem.writeW a (s.gpr .x9) → WP isa (.block rest) s' Q) :
+    WP isa (.block (storeWord P ++ rest)) s Q := by
+  unfold storeWord
+  split
+  · rename_i h8
+    simp only [List.cons_append, List.nil_append]
+    refine wp_add fun s₁ u₁ => wp_str (a := a) ⟨h8, by omega⟩ (by rw [u₁.gpr]; exact ha) (by rw [u₁.wr]; exact hout)
+      fun s₂ g₂ => k s₂ (fun r hr => by rw [g₂.gpr, u₁.other r hr]) (by rw [g₂.rd, u₁.rd])
+        (by rw [g₂.wr, u₁.wr]) (by rw [g₂.sp, u₁.sp]) (by rw [g₂.mem, u₁.mem, u₁.other _ (by decide)])
+  · simp only [List.cons_append, List.nil_append]
+    refine wp_add fun s₁ u₁ => wp_addImm hN fun s₂ u₂ => wp_str (a := a) ⟨by decide, by decide⟩
+      (by rw [u₂.gpr, u₁.gpr]; exact (BitVec.add_zero _).trans ha) (by rw [u₂.wr, u₁.wr]; exact hout)
+      fun s₃ g₃ => k s₃ (fun r hr => by rw [g₃.gpr, u₂.other r hr, u₁.other r hr])
+        (by rw [g₃.rd, u₂.rd, u₁.rd]) (by rw [g₃.wr, u₂.wr, u₁.wr]) (by rw [g₃.sp, u₂.sp, u₁.sp])
+        (by rw [g₃.mem, u₂.mem, u₁.mem, u₂.other _ (by decide), u₁.other _ (by decide)])
+
 /-! ## The contracts
 
 The generic proofs are written against these; each hash function's own
@@ -617,22 +653,30 @@ structure CalleeOk {P : Params} (H : Md P.B P.N P.L) (code : Prog isa) : Prop wh
   noFrames : code.noFrames = true
   keepsV : code.allInstrs VG.AArch64.keepsV = true
 
+theorem storeWord_keepsV (P : Params) : (storeWord P).all VG.AArch64.keepsV = true := by
+  unfold storeWord; split <;> rfl
+
 /-- The stream wrapper itself writes no vector registers. -/
 theorem update_keepsV {P : Params} {name : String} {code : Prog isa}
     (h : code.allInstrs VG.AArch64.keepsV = true) :
     (update P name code).allInstrs VG.AArch64.keepsV = true := by
-  simp [update, updateMain, updateStart, updateBody, fill, copyBody, direct, lg,
-    compressN, compressWith, save, saved, restore, mov, Code.allInstrs,
-    VG.AArch64.keepsV, vdstOf, h]
+  have hw := List.all_eq_true.mp (storeWord_keepsV P)
+  rw [Code.allInstrs_eq] at h ⊢
+  have hc := List.all_eq_true.mp h
+  simp [update, updateMain, updateStart, updateBody, fill, copy, copyWordBody, copyBody, direct,
+    compressN, compressWith, save, saved, restore, instrs, lg, mov, VG.AArch64.keepsV, vdstOf]
+  exact ⟨fun x hx => hw x hx, fun x hx => hc x hx⟩
 
 /-- The finalizer adds only the parameterized length and digest stores. -/
 theorem finalize_keepsV {P : Params} {H : Md P.B P.N P.L} {name : String} {code : Prog isa}
     (hs : Shape H) (h : code.allInstrs VG.AArch64.keepsV = true) :
     (finalize P name code).allInstrs VG.AArch64.keepsV = true := by
+  have hw := List.all_eq_true.mp (storeWord_keepsV P)
   rw [Code.allInstrs_eq] at h ⊢
-  simp [finalize, finalizeMain, finalizeStart, finalizeBody, zeroBody, lg,
-    compressAt, compressWith, save, saved, restore, mov, instrs,
+  simp [finalize, finalizeMain, finalizeStart, finalizeBody, zero, zeroWordBody, zeroBody,
+    compressAt, compressWith, save, saved, restore, mov, instrs, lg,
     VG.AArch64.keepsV, vdstOf, h, hs.lenKeepsV, hs.outKeepsV]
+  exact fun x hx => hw x hx
 
 /-! ## The compression function -/
 

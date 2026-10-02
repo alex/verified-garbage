@@ -416,10 +416,10 @@ theorem copy_step (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {sI :
       List.getElem?_eq_getElem (show c + j < (D s₀).length by rw [D_length]; omega), Option.getD_some]
 
 theorem copy_loop_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {sI : State} (hI : Inv H s₀ c sI)
-    {s : State} (h : Copy P s₀ c sI.mem 0 s) (ht : 0 < tt P s₀ c) :
+    {j₀ : Nat} {s : State} (h : Copy P s₀ c sI.mem j₀ s) (ht : j₀ < tt P s₀ c) :
     WP isa (.loop (.block (copyBody P)) (.nonzero .x .x11)) s (Copy P s₀ c sI.mem (tt P s₀ c)) := by
   refine WP.loop (M := isa) (fun n s => ∃ j, n = tt P s₀ c - j ∧ j < tt P s₀ c ∧ Copy P s₀ c sI.mem j s)
-    ?_ (tt P s₀ c) s ⟨0, rfl, ht, h⟩
+    ?_ (tt P s₀ c - j₀) s ⟨j₀, rfl, ht, h⟩
   rintro n s ⟨j, rfl, hj, hc⟩
   refine WP.mono (copy_step hd hp hI hj hc) fun s' ⟨hc', h11⟩ => ?_
   have hz : isa.eval (.nonzero .x .x11) s' = some (decide (tt P s₀ c - (j + 1) ≠ 0)) := by
@@ -430,6 +430,141 @@ theorem copy_loop_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s
   · refine .inl ⟨by rw [hz]; simp [hl], ?_⟩
     rwa [show j + 1 = tt P s₀ c by omega] at hc'
   · exact .inr ⟨by rw [hz]; simp [hl], _, by omega, j + 1, rfl, by omega, hc'⟩
+
+theorem Copy.of_gpr {s₀ : State} {c : Nat} {mI : Mem} {j : Nat} {s s' : State} (h : Copy P s₀ c mI j s)
+    (hg : ∀ r, r ≠ .x13 → s'.gpr r = s.gpr r) (hm : s'.mem = s.mem) (hrd : s'.rd = s.rd)
+    (hwr : s'.wr = s.wr) (hsp : s'.sp = s.sp) : Copy P s₀ c mI j s' :=
+  ⟨h.j_le, hrd.trans h.rd, hwr.trans h.wr, by rw [hg _ (by decide), h.x19],
+    by rw [hg _ (by decide), h.x20], hsp.trans h.sp, by rw [hg _ (by decide), h.x21],
+    by rw [hg _ (by decide), h.x22], by rw [hg _ (by decide), h.x23],
+    by rw [hg _ (by decide), h.x11], by rw [hg _ (by decide), h.x10], by rw [hm, h.mem]⟩
+
+theorem xs_chunk (s₀ : State) (c : Nat) {j : Nat} (hj : j + 8 ≤ tt P s₀ c) :
+    ((xs P s₀ c).drop j).take 8 = (List.range 8).map fun k => (D s₀).getD (c + j + k) 0 := by
+  have ht := tt_le (P := P) s₀ c
+  have hxs := xs_length (P := P) s₀ c
+  apply List.ext_getElem
+  · simp only [List.length_take, List.length_drop, List.length_map, List.length_range, hxs]; omega
+  · intro k h1 h2
+    have hk : k < 8 := by simpa using h2
+    simp only [xs, List.getElem_take, List.getElem_drop, List.getElem_map, List.getElem_range,
+      List.getD_eq_getElem?_getD, Nat.add_assoc]
+    rw [List.getElem?_eq_getElem (by rw [D_length]; omega), Option.getD_some]
+
+theorem copy_word_step (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {sI : State}
+    (hI : Inv H s₀ c sI) {j : Nat} (hj : j + 8 ≤ tt P s₀ c) {s : State} (h : Copy P s₀ c sI.mem j s) :
+    WP isa (.block (copyWordBody P)) s fun s' =>
+      Copy P s₀ c sI.mem (j + 8) s' ∧ s'.gpr .x13 = BitVec.ofNat 64 ((tt P s₀ c - (j + 8)) / 8) := by
+  have hlen := len_lt s₀
+  have hc := hI.c_le
+  have hr := rr_lt hd s₀ c
+  have ht := tt_le (P := P) s₀ c; have ht' := tt_le' (P := P) s₀ c
+  have := hd.N; have := hd.B
+  -- The bytes read.
+  have hin : InRegions (s.rd ++ s.wr) (dp s₀ + BitVec.ofNat 64 (c + j)) 8 :=
+    ⟨dR s₀, by simp [h.rd, hp.rd], contains_offset (by omega) (by omega)⟩
+  have hbyte : ∀ k, k < 8 →
+      s.mem (dp s₀ + BitVec.ofNat 64 (c + j) + BitVec.ofNat 64 k) = (D s₀).getD (c + j + k) 0 := by
+    intro k hk
+    rw [BitVec.add_assoc, ← BitVec.ofNat_add, h.mem, ← hI.data hp (by omega)]
+    exact frame_bytes (write_frame hd s₀ c sI.mem j h.j_le) (R := dR s₀) (by simpa using hp.d_st)
+      (by show len s₀ ≤ 2 ^ 64; omega) (by show c + j + k < len s₀; omega)
+  -- The bytes written.
+  have hout : InRegions s.wr (q P s₀ c + BitVec.ofNat 64 j) 8 :=
+    ⟨stR P s₀, by simp [h.wr, hp.wr], by
+      rw [q_eq, BitVec.add_assoc, ← BitVec.ofNat_add]; exact contains_offset (by omega) (by omega)⟩
+  have hxs := xs_length (P := P) s₀ c
+  unfold copyWordBody
+  rw [List.cons_append, List.nil_append]
+  refine wp_ldr (a := dp s₀ + BitVec.ofNat 64 (c + j)) (by decide) (by rw [h.x21]; simp) hin
+    fun s₁ u₁ => ?_
+  refine storeWord_ok (by omega) (a := q P s₀ c + BitVec.ofNat 64 j) ?_ (by rw [u₁.wr]; exact hout)
+    fun s₃ g₃ rd₃ wr₃ sp₃ m₃ => ?_
+  · rw [u₁.other _ (by decide), u₁.other _ (by decide), h.x19, h.x23, q, buf]
+    simp only [BitVec.ofNat_add]
+    ac_rfl
+  refine wp_addImm (by decide) fun s₄ u₄ => wp_addImm (by decide) fun s₅ u₅ =>
+    wp_subImm (by decide) fun s₆ u₆ => wp_lsr (by decide) fun s₇ u₇ => WP.block_nil ?_
+  have g : ∀ r, r ≠ .x9 → r ≠ .x12 → r ≠ .x21 → r ≠ .x23 → r ≠ .x11 → r ≠ .x13 →
+      s₇.gpr r = s.gpr r := fun r h1 h2 h3 h4 h5 h6 => by
+    rw [u₇.other r h6, u₆.other r h5, u₅.other r h4, u₄.other r h3, g₃ r h2, u₁.other r h1]
+  have hx11₆ : s₆.gpr .x11 = BitVec.ofNat 64 (tt P s₀ c - (j + 8)) := by
+    rw [u₆.gpr, u₅.other _ (by decide), u₄.other _ (by decide), g₃ _ (by decide),
+      u₁.other _ (by decide), h.x11, sub_ofNat (by omega), Nat.sub_sub]
+  have hx11 : s₇.gpr .x11 = BitVec.ofNat 64 (tt P s₀ c - (j + 8)) := by
+    rw [u₇.other _ (by decide), hx11₆]
+  have hx13 : s₇.gpr .x13 = BitVec.ofNat 64 ((tt P s₀ c - (j + 8)) / 8) := by
+    rw [u₇.gpr, hx11₆, ofNat_shr (by omega)]
+  refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hx11, ?_, ?_⟩, hx13⟩
+  · rw [u₇.rd, u₆.rd, u₅.rd, u₄.rd, rd₃, u₁.rd, h.rd]
+  · rw [u₇.wr, u₆.wr, u₅.wr, u₄.wr, wr₃, u₁.wr, h.wr]
+  · rw [g .x19 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), h.x19]
+  · rw [g .x20 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), h.x20]
+  · rw [u₇.sp, u₆.sp, u₅.sp, u₄.sp, sp₃, u₁.sp, h.sp]
+  · rw [u₇.other _ (by decide), u₆.other _ (by decide), u₅.other _ (by decide), u₄.gpr, g₃ _ (by decide),
+      u₁.other _ (by decide), h.x21, BitVec.add_assoc, ← BitVec.ofNat_add, Nat.add_assoc]
+  · rw [g .x22 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), h.x22]
+  · rw [u₇.other _ (by decide), u₆.other _ (by decide), u₅.gpr, u₄.other _ (by decide), g₃ _ (by decide),
+      u₁.other _ (by decide), h.x23, ← BitVec.ofNat_add, Nat.add_assoc]
+  · rw [g .x10 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), h.x10]
+  · have hl : (List.take j (xs P s₀ c)).length = j := by
+      rw [List.length_take, Nat.min_eq_left (by omega)]
+    have hw : (List.range 8).map (fun k => (s.mem.readW (dp s₀ + BitVec.ofNat 64 (c + j)) 64).extractLsb' (8 * k) 8) =
+        ((xs P s₀ c).drop j).take 8 := by
+      rw [xs_chunk s₀ c hj]
+      refine List.map_congr_left fun k hk => ?_
+      have hk' : k < 8 := List.mem_range.mp hk
+      rw [extractLsb'_readW _ _ hk', hbyte k hk']
+    rw [u₇.mem, u₆.mem, u₅.mem, u₄.mem, m₃, u₁.mem, u₁.gpr, writeW_eq_writeBytes, hw, h.mem,
+      show q P s₀ c + BitVec.ofNat 64 j = q P s₀ c + BitVec.ofNat 64 (List.take j (xs P s₀ c)).length by
+        rw [hl],
+      VG.WriteBytes.writeBytes_append _ _ _ _ (by simp only [List.length_take, List.length_drop]; omega),
+      ← List.take_add]
+
+theorem copy_words_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {sI : State}
+    (hI : Inv H s₀ c sI) {s : State} (h : Copy P s₀ c sI.mem 0 s)
+    (h13 : s.gpr .x13 = BitVec.ofNat 64 (tt P s₀ c / 8)) :
+    WP isa (.ite (.zero .x .x13) (.block []) (.loop (.block (copyWordBody P)) (.nonzero .x .x13))) s
+      (Copy P s₀ c sI.mem (8 * (tt P s₀ c / 8))) := by
+  have ht' := tt_le' (P := P) s₀ c; have := hd.B
+  have hz : eval (.zero .x .x13) s = some (decide (tt P s₀ c / 8 = 0)) := by
+    rw [eval_zero, h13, ofNat_beq_zero (by omega)]
+  refine WP.ite (decide (tt P s₀ c / 8 = 0)) hz (fun hb => ?_) (fun hb => ?_)
+  · simp only [decide_eq_true_eq] at hb
+    exact WP.block_nil (by rw [hb]; exact h)
+  · simp only [decide_eq_false_iff_not] at hb
+    refine WP.loop (M := isa)
+      (fun n s => ∃ i, n = tt P s₀ c / 8 - i ∧ i < tt P s₀ c / 8 ∧ Copy P s₀ c sI.mem (8 * i) s)
+      ?_ (tt P s₀ c / 8) s ⟨0, rfl, by omega, h⟩
+    rintro n s ⟨i, rfl, hi, hC⟩
+    refine WP.mono (copy_word_step hd hp hI (by omega) hC) fun s' ⟨hC', h13'⟩ => ?_
+    have hz' : isa.eval (.nonzero .x .x13) s' = some (decide (tt P s₀ c / 8 - (i + 1) ≠ 0)) := by
+      show VG.AArch64.eval (.nonzero .x .x13) s' = _
+      rw [eval_nonzero, h13', show (tt P s₀ c - (8 * i + 8)) / 8 = tt P s₀ c / 8 - (i + 1) by omega,
+        bne, ofNat_beq_zero (by omega)]
+      simp
+    rw [show 8 * i + 8 = 8 * (i + 1) by omega] at hC'
+    by_cases hl : tt P s₀ c / 8 - (i + 1) = 0
+    · refine .inl ⟨by rw [hz']; simp [hl], ?_⟩
+      rwa [show i + 1 = tt P s₀ c / 8 by omega] at hC'
+    · exact .inr ⟨by rw [hz']; simp [hl], _, by omega, i + 1, rfl, by omega, hC'⟩
+
+theorem copy_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {sI : State} (hI : Inv H s₀ c sI)
+    {s : State} (h : Copy P s₀ c sI.mem 0 s) : WP isa (copy P) s (Copy P s₀ c sI.mem (tt P s₀ c)) := by
+  have ht' := tt_le' (P := P) s₀ c; have := hd.B
+  unfold copy
+  refine WP.seq (wp_lsr (by decide) fun s₁ u₁ => WP.block_nil ?_)
+  have hC₁ : Copy P s₀ c sI.mem 0 s₁ := h.of_gpr u₁.other u₁.mem u₁.rd u₁.wr u₁.sp
+  have h13 : s₁.gpr .x13 = BitVec.ofNat 64 (tt P s₀ c / 8) := by
+    rw [u₁.gpr, h.x11, Nat.sub_zero, ofNat_shr (by omega)]
+  refine WP.seq (WP.mono (copy_words_ok hd hp hI hC₁ h13) fun s₂ hC₂ => ?_)
+  have hz : eval (.zero .x .x11) s₂ = some (decide (tt P s₀ c - 8 * (tt P s₀ c / 8) = 0)) := by
+    rw [eval_zero, hC₂.x11, ofNat_beq_zero (by omega)]
+  refine WP.ite (decide (tt P s₀ c - 8 * (tt P s₀ c / 8) = 0)) hz (fun hb => ?_) (fun hb => ?_)
+  · simp only [decide_eq_true_eq] at hb
+    exact WP.block_nil (by rwa [show 8 * (tt P s₀ c / 8) = tt P s₀ c by omega] at hC₂)
+  · simp only [decide_eq_false_iff_not] at hb
+    exact copy_loop_ok hd hp hI hC₂ (by omega)
 
 /-- The memory after copying `tt` bytes. -/
 theorem copied_facts (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {sI : State} (hI : Inv H s₀ c sI) :
@@ -580,8 +715,8 @@ theorem fill_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s : St
       by rw [e _ (by decide), h11₄, Nat.sub_zero], by rw [e _ (by decide), h10₄], ?_⟩
     · rw [u₅.gpr, hI₄.x22, h11₄, sub_ofNat (by omega), Nat.sub_sub]
     · rw [u₅.mem, hm₄, List.take_zero, writeBytes_nil]
-  -- Copy the bytes.
-  refine WP.seq (WP.mono (copy_loop_ok hd hp hI hC₀ (by omega)) fun s₆ hC => ?_)
+  -- Copy the data.
+  refine WP.seq (WP.mono (copy_ok hd hp hI hC₀) fun s₆ hC => ?_)
   -- Is the buffer full?
   refine WP.seq (wp_subImm (by omega) fun s₇ u₇ => WP.block_nil ?_)
   have hC₇ : Copy P s₀ c s.mem (tt P s₀ c) s₇ :=

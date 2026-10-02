@@ -15,10 +15,11 @@ followed by a `B`-byte buffer.
 * `update(state = x0, count = x1, data = x2, len = x3, scratch = x4)`
   compresses, in each iteration, every whole block left in `data` with one
   call if the buffer is empty (so that implementations that process several
-  blocks at once can), and otherwise copies bytes into the buffer,
-  compressing it once it is full.
+  blocks at once can), and otherwise copies data into the buffer (eight
+  bytes at a time, then one at a time), compressing it once it is full.
 * `finalize(state = x0, count = x1, out = x2, scratch = x3)` pads the
-  buffered bytes (one or two blocks), compresses them and writes the digest.
+  buffered bytes (one or two blocks, zeroing eight bytes at a time),
+  compresses them and writes the digest.
 
 `update` and `finalize` call the compression function (`name`, `code`) with
 `scratch[0..so)` as its scratch space. It preserves `x19`–`x28`, so our own
@@ -103,10 +104,29 @@ def direct : List Instr :=
   [mov .x1 .x21, .lsr .x .x10 .x22 (lg P), .lsl .x .x9 .x10 (lg P), .add .x .x21 .x21 .x9,
     .sub .x .x22 .x22 .x9]
 
-/-- The copy loop's body. -/
+/-- Store `x9` as the eight buffer bytes from `r` (in `x23`), through `x12 =
+state + r`: with the offset `N` in the store if it is a multiple of 8, and
+added to `x12` first otherwise. -/
+def storeWord : List Instr :=
+  if P.N % 8 = 0 then [.add .x .x12 .x19 .x23, .str .x .x9 .x12 P.N]
+  else [.add .x .x12 .x19 .x23, .addImm .x .x12 .x12 P.N, .str .x .x9 .x12 0]
+
+/-- The eight-byte copy loop's body. -/
+def copyWordBody : List Instr :=
+  [.ldr .x .x9 .x21 0] ++ storeWord P ++
+    [.addImm .x .x21 .x21 8, .addImm .x .x23 .x23 8, .subImm .x .x11 .x11 8, .lsr .x .x13 .x11 3]
+
+/-- The byte copy loop's body. -/
 def copyBody : List Instr :=
   [.ldrb .x9 .x21 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 P.N, .addImm .x .x21 .x21 1,
     .addImm .x .x23 .x23 1, .subImm .x .x11 .x11 1]
+
+/-- Copy `x11` bytes of `data` into the buffer at `r`: eight at a time (`x13 =
+x11 >> 3` of them), then one at a time. -/
+def copy : Prog isa :=
+  .seq (.block [.lsr .x .x13 .x11 3])
+  (.seq (.ite (.zero .x .x13) (.block []) (.loop (.block (copyWordBody P)) (.nonzero .x .x13)))
+    (.ite (.zero .x .x11) (.block []) (.loop (.block (copyBody P)) (.nonzero .x .x11))))
 
 /-- Copy `n = min(B - r, len) ≥ 1` bytes of `data` into the buffer; if that
 fills it, compress it. -/
@@ -118,7 +138,7 @@ def fill : Prog isa :=
         (.ite (.zero .x .x9) (.block [mov .x11 .x22]) (.block [])))
       (.block []))
   (.seq (.block [.sub .x .x22 .x22 .x11])
-  (.seq (.loop (.block (copyBody P)) (.nonzero .x .x11))
+  (.seq (copy P)
   -- Full: compress the buffer.
   (.seq (.block [.subImm .x .x9 .x23 P.B])
     (.ite (.zero .x .x9) (.block [.addImm .x .x1 .x19 P.N, .movz .x .x23 0 0, .movz .x .x10 1 0])
@@ -150,16 +170,27 @@ def update (name : String) (code : Prog isa) : Prog isa :=
 Registers: `x21` = `out`, `x22` = `count`, `x23` = bytes in the buffer (`r`),
 `x24` = 1 while the block being padded is not the last one (then 0). -/
 
-/-- The zeroing loop's body. -/
+/-- The eight-byte zeroing loop's body. -/
+def zeroWordBody : List Instr :=
+  storeWord P ++ [.addImm .x .x23 .x23 8, .subImm .x .x11 .x11 8, .lsr .x .x13 .x11 3]
+
+/-- The byte zeroing loop's body. -/
 def zeroBody : List Instr :=
   [.add .x .x12 .x19 .x23, .strb .x9 .x12 P.N, .addImm .x .x23 .x23 1, .subImm .x .x11 .x11 1]
+
+/-- Zero `x11` buffer bytes from `r` (`x9 = 0`): eight at a time (`x13 = x11 >> 3`
+of them), then one at a time. -/
+def zero : Prog isa :=
+  .seq (.block [.lsr .x .x13 .x11 3])
+  (.seq (.ite (.zero .x .x13) (.block []) (.loop (.block (zeroWordBody P)) (.nonzero .x .x13)))
+    (.ite (.zero .x .x11) (.block []) (.loop (.block (zeroBody P)) (.nonzero .x .x11))))
 
 def finalizeBody (name : String) (code : Prog isa) : Prog isa :=
   -- Zero the buffer from `r` to `B`, or to `B - L` in the last block.
   .seq (.block [.movz .x .x11 (BitVec.ofNat 16 P.B) 0])
   (.seq (.ite (.zero .x .x24) (.block [.movz .x .x11 (BitVec.ofNat 16 (P.B - P.L)) 0]) (.block []))
   (.seq (.block [.movz .x .x9 0 0, .sub .x .x11 .x11 .x23])
-  (.seq (.ite (.zero .x .x11) (.block []) (.loop (.block (zeroBody P)) (.nonzero .x .x11)))
+  (.seq (zero P)
   -- In the last block, the length field.
   (.seq (.ite (.zero .x .x24) (.block P.len) (.block []))
   (.seq (.block [.addImm .x .x1 .x19 P.N])
