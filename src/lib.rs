@@ -98,6 +98,7 @@ mod mlkem_common;
 pub mod pbkdf2;
 pub mod poly1305;
 pub mod rc2_cbc;
+pub mod rc4;
 pub mod scrypt;
 pub mod triple_des_ecb;
 pub mod x25519;
