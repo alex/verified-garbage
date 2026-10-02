@@ -988,8 +988,6 @@ implementation, but in some algorithms it does part of the cryptography:
   the verified function's contract leaves the data unspecified (it may
   already hold the decryption); it is the Rust wrapper that then zeroes it,
   so that no unauthenticated plaintext is released.
-* **HMAC** with a key longer than a block hashes it first, in Rust (with the
-  verified hash).
 
 ## Development
 

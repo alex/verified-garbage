@@ -4,6 +4,11 @@
 //! under `vectors/nist-acvp/` (see `vectors/sources/` for where each one comes
 //! from) and compiled into the test binary, so these tests always run.
 
+mod hmac;
+mod hmac_sha384;
+mod hmac_sha512;
+mod hmac_sha512_224;
+mod hmac_sha512_256;
 mod mldsa;
 mod mldsa44;
 mod mldsa65;

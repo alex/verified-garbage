@@ -2,9 +2,9 @@
 //! Verified `hmac_md5` functions for `x86`.
 #![allow(dead_code)]
 
-/// Starts an HMAC-MD5 computation with a key of at most 64 bytes: makes the MD5 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 64 bytes (FIPS 198-1). The text is then absorbed with `vg_md5_update` on `*inner` (its `count` starting at 64), and the MAC computed with `vg_hmac_md5_finalize`.
+/// Starts an HMAC-MD5 computation with a key of any length: makes the MD5 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` (or their MD5 digest, if there are more than 64) padded with zeros to 64 bytes (FIPS 198-1 §4, steps 1–3). The text is then absorbed with `vg_md5_update` on `*inner` (its `count` starting at 64), and the MAC computed with `vg_hmac_md5_finalize`.
 ///
-/// Contract: `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.md5I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+/// Contract: `VG.Spec.Hmac.Instance.initAnyKeyContract` of `VG.Spec.Hmac.md5I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
 ///
 /// The function may overwrite the arguments on the stack, as the calling convention lets it.
 ///
@@ -13,14 +13,71 @@
 /// * `inner` must be valid for reads and writes of 80 bytes.
 /// * `outer` must be valid for reads and writes of 80 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 384 bytes.
-/// * `key_len` must be at most 64.
+/// * `scratch` must be valid for reads and writes of 1024 bytes.
 /// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the arguments on the stack, overlap the return address on the stack or the 48 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_hmac_md5_init(inner: *mut [u8; 80], outer: *mut [u8; 80], key: *const u8, key_len: usize, scratch: *mut [u64; 48]) {
+pub(crate) unsafe extern "C" fn vg_hmac_md5_init(inner: *mut [u8; 80], outer: *mut [u8; 80], key: *const u8, key_len: usize, scratch: *mut [u64; 128]) {
     core::arch::naked_asm!(
+        "mov eax, DWORD PTR [esp+16]",
+        "cmp eax, 65",
+        "jb 20f",
+        "mov eax, DWORD PTR [esp+20]",
+        "mov DWORD PTR [eax+112], ebx",
+        "mov DWORD PTR [eax+116], esi",
+        "mov DWORD PTR [eax+120], edi",
+        "mov DWORD PTR [eax+124], ebp",
+        "mov ebp, eax",
+        "mov ebx, ebp",
+        "add ebx, 256",
+        "push ebx",
+        "call {vg_md5_init}",
+        "pop eax",
+        "mov eax, 0",
+        "mov edx, DWORD PTR [esp+12]",
+        "mov ecx, DWORD PTR [esp+16]",
+        "push ebp",
+        "push ecx",
+        "push edx",
+        "push eax",
+        "push eax",
+        "push ebx",
+        "call {vg_md5_update}",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "mov eax, DWORD PTR [esp+16]",
+        "mov ecx, 0",
+        "mov edx, ebp",
+        "add edx, 336",
+        "push ebp",
+        "push edx",
+        "push ecx",
+        "push eax",
+        "push ebx",
+        "call {vg_md5_finalize}",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "mov eax, ebp",
+        "add eax, 336",
+        "mov DWORD PTR [esp+12], eax",
+        "mov eax, 16",
+        "mov DWORD PTR [esp+16], eax",
+        "mov eax, ebp",
+        "mov ebx, DWORD PTR [eax+112]",
+        "mov esi, DWORD PTR [eax+116]",
+        "mov edi, DWORD PTR [eax+120]",
+        "mov ebp, DWORD PTR [eax+124]",
+        "jmp 21f",
+        "20:",
+        "21:",
         "mov eax, DWORD PTR [esp+20]",
         "mov DWORD PTR [eax+112], ebx",
         "mov DWORD PTR [eax+116], esi",
@@ -31,8 +88,8 @@ pub(crate) unsafe extern "C" fn vg_hmac_md5_init(inner: *mut [u8; 80], outer: *m
         "mov edi, DWORD PTR [esp+16]",
         "mov ebx, 0",
         "test edi, edi",
-        "je 20f",
-        "22:",
+        "je 22f",
+        "24:",
         "mov eax, esi",
         "add eax, ebx",
         "movzx eax, BYTE PTR [eax]",
@@ -45,25 +102,25 @@ pub(crate) unsafe extern "C" fn vg_hmac_md5_init(inner: *mut [u8; 80], outer: *m
         "mov BYTE PTR [edx+192], cl",
         "add ebx, 1",
         "cmp ebx, edi",
-        "jne 22b",
-        "jmp 21f",
-        "20:",
-        "21:",
+        "jne 24b",
+        "jmp 23f",
+        "22:",
+        "23:",
         "mov eax, 54",
         "mov ecx, 92",
         "cmp ebx, 64",
-        "je 23f",
-        "25:",
+        "je 25f",
+        "27:",
         "mov edx, ebp",
         "add edx, ebx",
         "mov BYTE PTR [edx+128], al",
         "mov BYTE PTR [edx+192], cl",
         "add ebx, 1",
         "cmp ebx, 64",
-        "jne 25b",
-        "jmp 24f",
-        "23:",
-        "24:",
+        "jne 27b",
+        "jmp 26f",
+        "25:",
+        "26:",
         "mov ebx, DWORD PTR [esp+4]",
         "mov esi, DWORD PTR [esp+8]",
         "push ebx",
@@ -116,6 +173,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_md5_init(inner: *mut [u8; 80], outer: *m
         "ret",
         vg_md5_init = sym super::md5::vg_md5_init,
         vg_md5_update = sym super::md5::vg_md5_update,
+        vg_md5_finalize = sym super::md5::vg_md5_finalize,
     )
 }
 

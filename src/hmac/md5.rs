@@ -1,8 +1,8 @@
 //! HMAC-MD5: `vg_hmac_md5_init`, `vg_md5_update` and `vg_hmac_md5_finalize`
-//! (contracts `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.md5I`,
+//! (contracts `VG.Spec.Hmac.Instance.initAnyKeyContract` of `VG.Spec.Hmac.md5I`,
 //! `VG.Spec.Md5.updateContract` and `VG.Spec.Hmac.Instance.finalizeContract`)
 //! compute `H((K₀ ⊕ opad) ‖ H((K₀ ⊕ ipad) ‖ text))`
-//! (`VG.Spec.Hmac.hmacBlockKey`), keeping the two MD5 streaming states. `init`
+//! (`VG.Spec.Hmac.hmac`), keeping the two MD5 streaming states. `init`
 //! and `finalize` are the one HMAC implementation for every streaming hash
 //! function, calling MD5's verified functions.
 
@@ -21,6 +21,7 @@ super::streaming_hmac!(
         Scalar => (vg_hmac_md5_init, vg_hmac_md5_finalize),
     },
     state: 80,
-    scratch: 48,
+    init_scratch: 128,
+    finalize_scratch: 48,
     output: 16,
 );

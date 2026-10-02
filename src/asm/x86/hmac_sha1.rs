@@ -2,9 +2,9 @@
 //! Verified `hmac_sha1` functions for `x86`.
 #![allow(dead_code)]
 
-/// Starts an HMAC-SHA-1 computation with a key of at most 64 bytes: makes the SHA-1 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 64 bytes (FIPS 198-1). The text is then absorbed with `vg_sha1_update` on `*inner` (its `count` starting at 64), and the MAC computed with `vg_hmac_sha1_finalize`.
+/// Starts an HMAC-SHA-1 computation with a key of any length: makes the SHA-1 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` (or their SHA-1 digest, if there are more than 64) padded with zeros to 64 bytes (FIPS 198-1 §4, steps 1–3). The text is then absorbed with `vg_sha1_update` on `*inner` (its `count` starting at 64), and the MAC computed with `vg_hmac_sha1_finalize`.
 ///
-/// Contract: `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.sha1I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+/// Contract: `VG.Spec.Hmac.Instance.initAnyKeyContract` of `VG.Spec.Hmac.sha1I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
 ///
 /// The function may overwrite the arguments on the stack, as the calling convention lets it.
 ///
@@ -13,14 +13,71 @@
 /// * `inner` must be valid for reads and writes of 84 bytes.
 /// * `outer` must be valid for reads and writes of 84 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 448 bytes.
-/// * `key_len` must be at most 64.
+/// * `scratch` must be valid for reads and writes of 1120 bytes.
 /// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the arguments on the stack, overlap the return address on the stack or the 48 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *mut [u8; 84], key: *const u8, key_len: usize, scratch: *mut [u64; 56]) {
+pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *mut [u8; 84], key: *const u8, key_len: usize, scratch: *mut [u64; 140]) {
     core::arch::naked_asm!(
+        "mov eax, DWORD PTR [esp+16]",
+        "cmp eax, 65",
+        "jb 20f",
+        "mov eax, DWORD PTR [esp+20]",
+        "mov DWORD PTR [eax+160], ebx",
+        "mov DWORD PTR [eax+164], esi",
+        "mov DWORD PTR [eax+168], edi",
+        "mov DWORD PTR [eax+172], ebp",
+        "mov ebp, eax",
+        "mov ebx, ebp",
+        "add ebx, 304",
+        "push ebx",
+        "call {vg_sha1_init}",
+        "pop eax",
+        "mov eax, 0",
+        "mov edx, DWORD PTR [esp+12]",
+        "mov ecx, DWORD PTR [esp+16]",
+        "push ebp",
+        "push ecx",
+        "push edx",
+        "push eax",
+        "push eax",
+        "push ebx",
+        "call {vg_sha1_update}",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "mov eax, DWORD PTR [esp+16]",
+        "mov ecx, 0",
+        "mov edx, ebp",
+        "add edx, 388",
+        "push ebp",
+        "push edx",
+        "push ecx",
+        "push eax",
+        "push ebx",
+        "call {vg_sha1_finalize}",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "mov eax, ebp",
+        "add eax, 388",
+        "mov DWORD PTR [esp+12], eax",
+        "mov eax, 20",
+        "mov DWORD PTR [esp+16], eax",
+        "mov eax, ebp",
+        "mov ebx, DWORD PTR [eax+160]",
+        "mov esi, DWORD PTR [eax+164]",
+        "mov edi, DWORD PTR [eax+168]",
+        "mov ebp, DWORD PTR [eax+172]",
+        "jmp 21f",
+        "20:",
+        "21:",
         "mov eax, DWORD PTR [esp+20]",
         "mov DWORD PTR [eax+160], ebx",
         "mov DWORD PTR [eax+164], esi",
@@ -31,8 +88,8 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *
         "mov edi, DWORD PTR [esp+16]",
         "mov ebx, 0",
         "test edi, edi",
-        "je 20f",
-        "22:",
+        "je 22f",
+        "24:",
         "mov eax, esi",
         "add eax, ebx",
         "movzx eax, BYTE PTR [eax]",
@@ -45,25 +102,25 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *
         "mov BYTE PTR [edx+240], cl",
         "add ebx, 1",
         "cmp ebx, edi",
-        "jne 22b",
-        "jmp 21f",
-        "20:",
-        "21:",
+        "jne 24b",
+        "jmp 23f",
+        "22:",
+        "23:",
         "mov eax, 54",
         "mov ecx, 92",
         "cmp ebx, 64",
-        "je 23f",
-        "25:",
+        "je 25f",
+        "27:",
         "mov edx, ebp",
         "add edx, ebx",
         "mov BYTE PTR [edx+176], al",
         "mov BYTE PTR [edx+240], cl",
         "add ebx, 1",
         "cmp ebx, 64",
-        "jne 25b",
-        "jmp 24f",
-        "23:",
-        "24:",
+        "jne 27b",
+        "jmp 26f",
+        "25:",
+        "26:",
         "mov ebx, DWORD PTR [esp+4]",
         "mov esi, DWORD PTR [esp+8]",
         "push ebx",
@@ -116,6 +173,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *
         "ret",
         vg_sha1_init = sym super::sha1::vg_sha1_init,
         vg_sha1_update = sym super::sha1::vg_sha1_update,
+        vg_sha1_finalize = sym super::sha1::vg_sha1_finalize,
     )
 }
 

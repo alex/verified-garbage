@@ -2,23 +2,69 @@
 //! Verified `hmac_sha512_256` functions for `aarch64`.
 #![allow(dead_code)]
 
-/// Starts an HMAC-SHA-512/256 computation with a key of at most 128 bytes: makes the SHA-512/256 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 128 bytes (FIPS 198-1). The text is then absorbed with `vg_sha512_update` on `*inner` (its `count` starting at 128), and the MAC computed with `vg_hmac_sha512_256_finalize`.
+/// Starts an HMAC-SHA-512/256 computation with a key of any length: makes the SHA-512/256 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` (or their SHA-512/256 digest, if there are more than 128) padded with zeros to 128 bytes (FIPS 198-1 §4, steps 1–3). The text is then absorbed with `vg_sha512_update` on `*inner` (its `count` starting at 128), and the MAC computed with `vg_hmac_sha512_256_finalize`.
 ///
-/// Contract: `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.sha512_256I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+/// Contract: `VG.Spec.Hmac.Instance.initAnyKeyContract` of `VG.Spec.Hmac.sha512_256I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
 ///
 /// # Safety
 ///
 /// * `inner` must be valid for reads and writes of 192 bytes.
 /// * `outer` must be valid for reads and writes of 192 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 1872 bytes.
-/// * `key_len` must be at most 128.
+/// * `scratch` must be valid for reads and writes of 3408 bytes.
 /// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 234]) {
+pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 426]) {
     core::arch::naked_asm!(
+        "lsr x9, x3, #7",
+        "cbz x9, 20f",
+        "sub x9, x3, #128",
+        "cbz x9, 22f",
+        "str x19, [x4, #224]",
+        "str x20, [x4, #232]",
+        "str x21, [x4, #240]",
+        "str x22, [x4, #248]",
+        "str x24, [x4, #256]",
+        "str x30, [x4, #264]",
+        "str x23, [x4, #272]",
+        "add x19, x0, #0",
+        "add x20, x1, #0",
+        "add x21, x2, #0",
+        "add x22, x3, #0",
+        "add x23, x4, #0",
+        "add x0, x23, #536",
+        "bl {vg_sha512_256_init}",
+        "add x0, x23, #536",
+        "movz x1, #0, lsl #0",
+        "add x2, x21, #0",
+        "add x3, x22, #0",
+        "add x4, x23, #0",
+        "bl {vg_sha512_update}",
+        "add x0, x23, #536",
+        "add x1, x22, #0",
+        "add x2, x23, #728",
+        "add x3, x23, #0",
+        "bl {vg_sha512_finalize}",
+        "add x0, x19, #0",
+        "add x1, x20, #0",
+        "add x4, x23, #0",
+        "add x2, x23, #728",
+        "movz x3, #32, lsl #0",
+        "ldr x19, [x23, #224]",
+        "ldr x20, [x23, #232]",
+        "ldr x21, [x23, #240]",
+        "ldr x22, [x23, #248]",
+        "ldr x24, [x23, #256]",
+        "ldr x30, [x23, #264]",
+        "ldr x23, [x23, #272]",
+        "b 23f",
+        "22:",
+        "23:",
+        "b 21f",
+        "20:",
+        "21:",
         "str x19, [x4, #224]",
         "str x20, [x4, #232]",
         "str x21, [x4, #240]",
@@ -34,8 +80,8 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init(inner: *mut [u8; 192], o
         "movz x14, #54, lsl #0",
         "movz x15, #92, lsl #0",
         "movz x24, #0, lsl #0",
-        "cbz x22, 20f",
-        "22:",
+        "cbz x22, 24f",
+        "26:",
         "add x13, x21, x24",
         "ldrb w9, [x13, #0]",
         "add x12, x23, x24",
@@ -45,24 +91,24 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init(inner: *mut [u8; 192], o
         "strb w10, [x12, #408]",
         "add x24, x24, #1",
         "sub x11, x22, x24",
-        "cbnz x11, 22b",
-        "b 21f",
-        "20:",
-        "21:",
+        "cbnz x11, 26b",
+        "b 25f",
+        "24:",
+        "25:",
         "movz x11, #128, lsl #0",
         "sub x11, x11, x24",
-        "cbz x11, 23f",
-        "25:",
+        "cbz x11, 27f",
+        "29:",
         "add x12, x23, x24",
         "strb w14, [x12, #280]",
         "strb w15, [x12, #408]",
         "add x24, x24, #1",
         "movz x11, #128, lsl #0",
         "sub x11, x11, x24",
-        "cbnz x11, 25b",
-        "b 24f",
-        "23:",
-        "24:",
+        "cbnz x11, 29b",
+        "b 28f",
+        "27:",
+        "28:",
         "add x0, x19, #0",
         "bl {vg_sha512_256_init}",
         "add x0, x19, #0",
@@ -89,6 +135,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init(inner: *mut [u8; 192], o
         "ret",
         vg_sha512_256_init = sym super::sha512::vg_sha512_256_init,
         vg_sha512_update = sym super::sha512::vg_sha512_update,
+        vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
     )
 }
 
@@ -208,25 +255,71 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_finalize(inner: *mut [u8; 192
 /// The CPU features `vg_hmac_sha512_256_init_sha3` requires (`Artifact.features`).
 pub(crate) const VG_HMAC_SHA512_256_INIT_SHA3_FEATURES: &[&str] = &["sha3"];
 
-/// Starts an HMAC-SHA-512/256 computation with a key of at most 128 bytes: makes the SHA-512/256 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 128 bytes (FIPS 198-1). The text is then absorbed with `vg_sha512_update` on `*inner` (its `count` starting at 128), and the MAC computed with `vg_hmac_sha512_256_finalize`.
+/// Starts an HMAC-SHA-512/256 computation with a key of any length: makes the SHA-512/256 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` (or their SHA-512/256 digest, if there are more than 128) padded with zeros to 128 bytes (FIPS 198-1 §4, steps 1–3). The text is then absorbed with `vg_sha512_update` on `*inner` (its `count` starting at 128), and the MAC computed with `vg_hmac_sha512_256_finalize`.
 ///
-/// Contract: `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.sha512_256I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+/// Contract: `VG.Spec.Hmac.Instance.initAnyKeyContract` of `VG.Spec.Hmac.sha512_256I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
 ///
 /// # Safety
 ///
 /// * `inner` must be valid for reads and writes of 192 bytes.
 /// * `outer` must be valid for reads and writes of 192 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 1872 bytes.
-/// * `key_len` must be at most 128.
+/// * `scratch` must be valid for reads and writes of 3408 bytes.
 /// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha3` target feature.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init_sha3(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 234]) {
+pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init_sha3(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 426]) {
     core::arch::naked_asm!(
         ".arch_extension sha3",
+        "lsr x9, x3, #7",
+        "cbz x9, 20f",
+        "sub x9, x3, #128",
+        "cbz x9, 22f",
+        "str x19, [x4, #224]",
+        "str x20, [x4, #232]",
+        "str x21, [x4, #240]",
+        "str x22, [x4, #248]",
+        "str x24, [x4, #256]",
+        "str x30, [x4, #264]",
+        "str x23, [x4, #272]",
+        "add x19, x0, #0",
+        "add x20, x1, #0",
+        "add x21, x2, #0",
+        "add x22, x3, #0",
+        "add x23, x4, #0",
+        "add x0, x23, #536",
+        "bl {vg_sha512_256_init}",
+        "add x0, x23, #536",
+        "movz x1, #0, lsl #0",
+        "add x2, x21, #0",
+        "add x3, x22, #0",
+        "add x4, x23, #0",
+        "bl {vg_sha512_update_sha3}",
+        "add x0, x23, #536",
+        "add x1, x22, #0",
+        "add x2, x23, #728",
+        "add x3, x23, #0",
+        "bl {vg_sha512_finalize_sha3}",
+        "add x0, x19, #0",
+        "add x1, x20, #0",
+        "add x4, x23, #0",
+        "add x2, x23, #728",
+        "movz x3, #32, lsl #0",
+        "ldr x19, [x23, #224]",
+        "ldr x20, [x23, #232]",
+        "ldr x21, [x23, #240]",
+        "ldr x22, [x23, #248]",
+        "ldr x24, [x23, #256]",
+        "ldr x30, [x23, #264]",
+        "ldr x23, [x23, #272]",
+        "b 23f",
+        "22:",
+        "23:",
+        "b 21f",
+        "20:",
+        "21:",
         "str x19, [x4, #224]",
         "str x20, [x4, #232]",
         "str x21, [x4, #240]",
@@ -242,8 +335,8 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init_sha3(inner: *mut [u8; 19
         "movz x14, #54, lsl #0",
         "movz x15, #92, lsl #0",
         "movz x24, #0, lsl #0",
-        "cbz x22, 20f",
-        "22:",
+        "cbz x22, 24f",
+        "26:",
         "add x13, x21, x24",
         "ldrb w9, [x13, #0]",
         "add x12, x23, x24",
@@ -253,24 +346,24 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init_sha3(inner: *mut [u8; 19
         "strb w10, [x12, #408]",
         "add x24, x24, #1",
         "sub x11, x22, x24",
-        "cbnz x11, 22b",
-        "b 21f",
-        "20:",
-        "21:",
+        "cbnz x11, 26b",
+        "b 25f",
+        "24:",
+        "25:",
         "movz x11, #128, lsl #0",
         "sub x11, x11, x24",
-        "cbz x11, 23f",
-        "25:",
+        "cbz x11, 27f",
+        "29:",
         "add x12, x23, x24",
         "strb w14, [x12, #280]",
         "strb w15, [x12, #408]",
         "add x24, x24, #1",
         "movz x11, #128, lsl #0",
         "sub x11, x11, x24",
-        "cbnz x11, 25b",
-        "b 24f",
-        "23:",
-        "24:",
+        "cbnz x11, 29b",
+        "b 28f",
+        "27:",
+        "28:",
         "add x0, x19, #0",
         "bl {vg_sha512_256_init}",
         "add x0, x19, #0",
@@ -298,6 +391,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init_sha3(inner: *mut [u8; 19
         ".arch_extension nosha3",
         vg_sha512_256_init = sym super::sha512::vg_sha512_256_init,
         vg_sha512_update_sha3 = sym super::sha512::vg_sha512_update_sha3,
+        vg_sha512_finalize_sha3 = sym super::sha512::vg_sha512_finalize_sha3,
     )
 }
 

@@ -2,23 +2,85 @@
 //! Verified `hmac_sha1` functions for `arm`.
 #![allow(dead_code)]
 
-/// Starts an HMAC-SHA-1 computation with a key of at most 64 bytes: makes the SHA-1 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 64 bytes (FIPS 198-1). The text is then absorbed with `vg_sha1_update` on `*inner` (its `count` starting at 64), and the MAC computed with `vg_hmac_sha1_finalize`.
+/// Starts an HMAC-SHA-1 computation with a key of any length: makes the SHA-1 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` (or their SHA-1 digest, if there are more than 64) padded with zeros to 64 bytes (FIPS 198-1 §4, steps 1–3). The text is then absorbed with `vg_sha1_update` on `*inner` (its `count` starting at 64), and the MAC computed with `vg_hmac_sha1_finalize`.
 ///
-/// Contract: `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.sha1I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+/// Contract: `VG.Spec.Hmac.Instance.initAnyKeyContract` of `VG.Spec.Hmac.sha1I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
 ///
 /// # Safety
 ///
 /// * `inner` must be valid for reads and writes of 84 bytes.
 /// * `outer` must be valid for reads and writes of 84 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 448 bytes.
-/// * `key_len` must be at most 64.
+/// * `scratch` must be valid for reads and writes of 1120 bytes.
 /// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other, `key` or the arguments on the stack (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *mut [u8; 84], key: *const u8, key_len: usize, scratch: *mut [u64; 56]) {
+pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *mut [u8; 84], key: *const u8, key_len: usize, scratch: *mut [u64; 140]) {
     core::arch::naked_asm!(
+        "lsr r12, r3, #6",
+        "cmp r12, #0",
+        "beq 20f",
+        "subs r12, r3, #64",
+        "beq 22f",
+        "ldr r12, [sp, #0]",
+        "str r4, [r12, #160]",
+        "str r5, [r12, #164]",
+        "str r6, [r12, #168]",
+        "str r7, [r12, #172]",
+        "str r8, [r12, #176]",
+        "str r9, [r12, #180]",
+        "str r10, [r12, #184]",
+        "str lr, [r12, #188]",
+        "str r11, [r12, #192]",
+        "mov r4, r0",
+        "mov r5, r1",
+        "mov r6, r2",
+        "mov r9, r3",
+        "mov r11, r12",
+        "movw r12, #328",
+        "add r0, r11, r12",
+        "bl {vg_sha1_init}",
+        "movw r12, #328",
+        "add r0, r11, r12",
+        "mov r1, r6",
+        "mov r7, r9",
+        "mov r10, r11",
+        "mov r2, #0",
+        "mov r3, #0",
+        "push {{r1, r7, r10, r12}}",
+        "bl {vg_sha1_update}",
+        "ldr r1, [sp], #16",
+        "movw r12, #328",
+        "add r0, r11, r12",
+        "movw r12, #412",
+        "add r1, r11, r12",
+        "mov r2, r9",
+        "mov r3, #0",
+        "mov r12, r11",
+        "push {{r1, r12}}",
+        "bl {vg_sha1_finalize}",
+        "ldr r1, [sp], #8",
+        "mov r0, r4",
+        "mov r1, r5",
+        "movw r12, #412",
+        "add r2, r11, r12",
+        "movw r3, #20",
+        "ldr r4, [r11, #160]",
+        "ldr r5, [r11, #164]",
+        "ldr r6, [r11, #168]",
+        "ldr r7, [r11, #172]",
+        "ldr r8, [r11, #176]",
+        "ldr r9, [r11, #180]",
+        "ldr r10, [r11, #184]",
+        "ldr lr, [r11, #188]",
+        "ldr r11, [r11, #192]",
+        "b 23f",
+        "22:",
+        "23:",
+        "b 21f",
+        "20:",
+        "21:",
         "ldr r12, [sp, #0]",
         "str r4, [r12, #160]",
         "str r5, [r12, #164]",
@@ -36,8 +98,8 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *
         "mov r8, #0",
         "mov r9, r3",
         "cmp r9, #0",
-        "beq 20f",
-        "22:",
+        "beq 24f",
+        "26:",
         "add r2, r6, r8",
         "ldrb r12, [r2, #0]",
         "eor r1, r12, #54",
@@ -47,14 +109,14 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *
         "strb r1, [r2, #260]",
         "add r8, r8, #1",
         "subs r9, r9, #1",
-        "bne 22b",
-        "b 21f",
-        "20:",
-        "21:",
+        "bne 26b",
+        "b 25f",
+        "24:",
+        "25:",
         "movw r9, #64",
         "subs r9, r9, r8",
-        "beq 23f",
-        "25:",
+        "beq 27f",
+        "29:",
         "add r2, r11, r8",
         "mov r1, #54",
         "strb r1, [r2, #196]",
@@ -62,10 +124,10 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *
         "strb r1, [r2, #260]",
         "add r8, r8, #1",
         "subs r9, r9, #1",
-        "bne 25b",
-        "b 24f",
-        "23:",
-        "24:",
+        "bne 29b",
+        "b 28f",
+        "27:",
+        "28:",
         "mov r0, r4",
         "bl {vg_sha1_init}",
         "mov r0, r4",
@@ -102,6 +164,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *
         "bx lr",
         vg_sha1_init = sym super::sha1::vg_sha1_init,
         vg_sha1_update = sym super::sha1::vg_sha1_update,
+        vg_sha1_finalize = sym super::sha1::vg_sha1_finalize,
     )
 }
 

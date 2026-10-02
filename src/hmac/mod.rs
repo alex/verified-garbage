@@ -3,10 +3,10 @@
 //!
 //! The construction is the same for every hash function `H` ([`HmacHash`]);
 //! what each one provides, in a module of its own here, is verified
-//! assembly for a key of at most one block, which computes
-//! `H((K₀ ⊕ opad) ‖ H((K₀ ⊕ ipad) ‖ text))` (`VG.Spec.Hmac.hmacBlockKey`).
-//! The only unverified step is step 2 of FIPS 198-1 §4: a key longer than a
-//! block is first hashed, with the verified hash function.
+//! assembly for a key of any length, which computes
+//! `H((K₀ ⊕ opad) ‖ H((K₀ ⊕ ipad) ‖ text))` (`VG.Spec.Hmac.hmac`), where
+//! `K₀` is the key, or its digest if it is longer than a block, padded with
+//! zeros to a block (FIPS 198-1 §4, steps 1–3).
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -30,18 +30,11 @@ mod sealed {
 }
 
 /// A hash function with a verified HMAC implementation.
-///
-/// Its digests must be at most a block long, so that a hashed key is a valid
-/// key for [`HmacHash::hmac_init`].
 pub trait HmacHash: HashFunction + sealed::Sealed {
     /// The state of an HMAC computation.
     #[doc(hidden)]
     type State: Clone;
-    /// Starts an HMAC computation with a key of at most `BLOCK_SIZE` bytes.
-    ///
-    /// # Panics
-    ///
-    /// If the key is longer than a block.
+    /// Starts an HMAC computation with a key of any length.
     #[doc(hidden)]
     fn hmac_init(key: &[u8]) -> Self::State;
     /// Absorbs `data`.
@@ -64,15 +57,12 @@ pub struct Hmac<H: HmacHash> {
 }
 
 impl<H: HmacHash> Hmac<H> {
-    /// Starts an HMAC computation with `key`, of any length (a key longer
-    /// than the block size is hashed first).
+    /// Starts an HMAC computation with `key`, of any length (the verified
+    /// `init` hashes a key longer than the block size first).
     pub fn new(key: &[u8]) -> Self {
-        let state = if key.len() > H::BLOCK_SIZE {
-            H::hmac_init(H::digest(key).as_ref())
-        } else {
-            H::hmac_init(key)
-        };
-        Hmac { state }
+        Hmac {
+            state: H::hmac_init(key),
+        }
     }
 
     /// Absorbs `data`.
@@ -146,10 +136,11 @@ impl<H, const S: usize> Drop for StreamingHmacState<H, S> {
 /// Makes a hash function over verified streaming primitives (defined by
 /// `streaming_hash!`) an [`HmacHash`], with its verified
 /// `vg_hmac_<hash>_init` and `vg_hmac_<hash>_finalize` (contracts
-/// `VG.Spec.Hmac.Instance.initContract` and `finalizeContract` of the hash's
-/// `Instance`), given its streaming state size, the functions' working space
-/// (in 64-bit words) and its digest size. The text is absorbed by the hash's
-/// own `update`.
+/// `VG.Spec.Hmac.Instance.initAnyKeyContract` and `finalizeContract` of the
+/// hash's `Instance`), given its streaming state size, the working space of
+/// `init` and of `finalize` (in 64-bit words, `Instance.initAnyKeyScratch`
+/// and `Instance.scratch`) and its digest size. The text is absorbed by the
+/// hash's own `update`.
 ///
 /// `init` and `finalize` are listed for each implementation of the hash (its
 /// backend enum's variants, with the CPU features they need), and a
@@ -173,7 +164,8 @@ macro_rules! streaming_hmac {
             $(,)?
         },
         state: $state:literal,
-        scratch: $scratch:literal,
+        init_scratch: $init_scratch:literal,
+        finalize_scratch: $finalize_scratch:literal,
         output: $output:literal $(,)?
     ) => {
         // The CPU features of each implementation, which `tests` checks.
@@ -188,7 +180,6 @@ macro_rules! streaming_hmac {
             type State = super::StreamingHmacState<$hash, $state>;
 
             fn hmac_init(key: &[u8]) -> Self::State {
-                assert!(key.len() <= Self::BLOCK_SIZE);
                 let backend = $backend::select($crate::cpu::detected());
                 let init = match backend {
                     $backend::$base => $init,
@@ -196,9 +187,8 @@ macro_rules! streaming_hmac {
                 };
                 let mut inner = [0; $state];
                 let mut outer = [0; $state];
-                let mut scratch = [0u64; $scratch];
-                // SAFETY: `key.len()` is at most a block; `inner` and `outer`
-                // are valid for reads and writes of a streaming state, `key`
+                let mut scratch = [0u64; $init_scratch];
+                // SAFETY: `inner` and `outer` are valid for reads and writes of a streaming state, `key`
                 // for reads of `key.len()` bytes and `scratch` for reads and
                 // writes of its size; they are distinct objects, so they do
                 // not overlap each other or the call's stack frame, nor wrap
@@ -234,7 +224,7 @@ macro_rules! streaming_hmac {
                 };
                 let (mut inner, count) = state.inner.state();
                 let mut mac = [0; $output];
-                let mut scratch = [0u64; $scratch];
+                let mut scratch = [0u64; $finalize_scratch];
                 // SAFETY: `inner` is valid for reads and writes of a streaming
                 // state, `state.outer` for reads of one, `mac` for writes of
                 // a digest and `scratch` for reads and writes of its size;

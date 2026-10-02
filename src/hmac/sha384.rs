@@ -1,8 +1,8 @@
 //! HMAC-SHA-384: `vg_hmac_sha384_init`, `vg_sha512_update` and
-//! `vg_hmac_sha384_finalize` (contracts `VG.Spec.Hmac.Instance.initContract` of
+//! `vg_hmac_sha384_finalize` (contracts `VG.Spec.Hmac.Instance.initAnyKeyContract` of
 //! `VG.Spec.Hmac.sha384I`, `VG.Spec.Sha512.updateContract` and
 //! `VG.Spec.Hmac.Instance.finalizeContract`) compute `H((K₀ ⊕ opad) ‖ H((K₀ ⊕
-//! ipad) ‖ text))` (`VG.Spec.Hmac.hmacBlockKey`), keeping the two SHA-384
+//! ipad) ‖ text))` (`VG.Spec.Hmac.hmac`), keeping the two SHA-384
 //! streaming states. `init` and `finalize` are the one HMAC implementation for
 //! every streaming hash function, calling SHA-384's verified functions.
 //!
@@ -44,6 +44,7 @@ super::streaming_hmac!(
             (vg_hmac_sha384_init_avx2, vg_hmac_sha384_finalize_avx2),
     },
     state: 192,
-    scratch: 234,
+    init_scratch: 426,
+    finalize_scratch: 234,
     output: 48,
 );

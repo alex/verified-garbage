@@ -1,0 +1,5 @@
+name = "NIST ACVP HMAC-SHA2-512/256 test vectors: the internalProjection.json of HMAC-SHA2-512-256-1.0, which has each test case's inputs and expected MAC"
+directories = ["nist-acvp/HMAC-SHA2-512-256-1.0"]
+url = "https://raw.githubusercontent.com/usnistgov/ACVP-Server/975de31eb83d87039ec88934fdc47d8c312b892d/gen-val/json-files/HMAC-SHA2-512-256-1.0/internalProjection.json"
+sha256 = "abd3619187e988fa72f9ef3e49ae59a10dcf2f26f072b10b72bf34460d429f98"
+retrieved = 2026-10-02

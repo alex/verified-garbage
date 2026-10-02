@@ -296,8 +296,8 @@ include hH in
 /-- The prologue: our caller's registers saved, ours set. -/
 theorem pro_ok {s : State} (hg : s.gpr = s₀.gpr) (hm : s.mem = s₀.mem) (hr : s.rd = s₀.rd)
     (hw : s.wr = s₀.wr) :
-    WP isa (.block (H.save ++ [.mov .rbx (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r15 (.reg .r8),
-      .mov .rbp (.reg .rdx), .mov .r13 (.reg .rcx)])) s (HK (H := H) s₀) := by
+    WP isa (.block (H.save ++ ([.mov .rbx (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r15 (.reg .r8),
+      .mov .rbp (.reg .rdx), .mov .r13 (.reg .rcx)] : List Instr))) s (HK (H := H) s₀) := by
   have hL := nw_lt hp; have he := ext_le hp; have hx := save_le_ext (H := H)
   refine save_ok H (scr := scr s₀) (by rw [hg]) hH.hW (by rw [hw]; exact ws_mem hp) (L := 8 * Wt) (by omega)
     fun s₁ g₁ rd₁ wr₁ f₁ sv₁ => ?_

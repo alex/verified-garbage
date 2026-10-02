@@ -363,8 +363,8 @@ theorem HK.same {s s' : State} (h : HK (H := H) s₀ s) (hg : ∀ r ∈ hregs, s
 /-- The prologue: `scratch` loaded, our caller's registers saved, ours set,
 and `init`'s argument. -/
 theorem pro_ok (hH : HashOK H) {s : State} (c : Cmp s₀ s) :
-    WP isa (.block ([.ldrSp .r12 0] ++ H.save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
-      .mov .r9 (.reg .r3), .mov .r11 (.reg .r12)] ++ scrAt .r0 H.ext)) s fun t =>
+    WP isa (.block (([.ldrSp .r12 0] : List Instr) ++ H.save ++ ([.mov .r4 (.reg .r0), .mov .r5 (.reg .r1),
+      .mov .r6 (.reg .r2), .mov .r9 (.reg .r3), .mov .r11 (.reg .r12)] : List Instr) ++ scrAt .r0 H.ext)) s fun t =>
       HK (H := H) s₀ t ∧ t.gpr .r0 = stA H s₀ := by
   have hL := nw_lt hp; have he := ext_le hp; have hx := save_le_ext (H := H); have hl := ext_lt hH
   have ea : State.addr (s.sp + BitVec.ofNat 32 0) = stackArgAddr s₀ 0 := by simp [stackArgAddr, c.sp]

@@ -1,8 +1,8 @@
 //! HMAC-SHA-1: `vg_hmac_sha1_init`, `vg_sha1_update` and
-//! `vg_hmac_sha1_finalize` (contracts `VG.Spec.Hmac.Instance.initContract` of
+//! `vg_hmac_sha1_finalize` (contracts `VG.Spec.Hmac.Instance.initAnyKeyContract` of
 //! `VG.Spec.Hmac.sha1I`, `VG.Spec.Sha1.updateContract` and
 //! `VG.Spec.Hmac.Instance.finalizeContract`) compute `H((K₀ ⊕ opad) ‖ H((K₀ ⊕
-//! ipad) ‖ text))` (`VG.Spec.Hmac.hmacBlockKey`), keeping the two SHA-1
+//! ipad) ‖ text))` (`VG.Spec.Hmac.hmac`), keeping the two SHA-1
 //! streaming states. `init` and `finalize` are the one HMAC implementation for
 //! every streaming hash function, calling SHA-1's verified functions.
 //!
@@ -45,6 +45,7 @@ super::streaming_hmac!(
             (vg_hmac_sha1_init_shani, vg_hmac_sha1_finalize_shani),
     },
     state: 84,
-    scratch: 56,
+    init_scratch: 140,
+    finalize_scratch: 56,
     output: 20,
 );
