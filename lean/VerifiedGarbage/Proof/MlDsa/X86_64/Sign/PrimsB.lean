@@ -210,6 +210,105 @@ theorem rejCall_tr {P : Prims} (hP : PrimsOk P D) {a : Ptr} (hc : rejChk (rbs ++
   simp only [hx1, hx2, hx3, hy1, hy2, hy3, Arg.val, Ax.bytes' i1 hD, Ay.bytes' i1 hD, hb]
   simp only [Ax.rsp, Ay.rsp, R.rsp, R.pa i1, R.pa i2, R.pa i3, and_self]
 
+/-! ## `RejNTTPoly` four times -/
+
+/-- What the call of `vg_mldsa_rej_ntt_poly4` from the seeds at `RS4` to the four polynomials from `a`,
+with the working space `w`, needs of the layout. -/
+def rej4Chk (bs wbs : List (Reg × Nat)) (a w : Ptr) : Bool :=
+  inB wbs a 4096 && inB wbs w 8192 && inB bs (sc oRS4) 136 && inB bs a 4096 && inB bs w 8192 &&
+    sepB bs (sc oRS4) 136 a 4096 && sepB bs (sc oRS4) 136 w 8192 && sepB bs a 4096 w 8192 &&
+    decide (a.1 ∈ bases) && decide (a.2 < 2 ^ 31) && decide (w.1 ∈ bases) && decide (w.2 < 2 ^ 31)
+
+theorem rej4Chk_spec {bs wbs : List (Reg × Nat)} {a w : Ptr} (hc : rej4Chk bs wbs a w = true) :
+    inB wbs a 4096 = true ∧ inB wbs w 8192 = true ∧ inB bs (sc oRS4) 136 = true ∧ inB bs a 4096 = true ∧
+      inB bs w 8192 = true ∧ sepB bs (sc oRS4) 136 a 4096 = true ∧ sepB bs (sc oRS4) 136 w 8192 = true ∧
+      sepB bs a 4096 w 8192 = true ∧ ([Arg.ptr (sc oRS4), .ptr a, .ptr w].all Arg.ok) = true := by
+  simp only [rej4Chk, Bool.and_eq_true, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩, h8⟩, h9⟩, h10⟩, h11⟩, h12⟩ := hc
+  refine ⟨h1, h2, h3, h4, h5, h6, h7, h8, ?_⟩
+  simp only [List.all_cons, List.all_nil, Arg.ok, h9, h10, h11, h12, decide_true, Bool.and_true]
+  decide
+
+theorem rej4Pre {S : Nat} (hS : S + 8 ≤ D) {s s1 : State} (A : At D rbs wbs s s1) {a w : Ptr}
+    (hc : rej4Chk (rbs ++ wbs) wbs a w = true) (hA : ArgsIn [.ptr (sc oRS4), .ptr a, .ptr w] s s1) :
+    (rejNTT4Contract X86_64.abi S).pre
+      (s1.callEntry.withRegions [⟨pa s (sc oRS4), 136⟩] [⟨pa s a, 4096⟩, ⟨pa s w, 8192⟩]) := by
+  obtain ⟨_, _, i1, i2, i3, d12, d13, d23, _⟩ := rej4Chk_spec hc
+  obtain ⟨e1, e2, e3⟩ := argsIn3 hA
+  have hD : 8 ≤ D := by omega
+  have hwf := ce_wfS (ws := [64, 64, 64]) (by decide) hS (A.rsp ▸ A.L.sp) [⟨pa s (sc oRS4), 136⟩]
+    [⟨pa s a, 4096⟩, ⟨pa s w, 8192⟩]
+  sig_pre [rejNTT4Contract, rejNTT4Sig, X86_64.abi, VG.X86_64.argRegs]
+  simp only [e1, e2, e3, Arg.val]
+  refine ⟨hwf, trivial, trivial, A.L.disj d12, A.L.disj d13, A.L.disj d23, A.ret i1 hD, A.ret i2 hD, ?_,
+    A.L.nwp i1, A.L.nwp i2, A.L.nwp i3⟩
+  refine Sig.conj_cons.mpr ⟨A.ret i3 hD, conj_stk [⟨pa s (sc oRS4), 136⟩, ⟨pa s a, 4096⟩, ⟨pa s w, 8192⟩] ?_⟩
+  simp only [List.mem_cons, List.mem_nil_iff, or_false, forall_eq_or_imp, forall_eq]
+  exact ⟨A.stk hS i1, A.stk hS i2, A.stk hS i3⟩
+
+/-- The seeds on entry to the call are those before it. -/
+theorem At.seeds4 {s s1 : State} (A : At D rbs wbs s s1) (hi : inB (rbs ++ wbs) (sc oRS4) 136 = true) (hD : 8 ≤ D)
+    {k : Nat} (hk : k < 4) :
+    seed4 (s1.mem.writeW (s1.gpr .rsp - 8) (s1.unknowns 0)) (pa s (sc oRS4)) k = seed4 s.mem (pa s (sc oRS4)) k := by
+  unfold seed4
+  rw [← VG.Proof.MlKem.bytesAt_slice _ _ (show 34 * k + 34 ≤ 136 by omega),
+    ← VG.Proof.MlKem.bytesAt_slice s.mem _ (show 34 * k + 34 ≤ 136 by omega), A.bytes' hi hD]
+
+/-- The call of `vg_mldsa_rej_ntt_poly4`: its outcome, and that it succeeds
+only if `RejNTTPoly` finishes within `maxBounds` on each seed. -/
+theorem rej4Call_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s) {a w : Ptr}
+    (hc : rej4Chk (rbs ++ wbs) wbs a w = true) :
+    WP isa (callP ("vg_mldsa_rej_ntt_poly4" ++ P.sfx) P.rej4 [.ptr (sc oRS4), .ptr a, .ptr w]) s fun s' =>
+      PPostB D s s' [(a, 4096), (w, 8192)] ∧ (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
+      ((s'.gpr .rax).setWidth 32 = 1 → ∀ k < 4, Reduced s'.mem (poly4 (pa s a) k)) ∧
+      (((s'.gpr .rax).setWidth 32 = 1 ∧ ∀ k < 4, ∃ b : Bounds,
+          rejNTTPoly b.rejNTT (seed4 s.mem (pa s (sc oRS4)) k) = some (polyAt s'.mem (poly4 (pa s a) k))) ∨
+        ((s'.gpr .rax).setWidth 32 = 0 ∧ ∃ k < 4,
+          rejNTTPoly minBounds.rejNTT (seed4 s.mem (pa s (sc oRS4)) k) = none)) ∧
+      ((s'.gpr .rax).setWidth 32 = 1 → ∀ k < 4,
+        (rejNTTPoly maxBounds.rejNTT (seed4 s.mem (pa s (sc oRS4)) k)).isSome) := by
+  obtain ⟨w1, w2, i1, i2, i3, _, _, _, ok⟩ := rej4Chk_spec hc
+  have hD : 8 ≤ D := by have := hP.rej4.hS; omega
+  refine WP.mono (callP_ok (hv_with hP.rej4.ver.1 hP.rej4Max) hP.rej4.nosp hP.rej4.depth L.dsm ok
+    (fun s1 hA hm k => rej4Pre hP.rej4.hS (At.of L hm k) hc hA)
+    (covers_append (L.cR i1) (covers_wr (covers_cons (L.cW w1) (L.cW w2)))) (covers_cons (L.cW w1) (L.cW w2)))
+    fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, hg₂, hq, hx⟩ => ⟨hpost, hcs, ?_⟩
+  have A := At.of L hm k
+  obtain ⟨e1, e2, e3⟩ := argsIn3 hA
+  have er : s₂.gpr .rax = s'.gpr .rax := hg₂ .rax (by decide)
+  sig_post [rejNTT4Contract, rejNTT4Sig, X86_64.abi, VG.X86_64.argRegs] at hq
+  simp only [e1, e2, Arg.val, hm₂, er] at hq
+  simp only [State.withRegions_gpr, State.withRegions_mem, State.callEntry_gpr _ (by decide : Reg.rdi ≠ .rsp),
+    e1, Arg.val, er] at hx
+  obtain ⟨hr, ho⟩ := hq
+  refine ⟨hr, ?_, fun h1 k hk => by rw [← A.seeds4 i1 hD hk]; exact hx h1 k hk⟩
+  rcases ho with ⟨h1, hb⟩ | ⟨h0, k, hk, hn⟩
+  · exact .inl ⟨h1, fun k hk => by rw [← A.seeds4 i1 hD hk]; exact hb k hk⟩
+  · exact .inr ⟨h0, k, hk, by rw [← A.seeds4 i1 hD hk]; exact hn⟩
+
+theorem rej4Call_tr {P : Prims} (hP : PrimsOk P D) {a w : Ptr} (hc : rej4Chk (rbs ++ wbs) wbs a w = true) :
+    RelCT isa (fun x y => LRel D rbs wbs x y ∧
+        bytesAt x.mem (pa x (sc oRS4)) 136 = bytesAt y.mem (pa y (sc oRS4)) 136)
+      (callP ("vg_mldsa_rej_ntt_poly4" ++ P.sfx) P.rej4 [.ptr (sc oRS4), .ptr a, .ptr w])
+      fun x y => (x.gpr .rax).setWidth 32 = (y.gpr .rax).setWidth 32 := by
+  obtain ⟨w1, w2, i1, i2, i3, _, _, _, ok⟩ := rej4Chk_spec hc
+  have hD : 8 ≤ D := by have := hP.rej4.hS; omega
+  refine callPRet_tr hP.rej4.ver.1 hP.rej4Ret ok
+    fun x y x1 y1 ⟨R, hb⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
+      ⟨_, _, _, _, rej4Pre hP.rej4.hS (At.of R.lx hmx kx) hc hAx, rej4Pre hP.rej4.hS (At.of R.ly hmy ky) hc hAy, ?_,
+        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2))),
+        by rw [kx.2.2]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
+        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2))),
+        by rw [ky.2.2]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2),
+        by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
+  obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx
+  obtain ⟨hy1, hy2, hy3⟩ := argsIn3 hAy
+  have Ax := At.of R.lx hmx kx
+  have Ay := At.of R.ly hmy ky
+  sig_pub [rejNTT4Contract, rejNTT4Sig, X86_64.abi, VG.X86_64.argRegs]
+  simp only [hx1, hx2, hx3, hy1, hy2, hy3, Arg.val, Ax.bytes' i1 hD, Ay.bytes' i1 hD, hb]
+  simp only [Ax.rsp, Ay.rsp, R.rsp, R.pa i1, R.pa i2, R.pa i3, and_self]
+
 /-! ## `ExpandMask` -/
 
 /-- What a call of `vg_mldsa_expand_mask_poly` to `a` needs of the layout. -/
