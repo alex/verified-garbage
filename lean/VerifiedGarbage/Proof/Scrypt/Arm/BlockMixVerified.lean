@@ -1187,14 +1187,9 @@ def bmSetup : List Instr :=
 theorem prologue_eq : bmPrologue =
     .ldrSp .r12 0 :: (bmSaved.map (fun p => Instr.str p.1 .r12 p.2) ++ bmSetup) := rfl
 
-set_option simprocs false in
 theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
-    ∀ p ∈ bmSaved, (saveMem m B g bmSaved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 := by
-  intro p hp
-  simp only [bmSaved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (config := {decide := true}) only [bmSaved, saveMem, Mem.readW_writeW_self32,
-    readW_writeW_save]
+    ∀ p ∈ bmSaved, (saveMem m B g bmSaved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 :=
+  Spill.saveMem_saved (lo := 64) (hi := 92) B g m bmSaved (by decide)
 
 theorem bmSaved_bound : ∀ p ∈ bmSaved, p.2 + 4 ≤ 128 ∧ 64 ≤ p.2 ∧ p.1 ≠ .r12 := by decide
 

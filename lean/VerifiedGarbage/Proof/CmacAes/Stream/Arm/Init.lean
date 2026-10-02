@@ -58,15 +58,12 @@ theorem initPre_eq : initPre = isaved.map (fun p => Instr.str p.1 .r3 p.2) ++
 /-- The memory after saving the registers. -/
 def iMem (s₀ : State) (S : BitVec 32) : Mem := saveMem s₀.mem (State.addr S) s₀.gpr isaved
 
-set_option simprocs false in
 theorem iMem_slot (s₀ : State) (S : BitVec 32) {r : Reg} {d : Nat} (h : (r, d) ∈ isaved) :
-    (iMem s₀ S).readW (State.addr S + BitVec.ofNat 64 d) 32 = s₀.gpr r := by
-  simp only [isaved, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at h
-  rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
-  simp (disch := decide) only [iMem, isaved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+    (iMem s₀ S).readW (State.addr S + BitVec.ofNat 64 d) 32 = s₀.gpr r :=
+  Spill.saveMem_saved (lo := 2176) (hi := 2192) (State.addr S) s₀.gpr s₀.mem isaved (by decide) (r, d) h
 
 theorem iMem_frame (s₀ : State) (S : BitVec 32) : Frame [⟨State.addr S, 2304⟩] s₀.mem (iMem s₀ S) :=
-  saveMem_frame _ _ _ (by decide) isaved fun p hp => by have := isaved_bound p hp; omega
+  Spill.saveMem_frame _ _ _ (by decide) isaved (by decide)
 
 /-- The rounds, as `lsr 2; add 6` computes them from the key length. -/
 theorem rounds_bv {KL : Nat} (h : KL = 16 ∨ KL = 24 ∨ KL = 32) :
