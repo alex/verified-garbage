@@ -134,7 +134,8 @@ def chain1 : Prog isa :=
 def chain2 : Prog isa :=
   .seq (.block [.mov32 .r12 (.imm 0), .alu .test .r14 (.reg .r14)])
     (.seq (.ite .e (.block [])
-        (.block [.mov .r12 (.reg .r14), .alu .sub .r12 (.imm 1), .alu .and .r12 (.imm 0xFFFFFFF0)]))
+        (.block [.mov .r12 (.reg .r14), .alu .sub .r12 (.imm 1), .mov .rax (.reg .r12),
+          .alu .and .rax (.imm 15), .alu .sub .r12 (.reg .rax)]))
       (.block [.mov .r8 (.reg .r12), .shift .shr .r8 4, .mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp),
         .mov .rdx (.reg .rbx), .alu .add .rdx (.imm 272), .mov .rcx (.reg .r13), .mov .r9 (.reg .r15)]))
 

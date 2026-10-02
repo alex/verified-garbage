@@ -17,12 +17,11 @@ open VG.Proof.Cmac.Stream (held held_pos held_zero)
 /-! ## Arithmetic -/
 
 theorem sx1 : BitVec.signExtend 64 (1 : BitVec 32) = 1 := by decide
-theorem sx4 : BitVec.signExtend 64 (6 : BitVec 32) = 6 := by decide
+theorem sx6 : BitVec.signExtend 64 (6 : BitVec 32) = 6 := by decide
 theorem sx15 : BitVec.signExtend 64 (15 : BitVec 32) = 15 := by decide
 theorem sx240 : BitVec.signExtend 64 (240 : BitVec 32) = BitVec.ofNat 64 240 := by decide
 theorem sx272 : BitVec.signExtend 64 (272 : BitVec 32) = BitVec.ofNat 64 272 := by decide
 theorem sx288 : BitVec.signExtend 64 (288 : BitVec 32) = BitVec.ofNat 64 288 := by decide
-theorem sxMask : BitVec.signExtend 64 (0xFFFFFFF0 : BitVec 32) = 0xFFFFFFFFFFFFFFF0 := by decide
 
 theorem and15 (x : BitVec 64) : (x &&& 15).toNat = x.toNat % 16 := by
   rw [BitVec.toNat_and, show (15 : BitVec 64).toNat = 2 ^ 4 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod]
