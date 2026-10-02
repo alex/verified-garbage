@@ -132,8 +132,8 @@ theorem kabs_tr {rbs wbs : List (Reg × Nat)} (hS : LayOk (rbs ++ wbs)) (hk : kC
   · obtain ⟨_, _, _, w1, w2⟩ := kChk_spec h.1 hk
     obtain ⟨_, _, _, w1', w2'⟩ := kChk_spec h.2.1 hk
     refine ⟨_, _, _, _, absorb_pre (kabs_args h.1 hk hp hpos h1), absorb_pre (kabs_args h.2.1 hk hp hpos h2), ?_,
-      covers_append (h.1.cR p3) (covers_wr (covers_cons w1 w2)), covers_cons w1 w2,
-      covers_append (h.2.1.cR p3) (covers_wr (covers_cons w1' w2')), covers_cons w1' w2', h.2.2.2⟩
+      Covers.append_left (h.1.cR p3) (Covers.right (Covers.cons w1 w2)), Covers.cons w1 w2,
+      Covers.append_left (h.2.1.cR p3) (Covers.right (Covers.cons w1' w2')), Covers.cons w1' w2', h.2.2.2⟩
     simp only [Proof.Sha3.absorbX86_64, State.withRegions_gpr, State.callEntry_rsp,
       State.callEntry_gpr _ (show Reg.rdi ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.rsi ≠ .rsp by decide),
       State.callEntry_gpr _ (show Reg.rdx ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.rcx ≠ .rsp by decide),
@@ -151,8 +151,8 @@ theorem kpad_tr {rbs wbs : List (Reg × Nat)} (hS : LayOk (rbs ++ wbs)) (hk : kC
   obtain ⟨_, _, _, w1, w2⟩ := kChk_spec h.1 hk
   obtain ⟨_, _, _, w1', w2'⟩ := kChk_spec h.2.1 hk
   refine ⟨_, _, _, _, pad_pre (kpad_args h.1 hk hpos h1), pad_pre (kpad_args h.2.1 hk hpos h2), ?_,
-    covers_append covers_nil (covers_wr (covers_cons w1 w2)), covers_cons w1 w2,
-    covers_append covers_nil (covers_wr (covers_cons w1' w2')), covers_cons w1' w2', h.2.2.2⟩
+    Covers.append_left Covers.nil (Covers.right (Covers.cons w1 w2)), Covers.cons w1 w2,
+    Covers.append_left Covers.nil (Covers.right (Covers.cons w1' w2')), Covers.cons w1' w2', h.2.2.2⟩
   simp only [Proof.Sha3.padX86_64, State.withRegions_gpr, State.callEntry_rsp,
     State.callEntry_gpr _ (show Reg.rdi ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.rsi ≠ .rsp by decide),
     State.callEntry_gpr _ (show Reg.rdx ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.r8 ≠ .rsp by decide)]
@@ -172,10 +172,10 @@ theorem ksqz_tr {rbs wbs : List (Reg × Nat)} (hS : LayOk (rbs ++ wbs)) (hk : kC
   obtain ⟨_, _, _, w1, w2⟩ := kChk_spec h.1 hk
   obtain ⟨_, _, _, w1', w2'⟩ := kChk_spec h.2.1 hk
   refine ⟨_, _, _, _, squeeze_pre (ksqz_args h.1 hk ho h1), squeeze_pre (ksqz_args h.2.1 hk ho h2), ?_,
-    covers_append covers_nil (covers_wr (covers_cons w1 (covers_cons (h.1.cW o4) w2))),
-    covers_cons w1 (covers_cons (h.1.cW o4) w2),
-    covers_append covers_nil (covers_wr (covers_cons w1' (covers_cons (h.2.1.cW o4) w2'))),
-    covers_cons w1' (covers_cons (h.2.1.cW o4) w2'), h.2.2.2⟩
+    Covers.append_left Covers.nil (Covers.right (Covers.cons w1 (Covers.cons (h.1.cW o4) w2))),
+    Covers.cons w1 (Covers.cons (h.1.cW o4) w2),
+    Covers.append_left Covers.nil (Covers.right (Covers.cons w1' (Covers.cons (h.2.1.cW o4) w2'))),
+    Covers.cons w1' (Covers.cons (h.2.1.cW o4) w2'), h.2.2.2⟩
   simp only [Proof.Sha3.squeezeX86_64, State.withRegions_gpr, State.callEntry_rsp,
     State.callEntry_gpr _ (show Reg.rdi ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.rsi ≠ .rsp by decide),
     State.callEntry_gpr _ (show Reg.rdx ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.rcx ≠ .rsp by decide),

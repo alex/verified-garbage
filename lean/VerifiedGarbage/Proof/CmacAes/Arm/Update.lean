@@ -147,28 +147,17 @@ theorem saved_bound : ∀ p ∈ saved, 2064 ≤ p.2 ∧ p.2 + 4 ≤ 2096 := by d
 
 theorem saved_ne_r12 : ∀ p ∈ saved, p.1 ≠ .r12 := by decide
 
-theorem saveMem_congr (m : Mem) (B : Addr) {g g' : Reg → BitVec 32} :
-    ∀ (l : List (Reg × Nat)), (∀ p ∈ l, g p.1 = g' p.1) → saveMem m B g l = saveMem m B g' l := by
-  intro l
-  induction l generalizing m with
-  | nil => intro _; rfl
-  | cons p l ih =>
-    intro h
-    simp only [saveMem]
-    rw [h p (List.mem_cons_self ..)]
-    exact ih _ fun q hq => h q (List.mem_cons_of_mem _ hq)
+export VG.Arm.Spill (saveMem_congr)
+
+theorem saved_slots : Spill.Slots 2064 2096 saved := by decide
 
 theorem savedMem_frame (s₀ : State) : Frame [⟨State.addr (S s₀), 2096⟩] s₀.mem (savedMem s₀) :=
-  saveMem_frame _ _ _ (by decide) saved fun p hp => (saved_bound p hp).2
+  Spill.saveMem_frame _ _ _ (by decide) saved (by decide)
 
-set_option simprocs false in
 /-- Each slot holds the register saved there. -/
 theorem savedMem_slot (s₀ : State) {r : Reg} {d : Nat} (h : (r, d) ∈ saved) :
-    (savedMem s₀).readW (State.addr (S s₀) + BitVec.ofNat 64 d) 32 = s₀.gpr r := by
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at h
-  rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ |
-    ⟨rfl, rfl⟩ <;>
-  simp (disch := decide) only [savedMem, saved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+    (savedMem s₀).readW (State.addr (S s₀) + BitVec.ofNat 64 d) 32 = s₀.gpr r :=
+  Spill.saveMem_saved (State.addr (S s₀)) s₀.gpr s₀.mem saved saved_slots (r, d) h
 
 /-! ## The prologue -/
 

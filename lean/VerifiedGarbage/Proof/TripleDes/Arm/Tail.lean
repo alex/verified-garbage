@@ -37,15 +37,9 @@ theorem blockTail_ok (original s : State) (d : Direction) (x : BitVec 64)
     rw [mem₁]
     exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (Region.contains_self _ _)
   have saved₁ : Saved original s₁ := by
-    intro i hi
-    rw [regs₁ .r2 (by decide)]
-    have sub : Region.Sub ⟨State.addr (s.gpr .r2) + BitVec.ofNat 64 (4 * i), 4⟩ (saveRegion s) :=
-      Offset.sub_base _ (by omega_using [hi])
-    have mem := frame₁.readW (a := State.addr (s.gpr .r2) + BitVec.ofNat 64 (4 * i)) (w := 32)
-      (r := ⟨State.addr (s.gpr .r2) + BitVec.ofNat 64 (4 * i), 4⟩) (Region.contains_self _ _)
-      (fun r hr => by obtain rfl := List.mem_singleton.mp hr; exact (hsep.sub_right sub).symm)
-      (by decide)
-    exact mem.trans (hsaved i hi)
+    unfold Saved; rw [regs₁ .r2 (by decide)]
+    exact Spill.Saved.frame hsaved slots_ok frame₁ fun r hr => by
+      rw [List.mem_singleton.mp hr]; exact (hsep.sub_right (Offset.sub_base _ (by decide))).symm
   have reads₁ : ∀ i < 9, InRegions (s₁.rd ++ s₁.wr)
       (State.addr (s₁.gpr .r2) + BitVec.ofNat 64 (4 * i)) 4 := by
     rw [rd₁, wr₁, regs₁ .r2 (by decide)]; exact hsavedRead

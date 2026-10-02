@@ -15,6 +15,8 @@ namespace VG.Proof.X25519.X86
 
 open VG VG.X86 VG.Impl.X25519.X86 VG.Spec.X25519
 
+variable {W : Nat}
+
 /-! ## Numbers in any base, for `ring` -/
 
 /-- `num` in any base. -/
@@ -96,12 +98,12 @@ def Below (o : Nat) : Prop := o + 32 ≤ T
 
 instance : DecidablePred Below := fun o => inferInstanceAs (Decidable (o + 32 ≤ T))
 
-theorem mul_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o a b : Nat} (ho : Below o) (ha : Below a)
+theorem mul_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o a b : Nat} (ho : Below o) (ha : Below a)
     (hb : Below b) :
     WP isa (.block (mul o a b)) s fun s' => Keep s s' ∧ Frame [sub x o 32, sub x T 64] s.mem s'.mem ∧
       fe s'.mem x o % P = fe s.mem x a * fe s.mem x b % P := by
   simp only [Below, T] at ho ha hb
-  have hfit := hc.fit
+  have hfit := hc.fit4
   refine WP.block_append (WP.block_append (WP.mono zeroAcc_ok fun s₁ ⟨k₁, m₁, a₁⟩ => ?_))
   have c₁ := k₁.ctx hc
   have hcol : ∀ k, colv s₁.mem x (prodTerms a b k) = (((List.range 8).filter fun i => i ≤ k && k - i < 8).map
@@ -175,7 +177,7 @@ theorem read_ok {o a k : Nat} (h : Apart o a) (ha : Below a) (hk : k < 8) :
     a + 4 * k + 4 ≤ 4096 ∧ (a + 4 * k + 4 ≤ o ∨ o + 4 * k ≤ a + 4 * k) :=
   ⟨by simp only [Below, T] at ha; omega_using [ha, hk], apart_read h (Nat.le_refl _) hk⟩
 
-theorem add_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o a b : Nat} (ho : Below o) (ha : Below a)
+theorem add_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o a b : Nat} (ho : Below o) (ha : Below a)
     (hb : Below b) (hoa : Apart o a) (hob : Apart o b) :
     WP isa (.block (add o a b)) s fun s' => Keep s s' ∧ Frame [sub x o 32] s.mem s'.mem ∧
       fe s'.mem x o % P = (fe s.mem x a + fe s.mem x b) % P := by
@@ -196,7 +198,7 @@ theorem add_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o a b : Nat} (ho : Be
 
 theorem num_subK : num (fun k => (subK k).toNat) 8 = 2 ^ 256 - 75 := by decide
 
-theorem sub_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o a b : Nat} (ho : Below o) (ha : Below a)
+theorem sub_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o a b : Nat} (ho : Below o) (ha : Below a)
     (hb : Below b) (hoa : Apart o a) (hob : Apart o b) :
     WP isa (.block (Impl.X25519.X86.sub o a b)) s fun s' => Keep s s' ∧ Frame [sub x o 32] s.mem s'.mem ∧
       (fe s'.mem x o + fe s.mem x b) % P = fe s.mem x a % P := by
@@ -222,7 +224,7 @@ theorem sub_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o a b : Nat} (ho : Be
         fe s.mem x a + P * 4 := by simp only [P]; omega_using [hB]
     rw [e, Nat.add_mul_mod_self_left]
 
-theorem mulSmall_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o a : Nat} (ho : Below o) (ha : Below a)
+theorem mulSmall_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o a : Nat} (ho : Below o) (ha : Below a)
     (hoa : Apart o a) :
     WP isa (.block (mulSmall o a)) s fun s' => Keep s s' ∧ Frame [sub x o 32] s.mem s'.mem ∧
       fe s'.mem x o % P = 121665 * fe s.mem x a % P := by

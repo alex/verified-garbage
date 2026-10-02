@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Blake2.X86_64.Stream.Init
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 
 /-!
 # Streaming BLAKE2 on x86-64: `finalize`
@@ -40,8 +41,7 @@ abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
 abbrev stkR : Region := below (s₀.gpr .rsp) 8
 
 /-- The caller's callee-saved registers are saved in the scratch space. -/
-def Saved (m : Mem) : Prop :=
-  ∀ k < 6, m.readW (scr s₀ + BitVec.ofNat 64 (512 + 8 * k)) 64 = s₀.gpr (saved.getD k (.rax, 0)).1
+abbrev Saved (m : Mem) : Prop := Spill.Saved m (scr s₀) s₀.gpr saved
 
 end
 
@@ -65,49 +65,22 @@ theorem pre_of {w : Nat} {P : Params w} {s₀ : State} (h : (finalizeX86_64 P).p
 theorem ret_stk (s₀ : State) : (retR s₀).Disjoint (stkR s₀) :=
   Offset.base_disjoint_below _ (by decide)
 
+theorem saved_bound : ∀ p ∈ saved, 512 ≤ p.2 ∧ p.2 + 8 ≤ 560 := by decide
+
 /-- The saved registers are outside everything written after the saves. -/
 theorem Saved.frame {w : Nat} {s₀ : State} (hp : Pre w s₀) {m m' : Mem} (h : Saved s₀ m)
-    (hf : Frame [stR s₀ w, outR s₀ w, ⟨scr s₀, 512⟩, stkR s₀] m m') : Saved s₀ m' := by
-  intro k hk
-  rw [← h k hk]
-  have hsub : Region.Sub ⟨scr s₀ + BitVec.ofNat 64 (512 + 8 * k), 8⟩ (scR s₀) :=
-    Offset.sub_base _ (by omega)
-  refine hf.readW (Region.contains_self _ _) ?_ (by decide)
-  intro r hr
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl
-  · exact hp.st_scr.symm.sub_left hsub
-  · exact hp.out_scr.symm.sub_left hsub
-  · exact Offset.disjoint_base _ (by omega) (by omega)
-  · exact hp.stk_scr.symm.sub_left hsub
+    (hf : Frame [stR s₀ w, outR s₀ w, ⟨scr s₀, 512⟩, stkR s₀] m m') : Saved s₀ m' :=
+  Spill.Saved.frame h hf fun p hp' r hr => by
+    have := saved_bound p hp'
+    have hsub : Region.Sub ⟨Spill.slot (scr s₀) p.2, 8⟩ (scR s₀) := Offset.sub_base _ (by omega)
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · exact hp.st_scr.symm.sub_left hsub
+    · exact hp.out_scr.symm.sub_left hsub
+    · exact Offset.disjoint_base _ (by omega) (by omega)
+    · exact hp.stk_scr.symm.sub_left hsub
 
 /-! ## The prologue -/
-
-theorem save_eq : save .rcx = (List.range 6).flatMap fun k =>
-    [.store (at_ .rcx (512 + 8 * k)) ((saved.getD k (.rax, 0)).1)] := rfl
-
-/-- During the saves. -/
-def SaveInv (s₀ : State) (k : Nat) (s : State) : Prop :=
-  s.gpr = s₀.gpr ∧ s.rd = s₀.rd ∧ s.wr = s₀.wr ∧
-    Frame [⟨scr s₀ + BitVec.ofNat 64 512, 48⟩] s₀.mem s.mem ∧
-    ∀ j < k, s.mem.readW (scr s₀ + BitVec.ofNat 64 (512 + 8 * j)) 64 = s₀.gpr ((saved.getD j (.rax, 0)).1)
-
-theorem saves_ok {w : Nat} {s₀ : State} (hp : Pre w s₀) :
-    WP isa (.block ((List.range 6).flatMap fun k =>
-      [.store (at_ .rcx (512 + 8 * k)) ((saved.getD k (.rax, 0)).1)])) s₀ (SaveInv s₀ 6) := by
-  refine wp_range_flatMap (M := isa) (SaveInv s₀) (fun k s hk ⟨hg, hrd, hwr, hf, hv⟩ => ?_) 6
-    (Nat.le_refl _) s₀ ⟨rfl, rfl, rfl, Frame.refl _ _, fun _ h => absurd h (by omega)⟩
-  refine wp_store (a := scr s₀ + BitVec.ofNat 64 (512 + 8 * k)) (by rw [ea_at, hg])
-    ⟨scR s₀, by simp [hwr, hp.wr], Offset.contains_base _ (by omega) (by omega)⟩
-    fun s' g' m' r' w' => WP.block_nil ?_
-  refine ⟨g'.trans hg, r'.trans hrd, w'.trans hwr, ?_, fun j hj => ?_⟩
-  · rw [m']
-    exact hf.writeW (List.mem_singleton_self _) _ (Offset.contains _ (by omega) (by omega) (by omega))
-  · rw [m', hg]
-    by_cases e : j = k
-    · subst e; rw [Mem.readW_writeW_self64]
-    · rw [Mem.readW_writeW_sep (Offset.sep _ (by omega) (by omega) (by omega)) (by decide)]
-      exact hv j (by omega)
 
 /-- After the prologue. -/
 structure Start (s₀ s : State) : Prop where
@@ -124,8 +97,14 @@ structure Start (s₀ s : State) : Prop where
 theorem prologue_ok {w : Nat} {s₀ : State} (hp : Pre w s₀) :
     WP isa (.block (save .rcx ++ ([.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
       .mov .r14 (.reg .rsi)] : List Instr))) s₀ (Start s₀) := by
-  rw [save_eq, WP.block_append_iff]
-  refine WP.mono (saves_ok hp) fun s₁ ⟨g₁, rd₁, wr₁, f₁, v₁⟩ => ?_
+  rw [WP.block_append_iff]
+  refine WP.mono (Spill.save_ok .rcx saved s₀ fun p hp' => ?_) fun s₁ ⟨g₁, rd₁, wr₁, m₁⟩ => ?_
+  · have := saved_bound p hp'
+    exact ⟨scR s₀, by simp [hp.wr], Offset.contains_base _ (by omega) (by omega)⟩
+  have f₁ : Frame [⟨scr s₀ + BitVec.ofNat 64 512, 48⟩] s₀.mem s₁.mem :=
+    m₁ ▸ Spill.saveMem_frame _ _ _ _ fun p hp' => by
+      have := saved_bound p hp'; exact Offset.contains _ (by omega) (by omega) (by omega)
+  have v₁ : Saved s₀ s₁.mem := m₁ ▸ Spill.saveMem_saved _ _ _ _ (by decide)
   refine wp_mov fun s₂ u₂ _ _ => wp_mov fun s₃ u₃ _ _ => wp_mov fun s₄ u₄ _ _ =>
     wp_mov fun s₅ u₅ _ _ => WP.block_nil ?_
   have hm : s₅.mem = s₁.mem := by rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem]
@@ -407,50 +386,15 @@ end
 
 /-! ## The epilogue -/
 
-theorem restore_eq : restore = (List.range 6).flatMap fun k =>
-    [.mov ((saved.getD k (.rax, 0)).1) (.mem (at_ .r15 (512 + 8 * k)))] := rfl
-
-theorem saved_ne : ∀ j < 6, ∀ k < 6, j ≠ k → (saved.getD j (.rax, 0)).1 ≠ (saved.getD k (.rax, 0)).1 := by
-  decide
-
-theorem saved_ne' : ∀ k < 6, (saved.getD k (.rax, 0)).1 ≠ .rsp ∧
-    (k < 5 → (saved.getD k (.rax, 0)).1 ≠ .r15) := by
-  decide
-
-/-- During the restores. -/
-def ResInv (s₀ s₁ : State) (k : Nat) (s : State) : Prop :=
-  (k < 6 → s.gpr .r15 = scr s₀) ∧ s.gpr .rsp = s₀.gpr .rsp ∧
-    s.mem = s₁.mem ∧ s.rd = s₁.rd ∧ s.wr = s₁.wr ∧
-    ∀ j < k, s.gpr ((saved.getD j (.rax, 0)).1) = s₀.gpr ((saved.getD j (.rax, 0)).1)
-
 theorem restore_ok {w : Nat} {s₀ s₁ : State} (hp : Pre w s₀) (hr15 : s₁.gpr .r15 = scr s₀)
     (hsp : s₁.gpr .rsp = s₀.gpr .rsp) (hwr : s₁.wr = s₀.wr) (hsv : Saved s₀ s₁.mem) :
     WP isa (.block restore) s₁ fun s =>
       (∀ r ∈ calleeSaved, s.gpr r = s₀.gpr r) ∧ s.mem = s₁.mem := by
-  rw [restore_eq]
-  refine WP.mono (wp_range_flatMap (M := isa) (ResInv s₀ s₁)
-    (fun k s' hk ⟨r15, sp, m, rd, wr, v⟩ => ?_) 6 (Nat.le_refl _) s₁
-    ⟨fun _ => hr15, hsp, rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩) fun s' ⟨_, sp, m, _, _, v⟩ => ?_
-  · refine wp_movm (a := scr s₀ + BitVec.ofNat 64 (512 + 8 * k)) (by rw [ea_at, r15 hk])
-      ⟨scR s₀, by simp [rd, wr, hwr, hp.wr], Offset.contains_base _ (by omega) (by omega)⟩
-      fun s'' h => WP.block_nil ?_
-    have ne := saved_ne' k hk
-    refine ⟨fun hk' => by rw [h.other _ (Ne.symm (ne.2 (by omega))), r15 hk],
-      by rw [h.other _ (Ne.symm ne.1), sp], by rw [h.mem, m], by rw [h.rd, rd], by rw [h.wr, wr],
-      fun j hj => ?_⟩
-    by_cases e : j = k
-    · subst e; rw [h.gpr, m]; exact hsv j hk
-    · rw [h.other _ (saved_ne j (by omega) k hk e), v j (by omega)]
-  · refine ⟨fun r hr => ?_, m⟩
-    simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact v 0 (by omega)
-    · exact v 1 (by omega)
-    · exact sp
-    · exact v 2 (by omega)
-    · exact v 3 (by omega)
-    · exact v 4 (by omega)
-    · exact v 5 (by omega)
+  refine WP.mono (Spill.restore_ok .r15 saved s₀.gpr s₁ (by decide) (fun p hp' => ?_)
+    (by rw [hr15]; exact hsv)) fun s' ⟨h₁, h₂, m, _⟩ => ⟨Spill.calleeSaved_ok h₁ h₂ (by decide) hsp, m⟩
+  have := saved_bound p hp'
+  rw [hr15]
+  exact ⟨scR s₀, by simp [hwr, hp.wr], Offset.contains_base _ (by omega) (by omega)⟩
 
 /-! ## The whole function -/
 

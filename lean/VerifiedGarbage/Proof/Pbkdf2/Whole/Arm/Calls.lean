@@ -1,5 +1,5 @@
 import VerifiedGarbage.Spec.Pbkdf2.Generic
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Hash
+import VerifiedGarbage.Proof.Pbkdf2.Stream.Arm.Hash
 import VerifiedGarbage.Proof.Framework.Sig
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.CallF
@@ -25,7 +25,7 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 open VG.Arm
 open VG.Arm.FrameStack
 open Spec.Hmac (StreamingHash xorPad ipad opad blockKey hmacBlockKey)
-open VG.Proof.Hmac.Generic.Arm (ce0 ce1 ce2 ce3)
+open VG.Proof.Pbkdf2.Stream.Arm (ce0 ce1 ce2 ce3)
 open Spec.Sha256 (bytesAt)
 
 /-- What a caller uses of a proof of `Verified Arm.target c k`: that `c`
@@ -67,9 +67,9 @@ theorem below_stk {s : State} {n : Nat} (hn : n ≤ 24) :
     Region.Sub ⟨State.addr s.sp - BitVec.ofNat 64 n, n⟩ (stk s) :=
   fun x hx => Offset.below_mono _ (a := n) (b := 24) hn (by decide) x hx
 
-/-- A call of a streaming function in its frame (`Proof/Hmac/Generic/Arm/Hash.lean`). -/
+/-- A call of a streaming function in its frame (`Proof/Pbkdf2/Stream/Arm/Hash.lean`). -/
 theorem After.of_hmac {s s' : State} {ws : List Region}
-    (h : Hmac.Generic.Arm.After s ws s') : After s ws s' :=
+    (h : Pbkdf2.Stream.Arm.After s ws s') : After s ws s' :=
   ⟨h.rd, h.wr, h.sp, h.cs, Frame.sub h.frame fun r hr => by
     rcases List.mem_append.mp hr with hr | hr
     · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
@@ -107,7 +107,7 @@ theorem p2_arg0 (h : 8 ≤ s.sp.toNat) {rd wr : List Region} :
   simp only [stackArg, stackArgAddr, State.withRegions_mem, State.withRegions_sp, State.callEntry_mem,
     State.callEntry_sp, p2_sp, Nat.mul_zero]
   rw [p2_mem, BitVec.add_zero, a84 h, a8 h,
-    Mem.readW_writeW_sep (Hmac.Generic.Arm.sep_base_off _ (by decide) (by decide)) (by decide),
+    Mem.readW_writeW_sep (Pbkdf2.Stream.Arm.sep_base_off _ (by decide) (by decide)) (by decide),
     Mem.readW_writeW_self32]
 
 theorem p2_arg1 {rd wr : List Region} :
@@ -190,7 +190,7 @@ theorem frame2_rel {ra rb t : Reg} (hrs : regList [ra, rb] = true) {n : String} 
       Covers (rd ++ wr) ((pushed [ra, rb] s₂).rd ++ (pushed [ra, rb] s₂).wr) ∧ Covers wr (pushed [ra, rb] s₂).wr) :
     RelCT isa P (.frame (.push [ra, rb]) (.call n c) (.pop t 8)) fun _ _ => True := by
   refine RelCT.frame (fun s₁ s₂ hp => (h s₁ s₂ hp).1) (RelCT.call hv hct rd wr fun a b ⟨s₁, s₂, hp, pa, pb⟩ => ?_)
-  rw [Hmac.Generic.Arm.push_eq hrs pa, Hmac.Generic.Arm.push_eq hrs pb]
+  rw [Pbkdf2.Stream.Arm.push_eq hrs pa, Pbkdf2.Stream.Arm.push_eq hrs pb]
   exact (h s₁ s₂ hp).2
 
 /-- The representation of a streaming state depends only on its bytes. -/

@@ -195,7 +195,7 @@ macro_rules
 
 theorem covers2 {s : State} {p : Params} (L : Lay kgR (kgW p) s) {a b : Ptr} {la lb : Nat}
     (ha : inB (kgW p) a la = true) (hb : inB (kgW p) b lb = true) :
-    Covers [⟨pa s a, la⟩, ⟨pa s b, lb⟩] s.wr := covers_cons (L.cW ha) (covers_cons (L.cW hb) covers_nil)
+    Covers [⟨pa s a, la⟩, ⟨pa s b, lb⟩] s.wr := Covers.cons (L.cW ha) (Covers.cons (L.cW hb) Covers.nil)
 
 /-- A state of the function, where a call can be made. -/
 structure Site (p : Params) (s : State) : Prop where
@@ -308,7 +308,7 @@ theorem add_pre {stk : Nat} (hstk : stk ≤ 16) {s s1 : State} (S : Site p s)
 theorem covers_rw {s : State} {p : Params} (L : Lay kgR (kgW p) s) {a b : Ptr} {la lb : Nat}
     (ha : inB (kgB p) a la = true) (hb : inB (kgW p) b lb = true) :
     Covers ([⟨pa s a, la⟩] ++ [⟨pa s b, lb⟩]) (s.rd ++ s.wr) :=
-  covers_append (covers_cons (L.cR ha) covers_nil) (covers_cons (L.cR (inB_mono hb)) covers_nil)
+  Covers.append_left (Covers.cons (L.cR ha) Covers.nil) (Covers.cons (L.cR (inB_mono hb)) Covers.nil)
 
 include hf hg h1 w1 in
 theorem addAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.addContract X86_64.abi stk) {s : State}
@@ -320,7 +320,7 @@ theorem addAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.Ml
   have L := S.lay
   refine WP.mono (primOk hc (noLd_append (lea_noLd _ _) (lea_noLd _ _)) (glue2_ok hf hg s)
     (fun stk hs s1 hv hm k => add_pre h1 hs S rf rg hv hm k) (covers_rw L i2 w1)
-    (covers_cons (L.cW w1) covers_nil))
+    (Covers.cons (L.cW w1) Covers.nil))
     fun s' ⟨hP, hx, stk, _, s1, hv, hm, k, s₂, hm₂, _, hpost⟩ => ⟨hP, hx, ?_⟩
   have hsp := keep_rsp k
   sig_post [Spec.MlDsa.addContract, Spec.MlDsa.accSig, X86_64.abi, VG.X86_64.argRegs] at hpost
@@ -337,9 +337,9 @@ theorem addAt_tr {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.Ml
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
       ⟨_, _, _, _, add_pre h1 hs T.sx rx.1 rx.2 hv1 hm1 k1, add_pre h1 hs T.sy ry.1 ry.2 hv2 hm2 k2, ?_,
         by rw [k1.2.1, k1.2.2]; exact covers_rw T.sx.lay i2 w1,
-        by rw [k1.2.2]; exact covers_cons (T.sx.lay.cW w1) covers_nil,
+        by rw [k1.2.2]; exact Covers.cons (T.sx.lay.cW w1) Covers.nil,
         by rw [k2.2.1, k2.2.2]; exact covers_rw T.sy.lay i2 w1,
-        by rw [k2.2.2]; exact covers_cons (T.sy.lay.cW w1) covers_nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+        by rw [k2.2.2]; exact Covers.cons (T.sy.lay.cW w1) Covers.nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
   sig_pub [Spec.MlDsa.addContract, Spec.MlDsa.accSig, X86_64.abi, VG.X86_64.argRegs]
   simp only [hv1.1, hv1.2, hv2.1, hv2.2, keep_rsp k1, keep_rsp k2, T.rsp, T.pa hbf, T.pa hbg, and_self]
 
@@ -355,7 +355,7 @@ variable {p : Params} {h f g : Ptr} (hh : PtrOk h) (hf : PtrOk f) (hg : PtrOk g)
 theorem covers_rrw {s : State} {p : Params} (L : Lay kgR (kgW p) s) {a b c : Ptr} {la lb lc : Nat}
     (ha : inB (kgB p) a la = true) (hb : inB (kgB p) b lb = true) (hc : inB (kgW p) c lc = true) :
     Covers ([⟨pa s a, la⟩, ⟨pa s b, lb⟩] ++ [⟨pa s c, lc⟩]) (s.rd ++ s.wr) :=
-  covers_append (covers_cons (L.cR ha) (covers_cons (L.cR hb) covers_nil)) (covers_cons (L.cR (inB_mono hc)) covers_nil)
+  Covers.append_left (Covers.cons (L.cR ha) (Covers.cons (L.cR hb) Covers.nil)) (Covers.cons (L.cR (inB_mono hc)) Covers.nil)
 
 include h1 h2 in
 theorem mul_pre {stk : Nat} (hstk : stk ≤ 16) {s s1 : State} (S : Site p s)
@@ -385,7 +385,7 @@ theorem mulAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.Ml
   have L := S.lay
   refine WP.mono (primOk hc (noLd_append (noLd_append (lea_noLd _ _) (lea_noLd _ _)) (lea_noLd _ _))
     (glue3_ok hh hf hg s) (fun stk hs s1 hv hm k => mul_pre h1 h2 hs S rf rg hv hm k) (covers_rrw L i2 i3 w1)
-    (covers_cons (L.cW w1) covers_nil))
+    (Covers.cons (L.cW w1) Covers.nil))
     fun s' ⟨hP, hx, stk, _, s1, hv, hm, k, s₂, hm₂, _, hpost⟩ => ⟨hP, hx, ?_⟩
   have hsp := keep_rsp k
   sig_post [Spec.MlDsa.mulContract, Spec.MlDsa.mulSig, X86_64.abi, VG.X86_64.argRegs] at hpost
@@ -403,9 +403,9 @@ theorem mulAt_tr {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.Ml
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
       ⟨_, _, _, _, mul_pre h1 h2 hs T.sx rx.1 rx.2 hv1 hm1 k1, mul_pre h1 h2 hs T.sy ry.1 ry.2 hv2 hm2 k2, ?_,
         by rw [k1.2.1, k1.2.2]; exact covers_rrw T.sx.lay i2 i3 w1,
-        by rw [k1.2.2]; exact covers_cons (T.sx.lay.cW w1) covers_nil,
+        by rw [k1.2.2]; exact Covers.cons (T.sx.lay.cW w1) Covers.nil,
         by rw [k2.2.1, k2.2.2]; exact covers_rrw T.sy.lay i2 i3 w1,
-        by rw [k2.2.2]; exact covers_cons (T.sy.lay.cW w1) covers_nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+        by rw [k2.2.2]; exact Covers.cons (T.sy.lay.cW w1) Covers.nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
   sig_pub [Spec.MlDsa.mulContract, Spec.MlDsa.mulSig, X86_64.abi, VG.X86_64.argRegs]
   simp only [hv1.1, hv1.2.1, hv1.2.2, hv2.1, hv2.2.1, hv2.2.2, keep_rsp k1, keep_rsp k2, T.rsp, T.pa hbh, T.pa hbf,
     T.pa hbg, and_self]
@@ -448,7 +448,7 @@ theorem mulAddAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec
   have L := S.lay
   refine WP.mono (primOk hc (noLd_append (noLd_append (lea_noLd _ _) (lea_noLd _ _)) (lea_noLd _ _))
     (glue3_ok hh hf hg s) (fun stk hs s1 hv hm k => mulAdd_pre h1 h2 hs S rh rf rg hv hm k) (covers_rrw L i2 i3 w1)
-    (covers_cons (L.cW w1) covers_nil))
+    (Covers.cons (L.cW w1) Covers.nil))
     fun s' ⟨hP, hx, stk, _, s1, hv, hm, k, s₂, hm₂, _, hpost⟩ => ⟨hP, hx, ?_⟩
   have hsp := keep_rsp k
   sig_post [Spec.MlDsa.mulAddContract, Spec.MlDsa.mulSig, X86_64.abi, VG.X86_64.argRegs] at hpost
@@ -466,9 +466,9 @@ theorem mulAddAt_tr {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
       ⟨_, _, _, _, mulAdd_pre h1 h2 hs T.sx rx.1 rx.2.1 rx.2.2 hv1 hm1 k1, mulAdd_pre h1 h2 hs T.sy ry.1 ry.2.1 ry.2.2 hv2 hm2 k2, ?_,
         by rw [k1.2.1, k1.2.2]; exact covers_rrw T.sx.lay i2 i3 w1,
-        by rw [k1.2.2]; exact covers_cons (T.sx.lay.cW w1) covers_nil,
+        by rw [k1.2.2]; exact Covers.cons (T.sx.lay.cW w1) Covers.nil,
         by rw [k2.2.1, k2.2.2]; exact covers_rrw T.sy.lay i2 i3 w1,
-        by rw [k2.2.2]; exact covers_cons (T.sy.lay.cW w1) covers_nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+        by rw [k2.2.2]; exact Covers.cons (T.sy.lay.cW w1) Covers.nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
   sig_pub [Spec.MlDsa.mulAddContract, Spec.MlDsa.mulSig, X86_64.abi, VG.X86_64.argRegs]
   simp only [hv1.1, hv1.2.1, hv1.2.2, hv2.1, hv2.2.1, hv2.2.2, keep_rsp k1, keep_rsp k2, T.rsp, T.pa hbh, T.pa hbf,
     T.pa hbg, and_self]
@@ -486,8 +486,8 @@ variable {p : Params} {t t1 t0 : Ptr} (ht : PtrOk t) (ht1 : PtrOk t1) (ht0 : Ptr
 theorem covers_rww {s : State} {p : Params} (L : Lay kgR (kgW p) s) {a b c : Ptr} {la lb lc : Nat}
     (ha : inB (kgB p) a la = true) (hb : inB (kgW p) b lb = true) (hc : inB (kgW p) c lc = true) :
     Covers ([⟨pa s a, la⟩] ++ [⟨pa s b, lb⟩, ⟨pa s c, lc⟩]) (s.rd ++ s.wr) :=
-  covers_append (covers_cons (L.cR ha) covers_nil)
-    (covers_cons (L.cR (inB_mono hb)) (covers_cons (L.cR (inB_mono hc)) covers_nil))
+  Covers.append_left (Covers.cons (L.cR ha) Covers.nil)
+    (Covers.cons (L.cR (inB_mono hb)) (Covers.cons (L.cR (inB_mono hc)) Covers.nil))
 
 include h1 h2 h3 in
 theorem p2r_pre {stk : Nat} (hstk : stk ≤ 16) {s s1 : State} (S : Site p s)
@@ -840,7 +840,7 @@ theorem sbpAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.simpleBitPa
   refine WP.mono (primOk hc (noLd_append (noLd_append (noLd_append (lea_noLd _ _) (imm_noLd _ _)) (lea_noLd _ _))
       (imm_noLd _ _))
     (glueSB_ok b len (sbp_lt hb) (sbpLen_lt hb hl) hf ho s) (fun stk hs s1 hv hm k => sbp_pre hb hl h1 hs S hbd hv hm k)
-    (covers_rw L i1 w1) (covers_cons (L.cW w1) covers_nil))
+    (covers_rw L i1 w1) (Covers.cons (L.cW w1) Covers.nil))
     fun s' ⟨hP, hx, stk, _, s1, hv, hm, k, s₂, hm₂, _, hpost⟩ => ⟨hP, hx, ?_⟩
   have hsp := keep_rsp k
   sig_post [Spec.MlDsa.simpleBitPackContract, Spec.MlDsa.simpleBitPackSig, X86_64.abi, VG.X86_64.argRegs] at hpost
@@ -860,9 +860,9 @@ theorem sbpAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.simpleBitPa
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
       ⟨_, _, _, _, sbp_pre hb hl h1 hs T.sx rx hv1 hm1 k1, sbp_pre hb hl h1 hs T.sy ry hv2 hm2 k2, ?_,
         by rw [k1.2.1, k1.2.2]; exact covers_rw T.sx.lay i1 w1,
-        by rw [k1.2.2]; exact covers_cons (T.sx.lay.cW w1) covers_nil,
+        by rw [k1.2.2]; exact Covers.cons (T.sx.lay.cW w1) Covers.nil,
         by rw [k2.2.1, k2.2.2]; exact covers_rw T.sy.lay i1 w1,
-        by rw [k2.2.2]; exact covers_cons (T.sy.lay.cW w1) covers_nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+        by rw [k2.2.2]; exact Covers.cons (T.sy.lay.cW w1) Covers.nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
   sig_pub [Spec.MlDsa.simpleBitPackContract, Spec.MlDsa.simpleBitPackSig, X86_64.abi, VG.X86_64.argRegs]
   simp only [hv1.1, hv1.2.1, hv1.2.2.1, hv1.2.2.2, hv2.1, hv2.2.1, hv2.2.2.1, hv2.2.2.2, keep_rsp k1, keep_rsp k2,
     T.rsp, T.pa hbf, T.pa hbo, and_self]
@@ -925,7 +925,7 @@ theorem bpAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.bitPackContr
       (imm_noLd _ _)) (lea_noLd _ _)) (imm_noLd _ _))
     (glueBP_ok a b len (bp_lt hab).1 (bp_lt hab).2 (bpLen_lt hab hl) hf ho s)
     (fun stk hs s1 hv hm k => bp_pre hab hl h1 hs S hin hv hm k)
-    (covers_rw L i1 w1) (covers_cons (L.cW w1) covers_nil))
+    (covers_rw L i1 w1) (Covers.cons (L.cW w1) Covers.nil))
     fun s' ⟨hP, hx, stk, _, s1, hv, hm, k, s₂, hm₂, _, hpost⟩ => ⟨hP, hx, ?_⟩
   have hsp := keep_rsp k
   sig_post [Spec.MlDsa.bitPackContract, Spec.MlDsa.bitPackSig, X86_64.abi, VG.X86_64.argRegs] at hpost
@@ -946,9 +946,9 @@ theorem bpAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.bitPackContr
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
       ⟨_, _, _, _, bp_pre hab hl h1 hs T.sx rx hv1 hm1 k1, bp_pre hab hl h1 hs T.sy ry hv2 hm2 k2, ?_,
         by rw [k1.2.1, k1.2.2]; exact covers_rw T.sx.lay i1 w1,
-        by rw [k1.2.2]; exact covers_cons (T.sx.lay.cW w1) covers_nil,
+        by rw [k1.2.2]; exact Covers.cons (T.sx.lay.cW w1) Covers.nil,
         by rw [k2.2.1, k2.2.2]; exact covers_rw T.sy.lay i1 w1,
-        by rw [k2.2.2]; exact covers_cons (T.sy.lay.cW w1) covers_nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+        by rw [k2.2.2]; exact Covers.cons (T.sy.lay.cW w1) Covers.nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
   sig_pub [Spec.MlDsa.bitPackContract, Spec.MlDsa.bitPackSig, X86_64.abi, VG.X86_64.argRegs]
   simp only [hv1.1, hv1.2.1, hv1.2.2.1, hv1.2.2.2.1, hv1.2.2.2.2, hv2.1, hv2.2.1, hv2.2.2.1, hv2.2.2.2.1, hv2.2.2.2.2,
     keep_rsp k1, keep_rsp k2, T.rsp, T.pa hbf, T.pa hbo, and_self]

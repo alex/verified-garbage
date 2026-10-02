@@ -46,7 +46,7 @@ namespace VG.Impl.MlDsa.AArch64.Verify
 
 variable (c : Impl.Sha3.AArch64.Callee)
 
-open VG.AArch64
+open VG.AArch64 VG.Impl.MlDsa.AArch64.Call
 open VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Impl.MlKem.AArch64 (copy32)
 open VG.Spec.MlDsa (Params bitlen q)

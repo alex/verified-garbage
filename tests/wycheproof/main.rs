@@ -27,6 +27,7 @@ mod mldsa;
 mod mldsa44;
 mod mldsa65;
 mod mldsa87;
+mod mlkem;
 mod mlkem1024;
 mod mlkem768;
 mod pbkdf2;

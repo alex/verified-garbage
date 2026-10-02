@@ -29,7 +29,6 @@ namespace VG.Proof.Pbkdf2.Md.X86_64.Sha512
 open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Sha512.X86_64 (Compress)
-open VG.Proof.Hmac.Generic.X86_64.Instances (initSat finSat)
 open Spec.Sha512 (H0_384 H0_512 H0_512_224 H0_512_256)
 
 /-- The member of the SHA-512 family of instance `I`, with a `D`-byte digest,
@@ -64,15 +63,14 @@ theorem coreOK (D : Nat) (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) : CoreOK
       iter := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
         ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
       hinit := {
-        keys := ⟨_, by taint_decide⟩
+        pro := ⟨_, by taint_decide⟩
         argI := by
           simp only [List.mem_cons, List.not_mem_nil, or_false]
           rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-        argU₁ := ⟨_, by taint_decide⟩
-        argU₂ := ⟨_, by taint_decide⟩
+        keys := ⟨_, by taint_decide⟩
+        mid := ⟨_, by taint_decide⟩
         restore := ⟨_, by taint_decide⟩ }
-      hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
-        ⟨_, by taint_decide⟩⟩
+      hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
       pbkMx := by decide +kernel
       pbkSp := by decide +kernel
       hinitMx := by decide +kernel

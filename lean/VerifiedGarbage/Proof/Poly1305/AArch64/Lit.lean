@@ -9,7 +9,5 @@ namespace VG
 
 materialize_code Impl.Poly1305.AArch64.init
 materialize_code Impl.Poly1305.AArch64.blocks
-materialize_code Impl.Poly1305.AArch64.update
-materialize_code Impl.Poly1305.AArch64.finalize
 
 end VG

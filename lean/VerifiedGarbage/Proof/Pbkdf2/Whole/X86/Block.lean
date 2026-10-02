@@ -14,8 +14,8 @@ namespace VG.Proof.Pbkdf2.Whole.X86
 
 open VG.X86
 open VG.Impl.Pbkdf2.Whole.X86 (Fns)
-open VG.Impl.Hmac.Generic.X86 (Hash at_ copy)
-open VG.Proof.Hmac.Generic.X86 (HashOK UpdArgs upd_frame cclob zero_append_ofNat)
+open VG.Impl.Pbkdf2.Stream.X86 (Hash at_ copy)
+open VG.Proof.Pbkdf2.Stream.X86 (HashOK UpdArgs upd_frame cclob zero_append_ofNat)
 open VG.Proof.Sha256.X86.Stream (Upd wp_mov wp_movi wp_movm wp_addi wp_store wp_bswap wp_test)
 open VG.Proof.Hmac.Generic.Common (bytes_keep)
 open VG.Proof.Hmac.Common (bytesAt_length xorPad_length)
@@ -157,7 +157,7 @@ theorem loopInit_ok {s : State} (hk : KR F s₀ s) (hst : States hF s₀ s.mem) 
   · rw [f₆.gpr, u₅.other _ (by decide), u₄.gpr]; simp [dn, Whole.done]
   · rw [f₆.mem, u₅.mem, u₄.mem, m₃.mem, Mem.readW_writeW_self32, u₂.gpr, u₁.gpr]; rfl
   · simp [dn, Whole.done, bytesAt]
-  · rw [z₆, u₅.gpr, Hmac.Generic.X86.test_z]
+  · rw [z₆, u₅.gpr, Pbkdf2.Stream.X86.test_z]
 
 /-! ## A step: the working state, and `INT (i)` -/
 
@@ -189,7 +189,7 @@ theorem b2_ok {k : Nat} {s : State} (h : Inv hF s₀ k s) :
   refine wp_arg hp i₁.kr (by decide) fun s₂ u₂ => wp_addi fun s₃ u₃ => wp_movi fun s₄ u₄ => wp_movi fun s₅ u₅ => ?_
   have i₅ := (((i₁.upd hp hz (by decide) u₂).upd hp hz (by decide) u₃).upd hp hz (by decide) u₄).upd hp hz
     (by decide) u₅
-  rw [← List.append_nil (VG.Impl.Hmac.Generic.X86.scr .edx F.intO)]
+  rw [← List.append_nil (VG.Impl.Pbkdf2.Stream.X86.scr .edx F.intO)]
   refine scr_ok i₅.kr fun s₆ u₆ => WP.block_nil ⟨i₅.upd hp hz (by decide) u₆, ?_, ?_, ?_, ?_, u₆.gpr, ?_⟩
   · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide),
       u₂.other _ (by decide), u₁.gpr]
@@ -293,7 +293,7 @@ theorem b4_ok {k : Nat} {s : State} (h : Inv hF s₀ k s) :
   have i₂ := i₁.upd hp hz (by decide) u₂
   refine wp_arg hp i₂.kr (by decide) fun s₃ u₃ => wp_addi fun s₄ u₄ => wp_movi fun s₅ u₅ => ?_
   have i₅ := ((i₂.upd hp hz (by decide) u₃).upd hp hz (by decide) u₄).upd hp hz (by decide) u₅
-  rw [← List.append_nil (VG.Impl.Hmac.Generic.X86.scr .edi F.uO)]
+  rw [← List.append_nil (VG.Impl.Pbkdf2.Stream.X86.scr .edi F.uO)]
   refine scr_ok i₅.kr fun s₆ u₆ => WP.block_nil ⟨i₅.upd hp hz (by decide) u₆, ?_, ?_, ?_, ?_, u₆.gpr, ?_⟩
   · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide),
       u₂.other _ (by decide), u₁.gpr]

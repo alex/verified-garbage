@@ -1,5 +1,6 @@
 import VerifiedGarbage.Spec.Scrypt
-import VerifiedGarbage.Spec.Pbkdf2.Contract
+import VerifiedGarbage.Spec.Pbkdf2
+import VerifiedGarbage.TCB.Artifact
 
 /-!
 # scrypt: the contracts, on every target

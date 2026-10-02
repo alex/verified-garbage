@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Contract
 import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Hash
-import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Init
+import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Common
 
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: `pbkdf2`'s parts
@@ -19,8 +19,8 @@ open VG.AArch64
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
 open VG.Proof.Pbkdf2.Md.AArch64 (HashOK pbkG)
 open VG.Proof.Pbkdf2.AArch64 (Sizes)
-open VG.Proof.Hmac.Generic.AArch64 (stk SavedRegs SavedRegs.frame saveR)
-open VG.Proof.Hmac.Generic.AArch64.Init (untouched)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (stk SavedRegs SavedRegs.frame saveR)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (untouched)
 open VG.Proof.Hmac.Generic.Common (bytes_keep sub_of_off sub_of_self)
 open Spec.Sha256 (bytesAt)
 

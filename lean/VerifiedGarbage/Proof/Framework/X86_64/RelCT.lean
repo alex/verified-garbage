@@ -27,13 +27,8 @@ theorem trace_narrow {c : Prog isa} {k : Contract isa}
     {s : State} {rd wr : List Region} (hpre : k.pre (s.withRegions rd wr))
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {t : List Leak} {s' : State}
     (he : Exec isa c s t s') :
-    ∃ s'', Exec isa c (s.withRegions rd wr) t s'' := by
-  obtain ⟨t', s'', he', -⟩ := hv _ hpre
-  have hw' := Exec.widen he' (rd := s.rd) (wr := s.wr) (by simpa using hc) (by simpa using hw)
-  simp only [State.withRegions_withRegions] at hw'
-  rw [show s.withRegions s.rd s.wr = s from rfl] at hw'
-  obtain ⟨rfl, -⟩ := Exec.det he hw'
-  exact ⟨_, he'⟩
+    ∃ s'', Exec isa c (s.withRegions rd wr) t s'' :=
+  regionModel.trace_narrow hv hpre hc hw he
 
 /-- A call of verified code, narrowed in each run to regions of its own. -/
 theorem RelCT.callEx {n : String} {c : Prog isa} {k : Contract isa}
@@ -45,22 +40,16 @@ theorem RelCT.callEx {n : String} {c : Prog isa} {k : Contract isa}
       Covers (rd₁ ++ wr₁) (s₁.rd ++ s₁.wr) ∧ Covers wr₁ s₁.wr ∧
       Covers (rd₂ ++ wr₂) (s₂.rd ++ s₂.wr) ∧ Covers wr₂ s₂.wr ∧ s₁.gpr .rsp = s₂.gpr .rsp) :
     RelCT isa P (.call n c) fun _ _ => True := by
-  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  refine regionModel.relCT_call hv hct fun s₁ s₂ e₁ e₂ hp h₁ h₂ => ?_
+  rw [call_callEntry, Option.some.injEq] at h₁ h₂
+  subst h₁ h₂
   obtain ⟨rd₁, wr₁, rd₂, wr₂, p₁, p₂, hpub, c₁, w₁, c₂, w₂, hsp⟩ := hP _ _ hp
-  cases e₁ with
-  | call h₁ b₁ r₁ =>
-    cases e₂ with
-    | call h₂ b₂ r₂ =>
-      rw [call_callEntry, Option.some.injEq] at h₁ h₂
-      subst h₁ h₂
-      obtain ⟨_, n₁⟩ := trace_narrow hv p₁ (by simpa using c₁) (by simpa using w₁) b₁
-      obtain ⟨_, n₂⟩ := trace_narrow hv p₂ (by simpa using c₂) (by simpa using w₂) b₂
-      have ht := hct _ _ _ _ _ _ p₁ p₂ hpub n₁ n₂
-      have q₁ := ret_rsp r₁
-      have q₂ := ret_rsp r₂
-      simp only [State.callEntry_rsp] at q₁ q₂
-      refine ⟨?_, trivial⟩
-      simp only [q₁, q₂, hsp, ht]
+  refine ⟨rd₁, wr₁, rd₂, wr₂, p₁, p₂, hpub, c₁, w₁, c₂, w₂, by simp only [hsp],
+    fun _ _ _ _ r₁ r₂ => ?_⟩
+  have q₁ := ret_rsp r₁
+  have q₂ := ret_rsp r₂
+  simp only [State.callEntry_rsp] at q₁ q₂
+  simp only [q₁, q₂, hsp]
 
 theorem RelCT.call {n : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')

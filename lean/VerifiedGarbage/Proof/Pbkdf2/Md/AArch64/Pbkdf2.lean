@@ -18,8 +18,8 @@ open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_addImm wp_subImm wp_movz wp_l
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
 open VG.Proof.Pbkdf2.Md.AArch64 (HashOK)
 open VG.Proof.Pbkdf2.AArch64 (copy32_ok)
-open VG.Proof.Hmac.Generic.AArch64 (initG After SavedRegs SavedRegs.frame save_ok saveR UpdArgs)
-open VG.Proof.Hmac.Generic.AArch64.Init (untouched)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (initG After SavedRegs SavedRegs.frame save_ok saveR UpdArgs)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (untouched)
 open VG.Proof.Hmac.Generic.Common (bytes_keep readW_writeW_ne bytesAt_take covers_one)
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_getD' writeBytes_at xorPad_length)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
@@ -249,7 +249,7 @@ theorem hk2_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s) (hx0 : s.gpr
     WP isa (.call H.initN H.initC) s fun t => KE (H := H) s₀ t ∧ hH.SH.Repr t.mem (A s₀ H.stWO) [] := by
   have hl := layout (H := H); have he := end_le hz
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
-  exact VG.Proof.Hmac.Generic.AArch64.init_call hH.stream (st := A s₀ H.stWO) hx0
+  exact VG.Proof.Pbkdf2.Md.AArch64.Calls.init_call hH.stream (st := A s₀ H.stWO) hx0
     (Covers.of_sub fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr; exact cov_part hp h.kr (by omega))
     fun s₂ a₂ r₂ => ⟨h.call hp hz a₂ fun r hr => by
@@ -299,7 +299,7 @@ theorem hk4_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
       hH.SH.Repr t.mem (A s₀ H.stWO) (bytesAt s₀.mem (pw s₀) (pwl s₀)) := by
   have hl := layout (H := H); have he := end_le hz; have hWb := hH.wb_le
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
-  refine VG.Proof.Hmac.Generic.AArch64.upd_call hH.stream ua fun s₈ a₈ r₈ =>
+  refine VG.Proof.Pbkdf2.Md.AArch64.Calls.upd_call hH.stream ua fun s₈ a₈ r₈ =>
     ⟨h.call hp hz a₈ fun r hr => ?_, ?_⟩
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
@@ -312,7 +312,7 @@ theorem hk4_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
 theorem hk5_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
     (hr : hH.SH.Repr s.mem (A s₀ H.stWO) (bytesAt s₀.mem (pw s₀) (pwl s₀))) :
     WP isa (.block H.hkFin) s fun t => KE (H := H) s₀ t ∧
-      VG.Proof.Hmac.Generic.AArch64.FinArgs hH.stream t (A s₀ H.stWO) (A s₀ H.hkO) (scr s₀) ∧
+      VG.Proof.Pbkdf2.Md.AArch64.Calls.FinArgs hH.stream t (A s₀ H.stWO) (A s₀ H.hkO) (scr s₀) ∧
       t.gpr .x1 = s₀.gpr .x1 ∧ hH.SH.Repr t.mem (A s₀ H.stWO) (bytesAt s₀.mem (pw s₀) (pwl s₀)) := by
   have hl := layout (H := H); have he := end_le hz; have hWb := hH.wb_le
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
@@ -342,14 +342,14 @@ theorem hk5_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
       stk_sc := stk_sc hp k₄.kr (Region.sub_prefix (by omega)) }
 
 theorem hk6_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
-    (fa : VG.Proof.Hmac.Generic.AArch64.FinArgs hH.stream s (A s₀ H.stWO) (A s₀ H.hkO) (scr s₀))
+    (fa : VG.Proof.Pbkdf2.Md.AArch64.Calls.FinArgs hH.stream s (A s₀ H.stWO) (A s₀ H.hkO) (scr s₀))
     (hx1 : s.gpr .x1 = s₀.gpr .x1) (hr : hH.SH.Repr s.mem (A s₀ H.stWO) (bytesAt s₀.mem (pw s₀) (pwl s₀))) :
     WP isa (.call H.finN H.finC) s fun t => KE (H := H) s₀ t ∧
       bytesAt t.mem (A s₀ H.hkO) H.D = hH.SH.H.hash (bytesAt s₀.mem (pw s₀) (pwl s₀)) := by
   have hl := layout (H := H); have he := end_le hz; have hWb := hH.wb_le; have hD := hz.z.DN
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
   have hF : H.stream.F = H.P.N := rfl
-  refine VG.Proof.Hmac.Generic.AArch64.fin_call hH.stream fa fun s₁₃ a₁₃ r₁₃ =>
+  refine VG.Proof.Pbkdf2.Md.AArch64.Calls.fin_call hH.stream fa fun s₁₃ a₁₃ r₁₃ =>
     ⟨h.call hp hz a₁₃ fun r hr => ?_, ?_⟩
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
@@ -638,7 +638,7 @@ theorem su4_ok (hH : HashOK H) {s₁₀ : State} (k₁₀ : KE (H := H) s₀ s�
     WP isa (.call H.updN H.updC) s₁₀ fun t => KE (H := H) s₀ t ∧ States hH s₀ t.mem := by
   have hl := layout (H := H); have he := end_le hz; have hWb := hH.wb_le
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
-  refine VG.Proof.Hmac.Generic.AArch64.upd_call hH.stream ua fun s₁₁ a₁₁ r₁₁ => ?_
+  refine VG.Proof.Pbkdf2.Md.AArch64.Calls.upd_call hH.stream ua fun s₁₁ a₁₁ r₁₁ => ?_
   have k₁₁ := k₁₀.call hp hz a₁₁ fun r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl

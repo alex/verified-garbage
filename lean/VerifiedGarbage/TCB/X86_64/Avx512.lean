@@ -3,7 +3,7 @@ import VerifiedGarbage.TCB.X86_64.Avx
 /-!
 # x86-64 AVX-512 instructions
 
-**Trusted.** The EVEX-encoded (AVX-512F) instructions of the x86-64 model in
+**Trusted.** The EVEX-encoded (AVX-512F, AVX-512BW, VAES and VPCLMULQDQ) instructions of the x86-64 model in
 `TCB/X86_64/Isa.lean` that write only vector registers, all with 512-bit
 (`zmm`) operands and no masking, and the operations of those with an
 embedded-broadcast memory operand (`ZBcstOp`, which `Isa.lean` runs since
@@ -18,6 +18,7 @@ each 128-bit lane as the legacy SSE instruction does on its destination
 inductive ZBinOp
   | vpaddd | vpxord | vpunpckldq | vpunpckhdq | vpunpcklqdq | vpunpckhqdq
   | vpaddq | vpmuludq | vpandq | vporq | vpandnq
+  | vaesenc | vaesenclast | vpshufb
   deriving DecidableEq, Repr
 
 /-- EVEX-encoded shifts of each quadword by an immediate count,
@@ -31,6 +32,8 @@ element of the destination is written. -/
 inductive ZOp
   /-- `vop zmm1, zmm2, zmm3` -/
   | zbin (op : ZBinOp) (dst src1 src2 : XReg)
+  /-- `vpclmulqdq zmm1, zmm2, zmm3, imm8` (EVEX.512, unmasked). -/
+  | vpclmulqdq (dst src1 src2 : XReg) (sel : BitVec 8)
   /-- `vprold zmm1, zmm2, imm8` (`EVEX.512.66.0F.W0 72 /1 ib`) -/
   | vprold (dst src : XReg) (count : BitVec 8)
   /-- `vpshufd zmm1, zmm2, imm8` (`EVEX.512.66.0F.W0 70 /r ib`) -/
@@ -40,6 +43,10 @@ inductive ZOp
   /-- `vpsllq zmm1, zmm2, imm8` (`EVEX.512.66.0F.W1 73 /6 ib`) or `vpsrlq zmm1,
   zmm2, imm8` (`EVEX.512.66.0F.W1 73 /2 ib`) -/
   | vshift (op : ZShiftOp) (dst src : XReg) (count : BitVec 8)
+  /-- `vpslldq zmm1, zmm2, imm8` (EVEX.512, lane-wise). -/
+  | vpslldq (dst src : XReg) (count : BitVec 8)
+  /-- `vpsrldq zmm1, zmm2, imm8` (EVEX.512, lane-wise). -/
+  | vpsrldq (dst src : XReg) (count : BitVec 8)
   /-- `vpbroadcastq zmm1, xmm2` (`EVEX.512.66.0F38.W1 59 /r`) -/
   | vpbroadcastq (dst src : XReg)
   /-- `vmovdqa64 zmm1, zmm2` (`EVEX.512.66.0F.W1 6F /r`) -/
@@ -66,6 +73,16 @@ def ZBinOp.sse : ZBinOp → XBinOp
   | .vpunpcklqdq => .punpcklqdq | .vpunpckhqdq => .punpckhqdq
   | .vpaddq => .paddq | .vpmuludq => .pmuludq | .vpandq => .pand | .vporq => .por
   | .vpandnq => .pandn
+  | .vaesenc => .aesenc | .vaesenclast => .aesenclast | .vpshufb => .pshufb
+
+/-! Intel SDM Vol. 2, "AESENC", "AESENCLAST" and "PCLMULQDQ":
+EVEX.512 VAESENC/VAESENCLAST and VPCLMULQDQ apply the same operation as
+VEX to all four 128-bit lanes (see `Avx.lean`), without masking.
+"PSHUFB" (EVEX.512) selects bytes within each 128-bit lane, zeroing an
+output byte if the corresponding selector's bit 7 is set (`XBinOp.pshufb`).
+"PSLLDQ"/"PSRLDQ" (EVEX.512) shift each 128-bit lane by imm8 bytes,
+zero-filling, with counts above 15 yielding zero (`XShiftOp.eval`).
+These byte operations require AVX512BW, unlike the quadword shifts. -/
 
 /-- The legacy SSE shift whose operation `op` applies to each lane: SDM Vol.
 2, "PSLLW/PSLLD/PSLLQ" and "PSRLW/PSRLD/PSRLQ", "VPSLLQ (EVEX versions,
@@ -135,6 +152,8 @@ SDM Vol. 2 (no flags are affected; with 512-bit operands the whole of
 * The lane-wise instructions: see `ZBinOp.sse`, `rolDwords` (VPROLD) and
   `shufDwords` (VPSHUFD: "EVEX.512 encoded version", each lane with the
   same `imm8`).
+* VAESENC/VAESENCLAST, VPCLMULQDQ, VPSHUFB, VPSLLDQ and VPSRLDQ:
+  see the vector AES/GCM description above.
 * VSHUFI32X4: see `shuf4Lanes`.
 * VPSLLQ and VPSRLQ: see `ZShiftOp.sse`.
 * VPBROADCASTQ (EVEX.512 encoded version, register source, no write mask):
@@ -144,6 +163,9 @@ SDM Vol. 2 (no flags are affected; with 512-bit operands the whole of
 def ZOp.exec : ZOp → State → State
   | .zbin op d a b, s =>
     let f (i : Nat) := op.sse.eval (s.zlane a i) (s.zlane b i)
+    s.setZ d (f 0) (f 1) (f 2) (f 3)
+  | .vpclmulqdq d a b n, s =>
+    let f (i : Nat) := pclmul (s.zlane a i) (s.zlane b i) n
     s.setZ d (f 0) (f 1) (f 2) (f 3)
   | .vprold d r n, s =>
     let f (i : Nat) := rolDwords (s.zlane r i) n
@@ -156,6 +178,12 @@ def ZOp.exec : ZOp → State → State
     s.setZ d (f 0) (f 1) (f 2) (f 3)
   | .vshift op d r n, s =>
     let f (i : Nat) := op.sse.eval (s.zlane r i) n
+    s.setZ d (f 0) (f 1) (f 2) (f 3)
+  | .vpslldq d r n, s =>
+    let f (i : Nat) := XShiftOp.pslldq.eval (s.zlane r i) n
+    s.setZ d (f 0) (f 1) (f 2) (f 3)
+  | .vpsrldq d r n, s =>
+    let f (i : Nat) := XShiftOp.psrldq.eval (s.zlane r i) n
     s.setZ d (f 0) (f 1) (f 2) (f 3)
   | .vpbroadcastq d r, s =>
     let x := qword (s.xmm r) 0 ++ qword (s.xmm r) 0

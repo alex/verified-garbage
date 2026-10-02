@@ -641,14 +641,6 @@ theorem covers_sub {s₀ s : State} (hp : APre s₀) (hwr : s.wr = s₀.wr) (rs 
   obtain ⟨k, hrk, hk⟩ := h r hr
   exact ⟨ctxR s₀, by simp [hwr, hp.wr], k, by rw [hrk]; simp [off_eq], hk⟩
 
-theorem covers_left {rs wr : List Region} (rd : List Region) (h : Covers rs wr) : Covers rs (rd ++ wr) :=
-  fun a n hi => by
-    obtain ⟨r, hr, hc⟩ := h a n hi
-    exact ⟨r, List.mem_append_right _ hr, hc⟩
-
-theorem covers_nil_append {rs rs' : List Region} (h : Covers rs rs') : Covers ([] ++ rs) rs' := by
-  simpa using h
-
 end VG.Proof.ChaCha20Poly1305.X86_64
 
 /-!
@@ -907,7 +899,7 @@ theorem prologue_ok {s₀ : State} (hp : APre s₀) : WP isa prologue s₀ (Post
   -- The block for counter 0: the one-time key.
   refine WP.seq (block_call rdi₄ rsi₄ (sub_disj s₀ (by lit_omega) (by lit_omega) (by lit_omega))
     (by rw [rsp₄]; exact hp.below8_sub (by lit_omega)) (by rw [rsp₄]; exact hp.below8_sub (by lit_omega))
-    (covers_left _ (covers_sub hp wr₄' _ (by
+    (Covers.right (covers_sub hp wr₄' _ (by
       intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
         or_false] at hr
       rcases hr with rfl | rfl
@@ -936,7 +928,7 @@ theorem prologue_ok {s₀ : State} (hp : APre s₀) : WP isa prologue s₀ (Post
   -- The Poly1305 state for the one-time key.
   refine WP.seq (init_call rdi₈ rsi₈ (sub_disj s₀ (by lit_omega) (by lit_omega) (by lit_omega))
     (by rw [rsp₈]; exact hp.below8_sub (by lit_omega)) (by rw [rsp₈]; exact hp.below8_sub (by lit_omega))
-    (covers_left _ (covers_sub hp wr₈' _ (by
+    (Covers.right (covers_sub hp wr₈' _ (by
       intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
         or_false] at hr
       rcases hr with rfl | rfl
@@ -1345,7 +1337,7 @@ theorem padTail_ok (b : Impl.Poly1305.X86_64.Blocks) {s₀ : State} (hp : APre s
     (sub_disj s₀ (b := 576) (m := 16 * 1) (by lit_omega) (by lit_omega) (by lit_omega))
     (by rw [hp.off_toNat (by lit_omega)]; have := hp.wrap_c; omega)
     (by rw [rsp₆]; exact hp.stk_sub (by lit_omega)) (by rw [rsp₆]; exact hp.stk_sub (by lit_omega))
-    (covers_left _ (covers_sub hp wr₆' _ (by
+    (Covers.right (covers_sub hp wr₆' _ (by
       intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
         or_false] at hr
       rcases hr with rfl | rfl
@@ -1425,7 +1417,7 @@ theorem macPad_ok (b : Impl.Poly1305.X86_64.Blocks) {s₀ : State} (hp : APre s�
       rcases hr' with rfl | rfl
       · rw [rd₁, wr₁, hrd, hwr]
         exact hs.cov a w ⟨_, List.mem_singleton_self _, by simp only [Region.Contains] at hc ⊢; omega⟩
-      · refine covers_left _ (covers_sub hp (by rw [wr₁, hwr]) [sub s₀ 448 128] (fun r hr => ?_)) a w
+      · refine Covers.right (covers_sub hp (by rw [wr₁, hwr]) [sub s₀ 448 128] (fun r hr => ?_)) a w
           ⟨_, List.mem_singleton_self _, hc⟩
         simp only [List.mem_singleton] at hr; subst hr; exact ⟨448, rfl, show 448 + 128 ≤ 1024 by omega⟩)
     (covers_sub hp (by rw [wr₁, hwr]) _ (by
@@ -1792,7 +1784,7 @@ theorem XArgs.call (v : Proof.ChaCha20.X86_64.XorImpl) {Q : State → Prop}
     (sub_disj s₀ (a := 64) (n := 64) (b := 128) (m := 320) (by lit_omega) (by lit_omega) (by lit_omega))
     (hp.c_d.symm.sub_right (sub_ctx s₀ (k := 128) (n := 320) (by lit_omega))) hp.wrap_d
     (by rw [h.rsp]; exact hp.stk_sub (by lit_omega)) (by rw [h.rsp]; exact hp.stk_d)
-    (by rw [h.rsp]; exact hp.stk_sub (by lit_omega)) (covers_nil_append (covers_left _ (h.hw hp))) (h.hw hp)
+    (by rw [h.rsp]; exact hp.stk_sub (by lit_omega)) ((Covers.right (h.hw hp))) (h.hw hp)
     fun s' rd wr cs f rsi data => hQ s' rd wr cs (by rw [h.rsp] at f; exact f) rsi data
 
 end
@@ -1883,7 +1875,7 @@ theorem absorbLengths_ok (b : Impl.Poly1305.X86_64.Blocks) {s₀ : State} (hp : 
     (sub_disj s₀ (b := 656) (m := 16 * 1) (by lit_omega) (by lit_omega) (by lit_omega))
     (by rw [hp.off_toNat (by lit_omega)]; have := hp.wrap_c; omega)
     (by rw [rsp₁]; exact hp.stk_sub (by lit_omega)) (by rw [rsp₁]; exact hp.stk_sub (by lit_omega))
-    (covers_left _ (covers_sub hp wr₁' _ (by
+    (Covers.right (covers_sub hp wr₁' _ (by
       intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
         or_false] at hr
       rcases hr with rfl | rfl
@@ -1937,7 +1929,7 @@ theorem finalizeTo_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ 
   rw [h.r15] at rdi₁ rdx₁
   refine finalize_call rdi₁ rsi₁ rdx₁ (sub_disj s₀ (by lit_omega) (by lit_omega) ho)
     (by rw [rsp₁]; exact hp.below8_sub (by lit_omega)) (by rw [rsp₁]; exact hp.below8_sub ho)
-    (covers_left _ (covers_sub hp wr₁' _ (by
+    (Covers.right (covers_sub hp wr₁' _ (by
       intro r hr; simp only [List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
       · exact ⟨448, rfl, show 448 + 128 ≤ 1024 by omega⟩
@@ -2305,7 +2297,7 @@ theorem call_rel (v : Proof.ChaCha20.X86_64.XorImpl) :
         callEntry_gpr' s₂ (by decide : Reg.rcx ≠ .rsp), a₁.rdi, a₁.rsi, a₁.rdx, a₁.rcx, a₁.rsp, a₂.rdi,
         a₂.rsi, a₂.rdx, a₂.rcx, a₂.rsp, cx, dp, p1, p4, p5, p6]
       exact ⟨trivial, trivial, trivial, trivial, trivial⟩,
-      covers_nil_append (covers_left _ (a₁.hw hp)), a₁.hw hp, covers_nil_append (covers_left _ (a₂.hw hp')),
+      (Covers.right (a₁.hw hp)), a₁.hw hp, (Covers.right (a₂.hw hp')),
       a₂.hw hp', by rw [a₁.rsp, a₂.rsp, p6]⟩
   have after : ∀ {σ₀ s : State}, APre σ₀ → XArgs σ₀ s →
       WP isa (.call v.callee.name v.callee.code) s (After σ₀) := fun hp a =>

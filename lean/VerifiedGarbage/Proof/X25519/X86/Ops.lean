@@ -3,11 +3,12 @@ import VerifiedGarbage.Proof.X25519.X86.Arith
 /-!
 # X25519 on x86 (32-bit): sequences of field operations
 
-The elements the ladder and the inversion compute with are at the *slots* of
-the working space (offsets `288 + 32 i` below `T`), and their values `F m x q`
-in `GF(p)`. A sequence of operations (`ops`) leaves in each slot the value of
-an evaluation of the operations on the values of the slots (`run`), and
-changes no memory outside the slots and `T`. Also: `copy`, and `cswap` by a
+The elements the field arithmetic computes with are at the *slots* of the
+working space (offsets `lo + 32 i` below `T`: X25519's ladder and inversion
+use `lo = 288`, Ed25519 `lo = 64`), and their values `F m x q` in `GF(p)`. A
+sequence of operations (`ops`) leaves in each slot the value of an evaluation
+of the operations on the values of the slots (`run`), and changes no memory
+outside the slots and `T` (`[lo, T + 64)`). Also: `copy`, and `cswap` by a
 mask.
 -/
 
@@ -15,41 +16,43 @@ namespace VG.Proof.X25519.X86
 
 open VG VG.X86 VG.Impl.X25519.X86 VG.Spec.X25519
 
+variable {W lo : Nat}
+
 /-- The value in `GF(p)` of the element at `[x + q]`. -/
 def F (m : Mem) (x : BitVec 32) (q : Nat) : Fe := toFe (fe m x q)
 
-/-- The slots: offsets `288 + 32 i` below `T`. -/
-def isSlot (q : Nat) : Bool := 288 ≤ q && q < T && (q - 288) % 32 == 0
+/-- The slots: elements at offsets `lo + 32 i` below `T`. -/
+def isSlot (lo q : Nat) : Bool := lo ≤ q && q + 32 ≤ T && (q - lo) % 32 == 0
 
-theorem slot_below {q : Nat} (h : isSlot q = true) : Below q := by
+theorem slot_below {q : Nat} (h : isSlot lo q = true) : Below q := by
   simp only [isSlot, Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at h
   simp only [Below, T] at h ⊢; omega_using [h]
 
-theorem slot_ge {q : Nat} (h : isSlot q = true) : 288 ≤ q := by
+theorem slot_ge {q : Nat} (h : isSlot lo q = true) : lo ≤ q := by
   simp only [isSlot, Bool.and_eq_true, decide_eq_true_eq] at h; exact h.1.1
 
-theorem slot_apart {o q : Nat} (ho : isSlot o = true) (hq : isSlot q = true) : Apart o q := by
+theorem slot_apart {o q : Nat} (ho : isSlot lo o = true) (hq : isSlot lo q = true) : Apart o q := by
   simp only [isSlot, Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at ho hq
   simp only [Apart, T] at ho hq ⊢; omega_using [ho, hq]
 
-theorem slot_ne {o q : Nat} (ho : isSlot o = true) (hq : isSlot q = true) (h : q ≠ o) :
+theorem slot_ne {o q : Nat} (ho : isSlot lo o = true) (hq : isSlot lo q = true) (h : q ≠ o) :
     q + 32 ≤ o ∨ o + 32 ≤ q := by
   simp only [isSlot, Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at ho hq
   simp only [T] at ho hq; omega_using [ho, hq, h]
 
 /-! ## Copies -/
 
-theorem copy_step {x : BitVec 32} {s₀ s : State} (hc : Ctx x s) {o a n : Nat} (ho : Below o)
+theorem copy_step {x : BitVec 32} {s₀ s : State} (hc : Ctx W x s) {o a n : Nat} (ho : Below o)
     (ha : Below a) (hoa : Apart o a) (hn : n < 8) (hk : Keep s₀ s) (hf : Frame [sub x o (4 * n)] s₀.mem s.mem)
     (hw : ∀ j < n, wd s.mem x (o + 4 * j) = wd s₀.mem x (a + 4 * j)) :
     WP isa (.block [.mov .eax (.mem (sc (a + 4 * n))), .store (sc (o + 4 * n)) .eax]) s fun s' =>
       Keep s₀ s' ∧ Frame [sub x o (4 * (n + 1))] s₀.mem s'.mem ∧
         ∀ j < n + 1, wd s'.mem x (o + 4 * j) = wd s₀.mem x (a + 4 * j) := by
   simp only [Below, T] at ho ha
-  have hfit := hc.fit
-  refine Wp.wp_ldm hc.edi (hc.inRW (by omega_using [ha, hn]) (by decide)) fun s₁ u₁ => ?_
+  have hfit := hc.fit4
+  refine Wp.wp_ldm hc.edi (hc.inRW4 (by omega_using [ha, hn]) (by decide)) fun s₁ u₁ => ?_
   have c₁ := (updKeep u₁).ctx hc
-  refine Wp.wp_stm c₁.edi (c₁.inW (by omega_using [ho, hn]) (by decide)) fun s₂ u₂ => WP.block_nil ?_
+  refine Wp.wp_stm c₁.edi (c₁.inW4 (by omega_using [ho, hn]) (by decide)) fun s₂ u₂ => WP.block_nil ?_
   have hr : wd s.mem x (a + 4 * n) = wd s₀.mem x (a + 4 * n) :=
     wd_frame1 hf hfit (by omega_using [ho, hn]) (by omega_using [ha, hn])
       (apart_read hoa (Nat.le_refl _) hn)
@@ -65,7 +68,7 @@ theorem copy_step {x : BitVec 32} {s₀ s : State} (hc : Ctx x s) {o a n : Nat} 
         (by omega_using [hj, e])]
       exact hw j (by omega_using [hj, e])
 
-theorem copies_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o a : Nat} (ho : Below o) (ha : Below a)
+theorem copies_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o a : Nat} (ho : Below o) (ha : Below a)
     (hoa : Apart o a) : ∀ n ≤ 8,
     WP isa (.block ((List.range n).flatMap fun k => [.mov .eax (.mem (sc (a + 4 * k))),
       .store (sc (o + 4 * k)) .eax])) s fun s' =>
@@ -77,7 +80,7 @@ theorem copies_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o a : Nat} (ho : B
     exact WP.block_append (WP.mono (copies_ok hc ho ha hoa n (by omega_using [hn])) fun s₁ ⟨k₁, f₁, w₁⟩ =>
       copy_step (k₁.ctx hc) ho ha hoa (by omega_using [hn]) k₁ f₁ w₁)
 
-theorem copy_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o a : Nat} (ho : Below o) (ha : Below a)
+theorem copy_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o a : Nat} (ho : Below o) (ha : Below a)
     (hoa : Apart o a) :
     WP isa (.block (copy o a)) s fun s' =>
       Keep s s' ∧ Frame [sub x o 32] s.mem s'.mem ∧ fe s'.mem x o = fe s.mem x a :=
@@ -113,7 +116,7 @@ structure SwapInv (x : BitVec 32) (s₀ : State) (X Y sw n : Nat) (s : State) : 
   todo : ∀ j < 8, n ≤ j → wd s.mem x (X + 4 * j) = wd s₀.mem x (X + 4 * j) ∧
     wd s.mem x (Y + 4 * j) = wd s₀.mem x (Y + 4 * j)
 
-theorem cswap_step {x : BitVec 32} {s₀ s : State} (hc : Ctx x s) {X Y sw n : Nat} (hX : Below X)
+theorem cswap_step {x : BitVec 32} {s₀ s : State} (hc : Ctx W x s) {X Y sw n : Nat} (hX : Below X)
     (hY : Below Y) (hXY : X + 32 ≤ Y ∨ Y + 32 ≤ X) (hsw : sw ≤ 1) (hm : s₀.gpr .ecx = mask sw)
     (hn : n < 8) (h : SwapInv x s₀ X Y sw n s) :
     WP isa (.block [.mov .eax (.mem (sc (X + 4 * n))), .mov .edx (.mem (sc (Y + 4 * n))), .mov .ebx (.reg .eax),
@@ -121,18 +124,18 @@ theorem cswap_step {x : BitVec 32} {s₀ s : State} (hc : Ctx x s) {X Y sw n : N
       .alu .xor .edx (.reg .ebx), .store (sc (X + 4 * n)) .eax, .store (sc (Y + 4 * n)) .edx]) s
       (SwapInv x s₀ X Y sw (n + 1)) := by
   simp only [Below, T] at hX hY
-  have hfit := hc.fit
-  refine Wp.wp_ldm hc.edi (hc.inRW (by omega_using [hX, hn]) (by decide)) fun s₁ u₁ => ?_
+  have hfit := hc.fit4
+  refine Wp.wp_ldm hc.edi (hc.inRW4 (by omega_using [hX, hn]) (by decide)) fun s₁ u₁ => ?_
   have c₁ := (updKeep u₁).ctx hc
-  refine Wp.wp_ldm c₁.edi (c₁.inRW (by omega_using [hY, hn]) (by decide)) fun s₂ u₂ => ?_
+  refine Wp.wp_ldm c₁.edi (c₁.inRW4 (by omega_using [hY, hn]) (by decide)) fun s₂ u₂ => ?_
   refine Wp.wp_mov fun s₃ u₃ => Wp.wp_xor fun s₄ u₄ => Wp.wp_and fun s₅ u₅ => Wp.wp_xor fun s₆ u₆ =>
     Wp.wp_xor fun s₇ u₇ => ?_
   have k₇ : Keep s s₇ := (updKeep u₁).trans ((updKeep u₂).trans ((updKeep u₃).trans ((updKeep u₄).trans
     ((updKeep u₅).trans ((updKeep u₆).trans (updKeep u₇))))))
   have c₇ := k₇.ctx hc
-  refine Wp.wp_stm c₇.edi (c₇.inW (by omega_using [hX, hn]) (by decide)) fun s₈ u₈ => ?_
-  have c₈ : Ctx x s₈ := c₇.keep (by rw [u₈.gpr]) u₈.wr
-  refine Wp.wp_stm c₈.edi (c₈.inW (by omega_using [hY, hn]) (by decide)) fun s₉ u₉ => WP.block_nil ?_
+  refine Wp.wp_stm c₇.edi (c₇.inW4 (by omega_using [hX, hn]) (by decide)) fun s₈ u₈ => ?_
+  have c₈ : Ctx W x s₈ := c₇.keep (by rw [u₈.gpr]) u₈.wr
+  refine Wp.wp_stm c₈.edi (c₈.inW4 (by omega_using [hY, hn]) (by decide)) fun s₉ u₉ => WP.block_nil ?_
   -- The values.
   have m₇ : s₇.mem = s.mem := by
     rw [u₇.mem, u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
@@ -190,7 +193,7 @@ theorem cswap_step {x : BitVec 32} {s₀ s : State} (hc : Ctx x s) {X Y sw n : N
     exact h.todo j hj (by omega_using [hnj])
 
 theorem cswaps_ok {x : BitVec 32} {s₀ : State} {X Y sw : Nat} (hX : Below X) (hY : Below Y)
-    (hXY : X + 32 ≤ Y ∨ Y + 32 ≤ X) (hsw : sw ≤ 1) (hm : s₀.gpr .ecx = mask sw) (hc₀ : Ctx x s₀) :
+    (hXY : X + 32 ≤ Y ∨ Y + 32 ≤ X) (hsw : sw ≤ 1) (hm : s₀.gpr .ecx = mask sw) (hc₀ : Ctx W x s₀) :
     ∀ n ≤ 8, ∀ s, SwapInv x s₀ X Y sw 0 s →
     WP isa (.block ((List.range n).flatMap fun k =>
       [.mov .eax (.mem (sc (X + 4 * k))), .mov .edx (.mem (sc (Y + 4 * k))), .mov .ebx (.reg .eax),
@@ -204,7 +207,7 @@ theorem cswaps_ok {x : BitVec 32} {s₀ : State} {X Y sw : Nat} (hX : Below X) (
       fun s₁ h₁ => cswap_step (h₁.keep.ctx hc₀) hX hY hXY hsw hm (by omega_using [hn]) h₁)
 
 /-- `cswap X Y` with the mask of `sw` in `ecx`. -/
-theorem cswap_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {X Y sw : Nat} (hX : Below X) (hY : Below Y)
+theorem cswap_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {X Y sw : Nat} (hX : Below X) (hY : Below Y)
     (hXY : X + 32 ≤ Y ∨ Y + 32 ≤ X) (hsw : sw ≤ 1) (hm : s.gpr .ecx = mask sw) :
     WP isa (.block (cswap X Y)) s fun s' => Keep s s' ∧ s'.gpr .ecx = s.gpr .ecx ∧
       Frame [sub x X 32, sub x Y 32] s.mem s'.mem ∧
@@ -240,7 +243,7 @@ def opIns : Op → List Nat
   | .mulSmall _ a | .copy _ a => [a]
 
 /-- An operation on slots. -/
-def opValid (op : Op) : Bool := isSlot (opOut op) && (opIns op).all isSlot
+def opValid (lo : Nat) (op : Op) : Bool := isSlot lo (opOut op) && (opIns op).all (isSlot lo)
 
 /-- An operation's result, for the values `E` of the slots. -/
 def opVal (op : Op) (E : Nat → Fe) : Fe :=
@@ -260,8 +263,8 @@ theorem opVal_congr {E E' : Nat → Fe} (op : Op) (h : ∀ q ∈ opIns op, E q =
   cases op <;> simp only [opIns, List.mem_cons, List.not_mem_nil, or_false,
     forall_eq_or_imp, forall_eq] at h <;> simp only [opVal, h]
 
-theorem run_congr (l : List Op) (hv : ∀ op ∈ l, opValid op = true) :
-    ∀ {E E' : Nat → Fe}, (∀ q, isSlot q = true → E q = E' q) → ∀ q, isSlot q = true → run l E q = run l E' q := by
+theorem run_congr (l : List Op) (hv : ∀ op ∈ l, opValid lo op = true) :
+    ∀ {E E' : Nat → Fe}, (∀ q, isSlot lo q = true → E q = E' q) → ∀ q, isSlot lo q = true → run l E q = run l E' q := by
   induction l with
   | nil => exact fun h q hq => h q hq
   | cons op l ih =>
@@ -274,16 +277,29 @@ theorem run_congr (l : List Op) (hv : ∀ op ∈ l, opValid op = true) :
       exact opVal_congr op fun q hq => h q (hvo.2 q hq)
     · simp only [Function.update_of_ne e]; exact h r hr
 
-theorem op_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (op : Op) (hv : opValid op = true) :
-    WP isa (.block op.code) s fun s' => Keep s s' ∧ Frame [sub x 288 640] s.mem s'.mem ∧
-      ∀ q, isSlot q = true → F s'.mem x q = Function.update (F s.mem x) (opOut op) (opVal op (F s.mem x)) q := by
-  have hfit := hc.fit
-  simp only [opValid, Bool.and_eq_true, List.all_eq_true] at hv
-  obtain ⟨ho, hi⟩ := hv
+/-- A frame of a slot and of words at `T` is one of the slots and `T`. -/
+theorem frame_wide {m m' : Mem} {x : BitVec 32} {o n : Nat} (hx : x.toNat + 4096 ≤ 2 ^ 32)
+    (ho : isSlot lo o = true) (hn : n ≤ 64) (hf : Frame [sub x o 32, sub x T n] m m') :
+    Frame [sub x lo (T + 64 - lo)] m m' := by
   have hob := slot_below ho; have ho' := slot_ge ho
   simp only [Below, T] at hob
+  exact hf.sub fun r hr => ⟨_, List.mem_singleton_self _, by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl
+    · exact sub_sub hx ho' (by simp only [T]; omega_using [ho', hob]) (by omega_using [hob])
+    · exact sub_sub hx (by simp only [T]; omega_using [ho', hob]) (by simp only [T]; omega_using [ho', hob, hn])
+        (by simp only [T]; decide)⟩
+
+theorem op_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) (op : Op) (hv : opValid lo op = true) :
+    WP isa (.block op.code) s fun s' => Keep s s' ∧ Frame [sub x lo (T + 64 - lo)] s.mem s'.mem ∧
+      ∀ q, isSlot lo q = true → F s'.mem x q = Function.update (F s.mem x) (opOut op) (opVal op (F s.mem x)) q := by
+  have hfit := hc.fit4
+  simp only [opValid, Bool.and_eq_true, List.all_eq_true] at hv
+  obtain ⟨ho, hi⟩ := hv
+  have hob := slot_below ho
+  simp only [Below, T] at hob
   -- An element outside the output's region (and `T`'s).
-  have other : ∀ {m m' : Mem}, Frame [sub x (opOut op) 32, sub x T 64] m m' → ∀ q, isSlot q = true →
+  have other : ∀ {m m' : Mem}, Frame [sub x (opOut op) 32, sub x T 64] m m' → ∀ q, isSlot lo q = true →
       q ≠ (opOut op) → F m' x q = F m x q := fun {m m'} hf q hq hne => by
     have hqb := slot_below hq; simp only [Below, T] at hqb
     have hs := slot_ne ho hq hne
@@ -296,18 +312,11 @@ theorem op_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (op : Op) (hv : opValid
         (by simp only [T]; omega_using [hqb, hk])
   have frame1 : ∀ {m m' : Mem}, Frame [sub x (opOut op) 32] m m' → Frame [sub x (opOut op) 32, sub x T 64] m m' :=
     fun hf => hf.mono fun r hr => by simp only [List.mem_singleton] at hr; simp [hr]
-  have wide : ∀ {m m' : Mem}, Frame [sub x (opOut op) 32, sub x T 64] m m' → Frame [sub x 288 640] m m' :=
-    fun hf => hf.sub fun r hr => ⟨_, List.mem_singleton_self _, by
-      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl
-      · exact sub_sub hfit ho' (by omega_using [hob]) (by omega_using [hob])
-      · exact sub_sub hfit (by simp only [T]; omega_using []) (by simp only [T]; omega_using [])
-          (by simp only [T]; omega_using [])⟩
   have fin : ∀ s', Keep s s' → Frame [sub x (opOut op) 32, sub x T 64] s.mem s'.mem →
       F s'.mem x (opOut op) = opVal op (F s.mem x) →
-      Keep s s' ∧ Frame [sub x 288 640] s.mem s'.mem ∧
-        ∀ q, isSlot q = true → F s'.mem x q = Function.update (F s.mem x) (opOut op) (opVal op (F s.mem x)) q :=
-    fun s' k f e => ⟨k, wide f, fun q hq => by
+      Keep s s' ∧ Frame [sub x lo (T + 64 - lo)] s.mem s'.mem ∧
+        ∀ q, isSlot lo q = true → F s'.mem x q = Function.update (F s.mem x) (opOut op) (opVal op (F s.mem x)) q :=
+    fun s' k f e => ⟨k, frame_wide hfit ho (Nat.le_refl _) f, fun q hq => by
       by_cases hq' : q = (opOut op)
       · subst hq'; rw [Function.update_self]; exact e
       · rw [Function.update_of_ne hq']; exact other f q hq hq'⟩
@@ -336,9 +345,9 @@ theorem op_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (op : Op) (hv : opValid
     exact WP.mono (copy_ok hc (slot_below ho) (slot_below hi) (slot_apart ho hi)) fun s' ⟨k, f, e⟩ =>
       fin s' k (frame1 f) (by simp only [F, opVal, opOut]; rw [e])
 
-theorem ops_ok {x : BitVec 32} : ∀ {s : State} (l : List Op), Ctx x s → (∀ op ∈ l, opValid op = true) →
-    WP isa (.block (ops l)) s fun s' => Keep s s' ∧ Frame [sub x 288 640] s.mem s'.mem ∧
-      ∀ q, isSlot q = true → F s'.mem x q = run l (F s.mem x) q
+theorem ops_ok {x : BitVec 32} : ∀ {s : State} (l : List Op), Ctx W x s → (∀ op ∈ l, opValid lo op = true) →
+    WP isa (.block (ops l)) s fun s' => Keep s s' ∧ Frame [sub x lo (T + 64 - lo)] s.mem s'.mem ∧
+      ∀ q, isSlot lo q = true → F s'.mem x q = run l (F s.mem x) q
   | _, [], _, _ => WP.block_nil ⟨Keep.refl _, Frame.refl _ _, fun _ _ => rfl⟩
   | s, op :: l, hc, hv => by
     rw [ops, List.flatMap_cons]

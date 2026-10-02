@@ -11,36 +11,7 @@ open VG.Proof.MdStream.Arm (Upd wp_ldr eval_eq)
 
 /-! ## Restoring the registers -/
 
-/-- Loads of the registers `l` from `b + offset`, none of them `b`. -/
-theorem restoreB_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
-    ∀ (s : State) (Q : State → Prop), (l.map Prod.fst).Nodup →
-    (∀ p ∈ l, p.1 ≠ b ∧ p.2 < 4096 ∧ (s.gpr b).toNat + p.2 < 2 ^ 32 ∧
-      InRegions (s.rd ++ s.wr) (State.addr (s.gpr b) + BitVec.ofNat 64 p.2) 4) →
-    (∀ s', (∀ p ∈ l, s'.gpr p.1 = s.mem.readW (State.addr (s.gpr b) + BitVec.ofNat 64 p.2) 32) →
-      (∀ r, r ∉ l.map Prod.fst → s'.gpr r = s.gpr r) → s'.mem = s.mem → s'.rd = s.rd → s'.wr = s.wr →
-      s'.sp = s.sp → WP isa (.block rest) s' Q) →
-    WP isa (.block (l.map (fun p => Instr.ldr p.1 b p.2) ++ rest)) s Q := by
-  induction l with
-  | nil => intro s Q _ _ k; exact k s (fun _ h => by cases h) (fun _ _ => rfl) rfl rfl rfl rfl
-  | cons p l ih =>
-    intro s Q hnd hl k
-    obtain ⟨h0, h1, h2, h3⟩ := hl p (by simp)
-    simp only [List.map_cons, List.nodup_cons] at hnd
-    refine wp_ldr h1 (addr_add h2) h3 fun s₁ u₁ => ?_
-    have eb : s₁.gpr b = s.gpr b := u₁.other _ (Ne.symm h0)
-    refine ih s₁ Q hnd.2 (fun q hq => ?_) fun s' hl' ho hm hrd hwr hsp => k s' (fun q hq => ?_)
-      (fun r hr => ?_) (hm.trans u₁.mem) (hrd.trans u₁.rd) (hwr.trans u₁.wr) (hsp.trans u₁.sp)
-    · rw [eb, u₁.rd, u₁.wr]; exact hl q (List.mem_cons_of_mem _ hq)
-    · rcases List.mem_cons.mp hq with rfl | hq
-      · rw [ho _ hnd.1, u₁.gpr]
-      · rw [hl' q hq, u₁.mem, eb]
-    · simp only [List.map_cons, List.mem_cons, not_or] at hr
-      rw [ho r hr.2, u₁.other r hr.1]
-
-theorem restore_eq : restore = (saved.take 7).map (fun p => Instr.ldr p.1 .r10 p.2) ++
-    ([.ldr .r10 .r10 2088] : List Instr) := rfl
-
-theorem take7_ne : ∀ p ∈ saved.take 7, p.1 ≠ .r10 := by decide
+theorem saved_eq : saved = saved.take 7 ++ [(.r10, 2088)] := rfl
 
 theorem slot_read {s₀ : State} (hp : UPre s₀) {m : Mem}
     (hf : Frame [stR s₀, ⟨State.addr (S s₀), 2064⟩, belowR s₀] (savedMem s₀) m) {d : Nat} (h₁ : 2064 ≤ d)
@@ -64,30 +35,18 @@ theorem epilogue_wp {s₀ : State} (hp : UPre s₀) {s : State} (h : LInv s₀ (
     fun r d hrd => by
       have hb := saved_bound _ hrd
       rw [slot_read hp h.frame hb.1 hb.2, savedMem_slot s₀ hrd]
-  rw [restore_eq]
-  refine restoreB_ok (saved.take 7) s _ (by decide) (fun p hp' => ?_) fun s₁ ld₁ ho₁ m₁ rd₁ wr₁ sp₁ => ?_
-  · have hb := saved_bound p (List.mem_of_mem_take hp')
-    exact ⟨take7_ne p hp', by omega, by rw [h.r10]; omega, by rw [h.r10]; exact inS _ (by omega)⟩
-  refine wp_ldr (a := State.addr (S s₀) + BitVec.ofNat 64 2088) (by decide)
-    (by rw [ho₁ _ (by decide), h.r10]; exact hp.scrA (by decide))
-    (by rw [rd₁, wr₁]; exact inS _ (by decide)) fun s₂ u₂ => WP.block_nil ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · have ld : ∀ r d, (r, d) ∈ saved.take 7 → s₂.gpr r = s₀.gpr r := fun r d hrd => by
-      have hne : r ≠ .r10 := take7_ne _ hrd
-      rw [u₂.other _ hne, ld₁ _ hrd, h.r10, sl r d (List.mem_of_mem_take hrd)]
-    simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact ld _ 2064 (by decide)
-    · exact ld _ 2068 (by decide)
-    · exact ld _ 2072 (by decide)
-    · exact ld _ 2076 (by decide)
-    · exact ld _ 2080 (by decide)
-    · exact ld _ 2084 (by decide)
-    · rw [u₂.gpr, m₁, sl .r10 2088 (by decide)]
-    · rw [u₂.other _ (by decide), ho₁ _ (by decide), h.r11]
-    · exact ld _ 2092 (by decide)
-  · rw [u₂.sp, sp₁, h.sp]
+  rw [restore, saved_eq, ← List.append_nil (List.map _ _)]
+  refine Spill.restoreBase_ok (by decide) (fun p hp' => ?_) fun s₂ ld ho m₁ _ _ sp₁ => WP.block_nil ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
+  · have hb := saved_bound p (by rw [saved_eq]; exact hp')
+    exact ⟨by omega, by rw [h.r10]; omega, by rw [h.r10]; exact inS _ (by omega)⟩
+  · by_cases hs : r ∈ saved.map Prod.fst
+    · obtain ⟨p, hp', rfl⟩ := List.mem_map.mp hs
+      rw [ld p (by rw [← saved_eq]; exact hp'), h.r10, sl _ _ hp']
+    · have hk : ∀ r ∈ preserved, r ∉ saved.map Prod.fst → r = .r11 := by decide
+      rw [hk r hr hs, ho _ (by decide), h.r11]
+  · rw [sp₁, h.sp]
   · show Spec.Aes.bytesAt s₂.mem (State.addr (St s₀)) 16 = Spec.Cmac.chain (ciph s₀) _ (blks s₀)
-    rw [u₂.mem, m₁, h.state, List.take_of_length_le (by simp [Spec.Cmac.blocksAt])]
+    rw [m₁, h.state, List.take_of_length_le (by simp [Spec.Cmac.blocksAt])]
 
 /-! ## The whole function -/
 

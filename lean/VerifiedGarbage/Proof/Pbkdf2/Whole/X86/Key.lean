@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Common
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: the prologue and the key
 
 The prologue saves our caller's registers in `scratch` (`save_ok`, which is
-`VG.Proof.Hmac.Generic.X86.save_ok` for any amount of working space before the
+`VG.Proof.Pbkdf2.Stream.X86.save_ok` for any amount of working space before the
 save area); then the key is the password, or its digest if it is longer than a
 block (`key_ok`): either gives the same `K₀` (`KeyAt`).
 -/
@@ -13,8 +13,8 @@ namespace VG.Proof.Pbkdf2.Whole.X86
 
 open VG.X86
 open VG.Impl.Pbkdf2.Whole.X86 (Fns)
-open VG.Impl.Hmac.Generic.X86 (Hash at_)
-open VG.Proof.Hmac.Generic.X86 (HashOK SavedRegs saveR InitArgs UpdArgs FinArgs init_frame upd_frame fin_frame
+open VG.Impl.Pbkdf2.Stream.X86 (Hash at_)
+open VG.Proof.Pbkdf2.Stream.X86 (HashOK SavedRegs saveR InitArgs UpdArgs FinArgs init_frame upd_frame fin_frame
   saveList_ok saveMem_frameR saveMem_read saved_mem saved_pairwise zero_append_ofNat)
 open VG.Proof.Sha256.X86.Stream (Upd Fupd wp_mov wp_movi wp_movm wp_cmpi wp_test wp_addi wp_bswap wp_store)
 open VG.Proof.Sha256.X86 (contains_offset)
@@ -25,14 +25,14 @@ open Spec.Hmac (blockKey)
 
 variable {F : Fns}
 
-/-- Saving the registers, with `scratch` in `eax`: `VG.Proof.Hmac.Generic.X86.save_ok`, for any `H.W`. -/
+/-- Saving the registers, with `scratch` in `eax`: `VG.Proof.Pbkdf2.Stream.X86.save_ok`, for any `H.W`. -/
 theorem save_ok (H : Hash) {s : State} {sc : BitVec 32} {L : Nat} (hax : s.gpr .eax = sc)
     (hsc : ⟨sc.setWidth 64, L⟩ ∈ s.wr) (hL : 8 * H.W + 16 ≤ L) (hfit : sc.toNat + L ≤ 2 ^ 32)
     {rest : List Instr} {Q : State → Prop}
     (k : ∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr →
       Frame [saveR H sc] s.mem s'.mem → SavedRegs H sc s s'.mem → WP isa (.block rest) s' Q) :
     WP isa (.block (H.save ++ rest)) s Q := by
-  rw [Hmac.Generic.X86.save_eq]
+  rw [Pbkdf2.Stream.X86.save_eq]
   refine saveList_ok H.saved s Q (fun p hp => ?_) fun s' g rd wr m => k s' g rd wr ?_ ?_
   · obtain ⟨h₁, h₂⟩ := saved_mem H hp
     rw [hax]
@@ -62,7 +62,7 @@ theorem prologue_ok : WP isa (.block F.prologue) s₀ (KR F s₀) := by
     by rw [u₃.gpr, g₂, u₁.gpr]; rfl, ?_, ?_⟩
   · rw [u₃.mem]
     exact sv₂.of_eq F.L fun r hr => u₁.other r (by
-      simp only [Hmac.Generic.X86.savedRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+      simp only [Pbkdf2.Stream.X86.savedRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl <;> decide)
   · rw [u₃.mem, ← u₁.mem]
     exact f₂.sub fun r hr => by
@@ -71,8 +71,8 @@ theorem prologue_ok : WP isa (.block F.prologue) s₀ (KR F s₀) := by
 /-! ## The stack and `scratch`, while `KR` holds -/
 
 omit hz in
-theorem stk48_sub {s : State} (hk : KR F s₀ s) : Region.Sub (Hmac.Generic.X86.stk s) (stkR s₀) := by
-  rw [Hmac.Generic.X86.stk, hk.esp]; exact below_sub (by decide) hp.sp76
+theorem stk48_sub {s : State} (hk : KR F s₀ s) : Region.Sub (Pbkdf2.Stream.X86.stk s) (stkR s₀) := by
+  rw [Pbkdf2.Stream.X86.stk, hk.esp]; exact below_sub (by decide) hp.sp76
 
 omit hz in
 /-- A region of `scratch` is apart from the stack below `esp`. -/
@@ -82,7 +82,7 @@ theorem b76 {s : State} (hk : KR F s₀ s) {R : Region} (hR : Region.Sub R (scR 
 
 omit hz in
 theorem b48 {s : State} (hk : KR F s₀ s) {R : Region} (hR : Region.Sub R (scR s₀ F)) :
-    (Hmac.Generic.X86.stk s).Disjoint R :=
+    (Pbkdf2.Stream.X86.stk s).Disjoint R :=
   (hp.b_s.sub_left (stk48_sub hp hk)).sub_right hR
 
 omit hz in
@@ -112,9 +112,9 @@ include hH
 omit hp hz hH in
 /-- `edi ← scratch + stWO`. -/
 theorem hk1_ok {s : State} (hk : KR F s₀ s) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86.scr .edi F.stWO)) s fun t =>
+    WP isa (.block (VG.Impl.Pbkdf2.Stream.X86.scr .edi F.stWO)) s fun t =>
       KR F s₀ t ∧ t.gpr .edi = dO s₀ F.stWO ∧ t.mem = s.mem := by
-  rw [← List.append_nil (VG.Impl.Hmac.Generic.X86.scr .edi F.stWO)]
+  rw [← List.append_nil (VG.Impl.Pbkdf2.Stream.X86.scr .edi F.stWO)]
   exact scr_ok hk fun s₁ u₁ => WP.block_nil ⟨hk.upd (by decide) u₁, u₁.gpr, u₁.mem⟩
 
 omit hH in
@@ -212,13 +212,13 @@ omit hz hH in
 /-- `finalize`'s arguments: the digest into `scratch`. -/
 theorem hk5_ok {s : State} (hk : KR F s₀ s) (hdi : s.gpr .edi = dO s₀ F.stWO) :
     WP isa (.block (([.mov .eax (Fns.argM 1), .mov .ecx (.imm 0)] : List Instr) ++
-      VG.Impl.Hmac.Generic.X86.scr .edx F.hkO)) s
+      VG.Impl.Pbkdf2.Stream.X86.scr .edx F.hkO)) s
       fun t => KR F s₀ t ∧ t.gpr .edi = dO s₀ F.stWO ∧ t.gpr .eax = arg s₀ 1 ∧ t.gpr .ecx = 0 ∧
         t.gpr .edx = dO s₀ F.hkO ∧ t.mem = s.mem := by
   simp only [List.cons_append, List.nil_append]
   refine wp_arg hp hk (by decide) fun s₁ u₁ => wp_movi fun s₂ u₂ => ?_
   have k₂ := (hk.upd (by decide) u₁).upd (by decide) u₂
-  rw [← List.append_nil (VG.Impl.Hmac.Generic.X86.scr .edx F.hkO)]
+  rw [← List.append_nil (VG.Impl.Pbkdf2.Stream.X86.scr .edx F.hkO)]
   refine scr_ok k₂ fun s₃ u₃ => WP.block_nil ⟨k₂.upd (by decide) u₃, ?_, ?_, ?_, u₃.gpr, by
     rw [u₃.mem, u₂.mem, u₁.mem]⟩
   · rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), hdi]
@@ -281,7 +281,7 @@ theorem hk6_ok {s : State} (hk : KR F s₀ s) (hdi : s.gpr .edi = dO s₀ F.stWO
 
 omit hp hz hH in
 theorem hk7_ok {s : State} (hk : KR F s₀ s) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86.scr .edx F.hkO ++
+    WP isa (.block (VG.Impl.Pbkdf2.Stream.X86.scr .edx F.hkO ++
       ([.mov .ecx (.imm (BitVec.ofNat 32 F.H.D))] : List Instr))) s
       fun t => KR F s₀ t ∧ t.gpr .edx = dO s₀ F.hkO ∧ t.gpr .ecx = BitVec.ofNat 32 F.H.D ∧ t.mem = s.mem :=
   scr_ok hk fun s₁ u₁ => wp_movi fun s₂ u₂ => WP.block_nil ⟨(hk.upd (by decide) u₁).upd (by decide) u₂,

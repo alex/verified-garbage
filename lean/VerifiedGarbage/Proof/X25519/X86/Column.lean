@@ -14,6 +14,8 @@ namespace VG.Proof.X25519.X86
 
 open VG VG.X86 VG.Impl.X25519.X86
 
+variable {W : Nat}
+
 /-- The accumulator `ebx + 2³² ecx + 2⁶⁴ ebp`. -/
 abbrev acc (s : State) : Nat := v s .ebx + 2 ^ 32 * v s .ecx + 2 ^ 64 * v s .ebp
 
@@ -153,9 +155,9 @@ theorem accMul_ok {s : State} {src : Src} {y : BitVec 32} (hy : readSrc s src = 
   exact this
 
 open VG.X86.Wp in
-theorem readSrc_sc {x : BitVec 32} {s : State} (hc : Ctx x s) {d : Nat} (hd : d + 4 ≤ 4096) :
+theorem readSrc_sc {x : BitVec 32} {s : State} (hc : Ctx W x s) {d : Nat} (hd : d + 4 ≤ 4096) :
     readSrc s (.mem (sc d)) = some (wd s.mem x d) :=
-  readSrc_mem hc.edi (hc.inRW hd (by decide))
+  readSrc_mem hc.edi (hc.inRW4 hd (by decide))
 
 theorem updKeep {s s' : State} {d : Reg} {w : BitVec 32} (h : Wp.Upd s s' d w)
     (hd : d ≠ .esi ∧ d ≠ .edi ∧ d ≠ .esp := by decide) : Keep s s' :=
@@ -168,20 +170,20 @@ theorem xor_ones_toNat (w : BitVec 32) : (w ^^^ 0xffffffff).toNat = 2 ^ 32 - 1 -
   rw [show (0xffffffff : BitVec 32) = BitVec.allOnes 32 by decide, BitVec.xor_allOnes, BitVec.toNat_not]
 
 open VG.X86.Wp in
-theorem term_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (t : Term) (hr : ∀ d ∈ treads t, d + 4 ≤ 4096) :
+theorem term_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) (t : Term) (hr : ∀ d ∈ treads t, d + 4 ≤ 4096) :
     WP isa (.block (Term.code t)) s fun s' =>
       (acc s + tval s.mem x t < 2 ^ 96 → acc s' = acc s + tval s.mem x t) ∧ Keep s s' ∧ s'.mem = s.mem := by
   cases t with
   | mulM a b =>
     have ha := hr a (by simp [treads]); have hb := hr b (by simp [treads])
-    refine wp_ldm hc.edi (hc.inRW ha (by decide)) fun s₁ u₁ => ?_
+    refine wp_ldm hc.edi (hc.inRW4 ha (by decide)) fun s₁ u₁ => ?_
     have c₁ := (updKeep u₁).ctx hc
     refine WP.mono (accMul_ok (readSrc_sc c₁ hb)) fun s' ⟨h, k, m⟩ => ⟨fun hlt => ?_, (updKeep u₁).trans k,
       m.trans u₁.mem⟩
     rw [h (by rw [updAcc u₁, v, u₁.gpr, u₁.mem]; exact hlt), updAcc u₁, v, u₁.gpr, u₁.mem]; rfl
   | mulI a c =>
     have ha := hr a (by simp [treads])
-    refine wp_ldm hc.edi (hc.inRW ha (by decide)) fun s₁ u₁ => ?_
+    refine wp_ldm hc.edi (hc.inRW4 ha (by decide)) fun s₁ u₁ => ?_
     refine WP.mono (accMul_ok (readSrc_imm s₁ c)) fun s' ⟨h, k, m⟩ => ⟨fun hlt => ?_, (updKeep u₁).trans k,
       m.trans u₁.mem⟩
     rw [h (by rw [updAcc u₁, v, u₁.gpr]; exact hlt), updAcc u₁, v, u₁.gpr]; rfl
@@ -191,7 +193,7 @@ theorem term_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (t : Term) (hr : ∀ 
   | addI c => exact accAdd_ok (readSrc_imm s c)
   | addNot a =>
     have ha := hr a (by simp [treads])
-    refine wp_ldm hc.edi (hc.inRW ha (by decide)) fun s₁ u₁ => ?_
+    refine wp_ldm hc.edi (hc.inRW4 ha (by decide)) fun s₁ u₁ => ?_
     refine Wp.cons (s' := (arithFlags s₁ (s₁.gpr .eax ^^^ 0xffffffff) false false).setReg .eax
       (s₁.gpr .eax ^^^ 0xffffffff)) rfl ?_
     have u₂ := Upd.flags s₁ .eax (s₁.gpr .eax ^^^ 0xffffffff) false false (s₁.gpr .eax ^^^ 0xffffffff)
@@ -203,7 +205,7 @@ theorem term_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (t : Term) (hr : ∀ 
     rw [e] at h
     rw [h (by rw [(updAcc u₂), (updAcc u₁)]; exact hlt), (updAcc u₂), (updAcc u₁)]
 
-theorem terms_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (ts : List Term)
+theorem terms_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) (ts : List Term)
     (hr : ∀ t ∈ ts, ∀ d ∈ treads t, d + 4 ≤ 4096) :
     WP isa (.block (ts.flatMap Term.code)) s fun s' =>
       (acc s + colv s.mem x ts < 2 ^ 96 → acc s' = acc s + colv s.mem x ts) ∧ Keep s s' ∧
@@ -222,10 +224,10 @@ theorem terms_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (ts : List Term)
     omega_using []
 
 open VG.X86.Wp in
-theorem colEnd_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o : Nat} (ho : o + 4 ≤ 4096) :
+theorem colEnd_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o : Nat} (ho : o + 4 ≤ 4096) :
     WP isa (.block (colEnd o)) s fun s' =>
       Keep s s' ∧ s'.mem = s.mem.writeW (addr x o) (s.gpr .ebx) ∧ acc s' = acc s / 2 ^ 32 := by
-  refine wp_stm hc.edi (hc.inW ho (by decide)) fun s₁ u₁ => ?_
+  refine wp_stm hc.edi (hc.inW4 ho (by decide)) fun s₁ u₁ => ?_
   refine wp_mov fun s₂ u₂ => wp_mov fun s₃ u₃ => wp_movi fun s₄ u₄ => WP.block_nil ?_
   have k₁ : Keep s s₁ := ⟨by rw [u₁.gpr], by rw [u₁.gpr], by rw [u₁.gpr], u₁.rd, u₁.wr⟩
   refine ⟨k₁.trans ((updKeep u₂).trans ((updKeep u₃).trans (updKeep u₄))), by rw [u₄.mem, u₃.mem, u₂.mem, u₁.mem], ?_⟩
@@ -235,7 +237,7 @@ theorem colEnd_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o : Nat} (ho : o +
   have := (s.gpr .ebx).isLt
   omega_using [this]
 
-theorem column_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (ts : List Term) {o : Nat}
+theorem column_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) (ts : List Term) {o : Nat}
     (hr : ∀ t ∈ ts, ∀ d ∈ treads t, d + 4 ≤ 4096) (ho : o + 4 ≤ 4096)
     (hlt : acc s + colv s.mem x ts < 2 ^ 96) :
     WP isa (.block (column ts o)) s fun s' => Keep s s' ∧ Frame [sub x o 4] s.mem s'.mem ∧
@@ -245,7 +247,7 @@ theorem column_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (ts : List Term) {o
   refine WP.mono (colEnd_ok (k₁.ctx hc) ho) fun s₂ ⟨k₂, m₂, h₂⟩ =>
     ⟨k₁.trans k₂, ?_, ?_, by rw [h₂, h₁ hlt]⟩
   · rw [m₂, m₁]
-    exact frame_write1 (Frame.refl _ _) hc.fit ho (Nat.le_refl _) (Nat.le_refl _) _
+    exact frame_write1 (Frame.refl _ _) hc.fit4 ho (Nat.le_refl _) (Nat.le_refl _) _
   · rw [m₂, wv, wd_write_self, ← h₁ hlt]
     have := (s₁.gpr .ecx).isLt; have := (s₁.gpr .ebp).isLt
     simp only [acc, v]
@@ -264,7 +266,7 @@ theorem digit_step (P x : Nat) : P * (x % 2 ^ 32) + P * 2 ^ 32 * (x / 2 ^ 32) = 
 /-- `n` columns at `[x + o]`: their words and the carry are the sum of the
 columns' values (with the accumulator's value on entry), as long as each
 column reads no word an earlier one stored. -/
-theorem cols_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o : Nat} (ts : Nat → List Term) :
+theorem cols_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o : Nat} (ts : Nat → List Term) :
     ∀ n, o + 4 * n ≤ 4096 →
     (∀ k < n, ∀ t ∈ ts k, ∀ d ∈ treads t, d + 4 ≤ 4096 ∧ (d + 4 ≤ o ∨ o + 4 * k ≤ d)) →
     (∀ k < n, colv s.mem x (ts k) < 2 ^ 68) → acc s < 2 ^ 40 →
@@ -277,7 +279,7 @@ theorem cols_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o : Nat} (ts : Nat �
     refine WP.block_append (WP.mono (cols_ok hc ts n (by omega_using [ho])
       (fun k hk => hr k (by omega_using [hk])) (fun k hk => hb k (by omega_using [hk])) ha)
       fun s₁ ⟨k₁, f₁, e₁, a₁⟩ => ?_)
-    have hfit := hc.fit
+    have hfit := hc.fit4
     have hV : colv s₁.mem x (ts n) = colv s.mem x (ts n) := colv_congr fun t ht d hd =>
       wd_frame1 f₁ hfit (by omega_using [ho]) (hr n (by omega_using []) t ht d hd).1
         (hr n (by omega_using []) t ht d hd).2
