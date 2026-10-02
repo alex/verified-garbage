@@ -128,6 +128,23 @@ theorem ret_kept {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {SP : Addr
     (hd : ∀ r ∈ rs, (⟨SP, 8⟩ : Region).Disjoint r) : m'.readW SP 64 = m.readW SP 64 :=
   hf.readW (r := ⟨SP, 8⟩) (Region.contains_self _ _) hd (by decide)
 
+/-- The end of every function: our caller's registers restored. -/
+theorem exit_ok {s s₀ : State} {W : Addr} (h15 : s.gpr .r15 = W) (hsp : s.gpr .rsp = s₀.gpr .rsp)
+    (hr : Covers [⟨W, 2560⟩] (s.rd ++ s.wr)) (hs : SavedAt s.mem W s₀)
+    (hret : s.mem.readW (s₀.gpr .rsp) 64 = s₀.mem.readW (s₀.gpr .rsp) 64) :
+    WP isa (.block restore) s fun s' => gprPreserved s₀ s' ∧ s'.mem = s.mem ∧ s'.gpr .rax = s.gpr .rax := by
+  obtain ⟨s', run, hsv, hother, hm, -, -⟩ := restore_ok s h15 hr hs
+  refine WP.of_runBlock ⟨s', run, ⟨fun r hr => ?_, by rw [hm, hret]⟩, hm, hother .rax (by simp [saved])⟩
+  simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  · exact hsv (.rbx, 128) (by simp [saved])
+  · exact hsv (.rbp, 136) (by simp [saved])
+  · rw [hother .rsp (by simp [saved]), hsp]
+  · exact hsv (.r12, 144) (by simp [saved])
+  · exact hsv (.r13, 152) (by simp [saved])
+  · exact hsv (.r14, 160) (by simp [saved])
+  · exact hsv (.r15, 168) (by simp [saved])
+
 section
 variable {Ctx St W SP : Addr} (L : Lay Ctx St W SP)
 include L
@@ -181,5 +198,22 @@ theorem saved_crFrame {s : State} {D : Addr} {n : Nat} (hd : DataW Ctx St W SP s
   · exact (L.stk_w (by decide)).symm
 
 end
+
+theorem ctxH_eq (m : Mem) (p : Addr) : Spec.Gcm.ctxH m p = Spec.Gcm.blockAt m (p + BitVec.ofNat 64 240) := rfl
+
+theorem toNat_mod16 (n : Nat) : (BitVec.ofNat 64 n).toNat % 16 = n % 16 := by
+  rw [BitVec.toNat_ofNat, Nat.mod_mod_of_dvd _ (by decide)]
+
+/-- The layout, from disjointness of the context, the state, `W` and the stack. -/
+theorem Lay.of {Ctx St W SP : Addr} (cw : Ctx.toNat + 256 ≤ 2 ^ 64) (sw : St.toNat + 80 ≤ 2 ^ 64)
+    (ww : W.toNat + 2560 ≤ 2 ^ 64) (cs : (⟨Ctx, 256⟩ : Region).Disjoint ⟨St, 80⟩)
+    (cW : (⟨Ctx, 256⟩ : Region).Disjoint ⟨W, 2560⟩) (sW : (⟨St, 80⟩ : Region).Disjoint ⟨W, 2560⟩)
+    (kc : (below SP 8).Disjoint ⟨Ctx, 256⟩) (ks : (below SP 8).Disjoint ⟨St, 80⟩)
+    (kw : (below SP 8).Disjoint ⟨W, 2560⟩) : Lay Ctx St W SP :=
+  ⟨cw, sw, ww, cs, cW, sW.sub_right (Region.sub_prefix (by decide)), sW.sub_right (Lay.wSub (by decide)),
+    kc, ks, kw⟩
+
+theorem ofNat_lit (n : Nat) : (OfNat.ofNat n : Addr) = BitVec.ofNat 64 n := rfl
+
 
 end VG.Proof.AesGcm.X86_64

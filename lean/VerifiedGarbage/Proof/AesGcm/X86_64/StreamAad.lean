@@ -18,20 +18,6 @@ open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt StreamRepr ctxH)
 open VG.Proof.Gcm (Absorbed Ctr)
 
-theorem ctxH_eq (m : Mem) (p : Addr) : ctxH m p = blockAt m (p + BitVec.ofNat 64 240) := rfl
-
-theorem toNat_mod16 (n : Nat) : (BitVec.ofNat 64 n).toNat % 16 = n % 16 := by
-  rw [BitVec.toNat_ofNat, Nat.mod_mod_of_dvd _ (by decide)]
-
-/-- The layout, from disjointness of the context, the state, `W` and the stack. -/
-theorem Lay.of {Ctx St W SP : Addr} (cw : Ctx.toNat + 256 ≤ 2 ^ 64) (sw : St.toNat + 80 ≤ 2 ^ 64)
-    (ww : W.toNat + 2560 ≤ 2 ^ 64) (cs : (⟨Ctx, 256⟩ : Region).Disjoint ⟨St, 80⟩)
-    (cW : (⟨Ctx, 256⟩ : Region).Disjoint ⟨W, 2560⟩) (sW : (⟨St, 80⟩ : Region).Disjoint ⟨W, 2560⟩)
-    (kc : (below SP 8).Disjoint ⟨Ctx, 256⟩) (ks : (below SP 8).Disjoint ⟨St, 80⟩)
-    (kw : (below SP 8).Disjoint ⟨W, 2560⟩) : Lay Ctx St W SP :=
-  ⟨cw, sw, ww, cs, cW, sW.sub_right (Region.sub_prefix (by decide)), sW.sub_right (Lay.wSub (by decide)),
-    kc, ks, kw⟩
-
 /-- The regions `vg_aes_gcm_stream_aad` writes. -/
 abbrev aadFrame (St W SP : Addr) : List Region := [⟨St + BitVec.ofNat 64 16, 32⟩, ⟨W, 2560⟩, below SP 8]
 
@@ -133,8 +119,6 @@ theorem streamAad_run (v : GcmImpl) {s : State} (hp : Proof.AesGcm.streamAadX86_
         (fun r hr => dS r hr 32 (x.length % 16) (by omega)) (by omega))
     rw [hm₄, ← hdata]
     exact ho.abs ha₂
-
-theorem ofNat_lit (n : Nat) : (OfNat.ofNat n : Addr) = BitVec.ofNat 64 n := rfl
 
 /-- `vg_aes_gcm_stream_aad`. -/
 theorem streamAad_wp (v : GcmImpl) {s : State} (hp : Proof.AesGcm.streamAadX86_64.pre s) :
