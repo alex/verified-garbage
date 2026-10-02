@@ -14,6 +14,9 @@ restore after it by the taint analysis again.
 namespace VG.Proof.CmacAes.X86
 
 open VG VG.X86 VG.Impl.CmacAes.X86
+open VG.Proof.Aes.X86 (Ctr32Impl)
+
+variable (v : Ctr32Impl)
 
 theorem FPre.argsOut {s₀ : State} (hp : FPre s₀) {s : State} (hesp : s.gpr .esp = E s₀) (hwr : s.wr = s₀.wr) :
     ArgsOut 6 s := by
@@ -43,8 +46,8 @@ theorem FMid.f {s₀ s : State} (h : FMid s₀ s) :
 theorem FMid.pt {s₀ : State} (hp : FPre s₀) {s : State} (h : FMid s₀ s) : Pt s₀ s :=
   ⟨h.esp, h.wr, fun _ hi => hp.arg_keep (UPre.big_of h.f) hi⟩
 
-theorem fcall_after {s₀ : State} (hp : FPre s₀) {s : State} (h : FMid s₀ s) : WP isa ctrCall s (Pt s₀) :=
-  WP.mono (ctr_call h.pre) fun s' hc => by
+theorem fcall_after {s₀ : State} (hp : FPre s₀) {s : State} (h : FMid s₀ s) : WP isa (ctrCall v.callee) s (Pt s₀) :=
+  WP.mono (ctr_call v h.pre) fun s' hc => by
     have hb : below (s.gpr .esp) 28 = stkR s₀ := by rw [h.esp]; exact hp.below_eq
     have fr := hc.frame
     rw [hb, hp.cA] at fr
@@ -60,7 +63,7 @@ theorem fcall_after {s₀ : State} (hp : FPre s₀) {s : State} (h : FMid s₀ s
 
 theorem finalize_rel {s₀ s₀' : State} (h0 : finalizeX86.pre s₀) (h0' : finalizeX86.pre s₀')
     (hq : finalizeX86.pub s₀ s₀') :
-    RelCT isa (fun a b => a = s₀ ∧ b = s₀') finalize fun _ _ => True := by
+    RelCT isa (fun a b => a = s₀ ∧ b = s₀') (finalize v.callee) fun _ _ => True := by
   have hp := FPre.of h0
   have hp' := FPre.of h0'
   have eW : W s₀ = W s₀' := hq.2 0 (by decide)
@@ -75,16 +78,16 @@ theorem finalize_rel {s₀ s₀' : State} (h0 : finalizeX86.pre s₀) (h0' : fin
     (c := finPre) (by taint_decide)).wp (F₁ := FMid s₀) (F₂ := FMid s₀')
     fun a b h => by obtain ⟨rfl, rfl⟩ := h; exact ⟨finPre_wp hp, finPre_wp hp'⟩).mono (fun _ _ h => h)
     fun _ _ h => h.2
-  have c := ((ctr_rel (E := E s₀) (P := fun s₁ s₂ => FMid s₀ s₁ ∧ FMid s₀' s₂) fun s₁ s₂ h =>
+  have c := ((ctr_rel v (E := E s₀) (P := fun s₁ s₂ => FMid s₀ s₁ ∧ FMid s₀' s₂) fun s₁ s₂ h =>
       ⟨h.1.pre, by rw [eW, eS, eSt, eR]; exact h.2.pre, h.1.esp, h.2.esp.trans hq.1.symm⟩).wp
-      (F₁ := Pt s₀) (F₂ := Pt s₀') fun _ _ h => ⟨fcall_after hp h.1, fcall_after hp' h.2⟩).mono
+      (F₁ := Pt s₀) (F₂ := Pt s₀') fun _ _ h => ⟨fcall_after v hp h.1, fcall_after v hp' h.2⟩).mono
       (fun _ _ h => h) fun _ _ h => h.2
   have b := RelCT.taint (A := taint) (P := fun s₁ s₂ => Pt s₀ s₁ ∧ Pt s₀' s₂) (argTaint [] (4 + 4 * 6))
     (fun _ _ h => fagree hq hp hp' h.1 h.2 fun r hr => by simp at hr)
     (c := .block (restore 5)) (by taint_decide)
   exact a.seq (c.seq b)
 
-theorem finalize_ct : ConstantTime isa finalizeX86.pre finalizeX86.pub finalize :=
-  fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => (finalize_rel h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+theorem finalize_ct : ConstantTime isa finalizeX86.pre finalizeX86.pub (finalize v.callee) :=
+  fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => (finalize_rel v h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
 
 end VG.Proof.CmacAes.X86

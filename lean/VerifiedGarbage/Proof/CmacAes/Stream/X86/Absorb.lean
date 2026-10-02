@@ -12,7 +12,11 @@ min(len, 16 - h)` bytes after them, and sets up the first call of
 
 namespace VG.Proof.CmacAes.Stream.X86
 
-open VG VG.X86 VG.Impl.CmacAes.Stream.X86 VG.WriteBytes
+open VG VG.X86 VG.Impl.CmacAes.Stream.X86
+
+open VG.WriteBytes
+
+variable (v : Proof.Aes.X86.Ctr32Impl)
 open VG.Impl.CmacAes.X86 (at_ argOp)
 open VG.Proof.CmacAes.X86 (wp_arg saveMem_congr)
 open VG.Proof.Cmac.Stream (held held_le)
@@ -125,8 +129,8 @@ theorem upd_aft {s₀ s s' : State} (hp : APre s₀) {Dd : BitVec 32} {n v : Nat
     (by rw [h.wr, hc.wr]) F, by rw [h.saved .ebp (by simp [calleeSaved]), hbp], F⟩
 
 theorem call1_after {s₀ s : State} (hp : APre s₀) (h : AMid₁ s₀ s) :
-    WP isa (call6 "vg_cmac_aes_update" Impl.CmacAes.X86.update) s (AAft s₀ (fOf (aC s₀) (aL s₀))) :=
-  WP.mono (upd_call h.args) fun _ h' => upd_aft hp (h.mem ▸ m4_big hp) h.ctx h.ebp h'
+    WP isa (call6 ("vg_cmac_aes_update" ++ v.suffix) (Impl.CmacAes.X86.update v.callee)) s (AAft s₀ (fOf (aC s₀) (aL s₀))) :=
+  WP.mono ((upd_call v) h.args) fun _ h' => upd_aft hp (h.mem ▸ m4_big hp) h.ctx h.ebp h'
 
 /-- What `chain2` leaves, for the second call. -/
 structure AMid₂ (s₀ s : State) : Prop where
@@ -138,8 +142,8 @@ theorem chain2_mid {s₀ s : State} (hp : APre s₀) (h : AAft s₀ (fOf (aC s�
   WP.mono (chain2_wp hp h.ctx h.ebp) fun _ h' => ⟨⟨h'.args, h'.ctx, h'.ebp, h'.mem ▸ h.frame⟩, h'.mem⟩
 
 theorem call2_after {s₀ s : State} (hp : APre s₀) (h : AMid₂ s₀ s) :
-    WP isa (call6 "vg_cmac_aes_update" Impl.CmacAes.X86.update) s
+    WP isa (call6 ("vg_cmac_aes_update" ++ v.suffix) (Impl.CmacAes.X86.update v.callee)) s
       (AAft s₀ (fOf (aC s₀) (aL s₀) + 16 * nbOf (aC s₀) (aL s₀))) :=
-  WP.mono (upd_call h.args) fun _ h' => upd_aft hp h.aft.frame h.aft.ctx h.aft.ebp h'
+  WP.mono ((upd_call v) h.args) fun _ h' => upd_aft hp h.aft.frame h.aft.ctx h.aft.ebp h'
 
 end VG.Proof.CmacAes.Stream.X86

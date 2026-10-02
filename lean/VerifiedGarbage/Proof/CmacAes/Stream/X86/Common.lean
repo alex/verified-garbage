@@ -13,7 +13,11 @@ and the registers saved in the scratch buffer (`slot_read`, `restore_wp`).
 
 namespace VG.Proof.CmacAes.Stream.X86
 
-open VG VG.X86 VG.Impl.CmacAes.Stream.X86 VG.WriteBytes
+open VG VG.X86 VG.Impl.CmacAes.Stream.X86
+
+open VG.WriteBytes
+
+variable (v : Proof.Aes.X86.Ctr32Impl)
 open VG.Impl.CmacAes.X86 (at_ argOp)
 open VG.Proof.MdStream.X86 (Upd Mupd Fupd WP.cons wp_mov wp_movi wp_movm wp_store wp_addi wp_add wp_subi wp_sub
   wp_andi wp_cmp wp_test wp_movzx8 wp_store8 eval_e eval_ne eval_b ofNat_beq_zero sub_ofNat)

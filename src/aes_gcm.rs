@@ -11,7 +11,7 @@
 //! constant time, before it decrypts anything.
 //!
 //! It follows the implementation of AES (`crate::aes::Backend`), with
-//! GHASH's for the same CPUs: on x86-64, CPUs with AES-NI, PCLMULQDQ and
+//! GHASH's for the same CPUs: on x86 and x86-64, CPUs with AES-NI, PCLMULQDQ and
 //! SSSE3 run `vg_aes_expand_key_aesni`, `vg_aes_ctr32_aesni` and
 //! `vg_ghash_pclmul` instead, which have the same contracts; on AArch64,
 //! CPUs with the AES and PMULL extensions run `vg_aes_expand_key_aes`,
@@ -29,10 +29,10 @@ use crate::aes::Backend;
 use crate::arch::aes::{vg_aes_ctr32, vg_aes_expand_key};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::aes::{vg_aes_ctr32_aes, vg_aes_expand_key_aes};
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::aes::{vg_aes_ctr32_aesni, vg_aes_expand_key_aesni};
 use crate::arch::gcm::vg_ghash;
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::gcm::{VG_GHASH_PMULL_FEATURES, vg_ghash_pmull};
@@ -133,7 +133,7 @@ impl Drop for AesGcm {
 
 /// The best implementation of AES a CPU with the features `f` can run
 /// together with GHASH's for the same CPUs.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 fn select(f: Features) -> Backend {
     Backend::select_for(f, &[VG_GHASH_PCLMUL_FEATURES])
 }
@@ -147,7 +147,7 @@ fn select(f: Features) -> Backend {
 
 /// The best implementation a CPU with the features `f` can run: there is
 /// only one here.
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
 fn select(f: Features) -> Backend {
     Backend::select(f)
 }
@@ -182,7 +182,7 @@ impl AesGcm {
                 Backend::Scalar => {
                     vg_aes_expand_key(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
                 }
-                #[cfg(target_arch = "x86_64")]
+                #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                 Backend::AesNi => {
                     vg_aes_expand_key_aesni(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
                 }
@@ -208,7 +208,7 @@ impl AesGcm {
         let mut scratch = MaybeUninit::<[u64; 256]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_aes_ctr32,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_aes_ctr32_aesni,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => vg_aes_ctr32_aes,
@@ -240,7 +240,7 @@ impl AesGcm {
         let mut scratch = MaybeUninit::<[u64; 32]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_ghash,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_ghash_pclmul,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => vg_ghash_pmull,
@@ -568,7 +568,7 @@ mod tests {
     /// GHASH's for the same CPUs.
     #[test]
     fn backend() {
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
             let all = Features::of(&["aes", "pclmulqdq", "ssse3"]);
             assert_eq!(select(all), Backend::AesNi);

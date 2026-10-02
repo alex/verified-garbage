@@ -19,6 +19,8 @@ which calls nothing, 20.
 namespace VG.Proof.CmacAes.Stream.X86
 
 open VG VG.X86 VG.Impl.CmacAes.Stream.X86
+
+variable (v : Proof.Aes.X86.Ctr32Impl)
 open VG.Proof.CmacAes.X86 (updateX86 subkeysX86 finalizeX86 update_wp subkeys_wp finalize_wp update_ct
   subkeys_ct finalize_ct toNat_rounds)
 
@@ -61,14 +63,14 @@ theorem eq_ofNat {x : BitVec 32} {n : Nat} (h : x = BitVec.ofNat 32 n) (hn : n <
 
 /-! ## The callees -/
 
-theorem upd_nosp : NoSp Impl.CmacAes.X86.update := NoSp.of_all (by lit_decide)
-theorem upd_stack : stackUse Impl.CmacAes.X86.update = 28 := by lit_decide
-theorem sub_nosp : NoSp Impl.CmacAes.X86.subkeys := NoSp.of_all (by lit_decide)
-theorem sub_stack : stackUse Impl.CmacAes.X86.subkeys = 28 := by lit_decide
-theorem fin_nosp : NoSp Impl.CmacAes.X86.finalize := NoSp.of_all (by lit_decide)
-theorem fin_stack : stackUse Impl.CmacAes.X86.finalize = 28 := by lit_decide
-theorem ek_nosp : NoSp Impl.Aes.X86.expandKey := NoSp.of_all (by lit_decide)
-theorem ek_stack : stackUse Impl.Aes.X86.expandKey = 0 := by lit_decide
+theorem upd_nosp : NoSp (Impl.CmacAes.X86.update v.callee) := Proof.CmacAes.X86.update_nosp v
+theorem upd_stack : stackUse (Impl.CmacAes.X86.update v.callee) = 28 := Proof.CmacAes.X86.update_stack v
+theorem sub_nosp : NoSp (Impl.CmacAes.X86.subkeys v.callee) := Proof.CmacAes.X86.subkeys_nosp v
+theorem sub_stack : stackUse (Impl.CmacAes.X86.subkeys v.callee) = 28 := Proof.CmacAes.X86.subkeys_stack v
+theorem fin_nosp : NoSp (Impl.CmacAes.X86.finalize v.callee) := Proof.CmacAes.X86.finalize_nosp v
+theorem fin_stack : stackUse (Impl.CmacAes.X86.finalize v.callee) = 28 := Proof.CmacAes.X86.finalize_stack v
+theorem ek_nosp : NoSp v.expand.code := v.expandNosp
+theorem ek_stack : stackUse v.expand.code = 0 := v.expandStack
 
 /-! ## `vg_cmac_aes_update` -/
 
@@ -166,16 +168,16 @@ theorem callPre : CallPre updateX86 rs6 (uRd (s.gpr .esp) W D n) (uWr C S) s := 
 end UArgs
 
 theorem upd_call {s : State} {W C D S : BitVec 32} {R n : Nat} (h : UArgs s W C D S R n) :
-    WP isa (call6 "vg_cmac_aes_update" Impl.CmacAes.X86.update) s (UPost s W C D S R n) := by
+    WP isa (call6 ("vg_cmac_aes_update" ++ v.suffix) (Impl.CmacAes.X86.update v.callee)) s (UPost s W C D S R n) := by
   have hR := toNat_rounds h.rounds
   have hN : (BitVec.ofNat 32 n).toNat = n := eq_ofNat rfl (by have := h.hn; omega)
   have hRb : 16 * (R + 1) ≤ 240 := by rcases h.rounds with h | h | h <;> omega
   have he := h.esp
-  refine WP.callWith (rs := rs6) (k := updateX86) (fun _ hs => update_wp hs) upd_nosp (by simp) hrs6
-    (by rw [upd_stack]; simp only [List.length_cons, List.length_nil]; omega) h.callPre
+  refine WP.callWith (rs := rs6) (k := updateX86) (fun _ hs => update_wp v hs) (upd_nosp v) (by simp) hrs6
+    (by rw [(upd_stack v)]; simp only [List.length_cons, List.length_nil]; omega) h.callPre
     fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   obtain ⟨a0, a1, a2, a3, a4, -⟩ := h.args
-  rw [upd_stack] at f'
+  rw [(upd_stack v)] at f'
   refine ⟨rd', wr', cs', f'.mono fun r hr => by simpa using hr, ?_⟩
   have keep : ∀ {p : BitVec 32} {k : Nat}, (below (s.gpr .esp) 56).Disjoint ⟨p.setWidth 64, k⟩ → k ≤ 2 ^ 64 →
       Spec.Aes.bytesAt (pushed rs6 s).callEntry.mem (p.setWidth 64) k = Spec.Aes.bytesAt s.mem (p.setWidth 64) k :=
@@ -187,8 +189,8 @@ theorem upd_call {s : State} {W C D S : BitVec 32} {R n : Nat} (h : UArgs s W C 
 
 theorem upd_rel {W C D S E : BitVec 32} {R n : Nat} {P : State → State → Prop}
     (h : ∀ s₁ s₂, P s₁ s₂ → UArgs s₁ W C D S R n ∧ UArgs s₂ W C D S R n ∧ s₁.gpr .esp = E ∧ s₂.gpr .esp = E) :
-    RelCT isa P (call6 "vg_cmac_aes_update" Impl.CmacAes.X86.update) fun _ _ => True := by
-  refine RelCT.callWith (fun _ hs => update_wp hs) update_ct (uRd E W D n) (uWr C S) fun s₁ s₂ hp => ?_
+    RelCT isa P (call6 ("vg_cmac_aes_update" ++ v.suffix) (Impl.CmacAes.X86.update v.callee)) fun _ _ => True := by
+  refine RelCT.callWith (fun _ hs => update_wp v hs) (update_ct v) (uRd E W D n) (uWr C S) fun s₁ s₂ hp => ?_
   obtain ⟨h₁, h₂, e₁, e₂⟩ := h s₁ s₂ hp
   have p₁ := h₁.callPre
   have p₂ := h₂.callPre
@@ -307,16 +309,16 @@ theorem callPre : CallPre finalizeX86 rs6 (fRd (s.gpr .esp) K P L) (fWr St S) s 
 end FArgs
 
 theorem fin_call {s : State} {K St P S : BitVec 32} {L R : Nat} (h : FArgs s K St P S L R) :
-    WP isa (call6 "vg_cmac_aes_finalize" Impl.CmacAes.X86.finalize) s (FPost s K St P S L R) := by
+    WP isa (call6 ("vg_cmac_aes_finalize" ++ v.suffix) (Impl.CmacAes.X86.finalize v.callee)) s (FPost s K St P S L R) := by
   have hR := toNat_rounds h.rounds
   have hL : (BitVec.ofNat 32 L).toNat = L := eq_ofNat rfl (by have := h.len; omega)
   have hRb : 16 * (R + 1) ≤ 272 := by rcases h.rounds with h | h | h <;> omega
   have he := h.esp
-  refine WP.callWith (rs := rs6) (k := finalizeX86) (fun _ hs => finalize_wp hs) fin_nosp (by simp) hrs6
-    (by rw [fin_stack]; simp only [List.length_cons, List.length_nil]; omega) h.callPre
+  refine WP.callWith (rs := rs6) (k := finalizeX86) (fun _ hs => finalize_wp v hs) (fin_nosp v) (by simp) hrs6
+    (by rw [(fin_stack v)]; simp only [List.length_cons, List.length_nil]; omega) h.callPre
     fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   obtain ⟨a0, a1, a2, a3, a4, -⟩ := h.args
-  rw [fin_stack] at f'
+  rw [(fin_stack v)] at f'
   refine ⟨rd', wr', cs', f'.mono fun r hr => by simpa using hr, ?_⟩
   have keep : ∀ {p : Addr} {k : Nat}, (below (s.gpr .esp) 56).Disjoint ⟨p, k⟩ → k ≤ 2 ^ 64 →
       Spec.Aes.bytesAt (pushed rs6 s).callEntry.mem p k = Spec.Aes.bytesAt s.mem p k :=
@@ -333,8 +335,8 @@ theorem fin_call {s : State} {K St P S : BitVec 32} {L R : Nat} (h : FArgs s K S
 
 theorem fin_rel {K St P S E : BitVec 32} {L R : Nat} {Q : State → State → Prop}
     (h : ∀ s₁ s₂, Q s₁ s₂ → FArgs s₁ K St P S L R ∧ FArgs s₂ K St P S L R ∧ s₁.gpr .esp = E ∧ s₂.gpr .esp = E) :
-    RelCT isa Q (call6 "vg_cmac_aes_finalize" Impl.CmacAes.X86.finalize) fun _ _ => True := by
-  refine RelCT.callWith (fun _ hs => finalize_wp hs) finalize_ct (fRd E K P L) (fWr St S) fun s₁ s₂ hp => ?_
+    RelCT isa Q (call6 ("vg_cmac_aes_finalize" ++ v.suffix) (Impl.CmacAes.X86.finalize v.callee)) fun _ _ => True := by
+  refine RelCT.callWith (fun _ hs => finalize_wp v hs) (finalize_ct v) (fRd E K P L) (fWr St S) fun s₁ s₂ hp => ?_
   obtain ⟨h₁, h₂, e₁, e₂⟩ := h s₁ s₂ hp
   have p₁ := h₁.callPre
   have p₂ := h₂.callPre
@@ -438,15 +440,15 @@ theorem callPre : CallPre subkeysX86 rs4 (sRd (s.gpr .esp) W) (sWr K S) s := by
 end SArgs
 
 theorem sub_call {s : State} {W K S : BitVec 32} {R : Nat} (h : SArgs s W K S R) :
-    WP isa (call4 "vg_cmac_aes_subkeys" Impl.CmacAes.X86.subkeys) s (SPost s W K S R) := by
+    WP isa (call4 ("vg_cmac_aes_subkeys" ++ v.suffix) (Impl.CmacAes.X86.subkeys v.callee)) s (SPost s W K S R) := by
   have hR := toNat_rounds h.rounds
   have hRb : 16 * (R + 1) ≤ 240 := by rcases h.rounds with h | h | h <;> omega
   have he := h.esp
-  refine WP.callWith (rs := rs4) (k := subkeysX86) (fun _ hs => subkeys_wp hs) sub_nosp (by simp) hrs4
-    (by rw [sub_stack]; simp only [List.length_cons, List.length_nil]; omega) h.callPre
+  refine WP.callWith (rs := rs4) (k := subkeysX86) (fun _ hs => subkeys_wp v hs) (sub_nosp v) (by simp) hrs4
+    (by rw [(sub_stack v)]; simp only [List.length_cons, List.length_nil]; omega) h.callPre
     fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   obtain ⟨a0, a1, a2, -⟩ := h.args
-  rw [sub_stack] at f'
+  rw [(sub_stack v)] at f'
   refine ⟨rd', wr', cs', f'.mono fun r hr => by simpa using hr, ?_⟩
   simp only [subkeysX86, arg_withRegions, State.withRegions_mem, a0, a1, a2, hR, m₂] at post
   rw [post, Proof.CmacAes.X86.ciphAt,
@@ -454,8 +456,8 @@ theorem sub_call {s : State} {W K S : BitVec 32} {R : Nat} (h : SArgs s W K S R)
 
 theorem sub_rel {W K S E : BitVec 32} {R : Nat} {P : State → State → Prop}
     (h : ∀ s₁ s₂, P s₁ s₂ → SArgs s₁ W K S R ∧ SArgs s₂ W K S R ∧ s₁.gpr .esp = E ∧ s₂.gpr .esp = E) :
-    RelCT isa P (call4 "vg_cmac_aes_subkeys" Impl.CmacAes.X86.subkeys) fun _ _ => True := by
-  refine RelCT.callWith (fun _ hs => subkeys_wp hs) subkeys_ct (sRd E W) (sWr K S) fun s₁ s₂ hp => ?_
+    RelCT isa P (call4 ("vg_cmac_aes_subkeys" ++ v.suffix) (Impl.CmacAes.X86.subkeys v.callee)) fun _ _ => True := by
+  refine RelCT.callWith (fun _ hs => subkeys_wp v hs) (subkeys_ct v) (sRd E W) (sWr K S) fun s₁ s₂ hp => ?_
   obtain ⟨h₁, h₂, e₁, e₂⟩ := h s₁ s₂ hp
   have p₁ := h₁.callPre
   have p₂ := h₂.callPre
@@ -553,22 +555,22 @@ theorem callPre : CallPre Proof.Aes.expandKeyX86 rs4 (eRd (s.gpr .esp) Kp KL) (e
 end EArgs
 
 theorem ek_call {s : State} {Kp W S : BitVec 32} {KL : Nat} (h : EArgs s Kp W S KL) :
-    WP isa (call4 "vg_aes_expand_key" Impl.Aes.X86.expandKey) s (EPost s Kp W S KL) := by
+    WP isa (call4 v.expand.name v.expand.code) s (EPost s Kp W S KL) := by
   have hK : (BitVec.ofNat 32 KL).toNat = KL := eq_ofNat rfl (by rcases h.klen with h | h | h <;> omega)
   have he := h.esp
-  refine WP.callWith (rs := rs4) (k := Proof.Aes.expandKeyX86) Proof.Aes.X86.expandKey_correct ek_nosp
-    (by simp) hrs4 (by rw [ek_stack]; simp only [List.length_cons, List.length_nil]; omega) h.callPre
+  refine WP.callWith (rs := rs4) (k := Proof.Aes.expandKeyX86) v.expandOk (ek_nosp v)
+    (by simp) hrs4 (by rw [(ek_stack v)]; simp only [List.length_cons, List.length_nil]; omega) h.callPre
     fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   obtain ⟨a0, a1, a2, -⟩ := h.args
-  rw [ek_stack] at f'
+  rw [(ek_stack v)] at f'
   refine ⟨rd', wr', cs', f'.mono fun r hr => by simpa using hr, ?_⟩
   simp only [Proof.Aes.expandKeyX86, arg_withRegions, State.withRegions_mem, a0, a1, a2, hK, m₂] at post
   rw [post, entry_bytes h.fit hrs4 (by simp) he h.bK (by rcases h.klen with h | h | h <;> omega)]
 
 theorem ek_rel {Kp W S E : BitVec 32} {KL : Nat} {P : State → State → Prop}
     (h : ∀ s₁ s₂, P s₁ s₂ → EArgs s₁ Kp W S KL ∧ EArgs s₂ Kp W S KL ∧ s₁.gpr .esp = E ∧ s₂.gpr .esp = E) :
-    RelCT isa P (call4 "vg_aes_expand_key" Impl.Aes.X86.expandKey) fun _ _ => True := by
-  refine RelCT.callWith Proof.Aes.X86.expandKey_correct Proof.Aes.X86.expandKey_ct (eRd E Kp KL) (eWr W S)
+    RelCT isa P (call4 v.expand.name v.expand.code) fun _ _ => True := by
+  refine RelCT.callWith v.expandOk v.expandCt (eRd E Kp KL) (eWr W S)
     fun s₁ s₂ hp => ?_
   obtain ⟨h₁, h₂, e₁, e₂⟩ := h s₁ s₂ hp
   have p₁ := h₁.callPre
