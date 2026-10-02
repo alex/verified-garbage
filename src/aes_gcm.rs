@@ -32,10 +32,10 @@ use crate::arch::aes::{vg_aes_ctr32_aes, vg_aes_expand_key_aes};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::aes::{vg_aes_ctr32_aesni, vg_aes_expand_key_aesni};
 use crate::arch::gcm::vg_ghash;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::gcm::{VG_GHASH_AES_FEATURES, vg_ghash_aes};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
 use core::mem::MaybeUninit;
