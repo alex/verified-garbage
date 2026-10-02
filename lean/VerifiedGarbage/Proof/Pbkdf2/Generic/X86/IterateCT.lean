@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.Pbkdf2.Generic.X86.Iterate
 /-!
 # PBKDF2-HMAC over any streaming hash function on x86 (32-bit): `iterate`, constant time
 
-Untrusted: everything here is checked by Lean. As on 32-bit ARM
-(`Proof/Pbkdf2/Generic/Arm/Instances.lean`): the pieces between the calls
+Untrusted: everything here is checked by Lean. As for HMAC's `finalize`
+(`Proof/Hmac/Generic/X86/FinalizeCT.lean`): the pieces between the calls
 are checked by the taint analysis, those that read the arguments on the
 stack (the prologue, and the loads of `key` and `t`) with the arguments
 public (`argTaint`); the calls are related by `upd_rel` and `fin_rel`.

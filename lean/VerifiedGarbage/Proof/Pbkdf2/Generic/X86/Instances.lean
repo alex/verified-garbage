@@ -6,8 +6,8 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86.Hashes
 /-!
 # PBKDF2-HMAC over the streaming hash functions on x86 (32-bit): the instances
 
-Untrusted: everything here is checked by Lean. As on 32-bit ARM
-(`Proof/Pbkdf2/Generic/Arm/Instances.lean`): the generic proof
+Untrusted: everything here is checked by Lean. As for HMAC
+(`Proof/Hmac/Generic/X86/Instances.lean`): the generic proof
 (`IterateCT.lean`) at each hash function of
 `Proof/Hmac/Generic/X86/Hashes.lean`, moved to the shared contract of
 `Spec/Pbkdf2/Generic.lean` (`sig_implies`), which the artifacts are emitted with.

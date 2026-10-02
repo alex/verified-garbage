@@ -6,7 +6,7 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 # HMAC over any streaming hash function on x86 (32-bit): `finalize`, correct
 
 Untrusted: everything here is checked by Lean. As on the other targets
-(`Proof/Hmac/Generic/Arm/Finalize.lean`). The arguments are on the stack:
+(`Proof/Hmac/Generic/AArch64/Finalize.lean`). The arguments are on the stack:
 `scratch`, `inner`, `outer` and `out` are loaded first (after our caller's
 registers are saved in `scratch`), and the count just before the first
 call, which passes it on.

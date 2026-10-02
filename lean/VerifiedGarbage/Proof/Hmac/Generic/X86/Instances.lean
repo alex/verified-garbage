@@ -7,7 +7,7 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86.Hashes
 # HMAC over the streaming hash functions on x86 (32-bit): the instances
 
 Untrusted: everything here is checked by Lean. As on the other targets
-(`Proof/Hmac/Generic/Arm/Instances.lean`): the generic proofs at each hash
+(`Proof/Hmac/Generic/AArch64/Instances.lean`): the generic proofs at each hash
 function of `Hashes.lean`, moved to the shared contracts of
 `Spec/Hmac/Generic.lean` (`sig_implies`), which the artifacts are emitted
 with.
