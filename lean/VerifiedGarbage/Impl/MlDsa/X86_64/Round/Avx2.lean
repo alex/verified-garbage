@@ -5,11 +5,13 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Avx
 /-!
 # ML-DSA on x86-64: rounding with AVX2
 
-`vg_mldsa_high_bits_avx2` and `vg_mldsa_low_bits_avx2` are
-`vg_mldsa_high_bits` and `vg_mldsa_low_bits` (`Round.lean`) on eight
+`vg_mldsa_high_bits_avx2`, `vg_mldsa_low_bits_avx2`,
+`vg_mldsa_norm_lt_avx2` and `vg_mldsa_make_hint_avx2` are
+`vg_mldsa_high_bits`, `vg_mldsa_low_bits`, `vg_mldsa_norm_lt` and
+`vg_mldsa_make_hint` (`Round.lean`) on eight
 coefficients at a time, in the doublewords of `ymm` registers: in each
 128-bit lane, the VEX.256 form (`toY`) of SSE2 code on the four doublewords
-of an `xmm` register (`hbX`, `lbX`), with `rdi` and `r10` at the eight
+of an `xmm` register (`hbX`, `lbX`, `nlX`, `mhX`), with `rdi` and `r10` at the eight
 coefficients of `r` and `out` and `rcx` counting down the 32 vectors.
 
 `Decompose` is the reference implementation's, as in `Round.lean`:
@@ -29,7 +31,7 @@ namespace VG.Impl.MlDsa.X86_64.Round
 
 open VG.X86_64
 open VG.Impl.MlKem.X86_64 (xb xmov rcxLoop toY yconst at_)
-open VG.Impl.MlDsa.X86_64.Arith (vcadd)
+open VG.Impl.MlDsa.X86_64.Arith (vcadd vcsub)
 
 /-- The shifts whose sum, with 1, is `M`. -/
 def dSh (g : Nat) : List Nat := if g = 261888 then [10] else [1, 3, 10, 11, 13]
@@ -77,5 +79,80 @@ def bitsY (x : Nat → List Instr) (d : XReg) : Prog isa :=
 def highBitsAvx2 : Prog isa := bitsY hbX .xmm0
 
 def lowBitsAvx2 : Prog isa := bitsY lbX .xmm3
+
+/-! ## `vg_mldsa_norm_lt_avx2`
+
+The bound is first clamped to `q` (a branch on the public bound), which
+changes no result, as every reduced coefficient is less than `q`; then the
+differences `a - b` and `(q - b) - a` fit in 32 bits, and one of them is
+negative exactly when `a < b` or `q - a < b`. Each doubleword of `ymm10`
+ANDs the ORs of the differences of its coefficients; its top bit stays set
+while all of them are good. At the end the top bits are spread over their
+doublewords (`vpsrad` by 31), and `vpmovmskb` gathers the top bits of the
+32 bytes: the result is `(mask + 1) >> 32`, 1 exactly when every bit is set. -/
+
+/-- `ymm10 ← ymm10 & ((a - b) | ((q - b) - a))` for `a` in `xmm0`, `b` in `xmm8`, `q - b` in `xmm9`. -/
+def nlX : List Instr :=
+  [xmov .xmm1 .xmm0, xb .psubd .xmm1 .xmm8, xmov .xmm2 .xmm9, xb .psubd .xmm2 .xmm0, xb .por .xmm1 .xmm2,
+    xb .pand .xmm10 .xmm1]
+
+def nlBodyY : List Instr := [.vmovdquLoad .l256 .xmm0 (at_ .rdi 0)] ++ toY nlX ++ [.alu .add .rdi (.imm 32)]
+
+/-- The low doubleword of `rax` in each doubleword of `ymm r`. -/
+def ybcast (r : XReg) : List Instr := [.vop (.vmovq r .rax), .vop (.vpbroadcastd .l256 r r)]
+
+/-- `b` in `ymm8`, `q - b` in `ymm9` and all ones in `ymm10`. -/
+def nlConsts : List Instr :=
+  [.mov32 .rax (.reg .rsi)] ++ ybcast .xmm8 ++ [.mov32 .rax (.imm qImm), .alu32 .sub .rax (.reg .rsi)] ++
+    ybcast .xmm9 ++ yconst .xmm10 0xFFFFFFFF
+
+def nlEnd : List Instr :=
+  toY [.xop (.shift .psrad .xmm10 31)] ++ [.vpmovmskb .l256 .rax .xmm10, .vop .vzeroupper] ++
+    [.alu .add .rax (.imm 1), .shift .shr .rax 32]
+
+/-- The bound, clamped to `q`. -/
+def nlPro : Prog isa :=
+  .seq (.block [.mov32 .rsi (.reg .rsi), .alu32 .cmp .rsi (.imm qImm)]) (.ite .b (.block []) (.block [.mov32 .rsi (.imm qImm)]))
+
+def normLtAvx2 : Prog isa := .seq nlPro (.seq (.block nlConsts) (.seq (rcxLoop 32 nlBodyY) (.block nlEnd)))
+
+/-! ## `vg_mldsa_make_hint_avx2`
+
+In each lane, `r₁` of `r` and of `(r + z) mod q` (`hbX` twice, with `vcsub`
+between), XORed, is nonzero (`(x + 63) >> 6`, as `x < 64`) exactly when the
+hint is 1 (`mhX`); the eight hints are stored. Their count is the sum of the
+nibbles of the byte mask of the hints shifted to the top bit of their low
+bytes (`vpmovmskb`, which has hint `i` at bit `4i`): three shifts and
+additions put it in the low nibble (`cntH`), which is added to `r9`. -/
+
+/-- `r₁` of `r` to `xmm3`, and `(r + z) mod q` to `xmm0`, with `r` in `xmm4` and `z` in `xmm5`. -/
+def mhMid : List Instr := [xmov .xmm3 .xmm0, xmov .xmm0 .xmm4, xb .paddd .xmm0 .xmm5] ++ vcsub .xmm0 .xmm1
+
+/-- The hint from the two `r₁`, to `xmm0`, and shifted to bit 7, to `xmm1`. -/
+def mhTail : List Instr :=
+  [xb .pxor .xmm0 .xmm3, xb .paddd .xmm0 .xmm11, .xop (.shift .psrld .xmm0 6), xmov .xmm1 .xmm0,
+    .xop (.shift .pslld .xmm1 7)]
+
+/-- `xmm0 ← the hints` of `r` in `xmm0` and `z` in `xmm5`, and `xmm1 ← xmm0 << 7`, with `63` in `xmm11`. -/
+def mhX (g : Nat) : List Instr := [xmov .xmm4 .xmm0] ++ hbX g ++ mhMid ++ hbX g ++ mhTail
+
+/-- `r9 ← r9 +` the sum of the nibbles of `eax`, through `rdx`. -/
+def cntH : List Instr :=
+  [.mov32 .rdx (.reg .rax), .shift32 .shr .rdx 4, .alu32 .add .rax (.reg .rdx),
+    .mov32 .rdx (.reg .rax), .shift32 .shr .rdx 8, .alu32 .add .rax (.reg .rdx),
+    .mov32 .rdx (.reg .rax), .shift32 .shr .rdx 16, .alu32 .add .rax (.reg .rdx),
+    .alu32 .and .rax (.imm 15), .alu .add .r9 (.reg .rax)]
+
+/-- Eight coefficients of `r` (at `rsi`) and `z` (at `rdi`) to the hints at `r10`, and their count added to `r9`. -/
+def mhBodyY (g : Nat) : List Instr :=
+  [.vmovdquLoad .l256 .xmm0 (at_ .rsi 0), .vmovdquLoad .l256 .xmm5 (at_ .rdi 0)] ++ toY (mhX g) ++
+    [.vmovdquStore .l256 (at_ .r10 0) .xmm0, .vpmovmskb .l256 .rax .xmm1] ++ cntH ++
+    [.alu .add .rdi (.imm 32), .alu .add .rsi (.imm 32), .alu .add .r10 (.imm 32)]
+
+def mhY (g : Nat) : Prog isa := .seq (.block (yC g ++ yconst .xmm11 63)) (rcxLoop 32 (mhBodyY g))
+
+def makeHintAvx2 : Prog isa :=
+  .seq (.block (gammaCmp .rdx ++ [.mov .r10 (.reg .rcx), .mov32 .r9 (.imm 0)]))
+    (.seq (.ite .e (mhY g32) (mhY g88)) (.block [.mov .rax (.reg .r9), .vop .vzeroupper]))
 
 end VG.Impl.MlDsa.X86_64.Round

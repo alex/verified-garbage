@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Backend
 
 A variant of `MlDsaArith` on x86-64 (see `TCB/Emit.lean`): `vg_mldsa_ntt`,
 `vg_mldsa_inv_ntt`, `vg_mldsa_multiply_ntt`, `vg_mldsa_multiply_add_ntt`,
-`vg_mldsa_add`, `vg_mldsa_sub`, `vg_mldsa_high_bits` and
-`vg_mldsa_low_bits`, in the baseline ISA (SSE2),
-which key generation, signing and verification call.
+`vg_mldsa_add`, `vg_mldsa_sub`, `vg_mldsa_high_bits`,
+`vg_mldsa_low_bits`, `vg_mldsa_norm_lt` and `vg_mldsa_make_hint`, in the
+baseline ISA (SSE2), which key generation, signing and verification call.
 -/
 
 namespace VG.Variants.MlDsaArith.X86_64.Sse2

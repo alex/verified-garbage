@@ -891,7 +891,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits and LowBits with AVX2; matrix sampled four entries at a time in verification (four SHAKE128 instances at once with AVX2)</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits, LowBits, MakeHint and the norm check with AVX2; matrix sampled four entries at a time in verification (four SHAKE128 instances at once with AVX2)</td>
 
 <td>✅ SHA extensions</td>
 
@@ -907,7 +907,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits and LowBits with AVX2; matrix sampled four entries at a time in verification (four SHAKE128 instances at once with AVX2)</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits, LowBits, MakeHint and the norm check with AVX2; matrix sampled four entries at a time in verification (four SHAKE128 instances at once with AVX2)</td>
 
 <td>✅ SHA extensions</td>
 
@@ -923,7 +923,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits and LowBits with AVX2; matrix sampled four entries at a time in verification (four SHAKE128 instances at once with AVX2)</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits, LowBits, MakeHint and the norm check with AVX2; matrix sampled four entries at a time in verification (four SHAKE128 instances at once with AVX2)</td>
 
 <td>✅ SHA extensions</td>
 

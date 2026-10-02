@@ -4947,6 +4947,249 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_make_hint(z: *const [u32; 256], r:
     )
 }
 
+/// The CPU features `vg_mldsa_norm_lt_avx2` requires (`Artifact.features`).
+pub(crate) const VG_MLDSA_NORM_LT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+
+/// Returns 1 if the infinity norm of the polynomial `*f` (FIPS 204 §2.3: the largest `|fᵢ mod± q|`) is less than `bound`, and 0 otherwise.
+///
+/// Contract: `VG.Spec.MlDsa.normLtContract`. Constant time: only the pointer and `bound` may affect timing, not the data.
+///
+/// The function compares eight coefficients at a time in AVX2 registers; it needs AVX and AVX2.
+///
+/// # Safety
+///
+/// * `f` must be valid for reads of 1024 bytes.
+/// * Each of the 256 `u32`s of `f` must be less than `q` = 8380417.
+/// * `f` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `avx` and `avx2` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_mldsa_norm_lt_avx2(f: *const [u32; 256], bound: u32) -> u32 {
+    core::arch::naked_asm!(
+        "mov esi, esi",
+        "cmp esi, 8380417",
+        "jb 20f",
+        "mov esi, 8380417",
+        "jmp 21f",
+        "20:",
+        "21:",
+        "mov eax, esi",
+        "vmovq xmm8, rax",
+        "vpbroadcastd ymm8, xmm8",
+        "mov eax, 8380417",
+        "sub eax, esi",
+        "vmovq xmm9, rax",
+        "vpbroadcastd ymm9, xmm9",
+        "mov eax, -1",
+        "vmovq xmm10, rax",
+        "vpbroadcastd ymm10, xmm10",
+        "mov ecx, 32",
+        "22:",
+        "vmovdqu ymm0, YMMWORD PTR [rdi]",
+        "vpsubd ymm1, ymm0, ymm8",
+        "vpsubd ymm2, ymm9, ymm0",
+        "vpor ymm1, ymm1, ymm2",
+        "vpand ymm10, ymm10, ymm1",
+        "add rdi, 32",
+        "sub rcx, 1",
+        "jne 22b",
+        "vpsrad ymm10, ymm10, 31",
+        "vpmovmskb eax, ymm10",
+        "vzeroupper",
+        "add rax, 1",
+        "shr rax, 32",
+        "ret",
+    )
+}
+
+/// The CPU features `vg_mldsa_make_hint_avx2` requires (`Artifact.features`).
+pub(crate) const VG_MLDSA_MAKE_HINT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+
+/// `MakeHint` (FIPS 204 Algorithm 39) of each pair of coefficients of `*z` and `*r`, with `gamma2` = `γ₂`: writes 1 for true and 0 for false to `*h`, and returns the number of 1s.
+///
+/// Contract: `VG.Spec.MlDsa.makeHintContract`. Constant time: only the pointers and `gamma2` may affect timing, not the data.
+///
+/// The function computes eight hints at a time in AVX2 registers, multiplying by shifts and additions; it needs AVX and AVX2.
+///
+/// # Safety
+///
+/// * `z` must be valid for reads of 1024 bytes.
+/// * `r` must be valid for reads of 1024 bytes.
+/// * `h` must be valid for reads and writes of 1024 bytes.
+/// * `gamma2` must be (q - 1)/88 = 95232 or (q - 1)/32 = 261888.
+/// * Each of the 256 `u32`s of `z` must be less than `q` = 8380417.
+/// * Each of the 256 `u32`s of `r` must be less than `q` = 8380417.
+/// * `h` must not overlap `z` or `r` (distinct Rust objects never do).
+/// * None of `z`, `r` and `h` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `avx` and `avx2` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_mldsa_make_hint_avx2(z: *const [u32; 256], r: *const [u32; 256], gamma2: u32, h: *mut [u32; 256]) -> u32 {
+    core::arch::naked_asm!(
+        "mov edx, edx",
+        "cmp edx, 261888",
+        "mov r10, rcx",
+        "mov r9d, 0",
+        "je 20f",
+        "mov eax, 127",
+        "vmovq xmm8, rax",
+        "vpbroadcastd ymm8, xmm8",
+        "mov eax, 8388608",
+        "vmovq xmm9, rax",
+        "vpbroadcastd ymm9, xmm9",
+        "mov eax, 44",
+        "vmovq xmm10, rax",
+        "vpbroadcastd ymm10, xmm10",
+        "mov eax, 8380417",
+        "vmovq xmm15, rax",
+        "vpbroadcastd ymm15, xmm15",
+        "mov eax, 63",
+        "vmovq xmm11, rax",
+        "vpbroadcastd ymm11, xmm11",
+        "mov ecx, 32",
+        "22:",
+        "vmovdqu ymm0, YMMWORD PTR [rsi]",
+        "vmovdqu ymm5, YMMWORD PTR [rdi]",
+        "vmovdqa ymm4, ymm0",
+        "vpaddd ymm0, ymm0, ymm8",
+        "vpsrld ymm0, ymm0, 7",
+        "vmovdqa ymm1, ymm0",
+        "vpslld ymm2, ymm1, 1",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 3",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 10",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 11",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 13",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpaddd ymm0, ymm0, ymm9",
+        "vpsrld ymm0, ymm0, 24",
+        "vpsubd ymm1, ymm0, ymm10",
+        "vpsrad ymm1, ymm1, 31",
+        "vpand ymm0, ymm0, ymm1",
+        "vmovdqa ymm3, ymm0",
+        "vpaddd ymm0, ymm4, ymm5",
+        "vpsubd ymm0, ymm0, ymm15",
+        "vpsrad ymm1, ymm0, 31",
+        "vpand ymm1, ymm1, ymm15",
+        "vpaddd ymm0, ymm0, ymm1",
+        "vpaddd ymm0, ymm0, ymm8",
+        "vpsrld ymm0, ymm0, 7",
+        "vmovdqa ymm1, ymm0",
+        "vpslld ymm2, ymm1, 1",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 3",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 10",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 11",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 13",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpaddd ymm0, ymm0, ymm9",
+        "vpsrld ymm0, ymm0, 24",
+        "vpsubd ymm1, ymm0, ymm10",
+        "vpsrad ymm1, ymm1, 31",
+        "vpand ymm0, ymm0, ymm1",
+        "vpxor ymm0, ymm0, ymm3",
+        "vpaddd ymm0, ymm0, ymm11",
+        "vpsrld ymm0, ymm0, 6",
+        "vpslld ymm1, ymm0, 7",
+        "vmovdqu YMMWORD PTR [r10], ymm0",
+        "vpmovmskb eax, ymm1",
+        "mov edx, eax",
+        "shr edx, 4",
+        "add eax, edx",
+        "mov edx, eax",
+        "shr edx, 8",
+        "add eax, edx",
+        "mov edx, eax",
+        "shr edx, 16",
+        "add eax, edx",
+        "and eax, 15",
+        "add r9, rax",
+        "add rdi, 32",
+        "add rsi, 32",
+        "add r10, 32",
+        "sub rcx, 1",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "mov eax, 127",
+        "vmovq xmm8, rax",
+        "vpbroadcastd ymm8, xmm8",
+        "mov eax, 2097152",
+        "vmovq xmm9, rax",
+        "vpbroadcastd ymm9, xmm9",
+        "mov eax, 16",
+        "vmovq xmm10, rax",
+        "vpbroadcastd ymm10, xmm10",
+        "mov eax, 8380417",
+        "vmovq xmm15, rax",
+        "vpbroadcastd ymm15, xmm15",
+        "mov eax, 63",
+        "vmovq xmm11, rax",
+        "vpbroadcastd ymm11, xmm11",
+        "mov ecx, 32",
+        "23:",
+        "vmovdqu ymm0, YMMWORD PTR [rsi]",
+        "vmovdqu ymm5, YMMWORD PTR [rdi]",
+        "vmovdqa ymm4, ymm0",
+        "vpaddd ymm0, ymm0, ymm8",
+        "vpsrld ymm0, ymm0, 7",
+        "vmovdqa ymm1, ymm0",
+        "vpslld ymm2, ymm1, 10",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpaddd ymm0, ymm0, ymm9",
+        "vpsrld ymm0, ymm0, 22",
+        "vpsubd ymm1, ymm0, ymm10",
+        "vpsrad ymm1, ymm1, 31",
+        "vpand ymm0, ymm0, ymm1",
+        "vmovdqa ymm3, ymm0",
+        "vpaddd ymm0, ymm4, ymm5",
+        "vpsubd ymm0, ymm0, ymm15",
+        "vpsrad ymm1, ymm0, 31",
+        "vpand ymm1, ymm1, ymm15",
+        "vpaddd ymm0, ymm0, ymm1",
+        "vpaddd ymm0, ymm0, ymm8",
+        "vpsrld ymm0, ymm0, 7",
+        "vmovdqa ymm1, ymm0",
+        "vpslld ymm2, ymm1, 10",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpaddd ymm0, ymm0, ymm9",
+        "vpsrld ymm0, ymm0, 22",
+        "vpsubd ymm1, ymm0, ymm10",
+        "vpsrad ymm1, ymm1, 31",
+        "vpand ymm0, ymm0, ymm1",
+        "vpxor ymm0, ymm0, ymm3",
+        "vpaddd ymm0, ymm0, ymm11",
+        "vpsrld ymm0, ymm0, 6",
+        "vpslld ymm1, ymm0, 7",
+        "vmovdqu YMMWORD PTR [r10], ymm0",
+        "vpmovmskb eax, ymm1",
+        "mov edx, eax",
+        "shr edx, 4",
+        "add eax, edx",
+        "mov edx, eax",
+        "shr edx, 8",
+        "add eax, edx",
+        "mov edx, eax",
+        "shr edx, 16",
+        "add eax, edx",
+        "and eax, 15",
+        "add r9, rax",
+        "add rdi, 32",
+        "add rsi, 32",
+        "add r10, 32",
+        "sub rcx, 1",
+        "jne 23b",
+        "21:",
+        "mov rax, r9",
+        "vzeroupper",
+        "ret",
+    )
+}
+
 /// `UseHint` (FIPS 204 Algorithm 40) of each pair of coefficients of `*h` (a hint bit: true if it is not 0) and `*r`, with `gamma2` = `γ₂`: writes the results to `*out`.
 ///
 /// Contract: `VG.Spec.MlDsa.useHintContract`. Constant time: only the pointers and `gamma2` may affect timing, not the data.
