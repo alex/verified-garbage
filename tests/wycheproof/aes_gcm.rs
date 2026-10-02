@@ -56,13 +56,13 @@ fn aes_gcm() {
         assert_eq!(group.params.tag_size, 8 * c.tag.0.len(), "tcId {id}");
         let key = AesGcm::new(&c.key.0).unwrap();
         let mut buf = c.ct.0.clone();
-        let decrypted = key.decrypt(&c.iv.0, &c.aad.0, &mut buf, &c.tag.0);
+        let decrypted = key.decrypt_in_place(&c.iv.0, &c.aad.0, &mut buf, &c.tag.0);
         match test.result {
             Expectation::Valid => {
                 decrypted.unwrap_or_else(|e| panic!("tcId {id}: {e:?}"));
                 assert_eq!(buf, c.msg.0, "tcId {id}");
                 let mut buf = c.msg.0.clone();
-                let tag = key.encrypt(&c.iv.0, &c.aad.0, &mut buf).unwrap();
+                let tag = key.encrypt_in_place(&c.iv.0, &c.aad.0, &mut buf).unwrap();
                 assert_eq!(buf, c.ct.0, "tcId {id}");
                 assert_eq!(tag[..], c.tag.0, "tcId {id}");
 

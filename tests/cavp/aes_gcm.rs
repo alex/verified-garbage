@@ -63,7 +63,7 @@ fn aes_gcm() {
             let tag = unhex(field(&r, "Tag"));
             let mut buf = unhex(field(&r, "PT"));
             let t = key
-                .encrypt(&unhex(field(&r, "IV")), &unhex(field(&r, "AAD")), &mut buf)
+                .encrypt_in_place(&unhex(field(&r, "IV")), &unhex(field(&r, "AAD")), &mut buf)
                 .unwrap();
             assert_eq!(buf, unhex(field(&r, "CT")));
             assert_eq!(t[..tag.len()], tag);
@@ -74,7 +74,7 @@ fn aes_gcm() {
             let key = AesGcm::new(&unhex(field(&r, "Key"))).unwrap();
             let mut buf = unhex(field(&r, "CT"));
             let tag = unhex(field(&r, "Tag"));
-            let result = key.decrypt(
+            let result = key.decrypt_in_place(
                 &unhex(field(&r, "IV")),
                 &unhex(field(&r, "AAD")),
                 &mut buf,

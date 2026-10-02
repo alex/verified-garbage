@@ -28,22 +28,23 @@ def pointEqual (fld : Arith) : Prog isa :=
     (.seq (.block (fieldEqual fld 10 11)) (.ite .e (.block [.mov32 .rax (.imm 1)]) recoverInvalid))
     recoverInvalid)
 
-/-- Returns 1 in `rax` if `[S]B = R + [k]A`, for `A` at byte 7424 and `R` at byte 7552. -/
-def verifyEquationPoints (fld : Arith) : Prog isa :=
+/-- Returns 1 in `rax` if `[S]B = R + [k]A`, for `A` at byte 7424 and `R` at byte 7552,
+with the doublings `dbl`. -/
+def verifyEquationPoints (fld : Arith) (dbl : Prog isa) : Prog isa :=
   .seq (.block windowSetup) (.seq (aTable fld) (.seq (.block bTable) (.seq (.block (windowInit fld))
-    (.seq (.loop (byteStepA fld) .ne) (.seq (.loop (byteStepAB fld) .ne) (.seq (.block (negR fld)) (pointEqual fld)))))))
+    (.seq (.loop (byteStepA fld dbl) .ne) (.seq (.loop (byteStepAB fld dbl) .ne) (.seq (.block (negR fld)) (pointEqual fld)))))))
 
 /-- Continue only when a point decoder returned success. -/
 def decodedThen (next : Prog isa) : Prog isa :=
   .seq (.block [.alu .test .rax (.reg .rax)]) (.ite .ne next recoverInvalid)
 
-def verifyDecodeR (fld : Arith) : Prog isa :=
+def verifyDecodeR (fld : Arith) (dbl : Prog isa) : Prog isa :=
   .seq (.block [.mov .rdx (.mem (sc 7944))]) (.seq (pointDecode fld)
-    (decodedThen (.seq (.block (pointTableWrite 7552)) (verifyEquationPoints fld))))
+    (decodedThen (.seq (.block (pointTableWrite 7552)) (verifyEquationPoints fld dbl))))
 
-def verifyDecodeA (fld : Arith) : Prog isa :=
+def verifyDecodeA (fld : Arith) (dbl : Prog isa) : Prog isa :=
   .seq (.block [.mov .rdx (.mem (sc 7936))]) (.seq (pointDecode fld)
-    (decodedThen (.seq (.block (pointTableWrite 7424)) (verifyDecodeR fld))))
+    (decodedThen (.seq (.block (pointTableWrite 7424)) (verifyDecodeR fld dbl))))
 
 def verifyHeaders : List Instr :=
   [.store (at_ .rdx 7936) .rdi, .store (at_ .rdx 7944) .rsi,
@@ -52,9 +53,10 @@ def verifyHeaders : List Instr :=
 def verifySetup : List Instr :=
   ([.mov .rax (.reg .rdx), .mov .rdx (.reg .rcx)] : List Instr) ++ scalarSave ++ verifyHeaders
 
-def verifyEquation (fld : Arith) : Prog isa :=
+/-- Verification, with the field arithmetic `fld` and the doublings `dbl`. -/
+def verifyEquation (fld : Arith) (dbl : Prog isa) : Prog isa :=
   .seq (.block verifySetup) (.seq
-    (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld) recoverInvalid))
+    (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld dbl) recoverInvalid))
     (.block (([.mov .rdx (.reg .rdi)] : List Instr) ++ scalarRestore)))
 
 end VG.Impl.Ed25519.X86_64

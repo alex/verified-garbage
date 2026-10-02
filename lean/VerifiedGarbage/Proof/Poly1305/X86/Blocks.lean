@@ -2054,9 +2054,10 @@ section
 /-!
 # Poly1305 on x86 (32-bit): straight-line code runs, whatever the values
 
-Untrusted: everything here is checked by Lean. The lemmas of `Absorb.lean`
-and `Reduce.lean` state what the code computes where the numbers are within
-their bounds (as they are when the state represents a message). Whatever the
+Untrusted: everything here is checked by Lean. The lemmas on absorbing a
+block and the final reduction (above) state what the code computes where
+the numbers are within their bounds (as they are when the state represents
+a message). Whatever the
 values, the code runs without a fault: it accesses only the state (at `edi`)
 and the block (at `esi`), stores only some words of the state and writes only
 some registers. `okList` checks this of a block of code, by evaluation, and
@@ -2250,8 +2251,8 @@ end
 # Poly1305 on x86 (32-bit): the parts of each function, whatever the values
 
 Untrusted: everything here is checked by Lean. Absorbing a block and the final
-reduction run whatever the values (`Safe`), and compute what `Absorb.lean`
-and `Reduce.lean` say where the numbers are within their bounds.
+reduction run whatever the values (`Safe`), and compute what the lemmas on
+them (above) say where the numbers are within their bounds.
 -/
 
 open VG.PowLit
