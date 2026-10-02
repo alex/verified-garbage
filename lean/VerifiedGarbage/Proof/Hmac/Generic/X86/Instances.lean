@@ -161,6 +161,54 @@ theorem Init.Checks.of_eq {H H' : Impl.Hmac.Generic.X86.Hash} (hB : H.B = H'.B) 
   dsimp only at hB hS hW; subst hB hS hW
   exact ⟨h.keys, h.states, h.upd, h.restore⟩
 
+/-! ## SHA-256
+
+For every implementation of SHA-256 (`Sha256Stream`): the code between the
+calls, which depends only on the sizes, is checked once (`sha256Core`). -/
+
+theorem sha256_initChecks : Init.Checks sha256Core where
+  keys := ⟨_, by taint_decide⟩
+  states := ⟨_, by taint_decide⟩
+  upd := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false]
+    rintro o (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
+  restore := ⟨_, by taint_decide⟩
+
+theorem sha256_finChecks : Finalize.Checks sha256Core where
+  pro := ⟨_, by taint_decide⟩
+  fin1 := ⟨_, by taint_decide⟩
+  copy1 := ⟨_, by taint_decide⟩
+  upd := ⟨_, by taint_decide⟩
+  fin2 := ⟨_, by taint_decide⟩
+  copy2 := ⟨_, by taint_decide⟩
+  restore := ⟨_, by taint_decide⟩
+
+theorem sha256_initImp : (initW Spec.Hmac.sha256S 104).Implies (Spec.Hmac.sha256I.initContract X86.abi 48) := by
+  obtain ⟨a0, a1, a2, a3, a4, e, esp⟩ := initSat_args 96 104
+  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
+    Spec.Hmac.sha256I, Spec.Hmac.sha256S, Spec.Hmac.sha256, initW, initG, X86.abi, X86.argSlots, X86.argVal,
+    X86.argBytes]
+    [a0, a1, a2, a3, a4, e, esp, initSat] using initSat 96 104
+
+theorem sha256_finImp : (finW Spec.Hmac.sha256S 104).Implies (Spec.Hmac.sha256I.finalizeContract X86.abi 48) := by
+  obtain ⟨a0, a1, a2, a3, a4, a5, e, esp⟩ := finSat_args 96 32 104
+  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
+    Spec.Hmac.sha256I, Spec.Hmac.sha256S, Spec.Hmac.sha256, finW, finG, countF, X86.abi, X86.argSlots,
+    X86.argVal, X86.argBytes]
+    [a0, a1, a2, a3, a4, a5, e, esp, finSat] using finSat 96 32 104
+
+theorem sha256_init (v : Sha256Stream) :
+    Verified X86.target (sha256H v).init (Spec.Hmac.sha256I.initContract X86.abi 48) :=
+  (Init.verifiedW (sha256OK v) (Init.Checks.of_eq (H := sha256Core) rfl rfl rfl sha256_initChecks)
+    (show 8 * 20 + 16 + 2 * 64 ≤ 8 * 104 by decide) sha256_initImp.sat_left).of_implies sha256_initImp
+
+theorem sha256_finalize (v : Sha256Stream) :
+    Verified X86.target (sha256H v).finalize (Spec.Hmac.sha256I.finalizeContract X86.abi 48) :=
+  (Finalize.verifiedW (sha256OK v)
+    (Finalize.Checks.of_sizes (H := sha256Core) rfl rfl rfl sha256_finChecks sha256_finChecks.upd sha256_finChecks.fin2
+      sha256_finChecks.copy2)
+    (show 8 * 20 + 16 + 32 ≤ 8 * 104 by decide) sha256_finImp.sat_left).of_implies sha256_finImp
+
 /-! ## SHA-384 -/
 
 theorem sha384_initChecks : Init.Checks sha384H where

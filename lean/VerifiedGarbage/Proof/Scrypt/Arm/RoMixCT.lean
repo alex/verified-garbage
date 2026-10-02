@@ -336,7 +336,6 @@ open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil)
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_and wp_subs wp_cmp wp_ldr wp_str op2_reg
   op2_imm op2_lsr eval_ne ofNat_beq_zero sub_beq)
-open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.Memory (sub_off bytesAt_add bytesAt_length bytesAt_writeBytes_sep
   xorBytes_length)
 

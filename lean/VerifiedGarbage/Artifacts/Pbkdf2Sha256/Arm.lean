@@ -1,10 +1,8 @@
 import VerifiedGarbage.TCB.Arm.Target
-import VerifiedGarbage.Impl.Pbkdf2.Arm
-import VerifiedGarbage.Proof.Pbkdf2.Arm.Iterate
-import VerifiedGarbage.Proof.Pbkdf2.Arm.Lit
+import VerifiedGarbage.Proof.Pbkdf2.Generic.Arm.Instances
 
 /-!
-# The PBKDF2-HMAC-SHA-256 iteration (RFC 8018) on 32-bit ARM
+# The PBKDF2-HMAC-SHA-256 iteration (RFC 8018) on ARMv7
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
@@ -13,19 +11,27 @@ artifact made from a function's `Api` (in `Spec/`, reviewed with the
 contract) takes them from there, and this file adds only notes on the
 implementation. The emitter adds the `# Safety` items that depend on the
 target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract.
+against the contract (after unfolding the `Instance`'s contract to the
+generic one, which is a `Sig.contract`).
+
+The code is the one PBKDF2 iteration for every streaming hash function
+(`Impl/Pbkdf2/Generic/Arm.lean`), calling SHA-256's verified `update` and
+`finalize`.
 -/
 
 namespace VG.Artifacts.Pbkdf2Sha256.Arm
 
+open VG.Proof.Hmac.Generic.Arm
+
 def artifacts : List Artifact := [
-  { Spec.Pbkdf2.iterateSha256Api with
+  { Spec.Hmac.sha256I.iterateApi with
     target := Arm.target
-    doc := Spec.Pbkdf2.iterateSha256Api.doc
-      (notes := ["The function uses no stack: it saves its return address in `scratch`."])
-    code := Impl.Pbkdf2.Arm.iterate
-    contract := Spec.Pbkdf2.iterateSha256Contract Arm.abi
-    verified := Proof.Pbkdf2.Arm.iterate_verified
+    doc := Spec.Hmac.sha256I.iterateApi.doc
+    code := Impl.Pbkdf2.Generic.Arm.iterate sha256H
+    contract := Spec.Hmac.sha256I.iterateContract Arm.abi 16
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
+    stack := 16
+    verified := Proof.Pbkdf2.Generic.Arm.Instances.sha256
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.Pbkdf2Sha256.Arm

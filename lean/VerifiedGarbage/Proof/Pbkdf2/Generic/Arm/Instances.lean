@@ -1031,6 +1031,31 @@ theorem iterImp (S : Spec.Hmac.StreamingHash) (W : Nat) (h : ∃ s, (Spec.Pbkdf2
     Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, iterG, below, Arm.abi, Arm.argRegs,
     Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using h
 
+/-! ## SHA-256 -/
+
+theorem sha256_checks : Checks sha256H where
+  pro := ⟨_, by taint_decide⟩
+  copyU := ⟨_, by taint_decide⟩
+  copyK := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false]
+    rintro o (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
+  upd := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false]
+    rintro o (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
+  fin := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false]
+    rintro o (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
+  xor := ⟨_, by taint_decide⟩
+  restore := ⟨_, by taint_decide⟩
+
+theorem sha256_imp : (iterG Spec.Hmac.sha256S 104).Implies (Spec.Hmac.sha256I.iterateContract Arm.abi 16) :=
+  iterImp Spec.Hmac.sha256S 104 (by
+    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha256S, Spec.Hmac.sha256, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using iterSat 96 32 104)
+
+theorem sha256 : Verified Arm.target (Impl.Pbkdf2.Generic.Arm.iterate sha256H)
+    (Spec.Hmac.sha256I.iterateContract Arm.abi 16) :=
+  (verified sha256OK sha256_checks (by decide) sha256_imp.sat_left).of_implies sha256_imp
+
 /-! ## SHA-1 -/
 
 theorem sha1_checks : Checks sha1H where

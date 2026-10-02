@@ -64,19 +64,6 @@ theorem coreOK : CoreOK coreH where
   fitI := by decide
   fitF := by decide
 
-/-- The representation moves with the state's bytes. -/
-theorem sha256_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
-    (h : ∀ i < 96, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))
-    (hr : Spec.Sha256.Repr m p msg) : Spec.Sha256.Repr m' q msg := by
-  refine ⟨?_, ?_⟩
-  · rw [← hr.1]
-    apply Vector.ext
-    intro j hj
-    simp only [Spec.Sha256.stateAt, Vector.getElem_ofFn]
-    exact Hmac.Generic.Common.readW_reloc h (by omega)
-  · rw [← hr.2]
-    exact Hmac.Generic.Common.bytesAt_reloc h (o := 32) (k := msg.length % 64) (by omega)
-
 variable (v : Compress)
 
 /-- The streaming functions, verified against the contracts HMAC's proofs
@@ -96,7 +83,7 @@ def streamOK : Hmac.Generic.AArch64.HashOK (hash v).stream where
   hBB := by simp only [hash, Hash.stream] <;> decide
   hWb := by simp only [hash, Hash.stream] <;> decide
   hW := by simp only [hash, Hash.stream] <;> decide
-  repr := sha256_repr
+  repr := Hmac.Generic.Common.sha256_repr
   init := Proof.Sha256.AArch64.Stream.init_verified
   upd := v.update_verified.of_implies
     { pre := fun _ h => h

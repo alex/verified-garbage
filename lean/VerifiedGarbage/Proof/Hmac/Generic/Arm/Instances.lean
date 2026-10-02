@@ -444,6 +444,40 @@ theorem finImp (S : Spec.Hmac.StreamingHash) (W : Nat) (h : ∃ s, (Spec.Hmac.fi
     Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, finG, below, count, Arm.abi, Arm.argRegs,
     Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using h
 
+/-! ## SHA-256 -/
+
+theorem sha256_initChecks : Init.Checks sha256H where
+  keys := ⟨_, by taint_decide⟩
+  argI := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false]
+    rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
+  argU₁ := ⟨_, by taint_decide⟩
+  argU₂ := ⟨_, by taint_decide⟩
+  restore := ⟨_, by taint_decide⟩
+
+theorem sha256_finChecks : Finalize.Checks sha256H where
+  pro := ⟨_, by taint_decide⟩
+  fin1 := ⟨_, by taint_decide⟩
+  copy1 := ⟨_, by taint_decide⟩
+  upd := ⟨_, by taint_decide⟩
+  fin2 := ⟨_, by taint_decide⟩
+  copy2 := ⟨_, by taint_decide⟩
+  restore := ⟨_, by taint_decide⟩
+
+theorem sha256_initImp : (initG Spec.Hmac.sha256S 104).Implies (Spec.Hmac.sha256I.initContract Arm.abi 16) :=
+  initImp Spec.Hmac.sha256S 104 (by
+    inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.sha256S, Spec.Hmac.sha256, initG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using initSat 96 104)
+
+theorem sha256_finImp : (finG Spec.Hmac.sha256S 104).Implies (Spec.Hmac.sha256I.finalizeContract Arm.abi 16) :=
+  finImp Spec.Hmac.sha256S 104 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha256S, Spec.Hmac.sha256, finG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using finSat 96 32 104)
+
+theorem sha256_init : Verified Arm.target sha256H.init (Spec.Hmac.sha256I.initContract Arm.abi 16) :=
+  (Init.verified sha256OK sha256_initChecks (by decide) sha256_initImp.sat_left).of_implies sha256_initImp
+
+theorem sha256_finalize : Verified Arm.target sha256H.finalize (Spec.Hmac.sha256I.finalizeContract Arm.abi 16) :=
+  (Finalize.verified sha256OK sha256_finChecks (by decide) sha256_finImp.sat_left).of_implies sha256_finImp
+
 /-! ## SHA-1 -/
 
 theorem sha1_initChecks : Init.Checks sha1H where

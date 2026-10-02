@@ -48,6 +48,46 @@ theorem iterSat_args (S D sc : Nat) :
   rw [e, e, e, e, e, e']
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, rfl⟩ <;> decide
 
+/-- `Checks` looks only at the sizes of a hash function. -/
+theorem Checks.of_eq {H H' : Impl.Hmac.Generic.X86.Hash} (hB : H.B = H'.B) (hS : H.S = H'.S)
+    (hD : H.D = H'.D) (hF : H.F = H'.F) (hW : H.W = H'.W) (h : Checks H) : Checks H' := by
+  obtain ⟨B, S, D, F, W, iN, iC, uN, uC, fN, fC⟩ := H
+  obtain ⟨B', S', D', F', W', iN', iC', uN', uC', fN', fC'⟩ := H'
+  dsimp only at hB hS hD hF hW; subst hB hS hD hF hW
+  exact ⟨h.pro, h.copyU, h.copyK, h.upd, h.fin, h.xor, h.restore⟩
+
+/-! ## SHA-256
+
+For every implementation of SHA-256 (`Sha256Stream`): the code between the
+calls, which depends only on the sizes, is checked once (`sha256Core`). -/
+
+theorem sha256_checks : Checks sha256Core where
+  pro := ⟨_, by taint_decide⟩
+  copyU := ⟨_, by taint_decide⟩
+  copyK := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false]
+    rintro o (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
+  upd := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false]
+    rintro o (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
+  fin := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false]
+    rintro o (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
+  xor := ⟨_, by taint_decide⟩
+  restore := ⟨_, by taint_decide⟩
+
+theorem sha256_imp : (iterW Spec.Hmac.sha256S 104).Implies (Spec.Hmac.sha256I.iterateContract X86.abi 48) := by
+  obtain ⟨a0, a1, a2, a3, a4, e, esp⟩ := iterSat_args 96 32 104
+  sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
+    Spec.Hmac.sha256I, Spec.Hmac.sha256S, Spec.Hmac.sha256, iterW, iterG, X86.abi, X86.argSlots, X86.argVal,
+    X86.argBytes]
+    [a0, a1, a2, a3, a4, e, esp, iterSat] using iterSat 96 32 104
+
+theorem sha256 (v : Sha256Stream) : Verified X86.target (Impl.Pbkdf2.Generic.X86.iterate (sha256H v))
+    (Spec.Hmac.sha256I.iterateContract X86.abi 48) :=
+  (verifiedW (sha256OK v) (Checks.of_eq (H := sha256Core) rfl rfl rfl rfl rfl sha256_checks)
+    (show 8 * 20 + 16 + 96 + 2 * 32 ≤ 8 * 104 by decide) sha256_imp.sat_left).of_implies sha256_imp
+
 /-! ## SHA-1 -/
 
 theorem sha1_checks : Checks sha1H where
