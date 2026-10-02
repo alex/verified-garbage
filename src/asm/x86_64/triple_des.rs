@@ -315,7 +315,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_expand_key(key: *const u8, ke
         "mov r14, 0",
         "mov r15, rdx",
         "add r15, 0",
-        ".p2align 6",
         "20:",
         "cmp r14, 2",
         "jb 21f",
@@ -908,7 +907,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_expand_key(key: *const u8, ke
         "mov r14, 0",
         "mov r15, rdx",
         "add r15, 128",
-        ".p2align 6",
         "27:",
         "cmp r14, 2",
         "jb 28f",
@@ -1503,7 +1501,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_expand_key(key: *const u8, ke
         "mov r14, 0",
         "mov r15, rdx",
         "add r15, 256",
-        ".p2align 6",
         "216:",
         "cmp r14, 2",
         "jb 217f",
@@ -1849,6 +1846,7 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_expand_key(key: *const u8, ke
         "mov r14, QWORD PTR [rcx+32]",
         "mov r15, QWORD PTR [rcx+40]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2204,7 +2202,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_encrypt_block(schedule: *cons
         "add rdi, 0",
         "mov rax, 16",
         "mov QWORD PTR [rdx+56], rax",
-        ".p2align 6",
         "20:",
         "mov rbx, QWORD PTR [rdi]",
         "mov rax, r13",
@@ -3864,7 +3861,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_encrypt_block(schedule: *cons
         "add rdi, 248",
         "mov rax, 16",
         "mov QWORD PTR [rdx+56], rax",
-        ".p2align 6",
         "21:",
         "mov rbx, QWORD PTR [rdi]",
         "mov rax, r13",
@@ -5524,7 +5520,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_encrypt_block(schedule: *cons
         "add rdi, 256",
         "mov rax, 16",
         "mov QWORD PTR [rdx+56], rax",
-        ".p2align 6",
         "22:",
         "mov rbx, QWORD PTR [rdi]",
         "mov rax, r13",
@@ -7513,6 +7508,7 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_encrypt_block(schedule: *cons
         "mov rdi, QWORD PTR [rdx+48]",
         "mov QWORD PTR [rsi], rax",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -7868,7 +7864,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_decrypt_block(schedule: *cons
         "add rdi, 376",
         "mov rax, 16",
         "mov QWORD PTR [rdx+56], rax",
-        ".p2align 6",
         "20:",
         "mov rbx, QWORD PTR [rdi]",
         "mov rax, r13",
@@ -9528,7 +9523,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_decrypt_block(schedule: *cons
         "add rdi, 128",
         "mov rax, 16",
         "mov QWORD PTR [rdx+56], rax",
-        ".p2align 6",
         "21:",
         "mov rbx, QWORD PTR [rdi]",
         "mov rax, r13",
@@ -11188,7 +11182,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_decrypt_block(schedule: *cons
         "add rdi, 120",
         "mov rax, 16",
         "mov QWORD PTR [rdx+56], rax",
-        ".p2align 6",
         "22:",
         "mov rbx, QWORD PTR [rdi]",
         "mov rax, r13",
@@ -13177,6 +13170,7 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_decrypt_block(schedule: *cons
         "mov rdi, QWORD PTR [rdx+48]",
         "mov QWORD PTR [rsi], rax",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -13202,7 +13196,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_ecb_encrypt(schedule: *const 
         "mov rdx, rcx",
         "cmp rbp, 0",
         "je 20f",
-        ".p2align 6",
         "22:",
         "call {vg_triple_des_encrypt_block}",
         "add rsi, 8",
@@ -13213,6 +13206,7 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_ecb_encrypt(schedule: *const 
         "21:",
         "mov rbp, QWORD PTR [rdx+512]",
         "ret",
+        ".p2align 6",
         vg_triple_des_encrypt_block = sym super::triple_des::vg_triple_des_encrypt_block,
     )
 }
@@ -13239,7 +13233,6 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_ecb_decrypt(schedule: *const 
         "mov rdx, rcx",
         "cmp rbp, 0",
         "je 20f",
-        ".p2align 6",
         "22:",
         "call {vg_triple_des_decrypt_block}",
         "add rsi, 8",
@@ -13250,6 +13243,7 @@ pub(crate) unsafe extern "sysv64" fn vg_triple_des_ecb_decrypt(schedule: *const 
         "21:",
         "mov rbp, QWORD PTR [rdx+512]",
         "ret",
+        ".p2align 6",
         vg_triple_des_decrypt_block = sym super::triple_des::vg_triple_des_decrypt_block,
     )
 }

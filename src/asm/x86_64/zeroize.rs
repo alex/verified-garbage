@@ -18,7 +18,6 @@ pub(crate) unsafe extern "sysv64" fn vg_zeroize(p: *mut u8, len: usize) {
         "shr rdx, 5",
         "cmp rdx, 0",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov QWORD PTR [rdi], rax",
         "mov QWORD PTR [rdi+8], rax",
@@ -35,7 +34,6 @@ pub(crate) unsafe extern "sysv64" fn vg_zeroize(p: *mut u8, len: usize) {
         "and rdx, 3",
         "cmp rdx, 0",
         "je 23f",
-        ".p2align 6",
         "25:",
         "mov QWORD PTR [rdi], rax",
         "add rdi, 8",
@@ -48,7 +46,6 @@ pub(crate) unsafe extern "sysv64" fn vg_zeroize(p: *mut u8, len: usize) {
         "and rdx, 7",
         "cmp rdx, 0",
         "je 26f",
-        ".p2align 6",
         "28:",
         "mov BYTE PTR [rdi], al",
         "add rdi, 1",
@@ -58,5 +55,6 @@ pub(crate) unsafe extern "sysv64" fn vg_zeroize(p: *mut u8, len: usize) {
         "26:",
         "27:",
         "ret",
+        ".p2align 6",
     )
 }

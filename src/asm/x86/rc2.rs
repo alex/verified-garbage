@@ -81,6 +81,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_init(key: *const u8, key_len: usize, 
         "26:",
         "27:",
         "ret",
+        ".p2align 6",
         vg_rc2_expand_key = sym super::rc2::vg_rc2_expand_key,
     )
 }
@@ -118,7 +119,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_encrypt_update(ctx: *mut [u8; 144], p
         "mov ecx, DWORD PTR [esp+8]",
         "test ecx, ecx",
         "je 22f",
-        ".p2align 6",
         "24:",
         "movzx eax, BYTE PTR [esi+136]",
         "mov BYTE PTR [edx], al",
@@ -135,7 +135,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_encrypt_update(ctx: *mut [u8; 144], p
         "sub ecx, eax",
         "test ecx, ecx",
         "je 25f",
-        ".p2align 6",
         "27:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edx], al",
@@ -154,7 +153,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_encrypt_update(ctx: *mut [u8; 144], p
         "add ecx, eax",
         "test ecx, ecx",
         "je 28f",
-        ".p2align 6",
         "210:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edx+136], al",
@@ -174,7 +172,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_encrypt_update(ctx: *mut [u8; 144], p
         "mov ecx, DWORD PTR [esp+16]",
         "test ecx, ecx",
         "je 211f",
-        ".p2align 6",
         "213:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edx+136], al",
@@ -211,6 +208,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_encrypt_update(ctx: *mut [u8; 144], p
         "mov esi, DWORD PTR [ebx+516]",
         "mov ebx, DWORD PTR [ebx+512]",
         "ret",
+        ".p2align 6",
         vg_rc2_cbc_encrypt = sym super::rc2::vg_rc2_cbc_encrypt,
     )
 }
@@ -248,7 +246,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_decrypt_update(ctx: *mut [u8; 144], p
         "mov ecx, DWORD PTR [esp+8]",
         "test ecx, ecx",
         "je 22f",
-        ".p2align 6",
         "24:",
         "movzx eax, BYTE PTR [esi+136]",
         "mov BYTE PTR [edx], al",
@@ -265,7 +262,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_decrypt_update(ctx: *mut [u8; 144], p
         "sub ecx, eax",
         "test ecx, ecx",
         "je 25f",
-        ".p2align 6",
         "27:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edx], al",
@@ -284,7 +280,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_decrypt_update(ctx: *mut [u8; 144], p
         "add ecx, eax",
         "test ecx, ecx",
         "je 28f",
-        ".p2align 6",
         "210:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edx+136], al",
@@ -304,7 +299,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_decrypt_update(ctx: *mut [u8; 144], p
         "mov ecx, DWORD PTR [esp+16]",
         "test ecx, ecx",
         "je 211f",
-        ".p2align 6",
         "213:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edx+136], al",
@@ -341,6 +335,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_decrypt_update(ctx: *mut [u8; 144], p
         "mov esi, DWORD PTR [ebx+516]",
         "mov ebx, DWORD PTR [ebx+512]",
         "ret",
+        ".p2align 6",
         vg_rc2_cbc_decrypt = sym super::rc2::vg_rc2_cbc_decrypt,
     )
 }
@@ -377,7 +372,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_encrypt(schedule: *const [u8; 128], i
         "mov edi, DWORD PTR [esp+16]",
         "cmp edi, 0",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov eax, DWORD PTR [esi]",
         "mov edx, DWORD PTR [esi+4]",
@@ -408,6 +402,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_encrypt(schedule: *const [u8; 128], i
         "mov esi, DWORD PTR [eax+272]",
         "mov edi, DWORD PTR [eax+276]",
         "ret",
+        ".p2align 6",
         vg_rc2_encrypt_block = sym super::rc2::vg_rc2_encrypt_block,
     )
 }
@@ -444,7 +439,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_decrypt(schedule: *const [u8; 128], i
         "mov edi, DWORD PTR [esp+16]",
         "cmp edi, 0",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov eax, DWORD PTR [esi]",
         "mov edx, DWORD PTR [esi+4]",
@@ -479,6 +473,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_decrypt(schedule: *const [u8; 128], i
         "mov esi, DWORD PTR [eax+272]",
         "mov edi, DWORD PTR [eax+276]",
         "ret",
+        ".p2align 6",
         vg_rc2_decrypt_block = sym super::rc2::vg_rc2_decrypt_block,
     )
 }
@@ -511,7 +506,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_expand_key(key: *const u8, key_len: usize
         "mov esi, DWORD PTR [esp+8]",
         "mov edi, DWORD PTR [esp+16]",
         "mov ecx, 0",
-        ".p2align 6",
         "20:",
         "mov edx, ebp",
         "add edx, ecx",
@@ -526,7 +520,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_expand_key(key: *const u8, key_len: usize
         "jne 21f",
         "jmp 22f",
         "21:",
-        ".p2align 6",
         "23:",
         "mov edx, edi",
         "add edx, ecx",
@@ -4708,7 +4701,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_expand_key(key: *const u8, key_len: usize
         "jne 218f",
         "jmp 219f",
         "218:",
-        ".p2align 6",
         "220:",
         "sub ecx, 1",
         "mov edx, edi",
@@ -6784,6 +6776,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_expand_key(key: *const u8, key_len: usize
         "mov esi, DWORD PTR [eax+8]",
         "mov edi, DWORD PTR [eax+12]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -14480,6 +14473,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_encrypt_block(schedule: *const [u8; 128],
         "mov edi, DWORD PTR [eax+12]",
         "mov ecx, DWORD PTR [eax+16]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -22176,5 +22170,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_decrypt_block(schedule: *const [u8; 128],
         "mov edi, DWORD PTR [eax+12]",
         "mov ecx, DWORD PTR [eax+16]",
         "ret",
+        ".p2align 6",
     )
 }

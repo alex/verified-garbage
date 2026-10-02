@@ -25,7 +25,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_compress(state: *mut [u32; 5], bloc
         "mov QWORD PTR [rcx+104], r15",
         "test rdx, rdx",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov eax, DWORD PTR [rdi]",
         "mov ebx, DWORD PTR [rdi+4]",
@@ -1447,6 +1446,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_compress(state: *mut [u32; 5], bloc
         "mov r14, QWORD PTR [rcx+96]",
         "mov r15, QWORD PTR [rcx+104]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1472,6 +1472,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_init(state: *mut [u8; 84]) {
         "mov eax, -1009589776",
         "mov DWORD PTR [rdi+16], eax",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1508,7 +1509,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_compress_shani(state: *mut [u32; 5]
         "pslldq xmm1, 12",
         "test rdx, rdx",
         "je 20f",
-        ".p2align 6",
         "22:",
         "movdqa xmm8, xmm0",
         "movdqa xmm9, xmm1",
@@ -1663,6 +1663,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_compress_shani(state: *mut [u32; 5]
         "movdqu XMMWORD PTR [rdi+4], xmm2",
         "movdqu XMMWORD PTR [rdi], xmm0",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1693,7 +1694,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_update(state: *mut [u8; 84], count:
         "mov r12, rcx",
         "mov r13, rsi",
         "and r13, 63",
-        ".p2align 6",
         "20:",
         "test r13, r13",
         "je 21f",
@@ -1708,7 +1708,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_update(state: *mut [u8; 84], count:
         "sub r12, rax",
         "test rax, rax",
         "je 25f",
-        ".p2align 6",
         "27:",
         "movzx r9d, BYTE PTR [rbp]",
         "mov BYTE PTR [rbx+r13*1+20], r9b",
@@ -1744,7 +1743,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_update(state: *mut [u8; 84], count:
         "sub r12, rax",
         "test rax, rax",
         "je 214f",
-        ".p2align 6",
         "216:",
         "movzx r9d, BYTE PTR [rbp]",
         "mov BYTE PTR [rbx+r13*1+20], r9b",
@@ -1797,6 +1795,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_update(state: *mut [u8; 84], count:
         "mov r14, QWORD PTR [r15+144]",
         "mov r15, QWORD PTR [r15+152]",
         "ret",
+        ".p2align 6",
         vg_sha1_compress = sym super::sha1::vg_sha1_compress,
     )
 }
@@ -1839,7 +1838,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_finalize(state: *mut [u8; 84], coun
         "20:",
         "mov r14d, 1",
         "21:",
-        ".p2align 6",
         "22:",
         "mov eax, 64",
         "test r14, r14",
@@ -1851,7 +1849,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_finalize(state: *mut [u8; 84], coun
         "mov r9d, 0",
         "sub rax, r13",
         "je 25f",
-        ".p2align 6",
         "27:",
         "mov BYTE PTR [rbx+r13*1+20], r9b",
         "add r13, 1",
@@ -1904,6 +1901,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_finalize(state: *mut [u8; 84], coun
         "mov r14, QWORD PTR [r15+144]",
         "mov r15, QWORD PTR [r15+152]",
         "ret",
+        ".p2align 6",
         vg_sha1_compress = sym super::sha1::vg_sha1_compress,
     )
 }
@@ -1939,7 +1937,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_update_shani(state: *mut [u8; 84], 
         "mov r12, rcx",
         "mov r13, rsi",
         "and r13, 63",
-        ".p2align 6",
         "20:",
         "test r13, r13",
         "je 21f",
@@ -1954,7 +1951,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_update_shani(state: *mut [u8; 84], 
         "sub r12, rax",
         "test rax, rax",
         "je 25f",
-        ".p2align 6",
         "27:",
         "movzx r9d, BYTE PTR [rbp]",
         "mov BYTE PTR [rbx+r13*1+20], r9b",
@@ -1990,7 +1986,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_update_shani(state: *mut [u8; 84], 
         "sub r12, rax",
         "test rax, rax",
         "je 214f",
-        ".p2align 6",
         "216:",
         "movzx r9d, BYTE PTR [rbp]",
         "mov BYTE PTR [rbx+r13*1+20], r9b",
@@ -2043,6 +2038,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_update_shani(state: *mut [u8; 84], 
         "mov r14, QWORD PTR [r15+144]",
         "mov r15, QWORD PTR [r15+152]",
         "ret",
+        ".p2align 6",
         vg_sha1_compress_shani = sym super::sha1::vg_sha1_compress_shani,
     )
 }
@@ -2089,7 +2085,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_finalize_shani(state: *mut [u8; 84]
         "20:",
         "mov r14d, 1",
         "21:",
-        ".p2align 6",
         "22:",
         "mov eax, 64",
         "test r14, r14",
@@ -2101,7 +2096,6 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_finalize_shani(state: *mut [u8; 84]
         "mov r9d, 0",
         "sub rax, r13",
         "je 25f",
-        ".p2align 6",
         "27:",
         "mov BYTE PTR [rbx+r13*1+20], r9b",
         "add r13, 1",
@@ -2154,6 +2148,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_finalize_shani(state: *mut [u8; 84]
         "mov r14, QWORD PTR [r15+144]",
         "mov r15, QWORD PTR [r15+152]",
         "ret",
+        ".p2align 6",
         vg_sha1_compress_shani = sym super::sha1::vg_sha1_compress_shani,
     )
 }

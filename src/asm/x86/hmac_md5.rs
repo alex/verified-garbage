@@ -58,7 +58,6 @@ pub(crate) unsafe extern "C" fn vg_hmac_md5_init(inner: *mut [u8; 80], outer: *m
         "add edx, 16",
         "test ecx, ecx",
         "je 20f",
-        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [edi]",
         "xor eax, 54",
@@ -149,6 +148,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_md5_init(inner: *mut [u8; 80], outer: *m
         "mov edi, DWORD PTR [eax+120]",
         "mov ebp, DWORD PTR [eax+124]",
         "ret",
+        ".p2align 6",
         vg_md5_init = sym super::md5::vg_md5_init,
         vg_md5_compress = sym super::md5::vg_md5_compress,
     )
@@ -264,6 +264,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_md5_finalize(inner: *mut [u8; 80], outer
         "mov edi, DWORD PTR [eax+120]",
         "mov ebp, DWORD PTR [eax+124]",
         "ret",
+        ".p2align 6",
         vg_md5_finalize = sym super::md5::vg_md5_finalize,
         vg_md5_compress = sym super::md5::vg_md5_compress,
     )

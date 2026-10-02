@@ -20,7 +20,6 @@ pub(crate) unsafe extern "C" fn vg_zeroize(p: *mut u8, len: usize) {
         "shr edx, 5",
         "cmp edx, 0",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov DWORD PTR [ecx], eax",
         "mov DWORD PTR [ecx+4], eax",
@@ -41,7 +40,6 @@ pub(crate) unsafe extern "C" fn vg_zeroize(p: *mut u8, len: usize) {
         "and edx, 7",
         "cmp edx, 0",
         "je 23f",
-        ".p2align 6",
         "25:",
         "mov DWORD PTR [ecx], eax",
         "add ecx, 4",
@@ -54,7 +52,6 @@ pub(crate) unsafe extern "C" fn vg_zeroize(p: *mut u8, len: usize) {
         "and edx, 3",
         "cmp edx, 0",
         "je 26f",
-        ".p2align 6",
         "28:",
         "mov BYTE PTR [ecx], al",
         "add ecx, 1",
@@ -64,5 +61,6 @@ pub(crate) unsafe extern "C" fn vg_zeroize(p: *mut u8, len: usize) {
         "26:",
         "27:",
         "ret",
+        ".p2align 6",
     )
 }

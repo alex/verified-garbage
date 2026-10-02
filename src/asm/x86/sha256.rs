@@ -32,6 +32,7 @@ pub(crate) unsafe extern "C" fn vg_sha224_init(state: *mut [u8; 96]) {
         "mov ecx, -1090891868",
         "mov DWORD PTR [eax+28], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -65,6 +66,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
         "mov ecx, 1541459225",
         "mov DWORD PTR [eax+28], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -93,7 +95,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks:
         "mov ebp, DWORD PTR [esp+12]",
         "test ebp, ebp",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov eax, DWORD PTR [esp+4]",
         "mov ebx, DWORD PTR [eax]",
@@ -3428,6 +3429,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks:
         "mov ebp, DWORD PTR [esi+108]",
         "mov esi, DWORD PTR [esi+100]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3458,7 +3460,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u6
         "mov esi, DWORD PTR [esp+20]",
         "mov edi, DWORD PTR [esp+8]",
         "and edi, 63",
-        ".p2align 6",
         "20:",
         "test edi, edi",
         "je 21f",
@@ -3474,7 +3475,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u6
         "add edi, ebx",
         "test eax, eax",
         "je 25f",
-        ".p2align 6",
         "27:",
         "movzx ecx, BYTE PTR [ebp]",
         "mov BYTE PTR [edi+32], cl",
@@ -3512,7 +3512,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u6
         "add edi, ebx",
         "test eax, eax",
         "je 214f",
-        ".p2align 6",
         "216:",
         "movzx ecx, BYTE PTR [ebp]",
         "mov BYTE PTR [edi+32], cl",
@@ -3571,6 +3570,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u6
         "mov edi, DWORD PTR [eax+120]",
         "mov ebp, DWORD PTR [eax+124]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
 }
@@ -3620,7 +3620,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_finalize(state: *mut [u8; 96], count: 
         "20:",
         "mov esi, 1",
         "21:",
-        ".p2align 6",
         "22:",
         "mov eax, 64",
         "test esi, esi",
@@ -3632,7 +3631,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_finalize(state: *mut [u8; 96], count: 
         "mov ecx, 0",
         "sub eax, edi",
         "je 25f",
-        ".p2align 6",
         "27:",
         "mov edx, ebx",
         "add edx, edi",
@@ -3708,6 +3706,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_finalize(state: *mut [u8; 96], count: 
         "mov edi, DWORD PTR [ebp+120]",
         "mov ebp, DWORD PTR [ebp+124]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
 }
@@ -3763,7 +3762,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress_shani(state: *mut [u32; 8], b
         "punpckhqdq xmm2, xmm1",
         "movdqa xmm1, xmm7",
         "je 20f",
-        ".p2align 6",
         "22:",
         "movdqu XMMWORD PTR [esi+32], xmm1",
         "movdqu XMMWORD PTR [esi+48], xmm2",
@@ -4117,6 +4115,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress_shani(state: *mut [u32; 8], b
         "mov ebp, DWORD PTR [esi+108]",
         "mov esi, DWORD PTR [esi+100]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4151,7 +4150,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_update_shani(state: *mut [u8; 96], cou
         "mov esi, DWORD PTR [esp+20]",
         "mov edi, DWORD PTR [esp+8]",
         "and edi, 63",
-        ".p2align 6",
         "20:",
         "test edi, edi",
         "je 21f",
@@ -4167,7 +4165,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_update_shani(state: *mut [u8; 96], cou
         "add edi, ebx",
         "test eax, eax",
         "je 25f",
-        ".p2align 6",
         "27:",
         "movzx ecx, BYTE PTR [ebp]",
         "mov BYTE PTR [edi+32], cl",
@@ -4205,7 +4202,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_update_shani(state: *mut [u8; 96], cou
         "add edi, ebx",
         "test eax, eax",
         "je 214f",
-        ".p2align 6",
         "216:",
         "movzx ecx, BYTE PTR [ebp]",
         "mov BYTE PTR [edi+32], cl",
@@ -4264,6 +4260,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_update_shani(state: *mut [u8; 96], cou
         "mov edi, DWORD PTR [eax+120]",
         "mov ebp, DWORD PTR [eax+124]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )
 }
@@ -4317,7 +4314,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_finalize_shani(state: *mut [u8; 96], c
         "20:",
         "mov esi, 1",
         "21:",
-        ".p2align 6",
         "22:",
         "mov eax, 64",
         "test esi, esi",
@@ -4329,7 +4325,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_finalize_shani(state: *mut [u8; 96], c
         "mov ecx, 0",
         "sub eax, edi",
         "je 25f",
-        ".p2align 6",
         "27:",
         "mov edx, ebx",
         "add edx, edi",
@@ -4405,6 +4400,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_finalize_shani(state: *mut [u8; 96], c
         "mov edi, DWORD PTR [ebp+120]",
         "mov ebp, DWORD PTR [ebp+124]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )
 }

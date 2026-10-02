@@ -42,7 +42,6 @@ pub(crate) unsafe extern "C" fn vg_blake2b_compress(state: *mut [u64; 8], blocks
         "mov DWORD PTR [esi+260], eax",
         "test eax, eax",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov edi, DWORD PTR [esi+256]",
         "mov eax, DWORD PTR [edi]",
@@ -6512,6 +6511,7 @@ pub(crate) unsafe extern "C" fn vg_blake2b_compress(state: *mut [u64; 8], blocks
         "mov ebp, DWORD PTR [esi+300]",
         "mov esi, DWORD PTR [esi+292]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -6568,7 +6568,6 @@ pub(crate) unsafe extern "C" fn vg_blake2b_init(state: *mut [u8; 192], outlen: u
         "mov DWORD PTR [eax+188], edx",
         "mov DWORD PTR [eax], ebx",
         "mov edx, DWORD PTR [esp+12]",
-        ".p2align 6",
         "22:",
         "movzx ebx, BYTE PTR [edx]",
         "mov BYTE PTR [eax+64], bl",
@@ -6622,6 +6621,7 @@ pub(crate) unsafe extern "C" fn vg_blake2b_init(state: *mut [u8; 192], outlen: u
         "xor ecx, DWORD PTR [esp+8]",
         "mov DWORD PTR [eax], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -6686,7 +6686,6 @@ pub(crate) unsafe extern "C" fn vg_blake2b_update(state: *mut [u8; 192], count: 
         "mov DWORD PTR [ebp+532], eax",
         "test ecx, ecx",
         "je 28f",
-        ".p2align 6",
         "210:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edx+64], al",
@@ -6771,7 +6770,6 @@ pub(crate) unsafe extern "C" fn vg_blake2b_update(state: *mut [u8; 192], count: 
         "216:",
         "mov ecx, edi",
         "mov edx, ebx",
-        ".p2align 6",
         "217:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edx+64], al",
@@ -6791,6 +6789,7 @@ pub(crate) unsafe extern "C" fn vg_blake2b_update(state: *mut [u8; 192], count: 
         "mov edi, DWORD PTR [eax+520]",
         "mov ebp, DWORD PTR [eax+524]",
         "ret",
+        ".p2align 6",
         vg_blake2b_compress = sym super::blake2b::vg_blake2b_compress,
     )
 }
@@ -6836,7 +6835,6 @@ pub(crate) unsafe extern "C" fn vg_blake2b_finalize(state: *mut [u8; 192], count
         "sub ecx, eax",
         "mov eax, 0",
         "je 22f",
-        ".p2align 6",
         "24:",
         "mov BYTE PTR [edx+64], al",
         "add edx, 1",
@@ -6905,6 +6903,7 @@ pub(crate) unsafe extern "C" fn vg_blake2b_finalize(state: *mut [u8; 192], count
         "mov edi, DWORD PTR [eax+520]",
         "mov ebp, DWORD PTR [eax+524]",
         "ret",
+        ".p2align 6",
         vg_blake2b_compress = sym super::blake2b::vg_blake2b_compress,
     )
 }

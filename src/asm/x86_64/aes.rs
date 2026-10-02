@@ -29,7 +29,6 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_expand_key(key: *const u8, key_len: 
         "mov QWORD PTR [r9+416], r14",
         "mov QWORD PTR [r9+424], r15",
         "mov r8, rsi",
-        ".p2align 6",
         "20:",
         "mov rax, QWORD PTR [rdi]",
         "mov QWORD PTR [rdx], rax",
@@ -46,7 +45,6 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_expand_key(key: *const u8, key_len: 
         "add r8, 28",
         "movabs rax, 1",
         "mov QWORD PTR [r9+432], rax",
-        ".p2align 6",
         "21:",
         "mov eax, DWORD PTR [rdx-4]",
         "cmp rdi, rsi",
@@ -1466,6 +1464,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_expand_key(key: *const u8, key_len: 
         "mov r14, QWORD PTR [r9+416]",
         "mov r15, QWORD PTR [r9+424]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1513,7 +1512,6 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32(schedule: *const [u8; 240], ro
         "add rdi, rsi",
         "mov rsi, r9",
         "add rsi, 1920",
-        ".p2align 6",
         "20:",
         "mov rax, QWORD PTR [rdi]",
         "mov r10, QWORD PTR [rdi+8]",
@@ -1775,7 +1773,6 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32(schedule: *const [u8; 240], ro
         "add rdi, 64",
         "test r8, r8",
         "je 21f",
-        ".p2align 6",
         "23:",
         "mov rax, QWORD PTR [r9+432]",
         "mov r14d, DWORD PTR [r9+448]",
@@ -2053,7 +2050,6 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32(schedule: *const [u8; 240], ro
         "xor r11, QWORD PTR [rsi+40]",
         "xor r12, QWORD PTR [rsi+48]",
         "xor r13, QWORD PTR [rsi+56]",
-        ".p2align 6",
         "24:",
         "add rsi, 64",
         "movabs r14, -1",
@@ -3195,6 +3191,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32(schedule: *const [u8; 240], ro
         "mov r14, QWORD PTR [r9+416]",
         "mov r15, QWORD PTR [r9+424]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3626,6 +3623,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_expand_key_aesni(key: *const u8, key
         "movdqu XMMWORD PTR [rdx+192], xmm1",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3669,7 +3667,6 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32_aesni(schedule: *const [u8; 24
         "add r10, rdi",
         "cmp r8, 8",
         "jb 20f",
-        ".p2align 6",
         "22:",
         "movdqa xmm0, xmm9",
         "pshufb xmm0, xmm10",
@@ -3873,7 +3870,6 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32_aesni(schedule: *const [u8; 24
         "21:",
         "test r8, r8",
         "je 27f",
-        ".p2align 6",
         "29:",
         "movdqa xmm0, xmm9",
         "pshufb xmm0, xmm10",
@@ -3930,5 +3926,6 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32_aesni(schedule: *const [u8; 24
         "pshufb xmm9, xmm10",
         "movdqu XMMWORD PTR [rdx], xmm9",
         "ret",
+        ".p2align 6",
     )
 }

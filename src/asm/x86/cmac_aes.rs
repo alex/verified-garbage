@@ -135,6 +135,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_subkeys_aesni(schedule: *const [u8; 
         "mov edi, DWORD PTR [eax+2072]",
         "mov ebp, DWORD PTR [eax+2076]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
 }
@@ -171,7 +172,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_update_aesni(schedule: *const [u8; 2
         "mov eax, DWORD PTR [esp+20]",
         "test eax, eax",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov ebx, DWORD PTR [esp+12]",
         "mov ebp, DWORD PTR [esp+24]",
@@ -232,6 +232,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_update_aesni(schedule: *const [u8; 2
         "mov edi, DWORD PTR [eax+2072]",
         "mov ebp, DWORD PTR [eax+2076]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
 }
@@ -280,7 +281,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_finalize_aesni(key: *const [u8; 272]
         "mov ecx, DWORD PTR [esp+20]",
         "test ecx, ecx",
         "je 22f",
-        ".p2align 6",
         "24:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edi], al",
@@ -377,6 +377,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_finalize_aesni(key: *const [u8; 272]
         "mov edi, DWORD PTR [eax+2072]",
         "mov ebp, DWORD PTR [eax+2076]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
 }
@@ -451,6 +452,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_init_aesni(state: *mut [u64; 38], ke
         "mov edi, DWORD PTR [eax+2184]",
         "mov ebp, DWORD PTR [eax+2188]",
         "ret",
+        ".p2align 6",
         vg_aes_expand_key_aesni = sym super::aes::vg_aes_expand_key_aesni,
         vg_cmac_aes_subkeys_aesni = sym super::cmac_aes::vg_cmac_aes_subkeys_aesni,
     )
@@ -509,7 +511,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb_aesni(state: *mut [u64; 38], 
         "add edi, eax",
         "test ecx, ecx",
         "je 24f",
-        ".p2align 6",
         "26:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edi], al",
@@ -593,7 +594,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb_aesni(state: *mut [u64; 38], 
         "sub ecx, ebp",
         "test ecx, ecx",
         "je 211f",
-        ".p2align 6",
         "213:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edi], al",
@@ -610,6 +610,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb_aesni(state: *mut [u64; 38], 
         "mov edi, DWORD PTR [eax+2184]",
         "mov ebp, DWORD PTR [eax+2188]",
         "ret",
+        ".p2align 6",
         vg_cmac_aes_update_aesni = sym super::cmac_aes::vg_cmac_aes_update_aesni,
     )
 }
@@ -648,7 +649,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_finish_aesni(state: *mut [u64; 38], 
         "mov ecx, 16",
         "test ecx, ecx",
         "je 20f",
-        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edi], al",
@@ -694,6 +694,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_finish_aesni(state: *mut [u64; 38], 
         "mov edi, DWORD PTR [eax+2184]",
         "mov ebp, DWORD PTR [eax+2188]",
         "ret",
+        ".p2align 6",
         vg_cmac_aes_finalize_aesni = sym super::cmac_aes::vg_cmac_aes_finalize_aesni,
     )
 }
@@ -827,6 +828,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_subkeys(schedule: *const [u8; 240], 
         "mov edi, DWORD PTR [eax+2072]",
         "mov ebp, DWORD PTR [eax+2076]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
 }
@@ -859,7 +861,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_update(schedule: *const [u8; 240], r
         "mov eax, DWORD PTR [esp+20]",
         "test eax, eax",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov ebx, DWORD PTR [esp+12]",
         "mov ebp, DWORD PTR [esp+24]",
@@ -920,6 +921,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_update(schedule: *const [u8; 240], r
         "mov edi, DWORD PTR [eax+2072]",
         "mov ebp, DWORD PTR [eax+2076]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
 }
@@ -964,7 +966,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_finalize(key: *const [u8; 272], roun
         "mov ecx, DWORD PTR [esp+20]",
         "test ecx, ecx",
         "je 22f",
-        ".p2align 6",
         "24:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edi], al",
@@ -1061,6 +1062,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_finalize(key: *const [u8; 272], roun
         "mov edi, DWORD PTR [eax+2072]",
         "mov ebp, DWORD PTR [eax+2076]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
 }
@@ -1131,6 +1133,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_init(state: *mut [u64; 38], key: *co
         "mov edi, DWORD PTR [eax+2184]",
         "mov ebp, DWORD PTR [eax+2188]",
         "ret",
+        ".p2align 6",
         vg_aes_expand_key = sym super::aes::vg_aes_expand_key,
         vg_cmac_aes_subkeys = sym super::cmac_aes::vg_cmac_aes_subkeys,
     )
@@ -1185,7 +1188,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb(state: *mut [u64; 38], rounds
         "add edi, eax",
         "test ecx, ecx",
         "je 24f",
-        ".p2align 6",
         "26:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edi], al",
@@ -1269,7 +1271,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb(state: *mut [u64; 38], rounds
         "sub ecx, ebp",
         "test ecx, ecx",
         "je 211f",
-        ".p2align 6",
         "213:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edi], al",
@@ -1286,6 +1287,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb(state: *mut [u64; 38], rounds
         "mov edi, DWORD PTR [eax+2184]",
         "mov ebp, DWORD PTR [eax+2188]",
         "ret",
+        ".p2align 6",
         vg_cmac_aes_update = sym super::cmac_aes::vg_cmac_aes_update,
     )
 }
@@ -1320,7 +1322,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_finish(state: *mut [u64; 38], rounds
         "mov ecx, 16",
         "test ecx, ecx",
         "je 20f",
-        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [esi]",
         "mov BYTE PTR [edi], al",
@@ -1366,6 +1367,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_finish(state: *mut [u64; 38], rounds
         "mov edi, DWORD PTR [eax+2184]",
         "mov ebp, DWORD PTR [eax+2188]",
         "ret",
+        ".p2align 6",
         vg_cmac_aes_finalize = sym super::cmac_aes::vg_cmac_aes_finalize,
     )
 }

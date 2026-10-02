@@ -28,7 +28,6 @@ pub(crate) unsafe extern "C" fn vg_sha512_compress(state: *mut [u64; 8], blocks:
         "mov DWORD PTR [esi+208], eax",
         "test eax, eax",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov ecx, DWORD PTR [esp+4]",
         "mov eax, DWORD PTR [ecx]",
@@ -15101,6 +15100,7 @@ pub(crate) unsafe extern "C" fn vg_sha512_compress(state: *mut [u64; 8], blocks:
         "mov ebp, DWORD PTR [esi+204]",
         "mov esi, DWORD PTR [esi+196]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -15150,6 +15150,7 @@ pub(crate) unsafe extern "C" fn vg_sha384_init(state: *mut [u8; 192]) {
         "mov ecx, 1203062813",
         "mov DWORD PTR [eax+60], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -15199,6 +15200,7 @@ pub(crate) unsafe extern "C" fn vg_sha512_init(state: *mut [u8; 192]) {
         "mov ecx, 1541459225",
         "mov DWORD PTR [eax+60], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -15248,6 +15250,7 @@ pub(crate) unsafe extern "C" fn vg_sha512_224_init(state: *mut [u8; 192]) {
         "mov ecx, 286451373",
         "mov DWORD PTR [eax+60], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -15297,6 +15300,7 @@ pub(crate) unsafe extern "C" fn vg_sha512_256_init(state: *mut [u8; 192]) {
         "mov ecx, 246885852",
         "mov DWORD PTR [eax+60], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -15325,7 +15329,6 @@ pub(crate) unsafe extern "C" fn vg_sha512_update(state: *mut [u8; 192], count: u
         "mov esi, DWORD PTR [esp+20]",
         "mov edi, DWORD PTR [esp+8]",
         "and edi, 127",
-        ".p2align 6",
         "20:",
         "test edi, edi",
         "je 21f",
@@ -15341,7 +15344,6 @@ pub(crate) unsafe extern "C" fn vg_sha512_update(state: *mut [u8; 192], count: u
         "add edi, ebx",
         "test eax, eax",
         "je 25f",
-        ".p2align 6",
         "27:",
         "movzx ecx, BYTE PTR [ebp]",
         "mov BYTE PTR [edi+64], cl",
@@ -15379,7 +15381,6 @@ pub(crate) unsafe extern "C" fn vg_sha512_update(state: *mut [u8; 192], count: u
         "add edi, ebx",
         "test eax, eax",
         "je 214f",
-        ".p2align 6",
         "216:",
         "movzx ecx, BYTE PTR [ebp]",
         "mov BYTE PTR [edi+64], cl",
@@ -15438,6 +15439,7 @@ pub(crate) unsafe extern "C" fn vg_sha512_update(state: *mut [u8; 192], count: u
         "mov edi, DWORD PTR [eax+232]",
         "mov ebp, DWORD PTR [eax+236]",
         "ret",
+        ".p2align 6",
         vg_sha512_compress = sym super::sha512::vg_sha512_compress,
     )
 }
@@ -15486,7 +15488,6 @@ pub(crate) unsafe extern "C" fn vg_sha512_finalize(state: *mut [u8; 192], count:
         "20:",
         "mov esi, 1",
         "21:",
-        ".p2align 6",
         "22:",
         "mov eax, 128",
         "test esi, esi",
@@ -15498,7 +15499,6 @@ pub(crate) unsafe extern "C" fn vg_sha512_finalize(state: *mut [u8; 192], count:
         "mov ecx, 0",
         "sub eax, edi",
         "je 25f",
-        ".p2align 6",
         "27:",
         "mov edx, ebx",
         "add edx, edi",
@@ -15604,6 +15604,7 @@ pub(crate) unsafe extern "C" fn vg_sha512_finalize(state: *mut [u8; 192], count:
         "mov edi, DWORD PTR [ebp+232]",
         "mov ebp, DWORD PTR [ebp+236]",
         "ret",
+        ".p2align 6",
         vg_sha512_compress = sym super::sha512::vg_sha512_compress,
     )
 }

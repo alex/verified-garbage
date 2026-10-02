@@ -57,7 +57,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_init(key: *const u8, key_len:
         "add esi, 100",
         "mov edi, DWORD PTR [esp+12]",
         "mov edx, 3",
-        ".p2align 6",
         "22:",
         "mov ecx, DWORD PTR [esi]",
         "ror ecx, 1",
@@ -2903,11 +2902,9 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_init(key: *const u8, key_len:
         "mov DWORD PTR [ebp+76], eax",
         "mov eax, 8",
         "mov DWORD PTR [ebp+80], eax",
-        ".p2align 6",
         "23:",
         "mov eax, 16",
         "mov DWORD PTR [ebp+72], eax",
-        ".p2align 6",
         "24:",
         "mov eax, DWORD PTR [ebp+68]",
         "ror eax, 25",
@@ -3808,6 +3805,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_init(key: *const u8, key_len:
         "mov edi, DWORD PTR [ebp+92]",
         "mov ebp, DWORD PTR [ebp+96]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3842,7 +3840,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_update(schedule: *const [u8; 
         "mov DWORD PTR [ebp+132], eax",
         "cmp eax, 0",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov ecx, DWORD PTR [esp+8]",
         "mov edi, DWORD PTR [ebp+128]",
@@ -4080,11 +4077,9 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_update(schedule: *const [u8; 
         "mov DWORD PTR [ebp+76], eax",
         "mov eax, 8",
         "mov DWORD PTR [ebp+80], eax",
-        ".p2align 6",
         "23:",
         "mov eax, 16",
         "mov DWORD PTR [ebp+72], eax",
-        ".p2align 6",
         "24:",
         "mov eax, DWORD PTR [ebp+68]",
         "ror eax, 25",
@@ -4965,6 +4960,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_update(schedule: *const [u8; 
         "mov edi, DWORD PTR [ebp+92]",
         "mov ebp, DWORD PTR [ebp+96]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -5006,7 +5002,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_finalize(key: *const [u8; 400
         "mov edx, DWORD PTR [esp+16]",
         "cmp edx, 0",
         "je 22f",
-        ".p2align 6",
         "24:",
         "movzx eax, BYTE PTR [ecx]",
         "mov BYTE PTR [edi], al",
@@ -5264,11 +5259,9 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_finalize(key: *const [u8; 400
         "mov DWORD PTR [ebp+76], eax",
         "mov eax, 8",
         "mov DWORD PTR [ebp+80], eax",
-        ".p2align 6",
         "25:",
         "mov eax, 16",
         "mov DWORD PTR [ebp+72], eax",
-        ".p2align 6",
         "26:",
         "mov eax, DWORD PTR [ebp+68]",
         "ror eax, 25",
@@ -6138,5 +6131,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_finalize(key: *const [u8; 400
         "mov edi, DWORD PTR [ebp+92]",
         "mov ebp, DWORD PTR [ebp+96]",
         "ret",
+        ".p2align 6",
     )
 }

@@ -93,7 +93,6 @@ pub(crate) unsafe extern "sysv64" fn vg_keccak_f1600(state: *mut [u64; 25], scra
         "mov rcx, QWORD PTR [rdi+176]",
         "mov rdx, QWORD PTR [rdi+184]",
         "mov rbp, QWORD PTR [rdi+192]",
-        ".p2align 6",
         "20:",
         "mov r8, QWORD PTR [rdi]",
         "mov r9, QWORD PTR [rdi+48]",
@@ -508,6 +507,7 @@ pub(crate) unsafe extern "sysv64" fn vg_keccak_f1600(state: *mut [u64; 25], scra
         "mov r14, QWORD PTR [rsi+424]",
         "mov r15, QWORD PTR [rsi+432]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -541,7 +541,6 @@ pub(crate) unsafe extern "sysv64" fn vg_keccak_absorb(state: *mut [u64; 25], rat
         "mov r15, r9",
         "test r14, r14",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov r10, r12",
         "mov r11d, 7",
@@ -593,6 +592,7 @@ pub(crate) unsafe extern "sysv64" fn vg_keccak_absorb(state: *mut [u64; 25], rat
         "mov r14, QWORD PTR [r15+544]",
         "mov r15, QWORD PTR [r15+552]",
         "ret",
+        ".p2align 6",
         vg_keccak_f1600 = sym super::sha3::vg_keccak_f1600,
     )
 }
@@ -621,6 +621,7 @@ pub(crate) unsafe extern "sysv64" fn vg_keccak_pad(state: *mut [u64; 25], rate: 
         "mov rsi, r8",
         "call {vg_keccak_f1600}",
         "ret",
+        ".p2align 6",
         vg_keccak_f1600 = sym super::sha3::vg_keccak_f1600,
     )
 }
@@ -655,7 +656,6 @@ pub(crate) unsafe extern "sysv64" fn vg_keccak_squeeze(state: *mut [u64; 25], ra
         "mov r15, r9",
         "test r14, r14",
         "je 20f",
-        ".p2align 6",
         "22:",
         "cmp r12, rbp",
         "je 23f",
@@ -702,6 +702,7 @@ pub(crate) unsafe extern "sysv64" fn vg_keccak_squeeze(state: *mut [u64; 25], ra
         "mov r14, QWORD PTR [r15+544]",
         "mov r15, QWORD PTR [r15+552]",
         "ret",
+        ".p2align 6",
         vg_keccak_f1600 = sym super::sha3::vg_keccak_f1600,
     )
 }

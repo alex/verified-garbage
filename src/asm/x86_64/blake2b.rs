@@ -56,7 +56,6 @@ pub(crate) unsafe extern "sysv64" fn vg_blake2b_init(state: *mut [u8; 192], outl
         "mov QWORD PTR [rdi+176], rax",
         "mov QWORD PTR [rdi+184], rax",
         "mov r8d, 0",
-        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [rdx+r8*1]",
         "mov BYTE PTR [rdi+r8*1+64], al",
@@ -67,6 +66,7 @@ pub(crate) unsafe extern "sysv64" fn vg_blake2b_init(state: *mut [u8; 192], outl
         "20:",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -106,7 +106,6 @@ pub(crate) unsafe extern "sysv64" fn vg_blake2b_compress(state: *mut [u64; 8], b
         "mov QWORD PTR [r9+288], rax",
         "test rdx, rdx",
         "je 22f",
-        ".p2align 6",
         "24:",
         "mov rsi, QWORD PTR [r9+256]",
         "mov rax, QWORD PTR [rsi]",
@@ -1751,6 +1750,7 @@ pub(crate) unsafe extern "sysv64" fn vg_blake2b_compress(state: *mut [u64; 8], b
         "mov r14, QWORD PTR [r9+328]",
         "mov r15, QWORD PTR [r9+336]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1807,7 +1807,6 @@ pub(crate) unsafe extern "sysv64" fn vg_blake2b_update(state: *mut [u8; 192], co
         "add r14, rax",
         "test rax, rax",
         "je 28f",
-        ".p2align 6",
         "210:",
         "movzx r9d, BYTE PTR [rbp]",
         "mov BYTE PTR [rbx+r13*1+64], r9b",
@@ -1868,7 +1867,6 @@ pub(crate) unsafe extern "sysv64" fn vg_blake2b_update(state: *mut [u8; 192], co
         "mov rax, r12",
         "add r14, rax",
         "mov r12d, 0",
-        ".p2align 6",
         "217:",
         "movzx r9d, BYTE PTR [rbp]",
         "mov BYTE PTR [rbx+r13*1+64], r9b",
@@ -1889,6 +1887,7 @@ pub(crate) unsafe extern "sysv64" fn vg_blake2b_update(state: *mut [u8; 192], co
         "mov r14, QWORD PTR [r15+544]",
         "mov r15, QWORD PTR [r15+552]",
         "ret",
+        ".p2align 6",
         vg_blake2b_compress = sym super::blake2b::vg_blake2b_compress,
     )
 }
@@ -1934,7 +1933,6 @@ pub(crate) unsafe extern "sysv64" fn vg_blake2b_finalize(state: *mut [u8; 192], 
         "mov eax, 128",
         "sub rax, r13",
         "je 22f",
-        ".p2align 6",
         "24:",
         "mov BYTE PTR [rbx+r13*1+64], r9b",
         "add r13, 1",
@@ -1976,6 +1974,7 @@ pub(crate) unsafe extern "sysv64" fn vg_blake2b_finalize(state: *mut [u8; 192], 
         "mov r14, QWORD PTR [r15+544]",
         "mov r15, QWORD PTR [r15+552]",
         "ret",
+        ".p2align 6",
         vg_blake2b_compress = sym super::blake2b::vg_blake2b_compress,
     )
 }

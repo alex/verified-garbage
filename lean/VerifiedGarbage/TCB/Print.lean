@@ -7,8 +7,7 @@ import VerifiedGarbage.TCB.Code
 conditional branches:
 
 * `ite c t e`  ⟶  `b<c> Lthen; e; b Lend; Lthen: t; Lend:`
-* `loop body c` ⟶  `align; Ltop: body; b<c> Ltop`, where `align` is the
-  printer's `loopAlign` (empty unless the target sets it)
+* `loop body c` ⟶  `Ltop: body; b<c> Ltop`
 * `call name body` ⟶  `<call> name` (the call instruction, e.g. `call` or
   `bl`, of the function `name`, which is emitted separately: see
   `VG.Rust.files`)
@@ -21,19 +20,17 @@ each reference has exactly one target. The numbers are `20`, `21`, `22`, …
 (`2` followed by a counter): a number of only `0`s and `1`s could be read as a
 binary literal in Intel syntax.
 
-`loopAlign` is an assembler alignment directive (e.g. `.p2align 6`), so that
-where a loop's code lies relative to the processor's fetch blocks and
-decoded-instruction cache lines depends on the loop alone, not on the size of
-the code before it. In a code section the assembler fills the gap with NOP
-instructions. They run only when execution enters the loop from the code
-before it: the branch back to the top lands on the label, after them. A NOP
-has no effect but advancing the instruction pointer (Intel SDM Vol. 2B,
-"NOP—No Operation": it "takes up space in the instruction stream but does not
-impact machine context, except for the EIP register"; flags affected: none).
-So the printed code computes what the model describes, with the same memory
-accesses and the same branches, taken under the same conditions: the NOPs run
-on every entry into the loop whatever the data, so the leakage the model sees
-is unchanged.
+A printer's `funcAlign` is an assembler alignment directive (e.g.
+`.p2align 6`) that `VG.Rust.function` emits after everything else in the
+function, so that where the function's code lies relative to the processor's
+fetch blocks and decoded-instruction cache lines depends on the function
+alone, not on the size of the code the linker happens to place before it.
+The directive raises the alignment of the function's section, so the
+function's first instruction lies on the boundary (`naked_asm!` gives each
+function a section of its own on ELF and COFF targets). Whatever padding the
+assembler inserts at the directive comes after the return that ends the
+function (`Printer.function`), so it is never executed: the printed code is
+the same instructions, at the same distances from one another.
 
 Together with each ISA's instruction printer this is part of the trusted
 base; it is small enough to check by inspection and is covered by the golden
@@ -71,9 +68,10 @@ structure Printer (M : ISA) where
   assemblers silently truncate), or `none` if it can. The emitter refuses
   code containing such an instruction (`Rust.checkEncodable`). -/
   unencodable : M.Instr → Option String := fun _ => none
-  /-- Assembler directives before the top of each loop, aligning it (see the
-  module docs): they may only pad with instructions that do nothing. -/
-  loopAlign : List String := []
+  /-- Assembler directives after the end of each function, aligning its
+  start (see the module docs). They come after its return, so any padding
+  they insert is never executed. -/
+  funcAlign : List String := []
 
 variable {M : ISA} (P : Printer M)
 
@@ -98,7 +96,7 @@ def Printer.lower : Code M.Instr M.Cond → Nat → List Line × Nat
   | .loop body c, n =>
     let lTop := labelNum n
     let (lb, n) := lower body (n + 1)
-    (P.loopAlign.map .text ++ [.text (lTop ++ ":")] ++ lb ++ [.text (P.branch c (lTop ++ "b"))], n)
+    ([.text (lTop ++ ":")] ++ lb ++ [.text (P.branch c (lTop ++ "b"))], n)
   | .call name _, n => ([.call name], n)
   | .frame i body j, n =>
     let (lb, n) := lower body n

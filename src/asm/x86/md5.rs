@@ -26,7 +26,6 @@ pub(crate) unsafe extern "C" fn vg_md5_compress(state: *mut [u32; 4], blocks: *c
         "mov ebp, DWORD PTR [esp+12]",
         "test ebp, ebp",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov edi, DWORD PTR [esp+4]",
         "mov eax, DWORD PTR [edi]",
@@ -614,6 +613,7 @@ pub(crate) unsafe extern "C" fn vg_md5_compress(state: *mut [u32; 4], blocks: *c
         "mov edi, DWORD PTR [eax+8]",
         "mov ebp, DWORD PTR [eax+12]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -639,6 +639,7 @@ pub(crate) unsafe extern "C" fn vg_md5_init(state: *mut [u8; 80]) {
         "mov ecx, 271733878",
         "mov DWORD PTR [eax+12], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -669,7 +670,6 @@ pub(crate) unsafe extern "C" fn vg_md5_update(state: *mut [u8; 80], count: u64, 
         "mov esi, DWORD PTR [esp+20]",
         "mov edi, DWORD PTR [esp+8]",
         "and edi, 63",
-        ".p2align 6",
         "20:",
         "test edi, edi",
         "je 21f",
@@ -685,7 +685,6 @@ pub(crate) unsafe extern "C" fn vg_md5_update(state: *mut [u8; 80], count: u64, 
         "add edi, ebx",
         "test eax, eax",
         "je 25f",
-        ".p2align 6",
         "27:",
         "movzx ecx, BYTE PTR [ebp]",
         "mov BYTE PTR [edi+16], cl",
@@ -723,7 +722,6 @@ pub(crate) unsafe extern "C" fn vg_md5_update(state: *mut [u8; 80], count: u64, 
         "add edi, ebx",
         "test eax, eax",
         "je 214f",
-        ".p2align 6",
         "216:",
         "movzx ecx, BYTE PTR [ebp]",
         "mov BYTE PTR [edi+16], cl",
@@ -782,6 +780,7 @@ pub(crate) unsafe extern "C" fn vg_md5_update(state: *mut [u8; 80], count: u64, 
         "mov edi, DWORD PTR [eax+72]",
         "mov ebp, DWORD PTR [eax+76]",
         "ret",
+        ".p2align 6",
         vg_md5_compress = sym super::md5::vg_md5_compress,
     )
 }
@@ -831,7 +830,6 @@ pub(crate) unsafe extern "C" fn vg_md5_finalize(state: *mut [u8; 80], count: u64
         "20:",
         "mov esi, 1",
         "21:",
-        ".p2align 6",
         "22:",
         "mov eax, 64",
         "test esi, esi",
@@ -843,7 +841,6 @@ pub(crate) unsafe extern "C" fn vg_md5_finalize(state: *mut [u8; 80], count: u64
         "mov ecx, 0",
         "sub eax, edi",
         "je 25f",
-        ".p2align 6",
         "27:",
         "mov edx, ebx",
         "add edx, edi",
@@ -901,6 +898,7 @@ pub(crate) unsafe extern "C" fn vg_md5_finalize(state: *mut [u8; 80], count: u64
         "mov edi, DWORD PTR [ebp+72]",
         "mov ebp, DWORD PTR [ebp+76]",
         "ret",
+        ".p2align 6",
         vg_md5_compress = sym super::md5::vg_md5_compress,
     )
 }

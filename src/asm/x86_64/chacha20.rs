@@ -1183,6 +1183,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_block(state: *const [u32; 16], 
         "mov r14, QWORD PTR [rsi+176]",
         "mov r15, QWORD PTR [rsi+184]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1213,7 +1214,6 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor(state: *mut [u32; 16], data
         "mov rsi, rcx",
         "test r12, r12",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov rdi, rbx",
         "call {vg_chacha20_block}",
@@ -1225,7 +1225,6 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor(state: *mut [u32; 16], data
         "23:",
         "24:",
         "mov ecx, 0",
-        ".p2align 6",
         "25:",
         "movzx eax, BYTE PTR [rbp+rcx*1]",
         "movzx r8d, BYTE PTR [rsi+rcx*1]",
@@ -1247,6 +1246,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor(state: *mut [u32; 16], data
         "mov rbp, QWORD PTR [rsi+264]",
         "mov r12, QWORD PTR [rsi+272]",
         "ret",
+        ".p2align 6",
         vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
     )
 }
@@ -1299,7 +1299,6 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor_avx2(state: *mut [u32; 16],
         "mov QWORD PTR [rcx+216], rax",
         "cmp rdx, 512",
         "jb 20f",
-        ".p2align 6",
         "22:",
         "vbroadcasti128 ymm12, XMMWORD PTR [rdi]",
         "vpshufd ymm0, ymm12, 0",
@@ -2967,6 +2966,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor_avx2(state: *mut [u32; 16],
         "vzeroupper",
         "call {vg_chacha20_xor}",
         "ret",
+        ".p2align 6",
         vg_chacha20_xor = sym super::chacha20::vg_chacha20_xor,
     )
 }
@@ -3011,7 +3011,6 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor_avx512(state: *mut [u32; 16
         "mov QWORD PTR [rcx+184], rax",
         "cmp rdx, 1024",
         "jb 20f",
-        ".p2align 6",
         "22:",
         "vbroadcasti32x4 zmm15, XMMWORD PTR [rdi+48]",
         "vpshufd zmm12, zmm15, 0",
@@ -4166,6 +4165,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor_avx512(state: *mut [u32; 16
         "vzeroupper",
         "call {vg_chacha20_xor}",
         "ret",
+        ".p2align 6",
         vg_chacha20_xor = sym super::chacha20::vg_chacha20_xor,
     )
 }
@@ -4212,6 +4212,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_init(state: *mut [u64; 96], key
         "add rcx, rcx",
         "mov QWORD PTR [rdi+128], rcx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4247,6 +4248,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_set_nonce(state: *mut [u64; 96]
         "add rcx, rcx",
         "mov QWORD PTR [rdi+128], rcx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4294,7 +4296,6 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_apply_avx2(state: *mut [u64; 96
         "mov ecx, 0",
         "test rdx, rdx",
         "je 24f",
-        ".p2align 6",
         "26:",
         "movzx eax, BYTE PTR [rbp+rcx*1]",
         "movzx r8d, BYTE PTR [rsi+rcx*1]",
@@ -4358,7 +4359,6 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_apply_avx2(state: *mut [u64; 96
         "mov ecx, 0",
         "test rdx, rdx",
         "je 211f",
-        ".p2align 6",
         "213:",
         "movzx eax, BYTE PTR [rbp+rcx*1]",
         "movzx r8d, BYTE PTR [rsi+rcx*1]",
@@ -4386,6 +4386,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_apply_avx2(state: *mut [u64; 96
         "mov eax, 0",
         "21:",
         "ret",
+        ".p2align 6",
         vg_chacha20_xor_avx2 = sym super::chacha20::vg_chacha20_xor_avx2,
         vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
     )
@@ -4435,7 +4436,6 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_apply_avx512(state: *mut [u64; 
         "mov ecx, 0",
         "test rdx, rdx",
         "je 24f",
-        ".p2align 6",
         "26:",
         "movzx eax, BYTE PTR [rbp+rcx*1]",
         "movzx r8d, BYTE PTR [rsi+rcx*1]",
@@ -4499,7 +4499,6 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_apply_avx512(state: *mut [u64; 
         "mov ecx, 0",
         "test rdx, rdx",
         "je 211f",
-        ".p2align 6",
         "213:",
         "movzx eax, BYTE PTR [rbp+rcx*1]",
         "movzx r8d, BYTE PTR [rsi+rcx*1]",
@@ -4527,6 +4526,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_apply_avx512(state: *mut [u64; 
         "mov eax, 0",
         "21:",
         "ret",
+        ".p2align 6",
         vg_chacha20_xor_avx512 = sym super::chacha20::vg_chacha20_xor_avx512,
         vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
     )
@@ -4572,7 +4572,6 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_apply(state: *mut [u64; 96], da
         "mov ecx, 0",
         "test rdx, rdx",
         "je 24f",
-        ".p2align 6",
         "26:",
         "movzx eax, BYTE PTR [rbp+rcx*1]",
         "movzx r8d, BYTE PTR [rsi+rcx*1]",
@@ -4636,7 +4635,6 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_apply(state: *mut [u64; 96], da
         "mov ecx, 0",
         "test rdx, rdx",
         "je 211f",
-        ".p2align 6",
         "213:",
         "movzx eax, BYTE PTR [rbp+rcx*1]",
         "movzx r8d, BYTE PTR [rsi+rcx*1]",
@@ -4664,6 +4662,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_apply(state: *mut [u64; 96], da
         "mov eax, 0",
         "21:",
         "ret",
+        ".p2align 6",
         vg_chacha20_xor = sym super::chacha20::vg_chacha20_xor,
         vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
     )

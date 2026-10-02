@@ -19,7 +19,6 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_compress(state: *mut [u32; 4], block
     core::arch::naked_asm!(
         "test rdx, rdx",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov eax, DWORD PTR [rdi]",
         "mov r8d, DWORD PTR [rdi+4]",
@@ -600,6 +599,7 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_compress(state: *mut [u32; 4], block
         "20:",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -623,6 +623,7 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_init(state: *mut [u8; 80]) {
         "mov eax, 271733878",
         "mov DWORD PTR [rdi+12], eax",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -653,7 +654,6 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_update(state: *mut [u8; 80], count: 
         "mov r12, rcx",
         "mov r13, rsi",
         "and r13, 63",
-        ".p2align 6",
         "20:",
         "test r13, r13",
         "je 21f",
@@ -668,7 +668,6 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_update(state: *mut [u8; 80], count: 
         "sub r12, rax",
         "test rax, rax",
         "je 25f",
-        ".p2align 6",
         "27:",
         "movzx r9d, BYTE PTR [rbp]",
         "mov BYTE PTR [rbx+r13*1+16], r9b",
@@ -704,7 +703,6 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_update(state: *mut [u8; 80], count: 
         "sub r12, rax",
         "test rax, rax",
         "je 214f",
-        ".p2align 6",
         "216:",
         "movzx r9d, BYTE PTR [rbp]",
         "mov BYTE PTR [rbx+r13*1+16], r9b",
@@ -757,6 +755,7 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_update(state: *mut [u8; 80], count: 
         "mov r14, QWORD PTR [r15+96]",
         "mov r15, QWORD PTR [r15+104]",
         "ret",
+        ".p2align 6",
         vg_md5_compress = sym super::md5::vg_md5_compress,
     )
 }
@@ -799,7 +798,6 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_finalize(state: *mut [u8; 80], count
         "20:",
         "mov r14d, 1",
         "21:",
-        ".p2align 6",
         "22:",
         "mov eax, 64",
         "test r14, r14",
@@ -811,7 +809,6 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_finalize(state: *mut [u8; 80], count
         "mov r9d, 0",
         "sub rax, r13",
         "je 25f",
-        ".p2align 6",
         "27:",
         "mov BYTE PTR [rbx+r13*1+16], r9b",
         "add r13, 1",
@@ -856,6 +853,7 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_finalize(state: *mut [u8; 80], count
         "mov r14, QWORD PTR [r15+96]",
         "mov r15, QWORD PTR [r15+104]",
         "ret",
+        ".p2align 6",
         vg_md5_compress = sym super::md5::vg_md5_compress,
     )
 }

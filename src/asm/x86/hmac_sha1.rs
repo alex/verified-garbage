@@ -58,7 +58,6 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *
         "add edx, 20",
         "test ecx, ecx",
         "je 20f",
-        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [edi]",
         "xor eax, 54",
@@ -149,6 +148,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *
         "mov edi, DWORD PTR [eax+168]",
         "mov ebp, DWORD PTR [eax+172]",
         "ret",
+        ".p2align 6",
         vg_sha1_init = sym super::sha1::vg_sha1_init,
         vg_sha1_compress = sym super::sha1::vg_sha1_compress,
     )
@@ -273,6 +273,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha1_finalize(inner: *mut [u8; 84], oute
         "mov edi, DWORD PTR [eax+168]",
         "mov ebp, DWORD PTR [eax+172]",
         "ret",
+        ".p2align 6",
         vg_sha1_finalize = sym super::sha1::vg_sha1_finalize,
         vg_sha1_compress = sym super::sha1::vg_sha1_compress,
     )

@@ -11,5 +11,6 @@ pub(crate) unsafe extern "sysv64" fn vg_selftest_add(a: u64, b: u64) -> u64 {
         "mov rax, rdi",
         "add rax, rsi",
         "ret",
+        ".p2align 6",
     )
 }

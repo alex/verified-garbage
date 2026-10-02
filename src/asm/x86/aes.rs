@@ -30,7 +30,6 @@ pub(crate) unsafe extern "C" fn vg_aes_expand_key(key: *const u8, key_len: usize
         "mov esi, DWORD PTR [esp+4]",
         "mov ebp, DWORD PTR [esp+12]",
         "mov ecx, DWORD PTR [esp+8]",
-        ".p2align 6",
         "20:",
         "mov eax, DWORD PTR [esi]",
         "mov DWORD PTR [ebp], eax",
@@ -52,7 +51,6 @@ pub(crate) unsafe extern "C" fn vg_aes_expand_key(key: *const u8, key_len: usize
         "mov DWORD PTR [edi+284], eax",
         "mov eax, 1",
         "mov DWORD PTR [edi+272], eax",
-        ".p2align 6",
         "21:",
         "mov eax, DWORD PTR [esi]",
         "mov ecx, DWORD PTR [edi+276]",
@@ -1183,6 +1181,7 @@ pub(crate) unsafe extern "C" fn vg_aes_expand_key(key: *const u8, key_len: usize
         "mov ebp, DWORD PTR [edi+268]",
         "mov edi, DWORD PTR [edi+264]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1225,7 +1224,6 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32(schedule: *const [u8; 240], rounds:
         "bswap eax",
         "mov DWORD PTR [ecx+12], eax",
         "mov esi, DWORD PTR [esp+8]",
-        ".p2align 6",
         "20:",
         "mov eax, esi",
         "add eax, eax",
@@ -1412,7 +1410,6 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32(schedule: *const [u8; 240], rounds:
         "mov DWORD PTR [edi+292], eax",
         "test eax, eax",
         "je 21f",
-        ".p2align 6",
         "23:",
         "mov eax, DWORD PTR [edi+272]",
         "mov DWORD PTR [edi], eax",
@@ -1603,7 +1600,6 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32(schedule: *const [u8; 240], rounds:
         "mov eax, DWORD PTR [edi+28]",
         "xor eax, DWORD PTR [esi+28]",
         "mov DWORD PTR [edi+28], eax",
-        ".p2align 6",
         "24:",
         "add esi, 32",
         "mov eax, DWORD PTR [edi+16]",
@@ -2780,6 +2776,7 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32(schedule: *const [u8; 240], rounds:
         "mov ebp, DWORD PTR [edi+268]",
         "mov edi, DWORD PTR [edi+264]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2825,7 +2822,6 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32_aesni(schedule: *const [u8; 240], r
         "movdqu XMMWORD PTR [ebp+16], xmm7",
         "cmp edi, 6",
         "jb 20f",
-        ".p2align 6",
         "22:",
         "movdqu xmm7, XMMWORD PTR [ebp+16]",
         "mov eax, ebx",
@@ -3021,7 +3017,6 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32_aesni(schedule: *const [u8; 240], r
         "21:",
         "test edi, edi",
         "je 27f",
-        ".p2align 6",
         "29:",
         "movdqu xmm7, XMMWORD PTR [ebp+16]",
         "mov eax, ebx",
@@ -3092,6 +3087,7 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32_aesni(schedule: *const [u8; 240], r
         "mov edi, DWORD PTR [ebp+8]",
         "mov ebp, DWORD PTR [ebp+12]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3526,5 +3522,6 @@ pub(crate) unsafe extern "C" fn vg_aes_expand_key_aesni(key: *const u8, key_len:
         "movdqu XMMWORD PTR [edx+192], xmm1",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }

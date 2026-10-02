@@ -121,7 +121,6 @@ pub(crate) unsafe extern "C" fn vg_keccak_f1600(state: *mut [u64; 25], scratch: 
         "mov DWORD PTR [edi+388], eax",
         "mov ebp, edi",
         "add ebp, 200",
-        ".p2align 6",
         "20:",
         "mov eax, DWORD PTR [esi]",
         "xor eax, DWORD PTR [esi+40]",
@@ -1523,6 +1522,7 @@ pub(crate) unsafe extern "C" fn vg_keccak_f1600(state: *mut [u64; 25], scratch: 
         "mov ebp, DWORD PTR [edi+400]",
         "mov edi, DWORD PTR [edi+396]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1560,7 +1560,6 @@ pub(crate) unsafe extern "C" fn vg_keccak_absorb(state: *mut [u64; 25], rate: us
         "mov edi, DWORD PTR [esp+20]",
         "test edi, edi",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov ecx, DWORD PTR [ebp+528]",
         "mov edx, DWORD PTR [ebp+532]",
@@ -1598,6 +1597,7 @@ pub(crate) unsafe extern "C" fn vg_keccak_absorb(state: *mut [u64; 25], rate: us
         "mov edi, DWORD PTR [ecx+520]",
         "mov ebp, DWORD PTR [ecx+524]",
         "ret",
+        ".p2align 6",
         vg_keccak_f1600 = sym super::sha3::vg_keccak_f1600,
     )
 }
@@ -1644,6 +1644,7 @@ pub(crate) unsafe extern "C" fn vg_keccak_pad(state: *mut [u64; 25], rate: usize
         "mov ebx, DWORD PTR [esi+512]",
         "mov esi, DWORD PTR [esi+516]",
         "ret",
+        ".p2align 6",
         vg_keccak_f1600 = sym super::sha3::vg_keccak_f1600,
     )
 }
@@ -1682,7 +1683,6 @@ pub(crate) unsafe extern "C" fn vg_keccak_squeeze(state: *mut [u64; 25], rate: u
         "mov edi, DWORD PTR [esp+20]",
         "test edi, edi",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov ecx, DWORD PTR [ebp+528]",
         "mov edx, DWORD PTR [ebp+532]",
@@ -1720,6 +1720,7 @@ pub(crate) unsafe extern "C" fn vg_keccak_squeeze(state: *mut [u64; 25], rate: u
         "mov edi, DWORD PTR [ecx+520]",
         "mov ebp, DWORD PTR [ecx+524]",
         "ret",
+        ".p2align 6",
         vg_keccak_f1600 = sym super::sha3::vg_keccak_f1600,
     )
 }

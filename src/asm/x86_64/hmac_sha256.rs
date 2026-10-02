@@ -54,7 +54,6 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], o
         "mov r14d, 0",
         "test r13, r13",
         "je 20f",
-        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [rbp+r14*1]",
         "xor eax, 54",
@@ -137,6 +136,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], o
         "mov r14, QWORD PTR [r15+640]",
         "mov r15, QWORD PTR [r15+648]",
         "ret",
+        ".p2align 6",
         vg_sha256_init = sym super::sha256::vg_sha256_init,
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
@@ -262,6 +262,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize(inner: *mut [u8; 96
         "mov r14, QWORD PTR [r15+640]",
         "mov r15, QWORD PTR [r15+648]",
         "ret",
+        ".p2align 6",
         vg_sha256_finalize = sym super::sha256::vg_sha256_finalize,
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
@@ -323,7 +324,6 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init_avx2(inner: *mut [u8; 9
         "mov r14d, 0",
         "test r13, r13",
         "je 20f",
-        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [rbp+r14*1]",
         "xor eax, 54",
@@ -406,6 +406,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init_avx2(inner: *mut [u8; 9
         "mov r14, QWORD PTR [r15+640]",
         "mov r15, QWORD PTR [r15+648]",
         "ret",
+        ".p2align 6",
         vg_sha256_init = sym super::sha256::vg_sha256_init,
         vg_sha256_compress_avx2 = sym super::sha256::vg_sha256_compress_avx2,
     )
@@ -535,6 +536,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize_avx2(inner: *mut [u
         "mov r14, QWORD PTR [r15+640]",
         "mov r15, QWORD PTR [r15+648]",
         "ret",
+        ".p2align 6",
         vg_sha256_finalize_avx2 = sym super::sha256::vg_sha256_finalize_avx2,
         vg_sha256_compress_avx2 = sym super::sha256::vg_sha256_compress_avx2,
     )
@@ -596,7 +598,6 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init_shani(inner: *mut [u8; 
         "mov r14d, 0",
         "test r13, r13",
         "je 20f",
-        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [rbp+r14*1]",
         "xor eax, 54",
@@ -679,6 +680,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init_shani(inner: *mut [u8; 
         "mov r14, QWORD PTR [r15+640]",
         "mov r15, QWORD PTR [r15+648]",
         "ret",
+        ".p2align 6",
         vg_sha256_init = sym super::sha256::vg_sha256_init,
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )
@@ -808,6 +810,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize_shani(inner: *mut [
         "mov r14, QWORD PTR [r15+640]",
         "mov r15, QWORD PTR [r15+648]",
         "ret",
+        ".p2align 6",
         vg_sha256_finalize_shani = sym super::sha256::vg_sha256_finalize_shani,
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )

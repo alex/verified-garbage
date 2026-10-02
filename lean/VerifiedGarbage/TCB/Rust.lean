@@ -192,11 +192,12 @@ def checkLayout (a : Artifact) : Except String Unit := do
       `# Safety` section"
 
 /-- One artifact as a Rust naked function; `moduleOf` gives the module of
-each function it calls. -/
+each function it calls. The printer's `funcAlign` comes last, after the
+return (`Printer.function`) and any directives that follow it. -/
 def function (a : Artifact) (moduleOf : String → String) : String :=
   let P := a.target.printer
   let body := (a.features.flatMap P.enableFeature).map .text ++ P.function a.code ++
-    (a.features.flatMap P.disableFeature).map .text
+    (a.features.flatMap P.disableFeature).map .text ++ P.funcAlign.map .text
   let callees := dedup (body.filterMap fun | .call n => some n | .text _ => none)
   featuresConst a.name a.features ++
   docComment "" (fullDoc a) ++

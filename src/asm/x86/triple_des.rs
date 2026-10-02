@@ -318,7 +318,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_expand_key(key: *const u8, key_len
         "mov DWORD PTR [ebp+20], eax",
         "add edx, 0",
         "mov DWORD PTR [ebp+16], edx",
-        ".p2align 6",
         "20:",
         "mov eax, DWORD PTR [ebp+20]",
         "cmp eax, 2",
@@ -916,7 +915,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_expand_key(key: *const u8, key_len
         "mov DWORD PTR [ebp+20], eax",
         "add edx, 128",
         "mov DWORD PTR [ebp+16], edx",
-        ".p2align 6",
         "27:",
         "mov eax, DWORD PTR [ebp+20]",
         "cmp eax, 2",
@@ -1517,7 +1515,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_expand_key(key: *const u8, key_len
         "mov DWORD PTR [ebp+20], eax",
         "add edx, 256",
         "mov DWORD PTR [ebp+16], edx",
-        ".p2align 6",
         "216:",
         "mov eax, DWORD PTR [ebp+20]",
         "cmp eax, 2",
@@ -1897,6 +1894,7 @@ pub(crate) unsafe extern "C" fn vg_triple_des_expand_key(key: *const u8, key_len
         "mov esi, DWORD PTR [eax+8]",
         "mov edi, DWORD PTR [eax+12]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2253,7 +2251,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_encrypt_block(schedule: *const [u8
         "mov DWORD PTR [ebp+16], eax",
         "mov eax, 16",
         "mov DWORD PTR [ebp+20], eax",
-        ".p2align 6",
         "20:",
         "mov edx, DWORD PTR [ebp+16]",
         "mov eax, edi",
@@ -4095,7 +4092,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_encrypt_block(schedule: *const [u8
         "mov DWORD PTR [ebp+16], eax",
         "mov eax, 16",
         "mov DWORD PTR [ebp+20], eax",
-        ".p2align 6",
         "21:",
         "mov edx, DWORD PTR [ebp+16]",
         "mov eax, edi",
@@ -5937,7 +5933,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_encrypt_block(schedule: *const [u8
         "mov DWORD PTR [ebp+16], eax",
         "mov eax, 16",
         "mov DWORD PTR [ebp+20], eax",
-        ".p2align 6",
         "22:",
         "mov edx, DWORD PTR [ebp+16]",
         "mov eax, edi",
@@ -8108,6 +8103,7 @@ pub(crate) unsafe extern "C" fn vg_triple_des_encrypt_block(schedule: *const [u8
         "mov DWORD PTR [edx], ecx",
         "mov DWORD PTR [edx+4], eax",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -8464,7 +8460,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_decrypt_block(schedule: *const [u8
         "mov DWORD PTR [ebp+16], eax",
         "mov eax, 16",
         "mov DWORD PTR [ebp+20], eax",
-        ".p2align 6",
         "20:",
         "mov edx, DWORD PTR [ebp+16]",
         "mov eax, edi",
@@ -10306,7 +10301,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_decrypt_block(schedule: *const [u8
         "mov DWORD PTR [ebp+16], eax",
         "mov eax, 16",
         "mov DWORD PTR [ebp+20], eax",
-        ".p2align 6",
         "21:",
         "mov edx, DWORD PTR [ebp+16]",
         "mov eax, edi",
@@ -12148,7 +12142,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_decrypt_block(schedule: *const [u8
         "mov DWORD PTR [ebp+16], eax",
         "mov eax, 16",
         "mov DWORD PTR [ebp+20], eax",
-        ".p2align 6",
         "22:",
         "mov edx, DWORD PTR [ebp+16]",
         "mov eax, edi",
@@ -14319,6 +14312,7 @@ pub(crate) unsafe extern "C" fn vg_triple_des_decrypt_block(schedule: *const [u8
         "mov DWORD PTR [edx], ecx",
         "mov DWORD PTR [edx+4], eax",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -14352,7 +14346,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_ecb_encrypt(schedule: *const [u8; 
         "mov edi, DWORD PTR [esp+12]",
         "cmp edi, 0",
         "je 20f",
-        ".p2align 6",
         "22:",
         "push ebp",
         "push esi",
@@ -14373,6 +14366,7 @@ pub(crate) unsafe extern "C" fn vg_triple_des_ecb_encrypt(schedule: *const [u8; 
         "mov esi, DWORD PTR [eax+520]",
         "mov edi, DWORD PTR [eax+524]",
         "ret",
+        ".p2align 6",
         vg_triple_des_encrypt_block = sym super::triple_des::vg_triple_des_encrypt_block,
     )
 }
@@ -14407,7 +14401,6 @@ pub(crate) unsafe extern "C" fn vg_triple_des_ecb_decrypt(schedule: *const [u8; 
         "mov edi, DWORD PTR [esp+12]",
         "cmp edi, 0",
         "je 20f",
-        ".p2align 6",
         "22:",
         "push ebp",
         "push esi",
@@ -14428,6 +14421,7 @@ pub(crate) unsafe extern "C" fn vg_triple_des_ecb_decrypt(schedule: *const [u8; 
         "mov esi, DWORD PTR [eax+520]",
         "mov edi, DWORD PTR [eax+524]",
         "ret",
+        ".p2align 6",
         vg_triple_des_decrypt_block = sym super::triple_des::vg_triple_des_decrypt_block,
     )
 }

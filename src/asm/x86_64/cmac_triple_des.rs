@@ -46,7 +46,6 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_init(key: *const u8, key
         "mov rbx, r15",
         "add rbx, 96",
         "mov r10d, 3",
-        ".p2align 6",
         "22:",
         "mov rax, QWORD PTR [rbx]",
         "mov rcx, rax",
@@ -3219,10 +3218,8 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_init(key: *const u8, key
         "xor r13, rcx",
         "mov r10d, 3",
         "mov ebx, 8",
-        ".p2align 6",
         "23:",
         "mov r11d, 16",
-        ".p2align 6",
         "24:",
         "movabs r9, 4294967295",
         "mov rax, r13",
@@ -3929,6 +3926,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_init(key: *const u8, key
         "mov r14, QWORD PTR [r15+80]",
         "mov r15, QWORD PTR [r15+88]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3963,7 +3961,6 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_update(schedule: *const 
         "mov QWORD PTR [r15+104], rcx",
         "test rcx, rcx",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov rcx, QWORD PTR [r15+96]",
         "mov rax, QWORD PTR [rbp]",
@@ -4228,10 +4225,8 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_update(schedule: *const 
         "xor r13, rcx",
         "mov r10d, 3",
         "mov ebx, 8",
-        ".p2align 6",
         "23:",
         "mov r11d, 16",
-        ".p2align 6",
         "24:",
         "movabs r9, 4294967295",
         "mov rax, r13",
@@ -4930,6 +4925,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_update(schedule: *const 
         "mov r14, QWORD PTR [r15+80]",
         "mov r15, QWORD PTR [r15+88]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4968,7 +4964,6 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_finalize(key: *const [u8
         "test rcx, rcx",
         "je 22f",
         "mov r10d, 0",
-        ".p2align 6",
         "24:",
         "movzx eax, BYTE PTR [rdx+r10*1]",
         "mov BYTE PTR [r15+r10*1+96], al",
@@ -5248,10 +5243,8 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_finalize(key: *const [u8
         "xor r13, rcx",
         "mov r10d, 3",
         "mov ebx, 8",
-        ".p2align 6",
         "25:",
         "mov r11d, 16",
-        ".p2align 6",
         "26:",
         "movabs r9, 4294967295",
         "mov rax, r13",
@@ -5940,5 +5933,6 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_finalize(key: *const [u8
         "mov r14, QWORD PTR [r15+80]",
         "mov r15, QWORD PTR [r15+88]",
         "ret",
+        ".p2align 6",
     )
 }

@@ -27,7 +27,6 @@ pub(crate) unsafe extern "C" fn vg_ct_eq(a: *const u8, a_len: usize, b: *const u
         "mov eax, DWORD PTR [esp+12]",
         "cmp ecx, eax",
         "je 22f",
-        ".p2align 6",
         "24:",
         "mov eax, DWORD PTR [esp+8]",
         "add eax, ecx",
@@ -50,5 +49,6 @@ pub(crate) unsafe extern "C" fn vg_ct_eq(a: *const u8, a_len: usize, b: *const u
         "21:",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }

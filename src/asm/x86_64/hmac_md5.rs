@@ -54,7 +54,6 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_init(inner: *mut [u8; 80], oute
         "mov r14d, 0",
         "test r13, r13",
         "je 20f",
-        ".p2align 6",
         "22:",
         "movzx eax, BYTE PTR [rbp+r14*1]",
         "xor eax, 54",
@@ -137,6 +136,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_init(inner: *mut [u8; 80], oute
         "mov r14, QWORD PTR [r15+144]",
         "mov r15, QWORD PTR [r15+152]",
         "ret",
+        ".p2align 6",
         vg_md5_init = sym super::md5::vg_md5_init,
         vg_md5_compress = sym super::md5::vg_md5_compress,
     )
@@ -233,6 +233,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_finalize(inner: *mut [u8; 80], 
         "mov r14, QWORD PTR [r15+144]",
         "mov r15, QWORD PTR [r15+152]",
         "ret",
+        ".p2align 6",
         vg_md5_finalize = sym super::md5::vg_md5_finalize,
         vg_md5_compress = sym super::md5::vg_md5_compress,
     )

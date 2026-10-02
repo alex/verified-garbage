@@ -629,6 +629,7 @@ pub(crate) unsafe extern "sysv64" fn vg_salsa20_8(b: *mut [u8; 64], scratch: *mu
         "mov r14, QWORD PTR [rsi+48]",
         "mov r15, QWORD PTR [rsi+56]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -670,7 +671,6 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_blockmix(b: *const [u8; 128], r: 
         "add r15, rsi",
         "add r15, rsi",
         "sub r15, 64",
-        ".p2align 6",
         "20:",
         "mov rax, QWORD PTR [r15]",
         "xor rax, QWORD PTR [rbx]",
@@ -740,6 +740,7 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_blockmix(b: *const [u8; 128], r: 
         "mov r15, QWORD PTR [r13+96]",
         "mov r13, QWORD PTR [r13+104]",
         "ret",
+        ".p2align 6",
         vg_salsa20_8 = sym super::scrypt::vg_salsa20_8,
     )
 }
@@ -780,7 +781,6 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_romix(b: *mut [u8; 128], r: usize
         "mov rax, rsi",
         "mov edx, 1",
         "add rcx, rcx",
-        ".p2align 6",
         "20:",
         "add rax, rax",
         "add rdx, rdx",
@@ -790,13 +790,11 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_romix(b: *mut [u8; 128], r: usize
         "mov QWORD PTR [r13+176], rdx",
         "mov r15, rdx",
         "mov rbp, r12",
-        ".p2align 6",
         "21:",
         "mov rdi, rbx",
         "mov rsi, rbp",
         "mov rcx, r14",
         "shr rcx, 3",
-        ".p2align 6",
         "22:",
         "mov rax, QWORD PTR [rdi]",
         "mov QWORD PTR [rsi], rax",
@@ -817,13 +815,11 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_romix(b: *mut [u8; 128], r: usize
         "mov r15, QWORD PTR [r13+176]",
         "mov rbp, r15",
         "sub rbp, 1",
-        ".p2align 6",
         "23:",
         "mov rax, QWORD PTR [rbx+r14*1-64]",
         "and rax, rbp",
         "mov rdx, r12",
         "mov rcx, r14",
-        ".p2align 6",
         "24:",
         "test rax, 1",
         "jne 25f",
@@ -840,7 +836,6 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_romix(b: *mut [u8; 128], r: usize
         "add r8, 192",
         "mov rcx, r14",
         "shr rcx, 3",
-        ".p2align 6",
         "27:",
         "mov rax, QWORD PTR [rdi]",
         "xor rax, QWORD PTR [rsi]",
@@ -867,6 +862,7 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_romix(b: *mut [u8; 128], r: usize
         "mov r15, QWORD PTR [r13+160]",
         "mov r13, QWORD PTR [r13+168]",
         "ret",
+        ".p2align 6",
         vg_scrypt_blockmix = sym super::scrypt::vg_scrypt_blockmix,
     )
 }
@@ -908,7 +904,6 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt(password: *const u8, password_len
         "call {vg_pbkdf2_hmac_sha256}",
         "mov rax, QWORD PTR [rsp+48]",
         "mov QWORD PTR [rsp+16], rax",
-        ".p2align 6",
         "20:",
         "mov rdi, QWORD PTR [rsp+16]",
         "mov rsi, QWORD PTR [rsp+40]",
@@ -948,6 +943,7 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt(password: *const u8, password_len
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_pbkdf2_hmac_sha256 = sym super::pbkdf2_sha256::vg_pbkdf2_hmac_sha256,
         vg_scrypt_romix = sym super::scrypt::vg_scrypt_romix,
     )
@@ -994,7 +990,6 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_avx2(password: *const u8, passwor
         "call {vg_pbkdf2_hmac_sha256_avx2}",
         "mov rax, QWORD PTR [rsp+48]",
         "mov QWORD PTR [rsp+16], rax",
-        ".p2align 6",
         "20:",
         "mov rdi, QWORD PTR [rsp+16]",
         "mov rsi, QWORD PTR [rsp+40]",
@@ -1034,6 +1029,7 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_avx2(password: *const u8, passwor
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_pbkdf2_hmac_sha256_avx2 = sym super::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_avx2,
         vg_scrypt_romix = sym super::scrypt::vg_scrypt_romix,
     )
@@ -1080,7 +1076,6 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_shani(password: *const u8, passwo
         "call {vg_pbkdf2_hmac_sha256_shani}",
         "mov rax, QWORD PTR [rsp+48]",
         "mov QWORD PTR [rsp+16], rax",
-        ".p2align 6",
         "20:",
         "mov rdi, QWORD PTR [rsp+16]",
         "mov rsi, QWORD PTR [rsp+40]",
@@ -1120,6 +1115,7 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_shani(password: *const u8, passwo
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_pbkdf2_hmac_sha256_shani = sym super::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_shani,
         vg_scrypt_romix = sym super::scrypt::vg_scrypt_romix,
     )

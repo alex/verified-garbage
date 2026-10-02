@@ -41,6 +41,7 @@ pub(crate) unsafe extern "C" fn vg_poly1305_init(state: *mut [u64; 16], key: *co
         "mov DWORD PTR [eax+16], edx",
         "mov DWORD PTR [eax+20], edx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -91,7 +92,6 @@ pub(crate) unsafe extern "C" fn vg_poly1305_blocks(state: *mut [u64; 16], blocks
         "mov ecx, DWORD PTR [esp+12]",
         "test ecx, ecx",
         "je 20f",
-        ".p2align 6",
         "22:",
         "mov eax, DWORD PTR [edi]",
         "add eax, DWORD PTR [esi]",
@@ -311,6 +311,7 @@ pub(crate) unsafe extern "C" fn vg_poly1305_blocks(state: *mut [u64; 16], blocks
         "mov ecx, 0",
         "mov DWORD PTR [eax+20], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -376,7 +377,6 @@ pub(crate) unsafe extern "C" fn vg_poly1305_update(state: *mut [u64; 16], count:
         "add edx, edi",
         "test eax, eax",
         "je 24f",
-        ".p2align 6",
         "26:",
         "movzx ecx, BYTE PTR [esi]",
         "mov BYTE PTR [edx+56], cl",
@@ -551,7 +551,6 @@ pub(crate) unsafe extern "C" fn vg_poly1305_update(state: *mut [u64; 16], count:
         "sub eax, esi",
         "cmp eax, 16",
         "jb 29f",
-        ".p2align 6",
         "211:",
         "mov eax, DWORD PTR [edi]",
         "add eax, DWORD PTR [esi]",
@@ -719,7 +718,6 @@ pub(crate) unsafe extern "C" fn vg_poly1305_update(state: *mut [u64; 16], count:
         "test eax, eax",
         "je 212f",
         "mov edx, edi",
-        ".p2align 6",
         "214:",
         "movzx ecx, BYTE PTR [esi]",
         "mov BYTE PTR [edx+56], cl",
@@ -786,6 +784,7 @@ pub(crate) unsafe extern "C" fn vg_poly1305_update(state: *mut [u64; 16], count:
         "mov ecx, 0",
         "mov DWORD PTR [eax+20], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -842,7 +841,6 @@ pub(crate) unsafe extern "C" fn vg_poly1305_finalize(state: *mut [u64; 16], coun
         "mov eax, 0",
         "mov ecx, edx",
         "add ecx, edi",
-        ".p2align 6",
         "22:",
         "mov BYTE PTR [ecx+56], al",
         "add ecx, 1",
@@ -1075,5 +1073,6 @@ pub(crate) unsafe extern "C" fn vg_poly1305_finalize(state: *mut [u64; 16], coun
         "mov ecx, 0",
         "mov DWORD PTR [eax+20], ecx",
         "ret",
+        ".p2align 6",
     )
 }

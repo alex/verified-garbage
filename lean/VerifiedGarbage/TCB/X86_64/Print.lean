@@ -261,14 +261,13 @@ def printer : Printer isa where
   jump l := s!"jmp {l}"
   ret := ["ret"]
   call := "call"
-  /- Loops start on a 64-byte boundary, a cache line: AMD's Zen 4 Software
-  Optimization Guide (57647, §2.8.3 "Loop Alignment") suggests aligning hot
-  loops to "the beginning of a 64-byte cache line", the unit its op cache
-  builds its entries from (§2.9.1), and a 64-byte boundary is also one of
-  the 16- and 32-byte windows Intel's decoders and decoded ICache work in.
-  LLVM's assembler, which `naked_asm!` uses, fills the gap in a code section
-  with long NOPs. -/
-  loopAlign := [".p2align 6"]
+  /- Every function starts on a 64-byte boundary, a cache line: the unit
+  AMD's op cache builds its entries from (Zen 4 Software Optimization Guide,
+  57647, §2.9.1), and one of the 16- and 32-byte windows Intel's decoders and
+  decoded ICache work in. So where a function's code, and its loops, lie
+  relative to them is fixed by the function alone: a change to other code
+  cannot move them, and with them its performance. -/
+  funcAlign := [".p2align 6"]
   unencodable i := match i.memOps.filter (!·.dispOk) with
     | [] => none
     | m :: _ => some s!"the displacement of the memory operand {m.addr} does not fit in 32 bits"
