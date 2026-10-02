@@ -207,19 +207,38 @@ theorem enter_ok {L : Lay} (hL : L.Ok) {p : Spec.MlDsa.Params} (hE : oE p = L.E)
     exact a3.trans ((by rw [o4.mem] : Frame [L.XS, L.STK] s3.mem s4.mem ↔ _).mpr (Frame.refl _ _) |>.trans
       (a5.trans a8))
 
+/-- What the exit needs: `x28` pointing at `X`, the callee-saved registers
+but `x28` and `x30`, and the saves of those two. -/
+structure Fin (L : Lay) (g : Reg → BitVec 64) (vv : VReg → BitVec 128) (t : State) : Prop where
+  rd : t.rd = L.rd
+  wr : t.wr = L.wr
+  sp : t.sp = L.SP
+  x28 : t.gpr .x28 = L.X
+  cs : ∀ r ∈ preserved, r ≠ .x28 → r ≠ .x30 → t.gpr r = g r
+  vs : ∀ r ∈ preservedV, (t.v r).extractLsb' 0 64 = (vv r).extractLsb' 0 64
+  s28 : t.mem.readW (L.X + BitVec.ofNat 64 904 + BitVec.ofNat 64 0) 64 = g .x28
+  s30 : t.mem.readW (L.X + BitVec.ofNat 64 904 + BitVec.ofNat 64 8) 64 = g .x30
+
+theorem Ctx.fin {L : Lay} {g : Reg → BitVec 64} {vv : VReg → BitVec 128} {m₀ : Mem} {t : State}
+    (hc : Ctx L g vv m₀ t) : Fin L g vv t :=
+  ⟨hc.rd, hc.wr, hc.sp, hc.x28, hc.cs, hc.vs, hc.s28, hc.s30⟩
+
 /-- The exit: `x30`, then `x28`, from the saves. -/
-theorem leave_ok {L : Lay} (hL : L.Ok) {g : Reg → BitVec 64} {vv : VReg → BitVec 128} {m₀ : Mem} {t : State}
-    (hc : Ctx L g vv m₀ t) :
+theorem leave_ok {L : Lay} (hL : L.Ok) {g : Reg → BitVec 64} {vv : VReg → BitVec 128} {t : State}
+    (hc : Fin L g vv t) :
     WP isa (.block leave) t fun t' => (∀ r ∈ preserved, t'.gpr r = g r) ∧ t'.sp = L.SP ∧
       (∀ r ∈ preservedV, (t'.v r).extractLsb' 0 64 = (vv r).extractLsb' 0 64) ∧ t'.mem = t.mem ∧
       t'.gpr .x0 = t.gpr .x0 ∧ t'.rd = t.rd ∧ t'.wr = t.wr := by
   have h30 := hc.s30
   have h28 := hc.s28
   rw [add_add] at h30 h28
+  have hx : ∀ f, f + 8 ≤ 1024 → InRegions (t.rd ++ t.wr) (L.X + BitVec.ofNat 64 f) 8 := fun f hf => by
+    obtain ⟨R, hR, hc'⟩ := hL.inW (e := f) (k := 8) hf (by omega)
+    exact ⟨R, by rw [hc.rd, hc.wr]; exact List.mem_append_right _ hR, hc'⟩
   refine wp_ldrx (a := L.X + BitVec.ofNat 64 (904 + 8)) (by decide) (by rw [hc.x28]; rfl)
-    (by rw [← hc.x28]; exact hc.xOk hL 912 (by omega)) fun t1 o1 e1 => ?_
+    (hx 912 (by omega)) fun t1 o1 e1 => ?_
   refine wp_ldrx (a := L.X + BitVec.ofNat 64 (904 + 0)) (by decide) (by rw [o1.get .x28, hc.x28]; rfl)
-    (by rw [o1.rd, o1.wr, ← hc.x28]; exact hc.xOk hL 904 (by omega)) fun t2 o2 e2 => wp_nil ?_
+    (by rw [o1.rd, o1.wr]; exact hx 904 (by omega)) fun t2 o2 e2 => wp_nil ?_
   refine ⟨fun r hr => ?_, by rw [o2.sp, o1.sp, hc.sp], fun r hr => by rw [o2.vcs r hr, o1.vcs r hr, hc.vs r hr],
     by rw [o2.mem, o1.mem], by rw [o2.get .x0, o1.get .x0], by rw [o2.rd, o1.rd], by rw [o2.wr, o1.wr]⟩
   by_cases e28 : r = .x28
