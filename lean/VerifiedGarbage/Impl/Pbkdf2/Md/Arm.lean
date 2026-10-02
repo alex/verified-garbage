@@ -7,7 +7,7 @@ import VerifiedGarbage.Impl.MdStream.Arm
 The design of x86-64 and AArch64 (`Impl/Pbkdf2/Md/X86_64.lean`,
 `Impl/Pbkdf2/Md/AArch64.lean`): one implementation of HMAC's `finalize` and
 of PBKDF2's iteration for every Merkle–Damgård hash function (MD5, SHA-1,
-SHA-224 and the SHA-512 family), calling its compression function directly
+SHA-224, SHA-256 and the SHA-512 family), calling its compression function directly
 on blocks laid out at fixed offsets. A `Hash` is what the code needs of one
 of them: its streaming functions as HMAC's `init` calls them (`st`, with the
 block size `B`, the digest size `D` and their working space), the size `N`

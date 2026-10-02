@@ -97,10 +97,8 @@ theorem core_pbkdf2_depth {H : Hash} (hc : H.compC.depth = 0) (hi : H.initC.dept
     (h : (core H).pbkdf2.depth ≤ 3) : H.pbkdf2.depth ≤ 3 := by
   simp only [Hash.pbkdf2, Hash.key, Hash.hashKey, Hash.setup, Hash.block, Hash.outLen, Hash.outLoop,
     Hash.hmacInit, Hash.hmacFin, Hash.iterate, Impl.Pbkdf2.X86_64.iterate, Impl.Pbkdf2.X86_64.body,
-    Impl.Pbkdf2.X86_64.compressBlock, Hash.updC, Hash.finC, Hash.stream,
-    Impl.Hmac.Generic.X86_64.Hash.init,
-    Impl.Hmac.Generic.X86_64.Hash.callInit, Impl.Hmac.Generic.X86_64.Hash.callUpd,
-    Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Pbkdf2.X86_64.compressBlock, Hash.updC, Hash.finC, Hash.stream, Hash.initKeys,
+    Impl.Pbkdf2.Md.X86_64.Stream.callInit, Impl.Pbkdf2.Md.X86_64.Stream.callFin,
     Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody, Impl.MdStream.X86_64.updateTail,
     Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
     Impl.MdStream.X86_64.finalize, Impl.MdStream.X86_64.finalizeBody,

@@ -10,10 +10,11 @@ calls (`Hash`). Every argument is on the stack (cdecl).
 * `init(inner, outer, key, key_len, scratch)` writes `K₀ ⊕ ipad` and
   `K₀ ⊕ opad` into `scratch`, then makes the inner state absorb the first
   and the outer state the second, with `init` and `update`.
-* `finalize(inner, outer, count, out, scratch)` finalizes the inner state
-  into `scratch`, copies the outer state over the inner one, absorbs the
-  inner digest into it with `update`, and finalizes it again; the MAC is
-  copied to `out`.
+* `finalize(inner, outer, count, out, scratch)` starts with `finPrologue`
+  and a call of the streaming `finalize` on the inner state (`callFin`,
+  `count1`); the rest of it, the outer hash, is one call of the compression
+  function on a block laid out in `scratch`, written over the hash function's
+  compression function (`VG.Impl.Pbkdf2.Md.X86`).
 
 Each call passes its arguments in a frame of their own, pushed last to
 first (`push`), which the pop loads into `eax` when the call returns: every
@@ -149,11 +150,10 @@ def init : Prog isa :=
   (.seq (H.callUpd [] .esi .edi 0 (H.buf + H.B) H.B)
     (.block H.restore))))))
 
-/-! ## `finalize`
+/-! ## The start of `finalize`
 
-Registers: `ebx` = `inner`, `esi` = `outer` (then the low word of
-`update`'s count), `edi` = `out`, `ebp` = `scratch`. The digests are
-written to `scratch + buf`. -/
+Registers: `ebx` = `inner`, `esi` = `outer`, `edi` = `out`, `ebp` =
+`scratch`. The inner digest is written to `scratch + buf`. -/
 
 def finPrologue : List Instr :=
   [.mov .eax (.mem (at_ .esp 24))] ++ H.save ++ [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
@@ -161,18 +161,6 @@ def finPrologue : List Instr :=
 
 /-- Our `count` argument, as `finalize`'s. -/
 def count1 : List Instr := [.mov .eax (.mem (at_ .esp 12)), .mov .ecx (.mem (at_ .esp 16))]
-
-/-- The count of a state that has absorbed a block and a digest, `B + D`. -/
-def count2 : List Instr := [.mov .eax (.imm (BitVec.ofNat 32 (H.B + H.D))), .mov .ecx (.imm 0)]
-
-def finalize : Prog isa :=
-  .seq (.block H.finPrologue)
-  (.seq (H.callFin [] count1 .ebx H.buf)
-  (.seq (copy .esi 0 .ebx 0 H.S)
-  (.seq (H.callUpd [] .ebx .esi H.B H.buf H.D)
-  (.seq (H.callFin [] H.count2 .ebx H.buf)
-  (.seq (copy .ebp H.buf .edi 0 H.D)
-    (.block H.restore))))))
 
 end Hash
 

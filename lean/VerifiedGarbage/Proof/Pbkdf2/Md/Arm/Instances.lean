@@ -18,7 +18,8 @@ proofs need of them (`HashOK`, from the hash functions' own proofs), and the
 generic proofs of HMAC's `finalize` and PBKDF2's iteration (`HmacFinCT.lean`,
 `IterateCT.lean`) at each of them, moved to the shared contracts of
 `Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean`, which the artifacts
-are emitted with. SHA-224 is in `Sha224.lean`.
+are emitted with. SHA-256 and SHA-224 are in `Sha256.lean` and
+`Sha224.lean`.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm

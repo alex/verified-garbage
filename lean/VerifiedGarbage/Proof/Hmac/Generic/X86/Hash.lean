@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.X86.RelCT
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Common
-import VerifiedGarbage.Impl.Pbkdf2.Generic.X86
+import VerifiedGarbage.Impl.Hmac.Generic.X86
 import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
