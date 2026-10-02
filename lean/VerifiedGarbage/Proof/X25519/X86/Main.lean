@@ -29,10 +29,10 @@ theorem finish_ok {s₀ s : State} (hp : Pre s₀) (hb : Base (arg s₀ 3) (kOf 
         encodeUCoordinate (F s.mem (arg s₀ 3) X2 * F s.mem (arg s₀ 3) T1) := by
   have hfit := hp.sc_fit
   rw [finish_eq]
-  refine WP.block_append (WP.mono (ops_ok [.mul X2 X2 T1] hb.ctx (by decide)) fun s₁ ⟨k₁, f₁, e₁⟩ => ?_)
+  refine WP.block_append (WP.mono (ops_ok (lo := 288) [.mul X2 X2 T1] hb.ctx (by decide)) fun s₁ ⟨k₁, f₁, e₁⟩ => ?_)
   have b₁ := hb.ops k₁ f₁
-  refine WP.block_append (WP.mono (freeze_ok b₁.ctx (o := X2) (by decide)) fun s₂ ⟨k₂, f₂, e₂⟩ => ?_)
-  have b₂ := b₁.ops k₂ f₂
+  refine WP.block_append (WP.mono (freeze_ok b₁.ctx (lo := 288) (o := X2) (by decide)) fun s₂ ⟨k₂, f₂, e₂⟩ => ?_)
+  have b₂ := b₁.ops k₂ (frame_wide hfit (lo := 288) (by decide) (by decide) f₂)
   -- The value: fully reduced.
   have hv : fe s₂.mem (arg s₀ 3) X2 = (F s.mem (arg s₀ 3) X2 * F s.mem (arg s₀ 3) T1).val := by
     rw [e₂, ← toFe_val]
@@ -46,7 +46,7 @@ theorem finish_ok {s₀ s : State} (hp : Pre s₀) (hb : Base (arg s₀ 3) (kOf 
     fun _ h => absurd h (Nat.not_lt_zero _)⟩
   have w₃ : s₃.wr = s₀.wr := by rw [u₃.wr, b₂.wr]
   refine WP.block_append (WP.mono (outWords_ok hp w₃ 8 (Nat.le_refl _) s₃ o₃) fun s₄ o₄ => ?_)
-  have c₄ : Ctx (arg s₀ 3) s₄ := ⟨o₄.edi, hfit, by rw [o₄.wr, w₃]; exact hp.sc_in⟩
+  have c₄ : Ctx 4096 (arg s₀ 3) s₄ := ⟨o₄.edi, hfit, by rw [o₄.wr, w₃]; exact hp.sc_in, by decide⟩
   refine WP.mono (restore_ok c₄) fun s₅ ⟨m₅, esp₅, ebx₅, esi₅, ebp₅, edi₅⟩ => ⟨?_, ?_⟩
   · -- The saved words, unchanged by the stores to `out`.
     have sv : ∀ j < 4, wd s₄.mem (arg s₀ 3) (4 * j) = s₀.gpr (savedReg j) := fun j hj => by

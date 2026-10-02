@@ -56,12 +56,8 @@ theorem trace_narrow {c : Prog isa} {k : Contract isa}
     {s : State} {rd wr : List Region} (hpre : k.pre (s.withRegions rd wr))
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {t : List Leak} {s' : State}
     (he : Exec isa c s t s') :
-    ∃ s'', Exec isa c (s.withRegions rd wr) t s'' := by
-  obtain ⟨t', s'', he', -⟩ := hv _ hpre
-  have hw' := Exec.widen he' (rd := s.rd) (wr := s.wr) (by simpa using hc) (by simpa using hw)
-  simp only [State.withRegions_withRegions, State.withRegions_self] at hw'
-  obtain ⟨rfl, -⟩ := Exec.det he hw'
-  exact ⟨_, he'⟩
+    ∃ s'', Exec isa c (s.withRegions rd wr) t s'' :=
+  regionModel.trace_narrow hv hpre hc hw he
 
 theorem RelCT.call {n : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
@@ -72,17 +68,10 @@ theorem RelCT.call {n : String} {c : Prog isa} {k : Contract isa}
       Covers (rd ++ wr) (s₁.rd ++ s₁.wr) ∧ Covers wr s₁.wr ∧
       Covers (rd ++ wr) (s₂.rd ++ s₂.wr) ∧ Covers wr s₂.wr) :
     RelCT isa P (.call n c) fun _ _ => True := by
-  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  refine regionModel.relCT_call hv hct fun s₁ s₂ e₁ e₂ hp h₁ h₂ => ?_
+  rw [call_callEntry, Option.some.injEq] at h₁ h₂
+  subst h₁ h₂
   obtain ⟨p₁, p₂, hpub, c₁, w₁, c₂, w₂⟩ := hP _ _ hp
-  cases e₁ with
-  | call h₁ b₁ r₁ =>
-    cases e₂ with
-    | call h₂ b₂ r₂ =>
-      rw [call_callEntry, Option.some.injEq] at h₁ h₂
-      subst h₁ h₂
-      obtain ⟨_, n₁⟩ := trace_narrow hv p₁ (by simpa using c₁) (by simpa using w₁) b₁
-      obtain ⟨_, n₂⟩ := trace_narrow hv p₂ (by simpa using c₂) (by simpa using w₂) b₂
-      have ht := hct _ _ _ _ _ _ p₁ p₂ hpub n₁ n₂
-      exact ⟨by simp only [ht], trivial⟩
+  exact ⟨rd, wr, rd, wr, p₁, p₂, hpub, c₁, w₁, c₂, w₂, rfl, fun _ _ _ _ _ _ => rfl⟩
 
 end VG.Arm

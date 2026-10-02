@@ -13,11 +13,11 @@ abbrev Backend := Proof.Sha512.AArch64.Compress
 
 theorem update_noFrames (v : Backend) : v.update.noFrames = true := by
   simp only [Proof.Sha512.AArch64.Compress.update, updateWith, updateBodyWith,
-    compressAtWith, fill, Code.noFrames, v.noFrames, Bool.and_self]
+    compressAtWith, fill, copy, Code.noFrames, v.noFrames, Bool.and_self]
 
 theorem finalize_noFrames (v : Backend) : v.finalize.noFrames = true := by
   simp only [Proof.Sha512.AArch64.Compress.finalize, finalizeWith, finalizeBodyWith,
-    compressAtWith, Code.noFrames, v.noFrames, Bool.and_self]
+    compressAtWith, zero, Code.noFrames, v.noFrames, Bool.and_self]
 
 variable {E : Addr} {g : Reg → BitVec 64} {vec : VReg → BitVec 128}
   {m₀ : Mem} {rd wr : List Region} {t : State}

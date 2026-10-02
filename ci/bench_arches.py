@@ -59,18 +59,22 @@ PLATFORMS = {
 
 # The other `VG_CPU_FEATURES` each architecture is benchmarked with, so that
 # each implementation a runner can run is measured (on x86-64, each of
-# Ed25519's combinations of SHA-512 and field multiplication; no runner has
-# the SHA512 extension, whose variants only ci.yml tests, under SDE).
+# Ed25519's combinations of SHA-512 and field multiplication, and, on
+# x86-64 and x86, AES-GCM's `_aesni` and `_pclmul`, which a runner with
+# both extensions never chooses; no runner has the SHA512 extension,
+# whose variants only ci.yml tests, under SDE).
 CPU_FEATURES = {
     "x86_64": [
         "avx,avx2,bmi1,bmi2,adx",
         "avx,avx2,bmi1,bmi2",
         "bmi2,adx",
         "avx,avx2,bmi2,adx,avx512ifma,avx512vl",
+        "aes,ssse3",
+        "pclmulqdq,ssse3",
         "none",
     ],
     "aarch64": ["sha3", "none"],
-    "x86": ["none"],
+    "x86": ["aes", "pclmulqdq,ssse3", "none"],
 }
 
 SHARED = re.compile(

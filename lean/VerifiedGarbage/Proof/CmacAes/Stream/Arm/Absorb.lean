@@ -98,11 +98,6 @@ theorem APre.inD {d n : Nat} (h : d + n ≤ L) :
     simp only [List.mem_singleton] at hr; subst hr
     exact ⟨⟨State.addr D, L⟩, by simp, d, rfl, h⟩
 
-omit hp in
-theorem covers_wr {rs : List Region} (h : Covers rs s₀.wr) : Covers rs (s₀.rd ++ s₀.wr) := fun a n hi => by
-  obtain ⟨r, hr, hc⟩ := h a n hi
-  exact ⟨r, List.mem_append_right _ hr, hc⟩
-
 /-- The arguments of a call of `vg_cmac_aes_update` on `n` blocks at `Dd`,
 from a state with the permissions and stack of `s₀`. -/
 theorem APre.uargs {s : State} {Dd : BitVec 32} {n : Nat} (hr0 : s.gpr .r0 = St) (hr1 : s.gpr .r1 = s₀.gpr .r1)
@@ -142,7 +137,7 @@ theorem APre.uargs {s : State} {Dd : BitVec 32} {n : Nat} (hr0 : s.gpr .r0 = St)
       obtain ⟨r, hr, hc⟩ := hi
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
-      · exact covers_wr (hp.inSt (d := 0) (n := 240) (by decide)) a k
+      · exact Covers.right (hp.inSt (d := 0) (n := 240) (by decide)) a k
           ⟨_, List.mem_singleton_self _, by rw [BitVec.add_zero]; exact hc⟩
       · exact hcov a k ⟨_, List.mem_singleton_self _, hc⟩
     writes := by
@@ -318,7 +313,7 @@ theorem absorbPre_wp {s₀ : State} {St D S : BitVec 32} {L R : Nat} (hp : APre 
       (by rw [a288]; exact Offset.disjoint _ (by omega) (by omega) (by omega))
       ((hp.st_s.sub_left c288))
       (hp.b_st.sub_right c288) (by rw [toNat_add_ofNat (by omega)]; omega)
-      (covers_wr (by rw [a288]; exact hp.inSt (by omega))), ?_, ?_, ?_, ?_, ?_, hsp, ?_, ?_, hrd, hwr⟩
+      (Covers.right (by rw [a288]; exact hp.inSt (by omega))), ?_, ?_, ?_, ?_, ?_, hsp, ?_, ?_, hrd, hwr⟩
   · rw [k _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), h₁.r4]
   · rw [k _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), h₁.r5]
   · rw [g₅ _ (by decide) (by decide) (by decide) (by decide) (by decide), h₄.r6]

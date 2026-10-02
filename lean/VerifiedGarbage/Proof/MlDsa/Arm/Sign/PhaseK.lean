@@ -390,8 +390,7 @@ abbrev onesAdd : List Instr := [.ldr .r1 .r7 oONES, .dp .add .r1 .r1 (.reg .r0),
 theorem onesAdd_ok (s : State) (h2 : InRegions s.wr (State.addr (s.gpr .r7 + BitVec.ofNat 32 oONES)) 4) :
     WP isa (.block onesAdd) s fun s' => s'.mem = s.mem.writeW (State.addr (s.gpr .r7 + BitVec.ofNat 32 oONES))
       (s.mem.readW (State.addr (s.gpr .r7 + BitVec.ofNat 32 oONES)) 32 + s.gpr .r0) ∧ KeepM [.r1] s s' := by
-  have h1 : InRegions (s.rd ++ s.wr) (State.addr (s.gpr .r7 + BitVec.ofNat 32 oONES)) 4 := covers_wr (covers_one h2
-    (by decide)) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
+  have h1 : InRegions (s.rd ++ s.wr) (State.addr (s.gpr .r7 + BitVec.ofNat 32 oONES)) 4 := Covers.right (Covers.one h2) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
   run_block [h1, h2]
   refine ⟨trivial, fun r hr => ?_, rfl, rfl, rfl⟩
   simp only [List.mem_singleton] at hr; simp [hr]

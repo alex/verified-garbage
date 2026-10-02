@@ -43,7 +43,7 @@ theorem rej_cov : Covers ([⟨pa s (sc oSB), 34⟩] ++ [⟨pa s a, 1024⟩, ⟨p
     Covers [⟨pa s a, 1024⟩, ⟨pa s (sc oSS), 2048⟩] s.wr := by
   simp only [rejChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨_, c4⟩, _⟩, _⟩, c7⟩, c8⟩ := hc
-  exact ⟨covers_append (L.cR c4) (covers_wr (covers_cons (L.cW c7) (L.cW c8))), covers_cons (L.cW c7) (L.cW c8)⟩
+  exact ⟨Covers.append_left (L.cR c4) (Covers.right (Covers.cons (L.cW c7) (L.cW c8))), Covers.cons (L.cW c7) (L.cW c8)⟩
 
 theorem rej_pre {s1 : State} (h1 : Args (rejArgs a) s s1) :
     (rejNTTContract X86_64.abi 16).pre
@@ -119,7 +119,7 @@ theorem rej4_cov : Covers ([⟨pa s (sc oSB4), 136⟩] ++ [⟨pa s a, 4096⟩, �
     Covers [⟨pa s a, 4096⟩, ⟨pa s w, 8192⟩] s.wr := by
   simp only [rej4Chk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨_, c4⟩, _⟩, _⟩, c7⟩, c8⟩ := hc
-  exact ⟨covers_append (L.cR c4) (covers_wr (covers_cons (L.cW c7) (L.cW c8))), covers_cons (L.cW c7) (L.cW c8)⟩
+  exact ⟨Covers.append_left (L.cR c4) (Covers.right (Covers.cons (L.cW c7) (L.cW c8))), Covers.cons (L.cW c7) (L.cW c8)⟩
 
 theorem rej4_pre {s1 : State} (h1 : Args (rej4Args a w) s s1) :
     (rejNTT4Contract X86_64.abi 24).pre
@@ -214,7 +214,7 @@ theorem ball_cov : Covers ([⟨pa s ct, len⟩] ++ [⟨pa s c, 1024⟩, ⟨pa s 
     Covers [⟨pa s c, 1024⟩, ⟨pa s (sc oSS), 2048⟩] s.wr := by
   simp only [ballChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨_, c4⟩, _⟩, _⟩, c7⟩, c8⟩ := hc
-  exact ⟨covers_append (L.cR c4) (covers_wr (covers_cons (L.cW c7) (L.cW c8))), covers_cons (L.cW c7) (L.cW c8)⟩
+  exact ⟨Covers.append_left (L.cR c4) (Covers.right (Covers.cons (L.cW c7) (L.cW c8))), Covers.cons (L.cW c7) (L.cW c8)⟩
 
 include hp in
 theorem ball_pre {s1 : State} (h1 : Args (ballArgs ct len tau c) s s1) :

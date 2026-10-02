@@ -164,7 +164,7 @@ theorem leaf {body : Prog isa} {B : State → State → Prop} (W : State → Lis
   refine Piece.frame (by decide) (by decide) (by decide) (fun i hi => ?_)
     (fun s₀ s h₀ e => by rw [e]; exact (hE s₀ h₀).1)
     (fun s₀ s₀' s s' h₀ h₀' hp e e' => by rw [e, e']; exact hpub _ _ h₀ h₀' hp) ?_
-  · have e : X86.instrs (Code.seq body (.block restore)) = X86.instrs body ++ restore := rfl
+  · have e : VG.instrs (Code.seq body (.block restore)) = VG.instrs body ++ restore := rfl
     rw [e, List.mem_append] at hi
     rcases hi with hi | hi
     · exact hsp i hi

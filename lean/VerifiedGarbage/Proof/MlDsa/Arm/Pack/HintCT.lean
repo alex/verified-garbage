@@ -272,7 +272,4 @@ theorem relct_wp {c : Prog isa} {P : State → State → Prop} {F₁ F₂ : Stat
     RelCT isa P c fun a b => F₁ a ∧ F₂ b :=
   (hct.wp hw).mono (fun _ _ h => h) fun _ _ h => ⟨h.2.1, h.2.2⟩
 
-theorem covers_of_mem {rs rs' : List Region} (h : ∀ r ∈ rs, r ∈ rs') : Covers rs rs' :=
-  fun _ _ ⟨r, hr, hc⟩ => ⟨r, h r hr, hc⟩
-
 end VG.Proof.MlDsa.Arm.Pack.Hint

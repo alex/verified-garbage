@@ -93,7 +93,7 @@ theorem chain2_mid {s₀ s : State} {St D S : BitVec 32} {L R : Nat} (hp : APre 
   · have hn : nbOf (countArm s₀).toNat L = 0 := by simp [nbOf, nbx, h0]
     simp only [d2Of, h0, ↓reduceIte, hn, Nat.mul_zero] at common ⊢
     refine common (by decide) (disjoint_zero _ _) (disjoint_zero _ _) ((disjoint_zero _ _).symm) (by omega)
-      (covers_wr (by have := hp.inSt (d := 0) (n := 0) (by decide); rwa [BitVec.add_zero] at this))
+      (Covers.right (by have := hp.inSt (d := 0) (n := 0) (by decide); rwa [BitVec.add_zero] at this))
   · simp only [d2Of, h0, ↓reduceIte] at common ⊢
     have hn : 16 * nbOf (countArm s₀).toNat L < leftOf (countArm s₀).toNat L := by
       simp only [nbOf, nbx, h0, ↓reduceIte]; omega
@@ -199,7 +199,7 @@ theorem absorb_wp {s₀ : State} (h0 : absorbArm.pre s₀) :
   have inS : ∀ d, d + 4 ≤ 2304 → InRegions (s₁₀.rd ++ s₁₀.wr) (State.addr S + BitVec.ofNat 64 d) 4 :=
     fun d hd => by
       rw [h₁₀.rd, h₁₀.wr, rd₉', wr₉']
-      exact covers_wr (hp.inS hd) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
+      exact Covers.right (hp.inS hd) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
   rw [restore, saved_eq, ← List.append_nil (List.map _ _)]
   refine Spill.restoreBase_ok (by decide) (fun p hp' => ?_) fun s₁₂ ld₁₂ ho₁₂ m₁₂ _ _ sp₁₂ => WP.block_nil ?_
   · have hb := saved_bound p (by rw [saved_eq]; exact hp')
