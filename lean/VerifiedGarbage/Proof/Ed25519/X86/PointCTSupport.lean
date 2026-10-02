@@ -28,7 +28,7 @@ structure PointCTCtx (x : BitVec 32) (s : State) : Prop where
   lengths : List.Forall₂ (fun r l => l ≤ r.len) s.wr [0, 8192]
   separate : s.wr.Pairwise Region.Disjoint
   fits : ∀ r ∈ s.wr, r.base.toNat + r.len ≤ 2 ^ 32
-  region : VG.X86.Taint.region s 1 = scR x
+  region : VG.X86.Taint.region s 1 = scR 8192 x
 
 theorem PointCTCtx.keep {x : BitVec 32} {s t : State} (h : PointCTCtx x s)
     (he : t.gpr .edi = s.gpr .edi) (hw : t.wr = s.wr) : PointCTCtx x t :=

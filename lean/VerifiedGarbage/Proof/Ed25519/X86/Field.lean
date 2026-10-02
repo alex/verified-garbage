@@ -72,7 +72,7 @@ theorem const_env {x : BitVec 32} {m m' : Mem} (hx : x.toNat + 8192 ≤ 2 ^ 32) 
       (by simp only [offset]; omega) (slot_ne (slot_valid o) (slot_valid i) (fun h => hi (offset_inj h)))
 
 theorem raw_field_ok {s : State} {x : BitVec 32} (hc : Ctx x s) (op : Op)
-    (hv : opValid op = true) (o : Slot) (ho : opOut op = offset o) :
+    (hv : opValid 64 op = true) (o : Slot) (ho : opOut op = offset o) :
     WP isa (.block op.code) s fun t => FieldKeep x s t ∧
       env t.mem x = Function.update (env s.mem x) o (opVal op (F s.mem x)) := by
   refine WP.mono (op_ok hc op hv) fun t ⟨hk, hf, he⟩ => ?_
