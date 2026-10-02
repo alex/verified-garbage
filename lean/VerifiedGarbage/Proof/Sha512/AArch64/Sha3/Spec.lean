@@ -38,6 +38,32 @@ theorem h_eq (v : HashValue) (k0 w0 k1 w1 : Word) :
       bsig1 (roundKW v k0 w0)[4] + (k1 + w1 + (roundKW v k0 w0)[7])) _ = _
   rw [t1_eq]
 
+/-- SHA512H with `c` and `d` added to its accumulator and zero in place of `d`
+in its third operand computes the next `e` and `f` themselves. -/
+theorem hF_eq (v : HashValue) (k0 w0 k1 w1 : Word) :
+    sha512H (ofVDwords (k1 + w1 + v[6] + v[2]) (k0 + w0 + v[7] + v[3]))
+      (ofVDwords v[5] v[6]) (ofVDwords 0 v[4]) =
+    ef (roundKW (roundKW v k0 w0) k1 w1) := by
+  simp only [sha512H, vdword_ofVDwords_0, vdword_ofVDwords_1]
+  rw [show ∀ x : Word, x + (0 : BitVec 64) = x from BitVec.add_zero]
+  change ofVDwords
+    (ch (ch v[4] v[5] v[6] + bsig1 v[4] + (k0 + w0 + v[7] + v[3])) v[4] v[5] +
+      bsig1 (ch v[4] v[5] v[6] + bsig1 v[4] + (k0 + w0 + v[7] + v[3])) + (k1 + w1 + v[6] + v[2]))
+    (ch v[4] v[5] v[6] + bsig1 v[4] + (k0 + w0 + v[7] + v[3])) = _
+  have he : ch v[4] v[5] v[6] + bsig1 v[4] + (k0 + w0 + v[7] + v[3]) = (roundKW v k0 w0)[4] := by
+    rw [roundKW_4]; ac_rfl
+  rw [he]
+  change ofVDwords
+    (ch (roundKW v k0 w0)[4] (roundKW v k0 w0)[5] (roundKW v k0 w0)[6] +
+      bsig1 (roundKW v k0 w0)[4] + (k1 + w1 + (roundKW v k0 w0)[7] + (roundKW v k0 w0)[3]))
+    (roundKW v k0 w0)[4] = _
+  have he' : ch (roundKW v k0 w0)[4] (roundKW v k0 w0)[5] (roundKW v k0 w0)[6] +
+      bsig1 (roundKW v k0 w0)[4] + (k1 + w1 + (roundKW v k0 w0)[7] + (roundKW v k0 w0)[3]) =
+      (roundKW (roundKW v k0 w0) k1 w1)[4] := by
+    rw [roundKW_4 (v := roundKW v k0 w0)]; ac_rfl
+  rw [he']
+  rfl
+
 theorem maj_rev (a b c : Word) : (c &&& b) ^^^ (c &&& a) ^^^ (b &&& a) = maj a b c := by
   ext i
   simp only [maj, BitVec.getElem_xor, BitVec.getElem_and]
@@ -64,13 +90,6 @@ theorem h2_eq (v : HashValue) (k0 w0 k1 w1 : Word) :
       bsig0 (roundKW v k0 w0)[0] + t1 (roundKW v k0 w0) k1 w1) _ = _
   rw [a_eq]
   rfl
-
-theorem ef_eq (v : HashValue) (k0 w0 k1 w1 : Word) :
-    VArr.d2.map2 (fun _ x y => x + y) (cd v)
-      (ofVDwords (t1 (roundKW v k0 w0) k1 w1) (t1 v k0 w0)) =
-      ef (roundKW (roundKW v k0 w0) k1 w1) := by
-  simp only [VArr.map2, cd, ef, vdword_ofVDwords_0, vdword_ofVDwords_1,
-    roundKW_3, roundKW_4, roundKW_5, t1]
 
 theorem cd_eq (v : HashValue) (k0 w0 k1 w1 : Word) :
     cd (roundKW (roundKW v k0 w0) k1 w1) = ab v := rfl
