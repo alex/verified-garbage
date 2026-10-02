@@ -5,14 +5,14 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.DecodedThenCT
 
 namespace VG.Proof.Ed25519.AArch64
 
-open VG VG.AArch64 VG.Impl.Ed25519.AArch64
+open VG VG.AArch64 VG.Impl.Ed25519.AArch64 VG.Proof.Ed25519 Edwards
 
 def DecodeRCTPre (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte)
     (a : Spec.Ed25519.Point) (s : State) : Prop :=
   VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧ tablePoint s.mem base 7424 = a
 
 theorem verifyStoreR_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte)
-    (a r : Spec.Ed25519.Point) :
+    (a r : Spec.Ed25519.Point) {Aa Ra : EPoint dZ} (hA : Rep a Aa) (hR : Rep r Ra) :
     CT (fun s t => (DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a s ∧
       point (env s.mem base) 0 1 2 3 = r) ∧ (DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a t ∧
       point (env t.mem base) 0 1 2 3 = r))
@@ -30,10 +30,10 @@ theorem verifyStoreR_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List 
     exact (kt.mem.point (by decide) (Or.inl (by decide)) (by decide)).trans h.1.2
   have hp := CT.wp ht (fun s t h => ⟨hw s h.1, hw t h.2⟩)
   exact CT.seq (hp.mono (fun _ _ h => h) (fun _ _ h => h.2))
-    (verifyEquationPoints_ct base pk sig challenge pkbs rbs sbs kbs a r)
+    (verifyEquationPoints_ct base pk sig challenge pkbs rbs sbs kbs a r hA hR)
 
 theorem verifyDecodeR_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte)
-    (a : Spec.Ed25519.Point) :
+    (a : Spec.Ed25519.Point) {Aa : EPoint dZ} (hA : Rep a Aa) :
     CT (fun s t => DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a s ∧
       DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a t) verifyDecodeR (fun _ _ => True) := by
   let P := DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a
@@ -69,7 +69,8 @@ theorem verifyDecodeR_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List
   apply decodedThen_ct base (Spec.Ed25519.decodePoint rbs) P _
   · intro s t kt h
     exact ⟨h.1.of_keep (PowersKeep.of_keeps kt (by simp)), by rw [kt.mem]; exact h.2⟩
-  · intro r _
-    exact verifyStoreR_ct base pk sig challenge pkbs rbs sbs kbs a r
+  · intro r hr
+    obtain ⟨Ra, hR⟩ := decodePoint_rep hr
+    exact verifyStoreR_ct base pk sig challenge pkbs rbs sbs kbs a r hA hR
 
 end VG.Proof.Ed25519.AArch64

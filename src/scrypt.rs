@@ -1,11 +1,12 @@
 //! scrypt (RFC 7914 §6).
 //!
 //! `B = PBKDF2-HMAC-SHA256 (P, S, 1, p · 128 · r)` and the derived key
-//! `PBKDF2-HMAC-SHA256 (P, B, 1, dkLen)` are [`pbkdf2_hmac_sha256`]. In
-//! between, each of the `p` blocks of `B` goes through the verified
-//! `vg_scrypt_romix` (contract `VG.Spec.Scrypt.roMixContract`), which calls
-//! the verified `vg_scrypt_blockmix` and `vg_salsa20_8`. This module only
-//! checks the parameters and allocates the memory ROMix works in.
+//! `PBKDF2-HMAC-SHA256 (P, B, 1, dkLen)` are
+//! [`pbkdf2_hmac::<Sha256>`](pbkdf2_hmac). In between, each of the `p`
+//! blocks of `B` goes through the verified `vg_scrypt_romix` (contract
+//! `VG.Spec.Scrypt.roMixContract`), which calls the verified
+//! `vg_scrypt_blockmix` and `vg_salsa20_8`. This module only checks the
+//! parameters and allocates the memory ROMix works in.
 //!
 //! scryptROMix reads its table `V` at indices derived from the password, so
 //! its memory accesses (and hence its timing, through the caches) depend on
@@ -27,7 +28,8 @@ use core::fmt;
 use core::num::NonZeroU32;
 
 use crate::arch::scrypt::vg_scrypt_romix;
-use crate::pbkdf2::pbkdf2_hmac_sha256;
+use crate::hashes::sha256::Sha256;
+use crate::pbkdf2::pbkdf2_hmac;
 
 /// Why [`scrypt`] refused to derive a key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -112,7 +114,7 @@ pub fn scrypt(
     let mut b = chunks(r * p)?;
     let mut v = chunks(vlen)?;
     let mut scratch = chunks(r + 2)?;
-    pbkdf2_hmac_sha256(password, salt, NonZeroU32::MIN, b.as_flattened_mut());
+    pbkdf2_hmac::<Sha256>(password, salt, NonZeroU32::MIN, b.as_flattened_mut());
     for block in b.chunks_exact_mut(r) {
         // SAFETY: `block` is valid for reads and writes of `128 r` bytes,
         // `v` of `128 vlen` bytes and `scratch` of `128 (r + 2)` bytes; they
@@ -130,6 +132,6 @@ pub fn scrypt(
             )
         };
     }
-    pbkdf2_hmac_sha256(password, b.as_flattened(), NonZeroU32::MIN, out);
+    pbkdf2_hmac::<Sha256>(password, b.as_flattened(), NonZeroU32::MIN, out);
     Ok(())
 }

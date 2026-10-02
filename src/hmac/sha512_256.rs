@@ -29,7 +29,7 @@ use crate::arch::hmac_sha512_256::{
     vg_hmac_sha512_256_finalize_sha3, vg_hmac_sha512_256_init_sha3,
 };
 use crate::arch::hmac_sha512_256::{vg_hmac_sha512_256_finalize, vg_hmac_sha512_256_init};
-use crate::hashes::sha512::{Sha512_256, Sha512_256Backend};
+use crate::hashes::sha512_256::{Sha512_256, Sha512_256Backend};
 
 super::streaming_hmac!(
     Sha512_256 (Sha512_256Backend) {

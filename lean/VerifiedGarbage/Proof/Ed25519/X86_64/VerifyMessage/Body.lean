@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyMessage.Equation
 namespace VG.Proof.Ed25519.X86_64.VerifyMessage
 
 variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+variable {dbl : VG.Prog VG.X86_64.isa} [VG.Proof.Ed25519.X86_64.EdDouble dbl]
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64.VerifyMessage
 open VG.Proof.Sha512.X86_64 (Compress)
@@ -47,9 +48,9 @@ theorem challengeInput_eq : challengeInput L m₀ =
   rw [h]
   rfl
 
-theorem body_ok (v : Compress) (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t)
+theorem body_ok (hq : EqCode (VG.Impl.Ed25519.X86_64.verifyEquation fld dbl)) (v : Compress) (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t)
     (hlen : 64 + L.len.toNat < 2 ^ 64) :
-    WP isa (body fld fs v.callee v.suffix) t fun t' => Ctx L g mx m₀ t' ∧
+    WP isa (body fld dbl fs v.callee v.suffix) t fun t' => Ctx L g mx m₀ t' ∧
       t'.gpr .rax = Proof.Ed25519.X86_64.signWord (Spec.Ed25519.verify
         (Spec.Ed25519.bytesAt m₀ L.pk 32) (Spec.Ed25519.bytesAt m₀ L.msg L.len.toNat)
         (Spec.Ed25519.bytesAt m₀ L.sig 64)) := by
@@ -60,6 +61,6 @@ theorem body_ok (v : Compress) (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t)
   refine WP.seq (WP.mono (equationArgs_ok hc₄) fun t₅ ⟨hc₅, hm₅, ha₅⟩ => ?_)
   have he₅ := hm₅ ▸ he₄
   rw [challengeInput_eq] at he₅
-  exact eq_call hL hc₅ ha₅ he₅
+  exact eq_call hq hL hc₅ ha₅ he₅
 
 end VG.Proof.Ed25519.X86_64.VerifyMessage
