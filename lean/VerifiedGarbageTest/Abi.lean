@@ -70,11 +70,19 @@ def aarch64Stack : AArch64.State :=
     mem := fun a => if 0x100 ≤ a.toNat ∧ a.toNat < 0x108 then BitVec.ofNat 8 (a.toNat - 0xff) else 0 }
 
 #guard (AArch64.abi.args (List.replicate 8 64)).map (· aarch64State) == some [1, 2, 3, 4, 5, 6, 7, 8]
--- The ninth argument is the 8 bytes at `sp`; narrower stack arguments are
--- not modelled.
+-- The ninth argument is the 8 bytes at `sp`. A lone narrow stack argument
+-- is rejected; a u32 followed by u64s has the same aligned layout on both ABIs.
 #guard (AArch64.abi.args (List.replicate 9 64)).map (· aarch64Stack) ==
   some [1, 2, 3, 4, 5, 6, 7, 8, 0x0807060504030201]
 #guard (AArch64.abi.args (List.replicate 8 64 ++ [32])).isNone
+-- The u32 at SP occupies its low half; the next u64 is at SP + 8.
+#guard (AArch64.abi.args (List.replicate 8 64 ++ [32, 64])).map (· aarch64Stack) ==
+  some [1, 2, 3, 4, 5, 6, 7, 8, 0x0807060504030201, 0]
+#guard (AArch64.abi.argArea (List.replicate 8 64 ++ [32, 64]) aarch64Stack).map (·.1) ==
+  [⟨0x100, 16⟩]
+#guard (AArch64.abi.args (List.replicate 8 64 ++ [32, 32, 64])).isNone
+#guard (AArch64.abi.args (List.replicate 8 64 ++ [64, 32, 64])).isNone
+#guard (AArch64.abi.args (List.replicate 8 64 ++ [16, 64])).isNone
 #guard (AArch64.abi.argArea (List.replicate 9 64) aarch64Stack).map (·.1) == [⟨0x100, 8⟩]
 -- `ldr xt, [sp, #off]` reads the stack arguments where the ABI puts them:
 -- `stackArg s i` at `sp + 8 * i`, within the argument area.
