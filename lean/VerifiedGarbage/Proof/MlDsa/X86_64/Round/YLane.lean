@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.VArith
 /-!
 # ML-DSA on x86-64: what the AVX2 rounding code computes in a doubleword
 
-Untrusted: everything here is checked by Lean. What `hbX` and `lbX`
-(`Impl/MlDsa/X86_64/Round/Avx2.lean`) compute in each doubleword (`hbL`,
-`lbL`), and that it is `r₁` and `r₀` of `Decompose` (`hbL_toNat`,
-`lbL_toNat`): every intermediate value fits in 32 bits.
+What `hbX` and `lbX` (`Impl/MlDsa/X86_64/Round/Avx2.lean`) compute in each
+doubleword (`hbL`, `lbL`), and that it is `r₁` and `r₀` of `Decompose`
+(`hbL_toNat`, `lbL_toNat`): every intermediate value fits in 32 bits.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

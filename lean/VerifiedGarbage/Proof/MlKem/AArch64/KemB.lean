@@ -3,12 +3,12 @@ import VerifiedGarbage.Proof.MlKem.AArch64.KemOps
 /-!
 # ML-KEM-768 on AArch64: the matrix `Â` of `(encapsWith keccak.callee)` and `(decapsWith keccak.callee)`
 
-Untrusted: everything here is checked by Lean. `Â[i, j]` for the nine
-`(i, j)` (entry `e = 3i + j`), from the seed `ρ` at `SB`, each with
-`sample_ntt`'s stronger contract: it is reduced, and the result is 1
-exactly when `SampleNTT` with 280 iterations succeeds; `x24` is the AND of
-the results. The matrix writes only the last two bytes of the seed, `Â`,
-`sample_ntt`'s working space and the stack below the stack pointer (`bW`).
+`Â[i, j]` for the nine `(i, j)` (entry `e = 3i + j`), from the seed `ρ` at
+`SB`, each with `sample_ntt`'s stronger contract: it is reduced, and the
+result is 1 exactly when `SampleNTT` with 280 iterations succeeds; `x24` is
+the AND of the results. The matrix writes only the last two bytes of the seed,
+`Â`, `sample_ntt`'s working space and the stack below the stack pointer
+(`bW`).
 
 Constant time, relating two runs with the same pointers and the same `ρ`:
 the arguments of each call by the taint analysis, and the calls by

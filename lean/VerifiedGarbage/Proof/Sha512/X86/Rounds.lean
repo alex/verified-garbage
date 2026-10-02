@@ -6,13 +6,12 @@ import VerifiedGarbage.Proof.Sha512.Spec
 /-!
 # SHA-512 on x86 (32-bit): the 64-bit operations
 
-Untrusted: everything here is checked by Lean. Weakest-precondition rules
-for the macros of `VG.Impl.Sha512.X86` (loads and stores of a 64-bit word in
-the scratch buffer, 64-bit additions, `Σ`/`σ`, `Ch` and `Maj`), each proved
-once for any registers and offsets, in continuation-passing style: the rule
-for `x` proves `WP (x ++ rest)` from a proof of `WP rest` for every state `x`
-can end in. The halves of 64-bit values, and the terms of `Σ`/`σ`, are those
-of `Proof/Sha512/Word64.lean`.
+Weakest-precondition rules for the macros of `VG.Impl.Sha512.X86` (loads and
+stores of a 64-bit word in the scratch buffer, 64-bit additions, `Σ`/`σ`, `Ch`
+and `Maj`), each proved once for any registers and offsets, in
+continuation-passing style: the rule for `x` proves `WP (x ++ rest)` from a
+proof of `WP rest` for every state `x` can end in. The halves of 64-bit
+values, and the terms of `Σ`/`σ`, are those of `Proof/Sha512/Word64.lean`.
 -/
 
 namespace VG.Proof.Sha512.X86
@@ -624,8 +623,6 @@ end VG.Proof.Sha512.X86
 
 /-!
 # SHA-512 on x86 (32-bit): the message schedule and the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha512.X86

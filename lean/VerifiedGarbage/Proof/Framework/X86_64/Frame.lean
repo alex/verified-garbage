@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 /-!
 # Frames (x86-64)
 
-Untrusted: everything here is checked by Lean.
-
 A frame's push stores its registers below `rsp` (`pushed`) and makes those
 bytes a writable region; its pop reloads one register and removes the
 region (`popped`). `WP.frame` runs a frame whose body leaves `rsp` and the

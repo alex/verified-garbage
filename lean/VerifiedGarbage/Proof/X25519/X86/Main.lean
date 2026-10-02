@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.X25519.X86.Finish
 /-!
 # X25519 on x86 (32-bit): the whole function
 
-Untrusted: everything here is checked by Lean. The setup, the ladder, the
-last swap, the inversion and the result, composed: `vg_x25519` writes
-`X25519(k, u)` to `out` (`x25519_eq`), and restores the callee-saved
-registers.
+The setup, the ladder, the last swap, the inversion and the result, composed:
+`vg_x25519` writes `X25519(k, u)` to `out` (`x25519_eq`), and restores the
+callee-saved registers.
 -/
 
 namespace VG.Proof.X25519.X86

@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Lanes
 /-!
 # The ANF domain: XORs of ANDs of XORs of rotated words
 
-Untrusted: everything here is checked by Lean.
-
 Code that combines 64-bit words with XOR, AND, OR, NOT (an XOR with
 all-ones) and rotations, such as a round of Keccak-f, computes from its
 input words (*atoms*, numbered from 0) values that are polynomials over

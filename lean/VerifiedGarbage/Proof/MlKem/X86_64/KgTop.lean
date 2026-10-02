@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.KgCT
 /-!
 # ML-KEM-768 on x86-64: `vg_mlkem768_keygen`
 
-Untrusted: everything here is checked by Lean. The function, piece by
-piece (`KeyGen.*_ok`): it returns 1 with `KeyGen_internal(d, z)` in `ek`
-and `dk` if every `SampleNTT` succeeded within 280 iterations (`allOk`),
-and 0 otherwise (`keyGen_correct`); it leaks only the pointers and `ρ`
-(`keyGen_ct`); so it meets the shared contract (`keyGen_verified`).
+The function, piece by piece (`KeyGen.*_ok`): it returns 1 with
+`KeyGen_internal(d, z)` in `ek` and `dk` if every `SampleNTT` succeeded within
+280 iterations (`allOk`), and 0 otherwise (`keyGen_correct`); it leaks only
+the pointers and `ρ` (`keyGen_ct`); so it meets the shared contract
+(`keyGen_verified`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

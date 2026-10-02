@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Ops
 
-/-! Untrusted: four-word field addition. -/
+/-! Four-word field addition. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64 VG.Proof.X25519
 

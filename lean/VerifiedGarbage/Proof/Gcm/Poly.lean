@@ -10,8 +10,6 @@ import VerifiedGarbage.Proof.Framework.PowLit
 /-!
 # GCM: the field GF(2¹²⁸) as polynomials
 
-Untrusted: everything here is checked by Lean.
-
 SP 800-38D §6.3 defines the product of two blocks bit by bit
 (`Spec.Gcm.mul`). A block `v` stands for the polynomial `gp v` over GF(2)
 whose coefficient of `xⁱ` is bit `i` of `v` from the left (`getMsbD i`), and

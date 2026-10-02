@@ -6,14 +6,13 @@ import VerifiedGarbage.Impl.CmacAes.Stream.X86
 /-!
 # Streaming AES-CMAC on x86: the contracts the proofs are written against
 
-Untrusted: everything here is checked by Lean. The artifacts' contracts are
-the shared ones of `Spec/Cmac/Contract.lean`, which imply these
-(`Verified.lean`). The arguments are on the stack, from `[esp + 4]` (cdecl);
-`count` takes the slots 2 (low word) and 3. Each call of a CMAC function
-pushes its six arguments and the return address in the 28 bytes below `esp`,
-and the callee's call of `vg_aes_ctr32` uses 28 bytes below that: 56 bytes
-(48 for `init`, whose calls take four arguments), which may not overlap any
-buffer.
+The artifacts' contracts are the shared ones of `Spec/Cmac/Contract.lean`,
+which imply these (`Verified.lean`). The arguments are on the stack, from
+`[esp + 4]` (cdecl); `count` takes the slots 2 (low word) and 3. Each call of
+a CMAC function pushes its six arguments and the return address in the 28
+bytes below `esp`, and the callee's call of `vg_aes_ctr32` uses 28 bytes below
+that: 56 bytes (48 for `init`, whose calls take four arguments), which may not
+overlap any buffer.
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86

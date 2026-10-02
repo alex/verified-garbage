@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.Call
 /-!
 # ML-DSA on x86 (32-bit): code that writes `esp` only by frames and calls
 
-Untrusted: everything here is checked by Lean. `NoSp` of code built from
-pieces, for any code of the primitives it calls: sequences (`NoSp.seq`,
-`NoSp.seqR`) and calls with their arguments (`NoSp.callP`, `NoSp.callPR`).
-Code that calls no primitive is checked by evaluation (`NoSp.of_all`).
+`NoSp` of code built from pieces, for any code of the primitives it calls:
+sequences (`NoSp.seq`, `NoSp.seqR`) and calls with their arguments
+(`NoSp.callP`, `NoSp.callPR`). Code that calls no primitive is checked by
+evaluation (`NoSp.of_all`).
 -/
 
 namespace VG.Proof.MlDsa.X86.KeyGen

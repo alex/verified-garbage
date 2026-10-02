@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # Calls of functions with frames (ARMv7)
 
-Untrusted: everything here is checked by Lean.
-
 `WP.call` and `WP.callCalls` run a call of code without frames, which
 changes memory only within the regions it may write. Code with frames (the
 callee pushes its own callees' stack arguments) also changes the stack below

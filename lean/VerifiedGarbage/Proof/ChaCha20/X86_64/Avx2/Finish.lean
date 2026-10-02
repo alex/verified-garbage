@@ -12,9 +12,9 @@ section
 /-!
 # ChaCha20 on x86-64 with AVX2: the rounds
 
-Untrusted: everything here is checked by Lean. Doubleword `i` of lane `l` of
-a register holds a word of block `4 l + i`; each quarter round of the code is
-the specification's on every one of the eight blocks.
+Doubleword `i` of lane `l` of a register holds a word of block `4 l + i`; each
+quarter round of the code is the specification's on every one of the eight
+blocks.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64.Avx2
@@ -395,8 +395,6 @@ end
 
 /-!
 # ChaCha20 on x86-64 with AVX2: the eight input states
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64.Avx2
@@ -642,9 +640,8 @@ end VG.Proof.ChaCha20.X86_64.Avx2
 /-!
 # ChaCha20 on x86-64 with AVX2: the constants
 
-Untrusted: everything here is checked by Lean. The prologue stores the
-rotation masks and the counter increments in `buf[128, 224)`, a quadword at
-a time.
+The prologue stores the rotation masks and the counter increments in `buf[128,
+224)`, a quadword at a time.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64.Avx2
@@ -791,8 +788,8 @@ end VG.Proof.ChaCha20.X86_64.Avx2
 /-!
 # ChaCha20 on x86-64 with AVX2: the output
 
-Untrusted: everything here is checked by Lean. The rounds' result plus the
-input states, transposed into blocks and XORed into 512 bytes of data.
+The rounds' result plus the input states, transposed into blocks and XORed
+into 512 bytes of data.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64.Avx2

@@ -6,9 +6,9 @@ import VerifiedGarbage.Proof.Framework.RelCTAssoc
 /-!
 # Streaming SHA-512 on ARMv7: common lemmas
 
-Untrusted: everything here is checked by Lean. Saving and restoring our
-caller's registers, the call of the compression function in the terms of
-the streaming proofs, and arithmetic on 32-bit values.
+Saving and restoring our caller's registers, the call of the compression
+function in the terms of the streaming proofs, and arithmetic on 32-bit
+values.
 -/
 
 namespace VG.Proof.Sha512.Arm.Stream
@@ -276,11 +276,10 @@ end VG.Proof.Sha512.Arm.Stream
 /-!
 # Streaming SHA-512 on ARMv7: `update`
 
-Untrusted: everything here is checked by Lean. The structure of the SHA-256
-proof (`VG.Proof.MdStream.Arm.Update`), with `state` in `r0`, `scratch`
-in `r3`, `data` in `r5`, the bytes left in `r6` and the buffered bytes in
-`r4`; every block goes through the buffer, which is compressed as soon as it
-is full.
+The structure of the SHA-256 proof (`VG.Proof.MdStream.Arm.Update`), with
+`state` in `r0`, `scratch` in `r3`, `data` in `r5`, the bytes left in `r6` and
+the buffered bytes in `r4`; every block goes through the buffer, which is
+compressed as soon as it is full.
 -/
 
 namespace VG.Proof.Sha512.Arm.Stream.Update

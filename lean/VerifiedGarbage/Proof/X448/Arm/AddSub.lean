@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.Arm.Columns
 /-!
 # X448 on ARMv7: addition and subtraction
 
-Untrusted: everything here is checked by Lean. Twice the prime is added
-before subtraction, so no limb subtraction borrows.
+Twice the prime is added before subtraction, so no limb subtraction borrows.
 -/
 
 namespace VG.Proof.X448.Arm

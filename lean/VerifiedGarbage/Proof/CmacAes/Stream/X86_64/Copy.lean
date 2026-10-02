@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.CmacAes.X86_64.Finalize
 /-!
 # Streaming AES-CMAC on x86-64: copying bytes
 
-Untrusted: everything here is checked by Lean. `copy` copies the `rcx`
-bytes at `r13` to `rdx`, a byte at a time (none if `rcx` is 0), changing
-only `rax`, `r10` and the flags.
+`copy` copies the `rcx` bytes at `r13` to `rdx`, a byte at a time (none if
+`rcx` is 0), changing only `rax`, `r10` and the flags.
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86_64

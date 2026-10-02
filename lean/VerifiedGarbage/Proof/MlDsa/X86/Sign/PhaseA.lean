@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Local
 /-!
 # ML-DSA signing on x86 (32-bit): `ExpandA`
 
-Untrusted: everything here is checked by Lean. `ρ` is copied to `RS`, and
-entry `e` of `Â` (row `e / ℓ`, column `e % ℓ`) is sampled into slot
-`aBase + e` from the seed `ρ ‖ e % ℓ ‖ e / ℓ` (`seedE`), with `OK` the AND
-of the results (`okE`). After entry `e` (`IA e`): if every entry so far
-succeeded, their slots hold them, within `maxBounds` (`aVal`); otherwise one
-of them fails within `minBounds`.
+`ρ` is copied to `RS`, and entry `e` of `Â` (row `e / ℓ`, column `e % ℓ`) is
+sampled into slot `aBase + e` from the seed `ρ ‖ e % ℓ ‖ e / ℓ` (`seedE`),
+with `OK` the AND of the results (`okE`). After entry `e` (`IA e`): if every
+entry so far succeeded, their slots hold them, within `maxBounds` (`aVal`);
+otherwise one of them fails within `minBounds`.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

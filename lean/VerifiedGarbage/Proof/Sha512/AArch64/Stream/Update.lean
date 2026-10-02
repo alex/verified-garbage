@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # Streaming SHA-512 on AArch64: `update`
 
-Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 proof (`VG.Proof.MdStream.X86_64.Update`); the loop runs while
-data is left, so every iteration consumes at least one byte.
+The same structure as the x86-64 proof (`VG.Proof.MdStream.X86_64.Update`);
+the loop runs while data is left, so every iteration consumes at least one
+byte.
 -/
 
 namespace VG.Proof.Sha512.AArch64.Stream.Update

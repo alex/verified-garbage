@@ -9,9 +9,8 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_encode12`
 
-Untrusted: everything here is checked by Lean. Pair `k` of coefficients is
-the 24-bit number `f[2k] + 2¹² f[2k+1]`, whose bytes are bytes `3k … 3k+2`
-of the encoding (`encode12_group`).
+Pair `k` of coefficients is the 24-bit number `f[2k] + 2¹² f[2k+1]`, whose
+bytes are bytes `3k … 3k+2` of the encoding (`encode12_group`).
 -/
 
 namespace VG.Proof.MlKem.X86.Encode12

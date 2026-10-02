@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.X448.AArch64.Freeze
 /-!
 # X448 on AArch64: the result and restored registers
 
-Untrusted: everything here is checked by Lean. The final multiplication,
-canonical reduction and encoding produce the affine coordinate. The two
-callee-saved registers are then restored from the disjoint working space.
+The final multiplication, canonical reduction and encoding produce the affine
+coordinate. The two callee-saved registers are then restored from the disjoint
+working space.
 -/
 
 namespace VG.Proof.X448.AArch64

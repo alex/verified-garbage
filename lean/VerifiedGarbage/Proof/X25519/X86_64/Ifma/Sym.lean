@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Sym
 /-!
 # X25519 on x86-64 with AVX512_IFMA: straight-line vector code, lane by lane
 
-Untrusted: everything here is checked by Lean. The vector code of
-`vg_x25519_ifma` computes on the four quadwords (lanes) of `ymm` registers,
-and loads and stores 32 bytes at constant offsets from the working space
-(`rdi`). `Sym.run` computes each quadword after a block of such
+The vector code of `vg_x25519_ifma` computes on the four quadwords (lanes) of
+`ymm` registers, and loads and stores 32 bytes at constant offsets from the
+working space (`rdi`). `Sym.run` computes each quadword after a block of such
 instructions as a term (`T`) in the quadwords, general-purpose registers and
 memory before it, and the stores as a list of terms; `srun_ok` proves the
 machine agrees. The quadword lemmas of the instructions are Poly1305's

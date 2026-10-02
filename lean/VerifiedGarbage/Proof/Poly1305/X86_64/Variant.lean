@@ -4,8 +4,6 @@ import VerifiedGarbage.Impl.Poly1305.X86_64.Callee
 /-!
 # Implementations of `vg_poly1305_blocks` on x86-64
 
-Untrusted: everything here is checked by Lean.
-
 A `BlocksImpl` is what a function that calls `vg_poly1305_blocks` needs of
 it, so that its proof holds for every implementation: each is a variant of
 the interface `Poly1305Blocks` on x86-64 (`Variants/Poly1305Blocks/X86_64/`),

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.FieldMemory
 import VerifiedGarbage.Proof.Ed25519.Arm.FieldProg
 
-/-! Untrusted: establish the limb bounds for the whole field workspace. -/
+/-! Establish the limb bounds for the whole field workspace. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 variable {b : BitVec 32}

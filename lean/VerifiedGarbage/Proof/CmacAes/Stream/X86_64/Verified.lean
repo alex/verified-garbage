@@ -7,11 +7,10 @@ import VerifiedGarbage.Spec.Cmac.Contract
 /-!
 # Streaming AES-CMAC on x86-64: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness and constant time
-(for any implementation `v` of AES), a state satisfying each precondition,
-and the shared contracts of `Spec/Cmac/Contract.lean` (with 16 bytes of
-stack: the return addresses of the call of a CMAC function and of its call
-of `vg_aes_ctr32`).
+Correctness and constant time (for any implementation `v` of AES), a state
+satisfying each precondition, and the shared contracts of
+`Spec/Cmac/Contract.lean` (with 16 bytes of stack: the return addresses of the
+call of a CMAC function and of its call of `vg_aes_ctr32`).
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86_64

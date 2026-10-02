@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Framework.Arm.Taint
 /-!
 # Inlining verified code (ARMv7)
 
-Untrusted: everything here is checked by Lean. As for x86-64: running code
-from a state that permits more memory gives the same result (`Exec.widen`),
-code never writes outside the regions its state permits (`Exec.regions`),
-and `WP.inline` combines the two with the correctness part of the inlined
-function's `Verified` proof.
+As for x86-64: running code from a state that permits more memory gives the
+same result (`Exec.widen`), code never writes outside the regions its state
+permits (`Exec.regions`), and `WP.inline` combines the two with the
+correctness part of the inlined function's `Verified` proof.
 -/
 
 namespace VG.Arm

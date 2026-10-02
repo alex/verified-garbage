@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.Arith.Mem
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_high_bits` and `vg_mldsa_low_bits`
 
-Untrusted: everything here is checked by Lean. Both compare `γ₂` with
-`(q - 1)/32` and run, for the value they found, the loop `cntLoop` of a core
-that computes `eax ← V a` from the coefficient `a = [esi]` (`Core1`:
-`hbCore_spec`, `lbCore_spec`) and `cntTail`, which stores it to `[edi]`.
-The loop is proven once for any core (`bits_piece`), with the value `V s₀`
-of the entry state, as `γ₂` is (`E s₀` holds in the branch).
+Both compare `γ₂` with `(q - 1)/32` and run, for the value they found, the
+loop `cntLoop` of a core that computes `eax ← V a` from the coefficient `a =
+[esi]` (`Core1`: `hbCore_spec`, `lbCore_spec`) and `cntTail`, which stores it
+to `[edi]`. The loop is proven once for any core (`bits_piece`), with the
+value `V s₀` of the entry state, as `γ₂` is (`E s₀` holds in the branch).
 -/
 
 namespace VG.Proof.MlDsa.X86.Round

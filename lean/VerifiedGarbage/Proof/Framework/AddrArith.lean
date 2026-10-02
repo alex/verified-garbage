@@ -3,8 +3,6 @@ import VerifiedGarbage.TCB.Mem
 /-!
 # Address arithmetic without `bv_omega`
 
-Untrusted: everything here is checked by Lean.
-
 `bv_omega` turns every `(x - y).toNat` into `(2 ^ w - y.toNat + x.toNat) % 2 ^ w`,
 and an address such as `E - m` into another such term inside it, so facts
 about where an address lies relative to a stack pointer or region base `E`

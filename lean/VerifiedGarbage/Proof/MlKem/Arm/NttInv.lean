@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem.Arm.Ntt
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_inv_ntt`
 
-Untrusted: everything here is checked by Lean. As `vg_mlkem_ntt`
-(`Proof/MlKem/Arm/Ntt.lean`, whose setup facts and environment it shares):
-the three nested loops of `nttInvLayer`, `nttInvBlock` and `nttInvBlockN`,
-with the zeta pointer going down; the inverse butterfly symbolically
-executed once (`ibfly_ok`) writes the coefficients `bflyInv` writes
-(`polyIs_ibfly`); then the loop multiplying every coefficient by 3303
+As `vg_mlkem_ntt` (`Proof/MlKem/Arm/Ntt.lean`, whose setup facts and
+environment it shares): the three nested loops of `nttInvLayer`, `nttInvBlock`
+and `nttInvBlockN`, with the zeta pointer going down; the inverse butterfly
+symbolically executed once (`ibfly_ok`) writes the coefficients `bflyInv`
+writes (`polyIs_ibfly`); then the loop multiplying every coefficient by 3303
 (`sstep`). Layer `ℓ` has `len = 2^(ℓ+1)` and `64 / 2^ℓ` blocks.
 -/
 

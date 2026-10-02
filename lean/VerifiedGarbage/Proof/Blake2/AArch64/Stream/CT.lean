@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.Framework.AArch64.Taint
 /-!
 # Streaming BLAKE2 on AArch64: constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis of `init`,
-`update` and `finalize` (the compression function they call included), from
-the public arguments: the pointers, `outlen`, `keylen`, `count` and `len`,
-and the stack pointer.
+The taint analysis of `init`, `update` and `finalize` (the compression
+function they call included), from the public arguments: the pointers,
+`outlen`, `keylen`, `count` and `len`, and the stack pointer.
 -/
 
 namespace VG.Proof.Blake2.AArch64.Stream

@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlKem.X86.DecapsCmp
 /-!
 # ML-KEM-768 on x86 (32-bit): `vg_mlkem768_decaps`
 
-Untrusted: everything here is checked by Lean. `m'` is decrypted
-(`DecapsDec.lean`), `ek` copied from `dk` and `G(m' ‖ h)` hashed
-(`start_piece`), `c'` computed (`Enc.encrypt_piece`), `K̄ = J(z ‖ c)` hashed,
-`c` and `c'` compared and `K'` or `K̄` selected into `key` (`DecapsCmp.lean`)
-without branching (`fin_piece`). If every `SampleNTT` succeeded, K-PKE.Encrypt
-succeeds with the matrix sampled within one bound on their iterations
-(`kpkeEncrypt768_some`); if one failed within `minIterations`, it fails with
-that bound (`kpkeEncrypt768_none`).
+`m'` is decrypted (`DecapsDec.lean`), `ek` copied from `dk` and `G(m' ‖ h)`
+hashed (`start_piece`), `c'` computed (`Enc.encrypt_piece`), `K̄ = J(z ‖ c)`
+hashed, `c` and `c'` compared and `K'` or `K̄` selected into `key`
+(`DecapsCmp.lean`) without branching (`fin_piece`). If every `SampleNTT`
+succeeded, K-PKE.Encrypt succeeds with the matrix sampled within one bound on
+their iterations (`kpkeEncrypt768_some`); if one failed within
+`minIterations`, it fails with that bound (`kpkeEncrypt768_none`).
 -/
 
 namespace VG.Proof.MlKem.X86.Decaps

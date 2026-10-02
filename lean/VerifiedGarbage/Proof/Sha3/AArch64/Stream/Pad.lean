@@ -7,9 +7,8 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # The SHA-3 sponge on AArch64: `pad`
 
-Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 proof (`VG.Proof.Sha3.X86_64.Stream.Pad`), inside the frame that
-saves `x30` (`WP.frameReg`).
+The same structure as the x86-64 proof (`VG.Proof.Sha3.X86_64.Stream.Pad`),
+inside the frame that saves `x30` (`WP.frameReg`).
 -/
 
 namespace VG.Proof.Sha3.AArch64.Stream.Pad

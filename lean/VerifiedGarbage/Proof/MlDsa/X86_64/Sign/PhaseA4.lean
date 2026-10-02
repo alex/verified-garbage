@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.PhaseA
 /-!
 # ML-DSA signing on x86-64: `ExpandA`, four entries at a time
 
-Untrusted: everything here is checked by Lean. `ρ` to `RS` and to each of
-the four seeds at `RS4` (`IA4`); then, for each group of four entries
-`4g, …, 4g + 3`, their indices to the seeds (`GS`, `slot_ok`) and one call
-of `vg_mldsa_rej_ntt_poly4`, ANDed into `r15` (`call4_ok`); then the last
-`kℓ mod 4` entries one at a time (`sampleE_ok`). Each step keeps `IA`
-(`expandA_ok`).
+`ρ` to `RS` and to each of the four seeds at `RS4` (`IA4`); then, for each
+group of four entries `4g, …, 4g + 3`, their indices to the seeds (`GS`,
+`slot_ok`) and one call of `vg_mldsa_rej_ntt_poly4`, ANDed into `r15`
+(`call4_ok`); then the last `kℓ mod 4` entries one at a time (`sampleE_ok`).
+Each step keeps `IA` (`expandA_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

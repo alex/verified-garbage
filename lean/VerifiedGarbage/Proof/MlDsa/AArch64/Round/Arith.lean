@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Round.Basic
 /-!
 # ML-DSA on AArch64: the values the rounding code computes
 
-Untrusted: everything here is checked by Lean. `Decompose` by a
-multiplication and shifts (`fX`, `r1X`), as 64-bit values, and the
-conditional steps on the sign bit, as natural numbers, from the
+`Decompose` by a multiplication and shifts (`fX`, `r1X`), as 64-bit values,
+and the conditional steps on the sign bit, as natural numbers, from the
 target-independent lemmas of `Proof/MlDsa/Round/Decompose.lean`.
 -/
 

@@ -7,11 +7,11 @@ import VerifiedGarbage.Proof.MlDsa.Round.Mem
 /-!
 # ML-DSA on x86-64: the contracts the rounding proofs are written against
 
-Untrusted: everything here is checked by Lean. For each function, a
-contract with the facts of its shared contract (`Spec/MlDsa/Poly.lean`)
-spelled out for x86-64: the arguments in their registers, the permitted
-regions, their disjointness, and the postcondition. `Verified.of_correct`
-moves a proof to the shared contract, which implies it (`round_implies`).
+For each function, a contract with the facts of its shared contract
+(`Spec/MlDsa/Poly.lean`) spelled out for x86-64: the arguments in their
+registers, the permitted regions, their disjointness, and the postcondition.
+`Verified.of_correct` moves a proof to the shared contract, which implies it
+(`round_implies`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

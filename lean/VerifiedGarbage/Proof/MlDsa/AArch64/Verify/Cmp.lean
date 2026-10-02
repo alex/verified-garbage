@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.AArch64.DecapsCmp
 /-!
 # ML-DSA verification on AArch64: the comparison of `c̃′` with `c̃`
 
-Untrusted: everything here is checked by Lean. `cmpAnd a b n` ORs the XORs
-of the `n` bytes at `a` and `b` into `x10`, then ANDs `(x10 - 1) >> 63`, 1
-exactly when they are equal, into `x24` (`cmpAnd_ok`), without a branch on
-the bytes: its addresses and branches depend only on the pointers
-(`cmpAnd_taint`).
+`cmpAnd a b n` ORs the XORs of the `n` bytes at `a` and `b` into `x10`, then
+ANDs `(x10 - 1) >> 63`, 1 exactly when they are equal, into `x24`
+(`cmpAnd_ok`), without a branch on the bytes: its addresses and branches
+depend only on the pointers (`cmp_taint`, in `Final.lean`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Verify

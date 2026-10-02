@@ -6,11 +6,10 @@ import VerifiedGarbage.Proof.Rc2.AArch64.Lit
 /-!
 # Streaming RC2-CBC on AArch64: `init`
 
-Untrusted: everything here is checked by Lean. The length checks, each a
-subtraction and a shift tested with `cbnz` (`chk`), return 1, 2 or 3
-(`init_post_error`); otherwise, inside the frame saving `x30`, the IV is
-copied to `ctx + 128` and the verified key expansion writes the schedule to
-`ctx` (`main_ok`, `init_post`).
+The length checks, each a subtraction and a shift tested with `cbnz` (`chk`),
+return 1, 2 or 3 (`init_post_error`); otherwise, inside the frame saving
+`x30`, the IV is copied to `ctx + 128` and the verified key expansion writes
+the schedule to `ctx` (`main_ok`, `init_post`).
 -/
 
 namespace VG.Proof.Rc2.AArch64.Stream

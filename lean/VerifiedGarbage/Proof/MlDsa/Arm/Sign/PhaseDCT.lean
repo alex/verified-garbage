@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.PhaseD
 /-!
 # ML-DSA signing on ARMv7: decoding leaks only the pointers
 
-Untrusted: everything here is checked by Lean. Each call while decoding
-leaks only its pointers, given that its input polynomial is reduced
-(`dec_tr`); so two runs agree on what decoding leaks (`decode_tr`).
+Each call while decoding leaks only its pointers, given that its input
+polynomial is reduced (`dec_tr`); so two runs agree on what decoding leaks
+(`decode_tr`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

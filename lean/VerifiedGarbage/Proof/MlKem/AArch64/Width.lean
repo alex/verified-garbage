@@ -5,9 +5,9 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Compress
 /-!
 # ML-KEM on AArch64: the widths of compression
 
-Untrusted: everything here is checked by Lean. What the loops of
-`compressEncode` and `decodeDecompress` need of a width (`Width.Ok`), for
-each of the three, and the numbers they build digit by digit.
+What the loops of `compressEncode` and `decodeDecompress` need of a width
+(`Width.Ok`), for each of the three, and the numbers they build digit by
+digit.
 -/
 
 namespace VG.Proof.MlKem.AArch64

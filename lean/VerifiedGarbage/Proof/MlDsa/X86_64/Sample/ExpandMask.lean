@@ -5,12 +5,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNttCT
 /-!
 # ML-DSA on x86-64: `vg_mldsa_expand_mask_poly`
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `H(ρ′, 640)` (`J6`), the
-branch on `γ₁`, and the loop for `c = 1 + bitlen (γ₁ - 1)`, iteration `g`
-of which starts from `EAt σ c g` with the coefficients of the first `g`
-groups stored. It is constant time: the taint analysis proves each piece but
-the sponge, whose proof is `sponge_ct`, from the pointers and `γ₁`.
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`H(ρ′, 640)` (`J6`), the branch on `γ₁`, and the loop for `c = 1 + bitlen (γ₁ -
+1)`, iteration `g` of which starts from `EAt σ c g` with the coefficients of
+the first `g` groups stored. It is constant time: the taint analysis proves
+each piece but the sponge, whose proof is `sponge_ct`, from the pointers and
+`γ₁`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

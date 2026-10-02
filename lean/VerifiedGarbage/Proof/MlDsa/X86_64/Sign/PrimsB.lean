@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.Prims
 /-!
 # ML-DSA signing on x86-64: calls of addition, subtraction and the samplers
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_add`, `vg_mldsa_sub`, `vg_mldsa_rej_ntt_poly`,
+As `Prims.lean`, for `vg_mldsa_add`, `vg_mldsa_sub`, `vg_mldsa_rej_ntt_poly`,
 `vg_mldsa_expand_mask_poly` and `vg_mldsa_sample_in_ball`. The samplers'
 results are public in two runs whose seeds agree (`rejCall_tr`,
 `ballCall_tr`), and they succeed only if the algorithm finishes within

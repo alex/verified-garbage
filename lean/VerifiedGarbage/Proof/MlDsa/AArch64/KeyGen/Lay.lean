@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ML-DSA key generation on AArch64: parameters and buffers
 
-Untrusted: everything here is checked by Lean. The facts about the parameter
-sets the proof uses (`PFacts`), the layout of the buffers of key generation
-(`seed` in `x25`, read; `scratch`, `pk` and `sk` in `x28`, `x26` and `x27`,
-written: `kgR`, `kgW p`), which the contract's precondition gives from the
-prologue on (`kgLay`), and the checks of pointers into them, for any
-parameter set, which `lay` proves from the offsets by `omega`.
+The facts about the parameter sets the proof uses (`PFacts`), the layout of
+the buffers of key generation (`seed` in `x25`, read; `scratch`, `pk` and `sk`
+in `x28`, `x26` and `x27`, written: `kgR`, `kgW p`), which the contract's
+precondition gives from the prologue on (`kgLay`), and the checks of pointers
+into them, for any parameter set, which `lay` proves from the offsets by
+`omega`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

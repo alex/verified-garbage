@@ -7,10 +7,10 @@ import VerifiedGarbage.Spec.Blake2.Contract
 /-!
 # BLAKE2b on x86 (32-bit): the instance
 
-Untrusted: everything here is checked by Lean. The generic streaming
-functions (`Proof/Blake2/X86/Stream/`) for BLAKE2b, calling its compression
-function (`Proof/Blake2/X86/CompressB/`): their constant time, and their
-proofs moved to the shared contracts of `Spec/Blake2/Contract.lean`.
+The generic streaming functions (`Proof/Blake2/X86/Stream/`) for BLAKE2b,
+calling its compression function (`Proof/Blake2/X86/CompressB/`): their
+constant time, and their proofs moved to the shared contracts of
+`Spec/Blake2/Contract.lean`.
 -/
 
 namespace VG.Proof.Blake2.X86.B

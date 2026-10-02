@@ -4,8 +4,6 @@ import VerifiedGarbage.TCB.AArch64.Target
 
 /-!
 # TDEA-CMAC on AArch64: the shared contracts imply ours
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.CmacTripleDes.AArch64

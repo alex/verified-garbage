@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.PublicKey.Base
 /-!
 # Ed25519 public-key derivation on x86-64: correctness
 
-Untrusted: everything here is checked by Lean. The frame's body leaves the
-public key in `out` (`body_ok`), and the whole function, for any
-implementation `v` of the SHA-512 compression function, meets `pkLocal` and
-the ABI (`publicKey_ok`).
+The frame's body leaves the public key in `out` (`body_ok`), and the whole
+function, for any implementation `v` of the SHA-512 compression function,
+meets `pkLocal` and the ABI (`publicKey_ok`).
 -/
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey

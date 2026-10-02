@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.X86.RowMem
 /-!
 # X448 on x86 (32-bit): initializing multiplication
 
-Untrusted: everything here is checked by Lean. The initial 28 zero digits
-represent the empty product prefix; each row adds its final carry word.
+The initial 28 zero digits represent the empty product prefix; each row adds
+its final carry word.
 -/
 
 namespace VG.Proof.X448.X86

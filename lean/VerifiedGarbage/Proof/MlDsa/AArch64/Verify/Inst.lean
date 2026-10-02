@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Inst
 /-!
 # ML-DSA verification on AArch64, with this library's primitives
 
-Untrusted: everything here is checked by Lean. Verification with the AArch64
-implementations of the primitives (`prims_ok`) is verified with 16 bytes of
-stack (`verify44_verified`, …).
+Verification with the AArch64 implementations of the primitives (`prims_ok`)
+is verified with 16 bytes of stack (`verify44_verified`, …).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Verify

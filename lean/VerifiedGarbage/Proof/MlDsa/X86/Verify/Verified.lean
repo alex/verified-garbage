@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Verify.Top
 /-!
 # ML-DSA verification on x86 (32-bit): the contract
 
-Untrusted: everything here is checked by Lean. `vg_mldsa*_verify` of the
-parameter sets of Table 1 meets `verifyContract` with 96 bytes of stack
-(`verify_verified`), for any verified implementations of the primitives it
-calls (`PrimsOk`): the body, as a leaf (`topLeaf`), from the contract's
-precondition and public data (`pre_of`, `pub_of`), to its postcondition
-(`VFin`).
+`vg_mldsa*_verify` of the parameter sets of Table 1 meets `verifyContract`
+with 96 bytes of stack (`verify_verified`), for any verified implementations
+of the primitives it calls (`PrimsOk`): the body, as a leaf (`topLeaf`), from
+the contract's precondition and public data (`pre_of`, `pub_of`), to its
+postcondition (`VFin`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

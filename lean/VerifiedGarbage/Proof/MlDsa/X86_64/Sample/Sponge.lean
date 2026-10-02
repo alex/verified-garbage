@@ -8,16 +8,15 @@ import VerifiedGarbage.Proof.MlDsa.Sample.Hash
 /-!
 # ML-DSA on x86-64: the sampling functions' SHAKE
 
-Untrusted: everything here is checked by Lean. What the sampling functions
-share (`Impl/MlDsa/X86_64/Sample/Common.lean`), for any of them: a call is
-described by `Sp` (the message, its length, the working space, the output
-polynomial and the parameter kept in `r12`), whose regions are laid out as
-`SpOk` says. From the prologue on, `Env` holds: the registers of the layout,
-the caller's callee-saved registers (in their registers or saved in the
-working space), and the memory changed only in the output, the working space
-and the stack below `rsp`. `sponge` then leaves `outlen` bytes of SHAKE of
-the message at `scratch + 840` (`sponge_ok`), leaking only the pointers
-and the length (`sponge_ct`).
+What the sampling functions share (`Impl/MlDsa/X86_64/Sample/Common.lean`),
+for any of them: a call is described by `Sp` (the message, its length, the
+working space, the output polynomial and the parameter kept in `r12`), whose
+regions are laid out as `SpOk` says. From the prologue on, `Env` holds: the
+registers of the layout, the caller's callee-saved registers (in their
+registers or saved in the working space), and the memory changed only in the
+output, the working space and the stack below `rsp`. `sponge` then leaves
+`outlen` bytes of SHAKE of the message at `scratch + 840` (`sponge_ok`),
+leaking only the pointers and the length (`sponge_ct`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

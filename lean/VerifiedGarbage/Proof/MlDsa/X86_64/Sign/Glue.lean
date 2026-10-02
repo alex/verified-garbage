@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.Call
 /-!
 # ML-DSA signing on x86-64: the moves of a call's arguments
 
-Untrusted: everything here is checked by Lean. `setArgs as` moves each
-argument (a pointer or an immediate) into its register: afterwards each
-argument register holds the argument's value in the state before the moves
-(`setArgs_ok`), and nothing else changed but those registers. With it, a
-call of verified code (`callP_ok`, `callP_tr`, `callPRet_tr`).
+`setArgs as` moves each argument (a pointer or an immediate) into its
+register: afterwards each argument register holds the argument's value in the
+state before the moves (`setArgs_ok`), and nothing else changed but those
+registers. With it, a call of verified code (`callP_ok`, `callP_tr`,
+`callPRet_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

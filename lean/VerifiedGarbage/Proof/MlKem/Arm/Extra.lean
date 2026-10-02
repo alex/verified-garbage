@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlKem.KPke
 /-!
 # ML-KEM: lemmas the ARMv7 top-level functions use
 
-Untrusted: everything here is checked by Lean. Target-independent facts
-about the sponge's output and the algorithms of ML-KEM-768 that the proofs
-of the top-level functions on 32-bit ARM need.
+Target-independent facts about the sponge's output and the algorithms of
+ML-KEM-768 that the proofs of the top-level functions on 32-bit ARM need.
 -/
 
 namespace VG.Proof.MlKem

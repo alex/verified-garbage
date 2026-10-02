@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 import VerifiedGarbage.Proof.Framework.X86_64.Lit
 import VerifiedGarbage.Proof.Ed25519.X86_64.Field
 
-/-! Untrusted: retain separate functional postconditions for two secret inputs. -/
+/-! Retain separate functional postconditions for two secret inputs. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

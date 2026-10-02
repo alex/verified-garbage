@@ -4,13 +4,13 @@ import VerifiedGarbage.Proof.MlKem.X86_64.FragPrim
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, sampling
 
-Untrusted: everything here is checked by Lean. What holds before and
-during `parse k` (`PInv`, `LAt`), an iteration of `vg_mlkem_sample_ntt`'s
-loop on the XOF output of seed `k` (`lat_step`, as `SampleNtt.lean`'s), and,
-if the iterations sample fewer than 256 coefficients, the call of
-`vg_mlkem_sample_ntt` on the seed (`fallback_ok`). Either way, polynomial `k`
-is then the seed's `SampleNTT`, if it succeeds, and `r14` records whether the
-first `k + 1` do. The loop of `parse k` is in `S4Loop.lean`.
+What holds before and during `parse k` (`PInv`, `LAt`), an iteration of
+`vg_mlkem_sample_ntt`'s loop on the XOF output of seed `k` (`lat_step`, as
+`SampleNtt.lean`'s), and, if the iterations sample fewer than 256
+coefficients, the call of `vg_mlkem_sample_ntt` on the seed (`fallback_ok`).
+Either way, polynomial `k` is then the seed's `SampleNTT`, if it succeeds, and
+`r14` records whether the first `k + 1` do. The loop of `parse k` is in
+`S4Loop.lean`.
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4

@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.Arm.Decode
 /-!
 # X448 on ARMv7: decoding the whole coordinate
 
-Untrusted: everything here is checked by Lean. The 28 limb loads fill two
-slots while preserving input bytes outside the working space.
+The 28 limb loads fill two slots while preserving input bytes outside the
+working space.
 -/
 
 namespace VG.Proof.X448.Arm

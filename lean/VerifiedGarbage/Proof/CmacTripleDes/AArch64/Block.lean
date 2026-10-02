@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # TDEA on AArch64: the passes and the block
 
-Untrusted: everything here is checked by Lean.
-
 As on x86-64 (`Proof/CmacTripleDes/X86_64/Block.lean`): `block` encrypts the
 64-bit block in `x5` with the key schedule at `x14` (`block_ok`): `IP` into
 `x12` and `x13`, three passes of sixteen rounds (`pass_ok`, the round keys

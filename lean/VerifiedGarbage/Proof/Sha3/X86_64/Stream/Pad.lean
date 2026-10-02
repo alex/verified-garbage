@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # SHA-3 on x86-64: `pad`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha3.X86_64.Stream.Pad

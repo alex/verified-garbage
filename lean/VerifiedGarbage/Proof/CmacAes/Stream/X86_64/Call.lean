@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.Framework.OffsetBelow
 /-!
 # Streaming AES-CMAC on x86-64: the calls
 
-Untrusted: everything here is checked by Lean. A call of each function the
-streaming functions call (`vg_aes_expand_key`, `vg_cmac_aes_subkeys`,
-`vg_cmac_aes_update` and `vg_cmac_aes_finalize`, for any implementation of
-AES), from its contract (with `WP.call`): what it needs (`…Args`), what it
-leaves (`…Post`, in terms of the memory before the call), and that two calls
-with the same arguments leak the same (`…_rel`). Each callee's stack is in
-the 16 bytes below the stack pointer (`below sp 16`): its return address,
-and that of the call of `vg_aes_ctr32` it makes.
+A call of each function the streaming functions call (`vg_aes_expand_key`,
+`vg_cmac_aes_subkeys`, `vg_cmac_aes_update` and `vg_cmac_aes_finalize`, for
+any implementation of AES), from its contract (with `WP.call`): what it needs
+(`…Args`), what it leaves (`…Post`, in terms of the memory before the call),
+and that two calls with the same arguments leak the same (`…_rel`). Each
+callee's stack is in the 16 bytes below the stack pointer (`below sp 16`): its
+return address, and that of the call of `vg_aes_ctr32` it makes.
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86_64

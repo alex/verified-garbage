@@ -8,19 +8,17 @@ import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # SHA-512 compression function on x86 (32-bit): the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!
 ## SHA-512: the x86 (32-bit) contracts
 
-**Untrusted**: the contracts the proofs are written against; the artifacts
-are emitted with the shared contracts of `Spec/`, which imply these
-(`Contract.Implies`). The contracts of the x86 (32-bit) implementations of
-the compression function and of the streaming functions (`init`, `update`,
-`finalize`; see `VG.Spec.Sha512.Repr`), in terms of `Spec/Sha512.lean`, with
-the arguments on the stack (cdecl).
+The contracts the proofs are written against; the artifacts are emitted with
+the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the x86 (32-bit) implementations of the compression function and
+of the streaming functions (`init`, `update`, `finalize`; see
+`VG.Spec.Sha512.Repr`), in terms of `Spec/Sha512.lean`, with the arguments on
+the stack (cdecl).
 -/
 
 namespace VG.Proof.Sha512

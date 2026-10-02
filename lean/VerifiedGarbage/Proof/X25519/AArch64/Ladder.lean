@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.X25519.Ladder
 /-!
 # X25519 on AArch64: the ladder
 
-Untrusted: everything here is checked by Lean. One iteration of the ladder
-(`step`) takes the ladder's variables in their slots from `ladderAfter k x1
-(t + 1)` to `ladderAfter k x1 t`, for the bit `t` of the scalar stored at
-`BITS + t`; the loop (`ladder`) runs it for `t = 254, …, 0`.
+One iteration of the ladder (`step`) takes the ladder's variables in their
+slots from `ladderAfter k x1 (t + 1)` to `ladderAfter k x1 t`, for the bit `t`
+of the scalar stored at `BITS + t`; the loop (`ladder`) runs it for `t = 254,
+…, 0`.
 -/
 
 namespace VG.Proof.X25519.AArch64

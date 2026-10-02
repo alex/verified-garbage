@@ -1,7 +1,7 @@
 /-!
 # Numeral exponents are natural numbers
 
-Untrusted: this only changes how terms are elaborated, not what they are.
+This only changes how terms are elaborated, not what they are.
 
 In `x ^ 26` the type of the numeral `26` is only fixed by default instances,
 which Lean tries last, once for every numeral still pending in the whole

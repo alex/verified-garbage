@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.X86.Call
 /-!
 # Calls in a frame of their arguments (x86, 32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 cdecl code passes a callee's arguments in a frame of their own around the
 call, `push rs; call n; pop r` (`rs.length` words). `WP.callWith` runs one,
 combining `WP.frame` and `WP.call`, from what the callee's contract needs of

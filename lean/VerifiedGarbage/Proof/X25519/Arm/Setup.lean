@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.X25519.Arm.Freeze
 /-!
 # X25519 on 32-bit ARM: the setup
 
-Untrusted: everything here is checked by Lean. The u-coordinate as 16-bit
-limbs (`decode_val`: the number of its 32 bytes modulo `2²⁵⁵`), and the
-setup of the working space: the saved registers, `x1 = x3 = u`,
-`x2 = z3 = 1`, `z2 = 0` and `a24` (`setup_ok`); the bits of the scalar
-(`bits_ok`).
+The u-coordinate as 16-bit limbs (`decode_val`: the number of its 32 bytes
+modulo `2²⁵⁵`), and the setup of the working space: the saved registers, `x1 =
+x3 = u`, `x2 = z3 = 1`, `z2 = 0` and `a24` (`setup_ok`); the bits of the
+scalar (`bits_ok`).
 -/
 
 namespace VG.Proof.X25519.Arm

@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CTBase
 /-!
 # ML-DSA verification on x86-64: constant time, the hint and `z`
 
-Untrusted: everything here is checked by Lean. Two runs with the same
-public data (`RV`) run the same code: each piece's invariant holds of each
-run from its own inputs (`relInv`), which gives what each call's trace
-needs (the pointers, reduced inputs, and the public bytes it reads); the
-branches test results that are functions of the signature alone (the hint
-is well formed, `z` is small: `ifOk_rel`).
+Two runs with the same public data (`RV`) run the same code: each piece's
+invariant holds of each run from its own inputs (`relInv`), which gives what
+each call's trace needs (the pointers, reduced inputs, and the public bytes it
+reads); the branches test results that are functions of the signature alone
+(the hint is well formed, `z` is small: `ifOk_rel`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

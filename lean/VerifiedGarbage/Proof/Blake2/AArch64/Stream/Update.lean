@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.Blake2.AArch64.Stream.Common
 /-!
 # Streaming BLAKE2 on AArch64: `update`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`update`, for either word size and any correct compression function
-(`CalleeOk`). The same structure as the x86-64 proof
+The functional correctness of `update`, for either word size and any correct
+compression function (`CalleeOk`). The same structure as the x86-64 proof
 (`VG.Proof.Blake2.X86_64.Stream.Update`), inside the frame saving `x30`
 (`WP.frameReg`).
 -/

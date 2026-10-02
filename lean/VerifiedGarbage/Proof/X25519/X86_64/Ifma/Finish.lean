@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Step
 /-!
 # X25519 on x86-64 with AVX512_IFMA: after the loop
 
-Untrusted: everything here is checked by Lean. `vfinish` carries the lanes
-twice, then from the lowest limb up, and stores each lane as four 64-bit
-words: the same number modulo `p`, below `2²⁵⁶`.
+`vfinish` carries the lanes twice, then from the lowest limb up, and stores
+each lane as four 64-bit words: the same number modulo `p`, below `2²⁵⁶`.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

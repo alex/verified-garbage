@@ -6,11 +6,10 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Mono
 /-!
 # ML-DSA signing on AArch64: the blocks between the calls
 
-Untrusted: everything here is checked by Lean. What the function's own
-instructions do, in its layout: stores of a byte or of 8 bytes (`setB_ok`,
-`setQ_ok`), copies of 32 bytes (`copyP_ok`, ML-KEM's) and of any number
-of bytes, one at a time (`copy_ok`), the AND of a result into `x24`
-(`and24_ok`), the counters `κ` and `CNT` and the bytes of `κ + r` for
+What the function's own instructions do, in its layout: stores of a byte or of
+8 bytes (`setB_ok`, `setQ_ok`), copies of 32 bytes (`copyP_ok`, ML-KEM's) and
+of any number of bytes, one at a time (`copy_ok`), the AND of a result into
+`x24` (`and24_ok`), the counters `κ` and `CNT` and the bytes of `κ + r` for
 `ExpandMask` (`kapAdd_ok`, `cntDec_ok`, `setKappa_ok`), the sum of the 1s of
 the hint (`onesAdd_ok`) and its check (`onesOk_run`).
 -/

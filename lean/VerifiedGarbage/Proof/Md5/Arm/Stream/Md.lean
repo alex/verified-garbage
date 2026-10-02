@@ -9,12 +9,12 @@ import VerifiedGarbage.Impl.Md5.Arm.Stream
 /-!
 # Streaming MD5 on ARMv7: `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/Arm.lean`), so they are verified
-by the generic proofs (`Proof/MdStream/Arm/`) for MD5's instance
-(`Proof/Md5/Md.lean`), given what MD5's own pieces do: its length field and
-digest (`shape`), that its compression function is verified (`callee`), and
-that the taint analysis accepts its code.
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/Arm.lean`), so they are verified by the generic proofs
+(`Proof/MdStream/Arm/`) for MD5's instance (`Proof/Md5/Md.lean`), given what
+MD5's own pieces do: its length field and digest (`shape`), that its
+compression function is verified (`callee`), and that the taint analysis
+accepts its code.
 -/
 
 namespace VG.Proof.Md5.Arm.Stream

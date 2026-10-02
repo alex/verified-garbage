@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyCTLit
 import VerifiedGarbage.Proof.Ed25519.X86_64.CTSupport
 import VerifiedGarbage.Proof.Ed25519.X86_64.RecoverPoint
 
-/-! Untrusted: fixed-trace arithmetic blocks used in point recovery. -/
+/-! Fixed-trace arithmetic blocks used in point recovery. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

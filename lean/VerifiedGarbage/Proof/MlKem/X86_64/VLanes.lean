@@ -6,11 +6,10 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Vec
 /-!
 # ML-KEM on x86-64: coefficients in the words of SSE registers
 
-Untrusted: everything here is checked by Lean. A register holds eight
-coefficients (`Lanes`), and the butterflies `vbfly` and `vibfly` compute
-eight butterflies of the specification at once (`vbfly_ok`, `vibfly_ok`),
-from `q` and `q⁻¹` in `xmm15` and `xmm14` (`VConsts`), which `vconsts`
-leaves there (`vconsts_ok`).
+A register holds eight coefficients (`Lanes`), and the butterflies `vbfly` and
+`vibfly` compute eight butterflies of the specification at once (`vbfly_ok`,
+`vibfly_ok`), from `q` and `q⁻¹` in `xmm15` and `xmm14` (`VConsts`), which
+`vconsts` leaves there (`vconsts_ok`).
 
 Blocks of SSE instructions only are run with `vrun`, which keeps the state a
 chain of `setXmm`, whose registers the words' lemmas (`word_paddw`, …) read

@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Setup
 /-!
 # ML-DSA: signing's values, from its inputs
 
-Untrusted: everything here is checked by Lean. What signing computes, as
-functions of its inputs `sk`, `μ` and `rnd` (`Av`, `ctV`, `cV`, `passV`,
-`zV`, `hV`, …), for an implementation that computes them one polynomial
-at a time; and the loop of an implementation whose `SampleInBall` succeeds
-exactly when `ballF` says, and which succeeds only when the algorithm
-finishes within `maxBounds` (`BallF`): iteration `t` continues the loop
-(`contV`) if its `SampleInBall` succeeded and its checks failed, and the
-loop runs `nIt contV 814` iterations.
+What signing computes, as functions of its inputs `sk`, `μ` and `rnd` (`Av`,
+`ctV`, `cV`, `passV`, `zV`, `hV`, …), for an implementation that computes them
+one polynomial at a time; and the loop of an implementation whose
+`SampleInBall` succeeds exactly when `ballF` says, and which succeeds only
+when the algorithm finishes within `maxBounds` (`BallF`): iteration `t`
+continues the loop (`contV`) if its `SampleInBall` succeeded and its checks
+failed, and the loop runs `nIt contV 814` iterations.
 
 Two runs whose `signLeakT` agree agree on `ρ` (`rho_of_leak`), and, once
 `ExpandA` finishes, on what each iteration they both reach leaks

@@ -16,9 +16,8 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # BLAKE2 compression function on x86-64
 
-Untrusted: everything here is checked by Lean. The proof, for BLAKE2b and
-BLAKE2s at once (words of `w = 64` or `32` bits), that
-`Impl.Blake2.X86_64.compress P` meets `compressX86_64 P`
+The proof, for BLAKE2b and BLAKE2s at once (words of `w = 64` or `32` bits),
+that `Impl.Blake2.X86_64.compress P` meets `compressX86_64 P`
 (`Proof/Blake2/X86_64/Contract.lean`): `compress_correct` and `compressB_ct`,
 `compressS_ct`; and from them `compressB_verified` and `compressS_verified`
 against the shared contracts of `Spec/Blake2/Contract.lean`.

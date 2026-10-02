@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.Block
 /-!
 # Regrouping sequences in relational constant-time proofs
 
-Untrusted: everything here is checked by Lean.
-
 Structured code nests its sequences to the right, `a; (b; c)`, but a
 relational proof (`RelCT`) often wants to split it elsewhere, e.g. to check
 everything before a call with the taint analysis at once (`RelCT.taint`) and

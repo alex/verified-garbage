@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PointEncodeSign
 
-/-! Untrusted: canonical Ed25519 point encoding in scratch slot1. -/
+/-! Canonical Ed25519 point encoding in scratch slot1. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlKem1024.AArch64.KgC2
 /-!
 # ML-KEM-1024 on AArch64: `vg_mlkem1024_keygen`, `t̂`
 
-Untrusted: everything here is checked by Lean. `ê[i]`, `t̂[i]` and its
-encodings (`t_step`), keeping the facts established before (`TL`), which
-every buffer the step writes is apart from (`Apart`).
+`ê[i]`, `t̂[i]` and its encodings (`t_step`), keeping the facts established
+before (`TL`), which every buffer the step writes is apart from (`Apart`).
 -/
 
 namespace VG.Proof.MlKem1024.AArch64.KeyGen

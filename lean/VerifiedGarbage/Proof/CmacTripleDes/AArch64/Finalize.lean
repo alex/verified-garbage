@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # TDEA-CMAC on AArch64: `vg_cmac_triple_des_finalize`
 
-Untrusted: everything here is checked by Lean. The steps that form the last
-block `Mₙ` (§6.2 step 4) in `x5`, as a little-endian word (`BPost`):
-`Mₙ* ⊕ K1` for a complete last block, else `Mₙ*` copied a byte at a time
-onto the zeroed slot 6, `0x80` after it, XORed with `K2`. The function then
-XORs in the chaining value `C`, encrypts it and stores `CIPH_K(C ⊕ Mₙ)` as
-the state, the MAC (`macFull_split8`).
+The steps that form the last block `Mₙ` (§6.2 step 4) in `x5`, as a
+little-endian word (`BPost`): `Mₙ* ⊕ K1` for a complete last block, else `Mₙ*`
+copied a byte at a time onto the zeroed slot 6, `0x80` after it, XORed with
+`K2`. The function then XORs in the chaining value `C`, encrypts it and stores
+`CIPH_K(C ⊕ Mₙ)` as the state, the MAC (`macFull_split8`).
 -/
 
 namespace VG.Proof.CmacTripleDes.AArch64

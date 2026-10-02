@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # Streaming BLAKE2 on x86-64: `init`
 
-Untrusted: everything here is checked by Lean. `initState` stores the
-initial hash value (`initState_ok`); for a key, `keyBlock` zeroes the buffer
-(`zero_ok`) and copies the key into it (`keyLoop_ok`).
+`initState` stores the initial hash value (`initState_ok`); for a key,
+`keyBlock` zeroes the buffer (`zero_ok`) and copies the key into it
+(`keyLoop_ok`).
 -/
 
 namespace VG.Proof.Blake2.X86_64.Stream.Init

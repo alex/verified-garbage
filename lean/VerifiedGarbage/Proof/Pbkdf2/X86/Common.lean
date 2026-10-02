@@ -7,12 +7,11 @@ import VerifiedGarbage.Impl.Pbkdf2.X86
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on x86 (32-bit): the parts of a step
 
-Untrusted: everything here is checked by Lean. The same structure as the
-ARMv7 proof (`VG.Proof.Pbkdf2.Arm`), with the same target-independent memory
-lemmas (`VG.Proof.Pbkdf2.Memory`). Each step is two calls
-of the selected compression backend, used as a black box through the
-generic proof in `Proof/Pbkdf2/Sha256/X86.lean`, each using the 20 bytes
-below `esp`. The hash value being compressed is `t`, and `T` is kept in
+The same structure as the ARMv7 proof (`VG.Proof.Pbkdf2.Arm`), with the same
+target-independent memory lemmas (`VG.Proof.Pbkdf2.Memory`). Each step is two
+calls of the selected compression backend, used as a black box through the
+generic proof in `Proof/Pbkdf2/Sha256/X86.lean`, each using the 20 bytes below
+`esp`. The hash value being compressed is `t`, and `T` is kept in
 `scratch[160..192)`.
 -/
 
@@ -22,15 +21,12 @@ open Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
 open Spec.Sha256 (Repr bytesAt)
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86 (32-bit) contract for
-`vg_pbkdf2_hmac_sha256_iterate(key: *const [u8; 192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 32])`,
+/-- X86 (32-bit) contract for `vg_pbkdf2_hmac_sha256_iterate(key: *const [u8;
+192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 32])`,
 whose arguments are on the stack (cdecl): if, for a 64-byte key `K₀`, the
 streaming state at `key` represents `K₀ ⊕ ipad` and the one at `key + 96`
-represents `K₀ ⊕ opad`, runs `n` steps `U ← HMAC-SHA-256 (K₀, U)`,
-`T ← T ⊕ U` from the `U` at `u` and the `T` at `t`, leaving the final `T` at
-`t`.
+represents `K₀ ⊕ opad`, runs `n` steps `U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U`
+from the `U` at `u` and the `T` at `t`, leaving the final `T` at `t`.
 
 The code may read the arguments (20 bytes above the return address), `key`
 (192 bytes) and `u` (32 bytes), and read and write `t` (32 bytes) and

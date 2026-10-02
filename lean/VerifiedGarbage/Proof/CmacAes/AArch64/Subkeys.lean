@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.CmacAes.AArch64.UpdateCorrect
 
 /-!
 # AES-CMAC on AArch64: `vg_cmac_aes_subkeys`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.CmacAes.AArch64

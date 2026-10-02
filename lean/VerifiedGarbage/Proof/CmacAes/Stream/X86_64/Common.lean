@@ -5,9 +5,8 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # Streaming AES-CMAC on x86-64: arithmetic and memory
 
-Untrusted: everything here is checked by Lean. The number of bytes held
-back, as the code computes it from `count` (`held_bv`); immediates; the
-copy of a block a word at a time (`copyMem`).
+The number of bytes held back, as the code computes it from `count`
+(`held_bv`); immediates; the copy of a block a word at a time (`copyMem`).
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86_64

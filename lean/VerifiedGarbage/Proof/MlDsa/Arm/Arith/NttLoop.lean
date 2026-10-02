@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-DSA on 32-bit ARM: the table, blocks and layers of `NTT` and `NTT⁻¹`
 
-Untrusted: everything here is checked by Lean. `storeTab t 256` leaves the
-`u32`s `t 0, …, t 255` at `r1` (`Tab`, `storeTab_ok`). The loops of
-`nttBlk` and `nttLay`, for any butterfly code that does what a butterfly
-`op` of the specification does (`BflyOk`): a block runs `len` butterflies
-(`blockN`), and a layer its `128 / len` blocks (`layerN`), with the zetas
-`Z (zi c)`, whose values `tab` the table at `zB` holds.
+`storeTab t 256` leaves the `u32`s `t 0, …, t 255` at `r1` (`Tab`,
+`storeTab_ok`). The loops of `nttBlk` and `nttLay`, for any butterfly code
+that does what a butterfly `op` of the specification does (`BflyOk`): a block
+runs `len` butterflies (`blockN`), and a layer its `128 / len` blocks
+(`layerN`), with the zetas `Z (zi c)`, whose values `tab` the table at `zB`
+holds.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Arith

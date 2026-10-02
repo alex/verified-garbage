@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.Arm.CallsCT
 /-!
 # ML-KEM-768 on 32-bit ARM: the `PRF`s in constant time
 
-Untrusted: everything here is checked by Lean. Two runs of `prfLoop` with
-the same `scratch` leak the same trace (`prfLoop_ct`): every address is
-`scratch` plus an offset that depends only on the counter `N`, and the
-calls take the same pointers in both runs. What each run is at each point
-comes from its correctness (`relct_wp`).
+Two runs of `prfLoop` with the same `scratch` leak the same trace
+(`prfLoop_ct`): every address is `scratch` plus an offset that depends only on
+the counter `N`, and the calls take the same pointers in both runs. What each
+run is at each point comes from its correctness (`relct_wp`).
 -/
 
 namespace VG.Proof.MlKem.Arm

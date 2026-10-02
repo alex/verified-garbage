@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.MlKem.AArch64.NttVec
 /-!
 # ML-KEM on AArch64: what the NTT and its inverse share
 
-Untrusted: everything here is checked by Lean. The per-target contract of
-both (`inPlaceAArch64`), the facts that hold throughout (`St`: the
-constants, the table of zetas in `scratch`), and a butterfly's effect on the
-polynomial in memory, from its two stores (`polyIs_write2`).
+The per-target contract of both (`inPlaceAArch64`), the facts that hold
+throughout (`St`: the constants, the table of zetas in `scratch`), and a
+butterfly's effect on the polynomial in memory, from its two stores
+(`polyIs_write2`).
 -/
 
 namespace VG.Proof.MlKem

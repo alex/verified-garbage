@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.Poly1305.Horner8
 /-!
 # Poly1305 on x86-64 with AVX-512: groups of eight blocks
 
-Untrusted: everything here is checked by Lean. Each group of eight blocks is
-added to the quadwords of `H` (block `π k` to quadword `k`) and multiplied by
-`r⁸` (Horner's rule in eight lanes, `Horner8.lean`), whose limbs are in the
-state (`MemY`); the last group is multiplied quadword by quadword by
-`r^(8 - π k)`, after which the sum of the quadwords is the accumulator.
+Each group of eight blocks is added to the quadwords of `H` (block `π k` to
+quadword `k`) and multiplied by `r⁸` (Horner's rule in eight lanes,
+`Horner8.lean`), whose limbs are in the state (`MemY`); the last group is
+multiplied quadword by quadword by `r^(8 - π k)`, after which the sum of the
+quadwords is the accumulator.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx512

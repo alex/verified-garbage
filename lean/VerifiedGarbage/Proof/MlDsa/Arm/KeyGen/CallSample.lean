@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.Call
 /-!
 # ML-DSA on 32-bit ARM: calling the samplers
 
-Untrusted: everything here is checked by Lean. As `ip_ok` and `ip_tr`
-(`Call.lean`), for `vg_mldsa_rej_ntt_poly` and `vg_mldsa_rej_bounded_poly`,
-whose public data include what they leak of their seeds.
+As `ip_ok` and `ip_tr` (`Call.lean`), for `vg_mldsa_rej_ntt_poly` and
+`vg_mldsa_rej_bounded_poly`, whose public data include what they leak of their
+seeds.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

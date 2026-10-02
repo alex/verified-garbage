@@ -7,13 +7,12 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # SHA-1 on x86-64, as a Merkle–Damgård hash function
 
-Untrusted: everything here is checked by Lean. SHA-1 with an
-implementation `v` of its compression function (`Proof/Sha1/X86_64/Variant.lean`),
-as a variant of `MdHash` (`variant v`), from which HMAC and PBKDF2 are
-emitted (`Generic/MdHash/X86_64/`): its streaming code is the generic
-Merkle–Damgård code (`Stream.params`), its specification `Spec.Hmac.sha1S`.
-The facts about the code HMAC and PBKDF2 add, which do not depend on `v`,
-are checked once (`coreOK`).
+SHA-1 with an implementation `v` of its compression function
+(`Proof/Sha1/X86_64/Variant.lean`), as a variant of `MdHash` (`variant v`), from
+which HMAC and PBKDF2 are emitted (`Generic/MdHash/X86_64/`): its streaming code
+is the generic Merkle–Damgård code (`Stream.params`), its specification
+`Spec.Hmac.sha1S`. The facts about the code HMAC and PBKDF2 add, which do not
+depend on `v`, are checked once (`coreOK`).
 
 `stream v` are the streaming `update` and `finalize` made with `v`, which
 `Generic/MdHash/X86_64/Stream.lean` emits from their `Api`s, named with

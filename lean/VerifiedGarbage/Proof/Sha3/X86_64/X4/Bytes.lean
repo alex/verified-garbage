@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Sha3.X86_64.X4.Loop
 /-!
 # Keccak-f[1600] four times at once on x86-64: the states byte by byte
 
-Untrusted: everything here is checked by Lean. Byte `q` of state `k` of the
-four interleaved at `p` is at `ba p k q` (byte `q % 8` of lane `q / 8`); the
-lanes hold the states exactly when these bytes are theirs
-(`lanes4_of_bytes`, `byte_of_lanes4`).
+Byte `q` of state `k` of the four interleaved at `p` is at `ba p k q` (byte `q
+% 8` of lane `q / 8`); the lanes hold the states exactly when these bytes are
+theirs (`lanes4_of_bytes`, `byte_of_lanes4`).
 -/
 
 namespace VG.Proof.Sha3.X86_64.X4

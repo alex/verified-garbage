@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarLoop
 import VerifiedGarbage.Proof.Ed25519.AArch64.Mem
 
-/-! Untrusted: scalar reducer saves, restores, and output stores. -/
+/-! Scalar reducer saves, restores, and output stores. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 

@@ -5,12 +5,11 @@ import VerifiedGarbage.Impl.MlKem.X86_64.NttAvx2
 /-!
 # ML-KEM on x86-64: the NTT and its inverse on AVX2 registers, the pieces
 
-Untrusted: everything here is checked by Lean. The layers' result
-coefficient by coefficient (`layF_get`); the table of zetas, in whatever
-order (`TZ`); polynomials as words loaded into and stored from both lanes of
-a register (`lanes_loadY`, `s16_write2Y`); and the zetas the loads of
-`NttAvx2.lean` leave in the lanes of `ymm13` (`yzeta1_ok`, `yzetaS_ok`,
-`yzeta8_ok`).
+The layers' result coefficient by coefficient (`layF_get`); the table of
+zetas, in whatever order (`TZ`); polynomials as words loaded into and stored
+from both lanes of a register (`lanes_loadY`, `s16_write2Y`); and the zetas
+the loads of `NttAvx2.lean` leave in the lanes of `ymm13` (`yzeta1_ok`,
+`yzetaS_ok`, `yzeta8_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

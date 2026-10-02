@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.Arm.PointBatch
 import VerifiedGarbage.Proof.Ed25519.Arm.AccumulateLoop
 import VerifiedGarbage.Proof.Ed25519.Arm.PointPowersLoop
 
-/-! Untrusted: the local table preserves the accumulator and the checkpoint table. -/
+/-! The local table preserves the accumulator and the checkpoint table. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

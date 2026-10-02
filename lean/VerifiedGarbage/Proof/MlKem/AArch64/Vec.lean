@@ -4,12 +4,11 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Ntt
 /-!
 # ML-KEM on AArch64: vectors
 
-Untrusted: everything here is checked by Lean. What the vector code needs
-(`Impl/MlKem/AArch64/Ntt.lean`, "Vectors"): a 16-byte load or store is four
-32-bit words (`read16`, `write16`), the lanes of the results of the vector
-instructions (`vword_*`), weakest-precondition rules for them (`wp_vop`,
-`wp_ldrq`, `wp_strq`), and that code without them keeps the vector
-registers (`WP.keepV`).
+What the vector code needs (`Impl/MlKem/AArch64/Ntt.lean`, "Vectors"): a
+16-byte load or store is four 32-bit words (`read16`, `write16`), the lanes of
+the results of the vector instructions (`vword_*`), weakest-precondition rules
+for them (`wp_vop`, `wp_ldrq`, `wp_strq`), and that code without them keeps
+the vector registers (`WP.keepV`).
 -/
 
 namespace VG.Proof.MlKem.AArch64

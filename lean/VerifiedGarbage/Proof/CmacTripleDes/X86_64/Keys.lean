@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.CmacTripleDes.X86_64.KeysLit
 /-!
 # DES's key schedule on x86-64
 
-Untrusted: everything here is checked by Lean.
-
 `roundKeys` only moves bits of the key in `rax` to the round keys it
 stores: the kernel checks it over the lane domain (`roundKeys_check`), and
 `getLsbD_expandDesKey` says the bits are the specification's.

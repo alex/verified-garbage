@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Poly1305 on x86 (32-bit): the buffer
 
-Untrusted: everything here is checked by Lean. The buffer (bytes 56–71 of the
-state, words 14 to 17), bytes copied into it, absorbing it as a block, and
-what `update` and `finalize` share: the number of bytes buffered, from
-`count`.
+The buffer (bytes 56–71 of the state, words 14 to 17), bytes copied into it,
+absorbing it as a block, and what `update` and `finalize` share: the number of
+bytes buffered, from `count`.
 -/
 
 open VG.PowLit

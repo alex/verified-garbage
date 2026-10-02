@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # CMAC: forming the last block in memory
 
-Untrusted: everything here is checked by Lean.
-
 What `finalize`'s stores leave, on any target: the XOR of two blocks stored a
 word at a time (`xor2Mem`), a zeroed block (`zero2`), and a partial last
 block copied onto zeros and padded with `0x80` (`padded_bytes`).

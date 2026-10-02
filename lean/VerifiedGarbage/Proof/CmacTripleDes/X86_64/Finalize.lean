@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # TDEA-CMAC on x86-64: `vg_cmac_triple_des_finalize`, the last block
 
-Untrusted: everything here is checked by Lean. The steps that form the last
-block `Mₙ` (§6.2 step 4) in `rax`, as a little-endian word: `Mₙ* ⊕ K1` for a
-complete last block, else `Mₙ*` copied a byte at a time onto the zeroed
-slot 12, `0x80` after it, XORed with `K2`.
+The steps that form the last block `Mₙ` (§6.2 step 4) in `rax`, as a
+little-endian word: `Mₙ* ⊕ K1` for a complete last block, else `Mₙ*` copied a
+byte at a time onto the zeroed slot 12, `0x80` after it, XORed with `K2`.
 -/
 
 namespace VG.Proof.CmacTripleDes.X86_64

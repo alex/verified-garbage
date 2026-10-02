@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Phase
 /-!
 # X25519 on x86-64 with AVX512_IFMA: limbs as field elements
 
-Untrusted: everything here is checked by Lean. Five limbs stand for an
-element of `GF(p)` (`fe5`); the sums, differences (with the bias `2¹¹ p`),
-carries and products of the stages are the field's operations on them.
+Five limbs stand for an element of `GF(p)` (`fe5`); the sums, differences
+(with the bias `2¹¹ p`), carries and products of the stages are the field's
+operations on them.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

@@ -6,9 +6,9 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # X448 on x86 (32-bit): the contract the proof is written against
 
-Untrusted: everything here is checked by Lean. The facts of the shared
-contract (`Spec.X448.x448Contract`) the proof uses, stated for x86; the
-shared contract implies it (`sig_implies`, in `Main.lean`).
+The facts of the shared contract (`Spec.X448.x448Contract`) the proof uses,
+stated for x86; the shared contract implies it (`sig_implies`, in
+`Main.lean`).
 -/
 
 namespace VG.Proof.X448

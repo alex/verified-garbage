@@ -2,9 +2,8 @@ import VerifiedGarbage.Proof.Rc2.Arm.Stream.Common
 
 /-! # Streaming RC2-CBC on ARMv7: the copies before CBC
 
-Untrusted: everything here is checked by Lean. With `out_len ≠ 0`: `lr`
-saved at `scratch + 512`, the pending bytes and the first
-`out_len - pending_len` bytes of data to `out`, the rest of the data to
+With `out_len ≠ 0`: `lr` saved at `scratch + 512`, the pending bytes and the
+first `out_len - pending_len` bytes of data to `out`, the rest of the data to
 `ctx + 136`, and the arguments of the CBC function (`Mid`). -/
 
 namespace VG.Proof.Rc2.Arm.Stream

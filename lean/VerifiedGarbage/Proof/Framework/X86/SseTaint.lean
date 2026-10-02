@@ -3,10 +3,11 @@ import VerifiedGarbage.Proof.Framework.X86.Taint
 /-!
 # x86 SIMD: constant-time analysis
 
-Untrusted. This extends the checked scalar analysis without changing its domain
-or agreement relation. SIMD values are secret, and register-only SIMD operations
-cannot change any general-purpose register, flag or memory. Loads must use public
-addresses; stores use the existing checked secret-store rule for sixteen bytes.
+This extends the checked scalar analysis without changing its domain or
+agreement relation. SIMD values are secret, and register-only SIMD operations
+cannot change any general-purpose register, flag or memory. Loads must use
+public addresses; stores use the existing checked secret-store rule for sixteen
+bytes.
 -/
 namespace VG.X86.SseTaint
 open VG.X86.Taint

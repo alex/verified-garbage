@@ -7,8 +7,6 @@ import VerifiedGarbage.Spec.Aes.Contract
 /-!
 # The AES key expansion on x86 (32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 `subWordCode` (the word in slot 0, the other slots zero, `ortho`, the S-box,
 `ortho`) applies the S-box to every byte of `eax` (`subWord_wp`, from the
 bitsliced layers' lemmas); each word of the schedule is then a few scalar

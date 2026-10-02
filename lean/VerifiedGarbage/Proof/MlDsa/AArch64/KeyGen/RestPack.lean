@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.RestBase
 /-!
 # ML-DSA key generation on AArch64: `s₁ ‖ s₂` to `sk`, and `ŝ₁`
 
-Untrusted: everything here is checked by Lean. Each entry of `s₁ ‖ s₂`,
-`BitPack`ed to `sk` (`packS_piece`), then `ŝ₁[j] = NTT(s₁[j])` in place
-(`nttS_piece`).
+Each entry of `s₁ ‖ s₂`, `BitPack`ed to `sk` (`packS_piece`), then `ŝ₁[j] =
+NTT(s₁[j])` in place (`nttS_piece`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.CmacAes.Stream.Arm.AbsorbBlocks
 /-!
 # Streaming AES-CMAC on ARMv7: `vg_cmac_aes_absorb` up to the first call
 
-Untrusted: everything here is checked by Lean. The code saves the
-registers, computes the bytes held back `h`, copies `f = min(len, 16 - h)`
-bytes after them, and sets up the first call of `vg_cmac_aes_update`, which
-chains the block held back if data is left (`AMid₁`).
+The code saves the registers, computes the bytes held back `h`, copies `f =
+min(len, 16 - h)` bytes after them, and sets up the first call of
+`vg_cmac_aes_update`, which chains the block held back if data is left
+(`AMid₁`).
 -/
 
 namespace VG.Proof.CmacAes.Stream.Arm

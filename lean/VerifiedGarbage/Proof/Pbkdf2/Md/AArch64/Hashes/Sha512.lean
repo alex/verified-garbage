@@ -9,16 +9,15 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # The SHA-512 family on AArch64, as Merkle–Damgård hash functions
 
-Untrusted: everything here is checked by Lean. SHA-384, SHA-512,
-SHA-512/224 and SHA-512/256, with their compression function, as variants
-of `MdHash` (`sha384`, …), from which HMAC and PBKDF2 are emitted
-(`Generic/MdHash/AArch64/`). They share their streaming `update` and
-`finalize` (`Impl/Sha512/AArch64/Stream.lean`) and differ in their initial
+SHA-384, SHA-512, SHA-512/224 and SHA-512/256, with their compression
+function, as variants of `MdHash` (`sha384`, …), from which HMAC and PBKDF2
+are emitted (`Generic/MdHash/AArch64/`). They share their streaming `update`
+and `finalize` (`Impl/Sha512/AArch64/Stream.lean`) and differ in their initial
 hash value `iv` and the size `D` of their digest, the first `D` bytes of the
-final hash value. PBKDF2's iteration writes their length field and digest
-with `Impl.Pbkdf2.AArch64.sha512` (`Proof/Pbkdf2/AArch64/Sha512.lean`). The
-facts about the code HMAC and PBKDF2 add, which do not depend on the
-functions they call, are checked once for each member (`coreOK`).
+final hash value. PBKDF2's iteration writes their length field and digest with
+`Impl.Pbkdf2.AArch64.sha512` (`Proof/Pbkdf2/AArch64/Sha512.lean`). The facts
+about the code HMAC and PBKDF2 add, which do not depend on the functions they
+call, are checked once for each member (`coreOK`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64.Sha512

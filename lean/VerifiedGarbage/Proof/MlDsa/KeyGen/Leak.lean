@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Mono
 /-!
 # ML-DSA key generation: what it may leak, piece by piece
 
-Untrusted: everything here is checked by Lean. Two seeds that
-`ML-DSA.KeyGen_internal` may leak the same of (`keyGenLeak`) have the same
-`ρ`, and each `RejBoundedPoly` of `ExpandS` leaks the same from both
-(`keyGenLeak_rho`, `keyGenLeak_rej`); and the seeds of the samplers as
+Two seeds that `ML-DSA.KeyGen_internal` may leak the same of (`keyGenLeak`)
+have the same `ρ`, and each `RejBoundedPoly` of `ExpandS` leaks the same from
+both (`keyGenLeak_split`); and the seeds of the samplers as
 bytes (`integerToBytes_one`, `integerToBytes_two`).
 -/
 

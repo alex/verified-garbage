@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.FreezeSelect
 import VerifiedGarbage.Proof.Ed25519.Arm.FieldProg
 
-/-! Untrusted: canonical reduction preserves all working field elements. -/
+/-! Canonical reduction preserves all working field elements. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 open VG.Spec.X25519 (P)

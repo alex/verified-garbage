@@ -4,10 +4,9 @@ import VerifiedGarbage.Impl.Blake2.X86_64.Stream
 /-!
 # Streaming BLAKE2 on x86-64: the code as literals
 
-Untrusted: everything here is checked by Lean. `init`, `update` and
-`finalize` of BLAKE2b and BLAKE2s as literals (`materialize_code`,
-`Proof/Framework/Lit.lean`), whose calls refer to the literals of the
-compression functions (`Proof/Blake2/X86_64/Lit.lean`).
+`init`, `update` and `finalize` of BLAKE2b and BLAKE2s as literals
+(`materialize_code`, `Proof/Framework/Lit.lean`), whose calls refer to the
+literals of the compression functions (`Proof/Blake2/X86_64/Lit.lean`).
 -/
 
 namespace VG.Proof.Blake2.X86_64.Stream

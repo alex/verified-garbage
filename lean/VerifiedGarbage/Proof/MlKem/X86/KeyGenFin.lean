@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.X86.KeyGenRow
 /-!
 # ML-KEM-768 on x86 (32-bit): the keys in `vg_mlkem768_keygen`
 
-Untrusted: everything here is checked by Lean. After the rows (`B 9 3`),
-`ρ` is copied into `ek`, `ŝ` encoded into `dk`, `ek` copied into `dk`,
-`H(ek)` hashed into `dk` and `z` copied into it (`F n` after `n` of these),
-and `kgACC` returned (`fin_piece`). If `kgACC` is 1, `ek` is `ek_PKE` and `dk`
-is `dk_PKE ‖ ek ‖ H(ek) ‖ z` (`ek_full`, `dk_full`).
+After the rows (`B 9 3`), `ρ` is copied into `ek`, `ŝ` encoded into `dk`, `ek`
+copied into `dk`, `H(ek)` hashed into `dk` and `z` copied into it (`F n` after
+`n` of these), and `kgACC` returned (`fin_piece`). If `kgACC` is 1, `ek` is
+`ek_PKE` and `dk` is `dk_PKE ‖ ek ‖ H(ek) ‖ z` (`ek_full`, `dk_full`).
 -/
 
 namespace VG.Proof.MlKem.X86.KeyGen

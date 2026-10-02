@@ -3,16 +3,15 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sample.Setup
 /-!
 # ML-DSA on x86 (32-bit): the SHAKE output of the sampling functions
 
-Untrusted: everything here is checked by Lean. `sponge` (the start of each
-sampling function, `Impl/MlDsa/X86/Sample/Common.lean`) loads `scratch`
-into `esi` (`ld_piece`), zeroes the Keccak state at `scratch` (`zero_piece`),
-absorbs the message, pads it, and squeezes `outlen` bytes to
-`scratch + 840` with the verified Keccak functions (`absorb_call`,
-`pad_call`, `squeeze_call`), leaving the first `outlen` bytes of the XOF
-output of the message there (`Out`), for any layout `L` (`sponge_piece`).
-The calls are those of ML-KEM (`Proof/MlKem/X86/Keccak.lean`), but for a
-message length and a padding position that depend on the entry state
-(`absorb_piece'`, `pad_piece'`).
+`sponge` (the start of each sampling function,
+`Impl/MlDsa/X86/Sample/Common.lean`) loads `scratch` into `esi` (`ld_piece`),
+zeroes the Keccak state at `scratch` (`zero_piece`), absorbs the message, pads
+it, and squeezes `outlen` bytes to `scratch + 840` with the verified Keccak
+functions (`absorb_call`, `pad_call`, `squeeze_call`), leaving the first
+`outlen` bytes of the XOF output of the message there (`Out`), for any layout
+`L` (`sponge_piece`). The calls are those of ML-KEM
+(`Proof/MlKem/X86/Keccak.lean`), but for a message length and a padding
+position that depend on the entry state (`absorb_piece'`, `pad_piece'`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sample

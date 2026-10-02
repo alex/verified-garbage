@@ -6,14 +6,13 @@ import VerifiedGarbage.Proof.Hmac.Generic.Common
 /-!
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: the functions it calls, and its parts
 
-Untrusted: everything here is checked by Lean. As on x86
-(`Proof/Pbkdf2/Whole/X86/Common.lean`): `FnsOK F` is what the proof knows
-of the functions `pbkdf2` calls (the hash function's streaming functions,
-`VG.Proof.Hmac.Generic.Arm.HashOK`, and HMAC's `init` and `finalize` and
-PBKDF2's `iterate`, sound for their shared contracts with 16 bytes of
-stack). Then the precondition of `pbkdf2` (`Pre`, from the shared contract
-with 24 bytes of stack), the parts of its `scratch`, and what every piece
-of it keeps (`KR`).
+As on x86 (`Proof/Pbkdf2/Whole/X86/Common.lean`): `FnsOK F` is what the proof
+knows of the functions `pbkdf2` calls (the hash function's streaming
+functions, `VG.Proof.Hmac.Generic.Arm.HashOK`, and HMAC's `init` and
+`finalize` and PBKDF2's `iterate`, sound for their shared contracts with 16
+bytes of stack). Then the precondition of `pbkdf2` (`Pre`, from the shared
+contract with 24 bytes of stack), the parts of its `scratch`, and what every
+piece of it keeps (`KR`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.Arm

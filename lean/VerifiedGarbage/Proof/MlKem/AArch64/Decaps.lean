@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlKem.AArch64.DecapsCmp
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_decaps`
 
-Untrusted: everything here is checked by Lean. Correctness is the first
-phase (`a_ok`: `m'`, `G(m' ‖ h)`, `ρ`), the matrix (`matrix_ok`), then `c'`
-(`encrypt_ok`), `K̄`, the comparison, the key and the epilogue (`c_ok`).
+Correctness is the first phase (`a_ok`: `m'`, `G(m' ‖ h)`, `ρ`), the matrix
+(`matrix_ok`), then `c'` (`encrypt_ok`), `K̄`, the comparison, the key and the
+epilogue (`c_ok`).
 
 Constant time up to `ρ`, relating two runs from states that agree on the
 pointers and on `ρ`: the first and last phases by the taint analysis (which

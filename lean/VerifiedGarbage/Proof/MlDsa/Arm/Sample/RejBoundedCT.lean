@@ -3,16 +3,15 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sample.RejBoundedRun
 /-!
 # ML-DSA on 32-bit ARM: the loop of `vg_mldsa_rej_bounded_poly`, constant time
 
-Untrusted: everything here is checked by Lean. Two runs of the loop for
-`η`, whose XOF outputs `X₁` and `X₂` have their half-bytes accepted alike
-(`hbOks`, which the leak of the contract determines), leak the same: at
-iteration `t`, both runs have sampled as many coefficients
-(`rbFold_length_congr`), so the tests of `j ≥ 256` agree, and the byte to
-read has its half-bytes accepted alike, so the tests of the tries agree;
-the coefficients themselves are computed and stored by code that the taint
-analysis proves leaks nothing of them but `j` and the output pointer
-(`try_ct`). What each run is at each point comes from the correctness
-proof (`relW`).
+Two runs of the loop for `η`, whose XOF outputs `X₁` and `X₂` have their
+half-bytes accepted alike (`hbOks`, which the leak of the contract
+determines), leak the same: at iteration `t`, both runs have sampled as many
+coefficients (`rbFold_length_congr`), so the tests of `j ≥ 256` agree, and the
+byte to read has its half-bytes accepted alike, so the tests of the tries
+agree; the coefficients themselves are computed and stored by code that the
+taint analysis proves leaks nothing of them but `j` and the output pointer
+(`try_ct`). What each run is at each point comes from the correctness proof
+(`relW`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sample.RejBounded

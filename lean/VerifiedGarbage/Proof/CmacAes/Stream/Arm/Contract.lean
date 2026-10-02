@@ -6,12 +6,11 @@ import VerifiedGarbage.Impl.CmacAes.Stream.Arm
 /-!
 # Streaming AES-CMAC on ARMv7: the contracts the proofs are written against
 
-Untrusted: everything here is checked by Lean. The artifacts' contracts are
-the shared ones of `Spec/Cmac/Contract.lean`, which imply these
-(`Verified.lean`). `init` calls `vg_cmac_aes_subkeys`, whose frame uses the
-8 bytes below the stack pointer; `absorb` and `finish` push the two stack
-arguments of `vg_cmac_aes_update` and `vg_cmac_aes_finalize` below the
-stack pointer, and those functions' frames use the 8 bytes below that: so
+The artifacts' contracts are the shared ones of `Spec/Cmac/Contract.lean`,
+which imply these (`Verified.lean`). `init` calls `vg_cmac_aes_subkeys`, whose
+frame uses the 8 bytes below the stack pointer; `absorb` and `finish` push the
+two stack arguments of `vg_cmac_aes_update` and `vg_cmac_aes_finalize` below
+the stack pointer, and those functions' frames use the 8 bytes below that: so
 the 8 or 16 bytes below the stack pointer may not overlap any buffer.
 -/
 

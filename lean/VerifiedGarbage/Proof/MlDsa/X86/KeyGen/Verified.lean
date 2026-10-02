@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.Top
 /-!
 # ML-DSA key generation on x86 (32-bit): the contract
 
-Untrusted: everything here is checked by Lean. `vg_mldsa*_keygen` of the
-parameter sets of Table 1 meets `keyGenContract` with 96 bytes of stack
-(`keyGen_verified`), for any verified implementations of the primitives it
-calls (`PrimsOk`): the body, as a leaf (`topLeaf`), from the contract's
-precondition and public data (`pre_of`, `pub_of`), to its postcondition
-(`post`).
+`vg_mldsa*_keygen` of the parameter sets of Table 1 meets `keyGenContract`
+with 96 bytes of stack (`keyGen_verified`), for any verified implementations
+of the primitives it calls (`PrimsOk`): the body, as a leaf (`topLeaf`), from
+the contract's precondition and public data (`pre_of`, `pub_of`), to its
+postcondition (`post`).
 -/
 
 namespace VG.Proof.MlDsa.X86.KeyGen

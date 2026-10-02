@@ -4,10 +4,9 @@ import VerifiedGarbage.Impl.Sha512.Arm
 /-!
 # 64-bit words as pairs of 32-bit halves, on ARMv7
 
-Untrusted: everything here is checked by Lean. The lemmas of
-`Proof/Sha512/Word64.lean` about the halves (`lo`, `hi`) of 64-bit words,
-stated for the ARMv7 implementation's `lo` and `hi` (the same functions),
-and the terms of `Σ`/`σ` as the implementation lists them (`Op`).
+The lemmas of `Proof/Sha512/Word64.lean` about the halves (`lo`, `hi`) of
+64-bit words, stated for the ARMv7 implementation's `lo` and `hi` (the same
+functions), and the terms of `Σ`/`σ` as the implementation lists them (`Op`).
 -/
 
 namespace VG.Proof.Sha512.Arm

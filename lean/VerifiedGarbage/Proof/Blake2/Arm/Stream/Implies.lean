@@ -5,10 +5,10 @@ import VerifiedGarbage.Spec.Blake2.Contract
 /-!
 # Streaming BLAKE2 on ARMv7: the shared contracts
 
-Untrusted: everything here is checked by Lean. The ARMv7 contracts of the
-streaming functions (`initArm`, `updateArm`, `finalizeArm`) imply the shared
-ones (`Spec/Blake2/Contract.lean`) on `Arm.abi`, for BLAKE2b and BLAKE2s, with
-states satisfying their preconditions.
+The ARMv7 contracts of the streaming functions (`initArm`, `updateArm`,
+`finalizeArm`) imply the shared ones (`Spec/Blake2/Contract.lean`) on
+`Arm.abi`, for BLAKE2b and BLAKE2s, with states satisfying their
+preconditions.
 -/
 
 namespace VG.Proof.Blake2.Arm.Stream

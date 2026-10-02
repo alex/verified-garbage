@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifySetup
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarBaseMain
 
-/-! Untrusted: verification preserves the ABI and checks the original input buffers. -/
+/-! Verification preserves the ABI and checks the original input buffers. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # Streaming BLAKE2 on AArch64: `finalize`
 
-Untrusted: everything here is checked by Lean. Inside the frame saving `x30`
-(`WP.frameReg`), `finalize` saves the callee-saved registers
-(`prologue_ok`), computes the number of buffered bytes (`bufLen_ok`), zeroes
-the rest of the buffer (`pad_ok`), compresses it as the last block
-(`compressWith_ok`), copies the hash value out (`output_ok`) and restores the
-registers (`restore_ok`).
+Inside the frame saving `x30` (`WP.frameReg`), `finalize` saves the
+callee-saved registers (`prologue_ok`), computes the number of buffered bytes
+(`bufLen_ok`), zeroes the rest of the buffer (`pad_ok`), compresses it as the
+last block (`compressWith_ok`), copies the hash value out (`output_ok`) and
+restores the registers (`restore_ok`).
 -/
 
 namespace VG.Proof.Blake2.AArch64.Stream.Finalize

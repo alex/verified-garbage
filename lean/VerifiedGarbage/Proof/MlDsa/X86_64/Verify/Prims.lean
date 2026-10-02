@@ -16,11 +16,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Backend
 /-!
 # ML-DSA verification on x86-64: the primitives it calls
 
-Untrusted: everything here is checked by Lean. The x86-64 implementations
-of the primitives (`prims`) meet their contracts with at most 16 bytes of
-stack, never write the stack pointer or load MXCSR, and call at most two
-deep, with any implementation `v` of the polynomial arithmetic
-(`prims_okWith`), so `verify (primsWith v.code) p` meets `verifyContract p`.
+The x86-64 implementations of the primitives (`prims`) meet their contracts
+with at most 16 bytes of stack, never write the stack pointer or load MXCSR,
+and call at most two deep, with any implementation `v` of the polynomial
+arithmetic (`prims_okWith`), so `verify (primsWith v.code) p` meets
+`verifyContract p`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Decode
 import VerifiedGarbage.Proof.Ed25519.AArch64.DecodeLoad
 import VerifiedGarbage.Proof.Ed25519.AArch64.RecoverPoint
 
-/-! Untrusted: canonical bytes decode exactly as the merged Ed25519 specification. -/
+/-! Canonical bytes decode exactly as the merged Ed25519 specification. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

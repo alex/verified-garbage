@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.X448.X86_64.Pack
 /-!
 # X448 on x86-64: the output buffer
 
-Untrusted: everything here is checked by Lean. Output stores cover exactly
-56 bytes. The disjoint working space retains the source limbs and saved
-registers until the function restores them.
+Output stores cover exactly 56 bytes. The disjoint working space retains the
+source limbs and saved registers until the function restores them.
 -/
 
 namespace VG.Proof.X448.X86_64
