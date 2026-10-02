@@ -270,17 +270,19 @@ def crypt : Prog isa :=
 /-- The tag into `W + o`, for the lengths kept at `W + al`, … -/
 def tag (o al ah tl th : Nat) : Prog isa :=
   .seq (lens 16 al ah tl th)
-  (.seq (.block [.mov .eax (.mem (at_ .esi 16)), .store (at_ .ebp o) .eax, .mov .eax (.mem (at_ .esi 20)),
-      .store (at_ .ebp (o + 4)) .eax, .mov .eax (.mem (at_ .esi 24)), .store (at_ .ebp (o + 8)) .eax,
-      .mov .eax (.mem (at_ .esi 28)), .store (at_ .ebp (o + 12)) .eax, .mov .ebx (.reg .ebp),
+  (.seq (.block [.mov .eax (.mem (at_ .esi 16)), .mov .ecx (.mem (at_ .esi 20)), .mov .edx (.mem (at_ .esi 24)),
+      .mov .ebx (.mem (at_ .esi 28)), .store (at_ .ebp o) .eax, .store (at_ .ebp (o + 4)) .ecx,
+      .store (at_ .ebp (o + 8)) .edx, .store (at_ .ebp (o + 12)) .ebx, .mov .ebx (.reg .ebp),
       .alu .add .ebx (imm o), .mov .edi (imm 1), .mov .eax (slot ctxO), .mov .ecx (slot roundsO),
       .mov .edx (.reg .esi), .alu .add .ebp (imm scrO)])
     (.seq ctrCall (.block unscr)))
 
-/-- `J₀` of a 12-byte nonce: its bytes and `0x00000001` (big-endian). -/
+/-- `J₀` of a 12-byte nonce: its words and `0x00000001` (big-endian). -/
 def j012 : Prog isa :=
-  .seq (.block [.mov .edi (slot dO), .mov .edx (.reg .esi), .mov .ecx (imm 12)])
-    (.seq copyLoop (.block [.mov .eax (imm 0x01000000), .store (at_ .esi 12) .eax]))
+  .seq (.block [.mov .edi (slot dO)])
+    (.block [.mov .eax (.mem (at_ .edi 0)), .mov .ecx (.mem (at_ .edi 4)), .mov .edx (.mem (at_ .edi 8)),
+      .store (at_ .esi 0) .eax, .store (at_ .esi 4) .ecx, .store (at_ .esi 8) .edx,
+      .mov .eax (imm 0x01000000), .store (at_ .esi 12) .eax])
 
 /-- `J₀` of any other nonce. -/
 def j0hash : Prog isa :=

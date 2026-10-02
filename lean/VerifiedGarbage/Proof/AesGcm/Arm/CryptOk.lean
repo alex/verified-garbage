@@ -22,7 +22,7 @@ include L
 /-- The rest of the keystream block. -/
 theorem cryptHead_ok {R : Nat} {icb : Block} {P : Nat} {D : BitVec 32} {n : Nat} {s : State}
     (h : CrIn c st w sp k7 k8 R icb P D n s) (hn : n ≠ 0) (hP : P % 16 ≠ 0) :
-    WP isa cryptHead s (fun s' => ∃ j, CrMid c st w sp k7 k8 R icb P D n s.mem j s') := by
+    WP isa cryptHead s (fun s' => ∃ j, j = min (16 - P % 16) n ∧ CrMid c st w sp k7 k8 R icb P D n s.mem j s') := by
   have hlt : P % 16 < 16 := Nat.mod_lt _ (by decide)
   have hn' := h.data.ok.lt32
   have he := h.env
@@ -81,7 +81,7 @@ theorem cryptHead_ok {R : Nat} {icb : Block} {P : Nat} {D : BitVec 32} {n : Nat}
   have hc₃ : ciphOf s₃.mem (State.addr c) R = ciphOf s.mem (State.addr c) R :=
     ciph_frame fw (fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr; exact (h.data.take hkn).ctx) h.rounds
-  refine ⟨k, he₃, hkn, by rw [lo.other _ (by decide) (by decide) (by decide) (by decide) (by decide), h4],
+  refine ⟨k, hk'.symm, he₃, hkn, by rw [lo.other _ (by decide) (by decide) (by decide) (by decide) (by decide), h4],
     by rw [lo.other _ (by decide) (by decide) (by decide) (by decide) (by decide), h5],
     by rw [g _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), h.r8],
     h.rounds, h.data.of_eq (lo.rd.trans hk₂'.rd) (lo.wr.trans hk₂'.wr), ?_, ?_, ?_, ?_, ?_⟩
@@ -153,10 +153,67 @@ theorem wholeArgs_ok {s : State} (he : Env c st w sp k7 k8 s) :
   · intro r a b d e; simp [gpr_setReg, a, b, d, e]
   · exact ⟨rfl, rfl, rfl, rfl⟩
 
+/-- The arguments of `vg_aes_ctr32` on `nb` whole blocks at `D + j`. -/
+theorem ctrWhole_mk {R : Nat} {D : BitVec 32} {j nb : Nat} {s : State} (he : Env c st w sp k7 k8 s)
+    (h0 : s.gpr .r0 = c) (h1 : s.gpr .r1 = BitVec.ofNat 32 R) (h2 : s.gpr .r2 = st + BitVec.ofNat 32 48)
+    (h3 : s.gpr .r3 = D + BitVec.ofNat 32 j) (h12 : s.gpr .r12 = BitVec.ofNat 32 nb)
+    (hlr : s.gpr .lr = w + BitVec.ofNat 32 512) (hR : R = 10 ∨ R = 12 ∨ R = 14)
+    (hdj : DataW c st w sp k7 k8 s (D + BitVec.ofNat 32 j) (16 * nb)) :
+    CtrCall s c (st + BitVec.ofNat 32 48) (D + BitVec.ofNat 32 j) (w + BitVec.ofNat 32 512) R nb := by
+  have eC := L.stA (d := 48) (by decide)
+  have eS := L.wA (d := 512) (by decide)
+  have hk := he.sp
+  refine ⟨h0, h1, h2, h3, h12, hlr, hR,
+    by rw [hk]; exact L.sp8, by have := L.cw; omega, by rw [L.stN (by decide)]; have := L.sw; omega,
+    by have := hdj.ok.fit; omega, by rw [L.wN (by decide)]; have := L.ww; omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
+    ?_, ?_, ?_, ?_⟩
+  all_goals try simp only [eC, eS, hk]
+  · exact (L.cs.sub_left (Region.sub_prefix (by decide))).sub_right (Lay.stSub (by decide))
+  · exact hdj.ctx.sub_left (Region.sub_prefix (by decide))
+  · exact (L.cw'.sub_left (Region.sub_prefix (by decide))).sub_right (Lay.wSub (by decide))
+  · exact (hdj.ok.st.sub_right (Lay.stSub (by decide))).symm
+  · exact L.st_w (by decide) (.inr ⟨by decide, by decide⟩)
+  · exact hdj.ok.w.sub_right (Lay.wSub (by decide))
+  · exact L.kc.sub_right (Region.sub_prefix (by decide))
+  · exact L.stk_st (by decide)
+  · exact hdj.ok.stk
+  · exact L.stk_w (by decide)
+  · exact covers_prefix he.perm.ctx (by decide)
+  · exact covers_cons (he.perm.stC (by decide)) (covers_cons hdj.wr (he.perm.wC (by decide)))
+
+/-- The arguments of `vg_aes_ctr32` on the keystream block. -/
+theorem ctrTail_mk {R : Nat} {s : State} (he : Env c st w sp k7 k8 s)
+    (h0 : s.gpr .r0 = c) (h1 : s.gpr .r1 = BitVec.ofNat 32 R) (h2 : s.gpr .r2 = st + BitVec.ofNat 32 48)
+    (h3 : s.gpr .r3 = st + BitVec.ofNat 32 64) (h12 : s.gpr .r12 = BitVec.ofNat 32 1)
+    (hlr : s.gpr .lr = w + BitVec.ofNat 32 512) (hR : R = 10 ∨ R = 12 ∨ R = 14) :
+    CtrCall s c (st + BitVec.ofNat 32 48) (st + BitVec.ofNat 32 64) (w + BitVec.ofNat 32 512) R 1 := by
+  have eC := L.stA (d := 48) (by decide)
+  have eK := L.stA (d := 64) (by decide)
+  have eS := L.wA (d := 512) (by decide)
+  have hk := he.sp
+  refine ⟨h0, h1, h2, h3, h12, hlr, hR, by rw [hk]; exact L.sp8, by have := L.cw; omega,
+    by rw [L.stN (by decide)]; have := L.sw; omega, by rw [L.stN (by decide)]; have := L.sw; omega,
+    by rw [L.wN (by decide)]; have := L.ww; omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  all_goals try simp only [eC, eK, eS, hk]
+  · exact (L.cs.sub_left (Region.sub_prefix (by decide))).sub_right (Lay.stSub (by decide))
+  · exact (L.cs.sub_left (Region.sub_prefix (by decide))).sub_right (Lay.stSub (by decide))
+  · exact (L.cw'.sub_left (Region.sub_prefix (by decide))).sub_right (Lay.wSub (by decide))
+  · exact Lay.st_st (.inl (by decide)) (by decide) (by decide)
+  · exact L.st_w (by decide) (.inr ⟨by decide, by decide⟩)
+  · exact L.st_w (by decide) (.inr ⟨by decide, by decide⟩)
+  · exact L.kc.sub_right (Region.sub_prefix (by decide))
+  · exact L.stk_st (by decide)
+  · exact L.stk_st (by decide)
+  · exact L.stk_w (by decide)
+  · exact covers_prefix he.perm.ctx (by decide)
+  · exact covers_cons (he.perm.stC (by decide)) (covers_cons (he.perm.stC (by decide))
+      (he.perm.wC (by decide)))
+
 /-- Whole blocks. -/
 theorem cryptWhole_ok {R : Nat} {icb : Block} {P : Nat} {D : BitVec 32} {n : Nat} {m₀ : Mem} {j : Nat} {s : State}
     (h : CrMid c st w sp k7 k8 R icb P D n m₀ j s) (hc : ciphOf s.mem (State.addr c) R = ciphOf m₀ (State.addr c) R) :
-    WP isa cryptWhole s (fun s' => ∃ j', CrMid c st w sp k7 k8 R icb P D n m₀ j' s' ∧ n - j' < 16) := by
+    WP isa cryptWhole s (fun s' => ∃ j', j' = j + 16 * ((n - j) / 16) ∧ CrMid c st w sp k7 k8 R icb P D n m₀ j' s' ∧
+      n - j' < 16) := by
   have hn' := h.data.ok.lt32
   have he := h.env
   obtain ⟨s₁, run₁, h3, h12, h4, h5, hz, hg₁, hk₁⟩ := splitCtr_ok h.le hn' h.r4 h.r5
@@ -173,7 +230,7 @@ theorem cryptWhole_ok {R : Nat} {icb : Block} {P : Nat} {D : BitVec 32} {n : Nat
   refine WP.ite (decide (nb = 0)) (eval_eq' hz) (fun ht => ?_) (fun hf => ?_)
   · have h0 : nb = 0 := by simpa using ht
     subst h0
-    refine WP.block_nil ⟨j, ⟨he₁, h.le, by rw [h4]; rfl, by rw [h5]; rfl, r8₁, h.rounds, hd₁,
+    refine WP.block_nil ⟨j, by omega, ⟨he₁, h.le, by rw [h4]; rfl, by rw [h5]; rfl, r8₁, h.rounds, hd₁,
       fun hc₀ => by rw [hk₁.mem]; exact h.ctr hc₀, fun hc₀ => by rw [hk₁.mem]; exact h.done hc₀,
       by rw [hk₁.mem]; exact h.rest, h.whole, by rw [hk₁.mem]; exact h.frame⟩, by omega⟩
   · have h0 : nb ≠ 0 := by simpa using hf
@@ -189,32 +246,16 @@ theorem cryptWhole_ok {R : Nat} {icb : Block} {P : Nat} {D : BitVec 32} {n : Nat
     have eC := L.stA (d := 48) (by decide)
     have eS := L.wA (d := 512) (by decide)
     have hk := he₂.sp
-    have hcall : CtrCall s₂ c (st + BitVec.ofNat 32 48) (D + BitVec.ofNat 32 j) (w + BitVec.ofNat 32 512) R nb := by
-      refine ⟨h0', by rw [h1', r8₁], h2', by rw [hg₂ _ (by decide) (by decide) (by decide) (by decide), h3],
-        by rw [hg₂ _ (by decide) (by decide) (by decide) (by decide), h12], hlr', h.rounds,
-        by rw [hk]; exact L.sp8, by have := L.cw; omega, by rw [L.stN (by decide)]; have := L.sw; omega,
-        by have := hdj.ok.fit; omega, by rw [L.wN (by decide)]; have := L.ww; omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-        ?_, ?_, ?_, ?_⟩
-      all_goals try simp only [eC, eS, hk]
-      · exact (L.cs.sub_left (Region.sub_prefix (by decide))).sub_right (Lay.stSub (by decide))
-      · exact hdj.ctx.sub_left (Region.sub_prefix (by decide))
-      · exact (L.cw'.sub_left (Region.sub_prefix (by decide))).sub_right (Lay.wSub (by decide))
-      · exact (hdj.ok.st.sub_right (Lay.stSub (by decide))).symm
-      · exact L.st_w (by decide) (.inr ⟨by decide, by decide⟩)
-      · exact hdj.ok.w.sub_right (Lay.wSub (by decide))
-      · exact L.kc.sub_right (Region.sub_prefix (by decide))
-      · exact L.stk_st (by decide)
-      · exact hdj.ok.stk
-      · exact L.stk_w (by decide)
-      · exact covers_prefix he₂.perm.ctx (by decide)
-      · refine covers_cons (he₂.perm.stC (by decide)) (covers_cons ?_ (he₂.perm.wC (by decide)))
-        rw [hk₂.wr, hk₁.wr]; exact hdj.wr
+    have hcall : CtrCall s₂ c (st + BitVec.ofNat 32 48) (D + BitVec.ofNat 32 j) (w + BitVec.ofNat 32 512) R nb :=
+      ctrWhole_mk L he₂ h0' (by rw [h1', r8₁]) h2' (by rw [hg₂ _ (by decide) (by decide) (by decide) (by decide), h3])
+        (by rw [hg₂ _ (by decide) (by decide) (by decide) (by decide), h12]) hlr' h.rounds
+        (hdj.of_eq (hk₂.rd.trans hk₁.rd) (hk₂.wr.trans hk₁.wr))
     refine WP.mono (ctr_call hcall) fun s₃ g => ?_
     have gout := g.out; have gctr := g.ctr; have gframe := g.frame
     simp only [hk₂.mem, hk₁.mem, eC, eS, eD, hk] at gout gctr gframe
     have hcw := fun hc₀ => Proof.Gcm.ctr_whole (h.ctr hc₀) hw (m' := s₃.mem)
       (dp := State.addr D + BitVec.ofNat 64 j) (nb := nb) (by rw [gout, ← hc]) gctr
-    refine ⟨j + 16 * nb, ⟨he₂.of_saved g.saved g.sp g.rd g.wr, by omega, ?_, ?_, ?_, h.rounds,
+    refine ⟨j + 16 * nb, by omega, ⟨he₂.of_saved g.saved g.sp g.rd g.wr, by omega, ?_, ?_, ?_, h.rounds,
       hd₁.of_eq (g.rd.trans hk₂.rd) (g.wr.trans hk₂.wr), ?_, ?_, ?_, .inr (by omega), ?_⟩, by omega⟩
     · rw [g.saved _ (by decide) (by decide), hg₂ _ (by decide) (by decide) (by decide) (by decide), h4]
     · rw [g.saved _ (by decide) (by decide), hg₂ _ (by decide) (by decide) (by decide) (by decide), h5]
@@ -337,24 +378,8 @@ theorem tailKs_ok {R : Nat} {icb : Block} {P : Nat} {D : BitVec 32} {n : Nat} {m
   have hc₂ : ciphOf s₂.mem (State.addr c) R = ciphOf m₀ (State.addr c) R := by
     rw [ciph_frame fz (fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr; exact L.cs.sub_right (Lay.stSub (by decide))) h.rounds, hc]
-  have hcall : CtrCall s₂ c (st + BitVec.ofNat 32 48) (st + BitVec.ofNat 32 64) (w + BitVec.ofNat 32 512) R 1 := by
-    refine ⟨h0, by rw [h1, h.r8], h2, h3, h12, hlr, h.rounds, by rw [hk]; exact L.sp8, by have := L.cw; omega,
-      by rw [L.stN (by decide)]; have := L.sw; omega, by rw [L.stN (by decide)]; have := L.sw; omega,
-      by rw [L.wN (by decide)]; have := L.ww; omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    all_goals try simp only [eC, eK, eS, hk]
-    · exact (L.cs.sub_left (Region.sub_prefix (by decide))).sub_right (Lay.stSub (by decide))
-    · exact (L.cs.sub_left (Region.sub_prefix (by decide))).sub_right (Lay.stSub (by decide))
-    · exact (L.cw'.sub_left (Region.sub_prefix (by decide))).sub_right (Lay.wSub (by decide))
-    · exact Lay.st_st (.inl (by decide)) (by decide) (by decide)
-    · exact L.st_w (by decide) (.inr ⟨by decide, by decide⟩)
-    · exact L.st_w (by decide) (.inr ⟨by decide, by decide⟩)
-    · exact L.kc.sub_right (Region.sub_prefix (by decide))
-    · exact L.stk_st (by decide)
-    · exact L.stk_st (by decide)
-    · exact L.stk_w (by decide)
-    · exact covers_prefix he₂.perm.ctx (by decide)
-    · exact covers_cons (he₂.perm.stC (by decide)) (covers_cons (he₂.perm.stC (by decide))
-        (he₂.perm.wC (by decide)))
+  have hcall : CtrCall s₂ c (st + BitVec.ofNat 32 48) (st + BitVec.ofNat 32 64) (w + BitVec.ofNat 32 512) R 1 :=
+    ctrTail_mk L he₂ h0 (by rw [h1, h.r8]) h2 h3 h12 hlr h.rounds
   refine WP.mono (ctr_call hcall) fun s₃ g => ?_
   have gout := g.out; have gctr := g.ctr; have gframe := g.frame
   simp only [eC, eK, eS, hk] at gout gctr gframe
@@ -503,18 +528,21 @@ theorem CrIn.keep {R : Nat} {icb : Block} {P : Nat} {D : BitVec 32} {n : Nat} {s
 /-- The rest of the keystream block first, if there is one. -/
 theorem cryptFill_ok {R : Nat} {icb : Block} {P : Nat} {D : BitVec 32} {n : Nat} {s : State}
     (h : CrIn c st w sp k7 k8 R icb P D n s) (h0 : n ≠ 0) :
-    WP isa cryptFill s (fun s' => ∃ j, CrMid c st w sp k7 k8 R icb P D n s.mem j s') := by
+    WP isa cryptFill s (fun s' => ∃ j, j = (if P % 16 = 0 then 0 else min (16 - P % 16) n) ∧
+      CrMid c st w sp k7 k8 R icb P D n s.mem j s') := by
   obtain ⟨s₂, run₂, hz₂, hg₂, hm₂, hrd₂, hwr₂, hsp₂⟩ := cmp0_ok s .r6 h.r6
     (by have := Nat.mod_lt P (show 16 > 0 by decide); omega)
   have h₂ := h.keep hg₂ ⟨hm₂, hrd₂, hwr₂, hsp₂⟩
   refine WP.seq (WP.of_runBlock ⟨s₂, run₂, ?_⟩)
   refine WP.ite (decide (P % 16 = 0)) (eval_eq' hz₂) (fun ht => ?_) (fun hf => ?_)
   · have ho : P % 16 = 0 := by simpa using ht
-    exact WP.block_nil ⟨0, h₂.env, by omega, by rw [h₂.r4, add_ofNat_zero], by rw [h₂.r5, Nat.sub_zero], h₂.r8,
+    exact WP.block_nil ⟨0, by simp [ho], h₂.env, by omega, by rw [h₂.r4, add_ofNat_zero], by rw [h₂.r5, Nat.sub_zero], h₂.r8,
       h₂.rounds, h₂.data, fun hc₀ => by rw [hm₂]; simpa using hc₀, fun _ => by simp [bytesAt]; rfl,
       by rw [hm₂, add_ofNat_zero], .inr (by omega), by rw [hm₂]; exact Frame.refl _ _⟩
-  · have := cryptHead_ok L h₂ h0 (by simpa using hf)
-    rw [hm₂] at this; exact this
+  · have hP : P % 16 ≠ 0 := by simpa using hf
+    have := cryptHead_ok L h₂ h0 hP
+    rw [hm₂] at this
+    exact WP.mono this fun _ ⟨j, hj, hm⟩ => ⟨j, by simp only [hP, ite_false]; exact hj, hm⟩
 
 /-- `crypt`. -/
 theorem crypt_ok {R : Nat} {icb : Block} {P : Nat} {D : BitVec 32} {n : Nat} {s : State}
@@ -531,8 +559,8 @@ theorem crypt_ok {R : Nat} {icb : Block} {P : Nat} {D : BitVec 32} {n : Nat} {s 
       fun _ => by simp [bytesAt]; rfl, by rw [hm₁]; exact Frame.refl _ _⟩
   · have h0 : n ≠ 0 := by simpa using hf
     rw [← hm₁]
-    refine WP.seq (WP.mono (cryptFill_ok L h₁ h0) fun s' ⟨j, hj⟩ => ?_)
-    refine WP.seq (WP.mono (cryptWhole_ok L hj (hj.ciph L)) fun s'' ⟨j', hj', hlt⟩ => ?_)
+    refine WP.seq (WP.mono (cryptFill_ok L h₁ h0) fun s' ⟨j, _, hj⟩ => ?_)
+    refine WP.seq (WP.mono (cryptWhole_ok L hj (hj.ciph L)) fun s'' ⟨j', _, hj', hlt⟩ => ?_)
     exact cryptTail_ok L hj' hlt (hj'.ciph L)
 
 end

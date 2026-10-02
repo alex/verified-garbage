@@ -1,27 +1,31 @@
-import VerifiedGarbage.Proof.AesGcm.X86.Flush
+import VerifiedGarbage.Proof.AesGcm.X86.Contract
+import VerifiedGarbage.Proof.Framework.Contract
 
 namespace VG.Proof.AesGcm.X86
-open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86
-open VG.Spec.Gcm (be64)
+open VG VG.X86
 
-theorem ext32 (w : BitVec 32) (k : Nat) : w.extractLsb' (8 * k) 8 = BitVec.ofNat 8 (w.toNat / 256 ^ k) := by
-  apply BitVec.eq_of_toNat_eq
-  rw [BitVec.extractLsb'_toNat, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow, Nat.pow_mul]
+def saSat : State where
+  gpr r := match r with | .esp => 0x8000 | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem a := if a = 0x8005 then 0x10 else if a = 0x8009 then 0x30
+    else if a = 0x8015 then 0x20 else if a = 0x801d then 0x40 else 0
+  rd := [⟨0x1000, 256⟩, ⟨0x2000, 0⟩]
+  wr := [⟨0x3000, 80⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 28⟩]
 
-theorem bswap_eq : VG.X86.bswap = byteRev32 := rfl
+example : streamAadX86.Implies (Spec.Gcm.streamAadContract X86.abi 24) := by
+    have a0 : arg saSat 0 = 0x1000 := by decide
+    have a1 : arg saSat 1 = 0x3000 := by decide
+    have a2 : arg saSat 2 = 0 := by decide
+    have a3 : arg saSat 3 = 0 := by decide
+    have a4 : arg saSat 4 = 0x2000 := by decide
+    have a5 : arg saSat 5 = 0 := by decide
+    have a6 : arg saSat 6 = 0x4000 := by decide
+    have e : argAddr saSat 0 = 0x8004 := by decide
+    have esp : saSat.gpr .esp = 0x8000 := rfl
+    sig_implies [Spec.Gcm.streamAadContract, Spec.Gcm.streamAadSig, streamAadX86, streamAadPre, pubN,
+      X86.abi, X86.argSlots, X86.argVal, X86.argBytes] [a0, a1, a2, a3, a4, a5, a6, e, esp] using saSat
 
-theorem le4_bswap (w : BitVec 32) : Proof.Cmac.le4 (VG.X86.bswap w) =
-    [w.extractLsb' 24 8, w.extractLsb' 16 8, w.extractLsb' 8 8, w.extractLsb' 0 8] := by
-  rw [bswap_eq, Proof.Cmac.le4, byteRev32_extract]
-
-theorem le4_be (u v : BitVec 32) :
-    Proof.Cmac.le4 (VG.X86.bswap u) ++ Proof.Cmac.le4 (VG.X86.bswap v) = be64 (u.toNat * 2 ^ 32 + v.toNat) := by
-  have hu := u.isLt
-  have hv := v.isLt
-  rw [le4_bswap, le4_bswap]
-  simp only [be64, List.range_succ, List.range_zero, List.nil_append, List.map_cons, List.map_nil, List.cons_append,
-    List.cons.injEq, and_true]
-  rw [show (24 : Nat) = 8 * 3 from rfl, show (16 : Nat) = 8 * 2 from rfl, show (8 : Nat) = 8 * 1 from rfl,
-    show (0 : Nat) = 8 * 0 from rfl, ext32, ext32, ext32, ext32, ext32, ext32, ext32, ext32]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> apply BitVec.eq_of_toNat_eq <;> simp only [BitVec.toNat_ofNat] <;>
-    omega
+end VG.Proof.AesGcm.X86

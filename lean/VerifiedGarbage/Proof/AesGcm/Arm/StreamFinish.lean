@@ -88,25 +88,29 @@ theorem fin_tag {s₀ s₁ : State} (h : finPre n s₀) (hn : 5 ≤ n) (h1 : SF1
   exact finTag_ok L (by omega) ho h1.env h1.args spf (by rw [h.1]; simp) (fin_argsTag h ho) (by simp) hR
     (ctxH_keep h1.frame (ctx_saved L)) ha hP
 
-/-- The tag, for a state that represents `a` and `ct`. -/
-theorem fin_out {s₀ s₁ s : State} (h : finPre n s₀) (h1 : SF1 n s₀ s₁) {o : Nat} {iv a ct : List Byte}
+/-- The tag, for a state that represents `a` and `ct`, from a memory `m₀` that
+differs from the entry's only apart from the context and the state. -/
+theorem fin_out {s₀ s : State} {m₀ : Mem} (h : finPre n s₀) {rs : List Region} (hf₀ : Frame rs s₀.mem m₀)
+    (hdc : ∀ r ∈ rs, (⟨State.addr (s₀.gpr .r0), 256⟩ : Region).Disjoint r)
+    (hds : ∀ r ∈ rs, (⟨State.addr (s₀.gpr .r2), 80⟩ : Region).Disjoint r) {o : Nat} {iv a ct : List Byte}
     (hf : FinOut (s₀.gpr .r0) (s₀.gpr .r2) (arg s₀ 4) s₀.sp (s₀.gpr .r1) n s₀ o (s₀.gpr .r1).toNat
-      (ctxH s₀.mem (State.addr (s₀.gpr .r0))) a ct s₁.mem s)
+      (ctxH s₀.mem (State.addr (s₀.gpr .r0))) a ct m₀ s)
     (hs : StreamRepr s₀.mem (State.addr (s₀.gpr .r2)) (ctxCiph s₀.mem (State.addr (s₀.gpr .r0)) (s₀.gpr .r1).toNat)
       (ctxH s₀.mem (State.addr (s₀.gpr .r0))) iv a ct) (hl : arg64 s₀ 0 = BitVec.ofNat 64 a.length) :
     bytesAt s.mem (State.addr (arg s₀ 4) + BitVec.ofNat 64 o) 16 =
       fullTag (ctxCiph s₀.mem (State.addr (s₀.gpr .r0)) (s₀.gpr .r1).toNat) (ctxH s₀.mem (State.addr (s₀.gpr .r0)))
         iv a ct := by
-  have L := finLay h
   have hR := h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2
   rw [Proof.Gcm.streamRepr_iff] at hs
   obtain ⟨hj, hab, -⟩ := hs
   simp only [ofNat_lit] at hab hj
   have hb := Nat.mod_lt (ghashInput a ct).length (show 16 > 0 by decide)
-  rw [hf.out (hab.congr (blockAt_frame h1.frame (stp_saved L (by decide)))
-      (bytesAt_frame h1.frame (stp_saved L (by omega)) (by omega))),
-    ciph_keep h1.frame (ctx_saved L) hR,
-    blockAt_frame h1.frame (by simpa using stp_saved L (d := 0) (k := 16) (by decide)), hj,
+  have dS : ∀ {d k : Nat}, d + k ≤ 80 → ∀ r ∈ rs, (⟨State.addr (s₀.gpr .r2) + BitVec.ofNat 64 d, k⟩ : Region).Disjoint r :=
+    fun hd r hr => (hds r hr).sub_left (Lay.stSub hd)
+  rw [hf.out (hab.congr (blockAt_frame hf₀ (dS (by decide)))
+      (bytesAt_frame hf₀ (dS (by omega)) (by omega))),
+    ciph_keep hf₀ hdc hR,
+    blockAt_frame hf₀ (by simpa using dS (d := 0) (k := 16) (by decide)), hj,
     toNat_of_eq hl, lensBlock_mod, Proof.Gcm.fullTag_eq]
 
 end
@@ -128,7 +132,8 @@ theorem streamFinish_wp {s₀ : State} (h : streamFinishArm.pre s₀) :
         obtain ⟨k7, he⟩ := hf.env
         exact WP.mono (restore_ok he.r11 fW (covers_left he.perm.w)
           (h1.saved.frame hf.frame (saved_tagFrame L (.inl rfl))) he.sp) fun s' hh => ⟨hh.1, fun iv hs hl => by
-            have := fin_out h' h1 hf hs hl
+            have := fin_out h' h1.frame (ctx_saved L) (fun r hr => by
+              simp only [List.mem_singleton] at hr; subst hr; simpa using L.st_w (a := 0) (n := 80) (d := 128) (k := 36) (by decide) (.inr ⟨by decide, by decide⟩)) hf hs hl
             rwa [add_ofNat_zero, ← hh.2.1] at this⟩))
   have h₀ := run (a := List.replicate ((arg s₀ 0).toNat % 16) 0)
     (ct := List.replicate (arg s₀ 3 ++ arg s₀ 2).toNat 0) (by simp) (by simp)

@@ -35,6 +35,37 @@ theorem GhOut.env {s s' : State} {c st w sp k7 k8 : BitVec 32} {Y : Addr} {ds : 
 theorem blocksAt_one (m : Mem) (p : Addr) : blocksAt m p 1 = [blockAt m p] := by
   simp [blocksAt]
 
+/-- The arguments of a call, from a state whose registers are its arguments,
+for `n` blocks at the 32-bit pointer `P`. -/
+theorem ghCall_mk {c st w sp k7 k8 : BitVec 32} (L : Lay c st w sp) {yo : Nat} (hyo : yo = 0 ∨ yo = 16)
+    {s : State} (he : Env c st w sp k7 k8 s) {P : BitVec 32} {n : Nat}
+    (h0 : s.gpr .r0 = c + BitVec.ofNat 32 240) (h1 : s.gpr .r1 = st + BitVec.ofNat 32 yo)
+    (h2 : s.gpr .r2 = P) (h3 : s.gpr .r3 = BitVec.ofNat 32 n) (h12 : s.gpr .r12 = w + BitVec.ofNat 32 512)
+    (hfit : P.toNat + 16 * n ≤ 2 ^ 32)
+    (hpy : (⟨State.addr st + BitVec.ofNat 64 yo, 16⟩ : Region).Disjoint ⟨State.addr P, 16 * n⟩)
+    (hpw : (⟨State.addr P, 16 * n⟩ : Region).Disjoint ⟨State.addr w + BitVec.ofNat 64 512, 256⟩)
+    (hpk : (below sp).Disjoint ⟨State.addr P, 16 * n⟩) (hpr : Covers [⟨State.addr P, 16 * n⟩] (s.rd ++ s.wr)) :
+    GhCall s (c + BitVec.ofNat 32 240) (st + BitVec.ofNat 32 yo) P (w + BitVec.ofNat 32 512) n := by
+  have eH := L.cA (d := 240) (by decide)
+  have eY := L.stA (d := yo) (by omega)
+  have eS := L.wA (d := 512) (by decide)
+  have hk := he.sp
+  refine ⟨h0, h1, h2, h3, h12, by rw [hk]; exact L.sp8, by rw [L.cN (by decide)]; have := L.cw; omega,
+    by rw [L.stN (by omega)]; have := L.sw; omega, hfit, by rw [L.wN (by decide)]; have := L.ww; omega,
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  all_goals simp only [eH, eY, eS, hk]
+  · exact L.ctx_st (by decide) (by omega)
+  · exact L.ctx_w (by decide) (by decide)
+  · exact hpy
+  · exact L.st_w (by omega) (.inr ⟨by decide, by decide⟩)
+  · exact hpw
+  · exact L.stk_ctx (by decide)
+  · exact L.stk_st (by omega)
+  · exact hpk
+  · exact L.stk_w (by decide)
+  · exact covers_cons (he.perm.ctxC (by decide)) hpr
+  · exact covers_cons (he.perm.stC (by omega)) (he.perm.wC (by decide))
+
 /-- The call itself, from a state whose registers are its arguments, for
 `n` blocks at the 32-bit pointer `P`. -/
 theorem ghCall_ok {c st w sp k7 k8 : BitVec 32} (L : Lay c st w sp) {yo : Nat} (hyo : yo = 0 ∨ yo = 16)
@@ -49,23 +80,7 @@ theorem ghCall_ok {c st w sp k7 k8 : BitVec 32} (L : Lay c st w sp) {yo : Nat} (
   have eH := L.cA (d := 240) (by decide)
   have eY := L.stA (d := yo) (by omega)
   have eS := L.wA (d := 512) (by decide)
-  have hc : GhCall s (c + BitVec.ofNat 32 240) (st + BitVec.ofNat 32 yo) P (w + BitVec.ofNat 32 512) n := by
-    have hk := he.sp
-    refine ⟨h0, h1, h2, h3, h12, by rw [hk]; exact L.sp8, by rw [L.cN (by decide)]; have := L.cw; omega,
-      by rw [L.stN (by omega)]; have := L.sw; omega, hfit, by rw [L.wN (by decide)]; have := L.ww; omega,
-      ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    all_goals simp only [eH, eY, eS, hk]
-    · exact L.ctx_st (by decide) (by omega)
-    · exact L.ctx_w (by decide) (by decide)
-    · exact hpy
-    · exact L.st_w (by omega) (.inr ⟨by decide, by decide⟩)
-    · exact hpw
-    · exact L.stk_ctx (by decide)
-    · exact L.stk_st (by omega)
-    · exact hpk
-    · exact L.stk_w (by decide)
-    · exact covers_cons (he.perm.ctxC (by decide)) hpr
-    · exact covers_cons (he.perm.stC (by omega)) (he.perm.wC (by decide))
+  have hc := ghCall_mk L hyo he h0 h1 h2 h3 h12 hfit hpy hpw hpk hpr
   refine WP.mono (gh_call hc) fun s' h => ⟨h.rd, h.wr, h.sp, h.saved, ?_, ?_⟩
   · have f := h.frame; rw [eY, eS, he.sp] at f; exact f
   · have o := h.out; rw [eH, eY] at o; exact o

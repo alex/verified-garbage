@@ -213,7 +213,7 @@ include L hyo
 theorem headPost_ok {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {m₀ : Mem} {k : Nat} {s : State}
     (h : HeadMid c st w sp k7 k8 yo H x D n m₀ k s) :
     WP isa (.ite .eq (ghash1 yo .r10 32) (.block [])) s
-      (fun s' => ∃ j, AbsMid c st w sp k7 k8 yo H x D n m₀ j s') := by
+      (fun s' => ∃ j, j = k ∧ AbsMid c st w sp k7 k8 yo H x D n m₀ j s') := by
   have he := h.env
   have hk1 := h.k1; have hk16 := h.k16; have hkn := h.kn; have hkm := h.kmin
   have hdk := length_bytesAt m₀ (State.addr D) k
@@ -226,7 +226,7 @@ theorem headPost_ok {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {m₀ 
     · rw [L.stA (by decide)]; exact L.st_w (by decide) (.inr ⟨by decide, by decide⟩)
     · rw [L.stA (by decide)]; exact L.stk_st (by decide)
     · rw [L.stA (by decide)]; exact covers_left (he.perm.stC (by decide))
-    refine ⟨k, g.env he, hkn, by rw [g.saved _ (by decide) (by decide)]; exact h.r4,
+    refine ⟨k, rfl, g.env he, hkn, by rw [g.saved _ (by decide) (by decide)]; exact h.r4,
       by rw [g.saved _ (by decide) (by decide)]; exact h.r5, h.data.of_eq g.rd g.wr, ?_, ?_, .inr (by omega), ?_⟩
     · rw [blockAt_frame g.frame fun r hr => by
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -242,15 +242,17 @@ theorem headPost_ok {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {m₀ 
     · exact (buf_absFrame (yo := yo) (w := w) (sp := sp) h.fw hk16).trans (gh_absFrame g.frame)
   · -- Not full: the data is used up.
     have h16 : x.length % 16 + k < 16 := by simp at hf; omega
-    refine WP.block_nil ⟨k, he, hkn, h.r4, h.r5, h.data, h.hH, fun ha => ?_, .inl (by omega),
+    refine WP.block_nil ⟨k, rfl, he, hkn, h.r4, h.r5, h.data, h.hH, fun ha => ?_, .inl (by omega),
       buf_absFrame (yo := yo) (w := w) (sp := sp) h.fw hk16⟩
     exact Proof.Gcm.absorb_fill ha (by rw [hdk]; exact h16) h.hY (by rw [hdk]; exact h.buf)
 
 /-- Filling the buffer. -/
 theorem head_ok {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {s : State}
     (h : AbsIn c st w sp k7 k8 yo H x D n s) (hn : n ≠ 0) (ho : x.length % 16 ≠ 0) :
-    WP isa (absorbHead yo) s (fun s' => ∃ j, AbsMid c st w sp k7 k8 yo H x D n s.mem j s') :=
-  WP.seq (WP.mono (headPre_ok L hyo h hn ho) fun _ ⟨_, hm⟩ => headPost_ok L hyo hm)
+    WP isa (absorbHead yo) s (fun s' => ∃ j, j = min (16 - x.length % 16) n ∧
+      AbsMid c st w sp k7 k8 yo H x D n s.mem j s') :=
+  WP.seq (WP.mono (headPre_ok L hyo h hn ho) fun _ ⟨_, hm⟩ =>
+    WP.mono (headPost_ok L hyo hm) fun _ ⟨j, hj, h'⟩ => ⟨j, hj.trans hm.kmin, h'⟩)
 
 end
 
@@ -286,7 +288,8 @@ theorem split_ok {s : State} {D : BitVec 32} {n j : Nat} (hj : j ≤ n) (hn : n 
 /-- The whole blocks. -/
 theorem whole_ok {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {m₀ : Mem} {j : Nat} {s : State}
     (h : AbsMid c st w sp k7 k8 yo H x D n m₀ j s) (hm₀ : bytesAt s.mem (State.addr D) n = bytesAt m₀ (State.addr D) n) :
-    WP isa (absorbWhole yo) s (fun s' => ∃ j', AbsMid c st w sp k7 k8 yo H x D n m₀ j' s' ∧ n - j' < 16) := by
+    WP isa (absorbWhole yo) s (fun s' => ∃ j', j' = j + 16 * ((n - j) / 16) ∧
+      AbsMid c st w sp k7 k8 yo H x D n m₀ j' s' ∧ n - j' < 16) := by
   have hn' := h.data.lt32
   have he := h.env
   obtain ⟨s₁, run₁, h2, h3, h4, h5, hz, hg₁, hk₁⟩ := split_ok h.le hn' h.r4 h.r5
@@ -301,7 +304,7 @@ theorem whole_ok {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {m₀ : M
   refine WP.ite (decide (nb = 0)) (eval_eq' hz) (fun ht => ?_) (fun hf => ?_)
   · have h0 : nb = 0 := by simpa using ht
     subst h0
-    refine WP.block_nil ⟨j, ⟨he₁, h.le, by rw [h4]; rfl, by rw [h5]; rfl, hd₁, by rw [hk₁.mem]; exact h.hH,
+    refine WP.block_nil ⟨j, by omega, ⟨he₁, h.le, by rw [h4]; rfl, by rw [h5]; rfl, hd₁, by rw [hk₁.mem]; exact h.hH,
       fun ha => by rw [hk₁.mem]; exact h.abs ha, h.whole, by rw [hk₁.mem]; exact h.frame⟩, by omega⟩
   · have h0 : nb ≠ 0 := by simpa using hf
     have hw : (x.length + j) % 16 = 0 := h.whole.resolve_left (by omega)
@@ -329,7 +332,7 @@ theorem whole_ok {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {m₀ : M
       (by rw [hg₂ _ (by decide) (by decide) (by decide), h3]) h12' (by have := hdj.fit; omega)
       (hdj.st.sub_right (Lay.stSub (by omega))).symm (hdj.w.sub_right (Lay.wSub (by decide))) hdj.stk
       (by rw [hk₂.rd, hk₂.wr, hk₁.rd, hk₁.wr]; exact hdj.rd)) fun s₃ g => ?_
-    refine ⟨j + 16 * nb, ⟨g.env he₂, by omega, ?_, ?_, hd₁.of_eq (g.rd.trans hk₂.rd) (g.wr.trans hk₂.wr), ?_, ?_,
+    refine ⟨j + 16 * nb, by omega, ⟨g.env he₂, by omega, ?_, ?_, hd₁.of_eq (g.rd.trans hk₂.rd) (g.wr.trans hk₂.wr), ?_, ?_,
       .inr (by omega), ?_⟩, by omega⟩
     · rw [g.saved _ (by decide) (by decide), hg₂ _ (by decide) (by decide) (by decide), h4]
     · rw [g.saved _ (by decide) (by decide), hg₂ _ (by decide) (by decide) (by decide), h5]
@@ -450,17 +453,20 @@ theorem AbsMid.data_eq {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {m�
 /-- After the first test: the buffer filled if it holds bytes. -/
 theorem absorbFill_ok {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {s : State}
     (h : AbsIn c st w sp k7 k8 yo H x D n s) (h0 : n ≠ 0) :
-    WP isa (absorbFill yo) s (fun s' => ∃ j, AbsMid c st w sp k7 k8 yo H x D n s.mem j s') := by
+    WP isa (absorbFill yo) s (fun s' => ∃ j, j = (if x.length % 16 = 0 then 0 else min (16 - x.length % 16) n) ∧
+      AbsMid c st w sp k7 k8 yo H x D n s.mem j s') := by
   obtain ⟨s₂, run₂, hz₂, hg₂, hm₂, hrd₂, hwr₂, hsp₂⟩ := cmp0_ok s .r6 h.r6
     (by have := Nat.mod_lt x.length (show 16 > 0 by decide); omega)
   have h₂ := h.keep hg₂ ⟨hm₂, hrd₂, hwr₂, hsp₂⟩
   refine WP.seq (WP.of_runBlock ⟨s₂, run₂, ?_⟩)
   refine WP.ite (decide (x.length % 16 = 0)) (eval_eq' hz₂) (fun ht => ?_) (fun hf => ?_)
   · have ho : x.length % 16 = 0 := by simpa using ht
-    exact WP.block_nil ⟨0, h₂.env, by omega, by rw [h₂.r4, add_ofNat_zero], by rw [h₂.r5, Nat.sub_zero], h₂.data,
+    exact WP.block_nil ⟨0, by simp [ho], h₂.env, by omega, by rw [h₂.r4, add_ofNat_zero], by rw [h₂.r5, Nat.sub_zero], h₂.data,
       h₂.hH, fun ha => by rw [hm₂]; simpa [bytesAt] using ha, .inr (by omega), by rw [hm₂]; exact Frame.refl _ _⟩
-  · have := head_ok L hyo h₂ h0 (by simpa using hf)
-    rw [hm₂] at this; exact this
+  · have ho : x.length % 16 ≠ 0 := by simpa using hf
+    have := head_ok L hyo h₂ h0 ho
+    rw [hm₂] at this
+    exact WP.mono this fun _ ⟨j, hj, hm⟩ => ⟨j, by simp only [ho, ite_false]; exact hj, hm⟩
 
 /-- `absorb yo`. -/
 theorem absorb_ok {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {s : State}
@@ -476,8 +482,8 @@ theorem absorb_ok {H : Block} {x : List Byte} {D : BitVec 32} {n : Nat} {s : Sta
     refine WP.block_nil ⟨h₁.env, fun ha => by rw [hm₁]; simpa [bytesAt] using ha, by rw [hm₁]; exact Frame.refl _ _⟩
   · have h0 : n ≠ 0 := by simpa using hf
     rw [← hm₁]
-    refine WP.seq (WP.mono (absorbFill_ok L hyo h₁ h0) fun s' ⟨j, hj⟩ => ?_)
-    refine WP.seq (WP.mono (whole_ok L hyo hj (hj.data_eq hyo)) fun s'' ⟨j', hj', hlt⟩ => ?_)
+    refine WP.seq (WP.mono (absorbFill_ok L hyo h₁ h0) fun s' ⟨j, _, hj⟩ => ?_)
+    refine WP.seq (WP.mono (whole_ok L hyo hj (hj.data_eq hyo)) fun s'' ⟨j', _, hj', hlt⟩ => ?_)
     exact tail_ok L hyo hj' hlt (hj'.data_eq hyo)
 
 end
