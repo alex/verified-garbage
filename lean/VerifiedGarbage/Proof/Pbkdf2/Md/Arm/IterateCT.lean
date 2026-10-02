@@ -24,7 +24,7 @@ open VG.Impl.Pbkdf2.Md.Arm (Hash xorW)
 open VG.Proof.Pbkdf2.Md.Arm
 open VG.Proof.MdStream (Md)
 open VG.Proof.MdStream.Arm (wp_mov op2_reg eval_eq eval_ne)
-open VG.Proof.Hmac.Generic.Arm (iterG)
+open VG.Proof.Pbkdf2.Stream.Arm (iterG)
 open VG.Spec.Sha256 (bytesAt)
 
 /-- The registers the blocks between the calls use. -/

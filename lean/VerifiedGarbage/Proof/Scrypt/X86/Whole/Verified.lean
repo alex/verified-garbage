@@ -17,7 +17,7 @@ calling the `vg_pbkdf2_hmac_sha256` made with any SHA-256 backend
 namespace VG.Proof.Scrypt.X86.Whole
 
 open VG VG.X86 VG.Impl.Scrypt.X86
-open VG.Proof.Pbkdf2.Whole.X86 (argVal32 setWidth32_64 toNat_setWidth64 setWidth_inj32 sha256FnsOf)
+open VG.Proof.Pbkdf2.Whole.X86 (argVal32 setWidth32_64 toNat_setWidth64 setWidth_inj32)
 open VG.Proof.Sha256.X86.Variants (Backend)
 
 /-- Memory holding the arguments `0x1000, 0, 0x1100, 0, 1, 0x3000, 1, 0x4000, 2, 0x5000, 17, 0x6000, 1`
@@ -115,18 +115,19 @@ theorem nosp_of_all {c : Prog isa} (h : c.all (fun i => !isa.writesSp i) = true)
 variable (v : Backend)
 
 /-- PBKDF2-HMAC-SHA256 made with `v`. -/
-abbrev pbkOf : Prog isa := (sha256FnsOf v).pbkdf2
+abbrev pbkOf : Prog isa := v.F.pbkdf2
 
 /-- Its name. -/
 abbrev pbkName : String := Spec.Hmac.sha256I.pbkdf2Api.name ++ v.suffix
 
 theorem pbk_stack : stackUse (pbkOf v) ≤ 76 := by
-  have := v.updStack; have := v.finStack; have := v.initStack; have := v.finalizeStack; have := v.iterStack
+  have := v.stream.updSU; have := v.stream.finSU; have := v.initStack; have := v.finalizeStack; have := v.iterStack
   have hi : stackUse Impl.Sha256.X86.Stream.init ≤ 20 := by lit_decide
   simp only [pbkOf, Impl.Pbkdf2.Whole.X86.Fns.pbkdf2, Impl.Pbkdf2.Whole.X86.Fns.key,
     Impl.Pbkdf2.Whole.X86.Fns.hashKey, Impl.Pbkdf2.Whole.X86.Fns.setup, Impl.Pbkdf2.Whole.X86.Fns.block,
-    Impl.Pbkdf2.Whole.X86.Fns.outLen, Impl.Pbkdf2.Whole.X86.Fns.outLoop, Impl.Hmac.Generic.X86.copy,
-    Impl.Hmac.Generic.X86.Hash.callInit, Proof.Pbkdf2.Whole.X86.sha256Fns, Proof.Pbkdf2.Whole.X86.sha256H,
+    Impl.Pbkdf2.Whole.X86.Fns.outLen, Impl.Pbkdf2.Whole.X86.Fns.outLoop, Impl.Pbkdf2.Stream.X86.copy,
+    Impl.Pbkdf2.Stream.X86.Hash.callInit, Backend.F, Proof.Sha256.X86.Variants.pbkdf2Fns,
+    Proof.Sha256.X86.Variants.fns, Proof.Sha256.X86.Variants.hmacHash, Proof.Pbkdf2.Md.X86.sha256M,
     stackUse, frameBytes, List.length_cons, List.length_nil] at *
   omega
 

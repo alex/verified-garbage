@@ -1,13 +1,13 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Words
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Contract
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Init
+import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Common
 
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: `pbkdf2`'s parts
 
 The precondition of `pbkdf2` (`Pre`), the parts of its `scratch`, what every
 piece of it keeps (`KR`), and the calls of the functions it calls: the hash
-function's streaming functions (`VG.Proof.Hmac.Generic.X86_64.HashOK`), HMAC's
+function's streaming functions (`VG.Proof.Pbkdf2.Md.X86_64.Calls.StreamOK`), HMAC's
 `init` and `finalize`, and `iterate`, whose proofs it takes as hypotheses.
 -/
 
@@ -17,7 +17,7 @@ open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Pbkdf2.Md.X86_64 (HashOK Sizes pbkG)
 open VG.Proof.Pbkdf2.X86_64 (iterK)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG After SavedRegs ne_rsp callEntry_bytes SavedRegs.frame)
+open VG.Proof.Pbkdf2.Md.X86_64.Calls (initG finG After SavedRegs ne_rsp callEntry_bytes SavedRegs.frame)
 open VG.Proof.Hmac.Generic.Common (bytes_keep sub_of_off sub_of_self)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad blockKey hmacBlockKey)
@@ -190,7 +190,7 @@ theorem KR.keep {s s' : State} (h : KR (H := H) s₀ s) (hrd : s'.rd = s.rd) (hw
     (hf : Frame rs s.mem s'.mem) (hd : ∀ r ∈ rs, (hdrR (H := H) s₀).Disjoint r)
     (hsub : ∀ r ∈ rs, ∃ r' ∈ [outR s₀, scR (H := H) s₀, stkR s₀], Region.Sub r r') :
     KR (H := H) s₀ s' := by
-  have hs : Region.Sub (VG.Proof.Hmac.Generic.X86_64.saveR H.hh (scr s₀)) (hdrR (H := H) s₀) := Offset.sub _ (Nat.le_refl _) (by
+  have hs : Region.Sub (VG.Proof.Pbkdf2.Md.X86_64.Calls.saveR H.hh (scr s₀)) (hdrR (H := H) s₀) := Offset.sub _ (Nat.le_refl _) (by
     show 8 * H.W + 48 ≤ 8 * H.W + 64; omega)
   refine ⟨hrd.trans h.rd, hwr.trans h.wr, hsp.trans h.rsp, h15.trans h.r15,
     SavedRegs.frame H.hh h.saved hf fun r hr => (hd r hr).sub_left hs, ?_, ?_, h.frame.trans (hf.sub hsub)⟩
