@@ -61,6 +61,10 @@ structure StreamingHash where
 /-- SHA-256: the 96-byte streaming state of `Spec/Sha256/Contract.lean`. -/
 def sha256S : StreamingHash := ⟨sha256, 96, 32, Sha256.Repr⟩
 
+/-- SHA-224: SHA-256's 96-byte streaming state, from SHA-224's initial hash
+value (`vg_sha224_init`, then SHA-256's `update` and `finalize`). -/
+def sha224S : StreamingHash := ⟨sha224, 96, 28, Sha256.ReprFrom Sha256.H0_224⟩
+
 /-- SHA-1: the 84-byte streaming state of `Spec/Sha1/Contract.lean`. -/
 def sha1S : StreamingHash := ⟨sha1, 84, 20, Sha1.Repr⟩
 
@@ -146,6 +150,10 @@ are also the working space of the existing `vg_pbkdf2_hmac_sha256_iterate`,
 whose contract is `sha256I`'s.) -/
 def sha256I : Instance :=
   ⟨sha256S, "SHA-256", "sha256", "sha256I", "vg_sha256_update", 104⟩
+
+/-- SHA-224: as SHA-256, whose `vg_sha256_update` it absorbs the text with. -/
+def sha224I : Instance :=
+  ⟨sha224S, "SHA-224", "sha224", "sha224I", "vg_sha256_update", 104⟩
 
 /-- SHA-1: `vg_sha1_update` needs 20 words of working space. -/
 def sha1I : Instance := ⟨sha1S, "SHA-1", "sha1", "sha1I", "vg_sha1_update", 56⟩

@@ -12,7 +12,8 @@ import VerifiedGarbage.Spec.Sha512.Contract
 # Known-answer tests for HMAC, and the generic contracts at SHA-256
 
 The HMAC-MD5 and HMAC-SHA-1 test cases of RFC 2202 (Sections 2 and 3) and
-the HMAC-SHA-256, HMAC-SHA-384 and HMAC-SHA-512 ones of RFC 4231 (Section 4),
+the HMAC-SHA-224, HMAC-SHA-256, HMAC-SHA-384 and HMAC-SHA-512 ones of RFC 4231
+(Section 4),
 read from the vendored `vectors/rfc2202/rfc2202.txt` and
 `vectors/rfc4231/rfc4231.txt` (see `vectors/sources/`) when this file is
 built and checked against `VG.Spec.Hmac.hmac` with the hash functions of
@@ -21,8 +22,7 @@ fails the build. (Section 3 of RFC 2202, as published, repeats parts of
 its test cases 5 to 7 after test case 7; the first occurrence of each test
 case is used.) The cases cover keys shorter than, equal to and longer than
 a block, and messages of more than a block. A truncated MAC is compared with
-the start of the computed one. (RFC 4231's HMAC-SHA-224 results are skipped:
-there is no SHA-224 spec.)
+the start of the computed one.
 
 It also checks that the generic contracts of `Spec/Hmac/Generic.lean` and
 `Spec/Pbkdf2/Generic.lean`, at SHA-256, are the HMAC-SHA-256 ones where they
@@ -35,7 +35,7 @@ hash's `update` function, and has at least that function's working space.
 namespace VG.Test.Hmac
 
 open Lean Elab Command
-open Spec.Hmac (HashFunction hmac md5 sha1 sha256 sha384 sha512)
+open Spec.Hmac (HashFunction hmac md5 sha1 sha224 sha256 sha384 sha512)
 
 def ascii (s : String) : List Byte := s.toList.map fun c => BitVec.ofNat 8 c.toNat
 
@@ -181,6 +181,7 @@ run_cmd do
     "3. Test Cases for HMAC-SHA-1"))
   check "HMAC-SHA-1" sha1 20 (← ok "rfc2202.txt" (cases2202 t2202 "3. Test Cases for HMAC-SHA-1"
     "4. Security Considerations"))
+  check "HMAC-SHA-224" sha224 28 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-224"))
   check "HMAC-SHA-256" sha256 32 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-256"))
   check "HMAC-SHA-384" sha384 48 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-384"))
   check "HMAC-SHA-512" sha512 64 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-512"))
@@ -215,7 +216,7 @@ example : Spec.Pbkdf2.pbkdf2Hmac Spec.Hmac.sha256S = Spec.Pbkdf2.pbkdf2HmacSha25
 open Spec.Hmac in
 /-- Each instance, with its Lean name and the `Api` of its hash's `update`. -/
 def instances : List (Spec.Hmac.Instance × String × Api) :=
-  [(sha256I, "sha256I", Spec.Sha256.updateApi),
+  [(sha256I, "sha256I", Spec.Sha256.updateApi), (sha224I, "sha224I", Spec.Sha256.updateApi),
     (sha1I, "sha1I", Spec.Sha1.updateApi), (md5I, "md5I", Spec.Md5.updateApi),
     (sha384I, "sha384I", Spec.Sha512.updateApi), (sha512I, "sha512I", Spec.Sha512.updateApi),
     (sha512_224I, "sha512_224I", Spec.Sha512.updateApi),
