@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Blocks
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Proof.MlKem.AArch64 (Only Keep MemTo wp_nil wp_movz wp_strb wp_ldrw wp_strw wp_addImm wp_subImm
   count_loop)
@@ -28,7 +29,7 @@ theorem mask4_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S 
         if (s.gpr .x0).setWidth 32 = 1 then coeffAt s.mem (pa s a) i else 0 := by
   have hW : InRegions s.wr (pa s a) 4096 := L.inW hw
   have hn : (pa s a).toNat + 4096 ≤ 2 ^ 64 := L.nwp hin
-  have hb : a.1 ∈ bases := L.ptrBs hin
+  have hb : a.1 ∈ keptRegs := L.ptrBs hin
   have h1 : a.1 ≠ .x1 := by intro e; rw [e] at hb; revert hb; decide
   have h8 : a.1 ≠ .x8 := by intro e; rw [e] at hb; revert hb; decide
   unfold mask4

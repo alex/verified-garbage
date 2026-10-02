@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Seed4
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Poly rejNTTPoly coeffAt polyAt Reduced PolyIs poly4 seed4 minBounds)
 open VG.Proof.MlDsa.KeyGen (seedA ifp ifn masked_one masked_zero)

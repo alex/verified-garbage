@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Call4
 import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Mask4
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Proof.MlKem.AArch64 (Keep Only)
 open VG.Spec.MlDsa (Params Poly IPoly Reduced PolyIs polyAt poly4 seed4)
@@ -75,6 +76,7 @@ theorem slot_ok {P : Params} (hF : PFacts P) {S : Nat} {σ : State} (hp : kgPre 
 end VG.Proof.MlDsa.AArch64.KeyGen
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params)
 

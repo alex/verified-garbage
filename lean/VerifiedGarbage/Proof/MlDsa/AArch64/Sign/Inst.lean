@@ -97,7 +97,7 @@ theorem rn4_pub (s₁ s₂ : State) (h : (rejNTT4Contract AArch64.abi 16).pub s�
     bytesAt s₁.mem (s₁.gpr .x0) 136 = bytesAt s₂.mem (s₂.gpr .x0) 136 := by
   sig_pub [Spec.MlDsa.rejNTT4Contract,Spec.MlDsa.rejNTT4Sig,AArch64.abi,AArch64.argRegs] at h
   obtain ⟨_,hb,_⟩ := h
-  exact Proof.MlKem.AArch64.Sample.map_toNat_inj hb
+  exact Proof.MlKem.map_toNat_inj hb
 
 theorem rn4_ret {s s' : State} {tr : List Leak} (h : (rejNTT4Contract AArch64.abi 16).pre s)
     (e : Exec isa (Impl.MlDsa.AArch64.Sample.Rej4.rejNTT4With keccak.callee.pairedSha3) s tr s') :
@@ -153,7 +153,7 @@ theorem prims_okWith : PrimsOk (primsWith keccak.callee) signStack where
       (rn4_pre s₁ h₁) (rn4_pre s₂ h₂) (by
         sig_pub [Spec.MlDsa.rejNTT4Contract,Spec.MlDsa.rejNTT4Sig,AArch64.abi,AArch64.argRegs] at hp
         obtain ⟨hsp,hb,h0,h1,h2⟩ := hp
-        exact ⟨h0,h1,h2,hsp,Proof.MlKem.AArch64.Sample.map_toNat_inj hb⟩) e₁ e₂,
+        exact ⟨h0,h1,h2,hsp,Proof.MlKem.map_toNat_inj hb⟩) e₁ e₂,
       show _ = _ by rw [rn4_ret h₁ e₁,rn4_ret h₂ e₂]; exact Proof.MlDsa.Sample.rej4Res_congr (rn4_pub s₁ s₂ hp)⟩
   rej4Max := fun s t s' h e h1 k hk => by
     rw [rn4_ret h e] at h1

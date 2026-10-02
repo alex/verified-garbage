@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.MlDsa.Sample.Rej4
 /-! Signing matrix expansion in batches of four: sampler outcomes, bounded failure, and the single-stream remainder. -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
@@ -28,7 +29,7 @@ theorem rej4Call_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {s : S
   have hc' := hc
   simp only [rej4Chk,Bool.and_eq_true,and_assoc] at hc'
   obtain ⟨_,_,_,c4,c5,c6,_,_⟩ := hc'
-  refine WP.mono (callAtK_ok L.s64 (hP.rej4.withPost hP.rej4Max) (rej4_args L.ok c4 c5 c6)
+  refine WP.mono (callAt_ok L.s64 (hP.rej4.withPost hP.rej4Max) (rej4_args L.ok c4 c5 c6)
     (by simp only [List.map_cons,List.map_nil]; decide) (fun s1 h1 => rej4_pre L hc h1) (rej4_cov L hc).1
     (rej4_cov L hc).2) fun t ⟨hp,s1,h1,hq,hx⟩ => ⟨hp.b,hp.cs .x24 (by decide) (by decide),?_⟩
   sig_post [rejNTT4Contract,rejNTT4Sig,AArch64.abi,AArch64.argRegs] at hq
@@ -41,7 +42,7 @@ def batchChk (p : Params) (g : Nat) : Bool :=
   let a := pS (aBase p+4*g)
   let ws : List (Ptr × Nat) := [(a,4096),(sc (oR4 p),8192)]
   rej4Chk (sgR p) (sgW p) (sc oRS4) a (sc (oR4 p)) && stChk p ws && stChk p [] &&
-    keepB (sgB p) ws (sc oRS) 32 && famChk (sgB p) ws (aBase p) (4*g)
+    keepB (sgR p) (sgW p) ws (sc oRS) 32 && famChk (sgR p) (sgW p) ws (aBase p) (4*g)
 
 theorem batchChk_ok : ∀ p ∈ [mlDsa44,mlDsa65,mlDsa87],∀ g < p.k*p.ℓ/4,batchChk p g = true := by decide +kernel
 
@@ -91,7 +92,7 @@ theorem batch_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : Sta
             exact hv
           · rw [hs.2] at h0; cases h0
         show PolyIs t.mem (pa t (pS (aBase p+(4*g+k)))) (aVal p σ (4*g+k))
-        rw [kt.mem,hpt.pa (by change Reg.x28 ∈ bases; decide),hp.pa (by change Reg.x28 ∈ bases; decide),← Nat.add_assoc,← pa_poly4]
+        rw [kt.mem,hpt.pa (by change Reg.x28 ∈ keptRegs; decide),hp.pa (by change Reg.x28 ∈ keptRegs; decide),← Nat.add_assoc,← pa_poly4]
         exact ⟨hred hs.2 k hk,hv⟩
   · rw [et'] at ht
     rcases h.ia.r01 with e0 | e0
@@ -105,6 +106,7 @@ theorem batch_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : Sta
 end VG.Proof.MlDsa.AArch64.Sign
 
 namespace VG.Proof.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)

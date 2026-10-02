@@ -12,6 +12,7 @@ layout registers agree, and whose sampler leaks the same, leak the same
 /-! Calls of the four-way sampler through the shared contract, including public return values. -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Spec.MlDsa
@@ -20,7 +21,7 @@ open VG.Spec.Sha3 (bytesAt)
 /-! ## `RejNTTPoly` -/
 
 def rej4Chk (rbs wbs : List (Reg × Nat)) (seed a ss : Ptr) : Bool :=
-  sepB (rbs ++ wbs) seed 136 a 4096 && sepB (rbs ++ wbs) seed 136 ss 8192 && sepB (rbs ++ wbs) a 4096 ss 8192 &&
+  sepB rbs wbs seed 136 a 4096 && sepB rbs wbs seed 136 ss 8192 && sepB rbs wbs a 4096 ss 8192 &&
     inB (rbs ++ wbs) seed 136 && inB (rbs ++ wbs) a 4096 && inB (rbs ++ wbs) ss 8192 && inB wbs a 4096 &&
     inB wbs ss 8192
 
@@ -35,7 +36,7 @@ theorem rej4_cov : Covers ([⟨pa s seed, 136⟩] ++ [⟨pa s a, 4096⟩, ⟨pa 
     Covers [⟨pa s a, 4096⟩, ⟨pa s ss, 8192⟩] s.wr := by
   simp only [rej4Chk, Bool.and_eq_true, and_assoc] at hc
   obtain ⟨_, _, _, c4, _, _, c7, c8⟩ := hc
-  exact ⟨covers_append (L.cR c4) (covers_wr (covers_cons (L.cW c7) (L.cW c8))), covers_cons (L.cW c7) (L.cW c8)⟩
+  exact ⟨Covers.append_left (L.cR c4) (Covers.right (Covers.cons (L.cW c7) (L.cW c8))), Covers.cons (L.cW c7) (L.cW c8)⟩
 
 theorem rej4_pre {s1 : State} (h1 : Args (rej4Args seed a ss) s s1) :
     (rejNTT4Contract AArch64.abi S).pre
@@ -49,11 +50,11 @@ theorem rej4_pre {s1 : State} (h1 : Args (rej4Args seed a ss) s s1) :
 
 end
 
-theorem rej4_args {bs : List (Reg × Nat)} (L : LayOk bs) {seed a ss : Ptr} (c4 : inB bs seed 136 = true)
+theorem rej4_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {seed a ss : Ptr} (c4 : inB bs seed 136 = true)
     (c5 : inB bs a 4096 = true) (c6 : inB bs ss 8192 = true) :
     ∀ x ∈ rej4Args seed a ss, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨ptr_ok (ptr_bs L c5), by decide⟩, ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨ptr_ok (ptr_kept L c5), by decide⟩, ⟨ptr_ok (ptr_kept L c6), by decide⟩⟩
 
 theorem rej4AtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.rej4 (rejNTT4Contract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {seed a ss : Ptr}
@@ -67,7 +68,7 @@ theorem rej4AtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.rej
   have hc' := hc
   simp only [rej4Chk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
-  refine WP.mono (callAtK_ok hS C (rej4_args L.ok c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAt_ok hS C (rej4_args L.ok c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => rej4_pre L hc h1) (rej4_cov L hc).1 (rej4_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [rejNTT4Contract, rejNTT4Sig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -84,7 +85,7 @@ theorem rej4AtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.rej4 (rejNTT4Contract
   simp only [rej4Chk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : seed.1 ∈ bases ∧ a.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAtK_tr C (rej4_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAt_tr C (rej4_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, hsd, e⟩ := hQ x y hp
   refine ⟨_, _, rej4_pre Lx hc h1, ?_, ?_, (rej4_cov Lx hc).1, (rej4_cov Lx hc).2, ?_, ?_⟩
@@ -110,7 +111,7 @@ theorem rej4AtK_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.rej4 (rejNTT4Contr
   simp only [rej4Chk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : seed.1 ∈ bases ∧ a.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAtK_trRet C hr (rej4_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAt_trRet C hr (rej4_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, hsd, e⟩ := hQ x y hp
   refine ⟨_, _, rej4_pre Lx hc h1, ?_, ?_, (rej4_cov Lx hc).1, (rej4_cov Lx hc).2, ?_, ?_⟩

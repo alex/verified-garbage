@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Samp4
 /-! Four-way matrix expansion during verification: preserve decoded hints and z, and mask failed batches without a branch. -/
 
 namespace VG.Proof.MlDsa.AArch64.Verify
+open VG.Impl.MlDsa.AArch64.Call
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Reduced polyAt coeffAt poly4 seed4 Bounds rejNTTPoly minBounds)
@@ -115,6 +116,7 @@ theorem vcall4_ok {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : VF
 end VG.Proof.MlDsa.AArch64.Verify
 
 namespace VG.Proof.MlDsa.AArch64.Verify
+open VG.Impl.MlDsa.AArch64.Call
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params)
@@ -126,7 +128,7 @@ theorem VTwo.step {p : Params} {S : Nat} {c : Prog isa} {Q : State → State →
       (WP isa c y fun y' => ∃ W,PostB S y y' W)) : RelCT isa Q c (VTwo p S) :=
   RelCT.postDep htr (F := fun x x' => ∃ W,PostB S x x' W) hok
     fun x y x' y' h ⟨_,hx⟩ ⟨_,hy⟩ => ⟨(hq x y h).lx.post hx,(hq x y h).ly.post hy,
-      fun r hr => by rw [hx.bs r hr,hy.bs r hr]; exact (hq x y h).same.1 r hr,
+      fun r hr => by rw [hx.bs r (bases_kept r hr),hy.bs r (bases_kept r hr)]; exact (hq x y h).same.1 r hr,
       by rw [hx.sp,hy.sp]; exact (hq x y h).same.2⟩
 
 theorem vcall4_piece {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : VFacts p)
@@ -154,6 +156,7 @@ theorem vcall4_piece {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF :
 end VG.Proof.MlDsa.AArch64.Verify
 
 namespace VG.Proof.MlDsa.AArch64.Verify
+open VG.Impl.MlDsa.AArch64.Call
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params)

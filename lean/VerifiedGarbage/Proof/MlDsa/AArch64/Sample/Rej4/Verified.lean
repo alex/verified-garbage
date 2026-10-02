@@ -70,7 +70,7 @@ theorem verified (sha3 : Bool) : Verified AArch64.target (Impl.MlDsa.AArch64.Sam
         intro s t _ _ h
         sig_pub [Spec.MlDsa.rejNTT4Contract,Spec.MlDsa.rejNTT4Sig,AArch64.abi,AArch64.argRegs] at h
         obtain ⟨hsp,hb,h0,h1,h2⟩ := h
-        exact ⟨h0,h1,h2,hsp,VG.Proof.MlKem.AArch64.Sample.map_toNat_inj hb⟩
+        exact ⟨h0,h1,h2,hsp,VG.Proof.MlKem.map_toNat_inj hb⟩
       sat := by
         sig_implies_sat [Spec.MlDsa.rejNTT4Contract,Spec.MlDsa.rejNTT4Sig,AArch64.abi,AArch64.argRegs]
           [r4Sat] using r4Sat }

@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseACT
 /-! Four-way matrix expansion leaks only the public matrix seed. The batch return is public before signing branches on it. -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
@@ -61,7 +62,7 @@ theorem batch_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {g : Nat}
       (callAt ("vg_mldsa_rej_ntt_poly4"++P.suffix) P.rej4 (rej4Args (sc oRS4) (pS (aBase p+4*g)) (sc (oR4 p))))
       (fun x y => LRel D (sgR p) (sgW p) x y ∧ x.gpr .x24 = y.gpr .x24 ∧ (x.gpr .x0).setWidth 32 = (y.gpr .x0).setWidth 32) := by
     refine postDepQ (fun x y t1 t2 x' y' h e1 e2 =>
-      rej4AtK_trRet hP.rej4 hP.rej4Ret (h.lrel fun _ _ h => h.ia.st).lx.ok cr ?_ x y t1 t2 x' y' h e1 e2)
+      rej4AtK_trRet hP.rej4 hP.rej4Ret (h.lrel fun _ _ h => h.ia.st).ok cr ?_ x y t1 t2 x' y' h e1 e2)
       (F := fun s t => PPostB D s t [(pS (aBase p+4*g),4096),(sc (oR4 p),8192)] ∧ t.gpr .x24 = s.gpr .x24)
       ?_ ?_
     · intro x y h
@@ -76,8 +77,8 @@ theorem batch_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {g : Nat}
         WP.mono (rej4Call_ok hP h2.ia.st.lay cr) (fun _ ht => ⟨ht.1,ht.2.1⟩)⟩
     · intro x y x' y' h hx hy hr
       have L := h.lrel fun _ _ h => h.ia.st
-      refine ⟨⟨L.lx.post hx.1,L.ly.post hy.1,fun r hr => ?_,?_⟩,by rw [hx.2,hy.2,h.2],hr⟩
-      · rw [hx.1.bs r hr,hy.1.bs r hr]; exact L.regs r hr
+      refine ⟨⟨L.lx.post hx.1,L.ly.post hy.1,fun r hr => ?_,?_,L.ok⟩,by rw [hx.2,hy.2,h.2],hr⟩
+      · rw [hx.1.bs r (bases_kept r hr),hy.1.bs r (bases_kept r hr)]; exact L.regs r hr
       · rw [hx.1.sp,hy.1.sp]; exact L.sp
   refine RelCT.seq calltr (RelCT.postDep (lrel_tr (fun _ _ h => h.1) (by taint_decide))
     (F := fun s t => t.gpr .x24 = BitVec.setWidth 64 ((s.gpr .x24).setWidth 32 &&& (s.gpr .x0).setWidth 32))
@@ -88,7 +89,7 @@ theorem sample4_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {g : Na
     (hb : batchChk p g = true) (hs : ∀ j < 4,slotChk p (4*g) j = true) :
     RelCT isa (RA p D (4*g)) (sample4 P p g) (RA p D (4*g+4)) := by
   unfold sample4
-  refine RelCT.seq (RelCT.mono (seqR_tr (R := fun j => RR p D (AS p D · (4*g) j) fun x y => x.gpr .x24 = y.gpr .x24) 4 0
+  refine RelCT.seq (RelCT.mono (seqR_tr (Q := fun j => RR p D (AS p D · (4*g) j) fun x y => x.gpr .x24 = y.gpr .x24) 4 0
     (fun j _ hj => slot4_tr (by omega) (hs j (by omega)))) ?_ (fun _ _ h => by simpa using h)) (batch_tr hP hb)
   exact fun x y h => h.mono (fun _ _ h => ⟨h,fun _ h => False.elim (Nat.not_lt_zero _ h)⟩) (fun h => h)
 
@@ -114,9 +115,9 @@ theorem expandA_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 : O
   · unfold sampleAll
     have hB : RelCT isa (RA p D 0) (seqR (sample4 P p) 0 (p.k*p.ℓ/4)) (RA p D (4*(p.k*p.ℓ/4))) := by
       simpa only [Nat.zero_add,Nat.mul_zero] using
-        (seqR_tr (R := fun g => RA p D (4*g)) (p.k*p.ℓ/4) 0 (fun g _ hg =>
+        (seqR_tr (Q := fun g => RA p D (4*g)) (p.k*p.ℓ/4) 0 (fun g _ hg =>
           sample4_tr hP (batchChk_ok p hp g (by omega)) (fun j hj => slotChk_ok p hp (4*g) (by omega) j hj)))
-    have htail := seqR_tr (R := fun e => RA p D e) (p.k*p.ℓ%4) (4*(p.k*p.ℓ/4))
+    have htail := seqR_tr (Q := fun e => RA p D e) (p.k*p.ℓ%4) (4*(p.k*p.ℓ/4))
       (fun e _ he' => sampleE_tr hP (he e (by omega)))
     have eqn : 4*(p.k*p.ℓ/4)+p.k*p.ℓ%4 = p.k*p.ℓ := by omega
     simpa only [eqn] using RelCT.seq hB htail
