@@ -76,7 +76,8 @@ with no implementation of it. -/
 
 theorem sign_same {m mc : Prog isa → Bool} (hm : Comp m mc) {B : Backend} (h1 : mc B.ntt = true)
     (h2 : mc B.invNtt = true) (h3 : mc B.mul = true) (h4 : mc B.mulAdd = true) (h5 : mc B.add = true)
-    (h6 : mc B.sub = true) (h7 : mc B.rej4 = true) (h8 : mc B.expandMask4 = true) (p : Params) :
+    (h6 : mc B.sub = true) (h7 : mc B.rej4 = true) (h8 : mc B.expandMask4 = true) (h9 : mc B.highBits = true)
+    (h10 : mc B.lowBits = true) (h11 : mc B.normLt = true) (h12 : mc B.makeHint = true) (p : Params) :
     Same m (Impl.MlDsa.X86_64.Sign.sign (primsWith B) p) (Impl.MlDsa.X86_64.Sign.sign (primsWith .empty) p) := by
   unfold Impl.MlDsa.X86_64.Sign.sign
   same_tac hm
@@ -93,14 +94,17 @@ include h3
 
 theorem sign_ctl : ctlOk (Impl.MlDsa.X86_64.Sign.sign (primsWith v.code) p) = true :=
   ctlOk_of_ctlC (Same.ok (sign_same Comp.ctlC v.ok.ntt.ctl v.ok.invNtt.ctl v.ok.mul.ctl v.ok.mulAdd.ctl
-    v.ok.add.ctl v.ok.sub.ctl v.ok.rej4.ctl v.ok.expandMask4.ctl p) (sign0_ctlC h3))
+    v.ok.add.ctl v.ok.sub.ctl v.ok.rej4.ctl v.ok.expandMask4.ctl v.ok.highBits.ctl v.ok.lowBits.ctl
+    v.ok.normLt.ctl v.ok.makeHint.ctl p) (sign0_ctlC h3))
 
 theorem sign_spSafe : (Impl.MlDsa.X86_64.Sign.sign (primsWith v.code) p).all (fun i => !isa.writesSp i) = true :=
   Code.all_of_allInstrs (Same.ok (sign_same (Comp.all _) (Code.allInstrs_of_all v.ok.ntt.sp)
     (Code.allInstrs_of_all v.ok.invNtt.sp) (Code.allInstrs_of_all v.ok.mul.sp)
     (Code.allInstrs_of_all v.ok.mulAdd.sp) (Code.allInstrs_of_all v.ok.add.sp)
     (Code.allInstrs_of_all v.ok.sub.sp) (Code.allInstrs_of_all v.ok.rej4.sp)
-    (Code.allInstrs_of_all v.ok.expandMask4.sp) p) (sign0_sp h3))
+    (Code.allInstrs_of_all v.ok.expandMask4.sp)
+    (Code.allInstrs_of_all v.ok.highBits.sp) (Code.allInstrs_of_all v.ok.lowBits.sp)
+    (Code.allInstrs_of_all v.ok.normLt.sp) (Code.allInstrs_of_all v.ok.makeHint.sp) p) (sign0_sp h3))
 
 theorem sign_verified :
     Verified X86_64.target (Impl.MlDsa.X86_64.Sign.sign (primsWith v.code) p) (signContractT p X86_64.abi signStack) :=
