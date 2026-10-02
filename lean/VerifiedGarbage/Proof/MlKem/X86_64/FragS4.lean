@@ -61,8 +61,8 @@ theorem seedAt_ok {s : State} (L : Lay rbs wbs s) (hcs : ∀ b ∈ rbs ++ wbs, b
     (fun w hw => by
       simp only [List.mem_append, List.mem_singleton] at hw; rcases hw with rfl | rfl <;> exact rbx_cs),
     seed_eq hρ ?_ ?_⟩
-  · rw [← hjb, pa, pa, off_add]
-  · rw [← hib, pa, pa, off_add]
+  · refine mem_of_bytesAt_one ?_; rw [← hjb, pa, pa, off_add]
+  · refine mem_of_bytesAt_one ?_; rw [← hib, pa, pa, off_add]
 
 /-- `ρ` at `SB`, and the seeds of entries `e₀, …, e₀ + K - 1` of a matrix
 of `n` columns, from `scratch`. -/

@@ -58,7 +58,8 @@ theorem update_ok (backend : Whole.Backend) (hc : Ctx L g v m₀ s) (hL : L.Ok)
       · exact ⟨Whole.FR L.E,List.mem_append_right _ List.mem_cons_self,hf⟩
       · exact ⟨S,List.mem_append_right _ (List.mem_cons_of_mem _ hS),hs⟩
   have hr' : Spec.Sha512.Repr Spec.Sha512.H0_512 t.mem L.scr prev := hm ▸ hr
-  refine WP.mono (Whole.update_call backend ht (Whole.update_pre a0 a2 a3 a4 hd)
+  refine WP.mono (Whole.update_call backend ht (Whole.update_pre a0 a2 a3 a4 hd (by rw [ht.sp]; exact hL.e16)
+    (by rw [ht.sp]; exact hL.cc) (by rw [ht.sp]; exact hL.ck_within hi))
     hcov hash_writes a0 a2 a3 a1 hr') fun u ⟨hu,_,huv⟩ => ⟨hu,?_⟩
   rw [hm] at huv
   exact huv

@@ -93,22 +93,22 @@ theorem sign_hW : ∀ s₀, SPre p s₀ → ∀ r ∈ sW p s₀, (frameR s₀).D
   · exact ⟨h₀.kSig.sub_left fr, h₀.rSig⟩
 
 theorem nosp_seq {a b : Prog isa} (ha : NoSp a) (hb : NoSp b) : NoSp (.seq a b) := fun i hi => by
-  simp only [X86.instrs, List.mem_append] at hi
+  simp only [VG.instrs, List.mem_append] at hi
   rcases hi with h | h
   exacts [ha i h, hb i h]
 
 theorem nosp_ite {cnd : Cond} {a b : Prog isa} (ha : NoSp a) (hb : NoSp b) : NoSp (.ite cnd a b) := fun i hi => by
-  simp only [X86.instrs, List.mem_append] at hi
+  simp only [VG.instrs, List.mem_append] at hi
   rcases hi with h | h
   exacts [ha i h, hb i h]
 
 theorem enter_nosp (si : Nat) (p : Params) : NoSp (enter si p) := fun i hi => by
-  simp only [enter, X86.instrs, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hi
+  simp only [enter, VG.instrs, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hi
   rcases hi with (rfl | rfl) | (rfl | rfl | rfl | rfl) <;> rfl
 
 theorem callRet_nosp {rs : List Reg} {n : String} {c : Prog isa} (hc : NoSp c) :
     NoSp (Impl.MlKem.X86.callRet rs n c) := fun i hi => by
-  simp only [Impl.MlKem.X86.callRet, X86.instrs, List.mem_cons, List.mem_append, List.not_mem_nil,
+  simp only [Impl.MlKem.X86.callRet, VG.instrs, List.mem_cons, List.mem_append, List.not_mem_nil,
     or_false] at hi
   rcases hi with (rfl | hi) | rfl
   · rfl

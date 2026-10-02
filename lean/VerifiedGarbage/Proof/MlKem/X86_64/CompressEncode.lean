@@ -5,10 +5,15 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
-# ML-KEM on x86-64: `vg_mlkem_compress_encode`
+# ML-KEM on x86-64: compression (`vg_mlkem_compress_encode`, `vg_mlkem1024_compress_encode`)
 
-The loop is proven once for every width (`CE.loop_ok`), and the function by
-its three cases.
+The loop over the groups is proven once, for any widths, group of `c`
+coefficients and `b` bytes, multiplier and rounding constant, from what the
+code of a group does (`CE.loop_ok`), given the facts it needs (`CE.GrpIn`):
+a group whose code accumulates its `c` values and stores its `b` bytes
+(`CE.grp_ok`), as for every width of `vg_mlkem_compress_encode`, or one in
+segments (`vg_mlkem1024_compress_encode`). `vg_mlkem_compress_encode` is
+proven by its three cases.
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -19,12 +24,6 @@ open VG.Spec.Sha3 (bytesAt)
 
 theorem ceMul_eq : ceMul = compressMul := rfl
 
-theorem r10zero_ok (s : State) :
-    WP isa (.block [.mov32 .r10 (.imm 0)]) s fun s' => (s'.gpr .r10 = 0 ∧ s'.mem = s.mem) ∧
-      Keep [.r10] s s' := by
-  refine WP.keep _ ?_ (by decide)
-  xrun
-
 namespace CE
 
 section
@@ -34,11 +33,11 @@ abbrev oP : Addr := s₀.gpr .rdx
 abbrev F : Poly := polyAt s₀.mem (fP s₀)
 end
 
-/-- After `i` groups. -/
-structure Inv (s₀ : State) (d c b : Nat) (i : Nat) (s : State) : Prop where
+/-- After `i` groups of `c` coefficients and `b` bytes, with the multiplier `M` in `r9`. -/
+structure Inv (s₀ : State) (d c b M : Nat) (i : Nat) (s : State) : Prop where
   rdi : s.gpr .rdi = fP s₀ + BitVec.ofNat 64 (4 * c * i)
   r8 : s.gpr .r8 = oP s₀ + BitVec.ofNat 64 (b * i)
-  r9 : (s.gpr .r9).toNat = compressMul d
+  r9 : (s.gpr .r9).toNat = M
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
   frame : Frame [⟨oP s₀, 32 * d⟩] s₀.mem s.mem
@@ -53,113 +52,128 @@ theorem tail_ok (c b : Nat) (hc : 4 * c < 2 ^ 31) (hb : b < 2 ^ 31) (s : State) 
   refine WP.keep _ ?_ (by rfl)
   xrun [sx_ofNat hc, sx_ofNat hb]
 
-theorem hd10 {d : Nat} (hd : d ∈ compressWidths) : 1 ≤ d ∧ d ≤ 10 := by
-  rcases mem_compressWidths hd with rfl | rfl | rfl <;> decide
-
-theorem lenEq {s₀ : State} (hp : compressEncodeK.pre s₀) {d : Nat} (hdd : dArg s₀ .rsi = d) :
+theorem lenEq {ws : List Nat} {s₀ : State} (hp : (compressEncodeWK ws).pre s₀) {d : Nat} (hdd : dArg s₀ .rsi = d) :
     (s₀.gpr .rcx).toNat = 32 * d := by rw [hp.2.2.2.2.2.2.1, hdd]
 
-section
-variable {s₀ : State} (hp : compressEncodeK.pre s₀) {d c b : Nat} (hd : d ∈ compressWidths)
-  (hdc : d * c = 8 * b) (hb : b ≤ 5) (hc0 : 0 < c) (hc : c ≤ 8) (hbN : b * (256 / c) = 32 * d)
-  (hcN : c * (256 / c) = 256) (hdd : dArg s₀ .rsi = d)
-include hp hd hdc hb hc0 hc hbN hcN hdd
+/-- What the code of group `i` needs: its coefficients readable, their
+compressed values (with the multiplier in `r9` and the rounding constant
+`r`), its bytes writable, apart. -/
+structure GrpIn (r d c b : Nat) (F : Poly) (i : Nat) (s : State) : Prop where
+  rd : ∀ j < c, InRegions (s.rd ++ s.wr) (s.gpr .rdi + BitVec.ofNat 64 (4 * j)) 4
+  v : ∀ j < c, (ceV r d (s.mem.readW (s.gpr .rdi + BitVec.ofNat 64 (4 * j)) 32) (s.gpr .r9)).toNat =
+    compress d F[c * i + j]!
+  wr : ∀ k < b, InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 k) 1
+  dj : Region.Disjoint ⟨s.gpr .rdi, 4 * c⟩ ⟨s.gpr .r8, b⟩
 
-omit hd hdc hb hc0 hc hbN hcN in
+/-- What the code of group `i` does: its `b` bytes of the encoding. -/
+abbrev GrpOut (d b : Nat) (F : Poly) (i : Nat) (s s' : State) : Prop :=
+  Written s.mem s'.mem (s.gpr .r8) b (fun k => (compressEncode d F)[b * i + k]!) ∧ Keep [.rax, .rdx, .r10] s s'
+
+section
+variable {ws : List Nat} {s₀ : State} (hp : (compressEncodeWK ws).pre s₀) {r d c b M : Nat}
+  (hd11 : 1 ≤ d ∧ d ≤ 11) (hc0 : 0 < c) (hc8 : c ≤ 8) (hb : b ≤ 11) (hbN : b * (256 / c) = 32 * d)
+  (hcN : c * (256 / c) = 256) (hdd : dArg s₀ .rsi = d)
+  (hcomp : ∀ x : Zq, x.val * M + r < 2 ^ 30 ∧ compress d x = (x.val * M + r) / 2 ^ 19 % 2 ^ d)
+include hp hd11 hc0 hc8 hb hbN hcN hdd
+
+omit hd11 hc0 hc8 hb hbN hcN in
 theorem coeff {m : Mem} (hf : Frame [⟨oP s₀, 32 * d⟩] s₀.mem m) {k : Nat} (hk : k < 256) :
     coeffAt m (fP s₀) k = coeffAt s₀.mem (fP s₀) k :=
   coeffAt_congr (bytes_frame hf (by
     have := hp.2.2.1; rw [lenEq hp hdd] at this; simpa using this) (by decide)) hk
 
-/-- The compressed value of coefficient `k`. -/
-abbrev V (s₀ : State) (d : Nat) (k : Nat) : Nat := compress d (F s₀)[k]!
-
-theorem step {i : Nat} (hi : i < 256 / c) {s : State} (hI : Inv s₀ d c b i s) :
-    WP isa (.block (ceBody d c b)) s fun s' => Inv s₀ d c b (i + 1) s' ∧ s'.gpr .rcx = s.gpr .rcx - 1 ∧
+include hcomp in
+theorem step {grp : List Instr}
+    (hgrp : ∀ i < 256 / c, ∀ s, GrpIn r d c b (F s₀) i s → WP isa (.block grp) s (GrpOut d b (F s₀) i s))
+    {i : Nat} (hi : i < 256 / c) {s : State} (hI : Inv s₀ d c b M i s) :
+    WP isa (.block (grp ++ ceTail c b)) s fun s' => Inv s₀ d c b M (i + 1) s' ∧ s'.gpr .rcx = s.gpr .rcx - 1 ∧
       s'.zf = some (s.gpr .rcx - 1 == 0) := by
-  obtain ⟨hd1, hd10⟩ := hd10 hd
   have hci : c * i + c ≤ 256 := by
     have := Nat.mul_le_mul_left c (show i + 1 ≤ 256 / c by omega); rw [Nat.mul_succ] at this; omega
   have hbi : b * i + b ≤ 32 * d := by
     have := Nat.mul_le_mul_left b (show i + 1 ≤ 256 / c by omega); rw [Nat.mul_succ] at this; omega
-  have hd32 : 32 * d ≤ 320 := by omega
   have hrd : s.rd ++ s.wr = [pR (fP s₀), ⟨oP s₀, 32 * d⟩] := by
     rw [hI.rd, hI.wr, hp.1, hp.2.1, lenEq hp hdd]; rfl
   have hwr : s.wr = [⟨oP s₀, 32 * d⟩] := by rw [hI.wr, hp.2.1, lenEq hp hdd]
-  unfold ceBody
-  rw [WP.block_append_iff, WP.block_append_iff, WP.block_append_iff]
-  refine WP.mono (r10zero_ok s) fun s₁ ⟨⟨z₁, m₁⟩, k₁⟩ => ?_
-  have di₁ : s₁.gpr .rdi = s.gpr .rdi := k₁.gpr (by decide)
-  -- The addresses of the coefficients of the group.
-  have ha : ∀ j < c, s₁.gpr .rdi + BitVec.ofNat 64 (4 * j) = coeffAddr (fP s₀) (c * i + j) := fun j _ => by
-    rw [di₁, hI.rdi, BitVec.add_assoc, ← BitVec.ofNat_add]; congr 2; rw [Nat.mul_add, Nat.mul_assoc]
-  refine WP.mono (ceCoefs_ok hd1 hd10 (by rw [hdc]; omega) s₁ (fun j hj => by
-      rw [k₁.2.1, k₁.2.2, ha j hj, hrd]; exact ⟨_, by simp, coeff_contains _ (show c * i + j < 256 by omega)⟩)
-    z₁ (fun j => V s₀ d (c * i + j)) (fun j hj => ?_) (fun j _ => compress_lt _ _))
-    fun s₂ ⟨r₂, m₂, k₂⟩ => ?_
-  · -- The compressed value.
-    have hr : Reduced s₀.mem (fP s₀) := hp.2.2.2.2.2.2.2
+  have ha : ∀ j < c, s.gpr .rdi + BitVec.ofNat 64 (4 * j) = coeffAddr (fP s₀) (c * i + j) := fun j _ => by
+    rw [hI.rdi, BitVec.add_assoc, ← BitVec.ofNat_add]; congr 2; rw [Nat.mul_add, Nat.mul_assoc]
+  have hdj : Region.Disjoint (pR (fP s₀)) ⟨oP s₀, 32 * d⟩ := by
+    have := hp.2.2.1; rw [lenEq hp hdd] at this; exact this
+  rw [WP.block_append_iff]
+  refine WP.mono (hgrp i hi s ⟨fun j hj => ?_, fun j hj => ?_, fun k hk => ?_, ?_⟩) fun s₁ ⟨w₁, k₁⟩ => ?_
+  · rw [ha j hj, hrd]; exact ⟨_, by simp, coeff_contains _ (show c * i + j < 256 by omega)⟩
+  · have hr : Reduced s₀.mem (fP s₀) := hp.2.2.2.2.2.2.2
     have hk : c * i + j < 256 := by omega
-    have hx := hr _ hk
-    rw [ha j hj, m₁, ← coeffAt_eq, coeff hp hdd hI.frame hk, k₁.gpr (by decide)]
-    have harg := compress_arg_lt hd (F s₀)[c * i + j]!
+    rw [ha j hj, ← coeffAt_eq, coeff hp hdd hI.frame hk]
+    have harg := (hcomp (F s₀)[c * i + j]!).1
     rw [polyAt_val hr hk] at harg
-    rw [ceV_toNat hd10 (by rw [hI.r9]; unfold compressAdd at harg; omega), hI.r9, V, compress_eq hd,
-      polyAt_val hr hk]
-    rfl
-  -- The bytes.
-  have r8₂ : s₂.gpr .r8 = oP s₀ + BitVec.ofNat 64 (b * i) := by
-    rw [k₂.gpr (by decide), k₁.gpr (by decide), hI.r8]
-  refine WP.mono (ceStores_ok (by omega) s₂ (fun k hk => by
-      rw [k₂.2.2, k₁.2.2, hwr, r8₂, BitVec.add_assoc, ← BitVec.ofNat_add]
-      exact ⟨_, List.mem_singleton_self _, contains_offset' (by omega) (by omega)⟩))
-    fun s₃ ⟨w₃, k₃⟩ => ?_
-  refine WP.mono (tail_ok c b (by omega) (by omega) s₃)
-    fun s₄ ⟨⟨di₄, r8₄, cx₄, z₄, m₄⟩, k₄⟩ => ⟨?_, ?_, ?_⟩
+    rw [ceV_toNat hd11.2 (by rw [hI.r9]; exact harg), hI.r9, (hcomp _).2, polyAt_val hr hk]
+  · rw [hwr, hI.r8, BitVec.add_assoc, ← BitVec.ofNat_add]
+    exact ⟨_, List.mem_singleton_self _, contains_offset' (by omega) (by omega)⟩
+  · rw [hI.rdi, hI.r8]
+    exact (hdj.sub_left (sub_offset' (by rw [Nat.mul_assoc]; omega) (by decide))).sub_right
+      (sub_offset' (by omega) (by omega))
+  refine WP.mono (tail_ok c b (by omega) (by omega) s₁) fun s₂ ⟨⟨di₂, r8₂, cx₂, z₂, m₂⟩, k₂⟩ => ⟨?_, ?_, ?_⟩
   rotate_left
-  · rw [cx₄, k₃.gpr (by decide), k₂.gpr (by decide), k₁.gpr (by decide)]
-  · rw [z₄, k₃.gpr (by decide), k₂.gpr (by decide), k₁.gpr (by decide)]
-  -- The group's bytes are those of the encoding.
-  have hw : Written s.mem s₄.mem (oP s₀ + BitVec.ofNat 64 (b * i)) b
+  · rw [cx₂, k₁.gpr (by decide)]
+  · rw [z₂, k₁.gpr (by decide)]
+  have hw : Written s.mem s₂.mem (oP s₀ + BitVec.ofNat 64 (b * i)) b
       fun k => (compressEncode d (F s₀))[b * i + k]! := by
-    rw [m₄, ← m₁, ← m₂, ← r8₂]
-    refine w₃.congr fun k hk => ?_
-    rw [r₂, Spec.MlKem.compressEncode, byteEncode_group (c := c) (by omega) hdc (map_toList_lt _ (compress_lt d)) hk
-      (by omega), take_drop_eq _ 0 (by rw [map_toList_length]; omega)]
-    congr 3
-    apply List.map_congr_left
-    intro j hj
-    rw [map_toList_getD _ _ (show c * i + j < 256 by have := List.mem_range.mp hj; omega)]
+    rw [m₂, ← hI.r8]; exact w₁
   obtain ⟨hf', hd'⟩ := Written.step hI.frame hI.done hw hbi (by omega)
   refine ⟨?_, ?_, ?_, ?_, ?_, hf', fun k hk => hd' k (by rw [Nat.mul_succ] at hk; omega)⟩
-  · rw [di₄, k₃.gpr (by decide), k₂.gpr (by decide), di₁, hI.rdi]; exact ptr_step _ i (4 * c)
-  · rw [r8₄, k₃.gpr (by decide), r8₂]; exact ptr_step _ i b
-  · rw [k₄.gpr (by decide), k₃.gpr (by decide), k₂.gpr (by decide), k₁.gpr (by decide), hI.r9]
-  · rw [k₄.2.1, k₃.2.1, k₂.2.1, k₁.2.1, hI.rd]
-  · rw [k₄.2.2, k₃.2.2, k₂.2.2, k₁.2.2, hI.wr]
+  · rw [di₂, k₁.gpr (by decide), hI.rdi]; exact ptr_step _ i (4 * c)
+  · rw [r8₂, k₁.gpr (by decide), hI.r8]; exact ptr_step _ i b
+  · rw [k₂.gpr (by decide), k₁.gpr (by decide), hI.r9]
+  · rw [k₂.2.1, k₁.2.1, hI.rd]
+  · rw [k₂.2.2, k₁.2.2, hI.wr]
 
-/-- The loop for the width `d`, from a state with `f` in `rdi` and `out` in `r8`. -/
-theorem loop_ok {s : State} (hdi : s.gpr .rdi = fP s₀) (h8 : s.gpr .r8 = oP s₀) (hrd : s.rd = s₀.rd)
+include hcomp in
+/-- The loop over the groups, each `grp`, with the multiplier `M`, from a
+state with `f` in `rdi` and `out` in `r8`. -/
+theorem loop_ok {grp : List Instr}
+    (hgrp : ∀ i < 256 / c, ∀ s, GrpIn r d c b (F s₀) i s → WP isa (.block grp) s (GrpOut d b (F s₀) i s))
+    (hM : M < 2 ^ 31) {s : State} (hdi : s.gpr .rdi = fP s₀) (h8 : s.gpr .r8 = oP s₀) (hrd : s.rd = s₀.rd)
     (hwr : s.wr = s₀.wr) (hm : s.mem = s₀.mem) :
-    WP isa (ceLoop d c b) s fun s' => bytesAt s'.mem (oP s₀) (32 * d) = compressEncode d (F s₀) ∧
-      Frame [⟨oP s₀, 32 * d⟩] s₀.mem s'.mem := by
-  have hM : ceMul d < 2 ^ 31 := by rw [ceMul]; split <;> [decide; split <;> decide]
-  refine WP.seq (WP.mono (WP.keep [.r9] (Q := fun s' => s'.gpr .r9 = BitVec.ofNat 64 (ceMul d) ∧ s'.mem = s.mem)
+    WP isa (ceLoopW M (256 / c) (grp ++ ceTail c b)) s fun s' =>
+      bytesAt s'.mem (oP s₀) (32 * d) = compressEncode d (F s₀) ∧ Frame [⟨oP s₀, 32 * d⟩] s₀.mem s'.mem := by
+  refine WP.seq (WP.mono (WP.keep [.r9] (Q := fun s' => s'.gpr .r9 = BitVec.ofNat 64 M ∧ s'.mem = s.mem)
     (by xrun [sx_ofNat hM]) (by rfl)) fun s₁ ⟨⟨h9, m₁⟩, k₁⟩ => ?_)
   have hN : 0 < 256 / c ∧ 256 / c ≤ 256 := ⟨Nat.div_pos (by omega) hc0, Nat.div_le_self _ _⟩
   refine WP.mono (wp_counted (N := 256 / c) (v := BitVec.ofNat 32 (256 / c))
-    (by rw [BitVec.toNat_ofNat]; omega) (by omega) (Inv s₀ d c b)
+    (by rw [BitVec.toNat_ofNat]; omega) (by omega) (Inv s₀ d c b M)
     (fun s₂ m₂ k₂ => ⟨?_, ?_, ?_, ?_, ?_, ?_, fun k hk => absurd hk (by omega)⟩)
-    fun i hi s hI => step hp hd hdc hb hc0 hc hbN hcN hdd hi hI) fun s' hI => ⟨?_, hI.frame⟩
+    fun i hi s hI => step hp hd11 hc0 hc8 hb hbN hcN hdd hcomp hgrp hi hI) fun s' hI => ⟨?_, hI.frame⟩
   · rw [k₂.gpr (by decide), k₁.gpr (by decide), hdi]; simp
   · rw [k₂.gpr (by decide), k₁.gpr (by decide), h8]; simp
-  · rw [k₂.gpr (by decide), h9, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega), ceMul_eq]
+  · rw [k₂.gpr (by decide), h9, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   · rw [k₂.2.1, k₁.2.1, hrd]
   · rw [k₂.2.2, k₁.2.2, hwr]
   · rw [m₂, m₁, hm]; exact Frame.refl _ _
   · exact bytesAt_eq! (compressEncode_length _ _) fun k hk => hI.done k (by omega)
 
 end
+
+/-- A group whose code accumulates its `c` values and stores its `b` bytes
+(`d · c = 8 · b`). -/
+theorem grp_ok {r d c b : Nat} (hr : r < 2 ^ 31) (hd11 : 1 ≤ d ∧ d ≤ 11) (hdc : d * c = 8 * b) (hb : b ≤ 7)
+    (F : Poly) {i : Nat} (hci : c * i + c ≤ 256) (hbi : b * i + b ≤ 32 * d) {s : State} (h : GrpIn r d c b F i s) :
+    WP isa (.block (ceAcc r d 0 c ++ ceSt 0 b)) s (GrpOut d b F i s) := by
+  rw [WP.block_append_iff]
+  refine WP.mono (ceAcc_ok (o := 0) (c := c) hr hd11.1 hd11.2 (by omega) s
+    (fun j hj => by rw [Nat.zero_add]; exact h.rd j hj) (fun j => compress d F[c * i + (0 + j)]!)
+    (fun j hj => by rw [Nat.zero_add]; exact h.v j hj) (fun _ _ => compress_lt d _)) fun s₁ ⟨r₁, m₁, k₁⟩ => ?_
+  refine WP.mono (ceSt_ok (k0 := 0) (nb := b) (by omega) s₁ (fun k hk => by
+      rw [k₁.2.2, k₁.gpr (by decide), Nat.zero_add]; exact h.wr k hk)) fun s₂ ⟨w₂, k₂⟩ =>
+    ⟨?_, (k₁.trans k₂).mono (by decide)⟩
+  rw [k₁.gpr (by decide), add_ofNat_zero, m₁, r₁] at w₂
+  refine w₂.congr fun k hk => ?_
+  rw [Spec.MlKem.compressEncode, byteEncode_group (c := c) (by omega) hdc (map_toList_lt _ (compress_lt d)) hk
+    (by omega), take_drop_eq _ 0 (by rw [map_toList_length]; omega)]
+  congr 3
+  apply List.map_congr_left
+  intro j hj
+  rw [map_toList_getD _ _ (show c * i + j < 256 by have := List.mem_range.mp hj; omega), Nat.zero_add]
 
 end CE
 
@@ -199,8 +213,14 @@ theorem ce_wp {s₀ : State} (hp : compressEncodeK.pre s₀) :
         bytesAt s'.mem (s₀.gpr .rdx) (32 * dArg s₀ .rsi) = compressEncode (dArg s₀ .rsi) (CE.F s₀) ∧
           Frame [⟨s₀.gpr .rdx, 32 * dArg s₀ .rsi⟩] s₀.mem s'.mem := by
     intro d c b hd hdc hb hc0 hc hbN hcN hdd s h1 h2 h3 h4 h5
+    have hd11 : 1 ≤ d ∧ d ≤ 11 := by rcases mem_compressWidths hd with rfl | rfl | rfl <;> decide
     rw [hdd]
-    exact CE.loop_ok hp hd hdc hb hc0 hc hbN hcN hdd h1 h2 h3 h4 h5
+    exact CE.loop_ok hp hd11 hc0 hc (by omega) hbN hcN hdd (M := ceMul d) (r := 262080)
+      (fun x => ⟨compress_arg_lt hd x, compress_eq hd x⟩)
+      (fun i hi s hs => CE.grp_ok (by decide) hd11 hdc (by omega) _
+        (by have := Nat.mul_le_mul_left c (show i + 1 ≤ 256 / c by omega); rw [Nat.mul_succ] at this; omega)
+        (by have := Nat.mul_le_mul_left b (show i + 1 ≤ 256 / c by omega); rw [Nat.mul_succ] at this; omega) hs)
+      (by rw [ceMul]; split <;> [decide; split <;> decide]) h1 h2 h3 h4 h5
   refine WP.ite (M := isa) _ (show isa.eval .e s₁ = _ from z₁) (fun h => ?_) (fun h => ?_)
   · rw [sub_beq_zero32, decide_eq_true_eq] at h
     exact go (d := 1) (c := 8) (b := 1) (by rw [← (show dArg s₀ .rsi = 1 by simp only [dArg, h]; rfl)]; exact hd)

@@ -83,7 +83,7 @@ theorem scalarByte_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {n : Nat} (hn :
     (by rw [bu]; exact BitVec.isLt _)) fun v ⟨kv, fv, ev⟩ => ?_)
   refine WP.mono (scalarTest_ok v) fun t ⟨gt, mt, rt, wt, zt⟩ => ?_
   have st : t.gpr .esi = BitVec.ofNat 32 n := by rw [gt, kv.esi, su]
-  refine ⟨ku.trans (kv.scalar.trans ⟨by rw [gt], by rw [gt], rt, wt⟩), st, ?_, ?_, ?_⟩
+  refine ⟨ku.trans ((Keep.scalar kv).trans ⟨by rw [gt], by rw [gt], rt, wt⟩), st, ?_, ?_, ?_⟩
   · rw [zt, kv.esi, su, Wp.ofNat_beq_zero (by omega_using [hn])]
   · rw [mt]
     exact (fu.mono fun r h => by simp only [List.mem_singleton] at h; exact h ▸ List.mem_cons_self).trans

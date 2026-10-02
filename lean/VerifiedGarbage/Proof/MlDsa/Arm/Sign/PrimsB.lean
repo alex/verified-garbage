@@ -55,7 +55,7 @@ theorem ipAt_ok {t : Poly → Poly} {n : String} {c : Prog isa}
     (rd := []) (wr := [pR (pa s f), pR (pa s (sc oPS))])
     (fun s1 hA k => ipPre (ent_R L k (by have := C.hS; omega) _ _) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn2 hA).1) (by rw [vR _ _ _ nl1]; exact (argsIn2 hA).2) rfl rfl hr)
-    (covers_append covers_nil (covers_wr (covers_cons (L.cW w1) (L.cW w2)))) (covers_cons (L.cW w1) (L.cW w2)))
+    (Covers.append_left Covers.nil (Covers.right (Covers.cons (L.cW w1) (L.cW w2)))) (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, k, hq⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e1, _⟩ := argsIn2 hA
   sig_post [inPlaceContract, inPlaceSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hq
@@ -73,10 +73,10 @@ theorem ipAt_tr {t : Poly → Poly} {n : String} {c : Prog isa}
       (by rw [vR _ _ _ nl0]; exact (argsIn2 hAx).1) (by rw [vR _ _ _ nl1]; exact (argsIn2 hAx).2) rfl rfl rx,
       ipPre (ent_R R.ly ky hS [] [pR (pa y f), pR (pa y (sc oPS))]) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn2 hAy).1) (by rw [vR _ _ _ nl1]; exact (argsIn2 hAy).2) rfl rfl ry, ?_,
-      by rw [kx.rd, kx.wr]; exact covers_append covers_nil (covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2))),
-      by rw [kx.wr]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
-      by rw [ky.rd, ky.wr]; exact covers_append covers_nil (covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2))),
-      by rw [ky.wr]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2)⟩
+      by rw [kx.rd, kx.wr]; exact Covers.append_left Covers.nil (Covers.right (Covers.cons (R.lx.cW w1) (R.lx.cW w2))),
+      by rw [kx.wr]; exact Covers.cons (R.lx.cW w1) (R.lx.cW w2),
+      by rw [ky.rd, ky.wr]; exact Covers.append_left Covers.nil (Covers.right (Covers.cons (R.ly.cW w1) (R.ly.cW w2))),
+      by rw [ky.wr]; exact Covers.cons (R.ly.cW w1) (R.ly.cW w2)⟩
   obtain ⟨hx1, hx2⟩ := argsIn2 hAx
   obtain ⟨hy1, hy2⟩ := argsIn2 hAy
   sig_pub [inPlaceContract, inPlaceSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val]
@@ -157,7 +157,7 @@ theorem mulAt_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s
     (fun s1 hA k => mulPre (ent_R L k (by have := hP.mul.hS; omega) _ _) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn3 hA).1) (by rw [vR _ _ _ nl1]; exact (argsIn3 hA).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn3 hA).2.2) rfl rfl rf rg)
-    (covers_append (covers_cons (L.cR i2) (L.cR i3)) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (Covers.cons (L.cR i2) (L.cR i3)) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, k, hq⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e1, e2, e3⟩ := argsIn3 hA
   sig_post [mulContract, mulSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hq
@@ -176,7 +176,7 @@ theorem mulAddAt_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wb
     (fun s1 hA k => mulAddPre (ent_R L k (by have := hP.mulAdd.hS; omega) _ _) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn3 hA).1) (by rw [vR _ _ _ nl1]; exact (argsIn3 hA).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn3 hA).2.2) rfl rfl rh rf rg)
-    (covers_append (covers_cons (L.cR i2) (L.cR i3)) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (Covers.cons (L.cR i2) (L.cR i3)) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, k, hq⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e1, e2, e3⟩ := argsIn3 hA
   sig_post [mulAddContract, mulSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hq
@@ -196,9 +196,9 @@ theorem mulAt_tr {P : Prims} (hP : PrimsOk P D) {h f g : Ptr} (hc : mulChk (rbs 
       mulPre (ent_R R.ly ky hS [pR (pa y f), pR (pa y g)] [pR (pa y h)]) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn3 hAy).1) (by rw [vR _ _ _ nl1]; exact (argsIn3 hAy).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn3 hAy).2.2) rfl rfl rfy rgy, ?_,
-      by rw [kx.rd, kx.wr]; exact covers_append (covers_cons (R.lx.cR i2) (R.lx.cR i3)) (covers_wr (R.lx.cW w1)),
+      by rw [kx.rd, kx.wr]; exact Covers.append_left (Covers.cons (R.lx.cR i2) (R.lx.cR i3)) (Covers.right (R.lx.cW w1)),
       by rw [kx.wr]; exact R.lx.cW w1,
-      by rw [ky.rd, ky.wr]; exact covers_append (covers_cons (R.ly.cR i2) (R.ly.cR i3)) (covers_wr (R.ly.cW w1)),
+      by rw [ky.rd, ky.wr]; exact Covers.append_left (Covers.cons (R.ly.cR i2) (R.ly.cR i3)) (Covers.right (R.ly.cW w1)),
       by rw [ky.wr]; exact R.ly.cW w1⟩
   obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx
   obtain ⟨hy1, hy2, hy3⟩ := argsIn3 hAy
@@ -220,9 +220,9 @@ theorem mulAddAt_tr {P : Prims} (hP : PrimsOk P D) {h f g : Ptr} (hc : mulChk (r
       mulAddPre (ent_R R.ly ky hS [pR (pa y f), pR (pa y g)] [pR (pa y h)]) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn3 hAy).1) (by rw [vR _ _ _ nl1]; exact (argsIn3 hAy).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn3 hAy).2.2) rfl rfl rhy rfy rgy, ?_,
-      by rw [kx.rd, kx.wr]; exact covers_append (covers_cons (R.lx.cR i2) (R.lx.cR i3)) (covers_wr (R.lx.cW w1)),
+      by rw [kx.rd, kx.wr]; exact Covers.append_left (Covers.cons (R.lx.cR i2) (R.lx.cR i3)) (Covers.right (R.lx.cW w1)),
       by rw [kx.wr]; exact R.lx.cW w1,
-      by rw [ky.rd, ky.wr]; exact covers_append (covers_cons (R.ly.cR i2) (R.ly.cR i3)) (covers_wr (R.ly.cW w1)),
+      by rw [ky.rd, ky.wr]; exact Covers.append_left (Covers.cons (R.ly.cR i2) (R.ly.cR i3)) (Covers.right (R.ly.cW w1)),
       by rw [ky.wr]; exact R.ly.cW w1⟩
   obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx
   obtain ⟨hy1, hy2, hy3⟩ := argsIn3 hAy

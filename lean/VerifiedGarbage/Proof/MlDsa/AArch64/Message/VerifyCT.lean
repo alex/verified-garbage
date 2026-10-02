@@ -208,18 +208,18 @@ theorem verifyMessage_ct (v : Proof.Sha3.AArch64.Permutation) {n : String} {c : 
   rw [e0]
   unfold verifyMessage top
   have hlsr := ghost_step (P := VP2 p) (A := fun x a => a = x) (B := ALsr) (c := .block [.lsr .x .x9 .x4 8])
-    (Sign.taintRel [] (fun a b ⟨x, y, hxy, e₁, e₂⟩ => by
+    (AArch64.taintRel [] (fun a b ⟨x, y, hxy, e₁, e₂⟩ => by
       subst e₁ e₂; exact ⟨(vPub_of hxy.2.2).sp, by simp⟩) lsr_taint)
     fun x y a b _ e₁ e₂ => by subst e₁ e₂; exact ⟨lsr_ok _, lsr_ok _⟩
   refine RelCT.seq hlsr (RelCT.ite (fun a b ⟨x, y, hxy, f₁, f₂⟩ => by
     rw [f₁.2, f₂.2, (vPub_of hxy.2.2).x4]) ?_ ?_)
-  · exact Sign.taintRel [] (fun a b ⟨⟨x, y, hxy, f₁, f₂⟩, _⟩ =>
+  · exact AArch64.taintRel [] (fun a b ⟨⟨x, y, hxy, f₁, f₂⟩, _⟩ =>
       ⟨by rw [f₁.1.sp, f₂.1.sp]; exact (vPub_of hxy.2.2).sp, by simp⟩) movz2_taint
   · let A : State → State → Prop := fun x a => ALsr x a ∧ isa.eval (.nonzero .x .x9) a = some false
     let B : State → State → Prop := fun x t => (x.gpr .x4).toNat < 256 ∧
       ∃ a : State, a.mem = x.mem ∧ Ctx (vlay p x) a.gpr a.v a.mem t
     have hent := ghost_step (P := VP2 p) (A := A) (B := B) (c := .block (enter .x6 p verifySaves))
-      (Sign.taintRel [.x6] (fun a b ⟨x, y, hxy, f₁, f₂⟩ => ⟨by rw [f₁.1.1.sp, f₂.1.1.sp]; exact (vPub_of hxy.2.2).sp,
+      (AArch64.taintRel [.x6] (fun a b ⟨x, y, hxy, f₁, f₂⟩ => ⟨by rw [f₁.1.1.sp, f₂.1.1.sp]; exact (vPub_of hxy.2.2).sp,
         fun r hr => by
           simp only [List.mem_singleton] at hr; subst hr
           rw [f₁.1.1.get .x6, f₂.1.1.get .x6]; exact (vPub_of hxy.2.2).x6⟩) (enterV_taint p))
@@ -235,7 +235,7 @@ theorem verifyMessage_ct (v : Proof.Sha3.AArch64.Permutation) {n : String} {c : 
     refine RelCT.seq (RelCT.mono hent (fun a b ⟨⟨x, y, hxy, f₁, f₂⟩, hc⟩ => ⟨x, y, hxy, ⟨f₁, hc⟩, ⟨f₂, by
       rw [f₂.2, ← (vPub_of hxy.2.2).x4, ← f₁.2]; exact hc⟩⟩) fun _ _ h => h) (RelCT.seq
       (RelCT.mono (verifyBody_tr v hV hp) (fun a b ⟨x, y, hxy, ⟨h8x, a', ma, ca⟩, ⟨h8y, b', mb, cb⟩⟩ => ?_)
-        fun _ _ h => h) (Sign.taintRel [.x28] (fun a b h => ⟨h.2, fun r hr => by
+        fun _ _ h => h) (AArch64.taintRel [.x28] (fun a b h => ⟨h.2, fun r hr => by
           simp only [List.mem_singleton] at hr; subst hr; exact h.1⟩) leave_taint))
     have hx := vPre_of hxy.1
     have hy := vPre_of hxy.2.1

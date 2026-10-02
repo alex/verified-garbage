@@ -18,7 +18,7 @@ open VG VG.X86 VG.Impl.CmacAes.Stream.X86
 variable (v : Proof.Aes.X86.Ctr32Impl)
 open VG.Impl.CmacAes.X86 (at_ argOp)
 open VG.Proof.MdStream.X86 (Upd wp_mov wp_addi wp_shr)
-open VG.Proof.CmacAes.X86 (wp_arg zero4_ok saveMem_congr)
+open VG.Proof.CmacAes.X86 (wp_arg zero4_ok)
 
 section
 variable (s₀ : State)
@@ -127,7 +127,7 @@ theorem initPre_wp {s₀ : State} (hp : IPre s₀) : WP isa (.block initPre) s�
     fun s₂ g₂ rd₂ wr₂ m₂ => ?_
   have hm₂ : s₂.mem = savedMem s₀ (iSc s₀) := by
     rw [m₂, u₁.mem, savedMem]
-    exact saveMem_congr _ _ _ fun p hp' => u₁.other _ (saved_ne_eax p hp')
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p hp' => u₁.other _ (saved_ne_eax p hp')
   have esp₂ : s₂.gpr .esp = iE s₀ := by rw [g₂, u₁.other _ (by decide)]
   have rd₂' : s₂.rd = s₀.rd := by rw [rd₂, u₁.rd]
   have wr₂' : s₂.wr = s₀.wr := by rw [wr₂, u₁.wr]

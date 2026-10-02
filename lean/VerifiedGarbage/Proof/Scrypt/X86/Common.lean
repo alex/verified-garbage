@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Scrypt.X86.Salsa
 import VerifiedGarbage.Proof.Scrypt.BlockMix
 import VerifiedGarbage.Proof.Framework.X86.CallWith
+import VerifiedGarbage.Proof.Framework.X86.Spill
 import VerifiedGarbage.Impl.Scrypt.X86.BlockMix
 
 /-!
@@ -184,74 +185,6 @@ theorem xor64_ok {dR xR sR : Reg} (hd : dR ≠ .eax) (hx : xR ≠ .eax) (hs : sR
         (by rw [u₄.rd, u₃.rd, u₂.rd, rd₁]) (by rw [u₄.wr, u₃.wr, u₂.wr, wr₁]) ?_
     rw [u₄.mem, u₃.gpr, u₃.mem, u₂.gpr, u₂.mem, m₁]
     exact xor_mem4 s.mem (n := 16) (by omega) (by omega) hdx hdy
-
-/-! ## Saving and restoring registers -/
-
-/-- The memory after storing the registers `l` (with values `g`) at `B`. -/
-def saveMem (m : Mem) (B : Addr) (g : Reg → BitVec 32) : List (Reg × Nat) → Mem
-  | [] => m
-  | (r, d) :: l => saveMem (m.writeW (B + BitVec.ofNat 64 d) (g r)) B g l
-
-theorem saveList_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
-    ∀ (s : State) (Q : State → Prop),
-    (∀ p ∈ l, (s.gpr b).toNat + p.2 + 4 ≤ 2 ^ 32 ∧
-      InRegions s.wr ((s.gpr b).setWidth 64 + BitVec.ofNat 64 p.2) 4) →
-    (∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr →
-      s'.mem = saveMem s.mem ((s.gpr b).setWidth 64) s.gpr l → WP isa (.block rest) s' Q) →
-    WP isa (.block (l.map (fun p => Instr.store (at_ b p.2) p.1) ++ rest)) s Q := by
-  induction l with
-  | nil => intro s Q _ k; exact k s rfl rfl rfl rfl
-  | cons p l ih =>
-    intro s Q hl k
-    obtain ⟨h1, h2⟩ := hl p (by simp)
-    refine wp_store (by rw [ea_at]; exact addr_eq (by omega)) h2 fun s₁ u₁ => ?_
-    refine ih s₁ Q (fun q hq => ?_) fun s' g rd wr m => k s' (g.trans u₁.gpr) (rd.trans u₁.rd)
-      (wr.trans u₁.wr) ?_
-    · rw [u₁.gpr, u₁.wr]; exact hl q (List.mem_cons_of_mem _ hq)
-    · rw [m, u₁.mem, u₁.gpr]; rfl
-
-theorem readW_writeW_save (m : Mem) (B : Addr) (v : BitVec 32) {d e : Nat} (hd : d < 2 ^ 32)
-    (he : e < 2 ^ 32) (h : d + 4 ≤ e ∨ e + 4 ≤ d) :
-    (m.writeW (B + BitVec.ofNat 64 e) v).readW (B + BitVec.ofNat 64 d) 32 = m.readW (B + BitVec.ofNat 64 d) 32 :=
-  Mem.readW_writeW_sep (fun _ _ _ => by bv_omega) (by decide)
-
-/-- The stores of `saveMem` stay in `R`. -/
-theorem saveMem_frame {R : Region} {B : Addr} (g : Reg → BitVec 32) :
-    ∀ (l : List (Reg × Nat)) (m : Mem), (∀ p ∈ l, R.Contains (B + BitVec.ofNat 64 p.2) 4) →
-      Frame [R] m (saveMem m B g l) := by
-  intro l
-  induction l with
-  | nil => intro m _; exact Frame.refl _ _
-  | cons p l ih =>
-    intro m hl
-    exact ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (hl p (by simp))).trans
-      (ih _ fun q hq => hl q (List.mem_cons_of_mem _ hq))
-
-/-- Loading the registers `l` through the pointer in `b`, which none of them is. -/
-theorem restoreList_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
-    ∀ (s : State) (Q : State → Prop), (l.map Prod.fst).Nodup →
-    (∀ p ∈ l, p.1 ≠ b ∧ (s.gpr b).toNat + p.2 + 4 ≤ 2 ^ 32 ∧
-      InRegions (s.rd ++ s.wr) ((s.gpr b).setWidth 64 + BitVec.ofNat 64 p.2) 4) →
-    (∀ s', (∀ p ∈ l, s'.gpr p.1 = s.mem.readW ((s.gpr b).setWidth 64 + BitVec.ofNat 64 p.2) 32) →
-      (∀ r, r ∉ l.map Prod.fst → s'.gpr r = s.gpr r) → s'.mem = s.mem → s'.rd = s.rd →
-      s'.wr = s.wr → WP isa (.block rest) s' Q) →
-    WP isa (.block (l.map (fun p => Instr.mov p.1 (.mem (at_ b p.2))) ++ rest)) s Q := by
-  induction l with
-  | nil => intro s Q _ _ k; exact k s (fun _ h => by cases h) (fun _ _ => rfl) rfl rfl rfl
-  | cons p l ih =>
-    intro s Q hnd hl k
-    obtain ⟨h0, h1, h2⟩ := hl p (by simp)
-    simp only [List.map_cons, List.nodup_cons] at hnd
-    refine wp_movm (by rw [ea_at]; exact addr_eq (by omega)) h2 fun s₁ u₁ => ?_
-    have eb : s₁.gpr b = s.gpr b := u₁.other _ (Ne.symm h0)
-    refine ih s₁ Q hnd.2 (fun q hq => ?_) fun s' hl' ho hm hrd hwr => k s' (fun q hq => ?_)
-      (fun r hr => ?_) (hm.trans u₁.mem) (hrd.trans u₁.rd) (hwr.trans u₁.wr)
-    · rw [eb, u₁.rd, u₁.wr]; exact hl q (List.mem_cons_of_mem _ hq)
-    · rcases List.mem_cons.mp hq with rfl | hq
-      · rw [ho _ hnd.1, u₁.gpr]
-      · rw [hl' q hq, u₁.mem, eb]
-    · simp only [List.map_cons, List.mem_cons, not_or] at hr
-      rw [ho r hr.2, u₁.other r hr.1]
 
 /-! ## Counted loops -/
 

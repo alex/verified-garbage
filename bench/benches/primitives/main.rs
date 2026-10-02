@@ -17,6 +17,7 @@ use openssl::pkey::PKey;
 use openssl::sign::Signer;
 
 mod aes_gcm;
+mod argon2;
 mod blake2b;
 mod blake2s;
 mod chacha20;
@@ -36,6 +37,7 @@ mod md5;
 mod mldsa44;
 mod mldsa65;
 mod mldsa87;
+mod mlkem;
 mod mlkem1024;
 mod mlkem768;
 mod pbkdf2_md5;
@@ -82,6 +84,35 @@ pub(crate) fn hash_group<const N: usize>(
         });
         g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
             b.iter(|| hash(md, black_box(&data)).unwrap())
+        });
+    }
+    g.finish();
+}
+
+/// Benchmarks checking the digest of the data with `vg`, which computes it
+/// and compares it with the expected one in constant time, against
+/// OpenSSL's `md` and `CRYPTO_memcmp`.
+pub(crate) fn hash_verify_group<const N: usize>(
+    c: &mut Criterion,
+    name: &str,
+    digest: fn(&[u8]) -> [u8; N],
+    vg: fn(&[u8], &[u8]) -> bool,
+    md: MessageDigest,
+) {
+    let mut g = c.benchmark_group(name);
+    for size in SIZES {
+        g.throughput(Throughput::Bytes(size as u64));
+        let data = vec![0x5a; size];
+        let expected = digest(&data);
+        assert_eq!(hash(md, &data).unwrap()[..], expected[..]);
+        g.bench_function(BenchmarkId::new(VG, size), |b| {
+            b.iter(|| assert!(vg(black_box(&data), black_box(&expected))))
+        });
+        g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
+            b.iter(|| {
+                let d = hash(md, black_box(&data)).unwrap();
+                assert!(openssl::memcmp::eq(&d, black_box(&expected)))
+            })
         });
     }
     g.finish();
@@ -236,6 +267,7 @@ const BENCHES: &[Bench] = &[
     (poly1305::USES, poly1305::bench),
     (rc2_cbc::USES, rc2_cbc::bench),
     (triple_des_ecb::USES, triple_des_ecb::bench),
+    (argon2::USES, argon2::bench),
     (scrypt::USES, scrypt::bench),
     (sha1::USES, sha1::bench),
     (sha224::USES, sha224::bench),

@@ -1249,7 +1249,6 @@ namespace VG.Proof.Scrypt.AArch64.RoMix
 open VG VG.AArch64 VG.Impl.Scrypt.AArch64
 open VG.Spec.Scrypt (bytesAt blockMix)
 open VG.Proof.MdStream.AArch64 (Upd wp_mov wp_addImm wp_lsr eval_nonzero)
-open VG.Proof.Scrypt.AArch64.BlockMix (covers_of_in covers_pair)
 open VG.Proof.Scrypt.Memory (InRegions.right)
 
 /-! ## The call of `vg_scrypt_blockmix` -/
@@ -1273,7 +1272,7 @@ theorem bm_pre {s : State} {src dst scr : Addr} {r : Nat} (h0 : s.gpr .x0 = src)
     Covers [⟨dst, 128 * r⟩, ⟨scr, 128⟩] s.wr := by
   have tr : (BitVec.ofNat 64 r).toNat = r := toNat_ofNat_lt (by omega)
   have c128 : r * 128 = 128 * r := Nat.mul_comm _ _
-  have cw := covers_pair (covers_of_in idst) (covers_of_in iscr)
+  have cw := Covers.pair (Covers.one idst) (Covers.one iscr)
   refine ⟨?_, ?_, cw⟩
   · simp only [Proof.Scrypt.blockMixAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.withRegions_sp, State.callEntry_sp,
@@ -1283,7 +1282,7 @@ theorem bm_pre {s : State} {src dst scr : Addr} {r : Nat} (h0 : s.gpr .x0 = src)
       State.callEntry_gpr _ (by decide : Reg.x3 ∉ linkRegs),
       State.callEntry_gpr _ (by decide : Reg.x4 ∉ linkRegs), h0, h1, h2, h3, h4, tr, c128]
     exact ⟨trivial, trivial, hds, hsd, hss, hsp, bsrc, bdst, bscr, nsrc, ndst, nscr, trivial, hr⟩
-  · have h1 := covers_of_in isrc
+  · have h1 := Covers.one isrc
     intro a n h
     simp only [List.cons_append, List.nil_append] at h
     obtain ⟨R, hR, hc⟩ := h

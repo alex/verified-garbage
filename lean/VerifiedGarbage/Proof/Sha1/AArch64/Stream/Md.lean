@@ -23,12 +23,12 @@ open VG VG.AArch64 VG.Proof.MdStream VG.Proof.MdStream.AArch64
 
 abbrev params := Impl.Sha1.AArch64.Stream.params
 
-theorem dims : Dims params := ⟨by decide, by decide⟩
+theorem dims : Dims params := ⟨by decide, by decide, by decide, by decide⟩
 
 theorem shape : Shape (P := params) md where
   lenKeepsV := by decide +kernel
   outKeepsV := by decide +kernel
-  len _ hout := len64_ok (d := params.N + 56) (be := true) (by decide) hout
+  len _ hout := len64_ok (d := params.N + params.B - params.L) (be := true) (by decide) hout
   out _ hin hout hd := by
     refine (out32_ok (n := 5) true (by decide) hin hout hd).mono fun s' ⟨g, rd, wr, sp, m⟩ =>
       ⟨g, rd, wr, sp, ?_⟩

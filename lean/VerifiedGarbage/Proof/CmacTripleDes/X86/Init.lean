@@ -191,7 +191,7 @@ theorem initPre_wp {s₀ : State} (hp : IPre s₀) : WP isa initPre s₀ (KInv s
   have sf := hp.scr_fit
   have sf' : (arg s₀ 3).toNat + 640 ≤ 2 ^ 32 := hp.scr_fit
   have kl : 16 ≤ Kl s₀ := by rcases hp.valid with h | h <;> omega
-  rw [show initPre = .seq (.block (.mov .eax (stk 16) :: (saved.map (fun p => Instr.store (at_ .eax p.2) p.1) ++
+  rw [show initPre = .seq (.block (.mov .eax (stk 16) :: (Spill.saveCode .eax saved ++
       (.mov .ebp (.reg .eax) :: .mov .ecx (stk 4) :: (keyWord 0 100 ++ (keyWord 4 104 ++ (keyWord 8 108 ++
         (keyWord 12 112 ++ ([.mov .eax (stk 8), .alu .cmp .eax (.imm 16)] : List Instr)))))))))
       (.seq (.ite .e (.block [.mov .eax (.mem (at_ .ecx 0)), .mov .edx (.mem (at_ .ecx 4))])
@@ -200,13 +200,14 @@ theorem initPre_wp {s₀ : State} (hp : IPre s₀) : WP isa initPre s₀ (KInv s
           .mov .esi (.reg .ebp), .alu .add .esi (.imm 100), .mov .edi (stk 12), .mov .edx (.imm 3)])) from rfl]
   refine WP.seq ?_
   refine wp_arg (s₀ := s₀) 3 rfl rfl (hp.argIn rfl rfl (by decide)) rfl fun s₁ u₁ => ?_
-  refine saveList_ok saved s₁ _ (fun p hp' => ?_) fun s₂ g₂ rd₂ wr₂ m₂ => ?_
+  refine Spill.save_ofNat_ok saved saved_fits (by rw [u₁.gpr]; exact fits_of hp.scr_fit (by decide))
+    (fun p hp' => ?_) fun s₂ u₂ => ?_
   · have hb := saved_bound p hp'
     rw [u₁.gpr, u₁.wr]
-    exact ⟨by omega, hp.inScr (by omega) (by decide)⟩
+    exact hp.inScr (by omega) (by decide)
   have hm₂ : s₂.mem = savedMem s₀ (Sc s₀) := by
-    rw [m₂, u₁.mem, u₁.gpr, savedMem]
-    exact saveMem_congr _ _ _ fun p hp' => u₁.other _ (saved_ne_eax p hp')
+    rw [u₂.mem, u₁.mem, u₁.gpr, savedMem]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p hp' => u₁.other _ (saved_ne_eax p hp')
   have sv : Frame [iscrR s₀] s₀.mem (savedMem s₀ (Sc s₀)) := (savedMem_frame s₀ (Sc s₀)).sub fun r hr => by
     simp only [List.mem_singleton] at hr; subst hr
     exact ⟨iscrR s₀, by simp, Offset.sub_base _ (by decide)⟩
@@ -215,10 +216,10 @@ theorem initPre_wp {s₀ : State} (hp : IPre s₀) : WP isa initPre s₀ (KInv s
   have scrC : ∀ d, d + 4 ≤ 640 → (iscrR s₀).Contains ((Sc s₀).setWidth 64 + BitVec.ofNat 64 d) (32 / 8) :=
     fun d hd => Offset.contains_base _ hd (by omega)
   refine wp_mov fun s₃ u₃ => ?_
-  have e₃ : s₃.gpr .ebp = Sc s₀ := by rw [u₃.gpr, g₂, u₁.gpr]
-  have esp₃ : s₃.gpr .esp = s₀.gpr .esp := by rw [u₃.other _ (by decide), g₂, u₁.other _ (by decide)]
-  have rd₃ : s₃.rd = s₀.rd := by rw [u₃.rd, rd₂, u₁.rd]
-  have wr₃ : s₃.wr = s₀.wr := by rw [u₃.wr, wr₂, u₁.wr]
+  have e₃ : s₃.gpr .ebp = Sc s₀ := by rw [u₃.gpr, u₂.gpr, u₁.gpr]
+  have esp₃ : s₃.gpr .esp = s₀.gpr .esp := by rw [u₃.other _ (by decide), u₂.gpr, u₁.other _ (by decide)]
+  have rd₃ : s₃.rd = s₀.rd := by rw [u₃.rd, u₂.rd, u₁.rd]
+  have wr₃ : s₃.wr = s₀.wr := by rw [u₃.wr, u₂.wr, u₁.wr]
   refine wp_arg (s₀ := s₀) 0 rfl esp₃ (hp.argIn rd₃ wr₃ (by decide))
     (by rw [u₃.mem, hm₂]; exact hp.arg_eq (toOS sv) (by decide)) fun s₄ u₄ => ?_
   have cx₄ : s₄.gpr .ecx = K s₀ := u₄.gpr
@@ -588,9 +589,10 @@ theorem init_wp {s₀ : State} (h0 : initX86.pre s₀) :
     rw [m₁₀, m₉, u₈.mem, u₇.mem, a4, a4]
     exact (((F₆'.writeW (by simp) _ (oC 0 (by decide))).writeW (by simp) _ (oC 4 (by decide))).writeW (by simp) _
       (oC 8 (by decide))).writeW (by simp) _ (oC 12 (by decide))
-  refine WP.mono (restore_ok ebp₁₀ (by omega) fun d h₁' h₂' => by
+  refine WP.mono (restore_ok ebp₁₀ (by omega) (fun d h₁' h₂' => by
       rw [rdwr₁₀]; exact in_rw (r := iscrR s₀) (by simp) (Offset.contains_base _ (by omega) (by omega)))
-    fun s' ⟨hl, ho, m', _, _⟩ => ⟨restored (S := Sc s₀) (fun d h₁' h₂' => ?_) hl ?_ ?_, ?_, ?_⟩
+      (saved_of (S := Sc s₀) fun d h₁' h₂' => ?_))
+    fun s' r' => ⟨restored r' ?_ ?_, ?_, ?_⟩
   · refine F₁₀.readW (r := ⟨(Sc s₀).setWidth 64 + BitVec.ofNat 64 d, 4⟩) (Region.contains_self _ _)
       (fun r hr => ?_) (by decide)
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -598,8 +600,8 @@ theorem init_wp {s₀ : State} (h0 : initX86.pre s₀) :
     · exact Offset.disjoint_base _ (by omega) (by omega)
     · exact Offset.disjoint _ (by omega) (by omega) (by omega)
     · exact (hp.out_scr.sub_right (Offset.sub_base _ (by omega))).symm
-  · rw [ho _ (by decide), g₁₀ _ (by decide), g₉ _ (by decide), u₈.other _ (by decide), u₇.other _ (by decide), esp₆]
-  · rw [m', F₁₀.readW (r := retR s₀) (Region.contains_self _ _) (fun r hr => ?_) (by decide)]
+  · rw [g₁₀ _ (by decide), g₉ _ (by decide), u₈.other _ (by decide), u₇.other _ (by decide), esp₆]
+  · rw [r'.mem, F₁₀.readW (r := retR s₀) (Region.contains_self _ _) (fun r hr => ?_) (by decide)]
     · exact (savedMem_frame s₀ (Sc s₀)).readW (r := retR s₀) (Region.contains_self _ _) (fun r hr => by
         simp only [List.mem_singleton] at hr; subst hr
         exact hp.ret_scr.sub_right (Offset.sub_base _ (by decide))) (by decide)
@@ -610,7 +612,7 @@ theorem init_wp {s₀ : State} (h0 : initX86.pre s₀) :
       · exact hp.ret_out
   -- The key schedule.
   · show Spec.TripleDes.scheduleAt s'.mem ((O s₀).setWidth 64) = Spec.TripleDes.expandKey (keyB s₀)
-    rw [m', ← hsch₂]
+    rw [r'.mem, ← hsch₂]
     refine scheduleAt_frame (rs := [iscrR s₀, ⟨(O s₀).setWidth 64 + BitVec.ofNat 64 384, 16⟩]) ?_ fun r hr => ?_
     · have c : ∀ d, d + 4 ≤ 16 → (⟨(O s₀).setWidth 64 + BitVec.ofNat 64 384, 16⟩ : Region).Contains
           ((O s₀).setWidth 64 + BitVec.ofNat 64 (384 + d)) (32 / 8) := fun d hd => by
@@ -628,7 +630,7 @@ theorem init_wp {s₀ : State} (h0 : initX86.pre s₀) :
   · show Spec.Aes.bytesAt s'.mem ((O s₀).setWidth 64 + BitVec.ofNat 64 384) 16 =
       (Spec.Cmac.subkeys (Spec.Cmac.tdesWith (Spec.TripleDes.expandKey (keyB s₀))) 8).1 ++
         (Spec.Cmac.subkeys (Spec.Cmac.tdesWith (Spec.TripleDes.expandKey (keyB s₀))) 8).2
-    rw [subkeys_tdes, m', bytesAt_split, ← le8_readW, ← le8_readW, readW64_split, readW64_split, m₁₀, m₉, u₈.mem,
+    rw [subkeys_tdes, r'.mem, bytesAt_split, ← le8_readW, ← le8_readW, readW64_split, readW64_split, m₁₀, m₉, u₈.mem,
       u₇.mem]
     simp (disch := decide) only [Offset.add_add, readW_writeW_far, Mem.readW_writeW_self32]
     rw [bswap_eq, bswap_eq, bswap_eq, bswap_eq, byteRev32_append, byteRev32_append, ax₁₀, ax₉,

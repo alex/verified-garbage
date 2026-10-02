@@ -15,7 +15,7 @@ stack arguments (`t` in `r3:r11`, `last` in `r12`, `scratch` in `lr`).
 `call_ok` runs such a frame from the state before its push (`WP.frame`,
 `WP.call`), and `call_rel` relates two runs of it (`RelCT.frame`,
 `RelCT.call`), as for HMAC's calls of `update`
-(`Proof/Hmac/Generic/Arm/Hash.lean`). The frame writes the 16 bytes below the
+(`Proof/Pbkdf2/Stream/Arm/Hash.lean`). The frame writes the 16 bytes below the
 stack pointer (`below`), which `After` lets change.
 -/
 

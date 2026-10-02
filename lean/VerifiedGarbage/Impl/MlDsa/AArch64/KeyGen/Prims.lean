@@ -18,7 +18,7 @@ AArch64 implementations of the primitives (`prims`).
 
 namespace VG.Impl.MlDsa.AArch64.KeyGen
 
-open VG.AArch64
+open VG.AArch64 VG.Impl.MlDsa.AArch64.Call
 
 /-- The AArch64 primitives. -/
 def primsWith (c : Impl.Sha3.AArch64.Callee) : Prims where

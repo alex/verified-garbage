@@ -11,12 +11,12 @@ def pkLocal : Contract isa where
     let out : Region := ⟨s.gpr .x0, 32⟩
     let seed : Region := ⟨s.gpr .x1, 32⟩
     let scr : Region := ⟨s.gpr .x2, 8192⟩
-    let stk : Region := below s.sp 336
+    let stk : Region := below s.sp 352
     s.rd = [seed] ∧ s.wr = [out, scr] ∧
       out.Disjoint seed ∧ out.Disjoint scr ∧ seed.Disjoint scr ∧
       stk.Disjoint out ∧ stk.Disjoint seed ∧ stk.Disjoint scr ∧
       (s.gpr .x0).toNat + 32 ≤ 2 ^ 64 ∧ (s.gpr .x1).toNat + 32 ≤ 2 ^ 64 ∧
-      (s.gpr .x2).toNat + 8192 ≤ 2 ^ 64 ∧ 336 ≤ s.sp.toNat
+      (s.gpr .x2).toNat + 8192 ≤ 2 ^ 64 ∧ 352 ≤ s.sp.toNat
   post s t := Spec.Ed25519.bytesAt t.mem (s.gpr .x0) 32 =
     Spec.Ed25519.publicKey (Spec.Ed25519.bytesAt s.mem (s.gpr .x1) 32)
   pub s t := s.sp = t.sp ∧ s.gpr .x0 = t.gpr .x0 ∧ s.gpr .x1 = t.gpr .x1 ∧ s.gpr .x2 = t.gpr .x2
@@ -24,19 +24,21 @@ def pkLocal : Contract isa where
 def lay (s : State) : Lay := ⟨s.gpr .x0, s.gpr .x1, s.gpr .x2, Whole.base s⟩
 
 theorem lay_ok {s : State} (h : pkLocal.pre s) : (lay s).Ok := by
-  obtain ⟨_, _, os, oc, sc, ko, ks, kc, no, ns, nc, _⟩ := h
-  exact ⟨os, oc, sc, ko, ks, kc, no, ns, nc⟩
+  obtain ⟨_, _, os, oc, sc, ko, ks, kc, no, ns, nc, hsp⟩ := h
+  exact ⟨os, oc, sc, ko.sub_left (Whole.stk_sub s), ks.sub_left (Whole.stk_sub s),
+    kc.sub_left (Whole.stk_sub s), no, ns, nc, Whole.base_16 hsp, ko.sub_left (Whole.ck_sub s),
+    ks.sub_left (Whole.ck_sub s), kc.sub_left (Whole.ck_sub s)⟩
 
-theorem entry_below {s : State} (h : pkLocal.pre s) : 336 ≤ s.sp.toNat := h.2.2.2.2.2.2.2.2.2.2.2
+theorem entry_below {s : State} (h : pkLocal.pre s) : 352 ≤ s.sp.toNat := h.2.2.2.2.2.2.2.2.2.2.2
 
 theorem entry_writes {s : State} (h : pkLocal.pre s) :
-    ∀ r ∈ s.wr, (below s.sp 336).Disjoint r := by
+    ∀ r ∈ s.wr, (below s.sp 352).Disjoint r := by
   intro r hr
   rw [h.2.1] at hr
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl
-  · exact (lay_ok h).ko
-  · exact (lay_ok h).kc
+  · exact h.2.2.2.2.2.1
+  · exact h.2.2.2.2.2.2.2.1
 
 theorem entry_ctx {s p : State} (h : pkLocal.pre s) (hp : Whole.Saved (Whole.entered s) 6 p) :
     Ctx (lay s) s.gpr s.v p.mem (p.withRegions (Whole.bodyRd s) (Whole.bodyWr s)) := by
@@ -57,7 +59,7 @@ def satState : State where
   rd := [⟨0x2000, 32⟩]
   wr := [⟨0x1000, 32⟩, ⟨0x4000, 8192⟩]
 
-theorem pk_implies : pkLocal.Implies (Spec.Ed25519.publicKeyContract AArch64.abi 336) := by
+theorem pk_implies : pkLocal.Implies (Spec.Ed25519.publicKeyContract AArch64.abi 352) := by
   sig_implies [Spec.Ed25519.publicKeyContract, Spec.Ed25519.publicKeySig,
     Spec.Ed25519.scratchWords, pkLocal, below, AArch64.abi, AArch64.argRegs]
     [satState] using satState

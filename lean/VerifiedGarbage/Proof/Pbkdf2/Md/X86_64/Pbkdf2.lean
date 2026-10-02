@@ -18,7 +18,7 @@ open VG.Impl.MdStream.X86_64 (at_)
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Pbkdf2.Md.X86_64 (HashOK ea_nat wp_mov32r zx32 contains_pre)
 open VG.Proof.Pbkdf2.X86_64 (iterK)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG After SavedRegs SavedRegs.frame)
+open VG.Proof.Pbkdf2.Md.X86_64.Calls (initG finG After SavedRegs SavedRegs.frame)
 open VG.Proof.Hmac.Generic.Common (bytes_keep readW_writeW_ne InRegions.right' sub_of_off sub_of_self bytesAt_take)
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_add bytesAt_writeBytes_sep bytesAt_getD' writeBytes_at xorPad_length)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_frame)
@@ -68,7 +68,7 @@ theorem entry_ok {s₂ : State} (hl₂ : Loaded s₀ s₂) : WP isa (.block H.en
   simp only [Hash.entry]
   have h8 : s₂.gpr .r8 = scr s₀ := hl₂.r8
   have g₂ : ∀ r, r ≠ .r8 → r ≠ .r10 → s₂.gpr r = s₀.gpr r := hl₂.other
-  refine VG.Proof.Hmac.Generic.X86_64.save_ok H.hh h8 hW (L := (H.W + H.S) * 8)
+  refine VG.Proof.Pbkdf2.Md.X86_64.Calls.save_ok H.hh h8 hW (L := (H.W + H.S) * 8)
     (by rw [hl₂.wr]; exact sc_mem hp) (by show 8 * H.W + 48 ≤ (H.W + H.S) * 8; omega)
     fun s₃ g₃ rd₃ wr₃ f₃ sv₃ => ?_
   refine wp_mov fun s₄ u₄ _ _ => ?_
@@ -157,8 +157,8 @@ omit hp hz in
 /-- `d ← scratch + o`. -/
 theorem scr_ok {s : State} {d : Reg} (h15 : s.gpr .r15 = scr s₀) {o : Nat} (ho : o < 2 ^ 31)
     {rest : List Instr} {Q : State → Prop} (k : ∀ s', Upd s s' d (A s₀ o) → WP isa (.block rest) s' Q) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86_64.scr d o ++ rest)) s Q := by
-  simp only [VG.Impl.Hmac.Generic.X86_64.scr, List.cons_append, List.nil_append]
+    WP isa (.block (VG.Impl.Pbkdf2.Md.X86_64.scr d o ++ rest)) s Q := by
+  simp only [VG.Impl.Pbkdf2.Md.X86_64.scr, List.cons_append, List.nil_append]
   refine wp_mov fun s₁ u₁ _ _ => wp_addi fun s₂ u₂ => k s₂ ⟨?_, fun r hr => by rw [u₂.other r hr, u₁.other r hr],
     by rw [u₂.mem, u₁.mem], by rw [u₂.rd, u₁.rd], by rw [u₂.wr, u₁.wr]⟩
   rw [u₂.gpr, u₁.gpr, h15, sx_ofNat ho]
@@ -250,11 +250,11 @@ theorem KE.call {s s' : State} (h : KE (H := H) s₀ s) (hrd : s'.rd = s.rd) (hw
 
 omit hp in
 theorem hk1_ok {s : State} (h : KE (H := H) s₀ s) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.stWO)) s fun t =>
+    WP isa (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.stWO)) s fun t =>
       KE (H := H) s₀ t ∧ t.gpr .rdi = A s₀ H.stWO := by
   have hl := layout (H := H); have he := end_le hz; have hL := L_lt hz; have hW := hz.W; have hB := hz.z.B_le
   have hN := hz.z.N; have hD := hz.z.D
-  rw [← List.append_nil (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.stWO)]
+  rw [← List.append_nil (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.stWO)]
   exact scr_ok h.kr.r15 (by omega) fun s₁ u₁ => WP.block_nil ⟨h.upd u₁ (by decide), u₁.gpr⟩
 
 theorem hk2_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s) (hdi : s.gpr .rdi = A s₀ H.stWO) :
@@ -264,7 +264,7 @@ theorem hk2_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s) (hdi : s.gpr
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
   have hWb : hH.stream.Wb = H.P.so + 48 := rfl
   have hF : H.stream.F = H.P.N := rfl
-  exact VG.Proof.Hmac.Generic.X86_64.init_call hH.stream (st := A s₀ H.stWO) hdi
+  exact VG.Proof.Pbkdf2.Md.X86_64.Calls.init_call hH.stream (st := A s₀ H.stWO) hdi
     (Covers.of_sub fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr; exact cov_part hp h.kr (by omega))
     (stk_sc hp h.kr (by omega) (part_sub (by omega))) fun s₂ a₂ r₂ =>
@@ -273,9 +273,9 @@ theorem hk2_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s) (hdi : s.gpr
 
 /-- `update`'s arguments: the password. -/
 theorem hk3_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s) (hr : hH.SH.Repr s.mem (A s₀ H.stWO) []) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.stWO ++ ([.mov32 .rsi (.imm 0), .mov .rdx (.reg .rbx),
+    WP isa (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.stWO ++ ([.mov32 .rsi (.imm 0), .mov .rdx (.reg .rbx),
       .mov .rcx (.reg .rbp), .mov .r8 (.reg .r15)] : List Instr))) s fun t => KE (H := H) s₀ t ∧
-      VG.Proof.Hmac.Generic.X86_64.UpdArgs hH.stream t (A s₀ H.stWO) (pw s₀) (scr s₀) (pwl s₀) ∧
+      VG.Proof.Pbkdf2.Md.X86_64.Calls.UpdArgs hH.stream t (A s₀ H.stWO) (pw s₀) (scr s₀) (pwl s₀) ∧
       t.gpr .rsi = BitVec.ofNat 64 0 ∧ hH.SH.Repr t.mem (A s₀ H.stWO) [] := by
   have hl := layout (H := H); have he := end_le hz; have hL := L_lt hz; have hW := hz.W
   have hB := hz.z.B_le; have hN := hz.z.N; have hD := hz.z.D; have hfit := hz.z.fits
@@ -311,7 +311,7 @@ theorem hk3_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s) (hr : hH.SH.
       stk_sc := stk_sc hp k₇.kr (by omega) (Region.sub_prefix (by rw [hWb]; omega)) }
 
 theorem hk4_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
-    (ua : VG.Proof.Hmac.Generic.X86_64.UpdArgs hH.stream s (A s₀ H.stWO) (pw s₀) (scr s₀) (pwl s₀))
+    (ua : VG.Proof.Pbkdf2.Md.X86_64.Calls.UpdArgs hH.stream s (A s₀ H.stWO) (pw s₀) (scr s₀) (pwl s₀))
     (hsi : s.gpr .rsi = BitVec.ofNat 64 0) (hr : hH.SH.Repr s.mem (A s₀ H.stWO) []) :
     WP isa (.call H.updN H.updC) s fun t => KE (H := H) s₀ t ∧
       hH.SH.Repr t.mem (A s₀ H.stWO) (bytesAt s₀.mem (pw s₀) (pwl s₀)) := by
@@ -320,7 +320,7 @@ theorem hk4_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
   have hWb : hH.stream.Wb = H.P.so + 48 := rfl
   have hF : H.stream.F = H.P.N := rfl
-  refine VG.Proof.Hmac.Generic.X86_64.upd_call hH.stream ua (by have := hp.pwnw; omega) fun s₈ a₈ r₈ =>
+  refine VG.Proof.Pbkdf2.Md.X86_64.Calls.upd_call hH.stream ua (by have := hp.pwnw; omega) fun s₈ a₈ r₈ =>
     ⟨h.call hp hz a₈.rd a₈.wr a₈.cs (by omega) a₈.frame fun r hr => ?_, ?_⟩
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
@@ -332,9 +332,9 @@ theorem hk4_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
 /-- `finalize`'s arguments: the digest into `scratch`. -/
 theorem hk5_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
     (hr : hH.SH.Repr s.mem (A s₀ H.stWO) (bytesAt s₀.mem (pw s₀) (pwl s₀))) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.stWO ++ ([.mov .rsi (.reg .rbp)] : List Instr) ++
-      VG.Impl.Hmac.Generic.X86_64.scr .rdx H.hkO ++ ([.mov .rcx (.reg .r15)] : List Instr))) s fun t =>
-      KE (H := H) s₀ t ∧ VG.Proof.Hmac.Generic.X86_64.FinArgs hH.stream t (A s₀ H.stWO) (A s₀ H.hkO) (scr s₀) ∧
+    WP isa (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.stWO ++ ([.mov .rsi (.reg .rbp)] : List Instr) ++
+      VG.Impl.Pbkdf2.Md.X86_64.scr .rdx H.hkO ++ ([.mov .rcx (.reg .r15)] : List Instr))) s fun t =>
+      KE (H := H) s₀ t ∧ VG.Proof.Pbkdf2.Md.X86_64.Calls.FinArgs hH.stream t (A s₀ H.stWO) (A s₀ H.hkO) (scr s₀) ∧
       t.gpr .rsi = s₀.gpr .rsi ∧ hH.SH.Repr t.mem (A s₀ H.stWO) (bytesAt s₀.mem (pw s₀) (pwl s₀)) := by
   have hl := layout (H := H); have he := end_le hz; have hL := L_lt hz; have hW := hz.W
   have hB := hz.z.B_le; have hN := hz.z.N; have hD := hz.z.D; have hfit := hz.z.fits
@@ -366,7 +366,7 @@ theorem hk5_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
       stk_sc := stk_sc hp k₁₂.kr (by omega) (Region.sub_prefix (by rw [hWb]; omega)) }
 
 theorem hk6_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
-    (fa : VG.Proof.Hmac.Generic.X86_64.FinArgs hH.stream s (A s₀ H.stWO) (A s₀ H.hkO) (scr s₀))
+    (fa : VG.Proof.Pbkdf2.Md.X86_64.Calls.FinArgs hH.stream s (A s₀ H.stWO) (A s₀ H.hkO) (scr s₀))
     (hsi : s.gpr .rsi = s₀.gpr .rsi) (hr : hH.SH.Repr s.mem (A s₀ H.stWO) (bytesAt s₀.mem (pw s₀) (pwl s₀))) :
     WP isa (.call H.finN H.finC) s fun t => KE (H := H) s₀ t ∧
       bytesAt t.mem (A s₀ H.hkO) H.D = hH.SH.H.hash (bytesAt s₀.mem (pw s₀) (pwl s₀)) := by
@@ -375,7 +375,7 @@ theorem hk6_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
   have hWb : hH.stream.Wb = H.P.so + 48 := rfl
   have hF : H.stream.F = H.P.N := rfl
-  refine VG.Proof.Hmac.Generic.X86_64.fin_call hH.stream fa fun s₁₃ a₁₃ r₁₃ =>
+  refine VG.Proof.Pbkdf2.Md.X86_64.Calls.fin_call hH.stream fa fun s₁₃ a₁₃ r₁₃ =>
     ⟨h.call hp hz a₁₃.rd a₁₃.wr a₁₃.cs (by omega) a₁₃.frame fun r hr => ?_, ?_⟩
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
@@ -388,7 +388,7 @@ theorem hk6_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s)
 
 omit hp in
 theorem hk7_ok {s : State} (h : KE (H := H) s₀ s) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdx H.hkO ++
+    WP isa (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdx H.hkO ++
       ([.mov32 .rcx (.imm (BitVec.ofNat 32 H.D))] : List Instr))) s fun t =>
       KE (H := H) s₀ t ∧ t.gpr .rdx = A s₀ H.hkO ∧ (t.gpr .rcx).toNat = H.D ∧ t.mem = s.mem := by
   have hl := layout (H := H); have he := end_le hz; have hD := hz.z.D; have hN := hz.z.N
@@ -504,7 +504,7 @@ theorem KeyAt.facts (hH : HashOK H) {m : Mem} {kp : Addr} {kl : Nat} (hk : KeyAt
 /-- HMAC's `init`'s arguments: its two states and the key. -/
 theorem su1_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s) (hdx : s.gpr .rdx = kp H s₀)
     (hcx : (s.gpr .rcx).toNat = kl H s₀) (hk : KeyAt hH s₀ s.mem (kp H s₀) (kl H s₀)) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.st0O ++ VG.Impl.Hmac.Generic.X86_64.scr .rsi H.st1O ++
+    WP isa (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.st0O ++ VG.Impl.Pbkdf2.Md.X86_64.scr .rsi H.st1O ++
       ([.mov .r8 (.reg .r15)] : List Instr))) s fun t => KE (H := H) s₀ t ∧
       InitArgs (H := H) t (A s₀ H.st0O) (A s₀ H.st1O) (kp H s₀) (scr s₀) (kl H s₀) ∧
       KeyAt hH s₀ t.mem (kp H s₀) (kl H s₀) := by
@@ -574,11 +574,11 @@ theorem su2_ok (hH : HashOK H) (hI : Verified X86_64.target H.hmacInit (initG hH
 theorem su3_ok (hH : HashOK H) {s₄ : State} (h : KE (H := H) s₀ s₄)
     (ri₄ : hH.SH.Repr s₄.mem (A s₀ H.st0O) (xorPad (K0 hH s₀) ipad))
     (ro₄ : hH.SH.Repr s₄.mem (A s₀ H.st1O) (xorPad (K0 hH s₀) opad)) :
-    WP isa (.seq (VG.Impl.Hmac.Generic.X86_64.copy .r15 H.st0O .r15 H.stSO H.S)
-      (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.stSO ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 H.P.B)),
+    WP isa (.seq (VG.Impl.Pbkdf2.Md.X86_64.copy .r15 H.st0O .r15 H.stSO H.S)
+      (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.stSO ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 H.P.B)),
         .mov .rdx (.reg .r12), .mov .rcx (.reg .r13), .mov .r8 (.reg .r15)] : List Instr)))) s₄ fun t =>
       KE (H := H) s₀ t ∧
-      VG.Proof.Hmac.Generic.X86_64.UpdArgs hH.stream t (A s₀ H.stSO) (salt s₀) (scr s₀) (sl s₀) ∧
+      VG.Proof.Pbkdf2.Md.X86_64.Calls.UpdArgs hH.stream t (A s₀ H.stSO) (salt s₀) (scr s₀) (sl s₀) ∧
       t.gpr .rsi = BitVec.ofNat 64 H.P.B ∧
       hH.SH.Repr t.mem (A s₀ H.st0O) (xorPad (K0 hH s₀) ipad) ∧
       hH.SH.Repr t.mem (A s₀ H.st1O) (xorPad (K0 hH s₀) opad) ∧
@@ -588,7 +588,7 @@ theorem su3_ok (hH : HashOK H) {s₄ : State} (h : KE (H := H) s₀ s₄)
   have hWb : hH.stream.Wb = H.P.so + 48 := rfl
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
   have hsnw := hp.snw
-  refine WP.seq (WP.mono (VG.Proof.Hmac.Generic.X86_64.copy_ok (src := .r15) (dst := .r15) (by decide) (by decide)
+  refine WP.seq (WP.mono (VG.Proof.Pbkdf2.Md.X86_64.Calls.copy_ok (src := .r15) (dst := .r15) (by decide) (by decide)
     (so := H.st0O) (d := H.stSO) (n := H.S) (by omega) (by omega) (s := s₄)
     (fun j hj => by rw [h.kr.r15, add_ofNat]; exact InRegions.right' (in_sc hp hz h.kr.wr (by omega)))
     (fun j hj => by rw [h.kr.r15, add_ofNat]; exact in_sc hp hz h.kr.wr (by omega))
@@ -636,7 +636,7 @@ theorem su3_ok (hH : HashOK H) {s₄ : State} (h : KE (H := H) s₀ s₄)
 
 /-- `update` with the salt. -/
 theorem su4_ok (hH : HashOK H) {s₁₀ : State} (k₁₀ : KE (H := H) s₀ s₁₀)
-    (ua : VG.Proof.Hmac.Generic.X86_64.UpdArgs hH.stream s₁₀ (A s₀ H.stSO) (salt s₀) (scr s₀) (sl s₀))
+    (ua : VG.Proof.Pbkdf2.Md.X86_64.Calls.UpdArgs hH.stream s₁₀ (A s₀ H.stSO) (salt s₀) (scr s₀) (sl s₀))
     (hsi : s₁₀.gpr .rsi = BitVec.ofNat 64 H.P.B)
     (ri : hH.SH.Repr s₁₀.mem (A s₀ H.st0O) (xorPad (K0 hH s₀) ipad))
     (ro : hH.SH.Repr s₁₀.mem (A s₀ H.st1O) (xorPad (K0 hH s₀) opad))
@@ -647,7 +647,7 @@ theorem su4_ok (hH : HashOK H) {s₁₀ : State} (k₁₀ : KE (H := H) s₀ s�
   have hWb : hH.stream.Wb = H.P.so + 48 := rfl
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
   have hsnw := hp.snw
-  refine VG.Proof.Hmac.Generic.X86_64.upd_call hH.stream ua (by have := hp.sanw; omega) fun s₁₁ a₁₁ r₁₁ => ?_
+  refine VG.Proof.Pbkdf2.Md.X86_64.Calls.upd_call hH.stream ua (by have := hp.sanw; omega) fun s₁₁ a₁₁ r₁₁ => ?_
   have k₁₁ := k₁₀.call hp hz a₁₁.rd a₁₁.wr a₁₁.cs (by omega) a₁₁.frame fun r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Impl.Pbkdf2.Whole.Arm
 import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Calls
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Init
+import VerifiedGarbage.Proof.Pbkdf2.Stream.Arm.Common
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 
 /-!
@@ -8,7 +8,7 @@ import VerifiedGarbage.Proof.Hmac.Generic.Common
 
 As on x86 (`Proof/Pbkdf2/Whole/X86/Common.lean`): `FnsOK F` is what the proof
 knows of the functions `pbkdf2` calls (the hash function's streaming
-functions, `VG.Proof.Hmac.Generic.Arm.HashOK`, and HMAC's `init` and
+functions, `VG.Proof.Pbkdf2.Stream.Arm.HashOK`, and HMAC's `init` and
 `finalize` and PBKDF2's `iterate`, sound for their shared contracts with 16
 bytes of stack). Then the precondition of `pbkdf2` (`Pre`, from the shared
 contract with 24 bytes of stack), the parts of its `scratch`, and what every
@@ -20,8 +20,8 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 open VG.Arm
 open VG.Arm.FrameStack
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
-open VG.Impl.Hmac.Generic.Arm (Hash scrAt)
-open VG.Proof.Hmac.Generic.Arm (HashOK SavedRegs saveR)
+open VG.Impl.Pbkdf2.Stream.Arm (Hash scrAt)
+open VG.Proof.Pbkdf2.Stream.Arm (HashOK SavedRegs saveR)
 open VG.Proof.Hmac.Generic.Common (bytes_keep)
 open VG.Proof.MdStream.Arm (Upd)
 open Spec.Sha256 (bytesAt)
@@ -386,10 +386,10 @@ theorem scr_ok {s₀ s : State} (hk : KR F s₀ s) {d : Reg} {o : Nat} (ho : o <
     (k : ∀ s', Upd12 s s' d (dO s₀ o) → WP isa (.block rest) s' Q) :
     WP isa (.block (scrAt d o ++ rest)) s Q := by
   simp only [scrAt, List.cons_append, List.nil_append]
-  refine Hmac.Generic.Arm.wp_movw fun s₁ u₁ => VG.Proof.MdStream.Arm.wp_add (VG.Proof.MdStream.Arm.op2_reg _ _)
+  refine Pbkdf2.Stream.Arm.wp_movw fun s₁ u₁ => VG.Proof.MdStream.Arm.wp_add (VG.Proof.MdStream.Arm.op2_reg _ _)
     fun s₂ u₂ => k s₂ ⟨?_, fun r h₁ h₂ => by rw [u₂.other r h₁, u₁.other r h₂], by rw [u₂.mem, u₁.mem],
       by rw [u₂.rd, u₁.rd], by rw [u₂.wr, u₁.wr], by rw [u₂.sp, u₁.sp]⟩
-  rw [u₂.gpr, u₁.gpr, u₁.other _ (by decide), hk.r11, Hmac.Generic.Arm.movw_ofNat ho]
+  rw [u₂.gpr, u₁.gpr, u₁.other _ (by decide), hk.r11, Pbkdf2.Stream.Arm.movw_ofNat ho]
 
 /-- `adc d, n, #y`. -/
 theorem wp_adc {is : List Instr} {s : State} {Q : State → Prop} {d n : Reg} {o : Op2} {y : BitVec 32}

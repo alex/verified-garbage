@@ -7,17 +7,13 @@ import VerifiedGarbage.Spec.Sha512.Contract
 /-! SHA-512 calls parameterized by the verified compression backend. -/
 namespace VG.Proof.Ed25519.AArch64.Whole
 open VG VG.AArch64
-open VG.Impl.Sha512.AArch64.Stream
+open VG.Impl.Sha512.AArch64.Stream (init)
 
 abbrev Backend := Proof.Sha512.AArch64.Compress
 
-theorem update_noFrames (v : Backend) : v.update.noFrames = true := by
-  simp only [Proof.Sha512.AArch64.Compress.update, updateWith, updateBodyWith,
-    compressAtWith, fill, Code.noFrames, v.noFrames, Bool.and_self]
+theorem update_depth (v : Backend) : v.update.aarch64Depth ≤ 1 := Nat.le_of_eq v.update_depth
 
-theorem finalize_noFrames (v : Backend) : v.finalize.noFrames = true := by
-  simp only [Proof.Sha512.AArch64.Compress.finalize, finalizeWith, finalizeBodyWith,
-    compressAtWith, Code.noFrames, v.noFrames, Bool.and_self]
+theorem finalize_depth (v : Backend) : v.finalize.aarch64Depth ≤ 1 := Nat.le_of_eq v.finalize_depth
 
 variable {E : Addr} {g : Reg → BitVec 64} {vec : VReg → BitVec 128}
   {m₀ : Mem} {rd wr : List Region} {t : State}
@@ -47,10 +43,10 @@ theorem update_call (v : Backend) (hc : Ctx E g vec m₀ rd wr t)
     (hcount : t.gpr .x1 = BitVec.ofNat 64 prev.length)
     (hr : Spec.Sha512.Repr Spec.Sha512.H0_512 t.mem scr prev) :
     WP isa (.call (Spec.Sha512.updateApi.name ++ v.suffix) v.update) t fun u =>
-      Ctx E g vec m₀ rd wr u ∧ Frame wr' t.mem u.mem ∧
+      Ctx E g vec m₀ rd wr u ∧ Frame (wr' ++ [CK E]) t.mem u.mem ∧
       Spec.Sha512.Repr Spec.Sha512.H0_512 u.mem scr
         (prev ++ Spec.Ed25519.bytesAt t.mem p len.toNat) := by
-  refine call_ok hc v.update_verified.1 (update_noFrames v) hp hcov hw
+  refine call_okF hc v.update_verified.1 (update_depth v) hp hcov hw
     fun u hu hf hpost => ⟨hu, hf, ?_⟩
   have h0' : (t.callEntry.withRegions rd' wr').gpr .x0 = scr := by
     rw [State.withRegions_gpr, State.callEntry_gpr _ (by decide), h0]
@@ -74,9 +70,9 @@ theorem finalize_call (v : Backend) (hc : Ctx E g vec m₀ rd wr t)
     (hcount : t.gpr .x1 = BitVec.ofNat 64 msg.length)
     (hr : Spec.Sha512.Repr Spec.Sha512.H0_512 t.mem scr msg) (hlen : msg.length < 2 ^ 64) :
     WP isa (.call (Spec.Sha512.finalizeApi.name ++ v.suffix) v.finalize) t fun u =>
-      Ctx E g vec m₀ rd wr u ∧ Frame wr' t.mem u.mem ∧
+      Ctx E g vec m₀ rd wr u ∧ Frame (wr' ++ [CK E]) t.mem u.mem ∧
       Spec.Ed25519.bytesAt u.mem out 64 = Spec.Sha512.finalHash Spec.Sha512.H0_512 msg := by
-  refine call_ok hc v.finalize_verified.1 (finalize_noFrames v) hp hcov hw
+  refine call_okF hc v.finalize_verified.1 (finalize_depth v) hp hcov hw
     fun u hu hf hpost => ⟨hu, hf, ?_⟩
   have h0' : (t.callEntry.withRegions rd' wr').gpr .x0 = scr := by
     rw [State.withRegions_gpr, State.callEntry_gpr _ (by decide), h0]

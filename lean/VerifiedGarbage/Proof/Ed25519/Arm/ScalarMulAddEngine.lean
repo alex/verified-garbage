@@ -41,7 +41,7 @@ theorem scalarMulAddEngine_ok {b : BitVec 32} {s : State} (hc : Ctx b s)
   refine WP.seq (WP.append (scalarWideAdd_ok (by decide) hcu lru lu) fun v ⟨kv, fv, lv, vv⟩ => ?_)
   have hcv := hcu.of_rest kv (by decide)
   have vr : V u.mem (State.addr b) 64 = V s.mem (State.addr b) 64 := val16_congr ur
-  have sum : val16 (accw v.mem (State.addr b)) 32 =
+  have sum : val16 (accw ACC v.mem (State.addr b)) 32 =
       V s.mem (State.addr b) 128 * V s.mem (State.addr b) 192 + V s.mem (State.addr b) 64 := by
     rw [vu, vr] at vv
     have bound := scalar_muladd_bound (V_lt lr) (V_lt lk) (V_lt la)

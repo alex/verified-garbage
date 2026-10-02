@@ -89,7 +89,7 @@ theorem call_ok {E : BitVec 32} {g : Reg → BitVec 32} {m₀ : Mem} {rd wr : Li
     (hw : ∀ r ∈ wr', Within r (FR E) ∨ ∃ R ∈ wr, Within r R)
     {Q : State → Prop}
     (hQ : ∀ u, Ctx E g m₀ rd wr u → Frame (wr' ++ [below E 24]) t.mem u.mem →
-      (∀ r, (∀ i ∈ VG.X86.instrs c, Taint.clobbers i r = false) → u.gpr r = t.gpr r) →
+      (∀ r, (∀ i ∈ VG.instrs c, Taint.clobbers i r = false) → u.gpr r = t.gpr r) →
       (∃ s₂ : State, s₂.mem = u.mem ∧ (∀ r, r ≠ .esp → s₂.gpr r = u.gpr r) ∧
         k.post (t.callEntry.withRegions rd' wr') s₂) → Q u) :
     WP isa (.call name c) t Q := by

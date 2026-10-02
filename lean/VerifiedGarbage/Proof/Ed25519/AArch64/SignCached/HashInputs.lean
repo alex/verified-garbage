@@ -34,17 +34,19 @@ theorem hash_field_bytes {m n : Mem} (hL : L.Ok) (hf : Frame (hashWrites L) m n)
       Spec.Ed25519.bytesAt m (L.E + BitVec.ofNat 64 d) 32 := by
   apply frame_bytes hf (field L d) _ (by change 32 ≤ 2 ^ 64; decide)
   simp only [hashWrites, List.mem_cons, List.not_mem_nil, or_false]
-  rintro r (rfl | rfl)
+  rintro r (rfl | rfl | rfl)
   · exact field_scr hL (by omega)
   · exact Offset.disjoint _ (by omega) (by omega) (by decide)
+  · exact (Whole.ck_frame (by omega)).symm
 
 theorem hash_out_bytes {m n : Mem} (hL : L.Ok) (hf : Frame (hashWrites L) m n) :
     Spec.Ed25519.bytesAt n L.out 32 = Spec.Ed25519.bytesAt m L.out 32 := by
   apply frame_bytes hf (baseOut L) _ (by change 32 ≤ 2 ^ 64; decide)
   simp only [hashWrites, List.mem_cons, List.not_mem_nil, or_false]
-  rintro r (rfl | rfl)
+  rintro r (rfl | rfl | rfl)
   · exact hL.oc.sub_left (baseWithin L).sub
   · exact (hL.ko.sub_right (baseWithin L).sub).symm.sub_right (digestWithin L).sub
+  · exact (hL.co.sub_right (baseWithin L).sub).symm
 
 theorem bytes_length (m : Mem) (p : Addr) (n : Nat) :
     (Spec.Ed25519.bytesAt m p n).length = n := by simp [Spec.Ed25519.bytesAt]

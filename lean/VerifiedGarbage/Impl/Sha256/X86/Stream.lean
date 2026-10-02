@@ -68,6 +68,8 @@ The generic streaming code (`Impl/MdStream/X86.lean`). -/
 /-- SHA-256's sizes, length field and digest in the generic streaming code. -/
 def params : MdStream.X86.Params where
   N := 32
+  B := 64
+  L := 8
   so := 112
   len := MdStream.X86.len64 112 88 true
   out := MdStream.X86.out32 8 true

@@ -148,14 +148,6 @@ theorem correct (v : Proof.Sha3.AArch64.Permutation) {s₀ : State} (hp : Pre s�
 
 /-! ## Constant time -/
 
-theorem map_toNat_inj : ∀ {l₁ l₂ : List Byte}, l₁.map (·.toNat) = l₂.map (·.toNat) → l₁ = l₂
-  | [], [], _ => rfl
-  | a :: l₁, b :: l₂, h => by
-    simp only [List.map_cons, List.cons.injEq] at h
-    rw [BitVec.eq_of_toNat_eq h.1, map_toNat_inj h.2]
-  | [], _ :: _, h => by simp at h
-  | _ :: _, [], h => by simp at h
-
 /-- The bytes of a polynomial of zeros are zero. -/
 theorem byte_zero {m : Mem} {p : Addr} (h : ∀ i < 256, coeffAt m p i = 0) {y : Addr}
     (hy : (polyRegion p).Contains y 1) : m y = 0 := by

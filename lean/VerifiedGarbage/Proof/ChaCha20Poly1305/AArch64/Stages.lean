@@ -431,20 +431,12 @@ theorem covers_sub {s₀ s : State} (hp : APre s₀) (hwr : s.wr = s₀.wr) (rs 
   obtain ⟨k, hrk, hk⟩ := h r hr
   exact ⟨ctxR s₀, by simp [hwr, hp.wr], k, by rw [hrk], hk⟩
 
-theorem covers_left {rs wr : List Region} (rd : List Region) (h : Covers rs wr) : Covers rs (rd ++ wr) :=
-  fun a n hi => by
-    obtain ⟨r, hr, hc⟩ := h a n hi
-    exact ⟨r, List.mem_append_right _ hr, hc⟩
-
-theorem covers_nil_append {rs rs' : List Region} (h : Covers rs rs') : Covers ([] ++ rs) rs' := by
-  simpa using h
-
 /-- A callee's state (at `ctx + a`, `n` bytes) and argument (at `ctx + b`,
 `m` bytes) in the context. -/
 theorem covers2 {s₀ s : State} (hp : APre s₀) (hwr : s.wr = s₀.wr) {a n b m : Nat}
     (ha : a + n ≤ 1024) (hb : b + m ≤ 1024) :
     Covers ([sub s₀ b m] ++ [sub s₀ a n]) (s.rd ++ s.wr) :=
-  covers_left _ (covers_sub hp hwr _ fun r hr => by
+  Covers.right (covers_sub hp hwr _ fun r hr => by
     simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
     · exact ⟨b, rfl, hb⟩
@@ -1411,7 +1403,7 @@ theorem crypt_ok (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre 
     (hp.c_d.sub_left (sub_ctx s₀ (k := 64) (n := 64) (by lit_omega)))
     (sub_disj s₀ (a := 64) (n := 64) (b := 128) (m := 320) (by lit_omega) (by lit_omega) (by lit_omega))
     (hp.c_d.symm.sub_right (sub_ctx s₀ (k := 128) (n := 320) (by lit_omega))) hp.wrap_d
-    (covers_nil_append (covers_left _ hw)) hw fun s₂ v₂ k₂ data₂ => ?_
+    ((Covers.right hw)) hw fun s₂ v₂ k₂ data₂ => ?_
   refine ⟨fun r hr => (v₂ r hr).trans (v₁ r hr), ?_⟩
   have hsub : ∀ r ∈ [sub s₀ 64 384, dR s₀], ∃ r' ∈ [workR s₀, dR s₀], Region.Sub r r' := by
     intro r hr
@@ -1496,7 +1488,7 @@ theorem finalizeTo_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ 
   have m₁ := k₁.mem_eq
   have ho : out + 16 ≤ 1024 := by omega
   refine finalize_call h0 h1 h2 (sub_disj s₀ (by lit_omega) (by lit_omega) ho)
-    (covers_left _ (covers_sub hp wr₁ _ (by
+    (Covers.right (covers_sub hp wr₁ _ (by
       intro r hr; simp only [List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
       · exact ⟨448, rfl, show 448 + 128 ≤ 1024 by omega⟩

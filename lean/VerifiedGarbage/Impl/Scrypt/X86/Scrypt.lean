@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.Scrypt.X86.RoMix
-import VerifiedGarbage.Impl.Hmac.Generic.X86
+import VerifiedGarbage.Impl.Pbkdf2.Stream.X86
 
 /-!
 # scrypt: x86 (32-bit) implementation
@@ -35,7 +35,7 @@ bytes of `b` left, and every address is in the frame or our arguments
 namespace VG.Impl.Scrypt.X86
 
 open VG.X86
-open VG.Impl.Hmac.Generic.X86 (at_)
+open VG.Impl.Pbkdf2.Stream.X86 (at_)
 
 /-- `[esp + d]`. -/
 abbrev sp (d : Nat) : MemOp := at_ .esp d

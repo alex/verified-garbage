@@ -18,7 +18,7 @@ namespace VG.Proof.Pbkdf2.Md.Arm
 
 open VG VG.Arm
 open VG.Impl.Pbkdf2.Md.Arm (cp copyW padFrom constW xorW)
-open VG.Impl.Hmac.Generic.Arm (scrAt)
+open VG.Impl.Pbkdf2.Stream.Arm (scrAt)
 open VG.Proof.MdStream (Md bytes32)
 open VG.Proof.MdStream.Arm (Upd Mupd wp_mov wp_add wp_ldr wp_str op2_imm op2_reg writeW_le)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_append)
@@ -304,10 +304,10 @@ def OutOk {B N L : Nat} (H : Md B N L) (out : List Instr) : Prop :=
       s'.wr = s.wr ∧ s'.sp = s.sp ∧
       s'.mem = writeBytes s.mem (State.addr (s.gpr .r6)) (H.digest (H.stateAt s.mem (State.addr (s.gpr .r0))))
 
-/-- The streaming proofs' digest code, for a hash function with 64-byte blocks. -/
-theorem OutOk.ofShape {P : Impl.MdStream.Arm.Params} {H : Md 64 P.N 8} (h : MdStream.Arm.Shape H) :
+/-- The streaming proofs' digest code. -/
+theorem OutOk.ofShape {P : Impl.MdStream.Arm.Params} {H : Md P.B P.N P.L} (h : MdStream.Arm.Shape H) :
     OutOk H P.out := fun s f₀ f₆ hin hout hd =>
-  (h.out s f₀ f₆ hin hout hd).mono fun _ ⟨g, rd, wr, sp, m⟩ => ⟨fun r h9 _ => g r h9, rd, wr, sp, m⟩
+  h.out s f₀ f₆ hin hout hd
 
 /-! ## Blocks -/
 

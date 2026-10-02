@@ -9,7 +9,7 @@ theorem init_call_ct :
       (.call Spec.Sha512.init512Api.name (Impl.Sha512.AArch64.Stream.init Spec.Sha512.H0_512))
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
   apply call_ct (Proof.Sha512.AArch64.Stream.init_verified _).1
-    (Proof.Sha512.AArch64.Stream.init_verified _).2.1 rfl
+    (Proof.Sha512.AArch64.Stream.init_verified _).2.1 (Whole.depth_of_noFrames rfl)
   · intro g v m t _ hs
     have h := hs (.x0, .caller 5 0) (by simp)
     change t.gpr .x0 = L.scr + 0#64 at h
@@ -19,18 +19,18 @@ theorem init_call_ct :
     have hsp := two_sp h
     exact ⟨call_gpr_eq (p := (.x0, .caller 5 0)) h (by simp) (by decide), hsp⟩
 
-theorem update_call_ct (backend : Backend) (count : Nat) (p n : Value)
+theorem update_call_ct (backend : Backend) (hL : L.Ok) (count : Nat) (p n : Value)
     (hi : Input L (value L p) (value L n)) :
     RelCT isa (Two L g₁ g₂ v₁ v₂ m₁ m₂ (OutArgs L
       [(.x0, .caller 5 0), (.x1, .const count), (.x2, p), (.x3, n), (.x4, .caller 5 192)]))
       (.call (Spec.Sha512.updateApi.name ++ backend.suffix) backend.update)
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
-  apply call_ct backend.update_verified.1 backend.updateCT (Whole.update_noFrames backend)
-  · intro g v m t _ hs
+  apply call_ct backend.update_verified.1 backend.update_verified.2.1 (Whole.update_depth backend)
+  · intro g v m t hc hs
     have a0 := hs (.x0, .caller 5 0) (by simp)
     change t.gpr .x0 = L.scr + 0#64 at a0
     rw [BitVec.add_zero] at a0
-    exact update_ready hi ⟨a0, hs (.x1, .const count) (by simp), hs (.x2, p) (by simp),
+    exact update_ready hL hc.sp hi ⟨a0, hs (.x1, .const count) (by simp), hs (.x2, p) (by simp),
       hs (.x3, n) (by simp), hs (.x4, .caller 5 192) (by simp)⟩
   · intro a b ar aw br bw h
     have hsp := two_sp h
@@ -46,12 +46,12 @@ theorem finalize_call_ct (backend : Backend) (hL : L.Ok) (n : Nat) (b : Bool) :
         (.x2, .frame 192), (.x3, .caller 5 192)]))
       (.call (Spec.Sha512.finalizeApi.name ++ backend.suffix) backend.finalize)
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
-  apply call_ct backend.finalize_verified.1 backend.finalizeCT (Whole.finalize_noFrames backend)
-  · intro g v m t _ hs
+  apply call_ct backend.finalize_verified.1 backend.finalize_verified.2.1 (Whole.finalize_depth backend)
+  · intro g v m t hc hs
     have a0 := hs (.x0, .caller 5 0) (by simp)
     change t.gpr .x0 = L.scr + 0#64 at a0
     rw [BitVec.add_zero] at a0
-    exact finalize_ready hL ⟨a0, hs (.x1, if b then .caller 4 n else .const n) (by simp),
+    exact finalize_ready hL hc.sp ⟨a0, hs (.x1, if b then .caller 4 n else .const n) (by simp),
       hs (.x2, .frame 192) (by simp), hs (.x3, .caller 5 192) (by simp)⟩
   · intro a c ar aw br bw h
     have hsp := two_sp h
@@ -86,7 +86,7 @@ theorem update_ct (backend : Backend) (hL : L.Ok) (ha : Arguments L m₁) (hb : 
     · exact hn
     · simp [Whole.valid]
   exact (setup_ct hL ha hb _ (by simp) hv (by simp [preserved]) ht).seq
-    (update_call_ct backend count p n hi)
+    (update_call_ct backend hL count p n hi)
 
 theorem finalize_ct (backend : Backend) (hL : L.Ok) (ha : Arguments L m₁) (hb : Arguments L m₂)
     (n : Nat) (hn : n < 4096) (b : Bool)

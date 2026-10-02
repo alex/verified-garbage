@@ -64,31 +64,16 @@ variable (P : Params)
 
 /-- The streaming code's parameters with the same hash value, scratch space,
 length field and digest, whose `save`, `restore` and `compressAt` we use. -/
-def md : MdStream.AArch64.Params := ⟨P.N, P.so, P.len, P.out⟩
+def md : MdStream.AArch64.Params := ⟨P.N, P.B, P.L, P.so, P.len, P.out⟩
 
 end Params
 
-/-- The streaming code's parameters of a hash function with 64-byte blocks
-and an 8-byte length field (MD5, SHA-1, SHA-256), as the iteration's. -/
-def ofMd (P : MdStream.AArch64.Params) : Params := ⟨P.N, 64, 8, P.so, P.len, P.out⟩
+/-- The streaming code's parameters, as the iteration's. -/
+def ofMd (P : MdStream.AArch64.Params) : Params := ⟨P.N, P.B, P.L, P.so, P.len, P.out⟩
 
 /-- Copying 32-bit word `k` from `[src + o₁]` to `[dst + o₂]`. -/
 def cp32 (src dst : Reg) (o₁ o₂ k : Nat) : List Instr :=
   [.ldr .w .x9 src (o₁ + 4 * k), .str .w .x9 dst (o₂ + 4 * k)]
-
-/-- The `n` 64-bit words at `x19`, written to `x21`, big-endian: the digest of
-the SHA-512 family. -/
-def out64 (n : Nat) : List Instr :=
-  (List.range n).flatMap fun k => [.ldr .x .x9 .x19 (8 * k), .rev .x9 .x9, .str .x .x9 .x21 (8 * k)]
-
-/-- The 16-byte length in bits, `8 · count` (from `count` in `x22`), big-endian
-at `x19 + d`: the length field of the SHA-512 family. `d` is a multiple of 8. -/
-def len128 (d : Nat) : List Instr :=
-  [.lsr .x .x9 .x22 61, .rev .x9 .x9, .str .x .x9 .x19 d] ++ MdStream.AArch64.len64 (d + 8) true
-
-/-- The SHA-512 family's: a 64-byte hash value, 128-byte blocks, a 16-byte
-length field and the 176 bytes of scratch space of `vg_sha512_compress`. -/
-def sha512 : Params := ⟨64, 128, 16, 176, len128 176, out64 8⟩
 
 variable (P : Params) (D : Nat)
 
@@ -109,6 +94,14 @@ both multiples of 4). -/
 def padFrom (a b : Nat) : List Instr :=
   [.movz .x .x9 0x80 0, .str .w .x9 .x21 a, .movz .x .x9 0 0] ++
     (List.range ((b - a) / 4 - 1)).map fun k => .str .w .x9 .x21 (a + 4 + 4 * k)
+
+/-- The rest of the block after its first `D` bytes, the end of a
+`B + D`-byte message: `0x80`, zeros and the length field, which `P.len`
+stores from `x22` at `x19 + N + B - L`, the end of the block at
+`x21 = x19 + N`. HMAC's `finalize` (`Impl/Pbkdf2/Md/AArch64.lean`) pads its
+outer block the same way. -/
+def padLen : List Instr :=
+  padFrom D (P.B - P.L) ++ [.movz .x .x22 (BitVec.ofNat 16 (P.B + D)) 0] ++ P.len
 
 /-- The digest of the hash value into the block, and the padding it
 overwrote written back. -/
@@ -132,15 +125,12 @@ def body (name : String) (code : Prog isa) : Prog isa :=
     (.block (digest P D ++ (List.range (D / 4)).flatMap xorW ++ [.subImm .x .x24 .x24 1])))))
 
 /-- Saving our caller's registers and our return address, setting up our
-registers, and writing `U` and the padding into the block: `0x80`, zeros,
-and the length field of a `B + D`-byte message, which `P.len` stores from
-`x22` at `x19 + N + B - L`, the end of the block. -/
+registers, and writing `U` and the padding into the block (`padLen`). -/
 def prologue : List Instr :=
   save P.md .x4 ++
     [.str .x .x30 .x4 (raO P), .addImm .x .x19 .x4 (hvO P), mov .x20 .x4,
       .addImm .x .x21 .x4 (blkO P), mov .x23 .x3, mov .x24 .x2] ++
-    (List.range (D / 4)).flatMap (cp32 .x1 .x21 0 0) ++ padFrom D (P.B - P.L) ++
-    [.movz .x .x22 (BitVec.ofNat 16 (P.B + D)) 0] ++ P.len ++ [mov .x22 .x0]
+    (List.range (D / 4)).flatMap (cp32 .x1 .x21 0 0) ++ padLen P D ++ [mov .x22 .x0]
 
 /-- Restoring our return address and our caller's registers. -/
 def epilogue : List Instr := .ldr .x .x30 .x20 (raO P) :: restore P.md

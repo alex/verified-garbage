@@ -89,13 +89,13 @@ theorem TwoH.of {p q : Ptr} {n m : Nat} (hc : twoChk (rbs ++ wbs) wbs p n q m = 
     covers_append (covers_cons (L.cR hrp) covers_nil) (covers_cons (L.cR hrq) covers_nil),
     covers_cons (L.cW hwq) covers_nil⟩
 
-theorem CEH.of {f out : Ptr} {d : Nat} (hc : twoChk (rbs ++ wbs) wbs f 1024 out (32 * d) = true)
-    (hd : d ∈ compressWidths) (red : Reduced s.mem (pa s f)) : CEH f out d s :=
+theorem CEH.of {ws : List Nat} {f out : Ptr} {d : Nat} (hc : twoChk (rbs ++ wbs) wbs f 1024 out (32 * d) = true)
+    (hd : d ∈ ws) (red : Reduced s.mem (pa s f)) : CEH ws f out d s :=
   have h := TwoH.of L hc
   ⟨h.off, hd, red, h.d, h.kP, h.kQ, h.c, h.w⟩
 
-theorem DDH.of {b f : Ptr} {d : Nat} (hc : twoChk (rbs ++ wbs) wbs b (32 * d) f 1024 = true)
-    (hd : d ∈ compressWidths) : DDH b f d s :=
+theorem DDH.of {ws : List Nat} {b f : Ptr} {d : Nat} (hc : twoChk (rbs ++ wbs) wbs b (32 * d) f 1024 = true)
+    (hd : d ∈ ws) : DDH ws b f d s :=
   have h := TwoH.of L hc
   ⟨h.off, hd, h.d, h.kP, h.kQ, h.c, h.w⟩
 

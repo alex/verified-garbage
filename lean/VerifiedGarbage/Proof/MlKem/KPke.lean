@@ -71,6 +71,14 @@ theorem squeezeFrom_append {rate : Nat} (hr : 0 < rate) (hr' : rate ≤ 200) (S 
       show p + a + (i - (squeezeFrom rate S p a).length) = p + i by
         rw [length_squeezeFrom hr hr']; omega]
 
+/-- Output from `p + a` of two states whose outputs from `p` and `c` agree. -/
+theorem squeezeFrom_shift {rate : Nat} (hr : 0 < rate) (hr' : rate ≤ 200) {S P : State}
+    {p c : Nat} (h : ∀ d, squeezeFrom rate S p d = squeezeFrom rate P c d) (a d : Nat) :
+    squeezeFrom rate S (p + a) d = squeezeFrom rate P (c + a) d := by
+  have e : ∀ (T : State) (x : Nat), squeezeFrom rate T (x + a) d = (squeezeFrom rate T x (a + d)).drop a :=
+    fun T x => by rw [← squeezeFrom_append hr hr' T x a d, List.drop_left' (length_squeezeFrom hr hr' T x a)]
+  rw [e S p, e P c, h]
+
 /-- The first `d` bytes of a longer output. -/
 theorem squeeze_take {rate : Nat} (hr : 0 < rate) (hr' : rate ≤ 200) (S : State) {d d' : Nat}
     (h : d ≤ d') : (squeeze rate S d').take d = squeeze rate S d := by
@@ -414,45 +422,41 @@ end VG.Proof.MlKem
 end
 
 /-!
-# ML-KEM-768: K-PKE and the internal algorithms as polynomial steps
+# ML-KEM: K-PKE and the internal algorithms as polynomial steps
 
 K-PKE.KeyGen, K-PKE.Encrypt, K-PKE.Decrypt (Algorithms 13–15) and the internal
-algorithms of ML-KEM-768 (Algorithms 16–18) restated, for `k = 3`, as the
-sequence of calls of the polynomial primitives (`Spec/MlKem/Poly.lean`) an
-implementation makes, so that a proof of the top-level functions chains the
-primitives' contracts:
+algorithms (Algorithms 16–18) restated, for any parameter set `p` with
+`η₁ = η₂ = 2` (ML-KEM-768 and ML-KEM-1024), as the sequence of calls of the
+polynomial primitives (`Spec/MlKem/Poly.lean`) an implementation makes, so
+that a proof of the top-level functions chains the primitives' contracts:
 
-* `dot3 a b = (a₀ ×_T b₀ + a₁ ×_T b₁) + a₂ ×_T b₂`, accumulated left to right
-  with `add` (`dot_eq_dot3`);
-* the matrix `Â` from the nine `SampleNTT`s (`sampleMatrix_some`,
+* `dotK a b k = (⋯(a₀ ×_T b₀ + a₁ ×_T b₁) + ⋯) + a_{k-1} ×_T b_{k-1}`,
+  accumulated left to right with `add` (`dot_eq_dotK`), and `catK f k`
+  the concatenation `f 0 ‖ ⋯ ‖ f (k - 1)`, both instances of `foldK`, which
+  unfolds for a literal `k` to the explicit sum or concatenation;
+* the matrix `Â` from the `k²` `SampleNTT`s (`sampleMatrix_some`,
   `sampleMatrix_none`);
-* K-PKE.KeyGen: `t̂[i] = dot3 (Â[i]) ŝ + ê[i]`, `ek = ByteEncode₁₂(t̂[0]) ‖ … ‖ ρ`,
-  `dk = ByteEncode₁₂(ŝ[0]) ‖ …` (`kpkeKeyGen768_some`, `kpkeKeyGen768_none`);
-* K-PKE.Encrypt: `u[i] = NTT⁻¹(dot3 (Â[·][i]) ŷ) + e₁[i]`,
-  `v = NTT⁻¹(dot3 t̂ ŷ) + e₂ + μ`, the ciphertext the compressed encodings of
-  `u[0]`, `u[1]`, `u[2]` and `v` (`kpkeEncrypt768_some`, `kpkeEncrypt768_none`);
-* K-PKE.Decrypt (`kpkeDecrypt768`);
+* K-PKE.KeyGen: `t̂[i] = dotK (Â[i]) ŝ k + ê[i]`,
+  `ek = ByteEncode₁₂(t̂[0]) ‖ … ‖ ρ`, `dk = ByteEncode₁₂(ŝ[0]) ‖ …`
+  (`KPke.kpkeKeyGen_some`, `KPke.kpkeKeyGen_none`);
+* K-PKE.Encrypt: `u[i] = NTT⁻¹(dotK (Â[·][i]) ŷ k) + e₁[i]`,
+  `v = NTT⁻¹(dotK t̂ ŷ k) + e₂ + μ`, the ciphertext the compressed encodings
+  of `u[0]`, …, `u[k-1]` and `v` (`KPke.kpkeEncrypt_some`,
+  `KPke.kpkeEncrypt_none`);
+* K-PKE.Decrypt (`KPke.kpkeDecrypt_eq`);
 * the internal algorithms, and the layout of the decapsulation key
-  (`keyGenInternal768`, `encapsInternal768`, `decapsInternal768`): decapsulation
-  selects between `K'` and `K̄` by whether `c = c'`, which
-  `eq_iff_foldl_or_xor` computes without branching.
+  (`KPke.keyGenInternal_eq`, `KPke.encapsInternal_eq`,
+  `KPke.decapsInternal_eq`, `KPke.ekRho_dkEk`): decapsulation selects
+  between `K'` and `K̄` by whether `c = c'`, which `eq_iff_foldl_or_xor`
+  computes without branching.
+
+The names of ML-KEM-768 (`kgRho`, `ekPKE768`, `kpkeKeyGen768_some`, …) and of
+ML-KEM-1024 (`KPke1024.lean`) are these for `mlKem768` and `mlKem1024`.
 -/
 
 namespace VG.Proof.MlKem
 
 open VG.Spec.MlKem
-
-/-! ## Sums of products -/
-
-/-- `∑_{j<3} a j ×_{T_q} b j`, accumulated left to right with `add`. -/
-def dot3 (a b : Nat → Poly) : Poly :=
-  add (add (multiplyNTTs (a 0) (b 0)) (multiplyNTTs (a 1) (b 1))) (multiplyNTTs (a 2) (b 2))
-
-theorem list_range3 {α : Type} (a : Nat → α) : (List.range 3).map a = [a 0, a 1, a 2] := rfl
-
-theorem dot_eq_dot3 (a b : Nat → Poly) : dot [a 0, a 1, a 2] [b 0, b 1, b 2] = dot3 a b := by
-  simp only [dot, List.zipWith_cons_cons, List.zipWith_nil_left, List.foldl_cons, List.foldl_nil,
-    zero_add_poly, dot3]
 
 /-! ## The matrix -/
 
@@ -500,63 +504,8 @@ theorem sampleMatrix_none {k iters : Nat} {ρ : List Byte} {i j : Nat} (hi : i <
     · rfl
     · rw [mapM_none (List.mem_range.mpr hj) h] at hm; cases hm)
 
-/-! ## K-PKE.KeyGen -/
-
 /-- `SamplePolyCBD₂(PRF₂(s, N))`. -/
 def cbd (s : List Byte) (N : Nat) : Poly := samplePolyCBD 2 (prf 2 s (BitVec.ofNat 8 N))
-
-/-- `ρ` of K-PKE.KeyGen(d): the first half of `G(d ‖ 3)`. -/
-def kgRho (d : List Byte) : List Byte := (G (d ++ [BitVec.ofNat 8 3])).1
-
-/-- `σ` of K-PKE.KeyGen(d): the second half of `G(d ‖ 3)`. -/
-def kgSigma (d : List Byte) : List Byte := (G (d ++ [BitVec.ofNat 8 3])).2
-
-/-- `ŝ[j] = NTT(SamplePolyCBD₂(PRF₂(σ, j)))`. -/
-def kgS (d : List Byte) (j : Nat) : Poly := ntt (cbd (kgSigma d) j)
-
-/-- `ê[i] = NTT(SamplePolyCBD₂(PRF₂(σ, 3 + i)))`. -/
-def kgE (d : List Byte) (i : Nat) : Poly := ntt (cbd (kgSigma d) (3 + i))
-
-/-- `t̂[i] = Â[i] ∘ ŝ + ê[i]`. -/
-def kgT (a : Nat → Nat → Poly) (d : List Byte) (i : Nat) : Poly := add (dot3 (a i) (kgS d)) (kgE d i)
-
-/-- `ek_PKE = ByteEncode₁₂(t̂[0]) ‖ ByteEncode₁₂(t̂[1]) ‖ ByteEncode₁₂(t̂[2]) ‖ ρ`. -/
-def ekPKE768 (a : Nat → Nat → Poly) (d : List Byte) : List Byte :=
-  encode12 (kgT a d 0) ++ encode12 (kgT a d 1) ++ encode12 (kgT a d 2) ++ kgRho d
-
-/-- `dk_PKE = ByteEncode₁₂(ŝ[0]) ‖ ByteEncode₁₂(ŝ[1]) ‖ ByteEncode₁₂(ŝ[2])`. -/
-def dkPKE768 (d : List Byte) : List Byte :=
-  encode12 (kgS d 0) ++ encode12 (kgS d 1) ++ encode12 (kgS d 2)
-
-theorem kgRho_eq (d : List Byte) : keyGenRho mlKem768 d = kgRho d := rfl
-
-private theorem kpkeKeyGen768_eq (iters : Nat) (d : List Byte) :
-    kpkeKeyGen mlKem768 iters d =
-      (sampleMatrix 3 iters (kgRho d)).bind fun A =>
-        some (encodeVec (addVec (mulMatVec A ((List.range 3).map (kgS d)))
-          ((List.range 3).map (kgE d))) ++ kgRho d, encodeVec ((List.range 3).map (kgS d))) := by
-  rfl
-
-theorem kpkeKeyGen768_some {iters : Nat} {d : List Byte} {a : Nat → Nat → Poly}
-    (h : ∀ i < 3, ∀ j < 3, sampleNTT iters (matSeed (kgRho d) i j) = some (a i j)) :
-    kpkeKeyGen mlKem768 iters d = some (ekPKE768 a d, dkPKE768 d) := by
-  rw [kpkeKeyGen768_eq, sampleMatrix_some h, Option.bind_some]
-  simp only [matrix, list_range3, mulMatVec, List.map_cons, List.map_nil, addVec, List.zipWith_cons_cons,
-    List.zipWith_nil_left, encodeVec, List.flatMap_cons, List.flatMap_nil, List.append_nil,
-    List.append_assoc, ekPKE768, dkPKE768, kgT]
-  rw [dot_eq_dot3, dot_eq_dot3, dot_eq_dot3]
-
-theorem kpkeKeyGen768_none {iters : Nat} {d : List Byte} {i j : Nat} (hi : i < 3) (hj : j < 3)
-    (h : sampleNTT iters (matSeed (kgRho d) i j) = none) : kpkeKeyGen mlKem768 iters d = none := by
-  rw [kpkeKeyGen768_eq, sampleMatrix_none hi hj h]; rfl
-
-theorem ekPKE768_length (a : Nat → Nat → Poly) (d : List Byte) : (ekPKE768 a d).length = 1184 := by
-  simp only [ekPKE768, List.length_append, encode12_length, kgRho, G_fst_length]
-
-theorem dkPKE768_length (d : List Byte) : (dkPKE768 d).length = 1152 := by
-  simp only [dkPKE768, List.length_append, encode12_length]
-
-/-! ## K-PKE.Encrypt -/
 
 /-- `((L.take N).drop s).take c = (L.drop s).take c` when `s + c ≤ N`. -/
 theorem slice_take {α : Type} (L : List α) {N s c : Nat} (h : s + c ≤ N) :
@@ -569,122 +518,283 @@ def ekT (ek : List Byte) (i : Nat) : Poly := decode12 ((ek.drop (384 * i)).take 
 /-- `ŷ[j] = NTT(SamplePolyCBD₂(PRF₂(r, j)))`. -/
 def encY (r : List Byte) (j : Nat) : Poly := ntt (cbd r j)
 
-/-- `u[i] = NTT⁻¹(Â^⊺[i] ∘ ŷ) + e₁[i]`, with `e₁[i] = SamplePolyCBD₂(PRF₂(r, 3 + i))`. -/
-def encU (a : Nat → Nat → Poly) (r : List Byte) (i : Nat) : Poly :=
-  add (nttInv (dot3 (fun j => a j i) (encY r))) (cbd r (3 + i))
-
-/-- `v = NTT⁻¹(t̂ ∘ ŷ) + e₂ + μ`, with `e₂ = SamplePolyCBD₂(PRF₂(r, 6))` and
-`μ = Decompress₁(ByteDecode₁(m))`. -/
-def encV (ek m r : List Byte) : Poly :=
-  add (add (nttInv (dot3 (ekT ek) (encY r))) (cbd r 6)) (decodeDecompress 1 m)
-
-/-- The ciphertext: `ByteEncode₁₀(Compress₁₀(u[i]))` for `i < 3`, then
-`ByteEncode₄(Compress₄(v))`. -/
-def ct768 (a : Nat → Nat → Poly) (ek m r : List Byte) : List Byte :=
-  compressEncode 10 (encU a r 0) ++ compressEncode 10 (encU a r 1) ++ compressEncode 10 (encU a r 2) ++
-    compressEncode 4 (encV ek m r)
-
-theorem ct768_length (a : Nat → Nat → Poly) (ek m r : List Byte) : (ct768 a ek m r).length = 1088 := by
-  simp only [ct768, List.length_append, compressEncode_length]
-
-private theorem kpkeEncrypt768_eq (iters : Nat) (ek m r : List Byte) :
-    kpkeEncrypt mlKem768 iters ek m r =
-      (sampleMatrix 3 iters (ekRho mlKem768 ek)).bind fun A =>
-        some ((addVec ((mulMatTVec 3 A ((List.range 3).map (encY r))).map nttInv)
-            ((List.range 3).map fun i => cbd r (3 + i))).flatMap (compressEncode 10) ++
-          compressEncode 4 (add (add (nttInv (dot (decodeVec 3 (ek.take 1152))
-            ((List.range 3).map (encY r)))) (cbd r 6)) (decodeDecompress 1 m))) := by
-  rfl
-
-theorem decodeVec768 (ek : List Byte) : decodeVec 3 (ek.take 1152) = [ekT ek 0, ekT ek 1, ekT ek 2] := by
-  simp only [decodeVec, list_range3, ekT, slice_take ek (show 384 * 0 + 384 ≤ 1152 by decide),
-    slice_take ek (show 384 * 1 + 384 ≤ 1152 by decide), slice_take ek (show 384 * 2 + 384 ≤ 1152 by decide)]
-
-theorem kpkeEncrypt768_some {iters : Nat} {ek m r : List Byte} {a : Nat → Nat → Poly}
-    (h : ∀ i < 3, ∀ j < 3, sampleNTT iters (matSeed (ekRho mlKem768 ek) i j) = some (a i j)) :
-    kpkeEncrypt mlKem768 iters ek m r = some (ct768 a ek m r) := by
-  rw [kpkeEncrypt768_eq, sampleMatrix_some h, Option.bind_some, decodeVec768]
-  simp only [matrix, list_range3, mulMatTVec, List.map_cons, List.map_nil, List.getD_cons_zero,
-    List.getD_cons_succ, addVec, List.zipWith_cons_cons, List.zipWith_nil_left, List.flatMap_cons,
-    List.flatMap_nil, List.append_nil, List.append_assoc, ct768, encU, encV, ← dot_eq_dot3]
-
-theorem kpkeEncrypt768_none {iters : Nat} {ek m r : List Byte} {i j : Nat} (hi : i < 3) (hj : j < 3)
-    (h : sampleNTT iters (matSeed (ekRho mlKem768 ek) i j) = none) :
-    kpkeEncrypt mlKem768 iters ek m r = none := by
-  rw [kpkeEncrypt768_eq, sampleMatrix_none hi hj h]; rfl
-
-/-! ## K-PKE.Decrypt -/
-
-/-- `u'[i] = Decompress₁₀(ByteDecode₁₀(c[320i : 320i + 320]))`. -/
-def dcU (c : List Byte) (i : Nat) : Poly := decodeDecompress 10 ((c.drop (320 * i)).take 320)
-
-/-- `v' = Decompress₄(ByteDecode₄(c[960 : 1088]))`. -/
-def dcV (c : List Byte) : Poly := decodeDecompress 4 ((c.drop 960).take 128)
-
 /-- `ŝ[i] = ByteDecode₁₂(dk[384i : 384i + 384])`. -/
 def dcS (dk : List Byte) (i : Nat) : Poly := decode12 ((dk.drop (384 * i)).take 384)
 
-/-- K-PKE.Decrypt of ML-KEM-768: `w = v' - NTT⁻¹(ŝ ∘ NTT(u'))`, and
+
+/-! ## Sums of products -/
+
+namespace KPke
+
+/-- `f 0 ⊕ f 1 ⊕ ⋯ ⊕ f (k - 1)` for `⊕ = op`, combined left to right from
+`f 0`, and `z` for `k = 0`: for a literal `k`, it unfolds to the explicit
+expression. -/
+def foldK {α : Type} (op : α → α → α) (z : α) (f : Nat → α) : Nat → α
+  | 0 => z
+  | 1 => f 0
+  | k + 2 => op (foldK op z f (k + 1)) (f (k + 1))
+
+theorem foldK_succ {α : Type} {op : α → α → α} {z : α} (h : ∀ x, op z x = x) (f : Nat → α) :
+    ∀ k, foldK op z f (k + 1) = op (foldK op z f k) (f k)
+  | 0 => (h (f 0)).symm
+  | _ + 1 => rfl
+
+/-- `∑_{j<k} a j ×_{T_q} b j`, accumulated left to right with `add`. -/
+abbrev dotK (a b : Nat → Poly) (k : Nat) : Poly := foldK add zero (fun j => multiplyNTTs (a j) (b j)) k
+
+/-- `f 0 ‖ f 1 ‖ ⋯ ‖ f (k - 1)`. -/
+abbrev catK (f : Nat → List Byte) (k : Nat) : List Byte := foldK (· ++ ·) [] f k
+
+theorem dot_eq_dotK (a b : Nat → Poly) :
+    ∀ k, dot ((List.range k).map a) ((List.range k).map b) = dotK a b k
+  | 0 => rfl
+  | k + 1 => by
+    rw [dotK, foldK_succ zero_add_poly, ← dotK, ← dot_eq_dotK a b k]
+    simp only [dot, List.range_succ, List.map_append, List.map_cons, List.map_nil]
+    rw [List.zipWith_append (by simp), List.foldl_append]
+    rfl
+
+theorem catK_eq (f : Nat → List Byte) : ∀ k, catK f k = (List.range k).flatMap f
+  | 0 => rfl
+  | k + 1 => by
+    rw [catK, foldK_succ List.nil_append, ← catK, catK_eq f k, List.range_succ, List.flatMap_append,
+      List.flatMap_singleton]
+
+theorem catK_length {f : Nat → List Byte} {c : Nat} (hf : ∀ i, (f i).length = c) (k : Nat) :
+    (catK f k).length = c * k := by
+  rw [catK_eq, length_flatMap_const f hf, List.length_range]
+
+/-! ## Vectors and matrices -/
+
+theorem addVec_map {α : Type} (f g : α → Poly) :
+    ∀ L : List α, addVec (L.map f) (L.map g) = L.map fun x => add (f x) (g x)
+  | [] => rfl
+  | x :: L => by simp only [addVec, List.map_cons, List.zipWith_cons_cons] at *; rw [← addVec, addVec_map f g L]
+
+theorem mulMatVec_matrix (k : Nat) (a : Nat → Nat → Poly) (u : Nat → Poly) :
+    mulMatVec (matrix k a) ((List.range k).map u) = (List.range k).map fun i => dotK (a i) u k := by
+  simp only [mulMatVec, matrix, List.map_map]
+  exact List.map_congr_left fun i _ => dot_eq_dotK (a i) u k
+
+theorem mulMatTVec_matrix (k : Nat) (a : Nat → Nat → Poly) (u : Nat → Poly) :
+    mulMatTVec k (matrix k a) ((List.range k).map u) =
+      (List.range k).map fun i => dotK (fun j => a j i) u k := by
+  refine List.map_congr_left fun i hi => ?_
+  rw [← dot_eq_dotK]
+  refine congrArg (dot · _) ?_
+  simp only [matrix, List.map_map]
+  refine List.map_congr_left fun j _ => ?_
+  simp only [Function.comp, List.getD_eq_getElem?_getD, List.getElem?_map,
+    List.getElem?_range (List.mem_range.mp hi), Option.map_some, Option.getD_some]
+
+/-- `k` samples `SamplePolyCBD₂(PRF₂(s, N₀ + i))`. -/
+theorem sampleVec_two {η : Nat} (hη : η = 2) (k : Nat) (s : List Byte) (N₀ : Nat) :
+    sampleVec k η s N₀ = (List.range k).map fun i => cbd s (N₀ + i) := by
+  subst hη; rfl
+
+theorem map_ntt_sampleVec {η : Nat} (hη : η = 2) (k : Nat) (s : List Byte) :
+    (sampleVec k η s 0).map ntt = (List.range k).map fun j => ntt (cbd s j) := by
+  rw [sampleVec_two hη, List.map_map]
+  exact List.map_congr_left fun j _ => by rw [Function.comp, Nat.zero_add]
+
+/-! ## K-PKE.KeyGen -/
+
+variable (p : Params)
+
+/-- `ρ` of K-PKE.KeyGen(d): the first half of `G(d ‖ k)`. -/
+def kgRho (d : List Byte) : List Byte := (G (d ++ [BitVec.ofNat 8 p.k])).1
+
+/-- `σ` of K-PKE.KeyGen(d): the second half of `G(d ‖ k)`. -/
+def kgSigma (d : List Byte) : List Byte := (G (d ++ [BitVec.ofNat 8 p.k])).2
+
+/-- `ŝ[j] = NTT(SamplePolyCBD₂(PRF₂(σ, j)))`. -/
+def kgS (d : List Byte) (j : Nat) : Poly := ntt (cbd (kgSigma p d) j)
+
+/-- `ê[i] = NTT(SamplePolyCBD₂(PRF₂(σ, k + i)))`. -/
+def kgE (d : List Byte) (i : Nat) : Poly := ntt (cbd (kgSigma p d) (p.k + i))
+
+/-- `t̂[i] = Â[i] ∘ ŝ + ê[i]`. -/
+def kgT (a : Nat → Nat → Poly) (d : List Byte) (i : Nat) : Poly := add (dotK (a i) (kgS p d) p.k) (kgE p d i)
+
+/-- `ek_PKE = ByteEncode₁₂(t̂[0]) ‖ ⋯ ‖ ByteEncode₁₂(t̂[k - 1]) ‖ ρ`. -/
+def ekPKE (a : Nat → Nat → Poly) (d : List Byte) : List Byte :=
+  catK (fun i => encode12 (kgT p a d i)) p.k ++ kgRho p d
+
+/-- `dk_PKE = ByteEncode₁₂(ŝ[0]) ‖ ⋯ ‖ ByteEncode₁₂(ŝ[k - 1])`. -/
+def dkPKE (d : List Byte) : List Byte := catK (fun j => encode12 (kgS p d j)) p.k
+
+theorem keyGenRho_eq (d : List Byte) : keyGenRho p d = kgRho p d := rfl
+
+variable {p}
+
+private theorem kpkeKeyGen_eq (iters : Nat) (d : List Byte) :
+    kpkeKeyGen p iters d =
+      (sampleMatrix p.k iters (kgRho p d)).bind fun A =>
+        some (encodeVec (addVec (mulMatVec A ((sampleVec p.k p.η₁ (kgSigma p d) 0).map ntt))
+          ((sampleVec p.k p.η₁ (kgSigma p d) p.k).map ntt)) ++ kgRho p d,
+          encodeVec ((sampleVec p.k p.η₁ (kgSigma p d) 0).map ntt)) := by
+  rfl
+
+theorem kpkeKeyGen_some (hη : p.η₁ = 2) {iters : Nat} {d : List Byte} {a : Nat → Nat → Poly}
+    (h : ∀ i < p.k, ∀ j < p.k, sampleNTT iters (matSeed (kgRho p d) i j) = some (a i j)) :
+    kpkeKeyGen p iters d = some (ekPKE p a d, dkPKE p d) := by
+  rw [kpkeKeyGen_eq, sampleMatrix_some h, Option.bind_some, map_ntt_sampleVec hη, sampleVec_two hη,
+    List.map_map, mulMatVec_matrix, addVec_map, encodeVec, encodeVec, List.flatMap_map, List.flatMap_map,
+    ekPKE, dkPKE, catK_eq, catK_eq]
+  rfl
+
+theorem kpkeKeyGen_none {iters : Nat} {d : List Byte} {i j : Nat} (hi : i < p.k) (hj : j < p.k)
+    (h : sampleNTT iters (matSeed (kgRho p d) i j) = none) : kpkeKeyGen p iters d = none := by
+  rw [kpkeKeyGen_eq, sampleMatrix_none hi hj h]; rfl
+
+theorem ekPKE_length (a : Nat → Nat → Poly) (d : List Byte) : (ekPKE p a d).length = p.ekLen := by
+  rw [ekPKE, List.length_append, catK_length fun _ => encode12_length _, kgRho, G_fst_length]; rfl
+
+theorem dkPKE_length (d : List Byte) : (dkPKE p d).length = 384 * p.k :=
+  catK_length (fun _ => encode12_length _) p.k
+
+/-! ## K-PKE.Encrypt -/
+
+variable (p)
+
+/-- `u[i] = NTT⁻¹(Â^⊺[i] ∘ ŷ) + e₁[i]`, with `e₁[i] = SamplePolyCBD₂(PRF₂(r, k + i))`. -/
+def encU (a : Nat → Nat → Poly) (r : List Byte) (i : Nat) : Poly :=
+  add (nttInv (dotK (fun j => a j i) (encY r) p.k)) (cbd r (p.k + i))
+
+/-- `v = NTT⁻¹(t̂ ∘ ŷ) + e₂ + μ`, with `e₂ = SamplePolyCBD₂(PRF₂(r, 2k))` and
+`μ = Decompress₁(ByteDecode₁(m))`. -/
+def encV (ek m r : List Byte) : Poly :=
+  add (add (nttInv (dotK (ekT ek) (encY r) p.k)) (cbd r (2 * p.k))) (decodeDecompress 1 m)
+
+/-- The ciphertext: `ByteEncode_{d_u}(Compress_{d_u}(u[i]))` for `i < k`, then
+`ByteEncode_{d_v}(Compress_{d_v}(v))`. -/
+def ct (a : Nat → Nat → Poly) (ek m r : List Byte) : List Byte :=
+  catK (fun i => compressEncode p.du (encU p a r i)) p.k ++ compressEncode p.dv (encV p ek m r)
+
+variable {p}
+
+theorem ct_length (a : Nat → Nat → Poly) (ek m r : List Byte) : (ct p a ek m r).length = p.ctLen := by
+  rw [ct, List.length_append, catK_length fun _ => compressEncode_length _ _, compressEncode_length,
+    Params.ctLen, Nat.mul_add, Nat.mul_assoc]
+
+private theorem kpkeEncrypt_eq (iters : Nat) (ek m r : List Byte) :
+    kpkeEncrypt p iters ek m r =
+      (sampleMatrix p.k iters (ekRho p ek)).bind fun A =>
+        some ((addVec ((mulMatTVec p.k A ((sampleVec p.k p.η₁ r 0).map ntt)).map nttInv)
+            (sampleVec p.k p.η₂ r p.k)).flatMap (compressEncode p.du) ++
+          compressEncode p.dv (add (add (nttInv (dot (decodeVec p.k (ek.take (384 * p.k)))
+            ((sampleVec p.k p.η₁ r 0).map ntt))) (samplePolyCBD p.η₂ (prf p.η₂ r (BitVec.ofNat 8 (2 * p.k)))))
+            (decodeDecompress 1 m))) := by
+  rfl
+
+/-- `t̂ = ByteDecode₁₂(ek[384i : 384i + 384])` for `i < k`. -/
+theorem decodeVec_take (k : Nat) (ek : List Byte) :
+    decodeVec k (ek.take (384 * k)) = (List.range k).map (ekT ek) :=
+  List.map_congr_left fun i hi => by
+    rw [ekT, slice_take ek (show 384 * i + 384 ≤ 384 * k by have := List.mem_range.mp hi; omega)]
+
+theorem kpkeEncrypt_some (hη : p.η₁ = 2 ∧ p.η₂ = 2) {iters : Nat} {ek m r : List Byte}
+    {a : Nat → Nat → Poly} (h : ∀ i < p.k, ∀ j < p.k, sampleNTT iters (matSeed (ekRho p ek) i j) = some (a i j)) :
+    kpkeEncrypt p iters ek m r = some (ct p a ek m r) := by
+  rw [kpkeEncrypt_eq, sampleMatrix_some h, Option.bind_some, decodeVec_take, map_ntt_sampleVec hη.1,
+    sampleVec_two hη.2, mulMatTVec_matrix, List.map_map, addVec_map, List.flatMap_map, dot_eq_dotK, hη.2,
+    ct, catK_eq]
+  rfl
+
+theorem kpkeEncrypt_none {iters : Nat} {ek m r : List Byte} {i j : Nat} (hi : i < p.k) (hj : j < p.k)
+    (h : sampleNTT iters (matSeed (ekRho p ek) i j) = none) :
+    kpkeEncrypt p iters ek m r = none := by
+  rw [kpkeEncrypt_eq, sampleMatrix_none hi hj h]; rfl
+
+/-! ## K-PKE.Decrypt -/
+
+variable (p)
+
+/-- `u'[i] = Decompress_{d_u}(ByteDecode_{d_u}(c[32d_u·i : 32d_u·(i + 1)]))`. -/
+def dcU (c : List Byte) (i : Nat) : Poly := decodeDecompress p.du ((c.drop (32 * p.du * i)).take (32 * p.du))
+
+/-- `v' = Decompress_{d_v}(ByteDecode_{d_v}(c[32d_u·k : 32(d_u·k + d_v)]))`. -/
+def dcV (c : List Byte) : Poly := decodeDecompress p.dv ((c.drop (32 * p.du * p.k)).take (32 * p.dv))
+
+/-- K-PKE.Decrypt: `w = v' - NTT⁻¹(ŝ ∘ NTT(u'))`, and
 `m = ByteEncode₁(Compress₁(w))`. -/
-theorem kpkeDecrypt768 (dk c : List Byte) :
-    kpkeDecrypt mlKem768 dk c =
-      compressEncode 1 (sub (dcV c) (nttInv (dot3 (dcS dk) fun i => ntt (dcU c i)))) := by
-  have e : kpkeDecrypt mlKem768 dk c = compressEncode 1 (sub (decodeDecompress 4 ((c.drop 960).take 128))
-      (nttInv (dot (decodeVec 3 dk) (((List.range 3).map fun i =>
-        decodeDecompress 10 (((c.take 960).drop (320 * i)).take 320)).map ntt)))) := rfl
-  rw [e, ← dot_eq_dot3]
-  simp only [decodeVec, list_range3, List.map_cons, List.map_nil, dcV, dcS, dcU,
-    slice_take c (show 320 * 0 + 320 ≤ 960 by decide), slice_take c (show 320 * 1 + 320 ≤ 960 by decide),
-    slice_take c (show 320 * 2 + 320 ≤ 960 by decide)]
+theorem kpkeDecrypt_eq (dk c : List Byte) :
+    kpkeDecrypt p dk c =
+      compressEncode 1 (sub (dcV p c) (nttInv (dotK (dcS dk) (fun i => ntt (dcU p c i)) p.k))) := by
+  have e : kpkeDecrypt p dk c = compressEncode 1 (sub (dcV p c)
+      (nttInv (dot ((List.range p.k).map (dcS dk)) ((List.range p.k).map fun i =>
+        ntt (decodeDecompress p.du (((c.take (32 * p.du * p.k)).drop (32 * p.du * i)).take (32 * p.du))))))) := by
+    simp only [kpkeDecrypt, List.map_map]; rfl
+  rw [e, ← dot_eq_dotK]
+  refine congrArg (fun L => compressEncode 1 (sub _ (nttInv (dot _ L)))) (List.map_congr_left fun i hi => ?_)
+  rw [dcU, slice_take c (by rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ (List.mem_range.mp hi))]
 
 /-! ## The internal algorithms -/
 
-/-- `ML-KEM.KeyGen_internal(d, z)` of ML-KEM-768: `dk = dk_PKE ‖ ek ‖ H(ek) ‖ z`. -/
-theorem keyGenInternal768 (iters : Nat) (d z : List Byte) :
-    keyGenInternal mlKem768 iters d z =
-      (kpkeKeyGen mlKem768 iters d).map fun k => (k.1, k.2 ++ k.1 ++ H k.1 ++ z) := by
+/-- `ML-KEM.KeyGen_internal(d, z)`: `dk = dk_PKE ‖ ek ‖ H(ek) ‖ z`. -/
+theorem keyGenInternal_eq (iters : Nat) (d z : List Byte) :
+    keyGenInternal p iters d z = (kpkeKeyGen p iters d).map fun k => (k.1, k.2 ++ k.1 ++ H k.1 ++ z) := by
   simp only [keyGenInternal]
-  cases kpkeKeyGen mlKem768 iters d <;> rfl
+  cases kpkeKeyGen p iters d <;> rfl
 
-/-- `ML-KEM.Encaps_internal(ek, m)` of ML-KEM-768: `(K, r) = G(m ‖ H(ek))`,
-and the ciphertext of K-PKE.Encrypt with `r`. -/
-theorem encapsInternal768 (iters : Nat) (ek m : List Byte) :
-    encapsInternal mlKem768 iters ek m =
-      (kpkeEncrypt mlKem768 iters ek m (G (m ++ H ek)).2).map fun c => ((G (m ++ H ek)).1, c) := by
+/-- `ML-KEM.Encaps_internal(ek, m)`: `(K, r) = G(m ‖ H(ek))`, and the
+ciphertext of K-PKE.Encrypt with `r`. -/
+theorem encapsInternal_eq (iters : Nat) (ek m : List Byte) :
+    encapsInternal p iters ek m =
+      (kpkeEncrypt p iters ek m (G (m ++ H ek)).2).map fun c => ((G (m ++ H ek)).1, c) := by
   simp only [encapsInternal]
-  cases kpkeEncrypt mlKem768 iters ek m (G (m ++ H ek)).2 <;> rfl
+  cases kpkeEncrypt p iters ek m (G (m ++ H ek)).2 <;> rfl
 
-/-- `dk_PKE = dk[0 : 1152]`. -/
-def dkPke (dk : List Byte) : List Byte := dk.take 1152
+/-- `dk_PKE = dk[0 : 384k]`. -/
+def dkPke (dk : List Byte) : List Byte := dk.take (384 * p.k)
 
-/-- `ek_PKE = dk[1152 : 2336]`. -/
-def dkEk (dk : List Byte) : List Byte := (dk.drop 1152).take 1184
+/-- `ek_PKE = dk[384k : 768k + 32]`. -/
+def dkEk (dk : List Byte) : List Byte := (dk.drop (384 * p.k)).take (384 * p.k + 32)
 
-/-- `h = dk[2336 : 2368]`. -/
-def dkH (dk : List Byte) : List Byte := (dk.drop 2336).take 32
+/-- `h = dk[768k + 32 : 768k + 64]`. -/
+def dkH (dk : List Byte) : List Byte := (dk.drop (768 * p.k + 32)).take 32
 
-/-- `z = dk[2368 : 2400]`. -/
-def dkZ (dk : List Byte) : List Byte := (dk.drop 2368).take 32
+/-- `z = dk[768k + 64 : 768k + 96]`. -/
+def dkZ (dk : List Byte) : List Byte := (dk.drop (768 * p.k + 64)).take 32
 
 /-- `m' = K-PKE.Decrypt(dk_PKE, c)`. -/
-def decM (dk c : List Byte) : List Byte := kpkeDecrypt mlKem768 (dkPke dk) c
+def decM (dk c : List Byte) : List Byte := kpkeDecrypt p (dkPke p dk) c
 
-/-- `ML-KEM.Decaps_internal(dk, c)` of ML-KEM-768: `(K', r') = G(m' ‖ h)`,
-`c'` the re-encryption of `m'` with `r'`, and the key `K'` if `c = c'`, and
+theorem decM_length (dk c : List Byte) : (decM p dk c).length = 32 := compressEncode_length 1 _
+
+/-- `ρ` of the encapsulation key in `dk`. -/
+theorem ekRho_dkEk (dk : List Byte) : ekRho p (dkEk p dk) = dkRho p dk := by
+  simp only [ekRho, dkRho, dkEk, List.drop_take, List.drop_drop, List.take_take]
+  rw [show 384 * p.k + 384 * p.k = 768 * p.k by omega, show 384 * p.k + 32 - 384 * p.k = 32 by omega,
+    Nat.min_self]
+
+/-- `ML-KEM.Decaps_internal(dk, c)`: `(K', r') = G(m' ‖ h)`, `c'` the
+re-encryption of `m'` with `r'`, and the key `K'` if `c = c'`, and
 `K̄ = J(z ‖ c)` otherwise. -/
-theorem decapsInternal768 (iters : Nat) (dk c : List Byte) :
-    decapsInternal mlKem768 iters dk c =
-      (kpkeEncrypt mlKem768 iters (dkEk dk) (decM dk c) (G (decM dk c ++ dkH dk)).2).map fun c' =>
-        if c = c' then (G (decM dk c ++ dkH dk)).1 else J (dkZ dk ++ c) := by
-  show (kpkeEncrypt mlKem768 iters (dkEk dk) (decM dk c) (G (decM dk c ++ dkH dk)).2).bind
-      (fun c' => some (if c ≠ c' then J (dkZ dk ++ c) else (G (decM dk c ++ dkH dk)).1)) = _
-  cases kpkeEncrypt mlKem768 iters (dkEk dk) (decM dk c) (G (decM dk c ++ dkH dk)).2 with
+theorem decapsInternal_eq (iters : Nat) (dk c : List Byte) :
+    decapsInternal p iters dk c =
+      (kpkeEncrypt p iters (dkEk p dk) (decM p dk c) (G (decM p dk c ++ dkH p dk)).2).map fun c' =>
+        if c = c' then (G (decM p dk c ++ dkH p dk)).1 else J (dkZ p dk ++ c) := by
+  show (kpkeEncrypt p iters (dkEk p dk) (decM p dk c) (G (decM p dk c ++ dkH p dk)).2).bind
+      (fun c' => some (if c ≠ c' then J (dkZ p dk ++ c) else (G (decM p dk c ++ dkH p dk)).1)) = _
+  cases kpkeEncrypt p iters (dkEk p dk) (decM p dk c) (G (decM p dk c ++ dkH p dk)).2 with
   | none => rfl
   | some c' =>
     rw [Option.bind_some, Option.map_some]
     by_cases h : c = c'
     · rw [ite_eq_right (fun h' : c ≠ c' => h' h), ite_eq_left h]
     · rw [ite_eq_left h, ite_eq_right h]
+
+variable {p}
+
+/-- The decapsulation key `dk_PKE ‖ ek ‖ H(ek) ‖ z` that key generation
+writes, of `768k + 96` bytes for a 32-byte `z`. -/
+theorem dk_length (a : Nat → Nat → Poly) (d z : List Byte) (hz : z.length = 32) :
+    (dkPKE p d ++ ekPKE p a d ++ H (ekPKE p a d) ++ z).length = p.dkLen := by
+  simp only [List.length_append, dkPKE_length, ekPKE_length, H_length, hz, Params.ekLen, Params.dkLen]
+  omega
+
+end KPke
 
 /-- Two byte strings of the same length are equal exactly when the OR of
 the XORs of their bytes is 0: the comparison of `c` and `c'` in constant
@@ -712,5 +822,69 @@ theorem eq_iff_foldl_or_xor : ∀ {c c' : List Byte}, c.length = c'.length →
         exact ⟨h₃, BitVec.xor_eq_zero_iff.mp h₄, h₂⟩
       · rintro ⟨h₁, h₂, h₃⟩
         exact ⟨BitVec.or_eq_zero_iff.mpr ⟨h₁, BitVec.xor_eq_zero_iff.mpr h₂⟩, h₃⟩
+
+/-! ## ML-KEM-768
+
+The names the proofs of each target use, for `mlKem768`. -/
+
+/-- `∑_{j<3} a j ×_{T_q} b j`. -/
+abbrev dot3 (a b : Nat → Poly) : Poly := KPke.dotK a b 3
+
+abbrev kgRho (d : List Byte) : List Byte := KPke.kgRho mlKem768 d
+abbrev kgSigma (d : List Byte) : List Byte := KPke.kgSigma mlKem768 d
+abbrev kgS (d : List Byte) (j : Nat) : Poly := KPke.kgS mlKem768 d j
+abbrev kgT (a : Nat → Nat → Poly) (d : List Byte) (i : Nat) : Poly := KPke.kgT mlKem768 a d i
+abbrev ekPKE768 (a : Nat → Nat → Poly) (d : List Byte) : List Byte := KPke.ekPKE mlKem768 a d
+abbrev dkPKE768 (d : List Byte) : List Byte := KPke.dkPKE mlKem768 d
+abbrev encU (a : Nat → Nat → Poly) (r : List Byte) (i : Nat) : Poly := KPke.encU mlKem768 a r i
+abbrev encV (ek m r : List Byte) : Poly := KPke.encV mlKem768 ek m r
+abbrev ct768 (a : Nat → Nat → Poly) (ek m r : List Byte) : List Byte := KPke.ct mlKem768 a ek m r
+abbrev dcU (c : List Byte) (i : Nat) : Poly := KPke.dcU mlKem768 c i
+abbrev dcV (c : List Byte) : Poly := KPke.dcV mlKem768 c
+abbrev dkPke (dk : List Byte) : List Byte := KPke.dkPke mlKem768 dk
+abbrev dkEk (dk : List Byte) : List Byte := KPke.dkEk mlKem768 dk
+abbrev dkH (dk : List Byte) : List Byte := KPke.dkH mlKem768 dk
+abbrev dkZ (dk : List Byte) : List Byte := KPke.dkZ mlKem768 dk
+abbrev decM (dk c : List Byte) : List Byte := KPke.decM mlKem768 dk c
+
+theorem kpkeKeyGen768_some {iters : Nat} {d : List Byte} {a : Nat → Nat → Poly}
+    (h : ∀ i < 3, ∀ j < 3, sampleNTT iters (matSeed (kgRho d) i j) = some (a i j)) :
+    kpkeKeyGen mlKem768 iters d = some (ekPKE768 a d, dkPKE768 d) :=
+  KPke.kpkeKeyGen_some rfl h
+
+theorem kpkeKeyGen768_none {iters : Nat} {d : List Byte} {i j : Nat} (hi : i < 3) (hj : j < 3)
+    (h : sampleNTT iters (matSeed (kgRho d) i j) = none) : kpkeKeyGen mlKem768 iters d = none :=
+  KPke.kpkeKeyGen_none hi hj h
+
+theorem kpkeEncrypt768_some {iters : Nat} {ek m r : List Byte} {a : Nat → Nat → Poly}
+    (h : ∀ i < 3, ∀ j < 3, sampleNTT iters (matSeed (ekRho mlKem768 ek) i j) = some (a i j)) :
+    kpkeEncrypt mlKem768 iters ek m r = some (ct768 a ek m r) :=
+  KPke.kpkeEncrypt_some ⟨rfl, rfl⟩ h
+
+theorem kpkeEncrypt768_none {iters : Nat} {ek m r : List Byte} {i j : Nat} (hi : i < 3) (hj : j < 3)
+    (h : sampleNTT iters (matSeed (ekRho mlKem768 ek) i j) = none) :
+    kpkeEncrypt mlKem768 iters ek m r = none :=
+  KPke.kpkeEncrypt_none hi hj h
+
+theorem kpkeDecrypt768 (dk c : List Byte) :
+    kpkeDecrypt mlKem768 dk c =
+      compressEncode 1 (sub (dcV c) (nttInv (dot3 (dcS dk) fun i => ntt (dcU c i)))) :=
+  KPke.kpkeDecrypt_eq mlKem768 dk c
+
+theorem keyGenInternal768 (iters : Nat) (d z : List Byte) :
+    keyGenInternal mlKem768 iters d z =
+      (kpkeKeyGen mlKem768 iters d).map fun k => (k.1, k.2 ++ k.1 ++ H k.1 ++ z) :=
+  KPke.keyGenInternal_eq mlKem768 iters d z
+
+theorem encapsInternal768 (iters : Nat) (ek m : List Byte) :
+    encapsInternal mlKem768 iters ek m =
+      (kpkeEncrypt mlKem768 iters ek m (G (m ++ H ek)).2).map fun c => ((G (m ++ H ek)).1, c) :=
+  KPke.encapsInternal_eq mlKem768 iters ek m
+
+theorem decapsInternal768 (iters : Nat) (dk c : List Byte) :
+    decapsInternal mlKem768 iters dk c =
+      (kpkeEncrypt mlKem768 iters (dkEk dk) (decM dk c) (G (decM dk c ++ dkH dk)).2).map fun c' =>
+        if c = c' then (G (decM dk c ++ dkH dk)).1 else J (dkZ dk ++ c) :=
+  KPke.decapsInternal_eq mlKem768 iters dk c
 
 end VG.Proof.MlKem

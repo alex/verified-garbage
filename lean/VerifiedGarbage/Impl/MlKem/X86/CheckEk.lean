@@ -1,15 +1,16 @@
 import VerifiedGarbage.Impl.MlKem.X86.Basic
 
 /-!
-# ML-KEM-768 on x86 (32-bit): `vg_mlkem768_check_ek`
+# ML-KEM on x86 (32-bit): the encapsulation key check
 
-A leaf (`leaf`) looping over the 384 groups of three bytes of the first 1152
-bytes of `ek`, with `esi` at the group and `ecx` the groups left. The two
-12-bit fields of a group are computed in `eax` and `ebp` (as in `decode12`);
-`sub r, q` borrows exactly when `r < q`, and `sbb r, r` turns the borrow into
-the mask `0xffffffff` (or 0), which is ANDed into `ebx` (from `0xffffffff`).
-The result is its low bit. Every address and branch depends only on the
-pointer.
+`checkEkN n`: a leaf (`leaf`) looping over the `n` groups of three bytes of
+the first `3n` bytes of `ek`, with `esi` at the group and `ecx` the groups
+left. The two 12-bit fields of a group are computed in `eax` and `ebp` (as in
+`decode12`); `sub r, q` borrows exactly when `r < q`, and `sbb r, r` turns the
+borrow into the mask `0xffffffff` (or 0), which is ANDed into `ebx` (from
+`0xffffffff`). The result is its low bit. Every address and branch depends
+only on the pointer. `vg_mlkem768_check_ek` is `checkEk`, over the 384 groups
+of `ek[0 : 1152]`.
 -/
 
 namespace VG.Impl.MlKem.X86
@@ -24,13 +25,16 @@ def ekBody : List Instr :=
     .alu .sub .ebp (.imm Q), .alu .sbb .ebp (.reg .ebp), .alu .and .ebx (.reg .ebp),
     .alu .add .esi (.imm 3), .alu .sub .ecx (.imm 1)]
 
-/-- `esi = ek`, `ecx = 384`, `ebx = 0xffffffff`. -/
-def ekInit : List Instr :=
-  [.mov .esi (.mem (at_ .esp 20)), .mov .ecx (.imm 384), .mov .ebx (.imm 0xffffffff)]
+/-- `esi = ek`, `ecx = n`, `ebx = 0xffffffff`. -/
+def ekInitN (n : Nat) : List Instr :=
+  [.mov .esi (.mem (at_ .esp 20)), .mov .ecx (.imm (BitVec.ofNat 32 n)), .mov .ebx (.imm 0xffffffff)]
 
 /-- The low bit of `ebx`. -/
 def ekEnd : List Instr := [.mov .eax (.reg .ebx), .alu .and .eax (.imm 1)]
 
-def checkEk : Prog isa := leaf (.seq (.block ekInit) (.seq (.loop (.block ekBody) .ne) (.block ekEnd)))
+def checkEkN (n : Nat) : Prog isa := leaf (.seq (.block (ekInitN n)) (.seq (.loop (.block ekBody) .ne) (.block ekEnd)))
+
+/-- `vg_mlkem768_check_ek`. -/
+def checkEk : Prog isa := checkEkN 384
 
 end VG.Impl.MlKem.X86
