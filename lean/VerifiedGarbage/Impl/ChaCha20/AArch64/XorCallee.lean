@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.ChaCha20.AArch64.Xor
-import VerifiedGarbage.Impl.ChaCha20.AArch64.Mixed5
+import VerifiedGarbage.Impl.ChaCha20.AArch64.Mixed8
 
 namespace VG.Impl.ChaCha20.AArch64
 
@@ -12,6 +12,6 @@ structure XorCallee where
   suffix : String
 
 def XorCallee.scalar : XorCallee := ⟨"vg_chacha20_xor", Xor.xor, ""⟩
-def XorCallee.neon : XorCallee := ⟨"vg_chacha20_xor_neon", Mixed5.xor, "_neon"⟩
+def XorCallee.neon : XorCallee := ⟨"vg_chacha20_xor_neon", Mixed8.xor, "_neon"⟩
 
 end VG.Impl.ChaCha20.AArch64
