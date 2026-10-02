@@ -110,6 +110,30 @@ theorem rel_reassoc_inner {P Q : State → State → Prop} {e a b c : Prog isa}
   simp only [List.append_assoc] at ht
   exact ⟨ht, hq⟩
 
+/-- `e; (a; (b; (c; d)))`, related as `e; ((a; (b; c)); d)`. -/
+theorem rel_reassoc_inner3 {P Q : State → State → Prop} {e a b c d : Prog isa}
+    (h : RelCT isa P (.seq e (.seq (.seq a (.seq b c)) d)) Q) : RelCT isa P (.seq e (.seq a (.seq b (.seq c d)))) Q := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  cases e₁ with | seq x₁ e₁ => cases e₁ with | seq a₁ e₁ => cases e₁ with | seq b₁ e₁ => cases e₁ with | seq c₁ d₁ =>
+  cases e₂ with | seq x₂ e₂ => cases e₂ with | seq a₂ e₂ => cases e₂ with | seq b₂ e₂ => cases e₂ with | seq c₂ d₂ =>
+  obtain ⟨ht, hq⟩ := h _ _ _ _ _ _ hp (.seq x₁ (.seq (.seq a₁ (.seq b₁ c₁)) d₁)) (.seq x₂ (.seq (.seq a₂ (.seq b₂ c₂)) d₂))
+  simp only [List.append_assoc] at ht
+  exact ⟨ht, hq⟩
+
+/-- A block, related as two. -/
+theorem rel_block_split {P Q : State → State → Prop} {l₁ l₂ : List Instr}
+    (h : RelCT isa P (.seq (.block l₁) (.block l₂)) Q) : RelCT isa P (.block (l₁ ++ l₂)) Q := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  rw [Exec.block_iff, execBlock_append] at e₁ e₂
+  obtain ⟨⟨m₁, u₁⟩, a₁, b₁⟩ := Option.bind_eq_some_iff.mp e₁
+  obtain ⟨⟨m₂, u₂⟩, a₂, b₂⟩ := Option.bind_eq_some_iff.mp e₂
+  obtain ⟨⟨n₁, w₁⟩, c₁, d₁⟩ := Option.map_eq_some_iff.mp b₁
+  obtain ⟨⟨n₂, w₂⟩, c₂, d₂⟩ := Option.map_eq_some_iff.mp b₂
+  simp only [Prod.mk.injEq] at d₁ d₂
+  obtain ⟨rfl, rfl⟩ := d₁
+  obtain ⟨rfl, rfl⟩ := d₂
+  exact h _ _ _ _ _ _ hp (.seq (.block a₁) (.block c₁)) (.seq (.block a₂) (.block c₂))
+
 /-- `a; (b; c)`, related as `(a; b); c`. -/
 theorem rel_reassoc2 {P Q : State → State → Prop} {a b c : Prog isa}
     (h : RelCT isa P (.seq (.seq a b) c) Q) : RelCT isa P (.seq a (.seq b c)) Q := RelCT.assoc h
