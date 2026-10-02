@@ -1,7 +1,7 @@
-//! PBKDF2-HMAC-SHA-224 (RFC 8018 §5.2). On x86-64 and AArch64, the whole
-//! derivation is `vg_pbkdf2_hmac_sha224` (contract
-//! `VG.Spec.Hmac.Instance.pbkdf2Contract` of `VG.Spec.Hmac.sha224I`), the one
-//! PBKDF2 implementation for every Merkle–Damgård hash function, calling
+//! PBKDF2-HMAC-SHA-224 (RFC 8018 §5.2). The whole derivation is
+//! `vg_pbkdf2_hmac_sha224` (contract `VG.Spec.Hmac.Instance.pbkdf2Contract` of
+//! `VG.Spec.Hmac.sha224I`). On x86-64 and AArch64, it is the one PBKDF2
+//! implementation for every Merkle–Damgård hash function, calling
 //! SHA-224's verified functions: its iteration calls SHA-256's verified
 //! compression function directly, twice per step. On x86-64, it follows the
 //! implementation of SHA-256 compression that `Sha224` runs on this CPU
@@ -10,17 +10,15 @@
 //! contract). AArch64 selects `vg_pbkdf2_hmac_sha224_sha2` when the SHA-256
 //! instructions are available.
 //!
-//! On ARMv7, the iteration is `vg_pbkdf2_hmac_sha224_iterate` (contract
+//! On ARMv7, the whole derivation is the one for every streaming hash
+//! function, calling SHA-256's verified streaming functions, HMAC-SHA-224's
+//! `init` and `finalize` and `vg_pbkdf2_hmac_sha224_iterate` (contract
 //! `VG.Spec.Hmac.Instance.iterateContract`), the one PBKDF2 iteration for
-//! every streaming hash function, calling SHA-256's verified streaming
-//! functions.
+//! every streaming hash function.
 
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use crate::arch::pbkdf2_sha224::vg_pbkdf2_hmac_sha224;
-#[cfg(target_arch = "arm")]
-use crate::arch::pbkdf2_sha224::vg_pbkdf2_hmac_sha224_iterate;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::pbkdf2_sha224::{
     VG_PBKDF2_HMAC_SHA224_AVX2_FEATURES, VG_PBKDF2_HMAC_SHA224_SHANI_FEATURES,
@@ -30,17 +28,6 @@ use crate::arch::pbkdf2_sha224::{
 use crate::arch::pbkdf2_sha224::{VG_PBKDF2_HMAC_SHA224_SHA2_FEATURES, vg_pbkdf2_hmac_sha224_sha2};
 use crate::hashes::sha224::{Sha224, Sha224Backend};
 
-#[cfg(target_arch = "arm")]
-super::streaming_pbkdf2!(
-    Sha224 (Sha224Backend) {
-        Scalar => vg_pbkdf2_hmac_sha224_iterate,
-    },
-    state: 96,
-    scratch: 104,
-    output: 28,
-);
-
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 super::whole_pbkdf2!(
     Sha224 (Sha224Backend) {
         Scalar => vg_pbkdf2_hmac_sha224,
