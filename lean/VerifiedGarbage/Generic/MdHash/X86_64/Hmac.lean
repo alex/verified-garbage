@@ -6,8 +6,9 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Variant
 
 A generic file (see `TCB/Emit.lean`): HMAC's `init` and `finalize`, the one
 implementation for every Merkle–Damgård hash function
-(`Impl/Hmac/Generic/X86_64.lean`), calling the hash function's streaming
-functions made with the variant's compression function, are emitted once for
+(`Impl/Hmac/Generic/X86_64.lean`, `Impl/Pbkdf2/Md/X86_64.lean`), calling the
+hash function's streaming functions made with the variant's compression
+function, and `finalize` the compression function itself, are emitted once for
 each variant (`Variants/MdHash/X86_64/`), named with its suffix (e.g.
 `vg_hmac_sha256_init_shani`).
 -/
