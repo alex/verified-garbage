@@ -54,6 +54,7 @@ theorem MulKeep.word {b : BitVec 32} {o n : Nat} {s t : State}
   apply BitVec.eq_of_toNat_eq
   exact wd_frame h.frame fun r hr => by
     simp only [mulRegions, List.mem_cons, List.not_mem_nil, or_false] at hr
+    have := ACC_eq
     rcases hr with rfl | rfl | rfl | rfl <;>
       exact Offset.disjoint _ (by omega) (by omega) (by omega)
 
@@ -63,6 +64,7 @@ theorem MulKeep.table {b : BitVec 32} {o n : Nat} {s t : State}
     tablePoint t.mem b d = tablePoint s.mem b d := by
   refine tablePoint_frame h.frame fun r hr => ?_
   simp only [mulRegions, List.mem_cons, List.not_mem_nil, or_false] at hr
+  have := ACC_eq
   rcases hr with rfl | rfl | rfl | rfl <;>
     exact Offset.disjoint _ (by omega) (by omega) (by omega)
 

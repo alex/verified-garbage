@@ -40,6 +40,7 @@ theorem TableFrame.point {b : BitVec 32} {o n : Nat} {m m' : Mem}
     tablePoint m' b d = tablePoint m b d := by
   refine tablePoint_frame h fun r hm => ?_
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hm
+  have := ACC_eq
   rcases hm with rfl | rfl
   · exact Offset.disjoint _ (.inr (by omega)) (by omega) (by decide)
   · exact Offset.disjoint _ hsep (by omega) (by omega)
@@ -47,7 +48,7 @@ theorem TableFrame.point {b : BitVec 32} {o n : Nat} {m m' : Mem}
 theorem workspace_tablePoint {b : BitVec 32} {m m' : Mem} (h : Frame [FA ACC b] m m')
     {d : Nat} (hd : 1600 ≤ d) (hb : d + 128 ≤ 8192) : tablePoint m' b d = tablePoint m b d := by
   refine tablePoint_frame h fun r hm => ?_
-  rw [List.mem_singleton.mp hm]
+  rw [List.mem_singleton.mp hm, ACC_eq]
   exact Offset.disjoint _ (.inr (by omega)) (by omega) (by decide)
 
 abbrev powersClob : List Reg := [.r10, .r11, .r12] ++ clob
