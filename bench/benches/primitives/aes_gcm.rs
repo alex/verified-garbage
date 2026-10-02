@@ -33,7 +33,7 @@ pub fn bench(c: &mut Criterion) {
         let mut buf = data.clone();
         let tag = AesGcm::new(&key)
             .unwrap()
-            .encrypt(&nonce, &aad, &mut buf)
+            .encrypt_in_place(&nonce, &aad, &mut buf)
             .unwrap();
         let ct = buf.clone();
 
@@ -42,7 +42,7 @@ pub fn bench(c: &mut Criterion) {
         g.bench_function(BenchmarkId::new(VG, size), |b| {
             b.iter(|| {
                 let k = AesGcm::new(black_box(&key)).unwrap();
-                k.encrypt(black_box(&nonce), black_box(&aad), black_box(&mut buf))
+                k.encrypt_in_place(black_box(&nonce), black_box(&aad), black_box(&mut buf))
                     .unwrap()
             })
         });
@@ -68,7 +68,7 @@ pub fn bench(c: &mut Criterion) {
             b.iter(|| {
                 buf.copy_from_slice(&ct);
                 let k = AesGcm::new(black_box(&key)).unwrap();
-                k.decrypt(
+                k.decrypt_in_place(
                     black_box(&nonce),
                     black_box(&aad),
                     black_box(&mut buf),

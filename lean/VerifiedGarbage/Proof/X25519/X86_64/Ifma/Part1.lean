@@ -55,7 +55,7 @@ theorem part1_ok {s : State} {base : Addr} {x1 : Nat → Nat} (hs : Scr s base) 
   have hs₁ := scr_of hs (vm_gpr v₁) (vm_wr v₁)
   have hk₁ : Consts s₁.mem base x1 := by rw [m₁]; exact hk
   rw [WP.block_append_iff]
-  refine WP.mono (carryI_wp hs₁.rdi (scr_ctx hs₁) hk₁ fun l hl i hi => (u₁ l hl i hi).2) fun s₂ ⟨v₂, m₂, u₂, _⟩ => ?_
+  refine WP.mono (carryI_wp hs₁.rdi (scr_ctx hs₁) hk₁.c fun l hl i hi => (u₁ l hl i hi).2) fun s₂ ⟨v₂, m₂, u₂, _⟩ => ?_
   have hs₂ := scr_of hs₁ (vm_gpr v₂) (vm_wr v₂)
   rw [WP.block_append_iff]
   refine WP.mono (s1b_wp hs₂.rdi (scr_ctx hs₂)) fun s₃ ⟨g₃, r₃, w₃, o₃, u₃, _⟩ => ?_

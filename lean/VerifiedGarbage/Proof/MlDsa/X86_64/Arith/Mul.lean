@@ -286,7 +286,7 @@ theorem fn_ok {t : Poly → Poly → Poly → Poly} {hPre : Mem → Addr → Pro
       s3.gpr .rdi = coeffAddr h 252 ∧ Frame [pR h] σ.mem s3.mem ∧
       (∀ k < 252, (coeffAt s3.mem h k).toNat = (R[k]!).val) ∧
       ∀ e < 4, (dword (s3.xmm .xmm3) e).toNat = (R[252 + e]!).val)
-    fun s2 k2 f2 x2 => ?_) fun s4 ⟨s3, ⟨kk, hdi, fr, dn, ln⟩, f4, k4, x4⟩ => ?_)
+    fun s2 k2 f2 x2 _ => ?_) fun s4 ⟨s3, ⟨kk, hdi, fr, dn, ln⟩, f4, k4, x4, _⟩ => ?_)
   · have fσ2 : Frame [mxH h] σ.mem s2.mem := by rw [← m1]; exact f2
     refine WP.mono (WP.keep [.rax, .rdi, .rsi, .rdx, .rcx] (WP.seq (WP.mono (mulPro_ok s2)
       fun w ⟨cw, xw, x6, kw, mw⟩ => ?_) (Q := fun (s3 : State) => s3.gpr .rdi = coeffAddr h 252 ∧

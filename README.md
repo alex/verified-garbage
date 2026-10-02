@@ -227,6 +227,22 @@ yours to keep:
 
 <tr>
 
+<td>3DES-CMAC (two- and three-key TDEA)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>HMAC-MD5</td>
 
 <td>✅</td>
@@ -811,7 +827,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ SHA512, AVX2, BMI1, BMI2, ADX</td>
+<td>✅ SHA512, AVX-512 IFMA, AVX-512VL, AVX2, BMI1, BMI2, ADX</td>
 
 <td>✅ SHA extensions</td>
 
@@ -827,7 +843,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ SSE2 polynomial arithmetic</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic</td>
 
 <td>✅ SHA extensions</td>
 
@@ -843,7 +859,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ SSE2 polynomial arithmetic</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic</td>
 
 <td>✅ SHA extensions</td>
 
@@ -859,7 +875,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ SSE2 polynomial arithmetic</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic</td>
 
 <td>✅ SHA extensions</td>
 

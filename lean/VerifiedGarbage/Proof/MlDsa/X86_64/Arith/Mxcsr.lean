@@ -29,34 +29,37 @@ those bytes, and nothing more than they and MXCSR change after it. -/
 theorem withMxcsrH_ok {c : Prog isa} {r : Reg} (hr : r ≠ .r11 ∧ r ≠ .rax) (rs : List Reg)
     (hrs : r ∉ rs ∧ Reg.r11 ∉ rs) {p : Addr} {s : State} {Q : State → Prop}
     (hsi : s.gpr r = p) (hw : pR p ∈ s.wr) (hk : writesOnly rs c = true)
-    (hc : ∀ s1, Keep [.rax, .r11] s s1 → Frame [mxH p] s.mem s1.mem → s1.xmm = s.xmm → WP isa c s1 Q) :
+    (hc : ∀ s1, Keep [.rax, .r11] s s1 → Frame [mxH p] s.mem s1.mem → s1.xmm = s.xmm → s1.ymmHi = s.ymmHi →
+      WP isa c s1 Q) :
     WP isa (withMxcsr r 1016 c) s fun s' =>
-      ∃ s2, Q s2 ∧ Frame [mxH p] s2.mem s'.mem ∧ Keep [] s2 s' ∧ s'.xmm = s2.xmm := by
+      ∃ s2, Q s2 ∧ Frame [mxH p] s2.mem s'.mem ∧ Keep [] s2 s' ∧ s'.xmm = s2.xmm ∧ s'.ymmHi = s2.ymmHi := by
   have h0 := mxH_in hw 1016 (by decide)
   have h0' := mxH_in (List.mem_append_right s.rd hw) 1016 (by decide)
   have h4 := mxH_in hw 1020 (by decide)
   simp only [withMxcsr]
   refine WP.seq (WP.mono (Q := fun (s1 : State) => s1.gpr .r11 = (s.mxcsr &&& 0xFFFF).setWidth 64 ∧ Keep [.r11] s s1 ∧
-    Frame [mxH p] s.mem s1.mem ∧ s1.xmm = s.xmm) (by
+    Frame [mxH p] s.mem s1.mem ∧ s1.xmm = s.xmm ∧ s1.ymmHi = s.ymmHi) (by
       vrunm [hsi, h0, h0', Mem.readW_writeW_self32, hr.1]
       refine ⟨by rw [BitVec.setWidth_setWidth_of_le _ (by decide), BitVec.setWidth_eq],
         ⟨fun r hr => ?_, rfl, rfl⟩, (Frame.refl _ _).writeW (List.mem_singleton_self _) _
-          (Offset.contains p (by decide) (by decide) (by decide))⟩
+          (Offset.contains p (by decide) (by decide) (by decide)),
+        by simp only [RegUpd.ymmHi_setReg, RegUpd.ymmHi_setFlags]⟩
       simp only [List.mem_singleton] at hr
-      simp only [RegUpd.gpr_setReg, RegUpd.gpr_setFlags, hr, ite_false]) fun s1 ⟨h11, k1, f1, x1⟩ => ?_)
+      simp only [RegUpd.gpr_setReg, RegUpd.gpr_setFlags, hr, ite_false]) fun s1 ⟨h11, k1, f1, x1, y1⟩ => ?_)
   have hsi1 : s1.gpr r = p := by rw [k1.gpr (by simpa using hr.1), hsi]
   have h4' : InRegions s1.wr (p + BitVec.ofNat 64 (1016 + 4)) 4 := by rw [k1.2.2]; exact h4
   have h4'' : InRegions (s1.rd ++ s1.wr) (p + BitVec.ofNat 64 (1016 + 4)) 4 :=
     let ⟨r, hr, hc⟩ := h4'; ⟨r, List.mem_append_right _ hr, hc⟩
   refine WP.seq (WP.seq (WP.mono (Q := fun (s2 : State) => Keep [.rax] s1 s2 ∧ Frame [mxH p] s1.mem s2.mem ∧
-      s2.xmm = s1.xmm)
+      s2.xmm = s1.xmm ∧ s2.ymmHi = s1.ymmHi)
     (by
       vrunm [hsi1, h4', h4'', Mem.readW_writeW_self32, hr.2]
       refine ⟨⟨fun r hr => ?_, rfl, rfl⟩, (Frame.refl _ _).writeW (List.mem_singleton_self _) _
-        (Offset.contains p (by decide) (by decide) (by decide))⟩
+        (Offset.contains p (by decide) (by decide) (by decide)), by simp only [RegUpd.ymmHi_setReg]⟩
       simp only [List.mem_singleton] at hr
-      simp only [RegUpd.gpr_setReg, hr, ite_false]) fun s2 ⟨k2, f2, x2⟩ => ?_))
-  refine WP.seq (WP.mono (WP.keep _ (hc s2 ((k1.trans k2).mono (by simp)) (f1.trans f2) (x2.trans x1)) hk)
+      simp only [RegUpd.gpr_setReg, hr, ite_false]) fun s2 ⟨k2, f2, x2, y2⟩ => ?_))
+  refine WP.seq (WP.mono (WP.keep _ (hc s2 ((k1.trans k2).mono (by simp)) (f1.trans f2) (x2.trans x1)
+    (y2.trans y1)) hk)
     fun s3 ⟨hq, k3⟩ => ?_)
   have k23 := k2.trans k3
   have hsi3 : s3.gpr r = p := by rw [k23.gpr (by simp [hr.2, hrs.1]), hsi1]
@@ -68,6 +71,6 @@ theorem withMxcsrH_ok {c : Prog isa} {r : Reg} (hr : r ≠ .r11 ∧ r ≠ .rax) 
   subst h4
   vrunm [hsi3, h113, h03, h03', Mem.readW_writeW_self32, ldmxcsr_ok]
   exact ⟨_, hq, (Frame.refl _ _).writeW (List.mem_singleton_self _) _
-    (Offset.contains p (by decide) (by decide) (by decide)), ⟨fun _ _ => rfl, rfl, rfl⟩, rfl⟩
+    (Offset.contains p (by decide) (by decide) (by decide)), ⟨fun _ _ => rfl, rfl, rfl⟩, rfl, rfl⟩
 
 end VG.Proof.MlDsa.X86_64.Arith

@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyMessage.CTHash
 namespace VG.Proof.Ed25519.X86_64.VerifyMessage
 
 variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+variable {dbl : VG.Prog VG.X86_64.isa} [VG.Proof.Ed25519.X86_64.EdDouble dbl]
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64 (scalarReduce verifyEquation callWith)
 open VG.Impl.Ed25519.X86_64.VerifyMessage
@@ -69,9 +70,9 @@ theorem ce_challenge {L : Lay} {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : 
     (by rw [hc.ret]; exact Offset.disjoint _ (by omega) (by omega) (by omega))
     (by decide : 64 ≤ 2 ^ 64) (List.mem_range.mp hi)
 
-theorem equation_ct : RelCT isa (Two EquationReady)
-    (.call ("vg_ed25519_verify_equation" ++ fs) (verifyEquation fld)) fun _ _ => True := by
-  refine two_call verify_ok verify_ct eqRd eqWr
+theorem equation_ct (hq : EqCode (VG.Impl.Ed25519.X86_64.verifyEquation fld dbl)) : RelCT isa (Two EquationReady)
+    (.call ("vg_ed25519_verify_equation" ++ fs) (verifyEquation fld dbl)) fun _ _ => True := by
+  refine two_call (verify_ok hq.mx) verify_ct eqRd eqWr
     (fun _ _ _ _ _ hL hc ha => eq_pre hL hc ha.1) ?_ eq_access
   intro L t₁ t₂ g₁ g₂ mx₁ mx₂ m₁ m₂ hL hi c₁ c₂ a₁ a₂
   obtain ⟨d₁, s₁, x₁, r₁⟩ := eq_regs a₁.1 (eqRd L) (eqWr L)
@@ -93,11 +94,11 @@ theorem equation_ct : RelCT isa (Two EquationReady)
   · rw [x₁, x₂, State.withRegions_mem, State.withRegions_mem, ce_challenge c₁ a₁.2,
       ce_challenge c₂ a₂.2, hi.challenge]
 
-theorem body_ct (v : Compress) : RelCT isa (Two fun _ _ _ => True)
-    (body fld fs v.callee v.suffix) fun _ _ => True := by
-  have h := (prepare_ct v).seq (equationArgs_ct.seq (equation_ct (fld := fld) (fs := fs)))
-  have reassoc : ∀ {s t s'}, Exec isa (body fld fs v.callee v.suffix) s t s' →
-      Exec isa (.seq (prepare v) (callWith equationArgs ("vg_ed25519_verify_equation" ++ fs) (verifyEquation fld))) s t s' := by
+theorem body_ct (hq : EqCode (VG.Impl.Ed25519.X86_64.verifyEquation fld dbl)) (v : Compress) : RelCT isa (Two fun _ _ _ => True)
+    (body fld dbl fs v.callee v.suffix) fun _ _ => True := by
+  have h := (prepare_ct v).seq (equationArgs_ct.seq (equation_ct (fs := fs) hq))
+  have reassoc : ∀ {s t s'}, Exec isa (body fld dbl fs v.callee v.suffix) s t s' →
+      Exec isa (.seq (prepare v) (callWith equationArgs ("vg_ed25519_verify_equation" ++ fs) (verifyEquation fld dbl))) s t s' := by
     intro s t s' he
     cases he with
     | seq hh hr =>
@@ -109,10 +110,10 @@ theorem body_ct (v : Compress) : RelCT isa (Two fun _ _ _ => True)
   intro s₁ s₂ t₁ t₂ s₁' s₂' hp he₁ he₂
   exact h _ _ _ _ _ _ hp (reassoc he₁) (reassoc he₂)
 
-theorem verifyMessage_ct (v : Compress) :
-    ConstantTime isa verifyMessageLocal.pre verifyMessageLocal.pub (code fld fs v.callee v.suffix) := by
+theorem verifyMessage_ct (hq : EqCode (VG.Impl.Ed25519.X86_64.verifyEquation fld dbl)) (v : Compress) :
+    ConstantTime isa verifyMessageLocal.pre verifyMessageLocal.pub (code fld dbl fs v.callee v.suffix) := by
   refine RelCT.constantTime (RelCT.frame (fun _ _ h => h.2.2.1)
-    (RelCT.mono (body_ct v) ?_ fun _ _ _ => trivial))
+    (RelCT.mono (body_ct hq v) ?_ fun _ _ _ => trivial))
   rintro _ _ ⟨s₁, s₂, ⟨h₁, h₂, hsp, hdi, hsi, hdx, hcx, h8, hp, hm, hs⟩, rfl, rfl⟩
   have e : lay s₂ = lay s₁ := by simp only [lay, hsp, hdi, hsi, hdx, hcx, h8]
   have hi : InputsEq (lay s₁) s₁.mem s₂.mem := by

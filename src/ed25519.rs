@@ -4,8 +4,10 @@
 //! assembly operation, including SHA-512, on every supported architecture.
 //! x86-64 and AArch64 variants follow the selected SHA-512 backend. On
 //! x86-64 CPUs with BMI2 and ADX, the `_adx` variants multiply field
-//! elements with `mulx`, `adcx` and `adox`. Secret scratch values are cleared
-//! after use.
+//! elements with `mulx`, `adcx` and `adox`, and on those that also have
+//! AVX512_IFMA and AVX512VL, verification is the `_ifma` variant, whose
+//! doublings use four-lane field multiplications. Secret scratch values are
+//! cleared after use.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -17,12 +19,13 @@
 #[cfg(target_arch = "x86_64")]
 use crate::arch::ed25519::{
     VG_ED25519_PUBLIC_KEY_ADX_FEATURES, VG_ED25519_SIGN_CACHED_ADX_FEATURES,
-    VG_ED25519_VERIFY_ADX_FEATURES, vg_ed25519_public_key_adx, vg_ed25519_public_key_avx2,
-    vg_ed25519_public_key_avx2_adx, vg_ed25519_public_key_shani, vg_ed25519_public_key_shani_adx,
-    vg_ed25519_sign_cached_adx, vg_ed25519_sign_cached_avx2, vg_ed25519_sign_cached_avx2_adx,
-    vg_ed25519_sign_cached_shani, vg_ed25519_sign_cached_shani_adx, vg_ed25519_verify_adx,
-    vg_ed25519_verify_avx2, vg_ed25519_verify_avx2_adx, vg_ed25519_verify_shani,
-    vg_ed25519_verify_shani_adx,
+    VG_ED25519_VERIFY_ADX_FEATURES, VG_ED25519_VERIFY_IFMA_FEATURES, vg_ed25519_public_key_adx,
+    vg_ed25519_public_key_avx2, vg_ed25519_public_key_avx2_adx, vg_ed25519_public_key_shani,
+    vg_ed25519_public_key_shani_adx, vg_ed25519_sign_cached_adx, vg_ed25519_sign_cached_avx2,
+    vg_ed25519_sign_cached_avx2_adx, vg_ed25519_sign_cached_shani,
+    vg_ed25519_sign_cached_shani_adx, vg_ed25519_verify_adx, vg_ed25519_verify_avx2,
+    vg_ed25519_verify_avx2_adx, vg_ed25519_verify_avx2_ifma, vg_ed25519_verify_ifma,
+    vg_ed25519_verify_shani, vg_ed25519_verify_shani_adx, vg_ed25519_verify_shani_ifma,
 };
 use crate::arch::ed25519::{vg_ed25519_public_key, vg_ed25519_sign_cached, vg_ed25519_verify};
 #[cfg(target_arch = "aarch64")]
@@ -41,17 +44,25 @@ enum Field {
     /// BMI2's `mulx` and ADX's `adcx` and `adox` (the `_adx` variants).
     #[cfg(target_arch = "x86_64")]
     Adx,
+    /// `Adx`, and AVX512_IFMA's `vpmadd52luq` and `vpmadd52huq` (on `ymm`
+    /// registers, with AVX512VL) for verification's doublings (the `_ifma`
+    /// variants of verification).
+    #[cfg(target_arch = "x86_64")]
+    Ifma,
 }
 
 impl Field {
     /// The fastest field multiplications a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     fn select(f: Features) -> Field {
-        if f.contains(Features::all(&[
+        let adx = f.contains(Features::all(&[
             VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
             VG_ED25519_SIGN_CACHED_ADX_FEATURES,
             VG_ED25519_VERIFY_ADX_FEATURES,
-        ])) {
+        ]));
+        if adx && f.contains(Features::of(VG_ED25519_VERIFY_IFMA_FEATURES)) {
+            Field::Ifma
+        } else if adx {
             Field::Adx
         } else {
             Field::Baseline
@@ -173,15 +184,15 @@ unsafe fn public_key_with(f: Features, seed: &[u8; 32]) -> [u8; 32] {
     let derive = match (Sha512Backend::select(f), Field::select(f)) {
         (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_public_key,
         #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Scalar, Field::Adx) => vg_ed25519_public_key_adx,
+        (Sha512Backend::Scalar, Field::Adx | Field::Ifma) => vg_ed25519_public_key_adx,
         #[cfg(target_arch = "x86_64")]
         (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_public_key_shani,
         #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::ShaNi, Field::Adx) => vg_ed25519_public_key_shani_adx,
+        (Sha512Backend::ShaNi, Field::Adx | Field::Ifma) => vg_ed25519_public_key_shani_adx,
         #[cfg(target_arch = "x86_64")]
         (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_public_key_avx2,
         #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Avx2, Field::Adx) => vg_ed25519_public_key_avx2_adx,
+        (Sha512Backend::Avx2, Field::Adx | Field::Ifma) => vg_ed25519_public_key_avx2_adx,
         #[cfg(target_arch = "aarch64")]
         (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_public_key_sha3,
     };
@@ -219,13 +230,19 @@ unsafe fn verify_message_with(
         #[cfg(target_arch = "x86_64")]
         (Sha512Backend::Scalar, Field::Adx) => vg_ed25519_verify_adx,
         #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Scalar, Field::Ifma) => vg_ed25519_verify_ifma,
+        #[cfg(target_arch = "x86_64")]
         (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_verify_shani,
         #[cfg(target_arch = "x86_64")]
         (Sha512Backend::ShaNi, Field::Adx) => vg_ed25519_verify_shani_adx,
         #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Ifma) => vg_ed25519_verify_shani_ifma,
+        #[cfg(target_arch = "x86_64")]
         (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_verify_avx2,
         #[cfg(target_arch = "x86_64")]
         (Sha512Backend::Avx2, Field::Adx) => vg_ed25519_verify_avx2_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Ifma) => vg_ed25519_verify_avx2_ifma,
         #[cfg(target_arch = "aarch64")]
         (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_verify_sha3,
     };
@@ -260,15 +277,15 @@ unsafe fn sign_message_with(
     let sign = match (Sha512Backend::select(f), Field::select(f)) {
         (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_sign_cached,
         #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Scalar, Field::Adx) => vg_ed25519_sign_cached_adx,
+        (Sha512Backend::Scalar, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_adx,
         #[cfg(target_arch = "x86_64")]
         (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_sign_cached_shani,
         #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::ShaNi, Field::Adx) => vg_ed25519_sign_cached_shani_adx,
+        (Sha512Backend::ShaNi, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_shani_adx,
         #[cfg(target_arch = "x86_64")]
         (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_sign_cached_avx2,
         #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Avx2, Field::Adx) => vg_ed25519_sign_cached_avx2_adx,
+        (Sha512Backend::Avx2, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_avx2_adx,
         #[cfg(target_arch = "aarch64")]
         (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_sign_cached_sha3,
     };
@@ -332,7 +349,8 @@ mod x86_64_tests {
         VG_ED25519_SIGN_CACHED_AVX2_ADX_FEATURES, VG_ED25519_SIGN_CACHED_AVX2_FEATURES,
         VG_ED25519_SIGN_CACHED_SHANI_ADX_FEATURES, VG_ED25519_SIGN_CACHED_SHANI_FEATURES,
         VG_ED25519_VERIFY_AVX2_ADX_FEATURES, VG_ED25519_VERIFY_AVX2_FEATURES,
-        VG_ED25519_VERIFY_SHANI_ADX_FEATURES, VG_ED25519_VERIFY_SHANI_FEATURES,
+        VG_ED25519_VERIFY_AVX2_IFMA_FEATURES, VG_ED25519_VERIFY_SHANI_ADX_FEATURES,
+        VG_ED25519_VERIFY_SHANI_FEATURES, VG_ED25519_VERIFY_SHANI_IFMA_FEATURES,
     };
     use crate::cpu::NAMES;
 
@@ -366,6 +384,21 @@ mod x86_64_tests {
                 VG_ED25519_SIGN_CACHED_AVX2_ADX_FEATURES,
                 VG_ED25519_VERIFY_AVX2_ADX_FEATURES,
             ],
+            (Sha512Backend::Scalar, Field::Ifma) => [
+                VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
+                VG_ED25519_SIGN_CACHED_ADX_FEATURES,
+                VG_ED25519_VERIFY_IFMA_FEATURES,
+            ],
+            (Sha512Backend::ShaNi, Field::Ifma) => [
+                VG_ED25519_PUBLIC_KEY_SHANI_ADX_FEATURES,
+                VG_ED25519_SIGN_CACHED_SHANI_ADX_FEATURES,
+                VG_ED25519_VERIFY_SHANI_IFMA_FEATURES,
+            ],
+            (Sha512Backend::Avx2, Field::Ifma) => [
+                VG_ED25519_PUBLIC_KEY_AVX2_ADX_FEATURES,
+                VG_ED25519_SIGN_CACHED_AVX2_ADX_FEATURES,
+                VG_ED25519_VERIFY_AVX2_IFMA_FEATURES,
+            ],
         }
     }
 
@@ -386,10 +419,11 @@ mod x86_64_tests {
     /// SHA-512's backends and the field's.
     #[test]
     fn every_backend() {
-        let groups: [&[&str]; 3] = [
+        let groups: [&[&str]; 4] = [
             VG_ED25519_PUBLIC_KEY_SHANI_FEATURES,
             VG_ED25519_PUBLIC_KEY_AVX2_FEATURES,
             VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
+            VG_ED25519_VERIFY_IFMA_FEATURES,
         ];
         let seed = [0x42; 32];
         let message = b"every backend";
