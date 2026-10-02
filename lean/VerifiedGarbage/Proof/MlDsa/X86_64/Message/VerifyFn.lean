@@ -16,6 +16,7 @@ it writes `rsp`, is checked on the code with its primitives empty
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Proof.MlDsa.X86_64 (Comp Same Same.ok ArithImpl)
 open VG.Impl.MlDsa.X86_64.Verify (Prims callAt seqR ifOk sampled hint zOne aOne aRow samples dot row compute)
 open VG.Proof.MlDsa.X86_64.Verify (P0 PrimsOk primsWith prims_okWith verify_correct verify_ct)

@@ -13,6 +13,7 @@ else changed but those registers and the flags.
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Proof.MlKem.X86_64 (Keep WP.keep writesOnly)
 
 /-- The value of an argument in the state `s`. -/

@@ -11,6 +11,7 @@ verified against `signMessageContract p X86_64.abi 104`.
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Spec.MlDsa
 
 /-- A state satisfying the precondition. -/

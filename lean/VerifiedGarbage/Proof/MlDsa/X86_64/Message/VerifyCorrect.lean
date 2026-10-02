@@ -15,6 +15,7 @@ the formatted message (`verifyMessage_wp`).
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Proof.MlKem.X86_64 (Keep WP.keep)
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)

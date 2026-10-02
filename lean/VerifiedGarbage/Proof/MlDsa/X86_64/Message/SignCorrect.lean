@@ -14,23 +14,10 @@ gives the signature of `ML-DSA.Sign_internal` on the formatted message
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Proof.MlKem.X86_64 (Keep WP.keep)
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
-
-/-! ## The formatted message -/
-
-theorem integerToBytes_one {x : Nat} : integerToBytes x 1 = [BitVec.ofNat 8 x] := by
-  simp [integerToBytes, List.range, List.range.loop]
-
-/-- A context string of at most 255 bytes formats the message. -/
-theorem formatMessage_some {ctx M : List Byte} (h : ctx.length < 256) :
-    formatMessage ctx M = some ([0, BitVec.ofNat 8 ctx.length] ++ ctx ++ M) := by
-  simp only [formatMessage, show ¬ ctx.length > 255 by omega, ite_false, integerToBytes_one]
-  rfl
-
-theorem formatMessage_none {ctx M : List Byte} (h : 256 ≤ ctx.length) : formatMessage ctx M = none := by
-  simp only [formatMessage, show ctx.length > 255 by omega, ite_true]
 
 /-! ## The branch on `ctx_len` -/
 

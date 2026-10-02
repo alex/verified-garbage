@@ -13,6 +13,7 @@ registers (`rs`) holding the key, `msg`, `msg_len`, `ctx`, `ctx_len`, `sig`,
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Spec.Sha3 (bytesAt)
 
 /-- The values the frame's push stores, the first at `SP + 64`. -/

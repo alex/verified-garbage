@@ -11,6 +11,7 @@ any verification function on `μ` `c` that `verify_message` can call
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Spec.MlDsa
 
 /-- A state satisfying the precondition. -/

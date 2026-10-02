@@ -15,6 +15,7 @@ call from the frame, on `pk`, `μ` at `X + 840`, `sig` and the first
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Proof.MlDsa.X86_64.Verify (verifyK)
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)

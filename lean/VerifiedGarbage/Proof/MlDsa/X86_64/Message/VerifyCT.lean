@@ -16,6 +16,7 @@ and the lengths; the hashing leaks only the layout (`trHash_tr`,
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Proof.MlKem.X86_64 (Keep RelCT.postDep)
 open VG.Proof.MlDsa.X86_64.Verify (verifyK)
 open VG.Spec.MlDsa
@@ -37,7 +38,7 @@ theorem verifyI_eq {L : Lay} {m₁ m₂ : Mem} (h : verifyI p L m₁ m₂) :
       bytesAt m₁ L.msg L.len.toNat = bytesAt m₂ L.msg L.len.toNat ∧
       bytesAt m₁ L.ctx L.ctxLen.toNat = bytesAt m₂ L.ctx L.ctxLen.toNat ∧
       bytesAt m₁ L.sig p.sigLen = bytesAt m₂ L.sig p.sigLen := by
-  have e := Verify.map_toNat_inj h
+  have e := leakBytes_inj h
   obtain ⟨e, e₄⟩ := List.append_inj' e (by simp only [Proof.MlKem.bytesAt_length])
   obtain ⟨e, e₃⟩ := List.append_inj' e (by simp only [Proof.MlKem.bytesAt_length])
   obtain ⟨e₁, e₂⟩ := List.append_inj' e (by simp only [Proof.MlKem.bytesAt_length])

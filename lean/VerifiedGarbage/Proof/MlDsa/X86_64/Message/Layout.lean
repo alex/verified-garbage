@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.MlKem.X86_64.KCall
 import VerifiedGarbage.Proof.Framework.X86_64.Frame
 import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 import VerifiedGarbage.Proof.Framework.Offset
+import VerifiedGarbage.Proof.MlDsa.Message.Common
 
 /-!
 # ML-DSA on x86-64, `sign_message` and `verify_message`: where everything is
@@ -21,32 +22,10 @@ runs a call of verified code that writes only within `X` in such a state.
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Spec.Sha3 (bytesAt)
 
 /-! ## Regions within others -/
-
-/-- `r` lies at an offset within `R`. -/
-def Within (r R : Region) : Prop := ∃ off, r.base = R.base + BitVec.ofNat 64 off ∧ off + r.len ≤ R.len
-
-theorem Within.sub {r R : Region} (h : Within r R) : Region.Sub r R := by
-  obtain ⟨off, hb, hl⟩ := h
-  obtain ⟨b, n⟩ := r
-  simp only at hb hl
-  subst hb
-  exact Offset.sub_base _ hl
-
-theorem Within.trans {r R R' : Region} (h : Within r R) (h' : Within R R') : Within r R' := by
-  obtain ⟨o, hb, hl⟩ := h
-  obtain ⟨o', hb', hl'⟩ := h'
-  exact ⟨o' + o, by rw [hb, hb', BitVec.add_assoc, BitVec.ofNat_add_ofNat], by omega⟩
-
-theorem within_off (p : Addr) {d n k : Nat} (h : d + n ≤ k) :
-    Within ⟨p + BitVec.ofNat 64 d, n⟩ ⟨p, k⟩ := ⟨d, rfl, h⟩
-
-theorem within_base (p : Addr) {n k : Nat} (h : n ≤ k) : Within ⟨p, n⟩ ⟨p, k⟩ :=
-  ⟨0, (BitVec.add_zero p).symm, by simpa using h⟩
-
-theorem within_self (r : Region) : Within r r := ⟨0, (BitVec.add_zero _).symm, by simp⟩
 
 theorem covers_of_within {rs rs' : List Region} (h : ∀ r ∈ rs, ∃ R ∈ rs', Within r R) : Covers rs rs' :=
   Covers.of_sub fun r hr => by
@@ -66,10 +45,6 @@ theorem ea_base (t : State) (r : Reg) (d : Nat) :
     t.ea { base := r, disp := (d : Int) } = t.gpr r + BitVec.ofNat 64 d := by
   show t.gpr r + BitVec.ofInt 64 (d : Int) = _
   rw [ofInt_nat]
-
-theorem add_add (p : Addr) (a b : Nat) :
-    p + BitVec.ofNat 64 a + BitVec.ofNat 64 b = p + BitVec.ofNat 64 (a + b) := by
-  rw [BitVec.add_assoc, BitVec.ofNat_add_ofNat]
 
 theorem sx32 {n : Nat} (h : n < 2 ^ 31) : (BitVec.ofNat 32 n).signExtend 64 = BitVec.ofNat 64 n :=
   Proof.MlKem.X86_64.sx_ofNat h

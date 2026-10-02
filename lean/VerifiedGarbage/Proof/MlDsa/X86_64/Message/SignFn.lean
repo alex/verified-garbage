@@ -14,6 +14,7 @@ writes `rsp`, is checked on the code with the arithmetic's functions empty
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Proof.MlDsa.X86_64 (Comp Same Same.ok ArithImpl Code.allInstrs_of_all)
 open VG.Proof.MlDsa.X86_64.Sign (primsWith prims_okWith sign_correct sign_ct sign_ctl sign_same Ok3)
 open VG.Spec.MlDsa

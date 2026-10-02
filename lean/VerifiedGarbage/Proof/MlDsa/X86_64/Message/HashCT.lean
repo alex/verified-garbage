@@ -14,6 +14,7 @@ same (`zeroSt_tr`, `kabs_tr`, `kpad_tr`, `ksqz_tr`); and so do `muHash` and
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Proof.MlKem.X86_64 (Keep AbsorbArgs PadArgs SqueezeArgs absorb_pre pad_pre squeeze_pre absorb_nosp
   pad_nosp squeeze_nosp absorb_depth pad_depth squeeze_depth)
 open VG.Spec.MlDsa (Params)

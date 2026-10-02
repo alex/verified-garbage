@@ -13,6 +13,7 @@ of a run from a state satisfying it (`slay`).
 namespace VG.Proof.MlDsa.X86_64.Message
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
+open VG.Proof.MlDsa.Message
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 
@@ -133,10 +134,6 @@ theorem slay_ok {p : Params} (hp : p ∈ params) {s : State} (h : SPre p s) (h8 
     simp only [slay, h.wr, List.mem_cons, List.not_mem_nil, or_false] at hR
     have := h.nSig; have := h.nScr
     rcases hR with rfl | rfl <;> simp only <;> omega
-
-theorem toNat_add_ofNat {x : Addr} {a : Nat} (h : x.toNat + a < 2 ^ 64) :
-    (x + BitVec.ofNat 64 a).toNat = x.toNat + a := by
-  rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := a) (by omega), Nat.mod_eq_of_lt h]
 
 theorem mu_eq (p : Params) (s : State) :
     (slay p s).MU = stackArg s 1 + BitVec.ofNat 64 (oE p + 840) := by
