@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Frame
 /-!
 # X448 on x86 (32-bit): saving the callee-saved registers
 
-Untrusted: everything here is checked by Lean. Four scratch words hold the
-incoming values of ebx, esi, edi, and ebp until the final restore.
+Four scratch words hold the incoming values of ebx, esi, edi, and ebp until
+the final restore.
 -/
 
 namespace VG.Proof.X448.X86

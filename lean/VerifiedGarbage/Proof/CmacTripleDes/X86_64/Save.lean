@@ -6,9 +6,9 @@ import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 /-!
 # TDEA-CMAC on x86-64: saving and restoring the registers
 
-Untrusted: everything here is checked by Lean. Each function saves our
-caller's callee-saved registers to bytes `[48, 96)` of the scratch buffer
-(`save`), and restores them from there, through `r15` (`restore`).
+Each function saves our caller's callee-saved registers to bytes `[48, 96)` of
+the scratch buffer (`save`), and restores them from there, through `r15`
+(`restore`).
 -/
 
 namespace VG.Proof.CmacTripleDes.X86_64

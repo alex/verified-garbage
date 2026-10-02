@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86.Ops
 import VerifiedGarbage.Impl.Ed25519.X86.Field
 
-/-! Untrusted: full-width constants and field-slot copies. -/
+/-! Full-width constants and field-slot copies. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.X25519.X86 VG.Impl.Ed25519.X86 VG.Spec.X25519
 open VG.Proof.X25519

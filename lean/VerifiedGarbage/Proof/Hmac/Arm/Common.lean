@@ -10,9 +10,8 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC-SHA-256 on ARMv7: common lemmas
 
-Untrusted: everything here is checked by Lean. Words copied between memory
-regions; the memory lemmas themselves are target-independent and shared by
-every target (`VG.Proof.Hmac.Common`).
+Words copied between memory regions; the memory lemmas themselves are
+target-independent and shared by every target (`VG.Proof.Hmac.Common`).
 -/
 
 namespace VG.Proof.Hmac
@@ -21,13 +20,11 @@ open Spec.Hmac
 open Spec.Sha256 (Repr bytesAt)
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for
-`vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20])`,
-for a key of at most 64 bytes (the SHA-256 block size): makes the streaming
-state at `inner` represent `K₀ ⊕ ipad` and the one at `outer` represent
-`K₀ ⊕ opad`, for the key `K₀` made of the `key_len` bytes at `key`.
+/-- 32-bit ARM contract for `vg_hmac_sha256_init(inner: *mut [u8; 96], outer:
+*mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20])`, for a
+key of at most 64 bytes (the SHA-256 block size): makes the streaming state at
+`inner` represent `K₀ ⊕ ipad` and the one at `outer` represent `K₀ ⊕ opad`, for
+the key `K₀` made of the `key_len` bytes at `key`.
 
 Under AAPCS, `inner`, `outer`, `key` and `key_len` are in `r0`–`r3`, and
 `scratch` is the stack argument 0. The code may read that argument (4 bytes
@@ -59,14 +56,12 @@ def initSha256Arm : Contract Arm.isa where
     s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for
-`vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 30])`:
-if, for a 64-byte key `K₀` and a text, the streaming state at `inner`
+/-- 32-bit ARM contract for `vg_hmac_sha256_finalize(inner: *mut [u8; 96],
+outer: *const [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64;
+30])`: if, for a 64-byte key `K₀` and a text, the streaming state at `inner`
 represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes (modulo 2⁶⁴), and the one at
-`outer` represents `K₀ ⊕ opad`, writes the HMAC-SHA-256 of the text under
-`K₀` to `out`.
+`outer` represents `K₀ ⊕ opad`, writes the HMAC-SHA-256 of the text under `K₀`
+to `out`.
 
 Under AAPCS, `inner` and `outer` are in `r0` and `r1`, `count` in `r2:r3`,
 and `out` and `scratch` are the stack arguments 0 and 1. The code may read

@@ -5,9 +5,9 @@ import VerifiedGarbage.Impl.Blake2.Arm.CompressS
 /-!
 # BLAKE2s on ARMv7: instructions and rotations
 
-Untrusted: everything here is checked by Lean. Weakest-precondition rules for
-the instructions the compression function uses that `Proof/MdStream/Arm`
-lacks, and the facts about rotations its rotated registers need.
+Weakest-precondition rules for the instructions the compression function uses
+that `Proof/MdStream/Arm` lacks, and the facts about rotations its rotated
+registers need.
 -/
 
 namespace VG.Proof.Blake2.ArmS

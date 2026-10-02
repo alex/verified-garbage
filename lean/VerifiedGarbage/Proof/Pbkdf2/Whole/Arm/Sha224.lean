@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Sha224
 /-!
 # PBKDF2-HMAC-SHA-224 on 32-bit ARM, the whole derivation
 
-Untrusted: everything here is checked by Lean. The generic proof (`CT.lean`)
-at SHA-224 (`Proof/Hmac/Generic/Arm/Sha224.lean`), as for the other hash
-functions (`Instances.lean`).
+The generic proof (`CT.lean`) at SHA-224
+(`Proof/Hmac/Generic/Arm/Sha224.lean`), as for the other hash functions
+(`Instances.lean`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.Arm

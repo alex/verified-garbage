@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.X448.Invert
 /-!
 # X448 on ARMv7: runs of squarings
 
-Untrusted: everything here is checked by Lean. The inversion reuses field
-multiplication in a loop with its own counter. The field slots and memory
-frame compose exactly as they do for straight-line operation lists.
+The inversion reuses field multiplication in a loop with its own counter. The
+field slots and memory frame compose exactly as they do for straight-line
+operation lists.
 -/
 
 namespace VG.Proof.X448.Arm

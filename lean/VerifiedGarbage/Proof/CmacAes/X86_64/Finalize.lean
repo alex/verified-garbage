@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # AES-CMAC on x86-64: `vg_cmac_aes_finalize`, the last block
 
-Untrusted: everything here is checked by Lean. The steps that form the
-counter block `C ⊕ Mₙ` in the scratch buffer before the call.
+The steps that form the counter block `C ⊕ Mₙ` in the scratch buffer before
+the call.
 -/
 
 namespace VG.Proof.CmacAes.X86_64

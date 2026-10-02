@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem1024.X86.Pack
 /-!
 # ML-KEM-1024 on x86 (32-bit): loading bytes and decompressing coefficients
 
-Untrusted: everything here is checked by Lean. `decompOp` computes the
-decompress formula of `Compress1024.lean` (`decomp_spec`), which `decSt`
-stores (`decSt_spec`); `bySteps` and `ldW` combine bytes into `ebx`
-(`bySteps_spec`, `ldW_spec`), as the number `pk 8` whose base-2⁸ digits they
-are.
+`decompOp` computes the decompress formula of `Compress1024.lean`
+(`decomp_spec`), which `decSt` stores (`decSt_spec`); `bySteps` and `ldW`
+combine bytes into `ebx` (`bySteps_spec`, `ldW_spec`), as the number `pk 8`
+whose base-2⁸ digits they are.
 -/
 
 namespace VG.Proof.MlKem1024.X86

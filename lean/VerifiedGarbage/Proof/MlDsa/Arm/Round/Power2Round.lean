@@ -9,10 +9,10 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_power2round`
 
-Untrusted: everything here is checked by Lean. The loop body is
-symbolically executed once for any state (`body_ok`); its values are
-`Power2Round`'s (`t1_val`, `t0_val`, from `power2Round_eq`), and the loop
-(`loop_ok`) in the frame that saves `r4` (`wp_saving`) writes them all.
+The loop body is symbolically executed once for any state (`body_ok`); its
+values are `Power2Round`'s (`t1_val`, `t0_val`, from `power2Round_eq`), and
+the loop (`loop_ok`) in the frame that saves `r4` (`wp_saving`) writes them
+all.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Round.P2R

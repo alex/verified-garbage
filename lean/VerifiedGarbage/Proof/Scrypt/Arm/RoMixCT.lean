@@ -11,9 +11,9 @@ import VerifiedGarbage.Proof.Scrypt.Arm.Lit
 /-!
 # scryptROMix on 32-bit ARM: the precondition
 
-Untrusted: everything here is checked by Lean. The regions the function
-works on, and `BlockMixSpec`: what a call of `vg_scrypt_blockmix` does (the
-verified one meets it: `Proof/Scrypt/Arm/RoMixCT.lean`). As on AArch64
+The regions the function works on, and `BlockMixSpec`: what a call of
+`vg_scrypt_blockmix` does (the verified one meets it:
+`Proof/Scrypt/Arm/RoMixCT.lean`). As on AArch64
 (`Proof/Scrypt/AArch64/RoMixCT.lean`), with 32-bit pointers, whose zero
 extensions (`State.addr`) address memory and do not wrap.
 -/
@@ -321,11 +321,10 @@ end VG.Proof.Scrypt.Arm.RoMix
 /-!
 # scryptROMix on 32-bit ARM: the small loops
 
-Untrusted: everything here is checked by Lean. The word copy (`copyLoop`),
-the word exclusive-or (`xorLoop`), the multiplication by shifts and adds
-(`mulLoop`, as on x86-64: the model has no multiplication) and the
-computation of `2 N` by doubling (`nLoop`). Words are 4 bytes, and pointers
-32 bits, which address memory by their zero extensions.
+The word copy (`copyLoop`), the word exclusive-or (`xorLoop`), the
+multiplication by shifts and adds (`mulLoop`, as on x86-64: the model has no
+multiplication) and the computation of `2 N` by doubling (`nLoop`). Words are
+4 bytes, and pointers 32 bits, which address memory by their zero extensions.
 -/
 
 namespace VG.Proof.Scrypt.Arm.RoMix
@@ -713,12 +712,12 @@ end VG.Proof.Scrypt.Arm.RoMix
 /-!
 # scryptROMix on 32-bit ARM: correctness
 
-Untrusted: everything here is checked by Lean. The prologue loads the
-scratch pointer from the stack, saves our caller's registers and our return
-address in `scratch` and computes `N`; step 2 and step 3 are loops whose
-bodies call `vg_scrypt_blockmix` (through `BlockMixSpec`), with our own
-stack argument as its scratch space; the epilogue restores the registers.
-As on AArch64 (`Proof/Scrypt/AArch64/RoMixCT.lean`).
+The prologue loads the scratch pointer from the stack, saves our caller's
+registers and our return address in `scratch` and computes `N`; step 2 and
+step 3 are loops whose bodies call `vg_scrypt_blockmix` (through
+`BlockMixSpec`), with our own stack argument as its scratch space; the
+epilogue restores the registers. As on AArch64
+(`Proof/Scrypt/AArch64/RoMixCT.lean`).
 -/
 
 namespace VG.Proof.Scrypt.Arm.RoMix
@@ -1530,15 +1529,14 @@ end VG.Proof.Scrypt.Arm.RoMix
 /-!
 # scryptROMix on 32-bit ARM: verified
 
-Untrusted: everything here is checked by Lean. `BlockMixSpec` of the
-verified `vg_scrypt_blockmix`, from its `Verified` proof by `WP.callCalls`;
-then constant time, up to the indices `j`, as on AArch64
+`BlockMixSpec` of the verified `vg_scrypt_blockmix`, from its `Verified` proof
+by `WP.callCalls`; then constant time, up to the indices `j`, as on AArch64
 (`Proof/Scrypt/AArch64/RoMixCT.lean`): we relate two runs (`RelCT`).
-Correctness determines our registers from the public arguments, so they
-agree between the calls, where the taint analysis proves each piece constant
-time; the calls are constant time by scryptBlockMix's own proof. In step 3,
-the address of `V[j]` depends on `j`, which the contract declares public: the
-two runs compute the same `j`, since both compute their indices in order
+Correctness determines our registers from the public arguments, so they agree
+between the calls, where the taint analysis proves each piece constant time;
+the calls are constant time by scryptBlockMix's own proof. In step 3, the
+address of `V[j]` depends on `j`, which the contract declares public: the two
+runs compute the same `j`, since both compute their indices in order
 (`Inv3.js`) and agree on the whole list.
 -/
 

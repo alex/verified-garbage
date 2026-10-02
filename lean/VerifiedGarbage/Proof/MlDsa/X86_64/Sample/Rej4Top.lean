@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlKem.X86_64.S4Top
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_ntt_poly4_avx2`, correctness
 
-Untrusted: everything here is checked by Lean. The pieces, in order: the
-prologue, the round constants and the padded seeds, and three squeezes (as
-in `vg_mlkem_sample_ntt4_avx2`); the counts zeroed; the first half of each
-seed (`P1`); three more squeezes; the second half of each seed, which
-leaves the coefficients of its 1008 bytes of output and the AND of whether
-each has 256 in `r14` (`P2`); and the epilogue, which returns it (`r4K`, as
-`vg_mldsa_rej_ntt_poly`'s contract `rnK` for each seed).
+The pieces, in order: the prologue, the round constants and the padded seeds,
+and three squeezes (as in `vg_mlkem_sample_ntt4_avx2`); the counts zeroed; the
+first half of each seed (`P1`); three more squeezes; the second half of each
+seed, which leaves the coefficients of its 1008 bytes of output and the AND of
+whether each has 256 in `r14` (`P2`); and the epilogue, which returns it
+(`r4K`, as `vg_mldsa_rej_ntt_poly`'s contract `rnK` for each seed).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Rej4

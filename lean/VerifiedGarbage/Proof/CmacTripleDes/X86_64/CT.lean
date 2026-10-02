@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # TDEA-CMAC on x86-64: constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis
-(`Framework/X86_64/Taint.lean`) checks that only the arguments, which are
-public, decide branches and addresses. `update` keeps the data pointer and
-the blocks left in public slots of the scratch buffer, across the blocks'
-stores of secrets at other offsets.
+The taint analysis (`Framework/X86_64/Taint.lean`) checks that only the
+arguments, which are public, decide branches and addresses. `update` keeps the
+data pointer and the blocks left in public slots of the scratch buffer, across
+the blocks' stores of secrets at other offsets.
 -/
 
 namespace VG.Proof.CmacTripleDes.X86_64

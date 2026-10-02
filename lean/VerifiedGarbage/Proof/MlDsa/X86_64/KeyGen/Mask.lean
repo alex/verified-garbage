@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.KeyGen.Call
 /-!
 # ML-DSA key generation on x86-64: masking a sampled polynomial
 
-Untrusted: everything here is checked by Lean. After each sampler, `mask a`
-ANDs its result (0 or 1, in `eax`) into `r15`, and each coefficient of the
-polynomial at `a` with `-eax`: the polynomial is kept if the sampler
-succeeded, and zeroed if it failed (`mask_ok`), without a branch
-(`mask_tr`).
+After each sampler, `mask a` ANDs its result (0 or 1, in `eax`) into `r15`,
+and each coefficient of the polynomial at `a` with `-eax`: the polynomial is
+kept if the sampler succeeded, and zeroed if it failed (`mask_ok`), without a
+branch (`mask_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen

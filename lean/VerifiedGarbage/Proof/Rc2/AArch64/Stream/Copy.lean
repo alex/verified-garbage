@@ -6,10 +6,9 @@ import VerifiedGarbage.Impl.Rc2.AArch64.Stream
 /-!
 # Streaming RC2-CBC on AArch64: the byte copy
 
-Untrusted: everything here is checked by Lean. `copy src so dst dd cnt`
-(`Impl/Rc2/AArch64/Stream.lean`) writes the `cnt` bytes at `src + so` to
-`dst + dd` (`writeBytes`), advancing `src` and `dst` by the count; the one
-lemma (`copy_ok`) every call site uses.
+`copy src so dst dd cnt` (`Impl/Rc2/AArch64/Stream.lean`) writes the `cnt`
+bytes at `src + so` to `dst + dd` (`writeBytes`), advancing `src` and `dst` by
+the count; the one lemma (`copy_ok`) every call site uses.
 -/
 
 namespace VG.Proof.Rc2.AArch64.Stream

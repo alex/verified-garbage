@@ -6,14 +6,13 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024 on 32-bit ARM: `vg_mlkem1024_decode_decompress`
 
-Untrusted: everything here is checked by Lean. A loop for each width
-`d ∈ {5, 11}` over the 32 groups of `d` bytes, whose body is the 8 fields
-of a group, each run once for any field (`field_step`) from the steps of
-its code: the first byte of the field shifted down (`head_ok`), each next
-byte shifted up and added (`next_ok`, composed by `loads_ok`), the
-reduction modulo `2ᵈ` (`mask_ok`) and `Decompress_d` stored (`store_ok`).
-The value of the field is `bsum` of its bytes, shifted down; that it is
-field `e` of `ByteDecode_d` is `decodeDecompress5_0` …
+A loop for each width `d ∈ {5, 11}` over the 32 groups of `d` bytes, whose
+body is the 8 fields of a group, each run once for any field (`field_step`)
+from the steps of its code: the first byte of the field shifted down
+(`head_ok`), each next byte shifted up and added (`next_ok`, composed by
+`loads_ok`), the reduction modulo `2ᵈ` (`mask_ok`) and `Decompress_d` stored
+(`store_ok`). The value of the field is `bsum` of its bytes, shifted down;
+that it is field `e` of `ByteDecode_d` is `decodeDecompress5_0` …
 `decodeDecompress11_7`, one `omega` for each (`fieldVal5`, `fieldVal11`).
 -/
 

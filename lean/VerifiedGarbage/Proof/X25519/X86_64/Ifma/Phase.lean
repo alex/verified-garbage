@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Small
 /-!
 # X25519 on x86-64 with AVX512_IFMA: the blocks of an iteration
 
-Untrusted: everything here is checked by Lean. Each block of `vstep` as a
-fact about states: the limbs it leaves in registers and slots (`lanes`,
-`slotv`), as numbers, from those it starts with, and what it keeps.
+Each block of `vstep` as a fact about states: the limbs it leaves in registers
+and slots (`lanes`, `slotv`), as numbers, from those it starts with, and what
+it keeps.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

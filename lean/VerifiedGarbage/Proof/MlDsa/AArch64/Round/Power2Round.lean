@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Round.Basic
 
 /-!
 # ML-DSA on AArch64: `vg_mldsa_power2round`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Round

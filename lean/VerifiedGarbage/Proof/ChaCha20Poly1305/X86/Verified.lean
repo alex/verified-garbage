@@ -11,8 +11,7 @@ section
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): correctness
 
-Untrusted: everything here is checked by Lean. `seal` and `open`, from their
-parts.
+`seal` and `open`, from their parts.
 -/
 
 open VG.PowLit
@@ -166,8 +165,6 @@ section
 
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): constant time
-
-Untrusted: everything here is checked by Lean.
 
 The x86 taint analysis follows calls and frames, but not through these
 functions: every callee is passed pointers into the middle of the context,
@@ -569,8 +566,8 @@ end
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness and constant
-time (both above), and a state satisfying the precondition.
+Correctness and constant time (both above), and a state satisfying the
+precondition.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifySetup
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseMain
 
-/-! Untrusted: verification preserves the ABI and checks the original input buffers. -/
+/-! Verification preserves the ABI and checks the original input buffers. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

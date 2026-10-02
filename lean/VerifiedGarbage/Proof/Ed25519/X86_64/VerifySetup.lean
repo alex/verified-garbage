@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyBody
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarMemory
 
-/-! Untrusted: save the ABI registers and retain the three public input pointers. -/
+/-! Save the ABI registers and retain the three public input pointers. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

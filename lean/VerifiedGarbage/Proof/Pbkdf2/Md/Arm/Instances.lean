@@ -11,12 +11,11 @@ import VerifiedGarbage.Proof.Sha512.Arm.Shared
 /-!
 # HMAC and PBKDF2-HMAC over Merkle–Damgård hash functions on ARMv7: the instances
 
-Untrusted: everything here is checked by Lean. MD5, SHA-1 and the SHA-512
-family as `Hash`es (their streaming functions as HMAC's `init` calls them,
-`Proof/Hmac/Generic/Arm/Hashes.lean`, with their hash value, length field,
-digest code and compression function), what the proofs need of them
-(`HashOK`, from the hash functions' own proofs), and the generic proofs of
-HMAC's `finalize` and PBKDF2's iteration (`HmacFinCT.lean`,
+MD5, SHA-1 and the SHA-512 family as `Hash`es (their streaming functions as
+HMAC's `init` calls them, `Proof/Hmac/Generic/Arm/Hashes.lean`, with their
+hash value, length field, digest code and compression function), what the
+proofs need of them (`HashOK`, from the hash functions' own proofs), and the
+generic proofs of HMAC's `finalize` and PBKDF2's iteration (`HmacFinCT.lean`,
 `IterateCT.lean`) at each of them, moved to the shared contracts of
 `Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean`, which the artifacts
 are emitted with. SHA-224 is in `Sha224.lean`.

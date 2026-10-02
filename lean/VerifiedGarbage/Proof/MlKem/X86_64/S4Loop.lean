@@ -4,16 +4,14 @@ import VerifiedGarbage.Proof.MlKem.X86_64.S4Vec
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, sampling
 
-Untrusted: everything here is checked by Lean. `parse k` loads the
-constants of the vector code from the table (`setup_ok`), and runs 42
-groups of four iterations of `SampleNTT`'s loop on the 504 bytes of XOF
-output of seed `k`, to polynomial `k` (`vgrp_ok`): with the vector code
+`parse k` loads the constants of the vector code from the table (`setup_ok`),
+and runs 42 groups of four iterations of `SampleNTT`'s loop on the 504 bytes
+of XOF output of seed `k`, to polynomial `k` (`vgrp_ok`): with the vector code
 while there are fewer than 249 coefficients (`vec_ok`), and otherwise four
 iterations of `vg_mlkem_sample_ntt`'s loop (`sca_ok`). Then, if they sample
 fewer than 256 coefficients, it calls `vg_mlkem_sample_ntt` on the seed
-(`fallback_ok`). Either way, polynomial `k` is then the seed's
-`SampleNTT`, if it succeeds, and `r14` records whether the first `k + 1` do
-(`parse_ok`).
+(`fallback_ok`). Either way, polynomial `k` is then the seed's `SampleNTT`, if
+it succeeds, and `r14` records whether the first `k + 1` do (`parse_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4

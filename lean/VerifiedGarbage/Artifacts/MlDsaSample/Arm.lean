@@ -4,18 +4,7 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sample.RejBounded
 import VerifiedGarbage.Proof.MlDsa.Arm.Sample.ExpandMask
 import VerifiedGarbage.Proof.MlDsa.Arm.Sample.BallCT
 
-/-!
-# ML-DSA (FIPS 204) on 32-bit ARM: the sampling primitives
-
-A registration file (see `TCB/Emit.lean`): the artifacts it lists are
-emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`. Each
-artifact is made from its function's `Api` (in `Spec/MlDsa/Poly.lean`,
-reviewed with the contract), and this file adds only notes on the
-implementation. The emitter adds the `# Safety` items that depend on the
-target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract.
--/
+/-! # ML-DSA (FIPS 204) on 32-bit ARM: the sampling primitives -/
 
 namespace VG.Artifacts.MlDsaSample.Arm
 

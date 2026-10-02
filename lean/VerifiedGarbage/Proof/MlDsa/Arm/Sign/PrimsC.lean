@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.Prims
 /-!
 # ML-DSA signing on ARMv7: calls of the rounding functions, the norm check and `SimpleBitPack`
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_high_bits`, `vg_mldsa_low_bits`, `vg_mldsa_norm_lt`,
-`vg_mldsa_make_hint` and `vg_mldsa_simple_bit_pack`.
+As `Prims.lean`, for `vg_mldsa_high_bits`, `vg_mldsa_low_bits`,
+`vg_mldsa_norm_lt`, `vg_mldsa_make_hint` and `vg_mldsa_simple_bit_pack`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

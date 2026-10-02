@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CallArith
 /-!
 # ML-DSA verification on x86-64: calls of the samplers
 
-Untrusted: everything here is checked by Lean. The calls of
-`vg_mldsa_rej_ntt_poly` (seed at `SB`) and `vg_mldsa_sample_in_ball`: what
-they need of the layout (`…Chk`), what they do (`…_ok`: the result in
-`eax`, and the sampled polynomial, as `Outcome`), and that two runs whose
-layout registers and seeds agree leak the same (`…_tr`).
+The calls of `vg_mldsa_rej_ntt_poly` (seed at `SB`) and
+`vg_mldsa_sample_in_ball`: what they need of the layout (`…Chk`), what they do
+(`…_ok`: the result in `eax`, and the sampled polynomial, as `Outcome`), and
+that two runs whose layout registers and seeds agree leak the same (`…_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

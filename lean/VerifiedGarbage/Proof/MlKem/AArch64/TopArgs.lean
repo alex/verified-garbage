@@ -3,13 +3,13 @@ import VerifiedGarbage.Proof.MlKem.AArch64.PrimCall
 /-!
 # ML-KEM-768 on AArch64: buffers of the top-level functions
 
-Untrusted: everything here is checked by Lean. The top-level functions use
-buffers at offsets of their arguments: bytes `[o, o + l)` of argument `b`
-(`R A b o l`, with `A b` its pointer and `L b` its length). Two such buffers
-are disjoint if they are in different arguments, which are disjoint, or
-apart in the same one (`R.disj`); each lies within its argument (`R.sub`),
-and so apart from the stack below the stack pointer (`R.stk`). These reduce
-the region facts the calls need to arithmetic on the offsets.
+The top-level functions use buffers at offsets of their arguments: bytes `[o,
+o + l)` of argument `b` (`R A b o l`, with `A b` its pointer and `L b` its
+length). Two such buffers are disjoint if they are in different arguments,
+which are disjoint, or apart in the same one (`R.disj`); each lies within its
+argument (`R.sub`), and so apart from the stack below the stack pointer
+(`R.stk`). These reduce the region facts the calls need to arithmetic on the
+offsets.
 -/
 
 namespace VG.Proof.MlKem.AArch64

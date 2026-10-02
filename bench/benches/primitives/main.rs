@@ -198,7 +198,8 @@ pub(crate) fn pbkdf2_group(
     g.finish();
 }
 
-/// Each algorithm's `bench`, with the library modules whose code it runs.
+/// Each algorithm's `bench`, with the library modules whose code it runs
+/// (its `USES`, which `ci/bench_arches.py` reads).
 type Bench = (&'static [&'static str], fn(&mut Criterion));
 
 const BENCHES: &[Bench] = &[

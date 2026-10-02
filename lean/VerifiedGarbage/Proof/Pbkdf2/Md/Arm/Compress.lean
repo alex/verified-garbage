@@ -5,15 +5,14 @@ import VerifiedGarbage.Proof.Framework.Arm.Taint
 /-!
 # A Merkle–Damgård compression function on ARMv7, called on one block
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Pbkdf2/AArch64/Compress.lean`): the contract of a compression
-function with blocks of any size `B` (`compK`, which is that of the
-streaming proofs, `Proof/MdStream/Arm/Common.lean`, for any block size, and
-each hash function's own, `Proof.Sha1.compressArm` and the others, at its
+As on AArch64 (`Proof/Pbkdf2/AArch64/Compress.lean`): the contract of a
+compression function with blocks of any size `B` (`compK`, which is that of
+the streaming proofs, `Proof/MdStream/Arm/Common.lean`, for any block size,
+and each hash function's own, `Proof.Sha1.compressArm` and the others, at its
 sizes), what its callers need of an implementation (`CompOk`: correct,
-constant time, without calls, never writing `r0` or `r3`), and the call of
-it on the block at `r6` (`compressBlock`), in one run (`compressBlock_ok`)
-and in two (`compressBlock_rel`).
+constant time, without calls, never writing `r0` or `r3`), and the call of it
+on the block at `r6` (`compressBlock`), in one run (`compressBlock_ok`) and in
+two (`compressBlock_rel`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm

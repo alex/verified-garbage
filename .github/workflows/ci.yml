@@ -22,10 +22,7 @@ env:
 
 jobs:
   # The Lean build is split into shards that build in parallel (see
-  # ci/lean_shards.py): as many as the modules changed since the build `main`
-  # last saved (and the modules importing them) need, packed by how long
-  # each took to build before, from none to MAX_SHARDS. One runner would
-  # check them one after another.
+  # ci/lean_shards.py).
   lean-plan:
     name: Plan the Lean build
     runs-on: ubuntu-latest
@@ -280,9 +277,8 @@ jobs:
       # toolchains on a 64-bit kernel.
       RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
       RUSTFLAGS: -D warnings -Cinstrument-coverage
-      # Relative to the crate root, where the test binaries run.
+      # Both relative to the crate root, where the test binaries run.
       LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
-      # Relative to the crate root.
       WYCHEPROOF_ROOT: wycheproof
     steps:
       - name: Install the amd64 libc for the runner's Node
@@ -381,53 +377,24 @@ jobs:
             awk '$4 == "FUNC" && $8 ~ /vg_/ { n++; if ($2 ~ /[02468aceACE]$/) { print "not Thumb: " $8; bad++ } }
                  END { print n " verified function symbols"; exit (n == 0 || bad > 0) }'
 
-  # CPU feature detection, and the primitives that choose among
-  # implementations by CPU feature (see src/cpu.rs), tested end to end on
-  # CPUs with different features: this runner's, natively, and CPUs that
-  # Intel SDE presents through CPUID, emulating what this runner lacks. Each
-  # SDE chip is one without the SHA extensions, whose code SDE runs tens of
-  # times slower than a runner that has them (#274), so that code only runs
-  # natively:
-  # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 and Poly1305 with AVX-512F,
-  #   and SHA-256 and SHA-512 with AVX2; and BMI2 and ADX, so X25519 with
-  #   them, and Ed25519 with AVX2's SHA-512 and ADX's field (`_avx2_adx`);
-  # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F or ADX, so ChaCha20
-  #   and Poly1305 with AVX2 even where this runner has AVX-512F, X25519's
-  #   baseline, Ed25519 with AVX2's SHA-512 and the baseline field
-  #   (`_avx2`), and ML-DSA with its polynomial arithmetic in AVX2;
-  # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
-  #   leaf 7, so the baseline ISA's implementations everywhere;
-  # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
-  #   runner has, and Ed25519 with it and ADX's field (`_shani_adx`). It
-  #   also has the SHA extensions, so only SHA-512's and Ed25519's tests
-  #   (and detection's) run there;
-  # * `icx` (Ice Lake server): AVX512_IFMA and AVX512VL, so X25519 with them
-  #   (`vg_x25519_ifma`), and Ed25519 with AVX2's SHA-512 and, in
-  #   verification, IFMA's field (`_avx2_ifma`; `_avx2_adx` otherwise). It
-  #   also has the SHA extensions, so only X25519's and Ed25519's tests (and
-  #   detection's) run there;
-  # * `dmr` (Diamond Rapids): the SHA512 extension and AVX512_IFMA, so
-  #   Ed25519 with both (`_shani_ifma` in verification, `_shani_adx`
-  #   otherwise), which no other chip has. It also has the SHA extensions,
-  #   so only Ed25519's tests (and detection's) run there.
-  # And natively on an ARM64 runner, whose AES and PMULL extensions
-  # `cpu-features-env` detects at run time (without it, AArch64 detection is
-  # at compile time, which the `rust` job tests).
-  # A chip with more features than a configuration wants is restricted with
-  # `VG_CPU_FEATURES` (`cpu-features`, empty for none), so that each of
-  # Ed25519's combinations of SHA-512 and field multiplications is chosen:
-  # `skx` with only BMI2 and ADX for scalar SHA-512 and ADX's field
-  # (`_adx`), `icx` without BMI1 for scalar SHA-512 and IFMA's field
-  # (`_ifma` in verification, `_adx` otherwise), and `arl` without BMI2 or
-  # ADX for the SHA512 extension and the baseline field (`_shani`); `p4p`
-  # chooses both baselines. This runner's choice depends on its CPU.
-  # The coverage is merged with the rest, which checks that every
-  # implementation was chosen on one of them.
+  # CPU feature detection (src/cpu.rs) and the primitives that choose an
+  # implementation by CPU feature, tested end to end on this runner's CPU,
+  # on CPUs that Intel SDE emulates, and natively on ARM64 (where
+  # `cpu-features-env` detects features at run time; without it, AArch64
+  # detection is at compile time, which the `rust` job tests). SDE runs the
+  # SHA extensions' code tens of times slower than hardware (#274), so the
+  # chips that have them (arl, icx, dmr) run only the tests they are there
+  # for. `cpu-features` restricts a chip's features with `VG_CPU_FEATURES`
+  # (empty for none), so that each implementation, and each of Ed25519's
+  # combinations of SHA-512 and field multiplication, is chosen somewhere;
+  # the coverage, merged with the rest, checks that every one was.
   rust-cpu-features:
     strategy:
       fail-fast: false
       matrix:
         arch: [x86_64]
+        # skx: AVX-512F, BMI2 and ADX; hsw: AVX2, but not AVX-512F or ADX;
+        # p4p: nothing beyond x86-64's baseline, not even CPUID leaf 7.
         chip: [native, skx, hsw, p4p]
         # Ed25519's are `ed25519` and RFC 8032's other two.
         tests: [sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
@@ -449,6 +416,7 @@ jobs:
               options: --platform linux/386
             install-amd64-libc: true
             tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu
+          # Arrow Lake: the SHA512 extension, which no runner has.
           - chip: arl
             tests: sha384 sha512 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           - chip: arl

@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Sha3.X86.Permute
 /-!
 # The SHA-3 sponge on x86 (32-bit): `absorb`
 
-Untrusted: everything here is checked by Lean. The structure of the x86-64
-proof (`VG.Proof.Sha3.X86_64.Stream.Absorb`), with `state` in `ebx`,
-`scratch` in `ebp`, `data` in `esi`, the bytes left in `edi`, and
-`state + pos` and `rate` in the scratch space.
+The structure of the x86-64 proof (`VG.Proof.Sha3.X86_64.Stream.Absorb`), with
+`state` in `ebx`, `scratch` in `ebp`, `data` in `esi`, the bytes left in
+`edi`, and `state + pos` and `rate` in the scratch space.
 -/
 
 namespace VG.Proof.Sha3.X86.Stream.Absorb

@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.X86.Points
 import VerifiedGarbage.Proof.Ed25519.X86.PowerEnv
 import VerifiedGarbage.Proof.Ed25519.ScalarMul
 
-/-! Untrusted: fixed-size batches of powers use exactly the specified point formula. -/
+/-! Fixed-size batches of powers use exactly the specified point formula. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

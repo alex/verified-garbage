@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.X448.X86.Carry
 
 /-!
 # X448 on x86 (32-bit): modular reduction
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X448.X86

@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.CmacTripleDes.AArch64.KeysLit
 /-!
 # DES's key schedule on AArch64
 
-Untrusted: everything here is checked by Lean.
-
 `roundKeys` only moves bits of the key in `x5` to the round keys it
 stores: the kernel checks it over the lane domain (`roundKeys_check`), and
 `getLsbD_expandDesKey` says the bits are the specification's.

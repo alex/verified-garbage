@@ -7,10 +7,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_simple_bit_pack`
 
-Untrusted: everything here is checked by Lean. `simpleBitPack(f, b, out,
-len)` loads `f` into `esi`, `out` into `edi` and `b` into `eax`, and
-branches on `b` (15, 43 or 1023) to the pack loop for its width
-(`packLoop_piece`), whose value of a coefficient is the coefficient.
+`simpleBitPack(f, b, out, len)` loads `f` into `esi`, `out` into `edi` and `b`
+into `eax`, and branches on `b` (15, 43 or 1023) to the pack loop for its
+width (`packLoop_piece`), whose value of a coefficient is the coefficient.
 -/
 
 namespace VG.Proof.MlDsa.X86.Pack.SimpleBitPack

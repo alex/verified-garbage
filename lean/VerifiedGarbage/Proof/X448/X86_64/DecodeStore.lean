@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.X86_64.Swap
 /-!
 # X448 on x86-64: storing decoded limb pairs
 
-Untrusted: everything here is checked by Lean. Each seven-byte chunk is
-split into two limbs and stored into both copies of the input coordinate.
+Each seven-byte chunk is split into two limbs and stored into both copies of
+the input coordinate.
 -/
 
 namespace VG.Proof.X448.X86_64

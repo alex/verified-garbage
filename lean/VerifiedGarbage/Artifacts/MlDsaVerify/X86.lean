@@ -4,15 +4,6 @@ import VerifiedGarbage.Proof.MlDsa.X86.Verify.Inst
 /-!
 # ML-DSA (FIPS 204) verification on x86 (32-bit)
 
-A registration file (see `TCB/Emit.lean`): the artifacts it lists are
-emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`. Each
-artifact is made from its function's `Api` (in `Spec/MlDsa/Contract.lean`,
-reviewed with the contract), and this file adds only notes on the
-implementation. The emitter adds the `# Safety` items that depend on the
-target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract.
-
 The functions save their caller's registers in a frame of 16 bytes below
 the return address; their calls of the primitives use the 80 bytes below
 it: at most 5 arguments, the return address and the primitive's 56 bytes

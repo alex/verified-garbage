@@ -12,11 +12,10 @@ import VerifiedGarbage.Impl.Scrypt.X86.Salsa
 /-!
 # The Salsa20/8 Core on x86 (32-bit)
 
-Untrusted: everything here is checked by Lean. The contracts the proofs of
-this directory are written against, and the proof of `vg_salsa20_8`: as on
-32-bit ARM (`Proof/Scrypt/Arm/BlockMixVerified.lean`), the sixteen words live in
-`scratch`, word `k` at `4k`, and `b` keeps the input until the final
-addition. Each line of the rounds is proved once, for any indices
+The contracts the proofs of this directory are written against, and the proof of
+`vg_salsa20_8`: as on 32-bit ARM (`Proof/Scrypt/Arm/BlockMixVerified.lean`), the
+sixteen words live in `scratch`, word `k` at `4k`, and `b` keeps the input until
+the final addition. Each line of the rounds is proved once, for any indices
 (`line_ok`), and the lines are composed by induction. The proof is written
 against a contract under which the code only reads its arguments (which it
 does), and moved to the shared contract with `Verified.narrowTo`.
@@ -27,11 +26,9 @@ namespace VG.Proof.Scrypt
 open Spec.Scrypt
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86 (32-bit) contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32; 16])`,
-whose arguments are on the stack (cdecl): replaces the 64 bytes at `b` by
-their Salsa20/8 Core.
+/-- X86 (32-bit) contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut
+[u32; 16])`, whose arguments are on the stack (cdecl): replaces the 64 bytes at
+`b` by their Salsa20/8 Core.
 
 The code may read the arguments (8 bytes above the return address), and read
 and write `b` and `scratch` (64 bytes each, the contents of `scratch` on
@@ -52,12 +49,10 @@ def salsaX86 : Contract X86.isa where
   pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ arg s₁ 0 = arg s₂ 0 ∧ arg s₁ 1 = arg s₂ 1
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86 (32-bit) contract for
-`vg_scrypt_blockmix(b: *const [u8; 128], r: usize, y: *mut [u8; 128], ry: usize, scratch: *mut [u32; 32])`,
-whose arguments are on the stack (cdecl): if `ry = r > 0`, writes
-scryptBlockMix of the `128 r` bytes at `b` to `y`.
+/-- X86 (32-bit) contract for `vg_scrypt_blockmix(b: *const [u8; 128], r: usize,
+y: *mut [u8; 128], ry: usize, scratch: *mut [u32; 32])`, whose arguments are on
+the stack (cdecl): if `ry = r > 0`, writes scryptBlockMix of the `128 r` bytes
+at `b` to `y`.
 
 The code may read the arguments (20 bytes above the return address) and
 `b`, and read and write `y` and `scratch` (128 bytes). The written regions
@@ -88,13 +83,10 @@ def blockMixX86 : Contract X86.isa where
   pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 5, arg s₁ i = arg s₂ i
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86 (32-bit) contract for
-`vg_scrypt_romix(b: *mut [u8; 128], r: usize, v: *mut [u8; 128], vlen: usize, scratch: *mut [u8; 128], slen: usize)`,
-whose arguments are on the stack (cdecl): if `r > 0`, `vlen = N r` for a
-power of two `N`, and `slen = r + 2`, replaces the `128 r` bytes at `b` by
-their scryptROMix.
+/-- X86 (32-bit) contract for `vg_scrypt_romix(b: *mut [u8; 128], r: usize, v:
+*mut [u8; 128], vlen: usize, scratch: *mut [u8; 128], slen: usize)`, whose
+arguments are on the stack (cdecl): if `r > 0`, `vlen = N r` for a power of two
+`N`, and `slen = r + 2`, replaces the `128 r` bytes at `b` by their scryptROMix.
 
 The code may read the arguments (24 bytes above the return address), and
 read and write `b`, `v` and `scratch`, which may not overlap each other, the

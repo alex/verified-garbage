@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseL
 /-!
 # ML-DSA signing on AArch64: the loop leaks what `signLeakT` says
 
-Untrusted: everything here is checked by Lean. Two runs whose remaining
-iterations leak the same (`LeakEq`) agree on the iteration's `c̃`
-(`leq_ct`), on whether it passes (`leq_pass`) and on its hint if it does
-(`leq_hints`), and, if it is rejected, on what the rest leaks (`leq_succ`);
-so they agree on the branches of each iteration, and leak the same
-(`iter_tr`, `signLoop_tr`).
+Two runs whose remaining iterations leak the same (`LeakEq`) agree on the
+iteration's `c̃` (`leq_ct`), on whether it passes (`leq_pass`) and on its hint
+if it does (`leq_hints`), and, if it is rejected, on what the rest leaks
+(`leq_succ`); so they agree on the branches of each iteration, and leak the
+same (`iter_tr`, `signLoop_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign

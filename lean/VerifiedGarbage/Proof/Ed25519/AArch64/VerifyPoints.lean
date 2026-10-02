@@ -7,9 +7,9 @@ import VerifiedGarbage.Proof.Framework.RelCTAssoc
 /-!
 # Verification's equation, from the windows
 
-Untrusted. The windows leave a representative of `[k]A - [S]B`, compared
-with `-R`: they are equal exactly when `[S]B = R + [k]A`, which, as `A` and
-`R` represent points of the group, is the specification's comparison.
+The windows leave a representative of `[k]A - [S]B`, compared with `-R`: they
+are equal exactly when `[S]B = R + [k]A`, which, as `A` and `R` represent
+points of the group, is the specification's comparison.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

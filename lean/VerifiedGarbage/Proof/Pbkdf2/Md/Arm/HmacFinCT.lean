@@ -4,13 +4,13 @@ import VerifiedGarbage.Proof.Framework.Arm.ArgTaint
 /-!
 # HMAC's `finalize` over a Merkle–Damgård hash function on ARMv7: constant time
 
-Untrusted: everything here is checked by Lean. As for `iterate`
-(`IterateCT.lean`): we relate two runs (`RelCT`). Correctness determines our
-registers from the public arguments alone, so the taint analysis proves the
-blocks between the calls constant time from them (`Checks`, evaluated for
-each hash function); the call of the streaming `finalize` is constant time
-by its own proof (`fin_rel`, `Proof/Hmac/Generic/Arm/Hash.lean`), and the
-call of the compression function by its own (`compressBlock_rel`).
+As for `iterate` (`IterateCT.lean`): we relate two runs (`RelCT`). Correctness
+determines our registers from the public arguments alone, so the taint
+analysis proves the blocks between the calls constant time from them
+(`Checks`, evaluated for each hash function); the call of the streaming
+`finalize` is constant time by its own proof (`fin_rel`,
+`Proof/Hmac/Generic/Arm/Hash.lean`), and the call of the compression function
+by its own (`compressBlock_rel`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm.Fin

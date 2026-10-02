@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86.Recover
 import VerifiedGarbage.Proof.Ed25519.X86.Power
 import VerifiedGarbage.Proof.Ed25519.Recover
 
-/-! Untrusted: candidate root and its squared check agree with the decoding specification. -/
+/-! Candidate root and its squared check agree with the decoding specification. -/
 
 namespace VG.Proof.Ed25519.X86
 

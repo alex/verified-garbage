@@ -6,10 +6,10 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on x86 (32-bit): the start of `vg_mldsa_ntt` and `vg_mldsa_inv_ntt`
 
-Untrusted: everything here is checked by Lean. Both load `scratch` into
-`eax` (`ld_piece`), store a table there, point `ebp` at entry `z`, and store
-`f + 1024` in the argument slot of `scratch` (`setup_piece`), leaving
-`MemOK` with the input polynomial, as for ML-KEM on x86.
+Both load `scratch` into `eax` (`ld_piece`), store a table there, point `ebp`
+at entry `z`, and store `f + 1024` in the argument slot of `scratch`
+(`setup_piece`), leaving `MemOK` with the input polynomial, as for ML-KEM on
+x86.
 -/
 
 namespace VG.Proof.MlDsa.X86.Arith.NttLoop

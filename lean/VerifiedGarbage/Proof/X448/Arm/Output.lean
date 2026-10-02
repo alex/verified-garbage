@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.Arm.Pack
 /-!
 # X448 on ARMv7: the output buffer
 
-Untrusted: everything here is checked by Lean. Output stores cover exactly
-56 bytes and preserve the disjoint working space.
+Output stores cover exactly 56 bytes and preserve the disjoint working space.
 -/
 
 namespace VG.Proof.X448.Arm

@@ -3,15 +3,14 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Hash
 /-!
 # HMAC's `finalize` over a Merkle–Damgård hash function on ARMv7: correct
 
-Untrusted: everything here is checked by Lean. `finalize`
-(`Impl/Pbkdf2/Md/Arm.lean`) finalizes the inner state with the hash
+`finalize` (`Impl/Pbkdf2/Md/Arm.lean`) finalizes the inner state with the hash
 function's streaming `finalize`, in a frame that pushes its stack arguments
 (`fin_frame`, `Proof/Hmac/Generic/Arm/Hash.lean`), into the block; copies the
 outer state's hash value to the hash value being compressed and writes the
-padding after the inner digest; compresses the block once (`compressBlock_ok`);
-and writes the digest to `out`. `Md.hmac_outer` says that this is HMAC. The
-contract is `finG` (`Proof/Hmac/Generic/Arm/Hash.lean`), the shared one's
-at 16 bytes of stack.
+padding after the inner digest; compresses the block once
+(`compressBlock_ok`); and writes the digest to `out`. `Md.hmac_outer` says
+that this is HMAC. The contract is `finG`
+(`Proof/Hmac/Generic/Arm/Hash.lean`), the shared one's at 16 bytes of stack.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm.Fin

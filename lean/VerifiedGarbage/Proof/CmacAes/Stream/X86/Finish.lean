@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.CmacAes.Stream.X86.Common
 /-!
 # Streaming AES-CMAC on x86: `vg_cmac_aes_finish`
 
-Untrusted: everything here is checked by Lean. The code saves the
-registers, copies the chaining value to `out`, computes the number of bytes
-held back, and calls `vg_cmac_aes_finalize` with the state as its key and
-`out` as its state: its result is the MAC of the message the state
+The code saves the registers, copies the chaining value to `out`, computes the
+number of bytes held back, and calls `vg_cmac_aes_finalize` with the state as
+its key and `out` as its state: its result is the MAC of the message the state
 represents (`repr_finish`). The code before the call is constant time by the
 taint analysis, and the call by its own proof (`fin_rel`), its arguments
 pinned by `HMid`.

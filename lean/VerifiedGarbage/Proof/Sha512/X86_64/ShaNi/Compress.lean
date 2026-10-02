@@ -9,9 +9,9 @@ import VerifiedGarbage.Impl.Sha512.X86_64.ShaNi
 /-!
 # SHA-512 compression function on x86-64 with the SHA512 extension
 
-Untrusted: everything here is checked by Lean. `compress_verified` proves
-`Impl.Sha512.X86_64.ShaNi.compress` against the same contract as the scalar
-`vg_sha512_compress`, reusing its precondition (`Pre`) and block lemmas.
+`compress_verified` proves `Impl.Sha512.X86_64.ShaNi.compress` against the
+same contract as the scalar `vg_sha512_compress`, reusing its precondition
+(`Pre`) and block lemmas.
 -/
 
 namespace VG.Proof.Sha512.X86_64.ShaNi

@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.PointSelect
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointTableAddr
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointPowers
 
-/-! Untrusted: the scalar bit mask and the selection of the saved point. -/
+/-! The scalar bit mask and the selection of the saved point. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

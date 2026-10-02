@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Md5.Stream
 
 /-!
 # Streaming MD5 on AArch64: `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Md5.AArch64.Stream

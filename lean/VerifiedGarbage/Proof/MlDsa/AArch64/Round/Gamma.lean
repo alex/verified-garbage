@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Round.Arith
 /-!
 # ML-DSA on AArch64: the functions with `γ₂`
 
-Untrusted: everything here is checked by Lean. `vg_mldsa_high_bits`,
-`vg_mldsa_low_bits`, `vg_mldsa_make_hint` and `vg_mldsa_use_hint` branch on
-`γ₂` (`onGamma`), and each arm puts constants in registers (`consts g`),
-then runs the loop of its body. `gamma_ok` proves this once, from what the
-constants are (`cv g`) and a body proven for the loop (`loop_ok`), for the
-state once `γ₂` is zero-extended.
+`vg_mldsa_high_bits`, `vg_mldsa_low_bits`, `vg_mldsa_make_hint` and
+`vg_mldsa_use_hint` branch on `γ₂` (`onGamma`), and each arm puts constants in
+registers (`consts g`), then runs the loop of its body. `gamma_ok` proves this
+once, from what the constants are (`cv g`) and a body proven for the loop
+(`loop_ok`), for the state once `γ₂` is zero-extended.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Round

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyCTPublic
 import VerifiedGarbage.Proof.Ed25519.AArch64.DecodedThenCT
 
-/-! Untrusted: decoding R and selecting the public equation continuation. -/
+/-! Decoding R and selecting the public equation continuation. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

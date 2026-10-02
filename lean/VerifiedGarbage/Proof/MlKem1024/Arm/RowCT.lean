@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.Arm.RowCT
 /-!
 # ML-KEM-1024 on 32-bit ARM: the `PRF`s and the rows in constant time
 
-Untrusted: everything here is checked by Lean. `Proof/MlKem/Arm/PrfCT.lean`
-and `Proof/MlKem/Arm/RowCT.lean` for ML-KEM-1024's layout: two runs of
-`prfLoop4` with the same `scratch` leak the same trace (`prfLoop_ct`), as
-do two runs of `rowSum4` with the same `ρ` and row (`rowSum_ct`) and of
-`dotP4` (`dot_ct`).
+`Proof/MlKem/Arm/PrfCT.lean` and `Proof/MlKem/Arm/RowCT.lean` for
+ML-KEM-1024's layout: two runs of `prfLoop4` with the same `scratch` leak the
+same trace (`prfLoop_ct`), as do two runs of `rowSum4` with the same `ρ` and
+row (`rowSum_ct`) and of `dotP4` (`dot_ct`).
 -/
 
 namespace VG.Proof.MlKem1024.Arm

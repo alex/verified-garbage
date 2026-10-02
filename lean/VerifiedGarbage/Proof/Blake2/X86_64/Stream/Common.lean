@@ -7,10 +7,10 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # Streaming BLAKE2 on x86-64: common lemmas
 
-Untrusted: everything here is checked by Lean. The contracts the proofs of
-`init`, `update` and `finalize` are written against, what they need of the
-compression function they call (`CalleeOk`), the call (`compressWith_ok`),
-and the loops copying bytes into the buffer and zeroing it.
+The contracts the proofs of `init`, `update` and `finalize` are written
+against, what they need of the compression function they call (`CalleeOk`),
+the call (`compressWith_ok`), and the loops copying bytes into the buffer and
+zeroing it.
 -/
 
 namespace VG.Proof.Blake2

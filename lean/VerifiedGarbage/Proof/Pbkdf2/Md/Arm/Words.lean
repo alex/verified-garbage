@@ -7,12 +7,11 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC and PBKDF2-HMAC over a Merkle–Damgård hash function on ARMv7: words
 
-Untrusted: everything here is checked by Lean. What the straight-line pieces
-of `Impl/Pbkdf2/Md/Arm.lean` write, in one run: copies of 32-bit words
-(`copyW`), the padding (`padFrom`, then the constant words `constW` of the
-length field), `T ← T ⊕ U` (`xorW`), and `scratch` plus an offset in a
-register (`scrAt`); and what the code writing a hash function's digest must
-do (`OutOk`).
+What the straight-line pieces of `Impl/Pbkdf2/Md/Arm.lean` write, in one run:
+copies of 32-bit words (`copyW`), the padding (`padFrom`, then the constant
+words `constW` of the length field), `T ← T ⊕ U` (`xorW`), and `scratch` plus
+an offset in a register (`scrAt`); and what the code writing a hash function's
+digest must do (`OutOk`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm

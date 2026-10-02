@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Instances
 /-!
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: the instances
 
-Untrusted: everything here is checked by Lean. The generic proof
-(`CT.lean`) at each hash function of `Proof/Hmac/Generic/Arm/Hashes.lean`:
-the functions it calls are verified by their own registration files (with
-16 bytes of stack, the most their frames use: `armStack`), the taint checks
-are evaluated by the kernel, and a state satisfies the shared contract
-(`pbkSat`).
+The generic proof (`CT.lean`) at each hash function of
+`Proof/Hmac/Generic/Arm/Hashes.lean`: the functions it calls are verified by
+their own registration files (with 16 bytes of stack, the most their frames
+use: `armStack`), the taint checks are evaluated by the kernel, and a state
+satisfies the shared contract (`pbkSat`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.Arm

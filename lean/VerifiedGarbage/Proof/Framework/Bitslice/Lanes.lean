@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Dom
 /-!
 # The lane domain: linear layers as XORs of input bits
 
-Untrusted: everything here is checked by Lean.
-
 Linear layers (bit-matrix transposes, ShiftRows, MixColumns, round keys)
 move and XOR the bits of words, and mask them with constants. Their effect
 is tracked exactly by writing every bit of every `w`-bit word as a constant

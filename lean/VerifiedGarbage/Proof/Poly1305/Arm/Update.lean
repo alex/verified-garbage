@@ -8,15 +8,14 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Poly1305 on 32-bit ARM: `update`
 
-Untrusted: everything here is checked by Lean. The callee-saved registers are
-saved in `scratch` (`prologue_ok`); a non-empty buffer is filled with the
-first `nf` bytes of the data (`fill_ok`); the data pointer, lengths and
-counts are stored in the state's working space, the limbs of `r` computed and
-the accumulator loaded (`mid_ok`); a full buffer is absorbed (`buf_ok`), then
-the whole blocks of the rest of the data (`loop_ok`); the accumulator is
-stored (`epi_ok`), and the last bytes of the data are copied into the buffer
-(`rest_ok`). Throughout (`UC`), only the state's working space, the buffer,
-the accumulator and `scratch` change.
+The callee-saved registers are saved in `scratch` (`prologue_ok`); a non-empty
+buffer is filled with the first `nf` bytes of the data (`fill_ok`); the data
+pointer, lengths and counts are stored in the state's working space, the limbs
+of `r` computed and the accumulator loaded (`mid_ok`); a full buffer is
+absorbed (`buf_ok`), then the whole blocks of the rest of the data
+(`loop_ok`); the accumulator is stored (`epi_ok`), and the last bytes of the
+data are copied into the buffer (`rest_ok`). Throughout (`UC`), only the
+state's working space, the buffer, the accumulator and `scratch` change.
 -/
 
 open VG.PowLit

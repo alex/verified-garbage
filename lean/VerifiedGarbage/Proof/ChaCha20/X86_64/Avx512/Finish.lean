@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx2.Finish
 
 /-!
 # ChaCha20 on x86-64 with AVX-512: the sixteen blocks, into the data
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64.Avx512

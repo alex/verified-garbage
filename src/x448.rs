@@ -106,8 +106,6 @@ impl PrivateKey {
     /// it.
     pub fn diffie_hellman(&self, peer: &[u8; 56]) -> Result<[u8; 56], Error> {
         let mut shared = x448(&self.bytes, peer);
-        // The verified comparison does not branch on the secret: only whether
-        // it is all zero is revealed.
         if crate::ct::eq(&shared, &[0; 56]) {
             zeroize(&mut shared);
             return Err(Error::ZeroSharedSecret);

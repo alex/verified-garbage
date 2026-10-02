@@ -8,10 +8,9 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Streaming SHA-512 on x86 (32-bit): common lemmas
 
-Untrusted: everything here is checked by Lean. The call of the compression
-function in the terms of the streaming proofs: its frame of arguments
-(`WP.frame`) and the call (`WP.call`), whose effect the compression
-function's own `Verified` proof gives.
+The call of the compression function in the terms of the streaming proofs: its
+frame of arguments (`WP.frame`) and the call (`WP.call`), whose effect the
+compression function's own `Verified` proof gives.
 -/
 
 namespace VG.Proof.Sha512.X86.Stream

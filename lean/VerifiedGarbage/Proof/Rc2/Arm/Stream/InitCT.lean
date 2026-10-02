@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Rc2.Arm.Stream.UpdateCT
 /-!
 # Streaming RC2-CBC on ARMv7: `vg_rc2_cbc_init` is constant time
 
-Untrusted: everything here is checked by Lean. As for the updates
-(`Stream/UpdateCT.lean`): the checks, the copy of the IV and the restore of
-`lr` are checked by the taint analysis, from the public arguments; the branch
-on the checks agrees in both runs, as the lengths are public; and the call of
-`vg_rc2_expand_key`, in its frame, is constant time by its own proof
-(`key_rel`).
+As for the updates (`Stream/UpdateCT.lean`): the checks, the copy of the IV
+and the restore of `lr` are checked by the taint analysis, from the public
+arguments; the branch on the checks agrees in both runs, as the lengths are
+public; and the call of `vg_rc2_expand_key`, in its frame, is constant time by
+its own proof (`key_rel`).
 -/
 
 namespace VG.Proof.Rc2.Arm.Stream

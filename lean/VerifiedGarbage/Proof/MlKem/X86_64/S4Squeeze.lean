@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.S4Absorb
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, squeezing
 
-Untrusted: everything here is checked by Lean. The padded seeds are the
-states that `Keccak-f` turns into the absorbed ones (`padded_A0`), and the
-four states hold them after `absorb4` (`lanes_A0`). Each `squeeze4 n`
-permutes the four states (`permute4_ok`) and copies the first 168 bytes of
-each to its output, which then holds the first `168 (n + 1)` bytes of the
-seed's XOF output (`sq_ok`).
+The padded seeds are the states that `Keccak-f` turns into the absorbed ones
+(`padded_A0`), and the four states hold them after `absorb4` (`lanes_A0`).
+Each `squeeze4 n` permutes the four states (`permute4_ok`) and copies the
+first 168 bytes of each to its output, which then holds the first `168 (n +
+1)` bytes of the seed's XOF output (`sq_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4

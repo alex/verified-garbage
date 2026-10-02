@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Sha256.Arm.Lit
 /-!
 # HMAC-SHA-224 and PBKDF2-HMAC-SHA-224 over the compression function on ARMv7
 
-Untrusted: everything here is checked by Lean. SHA-224 as a `Hash`: its
-streaming functions as HMAC's `init` calls them (`sha224H`,
-`Proof/Hmac/Generic/Arm/Sha224.lean`), SHA-256's hash value, length field,
-digest code and compression function; what the proofs need of it
+SHA-224 as a `Hash`: its streaming functions as HMAC's `init` calls them
+(`sha224H`, `Proof/Hmac/Generic/Arm/Sha224.lean`), SHA-256's hash value,
+length field, digest code and compression function; what the proofs need of it
 (`HashOK`), with SHA-256's `Md` from SHA-224's initial hash value and the
 digest its first 28 bytes; and the generic proofs at it, moved to the shared
 contracts of `Spec.Hmac.sha224I` (as for the hash functions of

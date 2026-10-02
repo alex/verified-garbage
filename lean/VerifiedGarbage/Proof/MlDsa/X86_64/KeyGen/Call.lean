@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Poly
 /-!
 # ML-DSA key generation on x86-64: calling the primitives
 
-Untrusted: everything here is checked by Lean. A call of a primitive
-(`primOk`, `primTr`), with the moves of its arguments (`glue3_ok`, …): the
-callee's precondition on entry, from the layout (`ceD1`, `ceD2`, `ceWf`
-for the stack, and the memory of the callee's entry, `ce_polyAt`, …), and
-what its postcondition says once it returns.
+A call of a primitive (`primOk`, `primTr`), with the moves of its arguments
+(`glue3_ok`, …): the callee's precondition on entry, from the layout (`ceD1`,
+`ceD2`, `ceWf` for the stack, and the memory of the callee's entry,
+`ce_polyAt`, …), and what its postcondition says once it returns.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen

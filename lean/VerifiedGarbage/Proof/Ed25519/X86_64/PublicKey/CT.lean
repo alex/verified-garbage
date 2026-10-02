@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # Ed25519 public-key derivation on x86-64: constant time
 
-Untrusted: everything here is checked by Lean. Two runs whose pointers
-agree have the same layout, so between the frame's push and pop they are
-related by `Two`: both satisfy `Ctx` with that layout (and `Φ`, what the
-next call needs of the registers), whatever their secrets. The blocks
-address only the stack and, in `pkPrune`, `scratch`, from registers that
-agree (the taint analysis); each call is of constant-time code whose public
-data, its pointers, agree (`RelCT.callEx`).
+Two runs whose pointers agree have the same layout, so between the frame's
+push and pop they are related by `Two`: both satisfy `Ctx` with that layout
+(and `Φ`, what the next call needs of the registers), whatever their secrets.
+The blocks address only the stack and, in `pkPrune`, `scratch`, from registers
+that agree (the taint analysis); each call is of constant-time code whose
+public data, its pointers, agree (`RelCT.callEx`).
 -/
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey

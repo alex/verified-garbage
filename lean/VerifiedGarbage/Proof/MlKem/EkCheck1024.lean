@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.EkCheck
 /-!
 # ML-KEM-1024: the encapsulation key check, for every target
 
-Untrusted: everything here is checked by Lean. The modulus check of §7.2 for
-any parameter set, as `EkCheck.lean` states it for ML-KEM-768: it holds
-exactly when both 12-bit fields of every 3-byte group of `ek[0 : 384k]` are
-less than `q` (`ekCheck_iff`); for ML-KEM-1024, the 512 groups of the first
-1536 bytes of a 1568-byte key (`ekCheck1024`).
+The modulus check of §7.2 for any parameter set, as `EkCheck.lean` states it
+for ML-KEM-768: it holds exactly when both 12-bit fields of every 3-byte group
+of `ek[0 : 384k]` are less than `q` (`ekCheck_iff`); for ML-KEM-1024, the 512
+groups of the first 1536 bytes of a 1568-byte key (`ekCheck1024`).
 -/
 
 namespace VG.Proof.MlKem

@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Prims
 /-!
 # ML-DSA signing on x86 (32-bit): calls of the arithmetic primitives
 
-Untrusted: everything here is checked by Lean. `NTT` and `NTT⁻¹` in place
-(`inPlace_piece`), products (`mul_piece`, with or without the sum), and
-sums and differences (`acc_piece`).
+`NTT` and `NTT⁻¹` in place (`inPlace_piece`), products (`mul_piece`, with or
+without the sum), and sums and differences (`acc_piece`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

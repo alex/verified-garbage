@@ -11,13 +11,13 @@ section
 /-!
 # AES-NI: the instructions are FIPS 197's rounds
 
-Untrusted: everything here is checked by Lean. An SSE register holds an
-AES state as its 16 bytes in memory order (`st`): byte `r + 4c` is
-`s[r, c]`, as FIPS 197 §3.4 lays the state out and as the SDM's AES
-instructions read it. On such registers `pxor`, `aesenc` and `aesenclast`
-are `AddRoundKey`, a full round and the last round of `Spec.Aes.cipher`
-(`pxor_st`, `aesenc_st`, `aesenclast_st`); the S-box of the ISA model,
-computed by repeated squaring, is the one of `Spec/Aes.lean` (`sbox_eq`).
+An SSE register holds an AES state as its 16 bytes in memory order (`st`):
+byte `r + 4c` is `s[r, c]`, as FIPS 197 §3.4 lays the state out and as the
+SDM's AES instructions read it. On such registers `pxor`, `aesenc` and
+`aesenclast` are `AddRoundKey`, a full round and the last round of
+`Spec.Aes.cipher` (`pxor_st`, `aesenc_st`, `aesenclast_st`); the S-box of the
+ISA model, computed by repeated squaring, is the one of `Spec/Aes.lean`
+(`sbox_eq`).
 -/
 
 namespace VG.Proof.Aes.X86_64.AesNi
@@ -191,10 +191,10 @@ end
 /-!
 # AES-NI: encrypting the block registers
 
-Untrusted: everything here is checked by Lean. `aes_ok`: `Impl.Aes.X86_64.AesNi.aes regs`
-encrypts each register of `regs` with the key schedule at `rdi` (10, 12 or
-14 rounds, as `rsi` says), whatever the list of registers; the rounds are
-composed by induction, one symbolic execution per instruction.
+`aes_ok`: `Impl.Aes.X86_64.AesNi.aes regs` encrypts each register of `regs`
+with the key schedule at `rdi` (10, 12 or 14 rounds, as `rsi` says), whatever
+the list of registers; the rounds are composed by induction, one symbolic
+execution per instruction.
 -/
 
 namespace VG.Proof.Aes.X86_64.AesNi
@@ -202,12 +202,10 @@ namespace VG.Proof.Aes.X86_64.AesNi
 open Spec.Gcm
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for
-`vg_aes_ctr32_aesni(schedule: *const [u8; 240], rounds: usize, counter: *mut [u8; 16], data: *mut [u8; 16], n: usize, scratch: *mut [u64; 256])`:
-XORs the AES counter-mode keystream from the counter block at `counter`
-into the `n` blocks at `data`, and advances the counter block by `n`.
+/-- X86-64 contract for `vg_aes_ctr32_aesni(schedule: *const [u8; 240], rounds:
+usize, counter: *mut [u8; 16], data: *mut [u8; 16], n: usize, scratch: *mut
+[u64; 256])`: XORs the AES counter-mode keystream from the counter block at
+`counter` into the `n` blocks at `data`, and advances the counter block by `n`.
 
 The code may read `schedule` (240 bytes) and read and write `counter` (16
 bytes), `data` (`16 n` bytes) and `scratch` (2048 bytes). These may not
@@ -239,12 +237,9 @@ def ctr32X86_64 : Contract X86_64.isa where
     s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .r9 = s₂.gpr .r9
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for
-`vg_aes_expand_key_aesni(key: *const u8, key_len: usize, schedule: *mut [u8; 240], scratch: *mut [u64; 64])`:
-for a key of 16, 24 or 32 bytes at `key`, writes its key schedule
-(`16 (Nr + 1)` bytes) to `schedule`.
+/-- X86-64 contract for `vg_aes_expand_key_aesni(key: *const u8, key_len: usize,
+schedule: *mut [u8; 240], scratch: *mut [u64; 64])`: for a key of 16, 24 or 32
+bytes at `key`, writes its key schedule (`16 (Nr + 1)` bytes) to `schedule`.
 
 The code may read `key` (`key_len` bytes) and read and write `schedule`
 (240 bytes) and `scratch` (512 bytes), which may not overlap the return

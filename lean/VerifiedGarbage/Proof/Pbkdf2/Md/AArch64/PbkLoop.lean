@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MdStream.AArch64.Words
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: `pbkdf2`'s loop
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Md/X86_64/PbkLoop.lean`): after `k` blocks of the output
-(`Inv`), `out` holds the first `min (k D) out_len` bytes of `T₁ ‖ … ‖ T_k`;
-a step computes `T_{k+1}` (`U₁` by `update` with `INT (k + 1)` and HMAC's
-`finalize`, then `iterate`) and copies as much of it as the output still
-needs.
+As on x86-64 (`Proof/Pbkdf2/Md/X86_64/PbkLoop.lean`): after `k` blocks of the
+output (`Inv`), `out` holds the first `min (k D) out_len` bytes of `T₁ ‖ … ‖
+T_k`; a step computes `T_{k+1}` (`U₁` by `update` with `INT (k + 1)` and
+HMAC's `finalize`, then `iterate`) and copies as much of it as the output
+still needs.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64.Pbk

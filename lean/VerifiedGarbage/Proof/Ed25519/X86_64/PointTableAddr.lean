@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointTableLoad
 
-/-! Untrusted: public point-table address arithmetic. -/
+/-! Public point-table address arithmetic. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

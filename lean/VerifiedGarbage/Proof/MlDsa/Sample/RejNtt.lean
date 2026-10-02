@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.MlDsa.Sample.Mem
 /-!
 # ML-DSA: `RejNTTPoly` three bytes at a time
 
-Untrusted: everything here is checked by Lean. An implementation that runs
-the loop of `RejNTTPoly` (Algorithm 30) over a fixed number of 3-byte
-arrays of XOF output, doing nothing once it has 256 coefficients, samples
-`rnFold [] out` (`rnStep` is one iteration). It computes `RejNTTPoly` if
-that has 256 coefficients (`rejNTTLoop_eq`), and otherwise so does no
-shorter output, the least bound of Appendix C included (`rejNTT_none`).
+An implementation that runs the loop of `RejNTTPoly` (Algorithm 30) over a
+fixed number of 3-byte arrays of XOF output, doing nothing once it has 256
+coefficients, samples `rnFold [] out` (`rnStep` is one iteration). It computes
+`RejNTTPoly` if that has 256 coefficients (`rejNTTLoop_eq`), and otherwise so
+does no shorter output, the least bound of Appendix C included
+(`rejNTT_none`).
 -/
 
 namespace VG.Proof.MlDsa.Sample

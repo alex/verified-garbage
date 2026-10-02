@@ -4,8 +4,6 @@ import VerifiedGarbage.TCB.AArch64.Isa
 /-!
 # DES on AArch64, in constant time: the round, the block and the key schedule
 
-Untrusted: the proofs check everything here.
-
 As on x86-64 (`Impl/CmacTripleDes/X86_64/Round.lean`), whose structure this
 follows register for register: bit permutations are XORs of rotated and
 masked *groups* of the source (`groups`, `linCode`), and the eight S-boxes

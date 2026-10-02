@@ -5,13 +5,12 @@ import VerifiedGarbage.Impl.Scrypt.X86.RoMix
 /-!
 # scryptROMix on x86 (32-bit): the precondition
 
-Untrusted: everything here is checked by Lean. The regions the function
-works on, and `BlockMixSpec`: what a call of `vg_scrypt_blockmix` in a frame
-of its arguments does (the verified one meets it:
-`Proof/Scrypt/X86/RoMixCT.lean`). As on 32-bit ARM
+The regions the function works on, and `BlockMixSpec`: what a call of
+`vg_scrypt_blockmix` in a frame of its arguments does (the verified one meets
+it: `Proof/Scrypt/X86/RoMixCT.lean`). As on 32-bit ARM
 (`Proof/Scrypt/Arm/RoMixCT.lean`), with the pointers and lengths read from the
-arguments on the stack, which nothing writes, and the calls using the 36
-bytes below `esp` (`stkR`), which the memory frames include.
+arguments on the stack, which nothing writes, and the calls using the 36 bytes
+below `esp` (`stkR`), which the memory frames include.
 -/
 
 namespace VG.Proof.Scrypt.X86.RoMix

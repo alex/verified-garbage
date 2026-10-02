@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.Sha512.Md
 /-!
 # The SHA-512 family's length field and digest on AArch64, for PBKDF2's iteration
 
-Untrusted: everything here is checked by Lean. The SHA-512 family's streaming
-code on AArch64 is not the generic Merkle–Damgård code, so the length field
-and digest code PBKDF2's iteration uses (`Impl.Pbkdf2.AArch64.sha512`: the
-128-bit big-endian bit count, `len128`, and the eight big-endian 64-bit words
-of the hash value, `out64`) are shown to do what `Shape` asks here.
+The SHA-512 family's streaming code on AArch64 is not the generic
+Merkle–Damgård code, so the length field and digest code PBKDF2's iteration
+uses (`Impl.Pbkdf2.AArch64.sha512`: the 128-bit big-endian bit count,
+`len128`, and the eight big-endian 64-bit words of the hash value, `out64`)
+are shown to do what `Shape` asks here.
 -/
 
 namespace VG.Proof.Pbkdf2.AArch64

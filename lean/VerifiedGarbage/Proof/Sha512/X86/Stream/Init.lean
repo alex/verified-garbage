@@ -9,8 +9,7 @@ import VerifiedGarbage.Proof.Sha512.X86.Lit
 /-!
 # Streaming SHA-512 on x86 (32-bit): `init`
 
-Untrusted: everything here is checked by Lean. One proof for every initial
-hash value `iv`.
+One proof for every initial hash value `iv`.
 -/
 
 namespace VG.Proof.Sha512.X86.Stream

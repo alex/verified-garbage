@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.Pack.Arith
 /-!
 # ML-DSA on AArch64: `vg_mldsa_bit_pack`
 
-Untrusted: everything here is checked by Lean. The value of a coefficient
-`x` is `b - x` in 64 bits, plus `q` times its sign bit (`subModQ`), which is
-`b - (x mod± q)` for a reduced `x` (`Pack/Arith.lean`). The loop is proven
-once for every width (`packLoop_ok`), and the function by its five cases,
-which the length chooses.
+The value of a coefficient `x` is `b - x` in 64 bits, plus `q` times its sign
+bit (`subModQ`), which is `b - (x mod± q)` for a reduced `x`
+(`Pack/Arith.lean`). The loop is proven once for every width (`packLoop_ok`),
+and the function by its five cases, which the length chooses.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Pack

@@ -7,11 +7,10 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86-64: `vg_mlkem_cbd2`
 
-Untrusted: everything here is checked by Lean. What the code computes of
-each byte in a word is checked for each of the 256 bytes by the kernel
-(`cbd_vals`); the words of the registers after the nibbles are split
-(`front_ok`), and the doublewords stored from them (`grp_ok`), are proven
-lane by lane.
+What the code computes of each byte in a word is checked for each of the 256
+bytes by the kernel (`cbd_vals`); the words of the registers after the nibbles
+are split (`front_ok`), and the doublewords stored from them (`grp_ok`), are
+proven lane by lane.
 -/
 
 namespace VG.Proof.MlKem.X86_64

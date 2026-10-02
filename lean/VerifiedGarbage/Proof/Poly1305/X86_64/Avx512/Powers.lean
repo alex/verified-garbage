@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Powers
 /-!
 # Poly1305 on x86-64 with AVX-512: the powers of `r`
 
-Untrusted: everything here is checked by Lean. `powers` leaves `r⁸` in the
-low doubleword of every quadword of `Y` and `r^(8 - π k)` in the high
-doubleword of quadword `k`, each as limbs below `2²⁷`: `r²`, then `(r⁴, r³)`
-in each lane, then `(r^(4 - j), r^(4 - j))` in lane `j` multiplied by
-`(r⁴, 1)`.
+`powers` leaves `r⁸` in the low doubleword of every quadword of `Y` and `r^(8 -
+π k)` in the high doubleword of quadword `k`, each as limbs below `2²⁷`: `r²`,
+then `(r⁴, r³)` in each lane, then `(r^(4 - j), r^(4 - j))` in lane `j`
+multiplied by `(r⁴, 1)`.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx512

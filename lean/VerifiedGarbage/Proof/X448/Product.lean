@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.X448.Limbs
 /-!
 # X448: row multiplication and coefficient reduction
 
-Untrusted: everything here is checked by Lean. Multiplication adds one row
-at a time to a 32-word coefficient array. The upper coefficients fold
-into sixteen limbs using the field prime's two non-leading terms.
+Multiplication adds one row at a time to a 32-word coefficient array. The
+upper coefficients fold into sixteen limbs using the field prime's two
+non-leading terms.
 -/
 
 namespace VG.Proof.X448

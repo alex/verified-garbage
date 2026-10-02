@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.MlKem.KPke
 /-!
 # ML-KEM on AArch64: `SampleNTT` up to its loop
 
-Untrusted: everything here is checked by Lean. `sampleSqueezeN len setup`
-saves our caller's `x25`, `x26`, `x30` and `x24` in `scratch`, computes
-`len` bytes of SHAKE128 of the seed into `scratch[0, len)` with the verified
-Keccak functions from the all-zero state (`Proof/MlKem/KPke.lean`), sets
-`a` to zeros, and sets up the loop: it leaves what the loop needs (`LPre`),
-and either the registers restored (`sampleSqueeze`, `rest_ok`) or still
-saved (`sampleFast`'s, `restN_ok`).
+`sampleSqueezeN len setup` saves our caller's `x25`, `x26`, `x30` and `x24` in
+`scratch`, computes `len` bytes of SHAKE128 of the seed into `scratch[0, len)`
+with the verified Keccak functions from the all-zero state
+(`Proof/MlKem/KPke.lean`), sets `a` to zeros, and sets up the loop: it leaves
+what the loop needs (`LPre`), and either the registers restored
+(`sampleSqueeze`, `rest_ok`) or still saved (`sampleFast`'s, `restN_ok`).
 -/
 
 namespace VG.Proof.MlKem
@@ -19,13 +18,11 @@ namespace VG.Proof.MlKem
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against; the artifact's is the
-shared contract of `Spec/`, which implies it. AArch64 contract for
-`sampleNTT(seed = x0, a = x1, scratch = x2) -> w0`: with the 34 bytes `B`
-at `seed`, writes `SampleNTT(B)` to `a` and returns 1, or returns 0. The
-code may read `seed`, and write `a` and `scratch` (2048 bytes), and the
-16 bytes below the stack pointer (the Keccak functions' frames). It may
-leak `B`. -/
+/-- AArch64 contract for `sampleNTT(seed = x0, a = x1, scratch = x2) -> w0`:
+with the 34 bytes `B` at `seed`, writes `SampleNTT(B)` to `a` and returns 1,
+or returns 0. The code may read `seed`, and write `a` and `scratch` (2048
+bytes), and the 16 bytes below the stack pointer (the Keccak functions'
+frames). It may leak `B`. -/
 def sampleAArch64 : Contract AArch64.isa where
   pre s :=
     let seed : Region := ⟨s.gpr .x0, 34⟩

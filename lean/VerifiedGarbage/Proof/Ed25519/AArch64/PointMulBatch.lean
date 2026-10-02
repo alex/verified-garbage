@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulCounter
 
-/-! Untrusted: frames for the batches of the scalar multiplications. -/
+/-! Frames for the batches of the scalar multiplications. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

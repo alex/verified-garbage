@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.Blake2.Arm.Stream.Update
 /-!
 # Streaming BLAKE2 on ARMv7: `finalize`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`finalize`, for either word size and any correct compression function
-(`CalleeOk`), piece by piece, as for `update`: the prologue, which zeroes the
-rest of the buffer and sets up the call (`pro_ok`), the call (`call_ok'`)
-and the end, which copies the hash value to `out` (`end_ok`).
+The functional correctness of `finalize`, for either word size and any correct
+compression function (`CalleeOk`), piece by piece, as for `update`: the
+prologue, which zeroes the rest of the buffer and sets up the call (`pro_ok`),
+the call (`call_ok'`) and the end, which copies the hash value to `out`
+(`end_ok`).
 -/
 
 namespace VG.Proof.Blake2.Arm.Stream.Finalize

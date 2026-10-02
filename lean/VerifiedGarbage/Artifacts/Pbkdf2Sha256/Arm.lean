@@ -7,15 +7,6 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Sha256
 /-!
 # PBKDF2-HMAC-SHA-256 (RFC 8018) on 32-bit ARM: the iteration and the whole derivation
 
-A registration file (see `TCB/Emit.lean`): the artifacts it lists are
-emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`. An
-artifact made from a function's `Api` (in `Spec/`, reviewed with the
-contract) takes them from there, and this file adds only notes on the
-implementation. The emitter adds the `# Safety` items that depend on the
-target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract.
-
 The whole derivation, `pbkdf2`, is the one for every streaming hash function
 (`Impl/Pbkdf2/Whole/Arm.lean`), calling SHA-256's streaming functions,
 HMAC-SHA-256's `init` and `finalize` and the iteration above, which use no

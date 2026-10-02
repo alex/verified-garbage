@@ -3,11 +3,11 @@ import VerifiedGarbage.Spec.Ed25519
 /-!
 # Scalar multiplication, from high bits to low bits
 
-Untrusted. The loop accumulates the very same extended-coordinate values
-as `pointMul`, rather than relying on an unproved group-law identity.
-At bit n its accumulator is `[floor(s/2^(n+1))] [2^(n+1)]P`.
-Adding `[2^n]P` exactly when bit n is one gives the next invariant.
-Powers can be computed in small batches so the scratch space remains bounded.
+The loop accumulates the very same extended-coordinate values as `pointMul`,
+rather than relying on an unproved group-law identity. At bit n its
+accumulator is `[floor(s/2^(n+1))] [2^(n+1)]P`. Adding `[2^n]P` exactly when
+bit n is one gives the next invariant. Powers can be computed in small batches
+so the scratch space remains bounded.
 -/
 
 namespace VG.Proof.Ed25519

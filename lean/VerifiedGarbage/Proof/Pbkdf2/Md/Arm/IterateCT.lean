@@ -4,18 +4,17 @@ import VerifiedGarbage.Proof.Framework.Arm.ArgTaint
 /-!
 # PBKDF2-HMAC's iteration over a Merkle–Damgård hash function on ARMv7: constant time
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Pbkdf2/AArch64/IterateCT.lean`): this holds for any compression
-function (`CompOk`), so it is proven once. The taint analysis cannot prove
-it without looking into the compression function (it would lose our
-registers, which the compression function saves and restores in a scratch
-space it also stores secrets into through a register that is not the base of
-a region), so we relate two runs (`RelCT`): at every point, correctness
+As on AArch64 (`Proof/Pbkdf2/AArch64/IterateCT.lean`): this holds for any
+compression function (`CompOk`), so it is proven once. The taint analysis
+cannot prove it without looking into the compression function (it would lose
+our registers, which the compression function saves and restores in a scratch
+space it also stores secrets into through a register that is not the base of a
+region), so we relate two runs (`RelCT`): at every point, correctness
 determines our registers from the public arguments alone, so they agree;
 between the calls, the taint analysis proves each block constant time from
 that (`Checks`, evaluated for each hash function, since the code depends on
-its sizes); and the calls are constant time by the compression function's
-own proof (`compressBlock_rel`).
+its sizes); and the calls are constant time by the compression function's own
+proof (`compressBlock_rel`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm.Iterate

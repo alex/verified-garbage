@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ops
 
 /-!
 # X25519 on x86-64: addition and subtraction
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X25519.X86_64

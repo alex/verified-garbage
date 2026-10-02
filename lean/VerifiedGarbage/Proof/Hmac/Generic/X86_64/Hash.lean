@@ -10,7 +10,7 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function: the x86-64 contracts
 
-**Untrusted**: the contracts the proofs are written against.
+The contracts the proofs are written against.
 
 * `initK`, `updK` and `finK` are the x86-64 contracts of a hash function's
   streaming `init`, `update` and `finalize`, with the sizes and the
@@ -139,12 +139,11 @@ end VG.Proof.Hmac.Generic.X86_64
 /-!
 # HMAC over any streaming hash function on x86-64: the functions we call
 
-Untrusted: everything here is checked by Lean. `HashOK H` is what the
-proofs know of the hash function `H`: its streaming functions are verified
-against `initK`, `updK` and `finK`, the representation of its streaming
-state is determined by the state's bytes, and its sizes are small. From it,
-each call is run with `WP.call`, and shown constant time in two runs with
-`RelCT.call`.
+`HashOK H` is what the proofs know of the hash function `H`: its streaming
+functions are verified against `initK`, `updK` and `finK`, the representation
+of its streaming state is determined by the state's bytes, and its sizes are
+small. From it, each call is run with `WP.call`, and shown constant time in
+two runs with `RelCT.call`.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86_64

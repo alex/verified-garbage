@@ -12,13 +12,13 @@ import VerifiedGarbage.Proof.Sha512.X86_64.Lit
 /-!
 # Streaming SHA-512 on x86-64: `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/X86_64.lean`), so they are
-verified by the generic proofs (`Proof/MdStream/X86_64/`) for the SHA-512
-family's instance (`Proof/Sha512/Md.lean`), for any implementation `f` of the compression
-function (`CalleeOk`: `scalar_ok`, `avx2_ok`, `shani_ok`), given what the family's own pieces do:
-its length field and digest (`shape`) and that the taint analysis accepts
-its code between the calls (`taints`).
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/X86_64.lean`), so they are verified by the generic proofs
+(`Proof/MdStream/X86_64/`) for the SHA-512 family's instance
+(`Proof/Sha512/Md.lean`), for any implementation `f` of the compression function
+(`CalleeOk`: `scalar_ok`, `avx2_ok`, `shani_ok`), given what the family's own
+pieces do: its length field and digest (`shape`) and that the taint analysis
+accepts its code between the calls (`taints`).
 -/
 
 namespace VG.Proof.Sha512.X86_64.Stream

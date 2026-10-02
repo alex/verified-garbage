@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlKem.Arm.Sample
 /-!
 # ML-DSA signing on ARMv7: SHAKE256 through the sponge functions
 
-Untrusted: everything here is checked by Lean. As on x86-64: zeroing the
-Keccak state at `scratch` (`kzero_ok`, from ML-KEM's `zeroWords_ok`), and
-the calls of `vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze` on
-it, with the working space at `scratch + 200` (`kabs_ok`, `kpad_ok`,
-`ksqz_ok`, from ML-KEM's call lemmas of the sponge functions in their
-frames, `Proof/MlKem/Arm/Keccak.lean`), and that two runs in the same layout
-leak the same (`kabs_tr`, …).
+As on x86-64: zeroing the Keccak state at `scratch` (`kzero_ok`, from ML-KEM's
+`zeroWords_ok`), and the calls of `vg_keccak_absorb`, `vg_keccak_pad` and
+`vg_keccak_squeeze` on it, with the working space at `scratch + 200`
+(`kabs_ok`, `kpad_ok`, `ksqz_ok`, from ML-KEM's call lemmas of the sponge
+functions in their frames, `Proof/MlKem/Arm/Keccak.lean`), and that two runs
+in the same layout leak the same (`kabs_tr`, …).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

@@ -7,9 +7,8 @@ import VerifiedGarbage.Spec.Pbkdf2
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: words
 
-Untrusted: everything here is checked by Lean. What `copy32`
-(`Impl/Pbkdf2/Md/X86_64.lean`) writes: 32-bit words copied from one region to
-another; and facts about registers and regions the proofs share.
+What `copy32` (`Impl/Pbkdf2/Md/X86_64.lean`) writes: 32-bit words copied from
+one region to another; and facts about registers and regions the proofs share.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64

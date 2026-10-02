@@ -4,10 +4,9 @@ import Mathlib.Tactic.Ring
 /-!
 # X25519 on x86-64: multiplication
 
-Untrusted: everything here is checked by Lean. A row of the product
-(`row`), for any five registers, from four multiply-accumulate steps
-(`mulStep_ok`); the reduction of the eight-word product (`reduce`); and the
-multiplication `mul o a b`.
+A row of the product (`row`), for any five registers, from four
+multiply-accumulate steps (`mulStep_ok`); the reduction of the eight-word
+product (`reduce`); and the multiplication `mul o a b`.
 -/
 
 namespace VG.Proof.X25519.X86_64

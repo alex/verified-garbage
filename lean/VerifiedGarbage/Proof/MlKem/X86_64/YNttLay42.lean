@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlKem.X86_64.YNttLay
 /-!
 # ML-KEM on x86-64: the layers of the NTT and its inverse with `len` = 4 and 2 on AVX2 registers
 
-Untrusted: everything here is checked by Lean. Each iteration of these
-layers loads 32 words, from `j`, into `ymm0` and `ymm4`, and in each lane
-`l` runs `vlay4`'s or `vlay2`'s gathering, butterflies and interleaving
-back (`Ntt.lean`) on the eight words from `j + 8l` and the eight from
-`j + 16 + 8l` (`core4_ok`, `core2_ok`), with the zetas of their blocks in
-lane `l` of `ymm13` (`yzetaS_ok`, `yzeta8_ok`); `ystep42` is an iteration
-for any such code, and `ylay4_ok` and `ylay2_ok` the layers.
+Each iteration of these layers loads 32 words, from `j`, into `ymm0` and
+`ymm4`, and in each lane `l` runs `vlay4`'s or `vlay2`'s gathering,
+butterflies and interleaving back (`Ntt.lean`) on the eight words from `j +
+8l` and the eight from `j + 16 + 8l` (`core4_ok`, `core2_ok`), with the zetas
+of their blocks in lane `l` of `ymm13` (`yzetaS_ok`, `yzeta8_ok`); `ystep42`
+is an iteration for any such code, and `ylay4_ok` and `ylay2_ok` the layers.
 -/
 
 namespace VG.Proof.MlKem.X86_64

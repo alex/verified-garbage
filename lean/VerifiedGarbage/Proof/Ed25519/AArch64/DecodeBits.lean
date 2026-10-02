@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.RecoverParity
 import VerifiedGarbage.Proof.Ed25519.Bytes
 import VerifiedGarbage.Proof.Ed25519.AArch64.MulAddMemory
 
-/-! Untrusted: load the encoded y-coordinate and its separate sign bit. -/
+/-! Load the encoded y-coordinate and its separate sign bit. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

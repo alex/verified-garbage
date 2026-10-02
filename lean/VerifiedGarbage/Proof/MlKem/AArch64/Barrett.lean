@@ -6,9 +6,8 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Ntt
 /-!
 # ML-KEM on AArch64: the tables
 
-Untrusted: everything here is checked by Lean. `table` stores a table of 128
-`u32`s; the tables of the code are those of the standard (`zetaTable_eq`,
-`gammaTable_eq`).
+`table` stores a table of 128 `u32`s; the tables of the code are those of the
+standard (`zetaTable_eq`, `gammaTable_eq`).
 -/
 
 namespace VG.Proof.MlKem.AArch64

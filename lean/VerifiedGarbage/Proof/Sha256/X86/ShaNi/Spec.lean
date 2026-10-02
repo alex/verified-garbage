@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Sha256.Spec
 /-!
 # SHA-256 with the SHA extensions: the values in the SSE registers
 
-Untrusted: everything here is checked by Lean. How the working variables,
-the message schedule and the constants are laid out in SSE registers, and
-that `sha256rnds2` and `sha256msg1`/`sha256msg2` compute rounds and schedule
-words of `Spec/Sha256.lean`.
+How the working variables, the message schedule and the constants are laid out
+in SSE registers, and that `sha256rnds2` and `sha256msg1`/`sha256msg2` compute
+rounds and schedule words of `Spec/Sha256.lean`.
 -/
 
 namespace VG.Proof.Sha256.X86.ShaNi

@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.X25519.X86.Step
 /-!
 # X25519 on x86 (32-bit): the inversion
 
-Untrusted: everything here is checked by Lean. The inversion is a sequence of
-blocks of operations and runs of squarings (`sqn`, a loop counted by `esi`);
-each leaves the slots with the values of an evaluation of it (`runI`), which
-for the inversion's steps is `invert` of `Z2` in `T1`.
+The inversion is a sequence of blocks of operations and runs of squarings
+(`sqn`, a loop counted by `esi`); each leaves the slots with the values of an
+evaluation of it (`runI`), which for the inversion's steps is `invert` of `Z2`
+in `T1`.
 -/
 
 namespace VG.Proof.X25519.X86

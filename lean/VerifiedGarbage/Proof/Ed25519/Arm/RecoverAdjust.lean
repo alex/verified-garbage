@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.RecoverParity
 
-/-! Untrusted: choose the encoded sign and finish the extended coordinates. -/
+/-! Choose the encoded sign and finish the extended coordinates. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

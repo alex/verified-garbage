@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.PointEncode
 import VerifiedGarbage.Proof.Ed25519.X86_64.Points
 import VerifiedGarbage.Proof.X25519.X86_64.Inv
 
-/-! Untrusted: normalization reuses X25519's verified exponentiation chain. -/
+/-! Normalization reuses X25519's verified exponentiation chain. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

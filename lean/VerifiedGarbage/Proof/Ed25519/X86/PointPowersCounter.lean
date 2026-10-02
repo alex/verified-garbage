@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86.PointPowers
 import VerifiedGarbage.Proof.Ed25519.X86.PointPowersFrame
 
-/-! Untrusted: the public checkpoint counter occupies bytes24 through27. -/
+/-! The public checkpoint counter occupies bytes24 through27. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 open VG.Impl.X25519.X86 (sc)

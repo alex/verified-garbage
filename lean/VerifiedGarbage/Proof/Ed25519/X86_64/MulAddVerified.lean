@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.MulAddMain
 import VerifiedGarbage.Proof.Ed25519.X86_64.MulAddLit
 import VerifiedGarbage.Proof.Framework.Contract
 
-/-! Untrusted: scalar multiply-add satisfies the merged Ed25519 contract. -/
+/-! Scalar multiply-add satisfies the merged Ed25519 contract. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

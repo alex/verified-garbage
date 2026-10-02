@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.MlKem.X86_64.CompressEncode
 /-!
 # ML-KEM on x86-64: `vg_mlkem_decode_decompress`
 
-Untrusted: everything here is checked by Lean. The loop is proven once for
-every width (`DD.loop_ok`), and the function by its three cases.
+The loop is proven once for every width (`DD.loop_ok`), and the function by
+its three cases.
 -/
 
 namespace VG.Proof.MlKem.X86_64

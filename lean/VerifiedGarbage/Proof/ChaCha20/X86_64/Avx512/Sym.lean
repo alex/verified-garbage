@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx512.Rounds
 /-!
 # ChaCha20 on x86-64 with AVX-512: straight-line code, doubleword by doubleword
 
-Untrusted: everything here is checked by Lean. Outside the rounds, every
-instruction of the code moves, adds or XORs doublewords of `zmm` registers
-and of three regions of memory: the state (at `rdi`), `buf` (at `rcx`) and
-1024 bytes of data (at `rsi`). `Sym.run` computes each doubleword after a
-block of such instructions as a term (`T`) in the doublewords before it, and
-`run_ok` proves the machine agrees; the terms themselves are then compared
-by the kernel.
+Outside the rounds, every instruction of the code moves, adds or XORs
+doublewords of `zmm` registers and of three regions of memory: the state (at
+`rdi`), `buf` (at `rcx`) and 1024 bytes of data (at `rsi`). `Sym.run` computes
+each doubleword after a block of such instructions as a term (`T`) in the
+doublewords before it, and `run_ok` proves the machine agrees; the terms
+themselves are then compared by the kernel.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64.Avx512

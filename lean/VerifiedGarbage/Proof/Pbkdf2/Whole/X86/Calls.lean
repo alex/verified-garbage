@@ -6,16 +6,15 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: the calls of HMAC's functions and of `iterate`
 
-Untrusted: everything here is checked by Lean. `pbkdf2` calls HMAC's `init`
-and `finalize` and PBKDF2's `iterate`, each verified against its shared
-contract (`VG.Spec.Hmac.initContract`, `VG.Spec.Hmac.finalizeContract`,
-`VG.Spec.Pbkdf2.iterateContract`) with 48 bytes of stack and some working
-space; what a caller uses of such a proof is `Sound`. Each call is in a
-frame of its arguments (`WP.callWith`): `hi_frame`, `hf_frame` and
-`it_frame` run one, from the state before its push, given the registers
-pushed (`HiArgs`, `HfArgs`, `ItArgs`), which give the callee's precondition
-(evaluated with `sig_pre`); `hi_rel`, `hf_rel` and `it_rel` relate two runs
-of one (`RelCT.callWith`).
+`pbkdf2` calls HMAC's `init` and `finalize` and PBKDF2's `iterate`, each
+verified against its shared contract (`VG.Spec.Hmac.initContract`,
+`VG.Spec.Hmac.finalizeContract`, `VG.Spec.Pbkdf2.iterateContract`) with 48
+bytes of stack and some working space; what a caller uses of such a proof is
+`Sound`. Each call is in a frame of its arguments (`WP.callWith`): `hi_frame`,
+`hf_frame` and `it_frame` run one, from the state before its push, given the
+registers pushed (`HiArgs`, `HfArgs`, `ItArgs`), which give the callee's
+precondition (evaluated with `sig_pre`); `hi_rel`, `hf_rel` and `it_rel`
+relate two runs of one (`RelCT.callWith`).
 
 Our frames hold at most six words, so with the return address and the 48
 bytes the callee uses, a call writes only the 76 bytes below `esp` (`stk`),

@@ -5,12 +5,12 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Good
 /-!
 # ML-DSA key generation on 32-bit ARM: what holds throughout, and the prologue
 
-Untrusted: everything here is checked by Lean. What holds of the state
-throughout (`KC`: the layout, the permissions and stack pointer of the
-entry state, our caller's registers saved in `scratch`, and the seed `ξ`),
-which a part keeps if it writes apart from the saved registers and the seed
-(`kcChk`); the pieces of key generation (`KPiece`); and the prologue, which
-saves our caller's registers and keeps the pointers (`pro_piece`).
+What holds of the state throughout (`KC`: the layout, the permissions and
+stack pointer of the entry state, our caller's registers saved in `scratch`,
+and the seed `ξ`), which a part keeps if it writes apart from the saved
+registers and the seed (`kcChk`); the pieces of key generation (`KPiece`); and
+the prologue, which saves our caller's registers and keeps the pointers
+(`pro_piece`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

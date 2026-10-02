@@ -13,9 +13,8 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # SHA-1 compression function on x86 (32-bit): the message schedule and the rounds
 
-Untrusted: everything here is checked by Lean. As on x86-64 (each function
-`f` symbolically executed once, for any registers), with `Wₜ` added into `e`
-first and `Maj` as a sum of two terms.
+As on x86-64 (each function `f` symbolically executed once, for any
+registers), with `Wₜ` added into `e` first and `Maj` as a sum of two terms.
 -/
 
 namespace VG.Proof.Sha1.X86
@@ -289,8 +288,6 @@ end VG.Proof.Sha1.X86
 
 /-!
 # SHA-1 compression function on x86 (32-bit): the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha1.X86

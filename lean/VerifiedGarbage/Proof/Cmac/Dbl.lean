@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Cmac.Spec
 /-!
 # CMAC: doubling a 16-byte block as a 128-bit integer
 
-Untrusted: everything here is checked by Lean.
-
 `dbl_eq`: the doubling of §6.1 on 16 bytes (`Spec.Cmac.dbl 16`) is, on the
 block as a big-endian 128-bit integer `x` (`Spec.Gcm.ofBytes`), the shift
 `x << 1` XORed with `0x87` if the bit shifted out was 1.

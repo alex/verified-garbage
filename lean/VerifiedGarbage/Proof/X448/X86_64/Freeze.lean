@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.X448.X86_64.Env
 /-!
 # X448 on x86-64: canonical reduction
 
-Untrusted: everything here is checked by Lean. The final carry selects the
-unique representative below the prime, using only a mask on secret data.
+The final carry selects the unique representative below the prime, using only
+a mask on secret data.
 -/
 
 namespace VG.Proof.X448.X86_64

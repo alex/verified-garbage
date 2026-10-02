@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.MlKem1024.X86.KeyGenFin
 /-!
 # ML-KEM-1024 on x86 (32-bit): `vg_mlkem1024_keygen`
 
-Untrusted: everything here is checked by Lean. The body is the start
-(`KeyGenG.lean`), `ŝ` and `ê` (`KeyGenPrf.lean`), the rows of `t̂`
-(`KeyGenRow.lean`) and the keys (`KeyGenFin.lean`). If every `SampleNTT`
-succeeded (`kg4ACC` is 1), `samp_bound` gives one bound on their iterations,
-within which K-PKE.KeyGen succeeds with the matrix sampled
+The body is the start (`KeyGenG.lean`), `ŝ` and `ê` (`KeyGenPrf.lean`), the
+rows of `t̂` (`KeyGenRow.lean`) and the keys (`KeyGenFin.lean`). If every
+`SampleNTT` succeeded (`kg4ACC` is 1), `samp_bound` gives one bound on their
+iterations, within which K-PKE.KeyGen succeeds with the matrix sampled
 (`kpkeKeyGen1024_some`); if one failed within `minIterations`, K-PKE.KeyGen
-fails with that bound (`kpkeKeyGen1024_none`). Two runs with the same
-pointers and `ρ` leak the same: the contract lets the function leak `ρ`.
+fails with that bound (`kpkeKeyGen1024_none`). Two runs with the same pointers
+and `ρ` leak the same: the contract lets the function leak `ρ`.
 -/
 
 namespace VG.Proof.MlKem1024.X86.KeyGen

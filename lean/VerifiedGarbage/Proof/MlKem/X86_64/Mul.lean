@@ -7,10 +7,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86-64: `vg_mlkem_multiply_ntts`
 
-Untrusted: everything here is checked by Lean. Each iteration of the loop
-loads 16 coefficients of `f` and of `g` into the words of their pairs
-(`deintF_ok`, `deintG_ok`), multiplies the eight pairs (`vbase_ok`) and
-stores the 16 coefficients of `h` (`vinter_ok`): `Mul.step`.
+Each iteration of the loop loads 16 coefficients of `f` and of `g` into the
+words of their pairs (`deintF_ok`, `deintG_ok`), multiplies the eight pairs
+(`vbase_ok`) and stores the 16 coefficients of `h` (`vinter_ok`): `Mul.step`.
 -/
 
 namespace VG.Proof.MlKem.X86_64

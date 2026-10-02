@@ -4,10 +4,9 @@ import Mathlib.Tactic.SplitIfs
 /-!
 # Byte reversal of a little-endian load is a big-endian load
 
-Untrusted: everything here is checked by Lean. Each ISA model defines its
-byte-reversal instructions (x86's `bswap`, Arm's `rev`) as `byteRev32` and
-`byteRev64` are defined here, so the lemmas about them are stated once, for
-every target.
+Each ISA model defines its byte-reversal instructions (x86's `bswap`, Arm's
+`rev`) as `byteRev32` and `byteRev64` are defined here, so the lemmas about
+them are stated once, for every target.
 -/
 
 namespace VG

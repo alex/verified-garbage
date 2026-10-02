@@ -7,9 +7,8 @@ import Mathlib.Tactic.Conv
 /-!
 # Streaming SHA-256: facts about the specification
 
-Untrusted: everything here is checked by Lean. How `Repr` evolves as bytes
-are buffered and blocks compressed, and how the padded message decomposes,
-independently of any target.
+How `Repr` evolves as bytes are buffered and blocks compressed, and how the
+padded message decomposes, independently of any target.
 -/
 
 namespace VG.Proof.Sha256.Stream

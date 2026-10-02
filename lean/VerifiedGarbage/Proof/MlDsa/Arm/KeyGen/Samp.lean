@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.Mask
 /-!
 # ML-DSA key generation on 32-bit ARM: the samplers
 
-Untrusted: everything here is checked by Lean. The primitives key
-generation calls, verified with at most `S` bytes of stack (`PrimsOk`); and
-the entries of `Â` (`expA_piece`) and of `s₁ ‖ s₂` (`expS_piece`): after the
-first `e` entries of `Â` and `r` of `s₁ ‖ s₂` (`KSamp`), each polynomial is
-reduced (and those of `s₁ ‖ s₂` small), and `r11` is what `Good` says.
+The primitives key generation calls, verified with at most `S` bytes of stack
+(`PrimsOk`); and the entries of `Â` (`expA_piece`) and of `s₁ ‖ s₂`
+(`expS_piece`): after the first `e` entries of `Â` and `r` of `s₁ ‖ s₂`
+(`KSamp`), each polynomial is reduced (and those of `s₁ ‖ s₂` small), and
+`r11` is what `Good` says.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

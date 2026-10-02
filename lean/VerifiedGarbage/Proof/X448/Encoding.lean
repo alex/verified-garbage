@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.Pairs
 /-!
 # X448: encoding pairs of limbs
 
-Untrusted: everything here is checked by Lean. Seven output bytes encode
-two bounded limbs, and eight such pairs encode the complete field element.
+Seven output bytes encode two bounded limbs, and eight such pairs encode the
+complete field element.
 -/
 
 namespace VG.Proof.X448

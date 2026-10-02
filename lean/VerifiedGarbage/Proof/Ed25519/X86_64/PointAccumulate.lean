@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.PointSelect
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointTableAddr
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointPowers
 
-/-! Untrusted: one masked point addition, with all memory indices public. -/
+/-! One masked point addition, with all memory indices public. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

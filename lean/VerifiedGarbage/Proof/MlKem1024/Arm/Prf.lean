@@ -5,9 +5,9 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024 on 32-bit ARM: the `PRF`s
 
-Untrusted: everything here is checked by Lean. `Proof/MlKem/Arm/Prf.lean`
-for ML-KEM-1024's layout of `scratch`: `SamplePolyCBD₂(PRF₂(σ, N))` (and
-its NTT) into polynomial `4 + N`, for `N < 9` (`prfBody_ok`, `prfLoop_ok`).
+`Proof/MlKem/Arm/Prf.lean` for ML-KEM-1024's layout of `scratch`:
+`SamplePolyCBD₂(PRF₂(σ, N))` (and its NTT) into polynomial `4 + N`, for `N <
+9` (`prfBody_ok`, `prfLoop_ok`).
 -/
 
 namespace VG.Proof.MlKem1024.Arm

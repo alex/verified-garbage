@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Aes.Arm.Sbox
 /-!
 # The linear layers of bitsliced AES on ARMv7
 
-Untrusted: everything here is checked by Lean.
-
 Each layer is checked by evaluation over the lane domain
 (`Framework/Arm/Linear.lean`): the kernel runs it on the input words as
 atoms and compares every output bit with the XOR of input bits given in

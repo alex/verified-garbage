@@ -5,11 +5,11 @@ import VerifiedGarbage.Spec.MlDsa.Poly
 /-!
 # ML-DSA on x86 (32-bit): calls of the polynomial primitives
 
-Untrusted: everything here is checked by Lean. For each signature of the
-primitives key generation and verification call, a call (`callP_piece`) of
-any code verified against its contract (`Callee`), with its arguments named
-as buffers and immediates: its precondition on entry and its public data,
-from the layout, and its postcondition restated on the caller's memory.
+For each signature of the primitives key generation and verification call, a
+call (`callP_piece`) of any code verified against its contract (`Callee`),
+with its arguments named as buffers and immediates: its precondition on entry
+and its public data, from the layout, and its postcondition restated on the
+caller's memory.
 
 The facts about regions and the stack of the callee's precondition are
 those `Ent.buf` gives for each buffer, `Ent.self` for the callee's own

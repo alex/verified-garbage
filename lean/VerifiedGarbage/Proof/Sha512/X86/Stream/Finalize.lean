@@ -7,12 +7,11 @@ import VerifiedGarbage.Proof.Framework.X86.ArgTaint
 /-!
 # Streaming SHA-512 on x86 (32-bit): `finalize`
 
-Untrusted: everything here is checked by Lean. The structure of the SHA-256
-proof (`VG.Proof.Sha256.X86.Stream.Finalize`), with `state` in `ebx`, the
-buffered bytes in `edi` and whether the block being padded is not the last
-in `esi`; `count`, `out` and `scratch` stay in their argument words, and the
-compression function is called (`compressAt_ok`), with the 20 bytes below
-`esp` for its frame.
+The structure of the SHA-256 proof (`VG.Proof.Sha256.X86.Stream.Finalize`),
+with `state` in `ebx`, the buffered bytes in `edi` and whether the block being
+padded is not the last in `esi`; `count`, `out` and `scratch` stay in their
+argument words, and the compression function is called (`compressAt_ok`), with
+the 20 bytes below `esp` for its frame.
 -/
 
 namespace VG.Proof.Sha512.X86.Stream.Finalize

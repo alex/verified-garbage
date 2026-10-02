@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.Sha512.Arm.Stream.Finalize
 /-!
 # The SHA-512 family's digest on ARMv7
 
-Untrusted: everything here is checked by Lean. The streaming `finalize`'s
-code writing the final hash value (`Impl.Sha512.Arm.Stream.outW`, each
-64-bit word big-endian, from its halves stored low first) writes the digest
-of `Proof.Sha512.md` (`OutOk`), as HMAC and PBKDF2 use it.
+The streaming `finalize`'s code writing the final hash value
+(`Impl.Sha512.Arm.Stream.outW`, each 64-bit word big-endian, from its halves
+stored low first) writes the digest of `Proof.Sha512.md` (`OutOk`), as HMAC
+and PBKDF2 use it.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm

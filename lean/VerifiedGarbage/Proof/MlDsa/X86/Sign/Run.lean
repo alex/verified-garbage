@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.PhaseC
 /-!
 # ML-DSA signing on x86 (32-bit): what two related runs agree on
 
-Untrusted: everything here is checked by Lean. Whether every entry of `Â`
-was sampled (`Good`), and the number of iterations of the loop (`NI`: the
-number the implementation's `SampleInBall` and the checks make, or 1 if
-`Â` was not sampled), are the same in two runs related by `SPub`; and at
-an iteration both reach (`t < NI`), so are `c̃`, whether `SampleInBall`
-succeeded, whether the checks passed, and then the hint.
+Whether every entry of `Â` was sampled (`Good`), and the number of iterations
+of the loop (`NI`: the number the implementation's `SampleInBall` and the
+checks make, or 1 if `Â` was not sampled), are the same in two runs related by
+`SPub`; and at an iteration both reach (`t < NI`), so are `c̃`, whether
+`SampleInBall` succeeded, whether the checks passed, and then the hint.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

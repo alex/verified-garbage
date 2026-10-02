@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sample.Ball
 /-!
 # ML-DSA on x86 (32-bit): the loop of `vg_mldsa_sample_in_ball`
 
-Untrusted: everything here is checked by Lean. Iteration `k` takes the byte
-`j` of the output: while `i < 256` (`cmp_piece`), if `j ≤ i`, it copies
-`c[j]` to `c[i]` and tests the next sign bit, the low bit of the first word
-(`move_ok`); stores `±1` to `c[j]` (`sign_piece`) and shifts the two words
-right by one bit (`shift_ok`), incrementing `i`: `bStep` of
-`Proof/MlDsa/Sample/Ball.lean`. Its branches and addresses depend on `i`,
+Iteration `k` takes the byte `j` of the output: while `i < 256` (`cmp_piece`),
+if `j ≤ i`, it copies `c[j]` to `c[i]` and tests the next sign bit, the low
+bit of the first word (`move_ok`); stores `±1` to `c[j]` (`sign_piece`) and
+shifts the two words right by one bit (`shift_ok`), incrementing `i`: `bStep`
+of `Proof/MlDsa/Sample/Ball.lean`. Its branches and addresses depend on `i`,
 `j` and the sign bits, functions of `c̃`, which agree in two runs with the
 same `c̃` (`QPub`).
 -/

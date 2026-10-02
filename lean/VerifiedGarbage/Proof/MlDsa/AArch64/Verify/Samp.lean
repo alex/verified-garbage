@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Samp
 /-!
 # ML-DSA verification on AArch64: the samplers
 
-Untrusted: everything here is checked by Lean. `ρ` to the seed
-(`copyRho_vpiece`); each entry `Â[r, s]` sampled from `ρ ‖ s ‖ r`
-(`expA_vpiece`), and `c` (`ball_vpiece`), each reduced, and `x24` 1 only if
+`ρ` to the seed (`copyRho_vpiece`); each entry `Â[r, s]` sampled from `ρ ‖ s ‖
+r` (`expA_vpiece`), and `c` (`ball_vpiece`), each reduced, and `x24` 1 only if
 every sampler succeeded, with their outputs (`VA`, `VB`). Each sampler's
-output is masked with its result, without a branch; the seeds are functions
-of the public key and the signature, the same in two runs.
+output is masked with its result, without a branch; the seeds are functions of
+the public key and the signature, the same in two runs.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Verify

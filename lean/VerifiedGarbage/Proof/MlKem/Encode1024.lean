@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlKem.Compress1024
 /-!
 # ML-KEM-1024: compressed encodings byte by byte, for every target
 
-Untrusted: everything here is checked by Lean. The analog of the compressed
-encodings of `Encode.lean` for the widths only ML-KEM-1024 compresses to,
-group by group as the arithmetic an implementation does (with `Bits.lean`):
+The analog of the compressed encodings of `Encode.lean` for the widths only
+ML-KEM-1024 compresses to, group by group as the arithmetic an implementation
+does (with `Bits.lean`):
 
 * `ByteEncode₅ ∘ Compress₅`: 8 coefficients per 5 bytes
   (`compressEncode5_group`, the 40-bit number of the group, and

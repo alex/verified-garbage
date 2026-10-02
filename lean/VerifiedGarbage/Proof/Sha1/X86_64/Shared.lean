@@ -8,11 +8,11 @@ import VerifiedGarbage.Spec.Sha1.Contract
 /-!
 # Sha1 on X86_64: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha1/X86_64/Compress.lean`); these theorems move
-them to the shared contracts of `Spec/Sha1/Contract.lean`, which the
-artifacts are emitted with. `update` and `finalize` hold for any
-implementation `f` of the compression function.
+The proofs are written against per-target contracts
+(`Proof/Sha1/X86_64/Compress.lean`); these theorems move them to the shared
+contracts of `Spec/Sha1/Contract.lean`, which the artifacts are emitted with.
+`update` and `finalize` hold for any implementation `f` of the compression
+function.
 -/
 
 namespace VG.Proof.Sha1.X86_64.Shared

@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # Byte ranges below a stack pointer
 
-Untrusted: everything here is checked by Lean. As `Offset.lean`, for the
-ranges `[E - d, E - d + n)` below an address `E` (a stack pointer, below which
-calls push their return addresses): proven once for any offsets, so that a
-proof about a particular range needs `omega` on the offsets rather than
-`bv_omega` on the addresses.
+As `Offset.lean`, for the ranges `[E - d, E - d + n)` below an address `E` (a
+stack pointer, below which calls push their return addresses): proven once for
+any offsets, so that a proof about a particular range needs `omega` on the
+offsets rather than `bv_omega` on the addresses.
 -/
 
 namespace VG.Offset

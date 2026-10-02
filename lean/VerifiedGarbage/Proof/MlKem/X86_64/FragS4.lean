@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Sample4Impl
 /-!
 # ML-KEM on x86-64: four entries of the matrix at once
 
-Untrusted: everything here is checked by Lean. In a layout: the seed
-`ρ ‖ j ‖ i` of an entry, with `ρ` at `SB`, to `34 k` bytes into `scratch`
-(`seedAt_ok`), and the four seeds of entries `e₀, …, e₀ + 3` of a matrix of
-`n` columns (`SeedsIs`); then `vg_mlkem_sample_ntt4`, of any implementation
-(`Sample4Impl`), of those seeds to the four polynomials from `a`
-(`sample4At_ok`), which changes `r15` (so what it leaves is `PostB`), and
+In a layout: the seed `ρ ‖ j ‖ i` of an entry, with `ρ` at `SB`, to `34 k`
+bytes into `scratch` (`seedAt_ok`), and the four seeds of entries `e₀, …, e₀ +
+3` of a matrix of `n` columns (`SeedsIs`); then `vg_mlkem_sample_ntt4`, of any
+implementation (`Sample4Impl`), of those seeds to the four polynomials from
+`a` (`sample4At_ok`), which changes `r15` (so what it leaves is `PostB`), and
 the whole (`quad_ok`), and its constant time for a given `ρ` (`quad_tr`).
 -/
 

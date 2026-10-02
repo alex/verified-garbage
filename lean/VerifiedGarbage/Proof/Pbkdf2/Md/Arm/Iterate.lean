@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Hash
 /-!
 # PBKDF2-HMAC's iteration over a Merkle–Damgård hash function on ARMv7
 
-Untrusted: everything here is checked by Lean. The same proof as on x86-64
-and AArch64 (`Proof/Pbkdf2/AArch64/Iterate.lean`): the iteration
-(`Impl/Pbkdf2/Md/Arm.lean`) is correct for any hash function the generic
-streaming proofs describe (`Md`), whose digest code and length field are
-as `HashOK` says, with any correct compression function (`CompOk`), used as
-a black box through its proof; `Md.hmac_step` says that its two
+The same proof as on x86-64 and AArch64 (`Proof/Pbkdf2/AArch64/Iterate.lean`):
+the iteration (`Impl/Pbkdf2/Md/Arm.lean`) is correct for any hash function the
+generic streaming proofs describe (`Md`), whose digest code and length field
+are as `HashOK` says, with any correct compression function (`CompOk`), used
+as a black box through its proof; `Md.hmac_step` says that its two
 compressions per step compute HMAC. The contract is `iterG`
 (`Proof/Hmac/Generic/Arm/Hash.lean`), the shared one's at 16 bytes of stack,
 although the function uses none.

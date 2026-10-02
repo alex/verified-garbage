@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.CmacAes.Stream.AArch64.Contract
 /-!
 # Streaming AES-CMAC on AArch64: the calls
 
-Untrusted: everything here is checked by Lean. A call of each function the
-streaming functions call (`vg_aes_expand_key`, `vg_cmac_aes_subkeys`,
-`vg_cmac_aes_update` and `vg_cmac_aes_finalize`, for any implementation of
-AES), from its contract (with `WP.call`): what it needs (`…Args`), what it
-leaves (`…Post`, in terms of the memory before the call), and that two calls
-with the same arguments leak the same (`…_rel`). A call stores nothing in
-memory: the callees change only the buffers they are given.
+A call of each function the streaming functions call (`vg_aes_expand_key`,
+`vg_cmac_aes_subkeys`, `vg_cmac_aes_update` and `vg_cmac_aes_finalize`, for
+any implementation of AES), from its contract (with `WP.call`): what it needs
+(`…Args`), what it leaves (`…Post`, in terms of the memory before the call),
+and that two calls with the same arguments leak the same (`…_rel`). A call
+stores nothing in memory: the callees change only the buffers they are given.
 -/
 
 namespace VG.Proof.CmacAes.Stream.AArch64

@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.X25519.Bytes
 /-!
 # X25519 on x86-64: reading the arguments
 
-Untrusted: everything here is checked by Lean. `setup` reads the
-u-coordinate, saves the callee-saved registers at the start of the working
-space, and sets the ladder's variables to their initial values.
+`setup` reads the u-coordinate, saves the callee-saved registers at the start
+of the working space, and sets the ladder's variables to their initial values.
 -/
 
 namespace VG.Proof.X25519.X86_64

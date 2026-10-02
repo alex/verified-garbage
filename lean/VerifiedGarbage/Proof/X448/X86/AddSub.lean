@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.X86.Columns
 /-!
 # X448 on x86 (32-bit): addition and subtraction
 
-Untrusted: everything here is checked by Lean. Twice the prime is added
-before subtraction, so no limb subtraction borrows.
+Twice the prime is added before subtraction, so no limb subtraction borrows.
 -/
 
 namespace VG.Proof.X448.X86

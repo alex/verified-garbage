@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Mul
 import VerifiedGarbage.Impl.Ed25519.AArch64.MulAdd
 
-/-! Untrusted: full-width multiplication with an initial four-word addend. -/
+/-! Full-width multiplication with an initial four-word addend. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 

@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # Streaming RC2-CBC on ARMv7: the contracts, spelled out
 
-Untrusted: everything here is checked by Lean. The contracts of
-`vg_rc2_cbc_init` and the update functions with their facts written out for
-ARMv7 and a stack of 8 bytes (`initContract`, `updateContract`), which imply
-the shared ones (`init_implies`, `update_implies`).
+The contracts of `vg_rc2_cbc_init` and the update functions with their facts
+written out for ARMv7 and a stack of 8 bytes (`initContract`,
+`updateContract`), which imply the shared ones (`init_implies`,
+`update_implies`).
 -/
 
 namespace VG.Proof.Rc2.Arm.Stream

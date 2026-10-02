@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlKem.AArch64.KgA
 /-!
 # ML-DSA on AArch64: entry and exit
 
-Untrusted: everything here is checked by Lean. What the top-level functions
-keep from their entry state `σ` on (`Top`): the permissions and the stack
-pointer, their four arguments in `x25`–`x28`, the callee-saved registers
-they never write, and their caller's `x24`–`x28` and `x30` saved in
-`scratch`. The prologue establishes it (`pro_ok`), every piece keeps it
-(`Top.step`), and the epilogue restores the caller's registers from it
-(`epi_ok`).
+What the top-level functions keep from their entry state `σ` on (`Top`): the
+permissions and the stack pointer, their four arguments in `x25`–`x28`, the
+callee-saved registers they never write, and their caller's `x24`–`x28` and
+`x30` saved in `scratch`. The prologue establishes it (`pro_ok`), every piece
+keeps it (`Top.step`), and the epilogue restores the caller's registers from
+it (`epi_ok`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

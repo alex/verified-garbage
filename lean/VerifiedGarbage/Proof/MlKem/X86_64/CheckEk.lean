@@ -6,9 +6,8 @@ import VerifiedGarbage.Spec.MlKem.Contract
 /-!
 # ML-KEM-768 on x86-64: `vg_mlkem768_check_ek`
 
-Untrusted: everything here is checked by Lean. The code counts the fields
-less than `q` (`cnt`); all 768 are exactly when the key passes the check
-(`cnt_eq_iff`, `ekCheck768`).
+The code counts the fields less than `q` (`cnt`); all 768 are exactly when the
+key passes the check (`cnt_eq_iff`, `ekCheck768`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

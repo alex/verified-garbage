@@ -7,10 +7,9 @@ import VerifiedGarbage.Impl.MlKem.Arm.Poly
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_add` and `vg_mlkem_sub`
 
-Untrusted: everything here is checked by Lean. One symbolic execution of
-each loop body, for any pointers (`addBody_ok`, `subBody_ok`); the loop
-invariant says which coefficients of `f` are done (`Inv`); the arithmetic
-is `fixq_add` and `fixq_sub`.
+One symbolic execution of each loop body, for any pointers (`addBody_ok`,
+`subBody_ok`); the loop invariant says which coefficients of `f` are done
+(`Inv`); the arithmetic is `fixq_add` and `fixq_sub`.
 -/
 
 namespace VG.Proof.MlKem.Arm.Add

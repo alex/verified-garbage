@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlKem.X86.TopKeep
 /-!
 # ML-KEM-768 on x86 (32-bit): the start of `vg_mlkem768_keygen`
 
-Untrusted: everything here is checked by Lean. `esi = scratch`, the word
-`kgACC` set to 1, and `ρ ‖ σ = G(d ‖ 3)` at `kgRS` (`start_piece`), which is
-`P 0`: the state of the loop over `N` that computes `ŝ` and `ê`.
+`esi = scratch`, the word `kgACC` set to 1, and `ρ ‖ σ = G(d ‖ 3)` at `kgRS`
+(`start_piece`), which is `P 0`: the state of the loop over `N` that computes
+`ŝ` and `ê`.
 -/
 
 namespace VG.Proof.MlKem.X86.KeyGen

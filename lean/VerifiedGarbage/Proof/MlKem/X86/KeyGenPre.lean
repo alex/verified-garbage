@@ -6,10 +6,10 @@ import VerifiedGarbage.Spec.MlKem.Contract
 /-!
 # ML-KEM-768 on x86 (32-bit): the setting of `vg_mlkem768_keygen`
 
-Untrusted: everything here is checked by Lean. The layout of the arguments
-(`Y`: `seed`, `ek`, `dk`, `scratch`, and the 88 bytes of stack), which the
-contract's precondition implies (`pre_of`); the public data, which includes
-`ρ` (`pub_of`); and `d`, `z` and the values the body computes from them.
+The layout of the arguments (`Y`: `seed`, `ek`, `dk`, `scratch`, and the 88
+bytes of stack), which the contract's precondition implies (`pre_of`); the
+public data, which includes `ρ` (`pub_of`); and `d`, `z` and the values the
+body computes from them.
 -/
 
 namespace VG.Proof.MlKem.X86.KeyGen

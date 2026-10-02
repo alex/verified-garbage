@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlKem.Encode
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_encode12`
 
-Untrusted: everything here is checked by Lean. One symbolic execution of
-the loop body for any pointers (`body_ok`); the invariant says which bytes
-of the output are written (`Inv`); the bytes are those of
-`encode12_byte0`–`encode12_byte2`.
+One symbolic execution of the loop body for any pointers (`body_ok`); the
+invariant says which bytes of the output are written (`Inv`); the bytes are
+those of `encode12_byte0`–`encode12_byte2`.
 -/
 
 namespace VG.Proof.MlKem.Arm.Encode12

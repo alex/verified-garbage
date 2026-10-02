@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlKem.AArch64.NttVec
 /-!
 # ML-KEM on AArch64: `vg_mlkem_add` and `vg_mlkem_sub`
 
-Untrusted: everything here is checked by Lean. Both are `mapLoop` around an
-arithmetic step; the loop is proven once for any step that computes a
-function `F` of the two coefficients (`OpSpec`).
+Both are `mapLoop` around an arithmetic step; the loop is proven once for any
+step that computes a function `F` of the two coefficients (`OpSpec`).
 -/
 
 namespace VG.Proof.MlKem

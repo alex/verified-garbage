@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Framework.RelCTAssoc
 /-!
 # Streaming SHA-512 on ARMv7: `finalize`
 
-Untrusted: everything here is checked by Lean. The structure of the SHA-256
-proof (`VG.Proof.MdStream.Arm.Finalize`), with `state` in `r0`,
-`scratch` in `r3`, `out` in `r6`, the buffered bytes in `r4`, whether the
-block is not the last in `r5`, and `count` saved in the scratch space (with
-our caller's registers).
+The structure of the SHA-256 proof (`VG.Proof.MdStream.Arm.Finalize`), with
+`state` in `r0`, `scratch` in `r3`, `out` in `r6`, the buffered bytes in `r4`,
+whether the block is not the last in `r5`, and `count` saved in the scratch
+space (with our caller's registers).
 -/
 
 namespace VG.Proof.Sha512.Arm.Stream.Finalize

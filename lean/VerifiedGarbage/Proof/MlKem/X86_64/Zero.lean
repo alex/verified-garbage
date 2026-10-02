@@ -6,8 +6,8 @@ import VerifiedGarbage.Proof.Sha3.Stream
 /-!
 # ML-KEM on x86-64: zeroing a Keccak state
 
-Untrusted: everything here is checked by Lean. `zeroSt b off` stores `rax`
-(zero) to the 25 lanes at `b + off`: the all-zero state (`zeroSt_ok`).
+`zeroSt b off` stores `rax` (zero) to the 25 lanes at `b + off`: the all-zero
+state (`zeroSt_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64
