@@ -34,7 +34,7 @@ use crate::arch::pbkdf2_sha512_256::{
 use crate::arch::pbkdf2_sha512_256::{
     VG_PBKDF2_HMAC_SHA512_256_SHA3_FEATURES, vg_pbkdf2_hmac_sha512_256_sha3,
 };
-use crate::hashes::sha512::{Sha512_256, Sha512_256Backend};
+use crate::hashes::sha512_256::{Sha512_256, Sha512_256Backend};
 
 #[cfg(any(target_arch = "arm", target_arch = "x86"))]
 super::streaming_pbkdf2!(

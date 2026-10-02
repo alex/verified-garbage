@@ -1,5 +1,5 @@
-name = "SHA-512"
+name = "SHA-384"
 family = "Hashes"
 specs = ["Sha512"]
-modules = ["src/hashes/sha512.rs"]
+modules = ["src/hashes/sha384.rs"]
 asm = ["sha512"]
