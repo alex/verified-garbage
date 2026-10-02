@@ -212,8 +212,8 @@ theorem su3_ok {s : State} (hk : KR F s₀ s) (r0 : hF.hH.SH.Repr s.mem (A s₀ 
 omit hz hF in
 /-- `update`'s arguments: the salt. -/
 theorem su4_ok {s : State} (hk : KR F s₀ s) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86.scr .edi F.stSO ++ [.mov .eax (.imm 0),
-      .mov .esi (.imm (BitVec.ofNat 32 F.H.B)), .mov .ecx (Fns.argM 3), .mov .edx (Fns.argM 2)])) s
+    WP isa (.block (VG.Impl.Hmac.Generic.X86.scr .edi F.stSO ++ ([.mov .eax (.imm 0),
+      .mov .esi (.imm (BitVec.ofNat 32 F.H.B)), .mov .ecx (Fns.argM 3), .mov .edx (Fns.argM 2)] : List Instr))) s
       fun t => KR F s₀ t ∧ t.gpr .edi = dO s₀ F.stSO ∧ t.gpr .esi = BitVec.ofNat 32 F.H.B ∧ t.gpr .eax = 0 ∧
         t.gpr .ecx = arg s₀ 3 ∧ t.gpr .edx = salt s₀ ∧ t.mem = s.mem := by
   refine scr_ok hk fun s₁ u₁ => wp_movi fun s₂ u₂ => wp_movi fun s₃ u₃ => ?_

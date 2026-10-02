@@ -275,8 +275,8 @@ theorem hk4_ok {s : State} (hk : KK F s₀ s) (h4 : s.gpr .r4 = dO s₀ F.stWO) 
 omit hp hz hH in
 /-- `finalize`'s arguments: the digest into `scratch`. -/
 theorem hk5_ok {s : State} (hk : KK F s₀ s) (h4 : s.gpr .r4 = dO s₀ F.stWO) (ho : F.hkO < 2 ^ 16) :
-    WP isa (.block ([.mov .r0 (.reg .r4)] ++ scrAt .r1 F.hkO ++ [.mov .r12 (.reg .r11), .mov .r2 (.reg .r9),
-      .mov .r3 (.imm 0)])) s fun t => KK F s₀ t ∧ t.gpr .r0 = dO s₀ F.stWO ∧ t.gpr .r1 = dO s₀ F.hkO ∧
+    WP isa (.block (([.mov .r0 (.reg .r4)] : List Instr) ++ scrAt .r1 F.hkO ++
+      ([.mov .r12 (.reg .r11), .mov .r2 (.reg .r9), .mov .r3 (.imm 0)] : List Instr))) s fun t => KK F s₀ t ∧ t.gpr .r0 = dO s₀ F.stWO ∧ t.gpr .r1 = dO s₀ F.hkO ∧
         t.gpr .r12 = scr s₀ ∧ count t = BitVec.ofNat 64 (pwl s₀) ∧ t.mem = s.mem := by
   simp only [List.cons_append, List.nil_append]
   refine wp_mov (op2_reg _ _) fun s₁ u₁ => ?_
@@ -351,7 +351,7 @@ theorem hk6_ok {s : State} (hk : KK F s₀ s) (h0 : s.gpr .r0 = dO s₀ F.stWO) 
 
 omit hp hz hH in
 theorem hk7_ok {s : State} (hk : KR F s₀ s) (ho : F.hkO < 2 ^ 16) (hD : F.H.D < 2 ^ 16) :
-    WP isa (.block (scrAt .r2 F.hkO ++ [.movw .r3 (BitVec.ofNat 16 F.H.D)])) s
+    WP isa (.block (scrAt .r2 F.hkO ++ ([.movw .r3 (BitVec.ofNat 16 F.H.D)] : List Instr))) s
       fun t => KR F s₀ t ∧ t.gpr .r2 = dO s₀ F.hkO ∧ t.gpr .r3 = BitVec.ofNat 32 F.H.D ∧ t.mem = s.mem :=
   scr_ok hk ho fun s₁ u₁ => Hmac.Generic.Arm.wp_movw fun s₂ u₂ => WP.block_nil
     ⟨(hk.upd12 (by decide) u₁).upd (by decide) u₂, by rw [u₂.other _ (by decide), u₁.gpr],

@@ -212,7 +212,8 @@ theorem hk4_ok {s : State} (hk : KR F s₀ s) (hdi : s.gpr .edi = dO s₀ F.stWO
 omit hz hH in
 /-- `finalize`'s arguments: the digest into `scratch`. -/
 theorem hk5_ok {s : State} (hk : KR F s₀ s) (hdi : s.gpr .edi = dO s₀ F.stWO) :
-    WP isa (.block ([.mov .eax (Fns.argM 1), .mov .ecx (.imm 0)] ++ VG.Impl.Hmac.Generic.X86.scr .edx F.hkO)) s
+    WP isa (.block (([.mov .eax (Fns.argM 1), .mov .ecx (.imm 0)] : List Instr) ++
+      VG.Impl.Hmac.Generic.X86.scr .edx F.hkO)) s
       fun t => KR F s₀ t ∧ t.gpr .edi = dO s₀ F.stWO ∧ t.gpr .eax = arg s₀ 1 ∧ t.gpr .ecx = 0 ∧
         t.gpr .edx = dO s₀ F.hkO ∧ t.mem = s.mem := by
   simp only [List.cons_append, List.nil_append]
@@ -281,7 +282,8 @@ theorem hk6_ok {s : State} (hk : KR F s₀ s) (hdi : s.gpr .edi = dO s₀ F.stWO
 
 omit hp hz hH in
 theorem hk7_ok {s : State} (hk : KR F s₀ s) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86.scr .edx F.hkO ++ [.mov .ecx (.imm (BitVec.ofNat 32 F.H.D))])) s
+    WP isa (.block (VG.Impl.Hmac.Generic.X86.scr .edx F.hkO ++
+      ([.mov .ecx (.imm (BitVec.ofNat 32 F.H.D))] : List Instr))) s
       fun t => KR F s₀ t ∧ t.gpr .edx = dO s₀ F.hkO ∧ t.gpr .ecx = BitVec.ofNat 32 F.H.D ∧ t.mem = s.mem :=
   scr_ok hk fun s₁ u₁ => wp_movi fun s₂ u₂ => WP.block_nil ⟨(hk.upd (by decide) u₁).upd (by decide) u₂,
     by rw [u₂.other _ (by decide), u₁.gpr], u₂.gpr, by rw [u₂.mem, u₁.mem]⟩
