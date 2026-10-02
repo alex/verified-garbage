@@ -11,9 +11,16 @@ def PACKA : Nat := 3968
 def PACKB : Nat := 4032
 
 /-- Accumulate x6 × x9 in the two-word x4:x5 coefficient. -/
-def term : List Instr :=
-  [.mul .x .x10 .x6 .x9, .umulh .x11 .x6 .x9,
+def termFrom (a b : Reg) : List Instr :=
+  [.mul .x .x10 a b, .umulh .x11 a b,
     .adds .x .x4 .x4 .x10, .adcs .x .x5 .x5 .x11]
+
+/-- One cross term of a square, doubled before accumulation. -/
+def termFromDouble (a b : Reg) : List Instr :=
+  [.add .x .x11 a a, .mul .x .x10 .x11 b, .umulh .x11 .x11 b,
+    .adds .x .x4 .x4 .x10, .adcs .x .x5 .x5 .x11]
+
+def term : List Instr := termFrom .x6 .x9
 
 /-- A diagonal coefficient: input limbs are loaded before each term. -/
 def column (a b k : Nat) : List Instr :=
