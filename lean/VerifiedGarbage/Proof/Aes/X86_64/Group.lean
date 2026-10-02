@@ -354,7 +354,7 @@ end
 # One group of counter-mode blocks on x86-64
 
 `ctrBlocks` builds the counter blocks `c + b` (`b < 4`) from the slots of
-the counter block (`ctrBlocks_ok`, then `ctr_inRel` for `InRel`),
+the counter block (`ctrBlocks_wp`, then `ctr_inRel` for `InRel`),
 `encrypt4` encrypts them (`Encrypt.lean`), and `xorFull` or `xorTail` XOR
 the keystream into the data, byte by byte.
 -/

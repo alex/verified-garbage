@@ -17,9 +17,9 @@ little-endian number in base `2ᵈ`, and
   byte `t` of group `g` (`nb` bytes) is byte `t` of the number whose digits
   are the `c` integers of group `g` (`pack_group`);
 * field `i` of bytes `v` is base-`2ᵈ` digit `i` of the number whose bytes
-  are `v` (`field_eq`), and group by group (`field_group`);
+  are `v` (`field_eq`), and group by group (`digits_group`);
 * hence `simpleBitPack`, `bitPack`, `simpleBitUnpack` and `bitUnpack`
-  (`simpleBitPack_group`, `bitPack_group`, `simpleBitUnpack_get`,
+  (`simpleBitPack_eq`, `bitPack_eq`, `simpleBitUnpack_get`,
   `bitUnpack_get`).
 -/
 

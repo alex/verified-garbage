@@ -32,7 +32,7 @@ section
 The arithmetic of `Impl.Gcm.X86_64.product` (BearSSL's ctmul64): the integer
 product of two words whose bits are 4 apart, one of them with at most 8 bits,
 has the bits of their carry-less product at the positions of its class
-(`testBit_ip`), since the column sums (at most 8) never carry into the next
+(`bit_ip`), since the column sums (at most 8) never carry into the next
 position of the class. So the classes of the eight parts of `a` and the four
 of `b`, masked and added, give the carry-less product of `a` and `b`
 (`lp_prodVal`), which in SP 800-38D's reflected bit order is `x · a · b`

@@ -6,7 +6,8 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Round.MakeHint
 
 In each doubleword, `mhX` computes the hint bit (`mhL`, `mhL_toNat`); the loop
 stores the eight hints of an iteration and adds their count, the sum of the
-nibbles of the byte mask of the hints shifted to bit 7 (`nib_count`), to `r9`.
+nibbles of the byte mask of the hints shifted to bit 7 (`cntH_ok`, `nib_sp`),
+to `r9`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

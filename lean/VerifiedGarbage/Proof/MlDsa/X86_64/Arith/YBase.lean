@@ -9,7 +9,7 @@ The AVX2 code does to each 128-bit lane what the SSE2 code does to a register
 (`toY`), so the proofs of the SSE2 code hold of each lane (`ylanes`,
 ML-KEM's): `YConsts` is `VConsts` in both lanes (`yconsts_ok`); a 256-bit load
 of coefficient `j` puts coefficients `j + 4l` to `j + 4l + 3` in lane `l`
-(`ylanes_load`), and a 256-bit store of a register whose lanes hold `a` and `a
+(`dlanes_loadY`), and a 256-bit store of a register whose lanes hold `a` and `a
 (· + 4)` puts `a` at coefficients `j` to `j + 7` (`polyIs_write2Y`,
 `ylanes_ymm`).
 -/

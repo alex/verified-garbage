@@ -13,7 +13,7 @@ coefficients (`rejBounded_some`), and otherwise so does no shorter output
 
 How many coefficients it has sampled depends only on which half-bytes it
 accepted (`rbFold_length_congr`), which is what the contract lets it leak
-(`rejBoundedLeak`, `leak_getD`).
+(`rejBoundedLeak`, `leak_hbOks`).
 -/
 
 namespace VG.Proof.MlDsa.Sample

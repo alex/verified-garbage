@@ -15,9 +15,8 @@ them, for every coefficient `a < q`:
 * `f` without a division (`hbF_eq`), as the reference implementation
   computes it: `b = ⌊(a + 127)/2⁷⌋`, then `⌊(1025 b + 2²¹)/2²²⌋` for
   `γ₂ = (q - 1)/32` and `⌊(11275 b + 2²³)/2²⁴⌋` for `γ₂ = (q - 1)/88`
-  (`hbMul`, `hbAdd`, `hbShift`). It is proven for every `a < q` from the
-  bounds of the quotient and remainder of `b + c` by `2γ₂/2⁷` (`hbF_mulShift`),
-  which `omega` checks for both values of `γ₂`, not by enumerating `a`.
+  (`hbMul`, `hbAdd`, `hbShift`). `omega` proves it for every `a < q`, for
+  both values of `γ₂`, without enumerating `a`.
 -/
 
 namespace VG.Proof.MlDsa.Round

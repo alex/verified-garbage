@@ -50,7 +50,8 @@ the address of `32 d` readable bytes and `r1` that of a writable
 polynomial, disjoint and not wrapping around: it writes `BitUnpack` of the
 bytes to the polynomial, reduced, and changes nothing else but the
 registers `r0`–`r4` and `r12` (`unpackRegs`) and the flags. Its constant
-time (with `r0` and `r1` public) is `unpackLoop_ct`. -/
+time (with `r0` and `r1` public) is `unpackLoop_ct18` and `unpackLoop_ct20`.
+-/
 
 theorem unpackLoop_buFin_ok {B d c nb : Nat} (hs : Shape d c nb) (hB : encodable (BitVec.ofNat 32 B) = true)
     (hB19 : B ≤ 2 ^ 19) {a : Nat} (hd : bitlen (a + B) = d) {s : State}

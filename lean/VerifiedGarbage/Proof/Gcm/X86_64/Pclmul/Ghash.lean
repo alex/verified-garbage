@@ -28,7 +28,7 @@ What the instructions of `Impl.Gcm.X86_64.Pclmul` compute, in the ring `Q` of
 `Proof/Gcm/Poly.lean`:
 
 * `pclmulqdq` multiplies polynomials (`gp_clmul`), so the four of `acc`
-  compute `x · a · b` as a 256-bit value (`Prod.val_prod`);
+  compute `x · a · b` as a 256-bit value (`Prod.val_acc`);
 * `reduce` maps a 256-bit value to a block of the same class
   (`φ_reduce`);
 * `hInv` computes `H · x⁻¹` (`x_φ_hInv`).

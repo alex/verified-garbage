@@ -10,14 +10,14 @@ The four sampling functions share a layout
 (`Impl/MlDsa/X86/Sample/Common.lean`), described by a `Lay`: their number of
 arguments `nA` (the message pointer first), the arguments that are the output
 polynomial (`iA`) and `scratch` (`iS`), the rate of the SHAKE they use, the
-bytes they squeeze, and the message length: a constant, or (`sample_in_ball`)
+bytes they squeeze, and the message length: a constant, or (`sampleInBall`)
 the second argument. `Pre L` is what their shared contracts' preconditions
 say, for the stack of 56 bytes they use (16 for the leaf's frame, 40 for the
 calls); `PubP L` that two entry states have the same pointers and `esp`.
 `Base` is what holds throughout the body: `esp` as the leaf's frame left it,
 the permissions, and memory changed only in the output polynomial, `scratch`,
 the 40 bytes of stack below the frame the calls use, and the arguments on the
-stack (which `sample_in_ball` overwrites; `Ctx` says they are intact, with
+stack (which `sampleInBall` overwrites; `Ctx` says they are intact, with
 `esi = scratch`).
 -/
 

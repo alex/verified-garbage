@@ -8,7 +8,7 @@ choose (`EB`): the encapsulation key (in `r4`), the message (in `r5`) and the
 ciphertext (in `r8`), each at an offset of one of the callers' buffers; `r` is
 at 920 in `scratch`. It writes the ciphertext, and changes nothing but the
 regions of `encW` (`encrypt_ok`). Its phases: `ρ` copied to the seed of
-`SampleNTT`, `t̂` decoded (`decT_ok`), the `PRF`s into `ŷ`, `e₁` and `e₂`,
+`SampleNTT`, `t̂` decoded (`decT_loop`), the `PRF`s into `ŷ`, `e₁` and `e₂`,
 `μ`, the rows of `u` compressed into the ciphertext (`encRow_step`), and `v`.
 -/
 

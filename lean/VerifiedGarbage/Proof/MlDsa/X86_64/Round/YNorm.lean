@@ -9,7 +9,7 @@ With the bound clamped to `b ≤ q` (which changes no result, `good_clamp`),
 each doubleword of `ymm10` keeps its top bit while every coefficient it has
 seen is good (`Good b a`: `a < b` or `q - a < b`, `nlL_msb`); at the end the
 top bits of the 32 bytes are all set exactly when every coefficient is good
-(`allOnes_bsum`).
+(`bsum_allOnes`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

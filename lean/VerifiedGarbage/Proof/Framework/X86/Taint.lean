@@ -324,7 +324,8 @@ def step (τ : T) : Instr → Option T
     if d != .esp && memPub τ m then some { τ with regs := set τ d false, bases := kill τ d } else none
   | .store8 m r => storeStep τ m 1 (pub τ r.reg) []
   | .mul r => some (mulStep τ r)
-  -- Frames are not analysed yet.
+  -- A frame's push and pop are analysed by the `push` and `pop` hooks
+  -- (`pushStep`, `popStep`), not here; the SSE instructions are not analysed.
   | .push _ | .pop .. | .movdquLoad .. | .movdquStore .. | .xop _ => none
 
 def meet (τ₁ τ₂ : T) : T where

@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.PrimsC
 
 As `Prims.lean`, for `vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_pack`,
 `vg_mldsa_bit_unpack` and `vg_mldsa_hint_bit_pack` (which may leak the hint:
-two runs leak the same when their hints agree, `hintPackAt_tr`).
+two runs leak the same when their hints agree, `hbpAt_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

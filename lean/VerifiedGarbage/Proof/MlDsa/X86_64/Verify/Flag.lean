@@ -7,8 +7,8 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CallPack
 The result so far is kept in `r15` as 1 or 0 (`flag`); `and15` and `mov32 r15,
 eax` update it from a callee's result. A sampler's call, its result ANDed into
 `r15` and its output masked with it (`sampled`) leaves a reduced polynomial
-either way, the sampled one if the sampler succeeded (`sampledRej_ok`,
-`sampledBall_ok`).
+either way, the sampled one if the sampler succeeded (`sampled_ok`, and
+`sampled4_ok` for four polynomials).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

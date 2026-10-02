@@ -15,8 +15,8 @@ the code than `k` does, so a proof of `Verified T c k` gives `Verified T c k'`
 `k` give `Verified T c k'` (`Verified.of_correct`).
 
 `sig_implies` proves `Contract.Implies k k'` cheaply, with the tactics of
-`Proof/Framework/Sig.lean`; `contract_implies`, which searches with `simp_all`,
-remains for the proofs not moved to it.
+`Proof/Framework/Sig.lean`: prefer it to `contract_implies`, which searches
+with `simp_all`.
 -/
 
 namespace VG
