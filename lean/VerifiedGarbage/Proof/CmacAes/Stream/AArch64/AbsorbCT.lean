@@ -27,9 +27,9 @@ structure AAfter₁ (s₀ : State) (St D S : Addr) (L : Nat) (s : State) : Prop 
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
 
-theorem call1_after (v : Ctr32Impl) {s₀ s : State} {St D S : Addr} {L R : Nat}
+theorem call1_after (v : Proof.CmacAes.AArch64.UpdateImpl) {s₀ s : State} {St D S : Addr} {L R : Nat}
     (h : AMid₁ s₀ St D S L R s) :
-    WP isa (.call ("vg_cmac_aes_update" ++ v.suffix) (Impl.CmacAes.AArch64.update v.callee)) s
+    WP isa (.call v.callee.name v.callee.code) s
       (AAfter₁ s₀ St D S L) :=
   WP.mono (upd_call v _ h.args) fun _ h₆ =>
     ⟨by rw [h₆.saved .x19 (by simp [preserved]) (by decide), h.x19],
@@ -90,9 +90,9 @@ structure AAfter₂ (s₀ : State) (St D S : Addr) (L : Nat) (s : State) : Prop 
   x23 : s.gpr .x23 = S
   sp : s.sp = s₀.sp
 
-theorem call2_after (v : Ctr32Impl) {s₀ s : State} {St D S : Addr} {L R : Nat}
+theorem call2_after (v : Proof.CmacAes.AArch64.UpdateImpl) {s₀ s : State} {St D S : Addr} {L R : Nat}
     (h : AMid₂ s₀ St D S L R s) :
-    WP isa (.call ("vg_cmac_aes_update" ++ v.suffix) (Impl.CmacAes.AArch64.update v.callee)) s
+    WP isa (.call v.callee.name v.callee.code) s
       (AAfter₂ s₀ St D S L) :=
   WP.mono (upd_call v _ h.args) fun _ h₈ =>
     ⟨by rw [h₈.saved .x19 (by simp [preserved]) (by decide), h.x19],
@@ -101,9 +101,9 @@ theorem call2_after (v : Ctr32Impl) {s₀ s : State} {St D S : Addr} {L R : Nat}
       by rw [h₈.saved .x22 (by simp [preserved]) (by decide), h.x22],
       by rw [h₈.saved .x23 (by simp [preserved]) (by decide), h.x23], by rw [h₈.sp, h.sp]⟩
 
-theorem absorb_rel (v : Ctr32Impl) {s₀ s₀' : State} (h0 : absorbAArch64.pre s₀) (h0' : absorbAArch64.pre s₀')
+theorem absorb_rel (v : Proof.CmacAes.AArch64.UpdateImpl) {s₀ s₀' : State} (h0 : absorbAArch64.pre s₀) (h0' : absorbAArch64.pre s₀')
     (hq : absorbAArch64.pub s₀ s₀') :
-    RelCT isa (fun a b => a = s₀ ∧ b = s₀') (absorb v.callee v.suffix) fun _ _ => True := by
+    RelCT isa (fun a b => a = s₀ ∧ b = s₀') (absorb v.callee) fun _ _ => True := by
   obtain ⟨q0, q1, q2, q3, q4, q5, q6⟩ := hq
   have hp := APre.of h0
   have hp' : APre s₀' (s₀.gpr .x0) (s₀.gpr .x3) (s₀.gpr .x5) (s₀.gpr .x4).toNat (s₀.gpr .x1).toNat := by
@@ -158,8 +158,8 @@ theorem absorb_rel (v : Ctr32Impl) {s₀ s₀' : State} (h0 : absorbAArch64.pre 
   exact (a.mono (fun _ _ h => h) fun _ _ h => h.2).seq ((c₁.mono (fun _ _ h => h) fun _ _ h => h.2).seq
     ((m.mono (fun _ _ h => h) fun _ _ h => h.2).seq ((c₂.mono (fun _ _ h => h) fun _ _ h => h.2).seq p)))
 
-theorem absorb_ct (v : Ctr32Impl) :
-    ConstantTime isa absorbAArch64.pre absorbAArch64.pub (absorb v.callee v.suffix) :=
+theorem absorb_ct (v : Proof.CmacAes.AArch64.UpdateImpl) :
+    ConstantTime isa absorbAArch64.pre absorbAArch64.pub (absorb v.callee) :=
   fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => (absorb_rel v h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
 
 end VG.Proof.CmacAes.Stream.AArch64

@@ -4,6 +4,8 @@ import Mathlib.Tactic.Ring
 
 /-! Four-word field squaring. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64 VG.Proof.X25519
 
 theorem sq_expand_radix (R A0 A1 A2 A3 : Nat) :
@@ -24,12 +26,14 @@ theorem sq_expand (A0 A1 A2 A3 : Nat) :
     show (2 : Nat) ^ 192 * 2 ^ 64 = 2 ^ 256 from rfl] at h
   exact h
 
-theorem sqrWide_ok {s : State} {base : Addr} (hs : Scr s base) {a : Nat}
-    (ha : FieldRange a) (hz : s.gpr .x10 = 0) :
+theorem sqrWide_ok {s : State} {base : Addr} (hs : Scr s base large) {a : Nat}
+    (ha : FieldRange a large) (hz : s.gpr .x10 = 0) :
     WP isa (.block (sqrWide a)) s fun t =>
       wide t = fe s.mem base a * fe s.mem base a ∧
       Keeps [.x2, .x3, .x4, .x5, .x6, .x7, .x8, .x9, .x11, .x12, .x13, .x14, .x15, .x16, .x17,
         .x21, .x22, .x23, .x24] s t := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   simp only [sqrWide, List.append_assoc]
   rw [WP.block_append_iff]
   refine WP.mono (loads_ok hs ha (by decide)) fun s₁ ⟨a0, a1, a2, a3, k1⟩ => ?_
@@ -58,10 +62,12 @@ theorem sqrWide_ok {s : State} {base : Addr} (hs : Scr s base) {a : Nat}
   omega_using [e4, hlt]
 
 /-- Squaring modulo p, allowing the output to alias the input. -/
-theorem sqr_ok {s : State} {base : Addr} (hs : Scr s base) {o a : Nat}
-    (ho : FieldRange o) (ha : FieldRange a) :
+theorem sqr_ok {s : State} {base : Addr} (hs : Scr s base large) {o a : Nat}
+    (ho : FieldRange o large) (ha : FieldRange a large) :
     WP isa (.block (fieldSqr o a)) s fun t =>
       Op base o s t ∧ F t.mem base o = F s.mem base a * F s.mem base a := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   rw [fieldSqr, List.append_assoc, List.append_assoc, WP.block_append_iff]
   refine WP.mono (zeroReg_ok s .x10) fun s₀ ⟨hz, k0⟩ => ?_
   have hs₀ := hs.of_keeps k0 (by decide)

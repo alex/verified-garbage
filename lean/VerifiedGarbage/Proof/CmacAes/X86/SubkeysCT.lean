@@ -14,6 +14,9 @@ arguments and `ebx` (the subkeys, which the correctness proof pins).
 namespace VG.Proof.CmacAes.X86
 
 open VG VG.X86 VG.Impl.CmacAes.X86
+open VG.Proof.Aes.X86 (Ctr32Impl)
+
+variable (v : Ctr32Impl)
 
 theorem SPre.argsOut {s₀ : State} (hp : SPre s₀) {s : State} (hesp : s.gpr .esp = E s₀) (hwr : s.wr = s₀.wr) :
     ArgsOut 4 s := by
@@ -54,8 +57,8 @@ structure SPost (s₀ : State) (s : State) : Prop where
   ebx : s.gpr .ebx = Kb s₀
   pt : SPt s₀ s
 
-theorem spost_wp {s₀ : State} (hp : SPre s₀) {s : State} (h : SAfter s₀ s) : WP isa ctrCall s (SPost s₀) :=
-  WP.mono (ctr_call h.pre) fun s' hc => by
+theorem spost_wp {s₀ : State} (hp : SPre s₀) {s : State} (h : SAfter s₀ s) : WP isa (ctrCall v.callee) s (SPost s₀) :=
+  WP.mono (ctr_call v h.pre) fun s' hc => by
     have hb : below (s.gpr .esp) 28 = stkR s₀ := by rw [h.esp]; exact hp.below_eq
     have fr := hc.frame
     rw [hb, hp.cA, h.mem] at fr
@@ -71,7 +74,7 @@ theorem spost_wp {s₀ : State} (hp : SPre s₀) {s : State} (h : SAfter s₀ s)
 
 theorem subkeys_rel {s₀ s₀' : State} (h0 : subkeysX86.pre s₀) (h0' : subkeysX86.pre s₀')
     (hq : subkeysX86.pub s₀ s₀') :
-    RelCT isa (fun a b => a = s₀ ∧ b = s₀') subkeys fun _ _ => True := by
+    RelCT isa (fun a b => a = s₀ ∧ b = s₀') (subkeys v.callee) fun _ _ => True := by
   have hp := SPre.of h0
   have hp' := SPre.of h0'
   have eW : W s₀ = W s₀' := spub_arg hq (by decide)
@@ -86,9 +89,9 @@ theorem subkeys_rel {s₀ s₀' : State} (h0 : subkeysX86.pre s₀) (h0' : subke
     (c := .block subkeysPre) (by taint_decide)).wp (F₁ := SAfter s₀) (F₂ := SAfter s₀')
     fun a b h => by obtain ⟨rfl, rfl⟩ := h; exact ⟨spre_wp hp, spre_wp hp'⟩).mono (fun _ _ h => h)
     fun _ _ h => h.2
-  have c := ((ctr_rel (E := E s₀) (P := fun s₁ s₂ => SAfter s₀ s₁ ∧ SAfter s₀' s₂) fun s₁ s₂ h =>
+  have c := ((ctr_rel v (E := E s₀) (P := fun s₁ s₂ => SAfter s₀ s₁ ∧ SAfter s₀' s₂) fun s₁ s₂ h =>
       ⟨h.1.pre, by rw [eW, eS, eK, eR]; exact h.2.pre, h.1.esp, h.2.esp.trans hq.1.symm⟩).wp
-      (F₁ := SPost s₀) (F₂ := SPost s₀') fun _ _ h => ⟨spost_wp hp h.1, spost_wp hp' h.2⟩).mono
+      (F₁ := SPost s₀) (F₂ := SPost s₀') fun _ _ h => ⟨spost_wp v hp h.1, spost_wp v hp' h.2⟩).mono
       (fun _ _ h => h) fun _ _ h => h.2
   have b := RelCT.taint (A := taint) (P := fun s₁ s₂ => SPost s₀ s₁ ∧ SPost s₀' s₂) (argTaint [.ebx] (4 + 4 * 4))
     (fun _ _ h => SPt.agree hq hp hp' h.1.pt h.2.pt fun r hr => by
@@ -96,7 +99,7 @@ theorem subkeys_rel {s₀ s₀' : State} (h0 : subkeysX86.pre s₀) (h0' : subke
     (c := .block subkeysPost) (by taint_decide)
   exact a.seq (c.seq b)
 
-theorem subkeys_ct : ConstantTime isa subkeysX86.pre subkeysX86.pub subkeys :=
-  fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => (subkeys_rel h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+theorem subkeys_ct : ConstantTime isa subkeysX86.pre subkeysX86.pub (subkeys v.callee) :=
+  fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => (subkeys_rel v h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
 
 end VG.Proof.CmacAes.X86

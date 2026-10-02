@@ -10,6 +10,7 @@ theorem fromTableQuarter_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat
     WP isa (.block (fromTableWords (32 * j) ++ stores (64 + 32 * j) .x4 .x5 .x6 .x7)) s fun t =>
       env t.mem base ⟨j, by omega⟩ = F s.mem base (o + 32 * j) ∧
       TableKeep base (64 + 32 * j) 32 s t := by
+  have _hcap : workSize true = 8192 := rfl
   rw [WP.block_append_iff]
   refine WP.mono (fromTableWords_ok hs hp (32 * j) (by omega) (by omega)) fun t ⟨hv, hk⟩ => ?_
   have ht := hs.of_keeps hk (by decide)

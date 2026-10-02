@@ -14,6 +14,9 @@ and the return address are intact.
 namespace VG.Proof.CmacAes.X86
 
 open VG VG.X86 VG.Impl.CmacAes.X86
+open VG.Proof.Aes.X86 (Ctr32Impl)
+
+variable (v : Ctr32Impl)
 open VG.Proof.MdStream.X86 (Upd wp_mov wp_movi wp_addi)
 
 section
@@ -264,7 +267,7 @@ theorem subkeysPost_eq : subkeysPost = dbl 0 0 ++ (dbl 0 16 ++ (.mov .eax (argOp
     (saved.map fun p => Instr.mov p.1 (.mem (at_ .eax p.2))) ++ [])) := rfl
 
 theorem subkeys_wp {s₀ : State} (h0 : subkeysX86.pre s₀) :
-    WP isa subkeys s₀ fun s' => abiPreserved s₀ s' ∧ subkeysX86.post s₀ s' := by
+    WP isa (subkeys v.callee) s₀ fun s' => abiPreserved s₀ s' ∧ subkeysX86.post s₀ s' := by
   have hp := SPre.of h0
   have hk := hp.k_fit
   have hsc := hp.scr_fit
@@ -280,7 +283,7 @@ theorem subkeys_wp {s₀ : State} (h0 : subkeysX86.pre s₀) :
       obtain ⟨r, hr, hc⟩ := cK d n h a k hi; exact ⟨r, List.mem_append_right _ hr, hc⟩
   unfold subkeys
   refine WP.seq (WP.mono (spre_wp hp) fun s₁ a => ?_)
-  refine WP.seq (WP.mono (ctr_call a.pre) fun s₂ h₂ => ?_)
+  refine WP.seq (WP.mono (ctr_call v a.pre) fun s₂ h₂ => ?_)
   have hb : below (s₁.gpr .esp) 28 = stkR s₀ := by rw [a.esp]; exact hp.below_eq
   -- The memory after the call.
   have f₂ : Frame [kR s₀, ⟨(Sc s₀).setWidth 64, 2064⟩, stkR s₀] (sPreMem s₀) s₂.mem := by

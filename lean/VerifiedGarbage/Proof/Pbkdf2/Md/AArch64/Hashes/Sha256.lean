@@ -59,8 +59,7 @@ theorem coreOK : CoreOK coreH where
     argU₁ := ⟨_, by taint_decide⟩
     argU₂ := ⟨_, by taint_decide⟩
     restore := ⟨_, by taint_decide⟩ }
-  hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
-    ⟨_, by taint_decide⟩⟩
+  hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   fitI := by decide
   fitF := by decide
 
@@ -184,6 +183,6 @@ def stream : List StreamFn := [
 
 /-- Every construction follows the registered compression backend. -/
 def variant : MdHash :=
-  MdHash.of (ok v) coreOK rfl rfl satI satF satT satP v.suffix v.features (stream v)
+  { MdHash.of (ok v) coreOK rfl rfl satI satF satT satP v.suffix v.features (stream v) with sha256 := some v }
 
 end VG.Proof.Pbkdf2.Md.AArch64.Sha256

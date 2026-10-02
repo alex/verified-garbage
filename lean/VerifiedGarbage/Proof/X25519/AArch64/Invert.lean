@@ -1,161 +1,179 @@
 import VerifiedGarbage.Proof.X25519.AArch64.Ladder
+import VerifiedGarbage.Proof.X25519.Invert
 
-/-!
-# X25519 on AArch64: the inversion
-
-`invert` computes `z^(p-2)` left to right over the bits of `p - 2`: at the
-counter `n` (from 254 down to 0), `T = z^⌊(p-2) / 2ⁿ⌋`.
--/
+/-! Kernel-checked ref10 inversion chain, reusing the ladder's dead slots. -/
 
 namespace VG.Proof.X25519.AArch64
+open VG VG.AArch64 VG.Impl.X25519.AArch64 VG.Spec.X25519
 
-open VG VG.AArch64 VG.Impl.X25519.AArch64 VG.Spec.X25519 VG.Proof.X25519
-open Fin.CommRing
-
-/-- The exponent. -/
-abbrev ex : Nat := P - 2
-
-/-- The bits of `p - 2 = 2²⁵⁵ - 21` below 254 are set but for bits 2 and 4. -/
-theorem ex_bit : ∀ n < 254, ex / 2 ^ n % 2 = if n = 2 ∨ n = 4 then 0 else 1 := by decide +kernel
-
-theorem ex_254 : ex / 2 ^ 254 = 1 := by decide
-
-theorem ex_div (n : Nat) : ex / 2 ^ n = 2 * (ex / 2 ^ (n + 1)) + ex / 2 ^ n % 2 := by
-  rw [Nat.pow_succ, ← Nat.div_div_eq_div_mul]
-  omega
-
-/-- The value of `T` at the counter `n`. -/
-def tv (z : Fe) (n : Nat) : Fe := z ^ (ex / 2 ^ n)
-
-theorem tv_step (z : Fe) {n : Nat} (hn : n < 254) :
-    tv z n = if n = 2 ∨ n = 4 then tv z (n + 1) * tv z (n + 1) else tv z (n + 1) * tv z (n + 1) * z := by
-  simp only [tv]
-  rw [ex_div n, ex_bit n hn]
-  split <;> simp only [Nat.add_zero, pow_add, pow_mul, pow_two, pow_one, mul_pow]
-
-/-- The registers the inversion writes. -/
 abbrev invRegs : List Reg := fieldRegs ++ [.x23]
+def IQ : List Nat := [1, 2, 5, 6, 7, 14]
+def cbnds (n : Nat) : Option Nat := if n ∈ IQ then some 18 else none
+structure CI (b : Addr) (s₀ s : State) (v : Nat → Fe) : Prop where
+  sc : Sc b s
+  sl : Sl s.mem b v cbnds
+  kp : Kp invRegs s₀ s
+  fr : Frame [slotArea b] s₀.mem s.mem
 
-/-- At the counter `n`: `T = z^⌊(p-2) / 2ⁿ⌋`, the other slots as `vals`. -/
-def IInv (b : Addr) (s₀ : State) (vals : Nat → Fe) (bnds : Nat → Option Nat) (z : Fe) (n : Nat)
-    (s : State) : Prop :=
-  Sc b s ∧ Sl s.mem b (Function.update vals 14 (tv z n)) (Function.update bnds 14 (some 18)) ∧
-    s.gpr .x23 = BitVec.ofNat 64 n ∧ Kp invRegs s₀ s ∧ Frame [slotArea b] s₀.mem s.mem
+theorem Inv.of_sl {b : Addr} {s : State} {v : Nat → Fe} {bnds : Nat → Option Nat}
+    (hs : Sc b s) (h : Sl s.mem b v bnds) : Inv b s s v bnds := ⟨hs, h, Kp.refl _ _, Frame.refl _ _⟩
+def cmul (o a c : Nat) (v : Nat → Fe) := Function.update v o (v a * v c)
+def ccopy (o a : Nat) (v : Nat → Fe) := Function.update v o (v a)
+def csqn (o a n : Nat) (v : Nat → Fe) := Function.update v o (VG.Proof.X25519.sqn (v a) n)
+def CS (b : Addr) (c : Prog isa) (f : (Nat → Fe) → Nat → Fe) : Prop :=
+  ∀ s₀ s v, CI b s₀ s v → WP isa c s fun t => CI b s₀ t (f v)
 
-theorem sub_eq_zero : ∀ n < 254, ∀ c ∈ [2, 4],
-    (BitVec.ofNat 64 n - BitVec.ofNat 64 c == 0) = (n == c) := by decide +kernel
+theorem cbnds_update {o : Nat} (ho : o ∈ IQ) : Function.update cbnds o (some 18) = cbnds := by
+  funext n
+  by_cases h : n = o
+  · subst n; simp [cbnds, ho]
+  · simp [Function.update_of_ne h]
+theorem iq_lt {n : Nat} (h : n ∈ IQ) : n < 15 := by simp only [IQ, List.mem_cons, List.not_mem_nil, or_false] at h; omega
 
-theorem subImm_ok {s : State} {d n : Reg} {c : Nat} (hc : c < 4096) :
-    WP isa (.block [.subImm .x d n c]) s fun s' =>
-      s'.gpr d = s.gpr n - BitVec.ofNat 64 c ∧ Kp [d] s s' ∧ s'.mem = s.mem := by
-  apply WP.of_runBlock
-  simp only [runBlock_cons, exec_subImm_x hc, runStep_some, runBlock_nil, Option.some.injEq,
-    exists_eq_left', read_x, gpr_wx_self]
-  exact ⟨trivial, kp_wx s _ _, rfl⟩
+theorem cmul_ok (b : Addr) (o a c : Nat) (ho : o ∈ IQ) (ha : a ∈ IQ) (hc : c ∈ IQ) :
+    CS b (.block (mul (slot o) (slot a) (slot c))) (cmul o a c) := by
+  intro s₀ s v h
+  refine WP.mono (mul_inv (Inv.of_sl h.sc h.sl) (iq_lt ho) (iq_lt ha) (iq_lt hc)
+    (ka := 18) (kc := 18) (by simp [cbnds, ha]) (by simp [cbnds, hc]) (by decide) (by decide)) fun t ht => ?_
+  exact ⟨ht.sc, by rw [cbnds_update ho] at ht; exact ht.sl,
+    (h.kp.trans ht.kp).sub (List.append_subset.mpr ⟨List.Subset.refl _, List.subset_append_left _ _⟩), h.fr.trans ht.fr⟩
+theorem ccopy_ok (b : Addr) (o a : Nat) (ho : o ∈ IQ) (ha : a ∈ IQ) :
+    CS b (.block (copy (slot o) (slot a))) (ccopy o a) := by
+  intro s₀ s v h
+  refine WP.mono (copy_inv (Inv.of_sl h.sc h.sl) (iq_lt ho) (iq_lt ha)
+    (ka := 18) (by simp [cbnds, ha])) fun t ht => ?_
+  exact ⟨ht.sc, by rw [cbnds_update ho] at ht; exact ht.sl,
+    (h.kp.trans ht.kp).sub (List.append_subset.mpr ⟨List.Subset.refl _, List.subset_append_left _ _⟩), h.fr.trans ht.fr⟩
+theorem CS.seq {b : Addr} {p q : Prog isa} {f g} (hp : CS b p f) (hq : CS b q g) :
+    CS b (.seq p q) (fun v => g (f v)) := by
+  intro s₀ s v h
+  exact WP.seq (WP.mono (hp s₀ s v h) fun t ht => hq s₀ t (f v) ht)
+theorem CS.append {b : Addr} {p q : List Instr} {f g} (hp : CS b (.block p) f) (hq : CS b (.block q) g) :
+    CS b (.block (p ++ q)) (fun v => g (f v)) := by
+  intro s₀ s v h
+  exact WP.block_append (WP.mono (hp s₀ s v h) fun t ht => hq s₀ t (f v) ht)
 
-theorem Inv.of_sl {b : Addr} {s : State} {vals : Nat → Fe} {bnds : Nat → Option Nat} (hs : Sc b s)
-    (h : Sl s.mem b vals bnds) : Inv b s s vals bnds := ⟨hs, h, Kp.refl _ _, Frame.refl _ _⟩
-
-/-- One iteration of the inversion, for bit `n`. -/
-theorem invBody_ok {b : Addr} {s₀ : State} {vals : Nat → Fe} {bnds : Nat → Option Nat} {z : Fe}
-    (hz : vals 2 = z) (hb2 : bnds 2 = some 18) {n : Nat} (hn : n < 254) {s : State}
-    (h : IInv b s₀ vals bnds z (n + 1) s) :
-    WP isa invBody s fun s' => IInv b s₀ vals bnds z n s' := by
-  obtain ⟨hsc, hsl, h23, hkp, hfr⟩ := h
-  refine WP.seq (WP.block_append (WP.mono (subImm_ok (d := .x23) (n := .x23) (s := s) (c := 1) (by decide))
-    fun s₁ ⟨e₁, k₁, m₁⟩ => ?_))
-  have hsc₁ := hsc.of_kp k₁ (by decide)
-  have e23 : s₁.gpr .x23 = BitVec.ofNat 64 n := by
-    rw [e₁, h23, BitVec.ofNat_sub_ofNat_of_le _ _ (by omega) (by omega), Nat.add_sub_cancel]
-  refine WP.mono (mul_inv (Inv.of_sl hsc₁ (by rw [m₁]; exact hsl)) (o := 14) (a := 14) (c := 14)
-    (by decide) (by decide) (by decide) (ka := 18) (kc := 18) (by simp) (by simp) (by decide) (by decide))
-    fun s₂ h₂ => ?_
-  have e23₂ : s₂.gpr .x23 = BitVec.ofNat 64 n := by rw [h₂.kp.gpr _ (by decide), e23]
-  have hkp₂ : Kp invRegs s₀ s₂ := ((hkp.trans k₁).trans h₂.kp).sub (List.append_subset.mpr
-    ⟨List.append_subset.mpr ⟨List.Subset.refl _, by decide⟩, List.subset_append_left _ _⟩)
-  have hfr₂ : Frame [slotArea b] s₀.mem s₂.mem := hfr.trans (by rw [← m₁]; exact h₂.fr)
-  simp only [Function.update_self, Function.update_idem] at h₂
-  -- the square alone, or times `z`
-  have hsq : ((n = 2 ∨ n = 4) ∧ IInv b s₀ vals bnds z n s₂) ∨ (¬(n = 2 ∨ n = 4) ∧
-      Inv b s₂ s₂ (Function.update vals 14 (tv z (n + 1) * tv z (n + 1)))
-        (Function.update bnds 14 (some 18))) := by
-    by_cases hb : n = 2 ∨ n = 4
-    · refine .inl ⟨hb, h₂.sc, ?_, e23₂, hkp₂, hfr₂⟩
-      rw [tv_step z hn, ite_eq_left hb]
-      exact h₂.sl
-    · exact .inr ⟨hb, Inv.of_sl h₂.sc h₂.sl⟩
-  refine WP.seq (WP.mono (subImm_ok (d := .x17) (n := .x23) (s := s₂) (c := 2) (by decide))
-    fun s₃ ⟨e₃, k₃, m₃⟩ => ?_)
-  have hsc₃ := h₂.sc.of_kp k₃ (by decide)
-  have e23₃ : s₃.gpr .x23 = BitVec.ofNat 64 n := by rw [k₃.gpr _ (by decide), e23₂]
-  have hkp₃ : Kp invRegs s₀ s₃ := (hkp₂.trans k₃).sub (List.append_subset.mpr
-    ⟨List.Subset.refl _, by decide⟩)
-  have hfr₃ : Frame [slotArea b] s₀.mem s₃.mem := by rw [m₃]; exact hfr₂
-  refine WP.ite (n == 2) (by simp only [eval, read_x, e₃, e23₂]; rw [sub_eq_zero n hn 2 (by simp)])
-    (fun hb => ?_) (fun hb => ?_)
-  · have hb' : n = 2 ∨ n = 4 := .inl (by simpa using hb)
-    rcases hsq with ⟨-, hq⟩ | ⟨hq, -⟩
-    · exact WP.block_nil ⟨hsc₃, by rw [m₃]; exact hq.2.1, e23₃, hkp₃, hfr₃⟩
-    · exact absurd hb' hq
-  refine WP.seq (WP.mono (subImm_ok (d := .x17) (n := .x23) (s := s₃) (c := 4) (by decide))
-    fun s₄ ⟨e₄, k₄, m₄⟩ => ?_)
-  have hsc₄ := hsc₃.of_kp k₄ (by decide)
-  have e23₄ : s₄.gpr .x23 = BitVec.ofNat 64 n := by rw [k₄.gpr _ (by decide), e23₃]
-  have hkp₄ : Kp invRegs s₀ s₄ := (hkp₃.trans k₄).sub (List.append_subset.mpr
-    ⟨List.Subset.refl _, by decide⟩)
-  have hfr₄ : Frame [slotArea b] s₀.mem s₄.mem := by rw [m₄]; exact hfr₃
-  refine WP.ite (n == 4) (by simp only [eval, read_x, e₄, e23₃]; rw [sub_eq_zero n hn 4 (by simp)])
-    (fun hb4 => ?_) (fun hb4 => ?_)
-  · have hb' : n = 2 ∨ n = 4 := .inr (by simpa using hb4)
-    rcases hsq with ⟨-, hq⟩ | ⟨hq, -⟩
-    · exact WP.block_nil ⟨hsc₄, by rw [m₄, m₃]; exact hq.2.1, e23₄, hkp₄, hfr₄⟩
-    · exact absurd hb' hq
-  · have hb' : ¬(n = 2 ∨ n = 4) := by simp only [beq_eq_false_iff_ne] at hb hb4; omega
-    rcases hsq with ⟨hq, -⟩ | ⟨-, hq⟩
-    · exact absurd hq hb'
-    · have hI : Inv b s₄ s₄ (Function.update vals 14 (tv z (n + 1) * tv z (n + 1)))
-          (Function.update bnds 14 (some 18)) := Inv.of_sl hsc₄ (by rw [m₄, m₃]; exact hq.sl)
-      refine WP.mono (mul_inv hI (o := 14) (a := 14) (c := 2) (by decide) (by decide) (by decide)
-        (ka := 18) (kc := 18) (by simp) (by simp [hb2]) (by decide) (by decide)) fun s₅ h₅ => ?_
-      refine ⟨h₅.sc, ?_, by rw [h₅.kp.gpr _ (by decide), e23₄], (hkp₄.trans h₅.kp).sub
-        (List.append_subset.mpr ⟨List.Subset.refl _, List.subset_append_left _ _⟩), hfr₄.trans h₅.fr⟩
-      simp only [Function.update_self, Function.update_idem, Function.update_of_ne (show (2 : Nat) ≠ 14 by decide),
-        hz] at h₅
-      rw [tv_step z hn, ite_eq_right hb']
-      exact h₅.sl
-
-theorem tv_254 (z : Fe) : tv z 254 = z := by simp only [tv, ex_254, pow_one]
-
-theorem tv_0 (z : Fe) : tv z 0 = pow z (P - 2) := by simp only [tv, pow_eq, Nat.pow_zero, Nat.div_one]
-
-/-- `[T] = [Z2]^(p-2)`. -/
-theorem invert_ok {b : Addr} {s : State} {vals : Nat → Fe} {bnds : Nat → Option Nat} {z : Fe}
-    (hsc : Sc b s) (hsl : Sl s.mem b vals bnds) (hz : vals 2 = z) (hb2 : bnds 2 = some 18) :
-    WP isa Impl.X25519.AArch64.invert s fun s' => Sc b s' ∧
-      Sl s'.mem b (Function.update vals 14 (pow z (P - 2))) (Function.update bnds 14 (some 18)) ∧
-      Kp invRegs s s' ∧ Frame [slotArea b] s.mem s'.mem := by
-  refine WP.seq (WP.block_append (WP.mono (copy_inv (Inv.of_sl hsc hsl) (o := 14) (a := 2) (by decide)
-    (by decide) hb2) fun s₁ h₁ => ?_))
+theorem counter_ok {b : Addr} {s₀ s : State} {v : Nat → Fe} (h : CI b s₀ s v) (n : Nat) (hn : n < 65536) :
+    WP isa (.block [.movz .x .x23 n 0]) s fun t => CI b s₀ t v ∧ t.gpr .x23 = BitVec.ofNat 64 n := by
   refine WP.block_cons_iff.mpr ⟨_, exec_movz, WP.block_nil ?_⟩
-  refine WP.loop (M := isa) (fun n s₂ => 1 ≤ n ∧ n ≤ 254 ∧ IInv b s vals bnds z n s₂)
-    (fun n s₂ ⟨h1, h254, hI⟩ => ?_) 254 _ ⟨by decide, by decide, ?_⟩
-  · obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, by omega⟩
-    refine WP.mono (invBody_ok hz hb2 (by omega) hI) fun s₃ h₃ => ?_
-    have hev : isa.eval (.nonzero .x .x23) s₃ = some (BitVec.ofNat 64 m != 0) := by
-      simp only [eval, read_x, h₃.2.2.1]
-    by_cases hm : m = 0
-    · subst hm
-      refine .inl ⟨by rw [hev]; rfl, h₃.1, ?_, h₃.2.2.2⟩
-      rw [← tv_0]; exact h₃.2.1
-    · refine .inr ⟨?_, m, by omega, by omega, by omega, h₃⟩
-      rw [hev]
-      have : BitVec.ofNat 64 m ≠ 0 := fun h => hm (by
-        have := congrArg BitVec.toNat h
-        rwa [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)] at this)
-      simpa using this
-  · refine ⟨sc_wx _ _ h₁.sc (by decide), ?_, gpr_wx_self _ _ _, (h₁.kp.trans (kp_wx _ _ _)).sub
-      (List.append_subset.mpr ⟨List.subset_append_left _ _, by decide⟩), h₁.fr⟩
-    rw [mem_wx, tv_254, ← hz]
-    simpa only [Function.update_idem] using h₁.sl
+  exact ⟨⟨sc_wx _ _ h.sc (by decide), h.sl,
+    (h.kp.trans (kp_wx _ _ _)).sub (List.append_subset.mpr ⟨List.Subset.refl _, by simp [invRegs]⟩), h.fr⟩,
+    by rw [gpr_wx_self]; apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hn]⟩
+theorem dec_ok {b : Addr} {s₀ s : State} {v : Nat → Fe} {n : Nat} (h : CI b s₀ s v)
+    (he : s.gpr .x23 = BitVec.ofNat 64 (n + 1)) (_hn : n < 65536) :
+    WP isa (.block [.subImm .x .x23 .x23 1]) s fun t => CI b s₀ t v ∧ t.gpr .x23 = BitVec.ofNat 64 n := by
+  refine WP.block_cons_iff.mpr ⟨_, exec_subImm_x (d := .x23) (n := .x23) (imm := 1) (by decide), WP.block_nil ?_⟩
+  exact ⟨⟨sc_wx _ _ h.sc (by decide), h.sl,
+    (h.kp.trans (kp_wx _ _ _)).sub (List.append_subset.mpr ⟨List.Subset.refl _, by simp [invRegs]⟩), h.fr⟩,
+    by rw [gpr_wx_self, read_x, he, BitVec.ofNat_add, BitVec.add_sub_cancel]⟩
+
+theorem csqn_ok (b : Addr) (o a n : Nat) (ho : o ∈ IQ) (ha : a ∈ IQ) (hn : 1 ≤ n) (hn' : n < 65536) :
+    CS b (Impl.X25519.AArch64.sqn (slot o) (slot a) n) (csqn o a n) := by
+  intro s₀ s v h
+  refine WP.seq (WP.block_append (WP.mono (ccopy_ok b o a ho ha s₀ s v h) fun t ht =>
+    WP.mono (counter_ok ht n hn') fun u ⟨hu, eu⟩ => ?_))
+  refine WP.loop (M := isa) (fun k t => 1 ≤ k ∧ k ≤ n ∧
+    CI b s₀ t (Function.update v o (VG.Proof.X25519.sqn (v a) (n-k))) ∧
+    t.gpr .x23 = BitVec.ofNat 64 k) ?_ n u ⟨hn, Nat.le_refl _, by simpa [ccopy, VG.Proof.X25519.sqn] using hu, eu⟩
+  intro k t ⟨hk, hkn, ht, et⟩
+  obtain ⟨k, rfl⟩ : ∃ j, k = j + 1 := ⟨k-1, by omega⟩
+  refine WP.block_append (WP.mono (mul_inv (Inv.of_sl ht.sc ht.sl) (iq_lt ho) (iq_lt ho) (iq_lt ho)
+    (ka := 18) (kc := 18) (by simp [cbnds, ho]) (by simp [cbnds, ho]) (by decide) (by decide)) fun u hu => ?_)
+  have eu : u.gpr .x23 = BitVec.ofNat 64 (k+1) := by rw [hu.kp.gpr _ (by decide), et]
+  have hi : CI b s₀ u (Function.update v o (VG.Proof.X25519.sqn (v a) (n-k))) := by
+    refine ⟨hu.sc, ?_, (ht.kp.trans hu.kp).sub (List.append_subset.mpr
+      ⟨List.Subset.refl _, List.subset_append_left _ _⟩), ht.fr.trans hu.fr⟩
+    rw [cbnds_update ho] at hu
+    have he : Function.update (Function.update v o (VG.Proof.X25519.sqn (v a) (n-(k+1)))) o
+        ((Function.update v o (VG.Proof.X25519.sqn (v a) (n-(k+1)))) o *
+         (Function.update v o (VG.Proof.X25519.sqn (v a) (n-(k+1)))) o) =
+        Function.update v o (VG.Proof.X25519.sqn (v a) (n-k)) := by
+      rw [Function.update_self, Function.update_idem, show n-k = n-(k+1)+1 by omega]
+      rfl
+    rw [he] at hu
+    exact hu.sl
+  refine WP.mono (dec_ok hi eu (by omega)) fun t ⟨ht, et⟩ => ?_
+  have hev : isa.eval (.nonzero .x .x23) t = some (BitVec.ofNat 64 k != 0) := by simp [eval, read_x, et]
+  by_cases hk0 : k = 0
+  · subst k
+    exact .inl ⟨by rw [hev]; rfl, by simpa [csqn] using ht⟩
+  · refine .inr ⟨?_, k, by omega, by omega, by omega, ht, et⟩
+    rw [hev]
+    apply congrArg some
+    apply bne_iff_ne.mpr
+    intro he
+    have := congrArg BitVec.toNat he
+    simp only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : k < 2^64)] at this
+    exact hk0 this
+
+def chainEnv (v : Nat → Fe) : Nat → Fe := cmul 14 14 5 (csqn 14 14 5 (cmul 14 6 14 (csqn 6 6 50 (cmul 6 7 6 (csqn 7 6 100 (cmul 6 6 14 (csqn 6 14 50 (cmul 14 6 14 (csqn 6 6 10 (cmul 6 7 6 (csqn 7 6 20 (cmul 6 6 14 (csqn 6 14 10 (cmul 14 6 14 (csqn 6 14 5 (cmul 14 14 6 (cmul 6 5 5 (cmul 5 5 14 (cmul 14 2 14 (csqn 14 5 2 (cmul 5 2 2 (v))))))))))))))))))))))
+
+theorem chain_spec (b : Addr) : CS b invChain chainEnv := by
+  have h : CS b _ _ := (CS.seq (cmul_ok b 5 2 2 (by decide) (by decide) (by decide))
+    (CS.seq (csqn_ok b 14 5 2 (by decide) (by decide) (by decide) (by decide))
+    (CS.seq (CS.append (CS.append (CS.append (cmul_ok b 14 2 14 (by decide) (by decide) (by decide)) (cmul_ok b 5 5 14 (by decide) (by decide) (by decide))) (cmul_ok b 6 5 5 (by decide) (by decide) (by decide))) (cmul_ok b 14 14 6 (by decide) (by decide) (by decide)))
+    (CS.seq (csqn_ok b 6 14 5 (by decide) (by decide) (by decide) (by decide))
+    (CS.seq (cmul_ok b 14 6 14 (by decide) (by decide) (by decide))
+    (CS.seq (csqn_ok b 6 14 10 (by decide) (by decide) (by decide) (by decide))
+    (CS.seq (cmul_ok b 6 6 14 (by decide) (by decide) (by decide))
+    (CS.seq (csqn_ok b 7 6 20 (by decide) (by decide) (by decide) (by decide))
+    (CS.seq (cmul_ok b 6 7 6 (by decide) (by decide) (by decide))
+    (CS.seq (csqn_ok b 6 6 10 (by decide) (by decide) (by decide) (by decide))
+    (CS.seq (cmul_ok b 14 6 14 (by decide) (by decide) (by decide))
+    (CS.seq (csqn_ok b 6 14 50 (by decide) (by decide) (by decide) (by decide))
+    (CS.seq (cmul_ok b 6 6 14 (by decide) (by decide) (by decide))
+    (CS.seq (csqn_ok b 7 6 100 (by decide) (by decide) (by decide) (by decide))
+    (CS.seq (cmul_ok b 6 7 6 (by decide) (by decide) (by decide))
+    (CS.seq (csqn_ok b 6 6 50 (by decide) (by decide) (by decide) (by decide))
+    (CS.seq (cmul_ok b 14 6 14 (by decide) (by decide) (by decide))
+    (CS.seq (csqn_ok b 14 14 5 (by decide) (by decide) (by decide) (by decide))
+    (cmul_ok b 14 14 5 (by decide) (by decide) (by decide))))))))))))))))))))
+  exact h
+
+theorem chain_eval (v : Nat → Fe) : chainEnv v 14 = VG.Proof.X25519.invert (v 2) := by
+  simp (config := {decide := true}) only [chainEnv, cmul, csqn, Function.update_apply, ite_true, ite_false]
+  rfl
+
+theorem chain_keep (v : Nat → Fe) : chainEnv v 1 = v 1 := by
+  simp (config := {decide := true}) only [chainEnv, cmul, csqn, Function.update_apply, ite_true, ite_false]
+
+def fbnds (n : Nat) : Option Nat := if n = 1 ∨ n = 14 then some 18 else none
+
+theorem invert_ok {b : Addr} {s : State} {v : Nat → Fe} {bnds : Nat → Option Nat} {z : Fe}
+    (hs : Sc b s) (hsl : Sl s.mem b v bnds) (hz : v 2 = z)
+    (hb2 : bnds 2 = some 18) (hb1 : bnds 1 = some 18) :
+    WP isa Impl.X25519.AArch64.invert s fun t => Sc b t ∧
+      Sl t.mem b (Function.update v 14 (pow z (P-2))) fbnds ∧
+      Kp invRegs s t ∧ Frame [slotArea b] s.mem t.mem := by
+  unfold Impl.X25519.AArch64.invert
+  simp only [List.append_assoc]
+  refine WP.seq (WP.block_append (WP.mono (copy_inv (Inv.of_sl hs hsl)
+    (o := 5) (a := 2) (by decide) (by decide) hb2) fun t₁ h₁ => ?_))
+  refine WP.block_append (WP.mono (copy_inv h₁ (o := 6) (a := 2) (by decide) (by decide)
+    (ka := 18) (by simp [hb2])) fun t₂ h₂ => ?_)
+  refine WP.block_append (WP.mono (copy_inv h₂ (o := 7) (a := 2) (by decide) (by decide)
+    (ka := 18) (by simp [hb2])) fun t₃ h₃ => ?_)
+  refine WP.mono (copy_inv h₃ (o := 14) (a := 2) (by decide) (by decide)
+    (ka := 18) (by simp [hb2])) fun t₄ h₄ => ?_
+  have hi : CI b s t₄ (ccopy 14 2 (ccopy 7 2 (ccopy 6 2 (ccopy 5 2 v)))) := ⟨h₄.sc, h₄.sl.weaken (fun n hn k hk => by
+    simp only [cbnds] at hk
+    split at hk
+    · cases hk
+      rename_i hq
+      simp only [IQ, List.mem_cons, List.not_mem_nil, or_false] at hq
+      rcases hq with rfl | rfl | rfl | rfl | rfl | rfl <;> exact ⟨by simp [hb1, hb2], rfl⟩
+    · cases hk), h₄.kp.sub (List.subset_append_left _ _), h₄.fr⟩
+  refine WP.mono (chain_spec b s t₄ _ hi) fun t ht => ⟨ht.sc, ?_, ht.kp, ht.fr⟩
+  intro n hn k hk
+  simp only [fbnds] at hk
+  split at hk
+  · cases hk
+    rename_i hq
+    rcases hq with rfl | rfl
+    · have h := ht.sl 1 (by decide) 18 (by decide)
+      simpa [chain_keep, ccopy, Function.update_of_ne] using h
+    · have h := ht.sl 14 (by decide) 18 (by decide)
+      simpa [chain_eval, ccopy, VG.Proof.X25519.invert_eq, hz] using h
+  · cases hk
 
 end VG.Proof.X25519.AArch64

@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.CmacAes.X86
-import VerifiedGarbage.Impl.Aes.X86.ExpandKey
+import VerifiedGarbage.Impl.Aes.X86.Callee
 
 /-!
 # Streaming AES-CMAC: x86 (32-bit) implementation
@@ -95,10 +95,10 @@ def initMid : List Instr :=
 /-- The chaining value zeroed, and the registers restored. -/
 def initPost : List Instr := [.mov .edx (argOp 0)] ++ zero4 .edx 272 ++ restore 3
 
-def init : Prog isa :=
+def init (expand : Impl.Aes.X86.ExpandKey) (ctr : Impl.Aes.X86.Ctr32) (suffix : String) : Prog isa :=
   .seq (.block initPre)
-    (.seq (call4 "vg_aes_expand_key" Impl.Aes.X86.expandKey)
-      (.seq (.block initMid) (.seq (call4 "vg_cmac_aes_subkeys" Impl.CmacAes.X86.subkeys) (.block initPost))))
+    (.seq (call4 expand.name expand.code)
+      (.seq (.block initMid) (.seq (call4 ("vg_cmac_aes_subkeys" ++ suffix) (Impl.CmacAes.X86.subkeys ctr)) (.block initPost))))
 
 /-! ## `vg_cmac_aes_absorb` -/
 
@@ -146,10 +146,10 @@ def absorbPre : Prog isa := .seq (.block absSave) (.seq (countHeld .eax) (.seq f
 /-- Everything after the second call. -/
 def absorbPost : Prog isa := .seq (.block rest) (.seq copy (.block (restore 6)))
 
-def absorb : Prog isa :=
+def absorb (ctr : Impl.Aes.X86.Ctr32) (suffix : String) : Prog isa :=
   .seq absorbPre
-    (.seq (call6 "vg_cmac_aes_update" Impl.CmacAes.X86.update)
-      (.seq chain2 (.seq (call6 "vg_cmac_aes_update" Impl.CmacAes.X86.update) absorbPost)))
+    (.seq (call6 ("vg_cmac_aes_update" ++ suffix) (Impl.CmacAes.X86.update ctr))
+      (.seq chain2 (.seq (call6 ("vg_cmac_aes_update" ++ suffix) (Impl.CmacAes.X86.update ctr)) absorbPost)))
 
 /-! ## `vg_cmac_aes_finish` -/
 
@@ -169,7 +169,7 @@ def finArgs : List Instr :=
 def finPre : Prog isa :=
   .seq (.block finSave) (.seq copy (.seq (countHeld .esi) (.block finArgs)))
 
-def finish : Prog isa :=
-  .seq finPre (.seq (call6 "vg_cmac_aes_finalize" Impl.CmacAes.X86.finalize) (.block (restore 5)))
+def finish (ctr : Impl.Aes.X86.Ctr32) (suffix : String) : Prog isa :=
+  .seq finPre (.seq (call6 ("vg_cmac_aes_finalize" ++ suffix) (Impl.CmacAes.X86.finalize ctr)) (.block (restore 5)))
 
 end VG.Impl.CmacAes.Stream.X86

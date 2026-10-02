@@ -466,6 +466,56 @@ theorem padFrom_ok {a b : Nat} (hab : a + 4 ≤ b) (h4 : (b - a) % 4 = 0) (ha4 :
     show b - a - 1 = 3 + 4 * ((b - a) / 4 - 1) by omega, ← List.replicate_append_replicate]
   rfl
 
+/-- `padLen` writes the rest of the block at `p` (`x21`) after its first `D`
+bytes, which it keeps: the padding of a `B + D`-byte message, whose length
+field `P.len` stores at `x19 + N + B - L`, the block's end. -/
+theorem padLen_ok {P : Params} {D : Nat} {H : Md P.B P.N P.L} (hs : Shape H) (hok : H.lenOk (P.B + D))
+    (hD4 : D % 4 = 0) (hL4 : P.L % 4 = 0) (hB4 : P.B % 4 = 0) (hpad : D + 4 ≤ P.B - P.L) (hB : P.B ≤ 128)
+    {s : State} {p : Addr} (hbp : s.gpr .x21 = p)
+    (hbx : s.gpr .x19 + BitVec.ofNat 64 (P.N + P.B - P.L) = p + BitVec.ofNat 64 (P.B - P.L))
+    (hw : ∀ a n, a + n ≤ P.B → InRegions s.wr (p + BitVec.ofNat 64 a) n) {rest : List Instr}
+    {Q : State → Prop}
+    (k : ∀ s', (∀ r, r ≠ .x9 → r ≠ .x12 → r ≠ .x22 → s'.gpr r = s.gpr r) → s'.rd = s.rd → s'.wr = s.wr →
+      s'.sp = s.sp → Frame [⟨p, P.B⟩] s.mem s'.mem →
+      bytesAt s'.mem (p + BitVec.ofNat 64 D) (P.B - D) = H.tailPad D →
+      bytesAt s'.mem p D = bytesAt s.mem p D → WP isa (.block rest) s' Q) :
+    WP isa (.block (Impl.Pbkdf2.AArch64.padLen P D ++ rest)) s Q := by
+  unfold Impl.Pbkdf2.AArch64.padLen
+  simp only [List.append_assoc]
+  refine padFrom_ok (a := D) (b := P.B - P.L) (by omega) (by omega) (by omega) (by omega) hbp
+    (fun j hj => hw _ _ (by omega)) fun s₂ g₂ rd₂ wr₂ sp₂ m₂ => ?_
+  refine wp_movz fun s₃ u₃ => ?_
+  change WP isa (.block (P.len ++ rest)) s₃ Q
+  rw [WP.block_append_iff]
+  refine WP.mono (hs.len s₃ ?_) fun s₄ ⟨g₄, rd₄, wr₄, sp₄, m₄⟩ => ?_
+  · rw [u₃.other _ (by decide), g₂ _ (by decide), hbx, u₃.wr, wr₂]; exact hw _ _ (by omega)
+  have zx : (BitVec.ofNat 16 (P.B + D)).setWidth 64 = BitVec.ofNat 64 (P.B + D) := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_setWidth, BitVec.toNat_ofNat]
+    omega
+  rw [u₃.other _ (by decide), g₂ _ (by decide), hbx, u₃.gpr, zx, H.lenOf_eq _ hok, u₃.mem, m₂] at m₄
+  have lpz : ([0x80] ++ List.replicate (P.B - P.L - D - 1) 0 : List Byte).length = P.B - P.L - D := by simp; omega
+  have S1 : Mem.Sep p D (p + BitVec.ofNat 64 D) (P.B - P.L - D) := by
+    have := Offset.sep p (d := 0) (n := D) (e := D) (k := P.B - P.L - D) (.inl (by omega)) (by omega) (by omega)
+    rwa [add0] at this
+  have S2 : ∀ {a n : Nat}, a + n ≤ P.B - P.L →
+      Mem.Sep (p + BitVec.ofNat 64 a) n (p + BitVec.ofNat 64 (P.B - P.L)) P.L :=
+    fun h' => Offset.sep _ (.inl h') (by omega) (by omega)
+  refine k s₄ (fun r h1 h2 h3 => by rw [g₄ r h1 h2, u₃.other r h3, g₂ r h1]) (by rw [rd₄, u₃.rd, rd₂])
+    (by rw [wr₄, u₃.wr, wr₂]) (by rw [sp₄, u₃.sp, sp₂]) ?_ ?_ ?_
+  · rw [m₄]
+    refine (writeBytes_frame _ _ _ ?_).trans (writeBytes_frame _ _ _ ?_)
+    · rw [lpz]; exact Offset.contains_base _ (by omega) (by omega)
+    · rw [H.lenBytes_length]; exact Offset.contains_base _ (by omega) (by omega)
+  · rw [show P.B - D = (P.B - P.L - D) + P.L by omega, bytesAt_add, add_ofNat p,
+      show D + (P.B - P.L - D) = P.B - P.L by omega, m₄,
+      bytesAt_writeBytes_self' (H.lenBytes_length _) (by omega),
+      bytesAt_writeBytes_sep _ _ (by rw [H.lenBytes_length]; exact S2 (by omega)) (by omega),
+      bytesAt_writeBytes_self' lpz (by omega), Md.tailPad, show P.B - P.L - 1 - D = P.B - P.L - D - 1 by omega]
+  · rw [m₄, bytesAt_writeBytes_sep _ _ (by
+        rw [H.lenBytes_length]; have := S2 (a := 0) (n := D) (by omega); rwa [add0] at this) (by omega),
+      bytesAt_writeBytes_sep _ _ (by rw [lpz]; exact S1) (by omega)]
+
 /-! ## The digest into the block -/
 
 theorem blk_sep (P : Params) (s₀ : State) {a n b k : Nat} (h : a + n ≤ b ∨ b + k ≤ a) (ha : a + n ≤ 2 ^ 32)
@@ -550,16 +600,6 @@ theorem digest_ok {H : Md P.B P.N P.L} (hs : Shape H) {s : State} (h : Regs P D 
 end
 
 /-! ## A step -/
-
-/-- The block, of `D` bytes of message and the padding after them. -/
-theorem blockAt_eq {P : Params} {D : Nat} {H : Md P.B P.N P.L} {m : Mem} {p : Addr} (hD : D ≤ P.B)
-    (h : bytesAt m (p + BitVec.ofNat 64 D) (P.B - D) = H.tailPad D) :
-    H.blockAt m p = H.tailBlock D (bytesAt m p D) := by
-  simp only [Md.blockAt, Md.tailBlock]
-  refine H.parse_congr fun k hk => ?_
-  have e := bytesAt_add m p D (P.B - D)
-  rw [h, show D + (P.B - D) = P.B by omega] at e
-  rw [← e, bytesAt_getD' _ _ hk]
 
 section
 variable (P : Params) (D : Nat) (H : Md P.B P.N P.L) (s₀ : State)
@@ -655,7 +695,7 @@ theorem lc_ok {H : Md P.B P.N P.L} (hR : H.Reloc) {name : String} {code : Prog i
     have := Memory.frame_bytesAt f₁ (fh₁ (a := 0) (n := D) (by omega)) (by omega); rwa [blk0] at this
   have u₂ : bytesAt s₂.mem (blk P s₀) D = bytesAt s₁.mem (blk P s₀) D := by
     have := Memory.frame_bytesAt f₂ (blk_disj hz (a := 0) (n := D) (by omega)) (by omega); rwa [blk0] at this
-  rw [e₁, blockAt_eq (by omega) p₁, u₁] at e₂
+  rw [e₁, H.blockAt_eq (by omega) p₁, u₁] at e₂
   have f : Frame [⟨scr s₀, P.so⟩, ⟨hv P s₀, P.N⟩] s.mem s₂.mem :=
     (f₁.mono (by simp)).trans (f₂.mono fun r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; rcases hr with rfl | rfl <;> simp)
@@ -885,8 +925,7 @@ theorem saveAll_saved : SavedAll P s₀ (saveAll P s₀) := by
 theorem fill_ok {H : Md P.B P.N P.L} (hs : Shape H) (hok : H.lenOk (P.B + D)) {s : State}
     (h : Setup P s₀ s) :
     WP isa (.block ((List.range (D / 4)).flatMap (Impl.Pbkdf2.AArch64.cp32 .x1 .x21 0 0) ++
-      padFrom D (P.B - P.L) ++ ([.movz .x .x22 (BitVec.ofNat 16 (P.B + D)) 0] : List Instr) ++ P.len ++
-      ([mov .x22 .x0] : List Instr))) s (Inv P D W H s₀ (nn s₀)) := by
+      Impl.Pbkdf2.AArch64.padLen P D ++ ([mov .x22 .x0] : List Instr))) s (Inv P D W H s₀ (nn s₀)) := by
   have := so_le hz; have := N_le hz; have := B_le hz; have := hz.fits; have := hz.DN; have := hz.pad
   have := hz.NL; have := hz.D4; have := hz.L4; have := hz.W; have := B_ge hz
   have : P.B % 4 = 0 := by rcases hz.B with h | h <;> omega
@@ -900,76 +939,40 @@ theorem fill_ok {H : Md P.B P.N P.L} (hs : Shape H) (hok : H.lenOk (P.B + D)) {s
   · rw [h.x1, h.x21, blk0, add0, hD4]
     exact hp.u_s.sep (Region.contains_self _ _) (Offset.contains_base _ (by omega) (by omega))
   rw [h.x21, h.x1, blk0, add0, hD4] at m₁
-  refine padFrom_ok (a := D) (b := P.B - P.L) (by omega) (by omega) (by omega) (by omega) (s := s₁)
-    (p := blk P s₀) (by rw [g₁ _ (by decide), h.x21]) (fun j hj => in_blk hz hp (wr₁.trans h.wr) (by omega))
-    fun s₂ g₂ rd₂ wr₂ sp₂ m₂ => ?_
-  refine wp_movz fun s₃ u₃ => ?_
-  have x19₃ : s₃.gpr .x19 = hv P s₀ := by rw [u₃.other _ (by decide), g₂ _ (by decide), g₁ _ (by decide), h.x19]
-  have ea : hv P s₀ + BitVec.ofNat 64 (P.N + P.B - P.L) = blk P s₀ + BitVec.ofNat 64 (P.B - P.L) := by
-    rw [add_ofNat, add_ofNat, show P.so + 56 + (P.N + P.B - P.L) = P.so + 56 + P.N + (P.B - P.L) by omega]
-  change WP isa (.block (P.len ++ [mov .x22 .x0])) s₃ _
-  rw [WP.block_append_iff]
-  refine WP.mono (hs.len s₃ ?_) fun s₄ ⟨g₄, rd₄, wr₄, sp₄, m₄⟩ => ?_
-  · rw [x19₃, ea]; exact in_blk hz hp (u₃.wr.trans (wr₂.trans (wr₁.trans h.wr))) (by omega)
+  refine padLen_ok hs hok hz.D4 hz.L4 this (by omega) (by omega) (s := s₁) (p := blk P s₀)
+    (by rw [g₁ _ (by decide), h.x21])
+    (by rw [g₁ _ (by decide), h.x19, add_ofNat, add_ofNat,
+      show P.so + 56 + (P.N + P.B - P.L) = P.so + 56 + P.N + (P.B - P.L) by omega])
+    (fun a n h' => in_blk hz hp (wr₁.trans h.wr) h') fun s₄ g₄ rd₄ wr₄ sp₄ f₄ p₄ u₄ => ?_
   refine wp_mov fun s₅ u₅ => WP.block_nil ?_
-  have zx : (BitVec.ofNat 16 (P.B + D)).setWidth 64 = BitVec.ofNat 64 (P.B + D) := by
-    apply BitVec.eq_of_toNat_eq
-    simp only [BitVec.toNat_setWidth, BitVec.toNat_ofNat]
-    omega
-  rw [x19₃, ea, u₃.gpr, zx, H.lenOf_eq _ hok] at m₄
-  -- The memory.
-  have hM : s₅.mem = writeBytes (writeBytes (writeBytes (saveAll P s₀) (blk P s₀)
-      (bytesAt (saveAll P s₀) (up s₀) D)) (blk P s₀ + BitVec.ofNat 64 D)
-      ([0x80] ++ List.replicate (P.B - P.L - D - 1) 0)) (blk P s₀ + BitVec.ofNat 64 (P.B - P.L))
-      (H.lenBytes (P.B + D)) := by
-    rw [u₅.mem, m₄, u₃.mem, m₂, m₁, h.mem]
   have hG : ∀ r ∈ kept, r ≠ .x22 → s₅.gpr r = s.gpr r := fun r hr h2 => by
-    rw [u₅.other r h2, g₄ r (ne9 r hr) (ne12 r hr), u₃.other r h2, g₂ r (ne9 r hr), g₁ r (ne9 r hr)]
-  have lpz : ([0x80] ++ List.replicate (P.B - P.L - D - 1) 0 : List Byte).length = P.B - P.L - D := by simp; omega
+    rw [u₅.other r h2, g₄ r (ne9 r hr) (ne12 r hr) h2, g₁ r (ne9 r hr)]
+  have f₁ : Frame [⟨blk P s₀, P.B⟩] s.mem s₁.mem := by
+    rw [m₁]; refine writeBytes_frame _ _ _ ?_
+    rw [bytesAt_length]
+    have := Offset.contains_base (blk P s₀) (d := 0) (n := D) (k := P.B) (by omega) (by omega)
+    rwa [blk0] at this
   have fM : Frame [⟨blk P s₀, P.B⟩] s.mem s₅.mem := by
-    rw [hM, ← h.mem]
-    refine ((writeBytes_frame _ _ _ ?_).trans (writeBytes_frame _ _ _ ?_)).trans (writeBytes_frame _ _ _ ?_)
-    · rw [bytesAt_length]
-      have := Offset.contains_base (blk P s₀) (d := 0) (n := D) (k := P.B) (by omega) (by omega)
-      rwa [blk0] at this
-    · rw [lpz]; exact Offset.contains_base _ (by omega) (by omega)
-    · rw [H.lenBytes_length]; exact Offset.contains_base _ (by omega) (by omega)
+    rw [u₅.mem]; exact f₁.trans f₄
   have fB : Frame (bodyR P D s₀) s.mem s₅.mem := fM.sub fun r hr => by
     simp only [List.mem_singleton] at hr; subst hr; exact sub_body (by omega) (by omega)
-  have S1 : Mem.Sep (blk P s₀) D (blk P s₀ + BitVec.ofNat 64 D) (P.B - P.L - D) := by
-    have := blk_sep P s₀ (a := 0) (n := D) (b := D) (k := P.B - P.L - D) (.inl (by omega)) (by omega)
-      (by omega) (by omega)
-    rwa [blk0] at this
-  have S2 : ∀ {a n : Nat}, a + n ≤ P.B - P.L →
-      Mem.Sep (blk P s₀ + BitVec.ofNat 64 a) n (blk P s₀ + BitVec.ofNat 64 (P.B - P.L)) P.L :=
-    fun h' => blk_sep P s₀ (.inl h') (by omega) (by omega) (by omega)
   have fS : Frame [tR D s₀, scR W s₀] s₀.mem s.mem := by
     rw [h.mem]; exact saveAll_frame hz |>.sub fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr
       exact ⟨scR W s₀, by simp, Region.sub_prefix (by omega)⟩
-  refine ⟨⟨by rw [u₅.rd, rd₄, u₃.rd, rd₂, rd₁, h.rd], by rw [u₅.wr, wr₄, u₃.wr, wr₂, wr₁, h.wr],
+  refine ⟨⟨by rw [u₅.rd, rd₄, rd₁, h.rd], by rw [u₅.wr, wr₄, wr₁, h.wr],
     by rw [hG _ (by decide) (by decide), h.x19], by rw [hG _ (by decide) (by decide), h.x20],
     by rw [hG _ (by decide) (by decide), h.x21],
-    by rw [u₅.gpr, g₄ _ (by decide) (by decide), u₃.other _ (by decide), g₂ _ (by decide), g₁ _ (by decide), h.x0],
+    by rw [u₅.gpr, g₄ _ (by decide) (by decide) (by decide), g₁ _ (by decide), h.x0],
     by rw [hG _ (by decide) (by decide), h.x23],
     fun r hr => by rw [hG _ (untouched_kept r hr) (untouched_ne22 r hr), h.cs r hr],
-    by rw [u₅.sp, sp₄, u₃.sp, sp₂, sp₁, h.sp],
+    by rw [u₅.sp, sp₄, sp₁, h.sp],
     fS.trans (frame_scr (a := P.so + 56 + P.N) (by omega) fM)⟩,
-    by rw [u₅.other _ (by decide), g₄ _ (by decide) (by decide), u₃.other _ (by decide), g₂ _ (by decide),
-      g₁ _ (by decide), h.x24],
-    saved_frame hz hp (h.mem ▸ saveAll_saved hz) fB, ?_, Nat.le_refl _, ?_⟩
-  · -- The padding and the length field.
-    rw [show P.B - D = (P.B - P.L - D) + P.L by omega, bytesAt_add, add_ofNat (blk P s₀),
-      show D + (P.B - P.L - D) = P.B - P.L by omega, hM,
-      bytesAt_writeBytes_self' (H.lenBytes_length _) (by omega),
-      bytesAt_writeBytes_sep _ _ (by rw [H.lenBytes_length]; exact S2 (by omega)) (by omega),
-      bytesAt_writeBytes_self' lpz (by omega), Md.tailPad, show P.B - P.L - 1 - D = P.B - P.L - D - 1 by omega]
+    by rw [u₅.other _ (by decide), g₄ _ (by decide) (by decide) (by decide), g₁ _ (by decide), h.x24],
+    saved_frame hz hp (h.mem ▸ saveAll_saved hz) fB, by rw [u₅.mem]; exact p₄, Nat.le_refl _, ?_⟩
   · -- `U` and `T`.
     have hU : bytesAt s₅.mem (blk P s₀) D = bytesAt s₀.mem (up s₀) D := by
-      rw [hM, bytesAt_writeBytes_sep _ _ (by
-          rw [H.lenBytes_length]; have := S2 (a := 0) (n := D) (by omega); rwa [blk0] at this) (by omega),
-        bytesAt_writeBytes_sep _ _ (by rw [lpz]; exact S1) (by omega),
-        bytesAt_writeBytes_self' (bytesAt_length _ _ _) (by omega)]
+      rw [u₅.mem, u₄, m₁, bytesAt_writeBytes_self' (bytesAt_length _ _ _) (by omega), h.mem]
       refine Memory.frame_bytesAt (saveAll_frame hz) (fun r hr => ?_) (by omega)
       simp only [List.mem_singleton] at hr; subst hr
       exact hp.u_s.sub_right (Region.sub_prefix (by omega))
@@ -986,8 +989,7 @@ theorem fill_ok {H : Md P.B P.N P.L} (hs : Shape H) (hok : H.lenOk (P.B + D)) {s
 theorem prologue_ok {H : Md P.B P.N P.L} (hs : Shape H) (hok : H.lenOk (P.B + D)) :
     WP isa (.block (prologue P D)) (zext s₀) (Inv P D W H s₀ (nn s₀)) := by
   have := setup_ok hz hp (rest := (List.range (D / 4)).flatMap (Impl.Pbkdf2.AArch64.cp32 .x1 .x21 0 0) ++
-    padFrom D (P.B - P.L) ++ [.movz .x .x22 (BitVec.ofNat 16 (P.B + D)) 0] ++ P.len ++
-    [mov .x22 .x0]) fun s h => fill_ok hz hp hs hok h
+    Impl.Pbkdf2.AArch64.padLen P D ++ [mov .x22 .x0]) fun s h => fill_ok hz hp hs hok h
   unfold prologue
   simpa only [List.append_assoc] using this
 
@@ -1056,6 +1058,11 @@ theorem main_ok {P : Params} {D W : Nat} {S : StreamingHash} {H : Md P.B P.N P.L
   exact WP.seq (WP.mono (loop_ok ho.sizes hp ho.shape ho.reloc hf h) fun s₂ h₂ =>
     epilogue_ok ho.sizes hp ho.link h₂)
 
+/-- `padLen` writes no SIMD register. -/
+theorem padLen_keepsV {P : Params} {D : Nat} {H : Md P.B P.N P.L} (hs : Shape H) :
+    (Impl.Pbkdf2.AArch64.padLen P D).all keepsV = true := by
+  simp [Impl.Pbkdf2.AArch64.padLen, padFrom, keepsV, vdstOf, hs.lenKeepsV]
+
 /-- The wrapper adds scalar instructions and checked length/digest code. -/
 theorem iterate_keepsV {P : Params} {D : Nat} {H : Md P.B P.N P.L}
     (hs : Shape H) {name : String} {code : Prog isa} (hc : code.allInstrs keepsV = true) :
@@ -1066,7 +1073,7 @@ theorem iterate_keepsV {P : Params} {D : Nat} {H : Md P.B P.N P.L}
     Impl.Pbkdf2.AArch64.digest, padFrom, Impl.Pbkdf2.AArch64.cp32, xorW, Impl.MdStream.AArch64.compressAt,
     Impl.MdStream.AArch64.compressWith, Impl.MdStream.AArch64.save,
     Impl.MdStream.AArch64.saved, Impl.MdStream.AArch64.restore, Impl.MdStream.AArch64.mov,
-    instrs, keepsV, vdstOf, hc, hs.lenKeepsV, hs.outKeepsV, hDN]
+    instrs, keepsV, vdstOf, hc, padLen_keepsV hs, hs.outKeepsV, hDN]
 
 theorem correct {P : Params} {D W : Nat} {S : StreamingHash} {H : Md P.B P.N P.L} {iv : H.HV}
     (ho : HashOk P D W S H iv) {name : String} {code : Prog isa} (hf : CompOk H P.so code) {s₀ : State}
