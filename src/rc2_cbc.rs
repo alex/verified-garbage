@@ -5,25 +5,21 @@
 //! (`VG.Spec.Rc2.cbcInitContract` and `VG.Spec.Rc2.cbcUpdateContract`),
 //! which keep the key schedule, chaining value and pending partial block in
 //! an opaque context. This wrapper keeps only the number of pending bytes;
-//! the direction is the type. Finalization rejects a trailing partial block.
+//! the direction is the type. Updates write the whole blocks they complete
+//! to the caller's buffer, so nothing is allocated; finalization rejects a
+//! trailing partial block.
 
-#![cfg(all(
-    any(
-        target_arch = "x86_64",
-        target_arch = "arm",
-        target_arch = "aarch64",
-        target_arch = "x86"
-    ),
-    feature = "alloc"
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "arm",
+    target_arch = "aarch64",
+    target_arch = "x86"
 ))]
-
-use alloc::vec;
-use alloc::vec::Vec;
 
 use crate::arch::rc2::{vg_rc2_cbc_decrypt_update, vg_rc2_cbc_encrypt_update, vg_rc2_cbc_init};
 use crate::zeroize::zeroize;
 
-/// Why RC2-CBC initialization or finalization failed.
+/// Why an RC2-CBC operation failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
     /// The key length is outside 1..=128 bytes.
@@ -34,6 +30,10 @@ pub enum Error {
     InvalidIvLength,
     /// The total input length is not a multiple of eight bytes.
     IncompleteBlock,
+    /// The output buffer of an update is shorter than the bytes it would
+    /// write ([`Rc2CbcEncryptor::output_len`],
+    /// [`Rc2CbcDecryptor::output_len`]).
+    OutputTooSmall,
 }
 
 /// A streaming RC2-CBC encryption (or, if `DECRYPT`, decryption), which
@@ -75,11 +75,22 @@ impl<const DECRYPT: bool> Cbc<DECRYPT> {
         }
     }
 
-    /// Processes all complete blocks and returns their output, retaining up
-    /// to seven trailing bytes.
-    fn update(&mut self, data: &[u8]) -> Vec<u8> {
-        let total = self.pending_len + data.len();
-        let mut output = vec![0; total / 8 * 8];
+    /// The number of bytes an update with `input_len` bytes of input
+    /// writes, saturating at `usize::MAX`.
+    fn output_len(&self, input_len: usize) -> usize {
+        self.pending_len
+            .checked_add(input_len)
+            .map_or(usize::MAX, |total| total / 8 * 8)
+    }
+
+    /// Processes the whole blocks of the pending bytes and `input` into the
+    /// first bytes of `output`, keeps the rest pending, and returns how many
+    /// bytes it wrote; changes nothing if `output` is too short.
+    fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize, Error> {
+        // No slice is `usize::MAX` bytes long, so an overflowing length
+        // (`output_len` saturates) is too long for any `output`.
+        let written = self.output_len(input.len());
+        let output = output.get_mut(..written).ok_or(Error::OutputTooSmall)?;
         let mut scratch = [0u64; 72];
         let update = if DECRYPT {
             vg_rc2_cbc_decrypt_update
@@ -87,29 +98,31 @@ impl<const DECRYPT: bool> Cbc<DECRYPT> {
             vg_rc2_cbc_encrypt_update
         };
         // SAFETY: the context holds `pending_len` (less than 8) pending
-        // bytes; `output` has room for exactly `(pending_len + len) / 8 * 8`
-        // bytes; the context, data, output and scratch are valid, separate
-        // objects.
+        // bytes; `output` is exactly `(pending_len + input.len()) / 8 * 8`
+        // bytes long, as the contract requires; the context, input, output
+        // and scratch are valid for their lengths and are separate objects
+        // (`input` and `output` are distinct borrows, so they do not
+        // overlap).
         unsafe {
             update(
                 &mut self.ctx,
                 self.pending_len,
-                data.as_ptr(),
-                data.len(),
+                input.as_ptr(),
+                input.len(),
                 output.as_mut_ptr(),
                 output.len(),
                 &mut scratch,
             );
         }
         zeroize(&mut scratch);
-        self.pending_len = total % 8;
-        output
+        self.pending_len = (self.pending_len + input.len() % 8) % 8;
+        Ok(written)
     }
 
     /// Fails if a partial block remains.
-    fn finalize(self) -> Result<Vec<u8>, Error> {
+    fn finalize(self) -> Result<(), Error> {
         if self.pending_len == 0 {
-            Ok(Vec::new())
+            Ok(())
         } else {
             Err(Error::IncompleteBlock)
         }
@@ -146,17 +159,31 @@ impl Rc2CbcEncryptor {
         })
     }
 
-    /// Encrypts all complete blocks and returns the ciphertext. Retains up
-    /// to seven trailing bytes for the next update; empty updates emit no
-    /// bytes and preserve the current chaining value and pending input.
-    pub fn update(&mut self, data: &[u8]) -> Vec<u8> {
-        self.cbc.update(data)
+    /// The number of bytes the next [`update`](Self::update) with
+    /// `input_len` bytes of input writes: the whole blocks of the pending
+    /// bytes and the input, at most `input_len + 7` (saturating at
+    /// `usize::MAX`, for lengths no slice has).
+    pub fn output_len(&self, input_len: usize) -> usize {
+        self.cbc.output_len(input_len)
     }
 
-    /// Consumes the encryptor. Returns no bytes on success, or
-    /// [`Error::IncompleteBlock`] if any partial block remains. Padding is
-    /// neither added nor removed.
-    pub fn finalize(self) -> Result<Vec<u8>, Error> {
+    /// Encrypts the whole blocks of the pending bytes and `input` into the
+    /// first bytes of `output`, keeps the rest (at most seven bytes) pending
+    /// for the next update, and returns how many bytes it wrote:
+    /// [`output_len`](Self::output_len)`(input.len())`.
+    ///
+    /// `output` may be longer than that, and `input.len() + 7` bytes always
+    /// suffice. If it is shorter, fails with [`Error::OutputTooSmall`],
+    /// writing nothing and leaving the encryptor unchanged. An update that
+    /// completes no block (an empty one, for example) writes nothing and
+    /// keeps the chaining value.
+    pub fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize, Error> {
+        self.cbc.update(input, output)
+    }
+
+    /// Consumes the encryptor. Fails with [`Error::IncompleteBlock`] if a
+    /// partial block is pending; padding is neither added nor removed.
+    pub fn finalize(self) -> Result<(), Error> {
         self.cbc.finalize()
     }
 }
@@ -185,17 +212,31 @@ impl Rc2CbcDecryptor {
         })
     }
 
-    /// Decrypts all complete blocks and returns the plaintext. Retains up
-    /// to seven trailing bytes for the next update; empty updates emit no
-    /// bytes and preserve the current chaining value and pending input.
-    pub fn update(&mut self, data: &[u8]) -> Vec<u8> {
-        self.cbc.update(data)
+    /// The number of bytes the next [`update`](Self::update) with
+    /// `input_len` bytes of input writes: the whole blocks of the pending
+    /// bytes and the input, at most `input_len + 7` (saturating at
+    /// `usize::MAX`, for lengths no slice has).
+    pub fn output_len(&self, input_len: usize) -> usize {
+        self.cbc.output_len(input_len)
     }
 
-    /// Consumes the decryptor. Returns no bytes on success, or
-    /// [`Error::IncompleteBlock`] if any partial block remains. Padding is
-    /// neither added nor removed.
-    pub fn finalize(self) -> Result<Vec<u8>, Error> {
+    /// Decrypts the whole blocks of the pending bytes and `input` into the
+    /// first bytes of `output`, keeps the rest (at most seven bytes) pending
+    /// for the next update, and returns how many bytes it wrote:
+    /// [`output_len`](Self::output_len)`(input.len())`.
+    ///
+    /// `output` may be longer than that, and `input.len() + 7` bytes always
+    /// suffice. If it is shorter, fails with [`Error::OutputTooSmall`],
+    /// writing nothing and leaving the decryptor unchanged. An update that
+    /// completes no block (an empty one, for example) writes nothing and
+    /// keeps the chaining value.
+    pub fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize, Error> {
+        self.cbc.update(input, output)
+    }
+
+    /// Consumes the decryptor. Fails with [`Error::IncompleteBlock`] if a
+    /// partial block is pending; padding is neither added nor removed.
+    pub fn finalize(self) -> Result<(), Error> {
         self.cbc.finalize()
     }
 }

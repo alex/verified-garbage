@@ -33,12 +33,15 @@ pub fn bench(c: &mut Criterion) {
         for size in SIZES {
             g.throughput(Throughput::Bytes(size as u64));
             let data = vec![0x5a; size];
+            // Both libraries write into a buffer allocated once, outside the
+            // timed code.
+            let mut output = vec![0; size + 8];
             g.bench_function(BenchmarkId::new(VG, size), |b| match mode {
                 Mode::Encrypt => b.iter(|| {
                     let mut ctx = Rc2CbcEncryptor::new(black_box(&key), black_box(&iv)).unwrap();
-                    let output = ctx.update(black_box(&data));
-                    black_box(ctx.finalize().unwrap());
-                    black_box(output)
+                    let n = ctx.update(black_box(&data), &mut output).unwrap();
+                    ctx.finalize().unwrap();
+                    black_box(&output[..n]);
                 }),
                 Mode::Decrypt => b.iter(|| {
                     let mut ctx = Rc2CbcDecryptor::new_with_effective_bits(
@@ -47,12 +50,11 @@ pub fn bench(c: &mut Criterion) {
                         128,
                     )
                     .unwrap();
-                    let output = ctx.update(black_box(&data));
-                    black_box(ctx.finalize().unwrap());
-                    black_box(output)
+                    let n = ctx.update(black_box(&data), &mut output).unwrap();
+                    ctx.finalize().unwrap();
+                    black_box(&output[..n]);
                 }),
             });
-            let mut output = vec![0; size + 8];
             g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
                 b.iter(|| {
                     let mut ctx = Crypter::new(
