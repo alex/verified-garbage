@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Aes.Arm.Bitsliced
 /-!
 # The bitsliced S-box on ARMv7
 
-Untrusted: everything here is checked by Lean.
-
 As on AArch64 (`Proof/Aes/AArch64/Encrypt.lean`): `sboxCode` only combines
 words bitwise (and builds all ones with `mov` and `sub`, stored in a slot),
 so it computes the same Boolean function at each of the 32 bit positions:

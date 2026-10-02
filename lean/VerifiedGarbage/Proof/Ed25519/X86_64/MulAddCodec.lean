@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.MulAddMemory
 import VerifiedGarbage.Proof.Ed25519.Bytes
 
-/-! Untrusted: full-width scalars and byte encodings in the working space. -/
+/-! Full-width scalars and byte encodings in the working space. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

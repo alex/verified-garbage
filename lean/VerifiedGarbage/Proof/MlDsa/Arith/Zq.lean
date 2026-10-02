@@ -3,10 +3,9 @@ import VerifiedGarbage.Spec.MlDsa
 /-!
 # ML-DSA: arithmetic modulo `q`, for every target
 
-Untrusted: everything here is checked by Lean. Facts about `ℤ_q` (`Fin q`,
-`q = 8380417`) as the natural numbers that represent its elements, and the
-recipes that implementations reduce modulo `q` with, each proven for every
-input in its range:
+Facts about `ℤ_q` (`Fin q`, `q = 8380417`) as the natural numbers that
+represent its elements, and the recipes that implementations reduce modulo `q`
+with, each proven for every input in its range:
 
 * addition and subtraction of reduced values, with one conditional
   subtraction of `q` (`val_add`, `val_sub`, `condSub`);

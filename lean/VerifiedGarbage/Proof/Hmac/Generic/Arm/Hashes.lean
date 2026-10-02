@@ -7,9 +7,8 @@ import VerifiedGarbage.Proof.Hmac.Generic.Common
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: the hash functions
 
-Untrusted: everything here is checked by Lean. `HashOK` for SHA-1, MD5 and
-the SHA-512 family, from their own proofs, as on x86
-(`Proof/Hmac/Generic/X86/Hashes.lean`). Their contracts are `initK`,
+`HashOK` for SHA-1, MD5 and the SHA-512 family, from their own proofs, as on
+x86 (`Proof/Hmac/Generic/X86/Hashes.lean`). Their contracts are `initK`,
 `updK` and `finK` at their sizes, but for the length bound of SHA-1's and
 MD5's `finK`, and for the SHA-512 family's, which hold from any initial hash
 value.

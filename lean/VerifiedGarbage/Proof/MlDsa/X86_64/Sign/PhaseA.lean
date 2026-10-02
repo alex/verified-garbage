@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Setup
 /-!
 # ML-DSA signing on x86-64: `ExpandA`
 
-Untrusted: everything here is checked by Lean. `ρ` to `RS`, then entry
-`e = ℓi + j` of `Â` by `vg_mldsa_rej_ntt_poly` from the seed
-`ρ ‖ j ‖ i`, with `r15` the AND of the results (`IA`): if it is 1, every
-entry so far is `RejNTTPoly`'s within `maxBounds`; if it is 0, one entry's
-`RejNTTPoly` does not finish within `minBounds` (`expandA_ok`).
+`ρ` to `RS`, then entry `e = ℓi + j` of `Â` by `vg_mldsa_rej_ntt_poly` from
+the seed `ρ ‖ j ‖ i`, with `r15` the AND of the results (`IA`): if it is 1,
+every entry so far is `RejNTTPoly`'s within `maxBounds`; if it is 0, one
+entry's `RejNTTPoly` does not finish within `minBounds` (`sampleE_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign
@@ -212,30 +211,5 @@ theorem sampleE_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : S
   rw [sampleE_eq]
   exact WP.seq (WP.mono (blkE_ok he h) fun s1 ⟨⟨h1, hs1⟩, _⟩ =>
     WP.seq (WP.mono (callE_ok hP he h1 hs1) fun s2 h2 => andE_ok he h2))
-
-/-! ## The matrix -/
-
-/-- What `ExpandA` needs of the layout. -/
-def aChk (p : Params) : Bool :=
-  (List.range (p.k * p.ℓ)).all (eChk p) && copyChk (sgB p) (sgW p) (sc oRS) (.rbp, 0) 32 &&
-    stChk p [(sc oRS, 32)] && decide (32 ≤ p.skLen)
-
-theorem aChk_ok {p : Params} (h : Ok3 p) : aChk p = true := by
-  rcases h with rfl | rfl | rfl <;> decide
-
-theorem expandA_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : aChk p = true) {σ s : State}
-    (hs : St p D σ s) (h15 : s.gpr .r15 = 1) : WP isa (Impl.MlDsa.X86_64.Sign.expandA P p) s (IA p D σ (p.k * p.ℓ)) := by
-  simp only [aChk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨he, hcp⟩, hst⟩, hsk⟩ := hc
-  unfold Impl.MlDsa.X86_64.Sign.expandA
-  refine WP.seq (WP.mono (copy_okB hs.lay hcp) fun s1 ⟨hP1, hcs1, hb⟩ => ?_)
-  have S1 := hs.step hP1 hst
-  have e15 : s1.gpr .r15 = 1 := by rw [hcs1 _ (by decide), h15]
-  have I0 : IA p D σ 0 s1 := ⟨S1, by rw [hP1.pa (by decide), hb, rhoOf, ← hs.sk, VG.Proof.MlKem.bytesAt_take _ _ hsk],
-    .inr e15, fun _ => ⟨fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩,
-    fun h0 => absurd (h0.symm.trans e15) (by decide)⟩
-  have := seqR_ok (f := sampleE P p) (I := IA p D σ) (p.k * p.ℓ) 0
-    (fun k _ hk s h => sampleE_ok hP (he k (by omega)) h) s1 I0
-  rwa [Nat.zero_add] at this
 
 end VG.Proof.MlDsa.X86_64.Sign

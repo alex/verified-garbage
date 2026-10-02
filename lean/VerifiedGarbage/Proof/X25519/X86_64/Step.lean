@@ -7,10 +7,9 @@ import VerifiedGarbage.Proof.X25519.Field
 /-!
 # X25519 on x86-64: the steps of the field arithmetic
 
-Untrusted: everything here is checked by Lean. The small blocks the field
-operations are made of (see `Impl/X25519/X86_64.lean`), each run
-symbolically once, for any registers: a multiply-accumulate step, and the
-carry of a 38-fold into four words.
+The small blocks the field operations are made of (see
+`Impl/X25519/X86_64.lean`), each run symbolically once, for any registers: a
+multiply-accumulate step, and the carry of a 38-fold into four words.
 -/
 
 namespace VG.Proof.X25519.X86_64

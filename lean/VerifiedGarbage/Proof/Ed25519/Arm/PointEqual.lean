@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.PointEqual
 import VerifiedGarbage.Proof.Ed25519.Arm.RecoverSign
 
-/-! Untrusted: compare points exactly as the reviewed verification equation does. -/
+/-! Compare points exactly as the reviewed verification equation does. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm
 

@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Cmac.Frame
 /-!
 # TDEA-CMAC on x86-64: `vg_cmac_triple_des_update`
 
-Untrusted: everything here is checked by Lean. The invariant after `k`
-blocks (`LInv`): slot 12 points to the next block, slot 13 holds the blocks
-left, only the state, the block's slots and slots 12–13 have changed since
-the registers were saved, and the state is the chaining value after the
-first `k` blocks.
+The invariant after `k` blocks (`LInv`): slot 12 points to the next block,
+slot 13 holds the blocks left, only the state, the block's slots and slots
+12–13 have changed since the registers were saved, and the state is the
+chaining value after the first `k` blocks.
 -/
 
 namespace VG.Proof.CmacTripleDes.X86_64

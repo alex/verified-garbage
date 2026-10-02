@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Calls
 /-!
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: the contract
 
-Untrusted: everything here is checked by Lean. `pbkG` is the contract the
-proof of `pbkdf2` is written against: `VG.Spec.Pbkdf2.pbkdf2Contract` with
-76 bytes of stack, with its facts spelt out, which it implies for any
-streaming hash function and scratch space (`pbkImp`). Every argument is on
-the stack (cdecl): `password`, `password_len`, `salt`, `salt_len`, `c`,
-`out`, `out_len`, `scratch`.
+`pbkG` is the contract the proof of `pbkdf2` is written against:
+`VG.Spec.Pbkdf2.pbkdf2Contract` with 76 bytes of stack, with its facts spelt
+out, which it implies for any streaming hash function and scratch space
+(`pbkImp`). Every argument is on the stack (cdecl): `password`,
+`password_len`, `salt`, `salt_len`, `c`, `out`, `out_len`, `scratch`.
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.X86

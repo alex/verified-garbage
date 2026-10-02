@@ -8,15 +8,13 @@ import VerifiedGarbage.Proof.MlKem.KPke1024
 /-!
 # ML-KEM-1024 on x86 (32-bit): the setting of K-PKE.Encrypt
 
-Untrusted: everything here is checked by Lean. The proof of ML-KEM-768's
-K-PKE.Encrypt (`Proof/MlKem/X86/Enc*.lean`) for `k = 4`, `d_u = 11` and
-`d_v = 5`. `encrypt4 sc` is proven once,
-for any layout whose `scratch` has 49152 bytes and whose stack is 88 bytes
-(`SOK`), which `vg_mlkem1024_encaps` and `vg_mlkem1024_decaps` both have. The
-facts of the layout of its buffers, all in `scratch`, are then computed from
-their offsets (`ok_sc`, `sep_sc`: `sc_decide`), and its code, which reaches
-them through `esi`, does not depend on the argument `scratch` is
-(`ptrTo_sc`: `sc_taint`).
+The proof of ML-KEM-768's K-PKE.Encrypt (`Proof/MlKem/X86/Enc*.lean`) for `k =
+4`, `d_u = 11` and `d_v = 5`. `encrypt4 sc` is proven once, for any layout
+whose `scratch` has 49152 bytes and whose stack is 88 bytes (`SOK`), which
+`vg_mlkem1024_encaps` and `vg_mlkem1024_decaps` both have. The facts of the
+layout of its buffers, all in `scratch`, are then computed from their offsets
+(`ok_sc`, `sep_sc`: `sc_decide`), and its code, which reaches them through
+`esi`, does not depend on the argument `scratch` is (`ptrTo_sc`: `sc_taint`).
 
 Its inputs (`Inp`) are `ek`, `m` and 64 bytes whose last 32 are `r`, at
 `e4EK`, `e4M` and `e4KR` (`Base`). A step's frame is within what a predicate

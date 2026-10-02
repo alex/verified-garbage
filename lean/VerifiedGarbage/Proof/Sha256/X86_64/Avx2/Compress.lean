@@ -8,11 +8,10 @@ import VerifiedGarbage.Proof.Sha256.X86_64.ShaNi.Compress
 /-!
 # SHA-256 with AVX2 on x86-64: the rounds of the first block
 
-Untrusted: everything here is checked by Lean. Group `n` computes the
-message words `4n+16 … 4n+19` of both blocks, stores them, and runs rounds
-`4n … 4n+3` of the first block, which read their words from the scratch
-space. The words of both blocks are then all stored, for the rounds of the
-second one.
+Group `n` computes the message words `4n+16 … 4n+19` of both blocks, stores
+them, and runs rounds `4n … 4n+3` of the first block, which read their words
+from the scratch space. The words of both blocks are then all stored, for the
+rounds of the second one.
 -/
 
 namespace VG.Proof.Sha256.X86_64.Avx2
@@ -214,9 +213,9 @@ end VG.Proof.Sha256.X86_64.Avx2
 /-!
 # SHA-256 compression function on x86-64 with AVX2 and BMI
 
-Untrusted: everything here is checked by Lean. `compress_verified` proves
-`Impl.Sha256.X86_64.Avx2.compress` against the same contract as the scalar
-`vg_sha256_compress`, reusing its precondition (`Pre`) and block lemmas.
+`compress_verified` proves `Impl.Sha256.X86_64.Avx2.compress` against the same
+contract as the scalar `vg_sha256_compress`, reusing its precondition (`Pre`)
+and block lemmas.
 -/
 
 namespace VG.Proof.Sha256.X86_64.Avx2

@@ -5,13 +5,13 @@ import VerifiedGarbage.Proof.Blake2.X86.Stream.Finalize
 /-!
 # Streaming BLAKE2 on x86 (32-bit): `Verified`, for any compression function
 
-Untrusted: everything here is checked by Lean. `init`, `update` and
-`finalize` meet the per-target contracts of `Proof/Blake2/X86/Contract.lean`,
-for either word size, given a correct compression function (`CalleeOk`) and
-that the code (with that compression function) is constant time, which each
-instance proves by the taint analysis (`VG.Taint.constantTime`) from the
-initial taint (`τInit`, `τUpdate`, `τFinalize`) and the facts that the
-public inputs give it (`init_agree`, `update_agree`, `finalize_agree`).
+`init`, `update` and `finalize` meet the per-target contracts of
+`Proof/Blake2/X86/Contract.lean`, for either word size, given a correct
+compression function (`CalleeOk`) and that the code (with that compression
+function) is constant time, which each instance proves by the taint analysis
+(`VG.Taint.constantTime`) from the initial taint (`τInit`, `τUpdate`,
+`τFinalize`) and the facts that the public inputs give it (`init_agree`,
+`update_agree`, `finalize_agree`).
 -/
 
 namespace VG.Proof.Blake2.X86.Stream

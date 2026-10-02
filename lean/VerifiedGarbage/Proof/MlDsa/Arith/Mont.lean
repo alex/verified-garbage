@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.Arith.Zq
 /-!
 # ML-DSA: Montgomery reduction with 32-bit words, for every target
 
-Untrusted: everything here is checked by Lean. The reduction a target with
-32-bit multiplications (a 32×32→64-bit product) uses, for `R = 2³²`:
+The reduction a target with 32-bit multiplications (a 32×32→64-bit product)
+uses, for `R = 2³²`:
 
 * `mont x = (x + m · q) / 2³²` for `m = (x mod 2³²) · (-q⁻¹ mod 2³²) mod 2³²`
   (`montQInv`): `x + m · q` is a multiple of `2³²` (`mont_mul`), so

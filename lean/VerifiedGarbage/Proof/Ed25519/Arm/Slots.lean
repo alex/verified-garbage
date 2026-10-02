@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.Ed25519.Arm.Cswap
 /-!
 # Ed25519 on ARMv7: the field elements the working space holds
 
-Untrusted: everything here is checked by Lean. `SlotsOk m B qs v`: each slot
-`q` of `qs` holds limbs below `2¹⁶` of the element `v q`. The field
-operations as updates of `v` (`mulS`, `addS`, `subS`, `cswapS`), for slots
-whose separation from the output is decided on their offsets (`Sep1`), and
-writing only the field area `[64, 1600)` of the working space (`FA`).
+`SlotsOk m B qs v`: each slot `q` of `qs` holds limbs below `2¹⁶` of the
+element `v q`. The field operations as updates of `v` (`mulS`, `addS`, `subS`,
+`cswapS`), for slots whose separation from the output is decided on their
+offsets (`Sep1`), and writing only the field area `[64, 1600)` of the working
+space (`FA`).
 -/
 
 namespace VG.Proof.Ed25519.Arm

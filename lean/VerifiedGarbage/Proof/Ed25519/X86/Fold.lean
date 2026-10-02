@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.X25519.Field
 /-!
 # Ed25519 on x86 (32-bit): folding a carry, and linear combinations
 
-Untrusted: everything here is checked by Lean. `fold` adds `38 c` for the
-carry `c` in the accumulator (as `2²⁵⁶ ≡ 38` modulo `p`), which leaves a
-carry of at most 1, added as 38 more to the lowest word, which cannot carry
-again. `linear_ok`: an element summed by eight columns and folded is their
-sum modulo `p`.
+`fold` adds `38 c` for the carry `c` in the accumulator (as `2²⁵⁶ ≡ 38` modulo
+`p`), which leaves a carry of at most 1, added as 38 more to the lowest word,
+which cannot carry again. `linear_ok`: an element summed by eight columns and
+folded is their sum modulo `p`.
 -/
 
 namespace VG.Proof.Ed25519.X86

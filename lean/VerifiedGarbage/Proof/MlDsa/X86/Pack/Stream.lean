@@ -7,10 +7,10 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-DSA on x86 (32-bit): streaming fields through `ebx`
 
-Untrusted: everything here is checked by Lean. The group bodies of
-`Impl/MlDsa/X86/Pack/Stream.lean`, for any width `d`, group of `c` fields
-and `nb` bytes, and any code `ld` that loads a field's value (`LdOk`) or
-`fin` that stores a coefficient from it (`FinOk`), as on x86-64:
+The group bodies of `Impl/MlDsa/X86/Pack/Stream.lean`, for any width `d`,
+group of `c` fields and `nb` bytes, and any code `ld` that loads a field's
+value (`LdOk`) or `fin` that stores a coefficient from it (`FinOk`), as on
+x86-64:
 
 * `packBody_ok`: the `nb` bytes stored are those of the number `G` whose
   base-`2ᵈ` digits are the values of the group's coefficients;

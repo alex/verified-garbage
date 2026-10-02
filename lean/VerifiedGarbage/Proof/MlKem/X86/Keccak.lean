@@ -9,14 +9,12 @@ import VerifiedGarbage.Impl.MlKem.X86.Basic
 /-!
 # ML-KEM on x86 (32-bit): calling the Keccak streaming functions
 
-Untrusted: everything here is checked by Lean. What a call of
-`vg_keccak_absorb`, `vg_keccak_pad` or `vg_keccak_squeeze` (with their
-per-target contracts, `Proof/Sha3/X86/Permute.lean`) needs of the state
-it is made from (`CallPre`), with the arguments in `eax`, `ecx`, `edx`,
-`ebx`, (`ebp`,) `edi`, pushed in a frame of their own (`rs6`, `rs5`); and
-what holds when it returns. Each call uses the 40 bytes below `esp`: its
-arguments (24 bytes), the return address, and the 12 bytes the callee's own
-calls use.
+What a call of `vg_keccak_absorb`, `vg_keccak_pad` or `vg_keccak_squeeze`
+(with their per-target contracts, `Proof/Sha3/X86/Permute.lean`) needs of the
+state it is made from (`CallPre`), with the arguments in `eax`, `ecx`, `edx`,
+`ebx`, (`ebp`,) `edi`, pushed in a frame of their own (`rs6`, `rs5`); and what
+holds when it returns. Each call uses the 40 bytes below `esp`: its arguments
+(24 bytes), the return address, and the 12 bytes the callee's own calls use.
 
 The pieces `absorb_piece`, `pad_piece` and `squeeze_piece` (`Piece.lean`)
 make the calls from a state satisfying `AbsorbAt`, `PadAt` or `SqueezeAt`,

@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.X86.RecoverCTBlocks
 import VerifiedGarbage.Proof.Ed25519.X86.PointEqual
 import VerifiedGarbage.Proof.Ed25519.X86.VerifyCTLit
 
-/-! Untrusted: point comparison branches only on the two public projective points. -/
+/-! Point comparison branches only on the two public projective points. -/
 
 namespace VG.Proof.Ed25519.X86
 

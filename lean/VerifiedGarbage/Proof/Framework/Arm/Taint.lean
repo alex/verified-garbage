@@ -9,8 +9,6 @@ import Mathlib.Tactic.Tauto
 /-!
 # Taint tracking for ARMv7
 
-Untrusted: everything here is checked by Lean.
-
 The abstract state is the list of registers known to be public, whether the
 flags are public, and what is known about memory. Memory is secret unless
 known otherwise: an address must be computed from public registers, and a
@@ -166,7 +164,7 @@ def step (τ : T) : Instr → Option T
   | .strb t n off => storeStep τ n off 1 (pub τ t)
   | .ldrSp t off =>
     if off + 4 ≤ τ.argLen then some { τ with regs := set τ t true, bases := spBases τ t off } else none
-  -- Frames are not analysed yet.
+  -- Frames are not analysed.
   | .push _ | .pop .. | .alloc _ | .free _ => none
 
 def meet (τ₁ τ₂ : T) : T where
@@ -1077,7 +1075,7 @@ def taint : VG.Taint isa where
   call_sound := Taint.call_sound
   ret τ := some τ
   ret_sound := Taint.ret_sound
-  -- Frames are not analysed yet.
+  -- Frames are not analysed.
   push _ _ := none
   push_sound _ h := by cases h
   pop _ _ := none

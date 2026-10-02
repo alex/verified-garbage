@@ -9,11 +9,10 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # Streaming Merkle–Damgård hash functions on x86-64: common lemmas
 
-Untrusted: everything here is checked by Lean. The contracts the generic
-proofs are written against, what they need of a hash function's parameters
-(`Shape`) and of its compression function (`CalleeOk`), the call of the
-compression function (`compressAt`), and weakest-precondition rules for the
-instructions used.
+The contracts the generic proofs are written against, what they need of a hash
+function's parameters (`Shape`) and of its compression function (`CalleeOk`),
+the call of the compression function (`compressAt`), and weakest-precondition
+rules for the instructions used.
 -/
 
 namespace VG.Proof.MdStream.X86_64

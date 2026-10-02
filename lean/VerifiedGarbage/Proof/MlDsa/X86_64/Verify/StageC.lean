@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlDsa.Verify.Final
 /-!
 # ML-DSA verification on x86-64: `w′₁`, row by row
 
-Untrusted: everything here is checked by Lean. With the entries `A'` of
-`Â` and `ĉ = cH` as the samplers left them: `ẑ[i] = NTT(z[i])`
-(`nttZ_ok`), `ĉ` (`nttC_ok`), and each row `r` of `w′₁`, packed to
+With the entries `A'` of `Â` and `ĉ = cH` as the samplers left them: `ẑ[i] =
+NTT(z[i])` (`nttZ_ok`), `ĉ` (`nttC_ok`), and each row `r` of `w′₁`, packed to
 `B + r · 32 bitlen b` (`row_ok`).
 -/
 

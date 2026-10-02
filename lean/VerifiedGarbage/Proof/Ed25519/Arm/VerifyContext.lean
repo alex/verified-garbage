@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyFrame
 import VerifiedGarbage.Proof.Ed25519.Arm.PointFromScalar
 
-/-! Untrusted: readable public inputs remain outside all verification writes. -/
+/-! Readable public inputs remain outside all verification writes. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

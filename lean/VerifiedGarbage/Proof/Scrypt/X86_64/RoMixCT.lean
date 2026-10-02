@@ -13,9 +13,8 @@ import VerifiedGarbage.Proof.Scrypt.X86_64.Lit
 /-!
 # scryptROMix on x86-64: the precondition and the calls
 
-Untrusted: everything here is checked by Lean. The regions the function
-works on, and `BlockMixSpec`: what a call of the verified
-`vg_scrypt_blockmix` does, from its `Verified` proof by `WP.call`.
+The regions the function works on, and `BlockMixSpec`: what a call of the
+verified `vg_scrypt_blockmix` does, from its `Verified` proof by `WP.call`.
 -/
 
 namespace VG.Proof.Scrypt.X86_64.RoMix
@@ -366,10 +365,9 @@ end VG.Proof.Scrypt.X86_64.RoMix
 /-!
 # scryptROMix on x86-64: correctness
 
-Untrusted: everything here is checked by Lean. The prologue saves our
-caller's registers in `scratch` and computes `N`; step 2 and step 3 are
-loops whose bodies call `vg_scrypt_blockmix` (through `BlockMixSpec`); the
-epilogue restores the registers.
+The prologue saves our caller's registers in `scratch` and computes `N`; step
+2 and step 3 are loops whose bodies call `vg_scrypt_blockmix` (through
+`BlockMixSpec`); the epilogue restores the registers.
 -/
 
 namespace VG.Proof.Scrypt.X86_64.RoMix
@@ -1201,8 +1199,6 @@ end VG.Proof.Scrypt.X86_64.RoMix
 
 /-!
 # scryptROMix on x86-64: constant time, up to the indices `j`
-
-Untrusted: everything here is checked by Lean.
 
 As for scryptBlockMix (`BlockMixCT.lean`), we relate two runs (`RelCT`):
 correctness determines our registers from the public arguments, so they

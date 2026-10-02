@@ -4,9 +4,8 @@ import Mathlib.Tactic.Ring
 /-!
 # X448: radix-2¹⁶ arithmetic
 
-Untrusted: everything here is checked by Lean. The twenty-eight limbs of a
-field element, carries, and reduction using `2^448 = 2^224 + 1` modulo p.
-These lemmas do not depend on an instruction set.
+The twenty-eight limbs of a field element, carries, and reduction using `2^448 =
+2^224 + 1` modulo p. These lemmas do not depend on an instruction set.
 -/
 
 namespace VG.Proof.X448.Radix16

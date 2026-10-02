@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Pack.HintPack
 /-!
 # ML-DSA on x86-64: `vg_mldsa_hint_bit_unpack`
 
-Untrusted: everything here is checked by Lean. The code follows the fold
-form of `HintBitUnpack` (`hintBitUnpack_eq`, `Pack/Hint.lean`) step by step:
-while no check has failed, the words of `h` are the hint of the spec
-(`HArr`) and `rax` its index; once one has, `rax` is 256, which skips the
-rest (`SRel`).
+The code follows the fold form of `HintBitUnpack` (`hintBitUnpack_eq`,
+`Pack/Hint.lean`) step by step: while no check has failed, the words of `h`
+are the hint of the spec (`HArr`) and `rax` its index; once one has, `rax` is
+256, which skips the rest (`SRel`).
 
 Constant time but for its input: once `h` is zeroed, the two runs agree on
 all the memory the function may access (the input `y`, which the contract

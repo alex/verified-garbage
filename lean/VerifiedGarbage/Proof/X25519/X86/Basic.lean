@@ -8,11 +8,10 @@ import VerifiedGarbage.Impl.X25519.X86
 /-!
 # X25519 on x86 (32-bit): words of the working space
 
-Untrusted: everything here is checked by Lean. The working space, 4096 bytes
-at `x` (`edi` in the code), holds words at constant offsets; a field element
-is eight of them (`fe`). A store to a word leaves the others unchanged, and
-code that stores only to some regions of it leaves the rest of memory
-unchanged (`Frame`).
+The working space, 4096 bytes at `x` (`edi` in the code), holds words at
+constant offsets; a field element is eight of them (`fe`). A store to a word
+leaves the others unchanged, and code that stores only to some regions of it
+leaves the rest of memory unchanged (`Frame`).
 -/
 
 namespace VG.Proof.X25519.X86

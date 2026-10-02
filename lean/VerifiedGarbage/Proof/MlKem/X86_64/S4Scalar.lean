@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.S4Verified
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4`, verified
 
-Untrusted: everything here is checked by Lean. The baseline implementation
-of `vg_mlkem_sample_ntt4` calls `vg_mlkem_sample_ntt` on each seed, between
-the prologue and the epilogue of the one for AVX2; its proofs are the pieces
-of that one's for the calls (`S4Parse.lean`, `S4CT.lean`), with nothing to
-keep of the memory but the polynomials already sampled.
+The baseline implementation of `vg_mlkem_sample_ntt4` calls
+`vg_mlkem_sample_ntt` on each seed, between the prologue and the epilogue of
+the one for AVX2; its proofs are the pieces of that one's for the calls
+(`S4Parse.lean`, `S4CT.lean`), with nothing to keep of the memory but the
+polynomials already sampled.
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4

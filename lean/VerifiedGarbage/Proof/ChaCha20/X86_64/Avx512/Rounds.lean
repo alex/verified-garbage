@@ -6,11 +6,11 @@ import VerifiedGarbage.Proof.ChaCha20.Spec
 /-!
 # ChaCha20 on x86-64 with AVX-512: the rounds
 
-Untrusted: everything here is checked by Lean. Doubleword `j` of a register
-(doubleword `j % 4` of lane `j / 4`) holds a word of block `j`, register `k`
-word `k`. Every instruction of the rounds acts on each block as a step on its
-state (`zstep`), so the rounds are proven once on the sixteen states and then,
-without the machine, equal to the specification's.
+Doubleword `j` of a register (doubleword `j % 4` of lane `j / 4`) holds a word
+of block `j`, register `k` word `k`. Every instruction of the rounds acts on
+each block as a step on its state (`zstep`), so the rounds are proven once on
+the sixteen states and then, without the machine, equal to the
+specification's.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64.Avx512

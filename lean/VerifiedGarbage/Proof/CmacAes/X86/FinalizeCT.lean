@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.CmacAes.X86.UpdateCT
 /-!
 # AES-CMAC on x86: `vg_cmac_aes_finalize` is constant time
 
-Untrusted: everything here is checked by Lean. The code before the call is
-checked by the taint analysis, from `esp` and the stack arguments (its
-branches and the copy loop depend only on `last_len`), the call of
-`vg_aes_ctr32`, in its frame, is constant time by its own proof
+The code before the call is checked by the taint analysis, from `esp` and the
+stack arguments (its branches and the copy loop depend only on `last_len`),
+the call of `vg_aes_ctr32`, in its frame, is constant time by its own proof
 (`ctr_rel`), its arguments pinned by the correctness proof (`FMid`), and the
 restore after it by the taint analysis again.
 -/

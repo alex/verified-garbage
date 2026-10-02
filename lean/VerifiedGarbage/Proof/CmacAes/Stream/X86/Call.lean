@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Framework.X86.RelCT
 /-!
 # Streaming AES-CMAC on x86: the calls
 
-Untrusted: everything here is checked by Lean. A call, in a frame of its
-arguments, of each function the streaming functions call
-(`vg_aes_expand_key`, `vg_cmac_aes_subkeys`, `vg_cmac_aes_update` and
+A call, in a frame of its arguments, of each function the streaming functions
+call (`vg_aes_expand_key`, `vg_cmac_aes_subkeys`, `vg_cmac_aes_update` and
 `vg_cmac_aes_finalize`), from its contract (`WP.callWith`): what it needs
 (`…Args`: the registers pushed as its arguments, and the regions), what it
 leaves (`…Post`, in terms of the memory before the call), and that two calls

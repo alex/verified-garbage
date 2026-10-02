@@ -9,12 +9,11 @@ import VerifiedGarbage.Spec.Sha256.Contract
 /-!
 # PBKDF2-HMAC-SHA-256 on 32-bit ARM, the whole derivation
 
-Untrusted: everything here is checked by Lean. The generic proof (`CT.lean`)
-at SHA-256: its streaming functions, verified for any initial hash value,
-give `HashOK` at `H0`; its HMAC and PBKDF2 functions, verified against
-SHA-256's own contracts with no stack, are moved to the shared ones with 16
-bytes of stack (`pre_0_of_16`, and a weaker postcondition for HMAC's
-`finalize`).
+The generic proof (`CT.lean`) at SHA-256: its streaming functions, verified
+for any initial hash value, give `HashOK` at `H0`; its HMAC and PBKDF2
+functions, verified against SHA-256's own contracts with no stack, are moved
+to the shared ones with 16 bytes of stack (`pre_0_of_16`, and a weaker
+postcondition for HMAC's `finalize`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.Arm

@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Pbkdf2.AArch64.Iterate
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: `pbkdf2`'s calls
 
-Untrusted: everything here is checked by Lean. The calls of HMAC's `init`
-and `finalize` and of `iterate`, whose contracts (`initG`, `finG`, `iterK`)
-their proofs are given as hypotheses: each is run with `WP.callFV` (the
-callee may use the 16 bytes below the stack pointer, a frame deep), and
-shown constant time in two runs with `RelCT.call`.
+The calls of HMAC's `init` and `finalize` and of `iterate`, whose contracts
+(`initG`, `finG`, `iterK`) their proofs are given as hypotheses: each is run
+with `WP.callFV` (the callee may use the 16 bytes below the stack pointer, a
+frame deep), and shown constant time in two runs with `RelCT.call`.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64.Pbk

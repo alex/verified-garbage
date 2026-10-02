@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.MlKem.Mem
 /-!
 # ML-KEM on x86-64: values and bytes
 
-Untrusted: everything here is checked by Lean.
-
 * shifts left by rotating a value whose top bits are zero (`rotr_toNat`),
   logical shifts right, and the byte a `store8` stores (`b8_eq`);
 * `Written m m' o c v`: `m'` is `m` with the `c` bytes at `o` replaced by

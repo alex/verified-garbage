@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlKem1024.X86.DecapsCmp
 /-!
 # ML-KEM-1024 on x86 (32-bit): `vg_mlkem1024_decaps`
 
-Untrusted: everything here is checked by Lean. `m'` is decrypted
-(`DecapsDec.lean`), `ek` copied from `dk` and `G(m' ‖ h)` hashed
-(`start_piece`), `c'` computed (`Enc.encrypt_piece`), `K̄ = J(z ‖ c)` hashed,
-`c` and `c'` compared and `K'` or `K̄` selected into `key` (`DecapsCmp.lean`)
-without branching (`fin_piece`). If every `SampleNTT` succeeded, K-PKE.Encrypt
-succeeds with the matrix sampled within one bound on their iterations
-(`kpkeEncrypt1024_some`); if one failed within `minIterations`, it fails with
-that bound (`kpkeEncrypt1024_none`).
+`m'` is decrypted (`DecapsDec.lean`), `ek` copied from `dk` and `G(m' ‖ h)`
+hashed (`start_piece`), `c'` computed (`Enc.encrypt_piece`), `K̄ = J(z ‖ c)`
+hashed, `c` and `c'` compared and `K'` or `K̄` selected into `key`
+(`DecapsCmp.lean`) without branching (`fin_piece`). If every `SampleNTT`
+succeeded, K-PKE.Encrypt succeeds with the matrix sampled within one bound on
+their iterations (`kpkeEncrypt1024_some`); if one failed within
+`minIterations`, it fails with that bound (`kpkeEncrypt1024_none`).
 -/
 
 namespace VG.Proof.MlKem1024.X86.Decaps

@@ -2,10 +2,9 @@ import VerifiedGarbage.Proof.Rc2.Arm.Stream.Long
 
 /-! # Streaming RC2-CBC on ARMv7: the update functions
 
-Untrusted: everything here is checked by Lean. Without a complete block, the
-data is appended to the pending bytes (`short_ok`); otherwise, after the
-copies (`long_ok`), the CBC function runs on `out` and `lr` is restored
-(`call_ok`). -/
+Without a complete block, the data is appended to the pending bytes
+(`short_ok`); otherwise, after the copies (`long_ok`), the CBC function runs
+on `out` and `lr` is restored (`call_ok`). -/
 
 namespace VG.Proof.Rc2.Arm.Stream
 

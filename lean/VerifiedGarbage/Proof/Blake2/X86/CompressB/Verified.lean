@@ -7,9 +7,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # BLAKE2b compression function on x86 (32-bit): the whole function
 
-Untrusted: everything here is checked by Lean. The prologue and epilogue,
-`correct` (the loop over the blocks), constant time, and `compress_verified`
-against `compressX86 b` (`Proof/Blake2/X86/Contract.lean`), moved to the shared contract of
+The prologue and epilogue, `correct` (the loop over the blocks), constant time,
+and `compress_verified` against `compressX86 b`
+(`Proof/Blake2/X86/Contract.lean`), moved to the shared contract of
 `Spec/Blake2/Contract.lean` (`compressB_verified`).
 -/
 

@@ -10,8 +10,8 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ChaCha20 keystream XOR on ARMv7
 
-Untrusted: everything here is checked by Lean. The per-instruction WP rules
-are those of the streaming hash proofs (`Proof/MdStream/Arm/Common.lean`).
+The per-instruction WP rules are those of the streaming hash proofs
+(`Proof/MdStream/Arm/Common.lean`).
 
 The call of the block function goes through its `Verified` proof
 (`WP.call`): it keeps `r1` (which its code never writes) and `r4`–`r11`,
@@ -29,12 +29,9 @@ namespace VG.Proof.ChaCha20
 
 open Spec.ChaCha20 VG.Arm
 
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for
-`vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`:
-XORs the first `len` bytes of the keystream of the state at `state` into the
-`len` bytes at `data`.
+/-- 32-bit ARM contract for `vg_chacha20_xor(state: *mut [u32; 16], data: *mut
+u8, len: usize, buf: *mut [u32; 80])`: XORs the first `len` bytes of the
+keystream of the state at `state` into the `len` bytes at `data`.
 
 The code may read and write `state` (64 bytes; its contents on exit are
 unspecified), `data` (`len` bytes) and `buf` (320 bytes of working space).

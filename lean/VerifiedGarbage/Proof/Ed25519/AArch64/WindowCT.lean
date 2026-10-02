@@ -6,14 +6,14 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.CTSupport
 /-!
 # Verification's windows: what their traces depend on
 
-Untrusted. The windows branch on the digits of the scalars and address the
-tables by them, so their traces depend on the scalars: both runs must use
-the same ones (in verification, the public inputs are the same in both
-runs). The digits are read through pointers and a counter in the scratch,
-the same in both runs by correctness; everything else is public by the
-taint analysis. The skipped bytes of `k` are its leading zeros, the same in
-both runs. The final comparison branches on whether two points of the group
-are equal, which only depends on the points represented.
+The windows branch on the digits of the scalars and address the tables by
+them, so their traces depend on the scalars: both runs must use the same ones
+(in verification, the public inputs are the same in both runs). The digits are
+read through pointers and a counter in the scratch, the same in both runs by
+correctness; everything else is public by the taint analysis. The skipped
+bytes of `k` are its leading zeros, the same in both runs. The final
+comparison branches on whether two points of the group are equal, which only
+depends on the points represented.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

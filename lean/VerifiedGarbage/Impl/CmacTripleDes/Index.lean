@@ -3,8 +3,6 @@ import VerifiedGarbage.Spec.TripleDes
 /-!
 # DES's bit permutations, as maps of bit indices
 
-Untrusted: the proofs check everything here.
-
 FIPS 46-3 numbers bits from 1, the most significant first; these give, for
 each bit of a permutation's output (numbered from 0, the least significant
 first, as `BitVec.getLsbD` does), the bit of its input it is, for every

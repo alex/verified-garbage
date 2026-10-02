@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulCounter
 
-/-! Untrusted: one checkpoint batch advances the exact scalar-multiplication invariant. -/
+/-! One checkpoint batch advances the exact scalar-multiplication invariant. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

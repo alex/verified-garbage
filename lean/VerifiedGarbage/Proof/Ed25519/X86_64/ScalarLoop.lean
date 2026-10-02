@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.Ed25519.Bytes
 /-!
 # Scalar reduction: the eight-word loop
 
-Untrusted. The invariant is the value modulo L of the already consumed top
-words of the little-endian input. The body writes no memory.
+The invariant is the value modulo L of the already consumed top words of the
+little-endian input. The body writes no memory.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

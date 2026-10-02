@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.Arm.RowMem
 /-!
 # X448 on ARMv7: initialize multiplication
 
-Untrusted: everything here is checked by Lean. The first 28 accumulator
-words are zero; subsequent rows initialize the remaining words.
+The first 28 accumulator words are zero; subsequent rows initialize the
+remaining words.
 -/
 
 namespace VG.Proof.X448.Arm

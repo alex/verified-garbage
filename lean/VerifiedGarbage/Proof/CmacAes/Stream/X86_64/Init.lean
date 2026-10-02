@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # Streaming AES-CMAC on x86-64: `vg_cmac_aes_init`
 
-Untrusted: everything here is checked by Lean. The code saves `rbx`, `rbp`
-and `r12` in the scratch buffer, expands the key into the state, derives
-the subkeys after the schedule, zeroes the chaining value and restores the
-registers: the state then represents the empty message. The code between
-the calls is constant time by the taint analysis, and the calls by their
-own proofs (`ek_rel`, `sub_rel`), their arguments pinned by `IMid₁` and
-`IMid₂`.
+The code saves `rbx`, `rbp` and `r12` in the scratch buffer, expands the key
+into the state, derives the subkeys after the schedule, zeroes the chaining
+value and restores the registers: the state then represents the empty message.
+The code between the calls is constant time by the taint analysis, and the
+calls by their own proofs (`ek_rel`, `sub_rel`), their arguments pinned by
+`IMid₁` and `IMid₂`.
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86_64

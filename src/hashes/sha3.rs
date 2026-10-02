@@ -34,9 +34,9 @@ pub(crate) enum Backend {
 
 impl Backend {
     pub(crate) fn detected() -> Self {
-        // The draft hardware implementation has no measured bulk speedup yet.
-        // Keep production/default selection scalar; the existing test feature
-        // permits an explicit, CPU-checked SHA-3 selection for validation.
+        // FEAT_SHA3's Keccak is not faster than the scalar code, so it is
+        // chosen only to test it: with `cpu-features-env`, when
+        // `VG_CPU_FEATURES` names `sha3` and the CPU has it.
         #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
         {
             static BACKEND: std::sync::OnceLock<Backend> = std::sync::OnceLock::new();

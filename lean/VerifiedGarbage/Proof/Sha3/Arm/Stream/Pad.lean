@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # The SHA-3 sponge on ARMv7: `pad`
 
-Untrusted: everything here is checked by Lean. The same structure as the
-AArch64 proof (`VG.Proof.Sha3.AArch64.Stream.Pad`), with the return address
-saved in the scratch space instead of a frame.
+The same structure as the AArch64 proof (`VG.Proof.Sha3.AArch64.Stream.Pad`),
+with the return address saved in the scratch space instead of a frame.
 -/
 
 namespace VG.Proof.Sha3.Arm.Stream.Pad

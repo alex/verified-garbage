@@ -8,10 +8,9 @@ import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 /-!
 # SHA-512 with AVX2 on x86-64: the message schedule of one lane
 
-Untrusted: everything here is checked by Lean. Each 256-bit instruction of
-the schedule acts on the two 128-bit lanes alike, so it is proved once, on
-one lane (`xupd`): the next two words of a block's schedule from its
-previous sixteen.
+Each 256-bit instruction of the schedule acts on the two 128-bit lanes alike,
+so it is proved once, on one lane (`xupd`): the next two words of a block's
+schedule from its previous sixteen.
 -/
 
 namespace VG.Proof.Sha512.X86_64.Avx2
@@ -158,8 +157,8 @@ end VG.Proof.Sha512.X86_64.Avx2
 /-!
 # SHA-512 with AVX2 on x86-64: running the message schedule
 
-Untrusted: everything here is checked by Lean. `schedule i` computes, in
-each lane of `msg i`, what `xupd` says, and stores the register.
+`schedule i` computes, in each lane of `msg i`, what `xupd` says, and stores
+the register.
 -/
 
 namespace VG.Proof.Sha512.X86_64.Avx2

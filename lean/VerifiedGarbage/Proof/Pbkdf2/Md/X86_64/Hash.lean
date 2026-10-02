@@ -9,13 +9,13 @@ import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: the hash function
 
-Untrusted: everything here is checked by Lean. `HashOK H` is what the proofs
-know of the hash function whose code `H` describes: its streaming code is
-the generic Merkle–Damgård code (`Proof/MdStream/X86_64/`) for a hash
-function `md` (`Md`) whose pieces do what they should (`Shape`, `Taints`),
-calling a verified compression function (`CalleeOk`); its specification
-`SH` is `md` from the initial hash value `iv`, with the digest the first `D`
-bytes of `md`'s; its streaming `init` is verified; and its sizes fit.
+`HashOK H` is what the proofs know of the hash function whose code `H`
+describes: its streaming code is the generic Merkle–Damgård code
+(`Proof/MdStream/X86_64/`) for a hash function `md` (`Md`) whose pieces do
+what they should (`Shape`, `Taints`), calling a verified compression function
+(`CalleeOk`); its specification `SH` is `md` from the initial hash value `iv`,
+with the digest the first `D` bytes of `md`'s; its streaming `init` is
+verified; and its sizes fit.
 
 From it, the streaming functions are verified against the contracts HMAC's
 generic proofs call them with (`HashOK.stream`), so those proofs hold for

@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 /-!
 # TDEA-CMAC on x86-64: the contracts the proofs are written against
 
-Untrusted: everything here is checked by Lean. The artifacts' contracts are
-the shared ones of `Spec/Cmac/TripleDesContract.lean`, which imply these
-(`Verified.lean`). The functions call nothing and use no stack.
+The artifacts' contracts are the shared ones of
+`Spec/Cmac/TripleDesContract.lean`, which imply these (`Verified.lean`). The
+functions call nothing and use no stack.
 -/
 
 namespace VG.Proof.CmacTripleDes.X86_64

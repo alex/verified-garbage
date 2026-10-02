@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.CmacAes.AArch64.UpdateCT
 /-!
 # AES-CMAC on AArch64: `vg_cmac_aes_finalize` is constant time
 
-Untrusted: everything here is checked by Lean. The code before the call is
-checked by the taint analysis (its branches and the copy loop depend only on
-`last_len`), the call of `vg_aes_ctr32` is constant time by its own proof
-(`ctr_rel`), its arguments pinned by the correctness proof (`FMid`), and the
-restore after it by the taint analysis again, from `x19` (the scratch buffer).
+The code before the call is checked by the taint analysis (its branches and
+the copy loop depend only on `last_len`), the call of `vg_aes_ctr32` is
+constant time by its own proof (`ctr_rel`), its arguments pinned by the
+correctness proof (`FMid`), and the restore after it by the taint analysis
+again, from `x19` (the scratch buffer).
 -/
 
 namespace VG.Proof.CmacAes.AArch64

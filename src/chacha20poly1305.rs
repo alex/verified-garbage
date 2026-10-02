@@ -86,8 +86,8 @@ pub enum Error {
 #[derive(Clone)]
 pub struct ChaCha20Poly1305 {
     key: [u8; 32],
-    /// The implementations of `vg_chacha20_xor` and `vg_poly1305_blocks` the
-    /// functions called call.
+    /// The implementations of `vg_chacha20_xor` and `vg_poly1305_blocks` to
+    /// call.
     backend: Backend,
 }
 

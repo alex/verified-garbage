@@ -5,10 +5,10 @@ import Mathlib.Tactic.SplitIfs
 /-!
 # AES and GHASH on x86 (32-bit): regions of 32-bit buffers
 
-Untrusted: everything here is checked by Lean. Parts of a buffer at a 32-bit
-address `b` that does not wrap around the (32-bit) address space: which
-parts contain which accesses, and which are disjoint. The single-instruction
-weakest-precondition rules are `Proof/Framework/X86/Wp.lean`.
+Parts of a buffer at a 32-bit address `b` that does not wrap around the
+(32-bit) address space: which parts contain which accesses, and which are
+disjoint. The single-instruction weakest-precondition rules are
+`Proof/Framework/X86/Wp.lean`.
 -/
 
 namespace VG.Proof.Aes.X86

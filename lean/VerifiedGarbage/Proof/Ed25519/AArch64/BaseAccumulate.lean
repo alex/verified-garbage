@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.PointAccumulateLoop
 /-!
 # Adding cached points
 
-Untrusted. The cached addition is the specification's `pointAdd` (`ring`);
-a table's cached point is loaded straight into slots 4–7.
+The cached addition is the specification's `pointAdd` (`ring`); a table's
+cached point is loaded straight into slots 4–7.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

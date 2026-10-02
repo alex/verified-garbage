@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # Verified streaming RC2-CBC on AArch64
 
-Untrusted: everything here is checked by Lean. Correctness (`Init`,
-`Update`), constant time (`ConstantTime`), and states satisfying the
-preconditions, moved to the shared contracts with `stack = 16` (the frame
-saving `x30`).
+Correctness (`Init`, `Update`), constant time (`ConstantTime`), and states
+satisfying the preconditions, moved to the shared contracts with `stack = 16`
+(the frame saving `x30`).
 -/
 
 namespace VG.Proof.Rc2.AArch64.Stream

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.RootPower
 
-/-! Untrusted: lift the root exponentiation into Ed25519's larger scratch region. -/
+/-! Lift the root exponentiation into Ed25519's larger scratch region. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

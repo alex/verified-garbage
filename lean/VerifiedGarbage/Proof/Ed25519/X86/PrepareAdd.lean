@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86.PointAccumulate
 import VerifiedGarbage.Proof.Ed25519.X86.PointPowers
 
-/-! Untrusted: load a table point while preserving the accumulator for selection. -/
+/-! Load a table point while preserving the accumulator for selection. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

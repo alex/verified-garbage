@@ -12,14 +12,13 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.Rej4Verified
 /-!
 # ML-DSA on x86-64: what the callers of the polynomial arithmetic need of it
 
-Untrusted: everything here is checked by Lean. An `ArithImpl` is an
-implementation of the polynomial arithmetic (`Impl.MlDsa.X86_64.Arith.Backend`)
-with what key generation, signing and verification need of each of its
-functions (`FnOk`): it meets its contract without using the stack, never
-writes `rsp`, calls no deeper than twice, and loads MXCSR only to restore
-it. Each is a variant of the interface `MlDsaArith` on x86-64
-(`Variants/MlDsaArith/X86_64/`), and the functions that call it are proven
-once for all of them (`Generic/MlDsaArith/X86_64/`).
+An `ArithImpl` is an implementation of the polynomial arithmetic
+(`Impl.MlDsa.X86_64.Arith.Backend`) with what key generation, signing and
+verification need of each of its functions (`FnOk`): it meets its contract
+without using the stack, never writes `rsp`, calls no deeper than twice, and
+loads MXCSR only to restore it. Each is a variant of the interface `MlDsaArith`
+on x86-64 (`Variants/MlDsaArith/X86_64/`), and the functions that call it are
+proven once for all of them (`Generic/MlDsaArith/X86_64/`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64
@@ -43,6 +42,10 @@ structure Rej4Ok (c : Prog isa) : Prop where
   depth : c.depth ≤ 3
   ctl : ctlOk c = true
   sp : c.all (fun i => !isa.writesSp i) = true
+  /-- Its result is whether each seed has 256 coefficients in its first 1008 bytes of output, as
+  both implementations', which signing branches on. -/
+  ret : ∀ s t s', (Spec.MlDsa.rejNTT4Contract X86_64.abi 24).pre s → Exec isa c s t s' →
+    (s'.gpr .rax).setWidth 32 = Rej4.rej4Res s.mem (s.gpr .rdi)
 
 /-- Each function of the backend `B` meets its contract, and is safe to call. -/
 structure BackendOk (B : Backend) : Prop where
@@ -96,7 +99,7 @@ def ArithImpl.sse2 : ArithImpl where
       makeHint := FnOk.of Round.makeHint_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       rej4 := ⟨Rej4.rejNTT4_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
-        by decide +kernel, Code.all_of_allInstrs (by decide +kernel)⟩ }
+        by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4_ret⟩ }
   features := []
 
 end VG.Proof.MlDsa.X86_64

@@ -6,12 +6,11 @@ import VerifiedGarbage.Impl.MlDsa.Arm.Arith.Common
 /-!
 # ML-DSA on 32-bit ARM: the values of the arithmetic modulo `q`
 
-Untrusted: everything here is checked by Lean. What the pieces of code of
-`Impl/MlDsa/Arm/Arith/Common.lean` compute, as functions on words (`bred`,
-`bfix`, `bcsub`, `bmulz`), and their values (`bcsub_mulz`: `csub` after
-`mulz` is the product modulo `q`), from the arithmetic of
-`Proof/MlDsa/Arith/Mul32.lean`; and the symbolic execution of `mulz`, once
-for any state (`mulz_ok`).
+What the pieces of code of `Impl/MlDsa/Arm/Arith/Common.lean` compute, as
+functions on words (`bred`, `bfix`, `bcsub`, `bmulz`), and their values
+(`bcsub_mulz`: `csub` after `mulz` is the product modulo `q`), from the
+arithmetic of `Proof/MlDsa/Arith/Mul32.lean`; and the symbolic execution of
+`mulz`, once for any state (`mulz_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Arith

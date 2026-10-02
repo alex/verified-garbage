@@ -7,8 +7,6 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # Taint tracking for x86-64
 
-Untrusted: everything here is checked by Lean.
-
 The abstract state is the list of registers known to be public, whether the
 (modelled) flags are public, and what is known about memory. Memory is secret
 unless known otherwise: an address must be computed from public registers,
@@ -252,7 +250,7 @@ def step (τ : T) : Instr → Option T
   | .mul r => some (mulStep τ r)
   | .mulx hi lo src => if srcOk τ src then some (mulxStep τ hi lo src) else none
   | .adcx d src | .adox d src => adxStep τ d src
-  -- Frames are not analysed yet.
+  -- Frames are not analysed.
   | .push _ | .pop .. => none
 
 def meet (τ₁ τ₂ : T) : T where
@@ -1782,7 +1780,7 @@ def taint : VG.Taint isa where
   call_sound := Taint.call_sound
   ret := Taint.retStep
   ret_sound := Taint.ret_sound
-  -- Frames are not analysed yet.
+  -- Frames are not analysed.
   push _ _ := none
   push_sound _ h := by cases h
   pop _ _ := none

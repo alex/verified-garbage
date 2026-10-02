@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Sha1.StateMem
 
 /-!
 # Streaming SHA-1 on ARMv7: `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha1.Arm.Stream

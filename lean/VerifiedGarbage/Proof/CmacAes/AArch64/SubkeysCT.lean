@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.CmacAes.AArch64.UpdateCT
 /-!
 # AES-CMAC on AArch64: `vg_cmac_aes_subkeys` is constant time
 
-Untrusted: everything here is checked by Lean. The code before the call
-and after it is checked by the taint analysis, from the registers the
-correctness proof pins (the arguments, then `x19` and `x20`); the call of
-`vg_aes_ctr32` is constant time by its own proof (`ctr_rel`).
+The code before the call and after it is checked by the taint analysis, from
+the registers the correctness proof pins (the arguments, then `x19` and
+`x20`); the call of `vg_aes_ctr32` is constant time by its own proof
+(`ctr_rel`).
 -/
 
 namespace VG.Proof.CmacAes.AArch64

@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.Arith.Zq
 /-!
 # ML-DSA: the NTT as butterflies, for every target
 
-Untrusted: everything here is checked by Lean. `NTT` (Algorithm 41) and
-`NTT⁻¹` (Algorithm 42) restated as the loops an implementation runs, so
-that its proof is only about its instructions:
+`NTT` (Algorithm 41) and `NTT⁻¹` (Algorithm 42) restated as the loops an
+implementation runs, so that its proof is only about its instructions:
 
 * the zetas `zetas m = ζ^BitRev8(m) mod q` as numbers (`zetaNat`);
 * one butterfly, `bfly` (Algorithm 41, lines 8–10) or `bflyInv` (Algorithm

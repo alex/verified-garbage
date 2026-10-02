@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Common
 
 /-!
 # Streaming SHA-256 on AArch64: `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha256.AArch64.Stream

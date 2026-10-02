@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Aes.X86.Common
 /-!
 # Encrypting two blocks, bitsliced, on x86 (32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 `encrypt2_ok`: from two blocks in slots `0 … 7` (`InRel`), with the
 bitsliced round keys in the scratch buffer (`KeysAt`), `encrypt2` leaves
 the two ciphertexts, having written only the first 256 bytes of the scratch

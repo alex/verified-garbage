@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.X86_64.DecodeAll
 /-!
 # X448 on x86-64: reading the arguments
 
-Untrusted: everything here is checked by Lean. Setup saves the two
-callee-saved registers, decodes the coordinate, and initializes the ladder.
+Setup saves the two callee-saved registers, decodes the coordinate, and
+initializes the ladder.
 -/
 
 namespace VG.Proof.X448.X86_64

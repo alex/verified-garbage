@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.WideMul
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarMemory
 
-/-! Untrusted: moving the scalar operands and full product through scratch. -/
+/-! Moving the scalar operands and full product through scratch. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

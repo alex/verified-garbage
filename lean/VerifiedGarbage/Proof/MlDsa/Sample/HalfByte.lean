@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.Sample.RejBounded
 /-!
 # ML-DSA: `CoeffFromHalfByte` as a bound and a formula, for every target
 
-Untrusted: everything here is checked by Lean. For `η = 2` or `4`,
-`CoeffFromHalfByte` accepts the half-bytes less than `rbB η` and gives
-`rbC η b` for them (`coeffFromHalfByte_eq`), so a try appends that
-coefficient exactly when the half-byte is less than the bound (`hbTry_eq`),
-and whether it does is `halfByteOk` (`halfByteOk_eq`).
+For `η = 2` or `4`, `CoeffFromHalfByte` accepts the half-bytes less than `rbB
+η` and gives `rbC η b` for them (`coeffFromHalfByte_eq`), so a try appends
+that coefficient exactly when the half-byte is less than the bound
+(`hbTry_eq`), and whether it does is `halfByteOk` (`halfByteOk_eq`).
 -/
 
 namespace VG.Proof.MlDsa.Sample

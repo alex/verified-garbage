@@ -17,9 +17,9 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ChaCha20-Poly1305 on x86-64: the calls
 
-Untrusted: everything here is checked by Lean. Each call of a verified
-function, from its proof of `Verified` (with `WP.call`): what it needs of the
-state it is called from, and what holds when it returns.
+Each call of a verified function, from its proof of `Verified` (with
+`WP.call`): what it needs of the state it is called from, and what holds when
+it returns.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -387,8 +387,6 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 
 /-!
 # ChaCha20-Poly1305 on x86-64: the entry state, regions and invariant
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305
@@ -422,9 +420,7 @@ def pubX86_64 (s₁ s₂ : X86_64.State) : Prop :=
   s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
+/-- `vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
 def sealX86_64 : Contract X86_64.isa where
   pre := preX86_64
   post s s' :=
@@ -435,9 +431,7 @@ def sealX86_64 : Contract X86_64.isa where
   pub := pubX86_64
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
+/-- `vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
 def openX86_64 : Contract X86_64.isa where
   pre := preX86_64
   post s s' :=
@@ -660,8 +654,8 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 /-!
 # ChaCha20-Poly1305 on x86-64: the prologue
 
-Untrusted: everything here is checked by Lean. Saving the registers, the
-ChaCha20 state for counter 0, the one-time key and the Poly1305 state for it.
+Saving the registers, the ChaCha20 state for counter 0, the one-time key and
+the Poly1305 state for it.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -1025,9 +1019,8 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 /-!
 # ChaCha20-Poly1305 on x86-64: absorbing padded data
 
-Untrusted: everything here is checked by Lean. `macPad p n` absorbs the `n`
-bytes at `p` into the Poly1305 state, and zeros to a multiple of 16:
-`msg ++ x ++ pad16 x`.
+`macPad p n` absorbs the `n` bytes at `p` into the Poly1305 state, and zeros
+to a multiple of 16: `msg ++ x ++ pad16 x`.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -1518,9 +1511,8 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 /-!
 # ChaCha20-Poly1305 on x86-64: the other parts
 
-Untrusted: everything here is checked by Lean. The lengths block, the
-encryption, absorbing the lengths, the tag, comparing tags, and restoring the
-registers.
+The lengths block, the encryption, absorbing the lengths, the tag, comparing
+tags, and restoring the registers.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -1970,8 +1962,7 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 /-!
 # ChaCha20-Poly1305 on x86-64: correctness
 
-Untrusted: everything here is checked by Lean. `seal` and `open`, from their
-parts.
+`seal` and `open`, from their parts.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -2152,14 +2143,13 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 /-!
 # ChaCha20-Poly1305 on x86-64: constant time
 
-Untrusted: everything here is checked by Lean. `seal` and `open` call an
-implementation of `vg_chacha20_xor` that the proof does not know, so the
-taint analysis cannot follow them into it. The code before the call and the
-code after it are checked by the taint analysis; the call is constant time
-by the implementation's own proof (`RelCT.callEx`), since its arguments,
-which correctness determines (`XArgs`), agree in two runs; and after it,
-correctness says again where `rsi` points (`After`), from which the rest is
-checked.
+`seal` and `open` call an implementation of `vg_chacha20_xor` that the proof
+does not know, so the taint analysis cannot follow them into it. The code
+before the call and the code after it are checked by the taint analysis; the
+call is constant time by the implementation's own proof (`RelCT.callEx`),
+since its arguments, which correctness determines (`XArgs`), agree in two
+runs; and after it, correctness says again where `rsi` points (`After`), from
+which the rest is checked.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64

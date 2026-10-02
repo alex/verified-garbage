@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlKem.X86.TopKeep
 /-!
 # ML-KEM-1024 on x86 (32-bit): the start of `vg_mlkem1024_keygen`
 
-Untrusted: everything here is checked by Lean. `esi = scratch`, the word
-`kg4ACC` set to 1, and `ρ ‖ σ = G(d ‖ 4)` at `kg4RS` (`start_piece`), which is
-`P 0`: the state of the loop over `N` that computes `ŝ` and `ê`.
+`esi = scratch`, the word `kg4ACC` set to 1, and `ρ ‖ σ = G(d ‖ 4)` at `kg4RS`
+(`start_piece`), which is `P 0`: the state of the loop over `N` that computes
+`ŝ` and `ê`.
 -/
 
 namespace VG.Proof.MlKem1024.X86.KeyGen

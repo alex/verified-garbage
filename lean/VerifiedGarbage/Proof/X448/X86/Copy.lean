@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.X86.Field
 /-!
 # X448 on x86 (32-bit): copying field elements
 
-Untrusted: everything here is checked by Lean. Equal or disjoint source
-and destination slots preserve the original limbs.
+Equal or disjoint source and destination slots preserve the original limbs.
 -/
 
 namespace VG.Proof.X448.X86

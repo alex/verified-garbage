@@ -3,12 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Top
 /-!
 # ML-DSA on AArch64: what the proofs need of the primitives
 
-Untrusted: everything here is checked by Lean. `PrimsOk P S`: each
-primitive of `P` is correct and constant time under its shared contract with
-`S` bytes of stack, and its frames use at most those `S` bytes (`CalleeOk`,
-from its `Verified` proof by `CalleeOk.of_verified`); `S` is at least the 16
-bytes the sponge functions' frames use. The proofs of `vg_mldsa*_keygen` and
-`vg_mldsa*_verify` hold for any such `P`, with their contracts' stack `S`.
+`PrimsOk P S`: each primitive of `P` is correct and constant time under its
+shared contract with `S` bytes of stack, and its frames use at most those `S`
+bytes (`CalleeOk`, from its `Verified` proof by `CalleeOk.of_verified`); `S`
+is at least the 16 bytes the sponge functions' frames use. The proofs of
+`vg_mldsa*_keygen` and `vg_mldsa*_verify` hold for any such `P`, with their
+contracts' stack `S`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

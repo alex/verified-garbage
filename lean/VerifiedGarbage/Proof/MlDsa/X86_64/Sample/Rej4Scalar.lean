@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.Arith.Mem
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_ntt_poly4`
 
-Untrusted: everything here is checked by Lean. The baseline implementation
-calls `vg_mldsa_rej_ntt_poly` on each seed, between the prologue and the
-epilogue of the one for AVX2 (`Rej4Top.lean`): after the call on seed `K`,
-polynomial `K` is the seed's `RejNTTPoly` if it has 256 coefficients, and
-`r14` records whether the first `K + 1` do (`PC`), as in
-`vg_mlkem_sample_ntt4` (`MlKem/X86_64/S4Scalar.lean`).
+The baseline implementation calls `vg_mldsa_rej_ntt_poly` on each seed,
+between the prologue and the epilogue of the one for AVX2 (`Rej4Top.lean`):
+after the call on seed `K`, polynomial `K` is the seed's `RejNTTPoly` if it
+has 256 coefficients, and `r14` records whether the first `K + 1` do (`PC`),
+as in `vg_mlkem_sample_ntt4` (`MlKem/X86_64/S4Scalar.lean`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Rej4

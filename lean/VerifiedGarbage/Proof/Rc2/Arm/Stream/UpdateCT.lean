@@ -5,14 +5,13 @@ import VerifiedGarbage.Proof.Framework.RelCTAssoc
 /-!
 # Streaming RC2-CBC on ARMv7: the update functions are constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis does not
-analyse frames, so two runs from states that agree on the public arguments
-are related piece by piece (`RelCT`): the test of `out_len`, the copies
-before the call and the restore of `lr` after it are checked by the taint
-analysis, from the public arguments (in registers and on the stack), whose
-values in each run the correctness proofs pin; the branch on `out_len` agrees
-in both runs; and the call of the CBC function, in its frame, is constant
-time by its own proof (`cbc_rel`).
+The taint analysis does not analyse frames, so two runs from states that agree
+on the public arguments are related piece by piece (`RelCT`): the test of
+`out_len`, the copies before the call and the restore of `lr` after it are
+checked by the taint analysis, from the public arguments (in registers and on
+the stack), whose values in each run the correctness proofs pin; the branch on
+`out_len` agrees in both runs; and the call of the CBC function, in its frame,
+is constant time by its own proof (`cbc_rel`).
 -/
 
 namespace VG.Proof.Rc2.Arm.Stream

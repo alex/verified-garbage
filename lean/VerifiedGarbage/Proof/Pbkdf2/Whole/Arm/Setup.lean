@@ -4,11 +4,9 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.Common
 /-!
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: HMAC's states for the key, and the salt
 
-Untrusted: everything here is checked by Lean. As on x86
-(`Proof/Pbkdf2/Whole/X86/Setup.lean`): HMAC's `init` makes the key's inner
-and outer states; the inner one is copied and absorbs the salt
-(`setup_ok`), which gives the three states every block starts from
-(`States`).
+As on x86 (`Proof/Pbkdf2/Whole/X86/Setup.lean`): HMAC's `init` makes the key's
+inner and outer states; the inner one is copied and absorbs the salt
+(`setup_ok`), which gives the three states every block starts from (`States`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.Arm

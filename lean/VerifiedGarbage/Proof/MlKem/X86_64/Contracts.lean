@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # ML-KEM on x86-64: the contracts the proofs are written against
 
-Untrusted: everything here is checked by Lean. For each function, a
-contract with the facts of its shared contract (`Spec/MlKem/Poly.lean`,
-`Spec/MlKem/Contract.lean`) spelled out for x86-64: the arguments in their
-registers, the permitted regions, their disjointness, and the
-postcondition. The proofs are written against these, and callers use them
-(`WP.call`); `Verified.of_correct` moves a proof to the shared contract,
+For each function, a contract with the facts of its shared contract
+(`Spec/MlKem/Poly.lean`, `Spec/MlKem/Contract.lean`) spelled out for x86-64:
+the arguments in their registers, the permitted regions, their disjointness,
+and the postcondition. The proofs are written against these, and callers use
+them (`WP.call`); `Verified.of_correct` moves a proof to the shared contract,
 which implies it (`sig_implies`).
 -/
 

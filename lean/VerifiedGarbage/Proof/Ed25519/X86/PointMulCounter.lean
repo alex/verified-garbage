@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86.PointMul
 import VerifiedGarbage.Proof.Ed25519.X86.PointMulFrame
 
-/-! Untrusted: public batch countdown, leaving all coordinate values unchanged. -/
+/-! Public batch countdown, leaving all coordinate values unchanged. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

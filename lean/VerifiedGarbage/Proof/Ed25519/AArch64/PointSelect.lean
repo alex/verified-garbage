@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.AArch64.PointSelect
 import VerifiedGarbage.Proof.Ed25519.AArch64.Points
 import VerifiedGarbage.Proof.Ed25519.AArch64.Swap
 
-/-! Untrusted: point selection reuses the verified constant-time field swaps. -/
+/-! Point selection reuses the verified constant-time field swaps. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

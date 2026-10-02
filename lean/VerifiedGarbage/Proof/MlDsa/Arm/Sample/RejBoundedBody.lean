@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sample.RejBoundedLoop
 /-!
 # ML-DSA on 32-bit ARM: an iteration of `vg_mldsa_rej_bounded_poly`
 
-Untrusted: everything here is checked by Lean. An iteration from `Base`
-with the coefficients `L`: the byte `z` of the XOF output loaded, its low
-half-byte in `r9` and `Z` set iff `j ≥ 256` (`load_ok`, leaving `LD`); if
-`j < 256`, the low half-byte tried (`try_ok`), the high half-byte and the
-test of `j ≥ 256` again (`hi_ok`, leaving `HI`), and the high half-byte
-tried if `j < 256` (`mid_ok`); then the step (`stepB_ok`): what `rbStep`
-does (`body_ok`).
+An iteration from `Base` with the coefficients `L`: the byte `z` of the XOF
+output loaded, its low half-byte in `r9` and `Z` set iff `j ≥ 256` (`load_ok`,
+leaving `LD`); if `j < 256`, the low half-byte tried (`try_ok`), the high
+half-byte and the test of `j ≥ 256` again (`hi_ok`, leaving `HI`), and the
+high half-byte tried if `j < 256` (`mid_ok`); then the step (`stepB_ok`): what
+`rbStep` does (`body_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sample.RejBounded

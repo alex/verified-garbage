@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.NoSp
 /-!
 # ML-DSA key generation on x86 (32-bit): `vg_mldsa44_keygen`, `vg_mldsa65_keygen`, `vg_mldsa87_keygen`
 
-Untrusted: everything here is checked by Lean. The body, piece by piece
-(`body_piece`), for any parameter set of Table 1 and any verified
-implementations of the primitives: it returns 1 with `KeyGen_internal(ξ)` in
-`pk` and `sk` if every sampler succeeded (for some bounds), and 0 if key
-generation fails within the least bounds (`post`); it leaks only the
-pointers, `ρ` and what `RejBoundedPoly` leaks; so the function meets the
-shared contract (`keyGen_verified`).
+The body, piece by piece (`body_piece`), for any parameter set of Table 1 and
+any verified implementations of the primitives: it returns 1 with
+`KeyGen_internal(ξ)` in `pk` and `sk` if every sampler succeeded (for some
+bounds), and 0 if key generation fails within the least bounds (`post`); it
+leaks only the pointers, `ρ` and what `RejBoundedPoly` leaks; so the function
+meets the shared contract (`keyGen_verified`).
 -/
 
 namespace VG.Proof.MlDsa.X86.KeyGen

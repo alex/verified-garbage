@@ -12,17 +12,15 @@ section
 /-!
 # ML-KEM: the hash functions and XOFs through the streaming sponge
 
-Untrusted: everything here is checked by Lean. What a caller of
-`vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze`
-(`Spec/Sha3/Contract.lean`) needs to conclude that it computed `H`, `J`,
-`G`, `PRF` or `XOF` (§4.1): from the all-zero state, which represents the
-empty message (`repr_nil`), absorbing the pieces of the message, padding
-with the suffix of the function (`sha3Suffix32`, `shakeSuffix32`), and
-squeezing from position 0 gives the function (`H_eq`, `J_eq`, `G_eq`,
-`prf_eq`, `xof_eq`, as `squeezeFrom` of the padded state `padded`); and
-output squeezed in pieces is the concatenation (`squeezeFrom_append`).
-Byte `p` of the XOF output is the same whatever the length asked for
-(`xof_getD`, `xofByte`).
+What a caller of `vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze`
+(`Spec/Sha3/Contract.lean`) needs to conclude that it computed `H`, `J`, `G`,
+`PRF` or `XOF` (§4.1): from the all-zero state, which represents the empty
+message (`repr_nil`), absorbing the pieces of the message, padding with the
+suffix of the function (`sha3Suffix32`, `shakeSuffix32`), and squeezing from
+position 0 gives the function (`H_eq`, `J_eq`, `G_eq`, `prf_eq`, `xof_eq`, as
+`squeezeFrom` of the padded state `padded`); and output squeezed in pieces is
+the concatenation (`squeezeFrom_append`). Byte `p` of the XOF output is the
+same whatever the length asked for (`xof_getD`, `xofByte`).
 -/
 
 namespace VG.Proof.MlKem
@@ -161,14 +159,13 @@ end
 /-!
 # ML-KEM: SampleNTT as a loop, and bounds on its iterations
 
-Untrusted: everything here is checked by Lean. `SampleNTT` (Algorithm 7) as
-the loop an implementation runs over the 3-byte chunks of the XOF output
-(`xofByte`, above): `sampleAfter a out t` is the list of coefficients
-accepted after the first `t` chunks, which stops growing once it has 256
-(`sampleStepCap`). An implementation that bounds the loop by `iters`
-iterations and stops after `t ≤ iters` chunks with 256 coefficients
-computes `sampleNTT iters B` (`sampleNTT_of_full`); one that reaches the
-bound with fewer has `sampleNTT iters B = none` (`sampleNTT_none`).
+`SampleNTT` (Algorithm 7) as the loop an implementation runs over the 3-byte
+chunks of the XOF output (`xofByte`, above): `sampleAfter a out t` is the list
+of coefficients accepted after the first `t` chunks, which stops growing once
+it has 256 (`sampleStepCap`). An implementation that bounds the loop by
+`iters` iterations and stops after `t ≤ iters` chunks with 256 coefficients
+computes `sampleNTT iters B` (`sampleNTT_of_full`); one that reaches the bound
+with fewer has `sampleNTT iters B = none` (`sampleNTT_none`).
 
 A bigger bound gives the same result once the result is `some`
 (`sampleNTT_mono`), and so do the algorithms built on `SampleNTT`
@@ -419,11 +416,11 @@ end
 /-!
 # ML-KEM-768: K-PKE and the internal algorithms as polynomial steps
 
-Untrusted: everything here is checked by Lean. K-PKE.KeyGen, K-PKE.Encrypt,
-K-PKE.Decrypt (Algorithms 13–15) and the internal algorithms of ML-KEM-768
-(Algorithms 16–18) restated, for `k = 3`, as the sequence of calls of the
-polynomial primitives (`Spec/MlKem/Poly.lean`) an implementation makes, so
-that a proof of the top-level functions chains the primitives' contracts:
+K-PKE.KeyGen, K-PKE.Encrypt, K-PKE.Decrypt (Algorithms 13–15) and the internal
+algorithms of ML-KEM-768 (Algorithms 16–18) restated, for `k = 3`, as the
+sequence of calls of the polynomial primitives (`Spec/MlKem/Poly.lean`) an
+implementation makes, so that a proof of the top-level functions chains the
+primitives' contracts:
 
 * `dot3 a b = (a₀ ×_T b₀ + a₁ ×_T b₁) + a₂ ×_T b₂`, accumulated left to right
   with `add` (`dot_eq_dot3`);

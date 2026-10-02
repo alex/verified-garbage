@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlKem.Arm.Extra
 /-!
 # ML-KEM-768 on 32-bit ARM: the hash routine
 
-Untrusted: everything here is checked by Lean. `hash`
-(`Impl/MlKem/Arm/Top.lean`) computes the sponge of the concatenation of its
-input pieces, and writes consecutive output to its output pieces
-(`hash_ok`): from the all-zero state (`repr_nil`), each `absorb` continues
-the message from the position the previous one returned, the padding, and
-each `squeeze` continues the output. It changes only the Keccak state and
-working space, the outputs, the 8 bytes below the stack pointer, and
-registers that are not callee-saved (or `lr`).
+`hash` (`Impl/MlKem/Arm/Top.lean`) computes the sponge of the concatenation of
+its input pieces, and writes consecutive output to its output pieces
+(`hash_ok`): from the all-zero state (`repr_nil`), each `absorb` continues the
+message from the position the previous one returned, the padding, and each
+`squeeze` continues the output. It changes only the Keccak state and working
+space, the outputs, the 8 bytes below the stack pointer, and registers that
+are not callee-saved (or `lr`).
 -/
 
 namespace VG.Proof.MlKem.Arm

@@ -5,14 +5,13 @@ import VerifiedGarbage.Proof.MlKem.Encode1024
 /-!
 # ML-KEM-1024 on x86-64: segments of groups of values and their bytes
 
-Untrusted: everything here is checked by Lean. The pieces of
-`compressEncode1024` and `decodeDecompress1024` that move a segment of a
-group between values and bytes, for any width `d ≤ 11` (the analog of
-`Proof/MlKem/X86_64/Groups.lean`, with offsets): values `o, …, o + c - 1`
-of the group accumulated in `r10` from the last (`ceAcc_ok`), bytes stored
+The pieces of `compressEncode1024` and `decodeDecompress1024` that move a
+segment of a group between values and bytes, for any width `d ≤ 11` (the
+analog of `Proof/MlKem/X86_64/Groups.lean`, with offsets): values `o, …, o + c -
+1` of the group accumulated in `r10` from the last (`ceAcc_ok`), bytes stored
 from `r10` (`ceSt_ok`); bytes `o, …, o + b - 1` loaded into `r10` from the
-last (`ddLd_ok`), and values taken from the bottom of `r10` (`ddVals_ok`).
-A segment is a chunk of the number of the group (`chunk_eq`).
+last (`ddLd_ok`), and values taken from the bottom of `r10` (`ddVals_ok`). A
+segment is a chunk of the number of the group (`chunk_eq`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

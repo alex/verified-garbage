@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.Framework.Block
 
 /-!
 # Straight-line code built from indexed steps
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG

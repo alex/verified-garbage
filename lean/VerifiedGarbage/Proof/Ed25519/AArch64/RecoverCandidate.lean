@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.Power
 import VerifiedGarbage.Proof.Ed25519.AArch64.CounterKeep
 import VerifiedGarbage.Proof.Ed25519.Recover
 
-/-! Untrusted: candidate root and its squared check agree with the decoding specification. -/
+/-! Candidate root and its squared check agree with the decoding specification. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

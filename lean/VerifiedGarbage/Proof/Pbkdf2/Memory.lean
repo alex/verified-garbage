@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Hmac.Common
 /-!
 # PBKDF2-HMAC-SHA-256's iteration: memory lemmas
 
-Untrusted: everything here is checked by Lean. Facts about bytes of memory,
-regions, the exclusive-or of words and the iteration itself that the proofs
-of every target share, so that none imports another target's proof.
+Facts about bytes of memory, regions, the exclusive-or of words and the
+iteration itself that the proofs of every target share, so that none imports
+another target's proof.
 -/
 
 namespace VG.Proof.Pbkdf2.Memory

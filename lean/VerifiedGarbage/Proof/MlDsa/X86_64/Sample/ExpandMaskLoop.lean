@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-DSA on x86-64: the loop of `vg_mldsa_expand_mask_poly`
 
-Untrusted: everything here is checked by Lean. Coefficient `k` of a group
-reads the 32-bit word at byte `⌊ck/8⌋` of the group, whose bits from
-`ck mod 8` on are those of the output from bit `ci` on (`word_bits`: only
-its first 3 bytes matter); it stores `γ₁` minus their low `c` bits modulo `q`
-(`etaF_eq`) to `a[i]` (`emCoef_ok`). A group stores 4 coefficients
-(`emBody_ok`).
+Coefficient `k` of a group reads the 32-bit word at byte `⌊ck/8⌋` of the
+group, whose bits from `ck mod 8` on are those of the output from bit `ci` on
+(`word_bits`: only its first 3 bytes matter); it stores `γ₁` minus their low
+`c` bits modulo `q` (`etaF_eq`) to `a[i]` (`emCoef_run`, `emCoef_val`). A
+group stores 4 coefficients (`emBody_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

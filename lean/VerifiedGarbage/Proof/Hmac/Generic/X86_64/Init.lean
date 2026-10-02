@@ -8,10 +8,9 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function on x86-64: the byte loops
 
-Untrusted: everything here is checked by Lean. The byte copy (`copy`), used
-for states, digests and `U`; the exclusive-or of `U` into `T`; and `init`'s
-loops that write `K₀ ⊕ ipad` and `K₀ ⊕ opad`. Each counts `r14` up from 0
-and ends when it reaches its bound.
+The byte copy (`copy`), used for states, digests and `U`; the exclusive-or of
+`U` into `T`; and `init`'s loops that write `K₀ ⊕ ipad` and `K₀ ⊕ opad`. Each
+counts `r14` up from 0 and ends when it reaches its bound.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86_64
@@ -391,9 +390,9 @@ end VG.Proof.Hmac.Generic.X86_64
 /-!
 # HMAC over any streaming hash function on x86-64: our caller's registers
 
-Untrusted: everything here is checked by Lean. The six callee-saved
-registers we use are stored in `scratch` after the working space of the
-functions we call (`Hash.saved`), and loaded back at the end.
+The six callee-saved registers we use are stored in `scratch` after the
+working space of the functions we call (`Hash.saved`), and loaded back at the
+end.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86_64
@@ -557,8 +556,6 @@ end VG.Proof.Hmac.Generic.X86_64
 
 /-!
 # HMAC over any streaming hash function on x86-64: `init`, correct
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86_64.Init

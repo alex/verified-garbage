@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Radix16Bytes
 /-!
 # X448 on x86 (32-bit): encoding a limb
 
-Untrusted: everything here is checked by Lean. Two byte stores encode each
-16-bit limb in little-endian order without requiring output alignment.
+Two byte stores encode each 16-bit limb in little-endian order without
+requiring output alignment.
 -/
 
 namespace VG.Proof.X448.X86

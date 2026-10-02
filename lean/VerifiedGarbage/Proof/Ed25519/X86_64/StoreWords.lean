@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.FieldWide
 
-/-! Untrusted: save four words in an Ed25519 field slot. -/
+/-! Save four words in an Ed25519 field slot. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

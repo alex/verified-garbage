@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.Bswap
 /-!
 # TDEA-CMAC: blocks as bytes and as 64-bit integers
 
-Untrusted: everything here is checked by Lean.
-
 CMAC works on lists of bytes; TDEA on 64-bit integers, big-endian
 (`decodeBlock`, `encodeBlock`); the implementations load and store
 little-endian words (`le8`), and reverse their bytes (`byteRev64`). So the

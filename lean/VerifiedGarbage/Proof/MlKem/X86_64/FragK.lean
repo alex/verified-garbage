@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.FragPrim
 /-!
 # ML-KEM-768 on x86-64: the calls of the SHA-3 sponge
 
-Untrusted: everything here is checked by Lean. Zeroing the Keccak state at
-`scratch` (`kzero_ok`), and the calls of `vg_keccak_absorb`,
-`vg_keccak_pad` and `vg_keccak_squeeze` on it, with the working space at
-`scratch + 200` (`kabs_ok`, `kpad_ok`, `ksqz_ok`), and their traces.
+Zeroing the Keccak state at `scratch` (`kzero_ok`), and the calls of
+`vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze` on it, with the
+working space at `scratch + 200` (`kabs_ok`, `kpad_ok`, `ksqz_ok`), and their
+traces.
 -/
 
 namespace VG.Proof.MlKem.X86_64

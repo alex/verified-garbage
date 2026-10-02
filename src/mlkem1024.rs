@@ -126,7 +126,8 @@ impl EncapsulationKey1024 {
         // stack, or wrap around the end of the address space. `self.bytes`
         // passed `vg_mlkem1024_check_ek`. `Backend::select` chose AVX2 only
         // if the CPU has `VG_MLKEM1024_ENCAPS_AVX2_FEATURES`.
-        // ARM64 Keccak selection checks the generated SHA-3 feature requirements.
+        // On AArch64, `Backend::select` chose the `_sha3` instance only if the
+        // CPU has its features.
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => {

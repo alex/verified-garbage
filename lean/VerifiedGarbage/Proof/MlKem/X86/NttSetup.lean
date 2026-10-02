@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86 (32-bit): the start of `vg_mlkem_ntt` and `vg_mlkem_inv_ntt`
 
-Untrusted: everything here is checked by Lean. Both load `scratch` into
-`eax` (`ld_piece`), store the zeta table there, point `ebp` at zeta `z`, and
-store `f + 1024` in the argument slot of `scratch` (`setup_piece`), leaving
-`MemOK` with the input polynomial.
+Both load `scratch` into `eax` (`ld_piece`), store the zeta table there, point
+`ebp` at zeta `z`, and store `f + 1024` in the argument slot of `scratch`
+(`setup_piece`), leaving `MemOK` with the input polynomial.
 -/
 
 namespace VG.Proof.MlKem.X86.NttLoop

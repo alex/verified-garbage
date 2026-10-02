@@ -9,9 +9,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_decode12`
 
-Untrusted: everything here is checked by Lean. Bytes `3k … 3k+2` are the
-12-bit fields of coefficients `2k` and `2k+1` (`decode12_even`,
-`decode12_odd`), each reduced with one conditional subtraction.
+Bytes `3k … 3k+2` are the 12-bit fields of coefficients `2k` and `2k+1`
+(`decode12_even`, `decode12_odd`), each reduced with one conditional
+subtraction.
 -/
 
 namespace VG.Proof.MlKem.X86.Decode12

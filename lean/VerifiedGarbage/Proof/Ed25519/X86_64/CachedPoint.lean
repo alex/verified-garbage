@@ -7,9 +7,8 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.PointAccumulateLoop
 /-!
 # Cached points
 
-Untrusted. The cached addition is the specification's `pointAdd` (`ring`);
-each constant field of a cached point is four immediate words stored
-through `rax`.
+The cached addition is the specification's `pointAdd` (`ring`); each constant
+field of a cached point is four immediate words stored through `rax`.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

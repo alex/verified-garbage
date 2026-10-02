@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.CmacAes.Stream.AArch64.Common
 /-!
 # Streaming AES-CMAC on AArch64: `vg_cmac_aes_absorb`'s straight-line code
 
-Untrusted: everything here is checked by Lean. What each piece of code
-between the copies and calls computes, in terms of `count` (`c`) and `len`
-(`L`): the bytes held back `h = held c`, the bytes copied after them
-`f = min L (16 - h)`, the data left `L - f`, whether to chain the block held
-back (`b1`), the blocks chained after it (`nb`), and the rest (`rest`); and
-the registers `absorb` saves at `scratch + 2176`, where the functions it
-calls do not write, and restores at the end.
+What each piece of code between the copies and calls computes, in terms of
+`count` (`c`) and `len` (`L`): the bytes held back `h = held c`, the bytes
+copied after them `f = min L (16 - h)`, the data left `L - f`, whether to
+chain the block held back (`b1`), the blocks chained after it (`nb`), and the
+rest (`rest`); and the registers `absorb` saves at `scratch + 2176`, where the
+functions it calls do not write, and restores at the end.
 -/
 
 namespace VG.Proof.CmacAes.Stream.AArch64

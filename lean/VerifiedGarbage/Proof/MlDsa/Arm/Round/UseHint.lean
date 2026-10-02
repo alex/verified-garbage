@@ -7,12 +7,11 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_use_hint`
 
-Untrusted: everything here is checked by Lean. The loop body is
-symbolically executed once for each value of `γ₂` (`body_ok`); its value is
-`(f + m + δ) mod m` for the `δ` of `useHint_eq` (`buh_val`): the carry of
-`f · 2γ₂ - a` is clear exactly when `f · 2γ₂ < a`, and the hint word `h` is
-not 0 exactly when bit 31 of `(0 - h) | h` is set (`nz_eq`). `γ₂` selects one
-of two loops, in the frames that save `r4`–`r6`.
+The loop body is symbolically executed once for each value of `γ₂`
+(`body_ok`); its value is `(f + m + δ) mod m` for the `δ` of `useHint_eq`
+(`buh_val`): the carry of `f · 2γ₂ - a` is clear exactly when `f · 2γ₂ < a`,
+and the hint word `h` is not 0 exactly when bit 31 of `(0 - h) | h` is set
+(`nz_eq`). `γ₂` selects one of two loops, in the frames that save `r4`–`r6`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Round.UseHint

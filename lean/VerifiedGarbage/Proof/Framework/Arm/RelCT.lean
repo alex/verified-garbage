@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.Arm.Call
 /-!
 # Calls of code that makes calls, and constant time by relating two runs (ARMv7)
 
-Untrusted: everything here is checked by Lean.
-
 `WP.callCalls` is `WP.call` for a callee that makes calls of its own (but
 has no frames): the registers it keeps are those none of its instructions
 writes, other than those a call changes (`linkRegs`).

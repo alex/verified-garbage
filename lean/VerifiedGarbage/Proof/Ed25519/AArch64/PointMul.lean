@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulBatch
 
-/-! Untrusted: checkpoint generation before the batch descent. -/
+/-! Checkpoint generation before the batch descent. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

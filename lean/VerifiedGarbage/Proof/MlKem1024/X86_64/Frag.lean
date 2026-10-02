@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.MlKem.KPke1024
 /-!
 # ML-KEM-1024 on x86-64: the pieces of the top-level functions
 
-Untrusted: everything here is checked by Lean. As `FragPrim.lean`,
-`FragL.lean`, `FragS.lean` and `FragC.lean` of ML-KEM-768 (whose lemmas
-the others are), for the pieces ML-KEM-1024 adds: the calls of
+As `FragPrim.lean`, `FragL.lean`, `FragS.lean` and `FragC.lean` of ML-KEM-768
+(whose lemmas the others are), for the pieces ML-KEM-1024 adds: the calls of
 `vg_mlkem1024_compress_encode` and `vg_mlkem1024_decode_decompress`
-(`ce4At_ok`, `dd4At_ok`, …, and in a layout `ce4At_okL`, …), and sums of
-four products (`dot4At_ok`, `dot4At_tr`).
+(`ce4At_ok`, `dd4At_ok`, …, and in a layout `ce4At_okL`, …), and sums of four
+products (`dot4At_ok`, `dot4At_tr`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

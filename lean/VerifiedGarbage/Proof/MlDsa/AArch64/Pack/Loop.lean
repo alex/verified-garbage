@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.Pack.Bits
 /-!
 # ML-DSA on AArch64: the loops over the groups
 
-Untrusted: everything here is checked by Lean. `packLoop_ok`: the loop of
-`packBody` writes the packing of the values of the 256 coefficients at
-`f`; `unpackLoop_ok`: the loop of `unpackBody` writes, for each field of
-the bytes at `v`, `fin`'s coefficient of it. Both for any width and any
-`ld` or `fin`, from the group lemmas of `Stream.lean`.
+`packLoop_ok`: the loop of `packBody` writes the packing of the values of the
+256 coefficients at `f`; `unpackLoop_ok`: the loop of `unpackBody` writes, for
+each field of the bytes at `v`, `fin`'s coefficient of it. Both for any width
+and any `ld` or `fin`, from the group lemmas of `Stream.lean`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Pack

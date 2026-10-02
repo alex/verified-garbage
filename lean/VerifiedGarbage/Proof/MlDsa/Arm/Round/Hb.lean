@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.MlDsa.Round.Decompose
 /-!
 # ML-DSA on 32-bit ARM: the values of `Decompose`
 
-Untrusted: everything here is checked by Lean. What `hbRaw`, `csubM` and
-`hb` leave in their register, as functions on words (`bhbRaw`, `bcsubM`,
-`bhb`), and their values: `f` (`bhbRaw_toNat`, from `hbF_eq`) and
-`f mod m`, the `r₁` of `Decompose` (`bhb_toNat`), for both values of `γ₂`.
+What `hbRaw`, `csubM` and `hb` leave in their register, as functions on words
+(`bhbRaw`, `bcsubM`, `bhb`), and their values: `f` (`bhbRaw_toNat`, from
+`hbF_eq`) and `f mod m`, the `r₁` of `Decompose` (`bhb_toNat`), for both
+values of `γ₂`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Round

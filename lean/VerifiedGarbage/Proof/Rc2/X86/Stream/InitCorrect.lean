@@ -6,9 +6,8 @@ import VerifiedGarbage.Proof.Framework.X86.CallWith
 /-!
 # Streaming RC2-CBC on x86 (32-bit): `init` is correct
 
-Untrusted: everything here is checked by Lean. The call of the verified key
-expansion (`keyCall_ok`) and `init_correct`: the error code for invalid
-lengths, and otherwise the context.
+The call of the verified key expansion (`keyCall_ok`) and `init_correct`: the
+error code for invalid lengths, and otherwise the context.
 -/
 
 namespace VG.Proof.Rc2.X86.Stream.Init

@@ -5,12 +5,11 @@ import VerifiedGarbage.Spec.MlKem.Contract
 /-!
 # ML-KEM-768 on x86 (32-bit): the setting of `vg_mlkem768_decaps`
 
-Untrusted: everything here is checked by Lean. The layout of the arguments
-(`Y`: `dk`, `ct`, `key`, `scratch`, and the 88 bytes of stack), which the
-contract's precondition implies (`pre_of`); the public data, `ρ`
-(`pub_of`), which is that of the encapsulation key in `dk` (`rho_eq`); and
-the values the body computes: `m'` (`mD`), and the inputs of the
-re-encryption (`I`). `dk`, `ct` and the values computed from them are
+The layout of the arguments (`Y`: `dk`, `ct`, `key`, `scratch`, and the 88
+bytes of stack), which the contract's precondition implies (`pre_of`); the
+public data, `ρ` (`pub_of`), which is that of the encapsulation key in `dk`
+(`rho_eq`); and the values the body computes: `m'` (`mD`), and the inputs of
+the re-encryption (`I`). `dk`, `ct` and the values computed from them are
 irreducible, so that elaboration never evaluates their bytes.
 -/
 

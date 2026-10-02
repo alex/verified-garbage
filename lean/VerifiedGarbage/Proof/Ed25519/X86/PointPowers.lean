@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PointPowersCounter
 
-/-! Untrusted: write the current point, then advance one or sixteen doublings. -/
+/-! Write the current point, then advance one or sixteen doublings. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

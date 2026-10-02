@@ -4,8 +4,7 @@ import VerifiedGarbage.Proof.Framework.X86.RegUpd
 /-!
 # X448 on x86 (32-bit): constant-time conditional swaps
 
-Untrusted: everything here is checked by Lean. An XOR mask swaps limbs
-without a secret-dependent branch or memory address.
+An XOR mask swaps limbs without a secret-dependent branch or memory address.
 -/
 
 namespace VG.Proof.X448.X86

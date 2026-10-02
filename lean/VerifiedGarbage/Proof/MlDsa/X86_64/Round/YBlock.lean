@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.VLanes
 /-!
 # ML-DSA on x86-64: the SSE2 code of the AVX2 rounding, on a register
 
-Untrusted: everything here is checked by Lean. `hbX` and `lbX` compute
-`hbL` and `lbL` in each doubleword of `xmm0` (`hbX_ok`, `lbX_ok`), with
-the constants in `xmm8`, `xmm9`, `xmm10` (and `q` in `xmm15`).
+`hbX` and `lbX` compute `hbL` and `lbL` in each doubleword of `xmm0`
+(`hbX_ok`, `lbX_ok`), with the constants in `xmm8`, `xmm9`, `xmm10` (and `q`
+in `xmm15`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Poly1305.Limbs26
 /-!
 # Poly1305 on x86-64 with AVX2: the product
 
-Untrusted: everything here is checked by Lean. `mul` multiplies the four
-lanes of the accumulator `H` by the low doublewords of `Y`, lane by lane,
-and carries: `Limbs26.mul`, with the limbs small enough that nothing wraps.
+`mul` multiplies the four lanes of the accumulator `H` by the low doublewords
+of `Y`, lane by lane, and carries: `Limbs26.mul`, with the limbs small enough
+that nothing wraps.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx2

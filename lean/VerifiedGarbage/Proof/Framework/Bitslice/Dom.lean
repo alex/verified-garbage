@@ -1,8 +1,6 @@
 /-!
 # Abstract domains for straight-line bitwise code
 
-Untrusted: everything here is checked by Lean.
-
 Straight-line code that only moves words around and combines them with
 bitwise operations, rotations, logical shifts and constants (bitsliced
 code, bit-matrix transposes, …) can be checked by *evaluating* it over an

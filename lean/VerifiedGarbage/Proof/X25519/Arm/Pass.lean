@@ -5,11 +5,10 @@ import VerifiedGarbage.Impl.X25519.Arm
 /-!
 # X25519 on 32-bit ARM: carrying sums into limbs
 
-Untrusted: everything here is checked by Lean. `pass rb o src` stores at
-`[rb, #o]` the limbs of `Σ c_k 2^(16k) + cin`, from the sums `c_k` that
-`src k` leaves in `r3` and the carry `cin` in `r5` (`pass_ok`), for any
-`src` that computes them from the memory as it was, but for the limbs
-already stored (`PassInv.frame`).
+`pass rb o src` stores at `[rb, #o]` the limbs of `Σ c_k 2^(16k) + cin`, from
+the sums `c_k` that `src k` leaves in `r3` and the carry `cin` in `r5`
+(`pass_ok`), for any `src` that computes them from the memory as it was, but
+for the limbs already stored (`PassInv.frame`).
 -/
 
 namespace VG.Proof.X25519.Arm

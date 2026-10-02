@@ -5,11 +5,10 @@ import VerifiedGarbage.Impl.Blake2.X86.CompressB
 /-!
 # BLAKE2b on x86 (32-bit): `G`
 
-Untrusted: everything here is checked by Lean. The weakest-precondition
-rules for the 64-bit operations of `VG.Impl.Blake2.X86.CompressB` that
-`Proof/Sha512/X86/Rounds.lean` does not have (the exclusive or of two pairs,
-and the rotations), and `g_ok`: one symbolic execution of `G` for any
-offsets of its words in `scratch`.
+The weakest-precondition rules for the 64-bit operations of
+`VG.Impl.Blake2.X86.CompressB` that `Proof/Sha512/X86/Rounds.lean` does not
+have (the exclusive or of two pairs, and the rotations), and `g_ok`: one
+symbolic execution of `G` for any offsets of its words in `scratch`.
 -/
 
 namespace VG.Proof.Blake2.X86.CompressB

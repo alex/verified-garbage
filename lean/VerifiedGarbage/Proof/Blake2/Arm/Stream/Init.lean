@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # Streaming BLAKE2 on ARMv7: `init`
 
-Untrusted: everything here is checked by Lean. `initState` stores the
-initial hash value as 32-bit words (`word32`, two per word of BLAKE2b), the
-first with the parameter block XORed in; for a key, `keyBlock` zeroes the
-buffer and copies the key into it. `init` is a leaf function writing only
-`r1`–`r3` and `r12`.
+`initState` stores the initial hash value as 32-bit words (`word32`, two per
+word of BLAKE2b), the first with the parameter block XORed in; for a key,
+`keyBlock` zeroes the buffer and copies the key into it. `init` is a leaf
+function writing only `r1`–`r3` and `r12`.
 -/
 
 namespace VG.Proof.Blake2.Arm.Stream.Init

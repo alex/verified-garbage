@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.Arm.Loops
 /-!
 # ML-DSA signing on ARMv7: the blocks between the calls
 
-Untrusted: everything here is checked by Lean. As on x86-64: what the
-function's own instructions do, in its layout: copies (`copy_okB`, with
-ML-KEM's `copy_loop`), stores of a byte or of a word (`setB_okB`,
-`setW_okB`), the AND of a result into `r11` (`and11_ok`), and the counters
-in `scratch` (`addW_ok`, `decW_ok`).
+As on x86-64: what the function's own instructions do, in its layout: copies
+(`copy_okB`, with ML-KEM's `copy_loop`), stores of a byte or of a word
+(`setB_okB`, `setW_okB`), the AND of a result into `r11` (`and11_ok`), and the
+counters in `scratch` (`addW_ok`, `decW_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

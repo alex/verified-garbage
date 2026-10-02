@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Table
 /-!
 # ARMv7: linear layers of bitsliced code, by evaluation
 
-Untrusted: everything here is checked by Lean.
-
 As `Framework/AArch64/Linear.lean`, on 32-bit words: straight-line code
 that only moves and XORs bits of words, and masks them with constants, is
 checked by evaluating it (`Straight.check`) over the lane domain

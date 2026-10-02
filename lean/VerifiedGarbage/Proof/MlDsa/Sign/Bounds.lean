@@ -4,11 +4,10 @@ import VerifiedGarbage.Spec.MlDsa.Contract
 /-!
 # ML-DSA: the samplers are monotone in their bounds
 
-Untrusted: everything here is checked by Lean. The XOFs' output for a
-larger length extends the output for a smaller one (`H_take`, `G_take`), so
-`RejNTTPoly`, `SampleInBall` and `ExpandA` that finish within a bound give
-the same result within any larger one (`rejNTTPoly_mono`,
-`sampleInBall_mono`, `expandA_mono`).
+The XOFs' output for a larger length extends the output for a smaller one
+(`H_take`, `G_take`), so `RejNTTPoly`, `SampleInBall` and `ExpandA` that
+finish within a bound give the same result within any larger one
+(`rejNTTPoly_mono`, `sampleInBall_mono`, `expandA_mono`).
 -/
 
 namespace VG.Proof.MlDsa.Sign

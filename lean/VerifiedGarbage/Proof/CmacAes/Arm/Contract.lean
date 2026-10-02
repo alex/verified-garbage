@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.CmacAes.Arm.Call
 /-!
 # AES-CMAC on ARMv7: the contracts the proofs are written against
 
-Untrusted: everything here is checked by Lean. The artifacts' contracts are
-the shared ones of `Spec/Cmac/Contract.lean`, which imply these
-(`Verified.lean`). Each function pushes `vg_aes_ctr32`'s two stack arguments
-in the 8 bytes below the stack pointer, which may not overlap any buffer.
+The artifacts' contracts are the shared ones of `Spec/Cmac/Contract.lean`,
+which imply these (`Verified.lean`). Each function pushes `vg_aes_ctr32`'s two
+stack arguments in the 8 bytes below the stack pointer, which may not overlap
+any buffer.
 -/
 
 namespace VG.Proof.CmacAes.Arm

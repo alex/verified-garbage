@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.CmacAes.Stream.X86.Absorb
 /-!
 # Streaming AES-CMAC on x86: `vg_cmac_aes_absorb` is constant time
 
-Untrusted: everything here is checked by Lean. Two runs from states that
-agree on the public arguments are related piece by piece (`RelCT`): the
-taint analysis covers the code between the calls, from `esp`, the stack
-arguments and `ebp`, which the correctness proof pins to a value of the
-public arguments (`AAft`), and each call of `vg_cmac_aes_update`, in its
-frame, is constant time by its own proof (`upd_rel`), its arguments pinned
-by `AMid₁` and `AMid₂`.
+Two runs from states that agree on the public arguments are related piece by
+piece (`RelCT`): the taint analysis covers the code between the calls, from
+`esp`, the stack arguments and `ebp`, which the correctness proof pins to a
+value of the public arguments (`AAft`), and each call of `vg_cmac_aes_update`,
+in its frame, is constant time by its own proof (`upd_rel`), its arguments
+pinned by `AMid₁` and `AMid₂`.
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86
