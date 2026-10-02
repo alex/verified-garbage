@@ -240,10 +240,11 @@ def tag (o : Nat) : Prog isa :=
       .mov .rdx (.reg .r14)] ++ ptr .rcx .r15 o ++ [.mov32 .r8 (imm 1)] ++ ptr .r9 .r15 scrO))
     (.call c.ctr.name c.ctr.code))
 
-/-- `J₀` of a 12-byte nonce. -/
+/-- `J₀` of a 12-byte nonce: its three words and `0x00000001` (big-endian). -/
 def j012 : List Instr :=
-  [.mov .rax (.mem (at_ .r12 0)), .store (at_ .r14 0) .rax, .mov32 .rax (.mem (at_ .r12 8)),
-    .store32 (at_ .r14 8) .rax, .mov32 .rax (imm 0x01000000), .store32 (at_ .r14 12) .rax]
+  [.mov32 .rax (.mem (at_ .r12 0)), .mov32 .rcx (.mem (at_ .r12 4)), .mov32 .rdx (.mem (at_ .r12 8)),
+    .mov32 .rsi (imm 0x01000000), .store32 (at_ .r14 0) .rax, .store32 (at_ .r14 4) .rcx,
+    .store32 (at_ .r14 8) .rdx, .store32 (at_ .r14 12) .rsi]
 
 /-- `J₀` of any other nonce. -/
 def j0hash : Prog isa :=
@@ -255,12 +256,12 @@ def j0hash : Prog isa :=
   (.seq (.block [.mov32 .rbx (imm 0), .mov .rbp (.mem (at_ .r15 auxO))])
     (lens c 0)))))
 
-/-- The accumulator zeroed, and the first counter block `inc₃₂(J₀)`. -/
+/-- The first counter block `inc₃₂(J₀)`, word by word, and the accumulator zeroed. -/
 def initState : List Instr :=
-  [.mov32 .rax (imm 0), .store (at_ .r14 16) .rax, .store (at_ .r14 24) .rax,
-    .mov .rax (.mem (at_ .r14 0)), .store (at_ .r14 48) .rax, .mov .rax (.mem (at_ .r14 8)),
-    .store (at_ .r14 56) .rax, .mov32 .rax (.mem (at_ .r14 12)), .bswap32 .rax,
-    .alu32 .add .rax (imm 1), .bswap32 .rax, .store32 (at_ .r14 60) .rax]
+  [.mov32 .rax (.mem (at_ .r14 0)), .mov32 .rcx (.mem (at_ .r14 4)), .mov32 .rdx (.mem (at_ .r14 8)),
+    .mov32 .rsi (.mem (at_ .r14 12)), .bswap32 .rsi, .alu32 .add .rsi (imm 1), .bswap32 .rsi,
+    .store32 (at_ .r14 48) .rax, .store32 (at_ .r14 52) .rcx, .store32 (at_ .r14 56) .rdx,
+    .store32 (at_ .r14 60) .rsi, .mov32 .rax (imm 0), .store (at_ .r14 16) .rax, .store (at_ .r14 24) .rax]
 
 /-- The streaming state for the `rbp`-byte nonce at `r12`. -/
 def j0 : Prog isa :=
