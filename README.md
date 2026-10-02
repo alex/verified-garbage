@@ -279,7 +279,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -318,6 +318,22 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>HMAC-SHA-224</td>
+
+<td>✅</td>
+
+<td>✅ SHA extensions, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -640,6 +656,22 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>PBKDF2-HMAC-SHA-224</td>
+
+<td>✅</td>
+
+<td>✅ SHA extensions, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>❌</td>
 
 </tr>
 

@@ -9,6 +9,9 @@ open VG VG.AArch64
 structure XorImpl where
   callee : Impl.ChaCha20.AArch64.XorCallee
   features : List String
+  /-- Notes on the implementation, for the documentation of `vg_chacha20_xor` and its
+  variants. -/
+  notes : List String
   ok : ∀ s, xorAArch64.pre s →
     ∃ t s', Exec isa callee.code s t s' ∧ abiPreserved s s' ∧ xorAArch64.post s s'
   ct : ConstantTime isa xorAArch64.pre xorAArch64.pub callee.code

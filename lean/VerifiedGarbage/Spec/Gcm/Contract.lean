@@ -372,7 +372,7 @@ def streamCryptSig : Sig where
 /-- For `rounds` of 10, 12 or 14, with the key context at `ctx`: if the
 streaming state at `state` represents a message with the IV `iv`,
 additional data `a` of `aad_len` bytes and the ciphertext of a plaintext
-`p` of `text_len` bytes (both modulo 2⁶⁴) so far, then afterwards it
+`p` of exactly `text_len` bytes (and `aad_len` modulo 2⁶⁴) so far, then afterwards it
 represents the message with the ciphertext of `p` followed by the `len`
 bytes at `data`, whose encryption is written to `data`: the last `len`
 bytes of `GCTR_K(inc₃₂(J₀), p ‖ data)`. -/
@@ -384,7 +384,7 @@ def streamEncryptContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M 
       let ciph := ctxCiph m ctx rounds.toNat
       let h := ctxH m ctx
       ∀ iv a p, StreamRepr m state ciph h iv a (gctr ciph (inc32 (j0 h iv)) p) →
-        aadLen = BitVec.ofNat 64 a.length → textLen = BitVec.ofNat 64 p.length →
+        aadLen = BitVec.ofNat 64 a.length → textLen.toNat = p.length →
         let c := gctr ciph (inc32 (j0 h iv)) (p ++ Aes.bytesAt m data len.toNat)
         StreamRepr m' state ciph h iv a c ∧ Aes.bytesAt m' data len.toNat = c.drop p.length)
     (writeArgs := true)
@@ -400,7 +400,7 @@ def streamEncryptApi : Api where
   summary := "Encrypts the next piece of the text of an incremental AES-GCM encryption (NIST SP \
     800-38D §7.1): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` \
     rounds, if the streaming state `*state` represents a message with `aad_len` bytes of \
-    additional data and the ciphertext of `text_len` bytes of plaintext so far (modulo 2⁶⁴), \
+    additional data and the ciphertext of exactly `text_len` bytes of plaintext so far, \
     encrypts the `len` bytes at `data` in place, as the continuation of that plaintext, and \
     the state then represents the message with them appended.\n\n\
     The function checks no length: GCM requires at most `2^36 - 32` bytes of text and at most \
@@ -415,7 +415,7 @@ def streamEncryptApi : Api where
 /-- For `rounds` of 10, 12 or 14, with the key context at `ctx`: if the
 streaming state at `state` represents a message with the IV `iv`,
 additional data `a` of `aad_len` bytes and the ciphertext `c` of `text_len`
-bytes (both modulo 2⁶⁴) so far, then afterwards it represents the message
+bytes (exactly, and `aad_len` modulo 2⁶⁴) so far, then afterwards it represents the message
 with the ciphertext `c` followed by the `len` bytes at `data`, whose
 decryption is written to `data`: the last `len` bytes of
 `GCTR_K(inc₃₂(J₀), c ‖ data)`. -/
@@ -427,7 +427,7 @@ def streamDecryptContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M 
       let ciph := ctxCiph m ctx rounds.toNat
       let h := ctxH m ctx
       ∀ iv a c, StreamRepr m state ciph h iv a c →
-        aadLen = BitVec.ofNat 64 a.length → textLen = BitVec.ofNat 64 c.length →
+        aadLen = BitVec.ofNat 64 a.length → textLen.toNat = c.length →
         let c' := c ++ Aes.bytesAt m data len.toNat
         StreamRepr m' state ciph h iv a c' ∧
           Aes.bytesAt m' data len.toNat = (gctr ciph (inc32 (j0 h iv)) c').drop c.length)
@@ -444,7 +444,7 @@ def streamDecryptApi : Api where
   summary := "Decrypts the next piece of the text of an incremental AES-GCM decryption (NIST SP \
     800-38D §7.2): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` \
     rounds, if the streaming state `*state` represents a message with `aad_len` bytes of \
-    additional data and `text_len` bytes of ciphertext so far (modulo 2⁶⁴), decrypts the `len` \
+    additional data and exactly `text_len` bytes of ciphertext so far, decrypts the `len` \
     bytes of ciphertext at `data` in place, as the continuation of that ciphertext, and the \
     state then represents the message with them appended. The plaintext is not authenticated \
     until `vg_aes_gcm_stream_verify` has returned 1.\n\n\
@@ -468,7 +468,7 @@ def streamFinishSig : Sig where
 /-- For `rounds` of 10, 12 or 14, with the key context at `ctx`: if the
 streaming state at `state` represents a message with the IV `iv`,
 additional data `a` of `aad_len` bytes and the ciphertext `c` of `text_len`
-bytes (both modulo 2⁶⁴), writes its 16-byte tag (`fullTag`) to the first 16
+bytes (exactly, and `aad_len` modulo 2⁶⁴), writes its 16-byte tag (`fullTag`) to the first 16
 bytes of `work`. -/
 def streamFinishContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   streamFinishSig.contract A
@@ -478,7 +478,7 @@ def streamFinishContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :
       let ciph := ctxCiph m ctx rounds.toNat
       let h := ctxH m ctx
       ∀ iv a c, StreamRepr m state ciph h iv a c →
-        aadLen = BitVec.ofNat 64 a.length → textLen = BitVec.ofNat 64 c.length →
+        aadLen = BitVec.ofNat 64 a.length → textLen.toNat = c.length →
         Aes.bytesAt m' work 16 = fullTag ciph h iv a c)
     (writeArgs := true)
     (stack := stack)
@@ -493,7 +493,7 @@ def streamFinishApi : Api where
   summary := "Finishes an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7.1 \
     steps 5–6, §7.2 steps 6–7): with the key context `*ctx` that `vg_aes_gcm_init` wrote for \
     `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes \
-    of additional data and `text_len` bytes of ciphertext (modulo 2⁶⁴), writes its 128-bit \
+    of additional data and exactly `text_len` bytes of ciphertext, writes its 128-bit \
     tag to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified \
     on return. A shorter tag is the first bytes of this one; to check a received tag, use \
     `vg_aes_gcm_stream_verify`.\n\n\
@@ -528,7 +528,7 @@ def streamVerifyContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :
       let ciph := ctxCiph m ctx rounds.toNat
       let h := ctxH m ctx
       ∀ iv a c, StreamRepr m state ciph h iv a c →
-        aadLen = BitVec.ofNat 64 a.length → textLen = BitVec.ofNat 64 c.length →
+        aadLen = BitVec.ofNat 64 a.length → textLen.toNat = c.length →
         let t := fullTag ciph h iv a c
         if tagLenOk tagLen.toNat ∧ t.take tagLen.toNat = Aes.bytesAt m work tagLen.toNat then
           r = 1 ∧ Aes.bytesAt m' work 16 = t
@@ -547,7 +547,7 @@ def streamVerifyApi : Api where
     §7.2 steps 6–8): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` \
     rounds and the received tag in the first `tag_len` bytes of `*work`, if the streaming \
     state `*state` represents a message with `aad_len` bytes of additional data and \
-    `text_len` bytes of ciphertext (modulo 2⁶⁴), returns 1 if `tag_len` is 4, 8, 12, 13, 14, \
+    exactly `text_len` bytes of ciphertext, returns 1 if `tag_len` is 4, 8, 12, 13, 14, \
     15 or 16 (§5.2.1.2) and the received tag is the first `tag_len` bytes of the message's \
     128-bit tag, which it then writes to the first 16 bytes of `*work`; otherwise returns 0 \
     and writes 16 zero bytes there. The rest of `*work` is working space, unspecified on \

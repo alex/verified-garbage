@@ -18,7 +18,7 @@ pub fn bench(c: &mut Criterion) {
     use criterion::BenchmarkId;
     use openssl::derive::Deriver;
     use openssl::pkey::{Id, PKey};
-    use verified_garbage::x25519::PrivateKey;
+    use verified_garbage::x25519::{PrivateKey, x25519};
 
     use crate::{OPENSSL, VG};
     let private = [0x42; 32];
@@ -41,6 +41,44 @@ pub fn bench(c: &mut Criterion) {
             d.set_peer(&peer).unwrap();
             d.derive_to_vec().unwrap()
         })
+    });
+    g.finish();
+
+    let mut g = c.benchmark_group("x25519_raw");
+    g.bench_function(BenchmarkId::new(VG, 32), |b| {
+        b.iter(|| x25519(black_box(&private), black_box(&peer)))
+    });
+    g.bench_function(BenchmarkId::new(OPENSSL, 32), |b| {
+        b.iter(|| {
+            let key = PKey::private_key_from_raw_bytes(black_box(&private), Id::X25519).unwrap();
+            let peer = PKey::public_key_from_raw_bytes(black_box(&peer), Id::X25519).unwrap();
+            let mut d = Deriver::new(&key).unwrap();
+            d.set_peer(&peer).unwrap();
+            d.derive_to_vec().unwrap()
+        })
+    });
+    g.finish();
+
+    let mut g = c.benchmark_group("x25519_public_key");
+    g.bench_function(BenchmarkId::new(VG, 32), |b| {
+        b.iter(|| PrivateKey::from_bytes(black_box(&private)).public_key())
+    });
+    g.bench_function(BenchmarkId::new(OPENSSL, 32), |b| {
+        b.iter(|| {
+            PKey::private_key_from_raw_bytes(black_box(&private), Id::X25519)
+                .unwrap()
+                .raw_public_key()
+                .unwrap()
+        })
+    });
+    g.finish();
+
+    let mut g = c.benchmark_group("x25519_generate");
+    g.bench_function(BenchmarkId::new(VG, 32), |b| {
+        b.iter(|| *PrivateKey::generate().unwrap().as_bytes())
+    });
+    g.bench_function(BenchmarkId::new(OPENSSL, 32), |b| {
+        b.iter(|| PKey::generate_x25519().unwrap().raw_private_key().unwrap())
     });
     g.finish();
 }
