@@ -57,6 +57,7 @@ mod sha384;
 mod sha512;
 mod sha512_224;
 mod sha512_256;
+mod sha512_proto;
 mod triple_des_ecb;
 mod x25519;
 mod x448;
@@ -243,6 +244,7 @@ const BENCHES: &[Bench] = &[
     (sha3::USES, sha3::bench),
     (sha384::USES, sha384::bench),
     (sha512::USES, sha512::bench),
+    (sha512_proto::USES, sha512_proto::bench),
     (sha512_224::USES, sha512_224::bench),
     (sha512_256::USES, sha512_256::bench),
     (x25519::USES, x25519::bench),
