@@ -61,20 +61,15 @@ theorem pre_of {w : Nat} {P : Params w} {s₀ : State} (h : (finalizeAArch64 P).
 /-- The saved registers are outside everything written after the saves. -/
 theorem Saved.frame {w : Nat} {s₀ : State} (hp : Pre w s₀) {g : Reg → BitVec 64} {m m' : Mem}
     (h : Saved (scr s₀) g m) (hf : Frame [stR s₀ w, outR s₀ w, ⟨scr s₀, 512⟩] m m') :
-    Saved (scr s₀) g m' := by
-  intro p hp'
-  have hoff : 512 ≤ p.2 ∧ p.2 + 8 ≤ 560 := by
-    simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
-    rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-  rw [← h p hp']
-  have hsub : Region.Sub ⟨scr s₀ + BitVec.ofNat 64 p.2, 8⟩ (scR s₀) := Offset.sub_base _ (by omega)
-  refine hf.readW (Region.contains_self _ _) ?_ (by decide)
-  intro r hr
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl
-  · exact hp.st_scr.symm.sub_left hsub
-  · exact hp.out_scr.symm.sub_left hsub
-  · exact Offset.disjoint_base _ (by omega) (by omega)
+    Saved (scr s₀) g m' :=
+  Spill.Saved.frame h hf fun p hp' r hr => by
+    have hoff := saved_off p hp'
+    have hsub : Region.Sub ⟨scr s₀ + BitVec.ofNat 64 p.2, 8⟩ (scR s₀) := Offset.sub_base _ (by omega)
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl
+    · exact hp.st_scr.symm.sub_left hsub
+    · exact hp.out_scr.symm.sub_left hsub
+    · exact Offset.disjoint_base _ (by omega) (by omega)
 
 /-! ## The prologue -/
 

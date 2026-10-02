@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseOCT
-import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseACT
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseA4CT
 
 /-!
 # ML-DSA signing on AArch64: constant time
@@ -54,7 +54,7 @@ theorem sign_ct {P : Prims} (hP : PrimsOk P D) (h3 : Ok3 p) :
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl
       exacts [e0, e1, e2, e3, e4]) (by taint_decide))) (fun x y h => ⟨h, trivial⟩) fun _ _ h => h) ?_
-  refine RelCT.seq (expandA_tr hP ha) ?_
+  refine RelCT.seq (expandA_tr hP h3 ha) ?_
   refine RelCT.seq (Q := fun _ _ => True) (R := fun (x y : State) => LRel D (sgR p) (sgW p) x y) ?_
     (lrel_tr (fun x y h => h) (by taint_decide))
   unfold ifOk

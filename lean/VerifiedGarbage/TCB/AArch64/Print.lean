@@ -129,6 +129,7 @@ def Instr.asm : Instr → List String
   | .bicRor sz d n m sh =>
     [s!"bic {d.name sz}, {n.name sz}, {m.name sz}, ror #{sh}"]
   | .ror sz d n sh => [s!"ror {d.name sz}, {n.name sz}, #{sh}"]
+  | .extr sz d n m lsb => [s!"extr {d.name sz}, {n.name sz}, {m.name sz}, #{lsb}"]
   | .lsr sz d n sh => [s!"lsr {d.name sz}, {n.name sz}, #{sh}"]
   | .lsl sz d n sh => [s!"lsl {d.name sz}, {n.name sz}, #{sh}"]
   | .madd sz d n m a => [s!"madd {d.name sz}, {n.name sz}, {m.name sz}, {a.name sz}"]

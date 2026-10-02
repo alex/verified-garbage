@@ -504,6 +504,22 @@ yours to keep:
 
 </tr>
 
+<tr>
+
+<td>RC4</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
 </table>
 
 ### AEADs
@@ -870,7 +886,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ BMI2, ADX</td>
 
 <td>✅</td>
 

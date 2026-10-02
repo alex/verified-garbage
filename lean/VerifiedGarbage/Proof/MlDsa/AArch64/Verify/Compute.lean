@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.MlDsa.AArch64.Verify.Samp
+import VerifiedGarbage.Proof.MlDsa.AArch64.Verify.Samp4
 
 /-!
 # ML-DSA verification on AArch64: `w′₁`, row by row

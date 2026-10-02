@@ -1,0 +1,5 @@
+name = "RFC 6229, Test Vectors for the Stream Cipher RC4 (Section 2)"
+directories = ["rfc6229"]
+url = "https://www.rfc-editor.org/rfc/rfc6229.txt"
+sha256 = "8602f8b3199ecf18d8a89a4dba19f9683f947d5c8306c137e16b34fb0da79eb7"
+retrieved = 2026-10-02

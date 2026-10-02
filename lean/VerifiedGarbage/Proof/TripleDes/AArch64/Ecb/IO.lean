@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.TripleDes.AArch64.Ecb.Loop
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 
 /-! # ECB register saves, setup, and restoration -/
 
@@ -7,32 +8,18 @@ namespace VG.Proof.TripleDes.AArch64.Ecb
 open VG VG.AArch64 VG.AArch64.RegUpd VG.Impl.TripleDes.AArch64
 open VG.Proof.Rc2.AArch64 (Keep)
 
-def savedMem (s : State) : Mem :=
-  (s.mem.writeW (s.gpr .x3 + BitVec.ofNat 64 512) (s.gpr .x23)).writeW
-    (s.gpr .x3 + BitVec.ofNat 64 520) (s.gpr .x30)
+/-- The registers the code saves in `buf`, and where. -/
+abbrev saved : List (Reg × Nat) := [(.x23, 512), (.x30, 520)]
 
-theorem save_ok (s : State)
-    (w₁ : InRegions s.wr (s.gpr .x3 + BitVec.ofNat 64 512) 8)
-    (w₃ : InRegions s.wr (s.gpr .x3 + BitVec.ofNat 64 520) 8) :
-    ∃ s', runBlock isa Impl.TripleDes.AArch64.Ecb.save s = some s' ∧ Keep [] {s with mem := savedMem s} s' := by
-  refine ⟨_, by
-    simp only [Impl.TripleDes.AArch64.Ecb.save, runBlock_cons, runStep_some, runBlock_nil,
-      exec, addr, Size.bytes, Nat.reduceMod, Nat.reduceMul, Nat.reduceLT, and_self, ite_true, Option.bind_some,
-      State.store, State.read, BitVec.setWidth_eq, w₁, w₃]
-    rfl, ?_⟩
-  exact ⟨fun _ _ => rfl, rfl, rfl, rfl⟩
+/-- The memory after the saves. -/
+abbrev savedMem (s : State) : Mem := Spill.saveMem s.mem (s.gpr .x3) s.gpr saved
+
+theorem save_eq : Impl.TripleDes.AArch64.Ecb.save = Spill.saveCode .x3 saved := rfl
+
+theorem restore_eq : Impl.TripleDes.AArch64.Ecb.restore = Spill.restoreCode .x2 saved := rfl
 
 theorem savedMem_frame (s : State) : Frame [⟨s.gpr .x3, 1024⟩] s.mem (savedMem s) :=
-  ((Frame.refl _ _).writeW List.mem_cons_self _
-    (Offset.contains_base _ (by decide : 512 + 8 ≤ 1024) (by decide))).writeW List.mem_cons_self _
-      (Offset.contains_base _ (by decide : 520 + 8 ≤ 1024) (by decide))
-
-theorem savedMem_counter (s : State) : (savedMem s).readW (s.gpr .x3 + BitVec.ofNat 64 512) 64 = s.gpr .x23 := by
-  rw [savedMem, Mem.readW_writeW_sep (Offset.sep _ (by decide : 512 + 8 ≤ 520 ∨ 520 + 8 ≤ 512)
-    (by decide) (by decide)) (by decide), Mem.readW_writeW_self64]
-
-theorem savedMem_link (s : State) : (savedMem s).readW (s.gpr .x3 + BitVec.ofNat 64 520) 64 = s.gpr .x30 := by
-  rw [savedMem, Mem.readW_writeW_self64]
+  Spill.saveMem_frame_base (by decide) (by decide) _ _ _
 
 theorem setup_ok (s : State) :
     ∃ s', runBlock isa Impl.TripleDes.AArch64.Ecb.setup s = some s' ∧
@@ -43,31 +30,6 @@ theorem setup_ok (s : State) :
   refine ⟨?_, ?_, ?_⟩
   · simp [gpr_write, State.read, BitVec.add_zero, BitVec.setWidth_eq]
   · simp [gpr_write, State.read, BitVec.add_zero, BitVec.setWidth_eq]
-  · constructor
-    · intro r hr
-      simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-      simp only [gpr_write, BitVec.setWidth_eq, hr.1, hr.2, ite_false]
-    · simp only [mem_write]
-    · simp only [rd_write]
-    · simp only [wr_write]
-
-theorem restore_ok (s : State) (b lr : BitVec 64)
-    (r₁ : InRegions (s.rd ++ s.wr) (s.gpr .x2 + BitVec.ofNat 64 512) 8)
-    (r₃ : InRegions (s.rd ++ s.wr) (s.gpr .x2 + BitVec.ofNat 64 520) 8)
-    (v₁ : s.mem.readW (s.gpr .x2 + BitVec.ofNat 64 512) 64 = b)
-    (v₃ : s.mem.readW (s.gpr .x2 + BitVec.ofNat 64 520) 64 = lr) :
-    ∃ s', runBlock isa Impl.TripleDes.AArch64.Ecb.restore s = some s' ∧
-      s'.gpr .x23 = b ∧ s'.gpr .x30 = lr ∧ Keep [.x23, .x30] s s' := by
-  change s.mem.read _ 8 = b at v₁
-  change s.mem.read _ 8 = lr at v₃
-  refine ⟨_, by
-    simp only [Impl.TripleDes.AArch64.Ecb.restore, runBlock_cons, runStep_some, runBlock_nil,
-      exec, addr, Size.bytes, Nat.reduceMod, Nat.reduceMul, Nat.reduceLT, and_self, ite_true, Option.bind_some,
-      State.load, BitVec.setWidth_eq, gpr_write, mem_write, rd_write, wr_write,
-      r₁, r₃, reduceCtorEq, ite_false, Option.map_some, v₁, v₃]
-    rfl, ?_⟩
-  refine ⟨?_, gpr_write_self _ _ _ _, ?_⟩
-  · simp [gpr_write, BitVec.setWidth_eq]
   · constructor
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr

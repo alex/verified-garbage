@@ -1,7 +1,7 @@
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.AddSub
 import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Mul
-import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.NttInv
+import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Neon.NttInv
 
 /-! # ML-DSA (FIPS 204) on AArch64: the arithmetic of polynomials -/
 
@@ -11,19 +11,19 @@ def artifacts : List Artifact := [
   { Spec.MlDsa.nttApi with
     target := AArch64.target
     doc := Spec.MlDsa.nttApi.doc
-      (notes := ["The function stores a table of the 256 zetas in `scratch`."])
-    code := Impl.MlDsa.AArch64.Arith.ntt
+      (notes := ["Four butterflies per NEON vector; the 256 Montgomery zetas are stored in `scratch`."])
+    code := Impl.MlDsa.AArch64.Arith.Neon.ntt
     contract := Spec.MlDsa.nttContract AArch64.abi
-    verified := Proof.MlDsa.AArch64.Arith.ntt_verified
+    verified := Proof.MlDsa.AArch64.Arith.Neon.ntt_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _
     ofSig := ⟨_, _, _, by unfold Spec.MlDsa.nttContract Spec.MlDsa.inPlaceContract; rfl⟩ },
   { Spec.MlDsa.nttInvApi with
     target := AArch64.target
     doc := Spec.MlDsa.nttInvApi.doc
-      (notes := ["The function stores a table of the 256 negated zetas in `scratch`."])
-    code := Impl.MlDsa.AArch64.Arith.nttInv
+      (notes := ["Four butterflies per NEON vector; the 256 negated Montgomery zetas are stored in `scratch`."])
+    code := Impl.MlDsa.AArch64.Arith.Neon.nttInv
     contract := Spec.MlDsa.nttInvContract AArch64.abi
-    verified := Proof.MlDsa.AArch64.Arith.nttInv_verified
+    verified := Proof.MlDsa.AArch64.Arith.Neon.nttInv_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _
     ofSig := ⟨_, _, _, by unfold Spec.MlDsa.nttInvContract Spec.MlDsa.inPlaceContract; rfl⟩ },
   { Spec.MlDsa.mulApi with

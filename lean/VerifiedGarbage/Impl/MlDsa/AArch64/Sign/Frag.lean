@@ -35,6 +35,7 @@ structure Prims where
   mulAdd : Prog isa
   add : Prog isa
   sub : Prog isa
+  rej4 : Prog isa
   rejNTT : Prog isa
   expandMask : Prog isa
   ball : Prog isa
@@ -63,6 +64,7 @@ def oSV : Nat := 840
 def oCNT : Nat := 896
 def oKAP : Nat := 904
 def oONES : Nat := 912
+def oRS4 : Nat := 1408
 def oRS : Nat := 920
 def oMS : Nat := 960
 def oCT : Nat := 1040

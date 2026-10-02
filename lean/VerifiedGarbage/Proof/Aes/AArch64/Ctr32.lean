@@ -6,6 +6,7 @@ import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Gcm.Contract
 import VerifiedGarbage.Proof.Framework.Offset
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 
 /-!
 # AES counter mode on AArch64: the whole function
@@ -91,28 +92,28 @@ def sreg : Nat → Reg
   | 0 => .x19 | 1 => .x20 | 2 => .x21 | 3 => .x22 | 4 => .x23 | 5 => .x24 | 6 => .x25
   | 7 => .x26 | 8 => .x27 | _ => .x28
 
-def saveCfg : Cfg := { base := sb, slots := 59, ext := sb, exts := 0 }
+/-- `savedRegs` at their offsets in bytes. -/
+abbrev savedSlots : List (Reg × Nat) := savedRegs.map fun (r, k) => (r, 8 * k)
 
-def saveEnv : Env Nat :=
-  { reg := fun r => (List.range 10).find? (fun i => sreg i == r), slot := fun _ => none }
+theorem savedSlots_eq : savedSlots = (List.range 10).map fun i => (sreg i, 8 * (48 + i)) := rfl
 
-def savePost (e : Env Nat) : Bool := (List.range 10).all fun i => e.slot (48 + i) == some i
+theorem slots_idx {p : Reg × Nat} (hp : p ∈ savedSlots) : ∃ i < 10, p = (sreg i, 8 * (48 + i)) := by
+  rw [savedSlots_eq] at hp
+  obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hp
+  exact ⟨i, List.mem_range.mp hi, rfl⟩
 
-theorem save_check : check (names 64) saveCfg (fun _ => none) saveRegs saveEnv savePost = true := by
-  decide +kernel
+theorem slots_mem {i : Nat} (hi : i < 10) : (sreg i, 8 * (48 + i)) ∈ savedSlots := by
+  rw [savedSlots_eq]; exact List.mem_map_of_mem (List.mem_range.mpr hi)
 
-def restoreEnv : Env Nat :=
-  { reg := fun _ => none, slot := fun k => if 48 ≤ k ∧ k < 58 then some (k - 48) else none }
+theorem slots_fits : Spill.Fits savedSlots := by decide
 
-def restorePost (e : Env Nat) : Bool := (List.range 10).all fun i => e.reg (sreg i) == some i
+theorem slots_restorable : Spill.Restorable sb savedSlots := by decide
 
-theorem restore_check :
-    check (names 64) saveCfg (fun _ => none) restoreRegs restoreEnv restorePost = true := by
-  decide +kernel
+theorem slots_end : ∀ p ∈ savedSlots, p.2 + 8 ≤ 8 * 59 := by decide
 
-theorem saveCfg_ok {s : State} {b : Addr} {n : Nat} (hw : (⟨b, n⟩ : Region) ∈ s.wr)
-    (hb : s.gpr sb = b) (hn : 8 * 59 ≤ n) : Ok saveCfg s :=
-  Ok.of_region hw hb.symm hn (by simp [saveCfg]) rfl
+theorem saveRegs_eq : saveRegs = Spill.saveCode sb savedSlots := rfl
+
+theorem restoreRegs_eq : restoreRegs = Spill.restoreCode sb savedSlots := rfl
 
 /-- The saved registers are in slots 48–57. -/
 def Saved (s₀ : State) (b : Addr) (m : Mem) : Prop :=
@@ -120,55 +121,33 @@ def Saved (s₀ : State) (b : Addr) (m : Mem) : Prop :=
 
 theorem save_ok {s : State} {b : Addr} {n : Nat} (hw : (⟨b, n⟩ : Region) ∈ s.wr) (hb : s.gpr sb = b)
     (hn : 8 * 59 ≤ n) :
-    ∃ s', runBlock isa saveRegs s = some s' ∧ Saved s b s'.mem ∧ s'.gpr = s.gpr ∧
+    WP isa (.block saveRegs) s fun s' => Saved s b s'.mem ∧ s'.gpr = s.gpr ∧
       s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame [⟨b, 8 * 59⟩] s.mem s'.mem := by
-  obtain ⟨e', he, hpost⟩ := of_check _ _ _ save_check
-  let V : Nat → BitVec 64 := fun i => s.gpr (sreg i)
-  have hrel : Rel (NameRel V) saveCfg (fun _ => none) saveEnv s := by
-    refine ⟨fun r a h => ?_, (fun _ _ _ h => by cases h), (fun _ _ hk _ => by simp [saveCfg] at hk),
-      (fun _ _ h => by cases h)⟩
-    simp only [saveEnv] at h
-    have h1 := List.find?_some h
-    simp only [beq_iff_eq] at h1; subst h1; rfl
-  obtain ⟨s', hs', p⟩ := run (names_sound V) (saveCfg_ok hw hb hn) hrel he
-  refine ⟨s', hs', fun i hi => ?_, funext fun r => p.other r ?_, p.rd, p.wr, ?_⟩
-  · have := List.all_eq_true.mp hpost i (List.mem_range.mpr hi)
-    simp only [beq_iff_eq] at this
-    have h := p.rel.slot (48 + i) i (by simp [saveCfg]; omega) this
-    rw [p.base] at h
-    simp only [saveCfg, hb] at h
-    exact h
-  · have : (saveRegs.all fun i => dstOf i != some r) = true := by
-      simp [saveRegs, savedRegs, stS, dstOf]
-    simp [this]
-  · have := p.frame
-    simpa [slotRegion, saveCfg, hb] using this
+  rw [saveRegs_eq]; subst hb
+  refine WP.mono (Spill.save_wp slots_fits.1 fun p hp => ?_) fun s' h =>
+    ⟨fun i hi => ?_, h.gpr, h.rd, h.wr, ?_⟩
+  · obtain ⟨i, hi, rfl⟩ := slots_idx hp
+    refine ⟨_, hw, ?_⟩
+    show (⟨s.gpr sb, n⟩ : Region).Contains (s.gpr sb + BitVec.ofNat 64 (8 * (48 + i))) 8
+    exact Offset.contains_base _ (by omega) (by omega)
+  · have h' := Spill.saveMem_saved slots_fits s.mem (s.gpr sb) s.gpr _ (slots_mem hi)
+    dsimp only at h'
+    rw [h.mem]; exact h'
+  · rw [h.mem]; exact Spill.saveMem_frame_base slots_end (by decide) _ _ _
 
 theorem restore_ok {s₀ s : State} {b : Addr} {n : Nat} (hw : (⟨b, n⟩ : Region) ∈ s.wr)
     (hb : s.gpr sb = b) (hn : 8 * 59 ≤ n) (hs : Saved s₀ b s.mem) :
-    ∃ s', runBlock isa restoreRegs s = some s' ∧ (∀ i < 10, s'.gpr (sreg i) = s₀.gpr (sreg i)) ∧
+    WP isa (.block restoreRegs) s fun s' => (∀ i < 10, s'.gpr (sreg i) = s₀.gpr (sreg i)) ∧
       Frame [⟨b, 8 * 59⟩] s.mem s'.mem := by
-  obtain ⟨e', he, hpost⟩ := of_check _ _ _ restore_check
-  let V : Nat → BitVec 64 := fun i => s₀.gpr (sreg i)
-  have hrel : Rel (NameRel V) saveCfg (fun _ => none) restoreEnv s := by
-    refine ⟨(fun r a h => by cases h), fun k a hk h => ?_, (fun _ _ hk _ => by simp [saveCfg] at hk),
-      (fun _ _ h => by cases h)⟩
-    simp only [restoreEnv] at h
-    split at h
-    · cases h
-      rename_i hk'
-      have := hs (k - 48) (by omega)
-      rw [show 48 + (k - 48) = k by omega] at this
-      simp only [NameRel, saveCfg, hb]
-      exact this
-    · cases h
-  obtain ⟨s', hs', p⟩ := run (names_sound V) (saveCfg_ok hw hb hn) hrel he
-  refine ⟨s', hs', fun i hi => ?_, ?_⟩
-  · have := List.all_eq_true.mp hpost i (List.mem_range.mpr hi)
-    simp only [beq_iff_eq] at this
-    exact p.rel.reg _ i this
-  · have := p.frame
-    simpa [slotRegion, saveCfg, hb] using this
+  rw [restoreRegs_eq]
+  refine WP.mono (Spill.restore_wp hb slots_fits.1 slots_restorable (fun p hp => ?_) (fun p hp => ?_))
+    fun s' h => ⟨fun i hi => h.gpr _ (slots_mem hi), by rw [h.mem]; exact Frame.refl _ _⟩
+  · obtain ⟨i, hi, rfl⟩ := slots_idx hp
+    refine ⟨_, List.mem_append_right _ hw, ?_⟩
+    show (⟨b, n⟩ : Region).Contains (b + BitVec.ofNat 64 (8 * (48 + i))) 8
+    exact Offset.contains_base _ (by omega) (by omega)
+  · obtain ⟨i, hi, rfl⟩ := slots_idx hp
+    exact hs i hi
 
 /-! ## The counter block -/
 
@@ -403,8 +382,7 @@ theorem correct {s₀ : State} (hp : Proof.Aes.ctr32AArch64.pre s₀) :
   unfold Impl.Aes.AArch64.ctr32
   refine WP.seq ?_
   rw [WP.block_append_iff (M := isa), WP.block_append_iff (M := isa)]
-  obtain ⟨s₁, h₁, sv₁, g₁, rd₁, wr₁, f₁⟩ := save_ok hwS rfl (by decide)
-  refine WP.of_runBlock ⟨s₁, h₁, ?_⟩
+  refine WP.mono (save_ok hwS rfl (by decide)) fun s₁ ⟨sv₁, g₁, rd₁, wr₁, f₁⟩ => ?_
   obtain ⟨s₂, h₂, m₂, o₂, rd₂, wr₂⟩ :=
     ctrSetup_ok (s := s₁) (b := s₀.gpr .x5) (ctr := s₀.gpr .x2) (by rw [g₁]) (by rw [g₁])
       (wr₁ ▸ hwS) (wr₁ ▸ hwC)
@@ -558,9 +536,8 @@ theorem correct {s₀ : State} (hp : Proof.Aes.ctr32AArch64.pre s₀) :
       · exact (scr_disj _ (by omega) (by omega)).symm
       · exact Offset.disjoint _ (by omega) (by omega) (by omega)
       · exact (dDS.sub_right (scr_sub _ (by omega))).symm
-  obtain ⟨s₇, h₇, rg₇, fR⟩ :=
-    restore_ok (by rw [gd.wr, wr₅, d₄.wr, wr₃, wr₂, wr₁]; exact hwS) gd.base (by decide) sv
-  refine WP.of_runBlock ⟨s₇, h₇, ?_⟩
+  refine WP.mono (restore_ok (by rw [gd.wr, wr₅, d₄.wr, wr₃, wr₂, wr₁]; exact hwS) gd.base (by decide) sv)
+    fun s₇ ⟨rg₇, fR⟩ => ?_
   have fsub : ∀ {x lx}, x + lx ≤ 2048 → Region.Sub ⟨s₀.gpr .x5 + BitVec.ofNat 64 x, lx⟩ ⟨s₀.gpr .x5, 2048⟩ :=
     fun h => scr_sub _ h
   refine ⟨rg₇, ?_, ?_⟩

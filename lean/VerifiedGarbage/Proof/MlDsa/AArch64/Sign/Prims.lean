@@ -35,6 +35,10 @@ structure PrimsOk (P : Prims) (S : Nat) : Prop where
   mulAdd : CalleeOk S P.mulAdd (mulAddContract AArch64.abi S)
   add : CalleeOk S P.add (addContract AArch64.abi S)
   sub : CalleeOk S P.sub (subContract AArch64.abi S)
+  rej4 : CalleeOk S P.rej4 (rejNTT4Contract AArch64.abi S)
+  rej4Ret : RetPub (rejNTT4Contract AArch64.abi S) P.rej4
+  rej4Max : ∀ s t s', (rejNTT4Contract AArch64.abi S).pre s → Exec isa P.rej4 s t s' →
+    (s'.gpr .x0).setWidth 32 = 1 → ∀ k < 4,(rejNTTPoly maxBounds.rejNTT (seed4 s.mem (s.gpr .x0) k)).isSome
   rejNTT : CalleeOk S P.rejNTT (rejNTTContract AArch64.abi S)
   expandMask : CalleeOk S P.expandMask (expandMaskContract AArch64.abi S)
   ball : CalleeOk S P.ball (sampleInBallContract AArch64.abi S)

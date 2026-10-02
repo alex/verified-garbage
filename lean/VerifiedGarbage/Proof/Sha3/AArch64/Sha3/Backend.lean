@@ -10,6 +10,7 @@ def callee : Impl.Sha3.AArch64.Callee where
   name := "vg_keccak_f1600_sha3"
   code := Impl.Sha3.AArch64.Sha3.Vector.permute
   suffix := "_sha3"
+  pairedSha3 := true
   absorbOverride := none
 
 theorem absorbTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])

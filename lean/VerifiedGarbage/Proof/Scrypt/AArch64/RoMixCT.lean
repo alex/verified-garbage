@@ -8,6 +8,7 @@ import VerifiedGarbage.Proof.Framework.AArch64.RelCT
 import Mathlib.Tactic.DefEqTransformations
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Scrypt.Contract
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 import VerifiedGarbage.Proof.Scrypt.AArch64.Lit
 
 /-!
@@ -72,8 +73,7 @@ abbrev vAt (i : Nat) : Addr := vP s₀ + BitVec.ofNat 64 (128 * rr s₀ * i)
 abbrev tP : Addr := sc s₀ + BitVec.ofNat 64 192
 
 /-- The caller's registers are saved in the scratch space. -/
-def Saved (m : Mem) : Prop :=
-  ∀ p ∈ rmSaved, m.readW (sc s₀ + BitVec.ofNat 64 p.2) 64 = s₀.gpr p.1
+abbrev Saved (m : Mem) : Prop := Spill.Saved (sc s₀) s₀.gpr rmSaved m
 
 end
 
@@ -545,67 +545,28 @@ theorem add_sub64 (a : Addr) {n : Nat} (h : 64 ≤ n) :
 /-! ## The prologue -/
 
 /-- The memory after the prologue's stores. -/
-def saveMem (s₀ : State) : Mem :=
-  ((((((s₀.mem.writeW (sc s₀ + BitVec.ofNat 64 128) (s₀.gpr .x19)).writeW
-    (sc s₀ + BitVec.ofNat 64 136) (s₀.gpr .x20)).writeW (sc s₀ + BitVec.ofNat 64 144)
-    (s₀.gpr .x22)).writeW (sc s₀ + BitVec.ofNat 64 152) (s₀.gpr .x23)).writeW
-    (sc s₀ + BitVec.ofNat 64 160) (s₀.gpr .x24)).writeW (sc s₀ + BitVec.ofNat 64 168)
-    (s₀.gpr .x30)).writeW (sc s₀ + BitVec.ofNat 64 176) (s₀.gpr .x21)
+abbrev saveMem (s₀ : State) : Mem := Spill.saveMem s₀.mem (sc s₀) s₀.gpr rmSaved
 
-set_option simprocs false in
-theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) := by
-  intro p hp
-  simp only [rmSaved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (config := {decide := true}) only [saveMem, Mem.readW_writeW_self64, readW_writeW_save]
+theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) := Spill.saveMem_saved (by decide) _ _ _
 
-theorem saveMem_frame (s₀ : State) : Frame [scR s₀] s₀.mem (saveMem s₀) := by
-  have c : ∀ d : Nat, d + 8 ≤ 256 → (scR s₀).Contains (sc s₀ + BitVec.ofNat 64 d) (64 / 8) :=
-    fun d hd => in_s s₀ hd
-  simp only [saveMem]
-  exact ((((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 128 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 136 (by omega))).writeW (List.mem_singleton_self _) _
-    (c 144 (by omega))).writeW (List.mem_singleton_self _) _ (c 152 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 160 (by omega)) |>.writeW (List.mem_singleton_self _) _
-    (c 168 (by omega))).writeW (List.mem_singleton_self _) _ (c 176 (by omega))
+theorem saveMem_frame (s₀ : State) : Frame [scR s₀] s₀.mem (saveMem s₀) :=
+  (Spill.saveMem_frame_base (n := 256) (by decide) (by decide) _ _ _).sub fun r hr => by
+    obtain rfl := List.mem_singleton.mp hr
+    have := s_sub s₀ (o := 0) (n := 256) (by omega)
+    rw [BitVec.add_zero] at this
+    exact ⟨_, List.mem_singleton_self _, this⟩
 
-theorem prologue_eq : rmPrologue =
-    ([.str .x .x19 .x4 128, .str .x .x20 .x4 136, .str .x .x22 .x4 144, .str .x .x23 .x4 152,
-     .str .x .x24 .x4 160, .str .x .x30 .x4 168, .str .x .x21 .x4 176] : List Instr) ++
-    [mov .x19 .x0, mov .x20 .x2, mov .x21 .x4, .lsl .x .x22 .x1 7,
-     mov .x9 .x1, .movz .x .x10 1 0, .add .x .x11 .x3 .x3] := rfl
+theorem prologue_eq : rmPrologue = Spill.saveCode .x4 rmSaved ++
+    ([mov .x19 .x0, mov .x20 .x2, mov .x21 .x4, .lsl .x .x22 .x1 7,
+     mov .x9 .x1, .movz .x .x10 1 0, .add .x .x11 .x3 .x3] : List Instr) := rfl
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s₁, s₁.gpr = s₀.gpr → s₁.rd = s₀.rd → s₁.wr = s₀.wr → s₁.sp = s₀.sp →
       s₁.mem = saveMem s₀ → WP isa (.block rest) s₁ Q) :
-    WP isa (.block (([.str .x .x19 .x4 128, .str .x .x20 .x4 136, .str .x .x22 .x4 144,
-      .str .x .x23 .x4 152, .str .x .x24 .x4 160, .str .x .x30 .x4 168, .str .x .x21 .x4 176] : List Instr) ++
-      rest)) s₀ Q := by
-  have o : ∀ d, d + 8 ≤ 256 → ∀ s : State, s.wr = s₀.wr →
-      InRegions s.wr (sc s₀ + BitVec.ofNat 64 d) 8 := fun d hd s hw => by
-    rw [hw, hp.wr]; exact InRegions.of_mem (by simp) (in_s s₀ hd)
-  simp only [List.cons_append, List.nil_append]
-  refine wp_str (by decide) rfl (o 128 (by omega) _ rfl) fun s1 u1 => ?_
-  refine wp_str (by decide) (by rw [u1.gpr]) (o 136 (by omega) _ u1.wr) fun s2 u2 => ?_
-  refine wp_str (by decide) (by rw [u2.gpr, u1.gpr]) (o 144 (by omega) _ (u2.wr.trans u1.wr))
-    fun s3 u3 => ?_
-  refine wp_str (by decide) (by rw [u3.gpr, u2.gpr, u1.gpr])
-    (o 152 (by omega) _ (u3.wr.trans (u2.wr.trans u1.wr))) fun s4 u4 => ?_
-  refine wp_str (by decide) (by rw [u4.gpr, u3.gpr, u2.gpr, u1.gpr])
-    (o 160 (by omega) _ (u4.wr.trans (u3.wr.trans (u2.wr.trans u1.wr)))) fun s5 u5 => ?_
-  refine wp_str (by decide) (by rw [u5.gpr, u4.gpr, u3.gpr, u2.gpr, u1.gpr])
-    (o 168 (by omega) _ (u5.wr.trans (u4.wr.trans (u3.wr.trans (u2.wr.trans u1.wr)))))
-    fun s6 u6 => ?_
-  refine wp_str (by decide) (by rw [u6.gpr, u5.gpr, u4.gpr, u3.gpr, u2.gpr, u1.gpr])
-    (o 176 (by omega) _ (u6.wr.trans (u5.wr.trans (u4.wr.trans (u3.wr.trans (u2.wr.trans u1.wr))))))
-    fun s7 u7 => ?_
-  exact k s7 (by rw [u7.gpr, u6.gpr, u5.gpr, u4.gpr, u3.gpr, u2.gpr, u1.gpr])
-    (by rw [u7.rd, u6.rd, u5.rd, u4.rd, u3.rd, u2.rd, u1.rd])
-    (u7.wr.trans (u6.wr.trans (u5.wr.trans (u4.wr.trans (u3.wr.trans (u2.wr.trans u1.wr))))))
-    (by rw [u7.sp, u6.sp, u5.sp, u4.sp, u3.sp, u2.sp, u1.sp])
-    (by rw [u7.mem, u6.mem, u5.mem, u4.mem, u3.mem, u2.mem, u1.mem, u6.gpr, u5.gpr, u4.gpr, u3.gpr,
-          u2.gpr, u1.gpr]
-        rfl)
+    WP isa (.block (Spill.saveCode .x4 rmSaved ++ rest)) s₀ Q :=
+  Spill.save_ok (by decide) (fun p hp' => by
+    rw [hp.wr]; exact InRegions.of_mem (by simp) (in_s s₀ (by revert p; decide)))
+    (k _ rfl rfl rfl rfl rfl)
 
 /-- After the prologue. -/
 structure P1 (s₀ s : State) : Prop where
@@ -1240,55 +1201,11 @@ theorem loop3_ok {c : Prog isa} (hS : BlockMixSpec c) {s₀ : State} (hp : Pre s
 
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Inv3 s₀ (NN s₀) s) :
     WP isa (.block rmEpilogue) s fun s' => s'.mem = s.mem ∧ s'.sp = s.sp ∧
-      (∀ p ∈ rmSaved, s'.gpr p.1 = s₀.gpr p.1) := by
-  have hin : ∀ d, d + 8 ≤ 256 → ∀ t : State, t.rd = s.rd → t.wr = s.wr →
-      InRegions (t.rd ++ t.wr) (sc s₀ + BitVec.ofNat 64 d) 8 := fun d hd t hr hw => by
-    rw [hr, hw, h.rd, h.wr, hp.rd, hp.wr]
-    exact InRegions.of_mem (R := scR s₀) (by simp) (in_s s₀ hd)
-  have sv : ∀ p ∈ rmSaved, s.mem.readW (sc s₀ + BitVec.ofNat 64 p.2) 64 = s₀.gpr p.1 := h.kept.1
-  simp only [rmEpilogue, rmSaved, List.map_cons, List.map_nil]
-  refine wp_ldr (by decide) (by rw [h.x21]) (hin 128 (by omega) _ rfl rfl) fun a ua => ?_
-  refine wp_ldr (by decide) (by rw [ua.other _ (by decide), h.x21])
-    (hin 136 (by omega) _ ua.rd ua.wr) fun b ub => ?_
-  refine wp_ldr (by decide) (by rw [ub.other _ (by decide), ua.other _ (by decide), h.x21])
-    (hin 144 (by omega) _ (ub.rd.trans ua.rd) (ub.wr.trans ua.wr)) fun c uc => ?_
-  refine wp_ldr (by decide) (by rw [uc.other _ (by decide), ub.other _ (by decide),
-      ua.other _ (by decide), h.x21])
-    (hin 152 (by omega) _ (uc.rd.trans (ub.rd.trans ua.rd)) (uc.wr.trans (ub.wr.trans ua.wr)))
-    fun d ud => ?_
-  refine wp_ldr (by decide) (by rw [ud.other _ (by decide), uc.other _ (by decide),
-      ub.other _ (by decide), ua.other _ (by decide), h.x21])
-    (hin 160 (by omega) _ (ud.rd.trans (uc.rd.trans (ub.rd.trans ua.rd)))
-      (ud.wr.trans (uc.wr.trans (ub.wr.trans ua.wr)))) fun e ue => ?_
-  refine wp_ldr (by decide) (by rw [ue.other _ (by decide), ud.other _ (by decide),
-      uc.other _ (by decide), ub.other _ (by decide), ua.other _ (by decide), h.x21])
-    (hin 168 (by omega) _ (ue.rd.trans (ud.rd.trans (uc.rd.trans (ub.rd.trans ua.rd))))
-      (ue.wr.trans (ud.wr.trans (uc.wr.trans (ub.wr.trans ua.wr))))) fun f uf => ?_
-  refine wp_ldr (by decide) (by rw [uf.other _ (by decide), ue.other _ (by decide),
-      ud.other _ (by decide), uc.other _ (by decide), ub.other _ (by decide),
-      ua.other _ (by decide), h.x21])
-    (hin 176 (by omega) _ (uf.rd.trans (ue.rd.trans (ud.rd.trans (uc.rd.trans (ub.rd.trans ua.rd)))))
-      (uf.wr.trans (ue.wr.trans (ud.wr.trans (uc.wr.trans (ub.wr.trans ua.wr))))))
-    fun g ug => WP.block_nil ?_
-  have hm : g.mem = s.mem := by rw [ug.mem, uf.mem, ue.mem, ud.mem, uc.mem, ub.mem, ua.mem]
-  refine ⟨hm, by rw [ug.sp, uf.sp, ue.sp, ud.sp, uc.sp, ub.sp, ua.sp], fun p hp' => ?_⟩
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hp'
-  rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl
-  · rw [ug.other _ (by decide), uf.other _ (by decide), ue.other _ (by decide),
-      ud.other _ (by decide), uc.other _ (by decide), ub.other _ (by decide), ua.gpr,
-      sv (.x19, 128) (by simp [rmSaved])]
-  · rw [ug.other _ (by decide), uf.other _ (by decide), ue.other _ (by decide),
-      ud.other _ (by decide), uc.other _ (by decide), ub.gpr, ua.mem,
-      sv (.x20, 136) (by simp [rmSaved])]
-  · rw [ug.other _ (by decide), uf.other _ (by decide), ue.other _ (by decide),
-      ud.other _ (by decide), uc.gpr, ub.mem, ua.mem, sv (.x22, 144) (by simp [rmSaved])]
-  · rw [ug.other _ (by decide), uf.other _ (by decide), ue.other _ (by decide), ud.gpr, uc.mem,
-      ub.mem, ua.mem, sv (.x23, 152) (by simp [rmSaved])]
-  · rw [ug.other _ (by decide), uf.other _ (by decide), ue.gpr, ud.mem, uc.mem, ub.mem, ua.mem,
-      sv (.x24, 160) (by simp [rmSaved])]
-  · rw [ug.other _ (by decide), uf.gpr, ue.mem, ud.mem, uc.mem, ub.mem, ua.mem,
-      sv (.x30, 168) (by simp [rmSaved])]
-  · rw [ug.gpr, uf.mem, ue.mem, ud.mem, uc.mem, ub.mem, ua.mem, sv (.x21, 176) (by simp [rmSaved])]
+      (∀ p ∈ rmSaved, s'.gpr p.1 = s₀.gpr p.1) :=
+  WP.mono (Spill.restore_wp (b := .x21) h.x21 (by decide) (by decide) (fun p hp' => by
+      rw [h.rd, h.wr, hp.rd, hp.wr]
+      exact InRegions.of_mem (R := scR s₀) (by simp) (in_s s₀ (by revert p; decide)))
+    h.kept.1) fun _ h' => ⟨h'.mem, h'.sp, h'.gpr⟩
 
 /-! ## The whole function -/
 

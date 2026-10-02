@@ -770,9 +770,8 @@ theorem prologue_wp {s₀ : State} {S B P : Addr} {K : Nat} (hs : CSetup s₀ S 
   rw [WP.block_append_iff (M := isa), WP.block_append_iff (M := isa)]
   obtain ⟨s₁, h₁, x5₁, o₁, m₁, rd₁, wr₁⟩ := movR_ok s₀ sb .x3
   refine WP.of_runBlock ⟨s₁, h₁, ?_⟩
-  obtain ⟨s₂, h₂, sv₂, g₂, rd₂, wr₂, f₂⟩ := save_ok (s := s₁) (b := B) (n := 512)
-    (by rw [wr₁]; exact hs.scr) (x5₁.trans hB) (by decide)
-  refine WP.of_runBlock ⟨s₂, h₂, ?_⟩
+  refine WP.mono (save_ok (s := s₁) (b := B) (n := 512)
+    (by rw [wr₁]; exact hs.scr) (x5₁.trans hB) (by decide)) fun s₂ ⟨sv₂, g₂, rd₂, wr₂, f₂⟩ => ?_
   obtain ⟨s₃, h₃, x4₃, o₃, m₃, rd₃, wr₃⟩ := movR_ok s₂ .x4 .x1
   refine WP.of_runBlock ⟨s₃, h₃, ?_⟩
   have g : ∀ r, r ≠ .x4 → r ≠ .x5 → s₃.gpr r = s₀.gpr r := fun r h4 h5 => by
@@ -850,9 +849,8 @@ theorem ek_correct {s₀ : State} (hp : Proof.Aes.expandKeyAArch64.pre s₀) :
         rw [m₃]
         exact Frame.writeW h₂.frame (r := ⟨B, 512⟩) (by simp) _ (c_off B (by omega) (by omega)) }
   refine WP.seq (WP.mono (words_ok ws wi) fun s₄ h₄ => ?_)
-  obtain ⟨s₅, hs₅, rg₅, f₅⟩ := restore_ok (s := s₄) (b := B) (n := 512)
-    (by rw [h₄.wr]; exact hs.scr) h₄.x5 (by decide) h₄.saved
-  refine WP.of_runBlock ⟨s₅, hs₅, rg₅, ?_⟩
+  refine WP.mono (restore_ok (s := s₄) (b := B) (n := 512)
+    (by rw [h₄.wr]; exact hs.scr) h₄.x5 (by decide) h₄.saved) fun s₅ ⟨rg₅, f₅⟩ => ⟨rg₅, ?_⟩
   show Spec.Aes.bytesAt s₅.mem (s₀.gpr .x2) (16 * (Spec.Aes.rounds ((s₀.gpr .x1).toNat / 4) + 1)) =
     Spec.Aes.expandKey (Spec.Aes.bytesAt s₀.mem (s₀.gpr .x0) (s₀.gpr .x1).toNat)
   rw [hS, hP, hK']
