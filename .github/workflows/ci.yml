@@ -21,6 +21,34 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
+  # A push to main runs only to save main's caches: the merge queue already
+  # ran this workflow on the same commit, restoring only main's caches (and
+  # its own new branch's, which start empty), so its outputs are what this
+  # run would compute. This finds that run (see ci/merge_queue_run.py), whose
+  # Lean outputs `lean` then reuses instead of running the shards, and the
+  # jobs that only re-test are skipped. Without one (a push that bypassed
+  # the queue), the push runs everything. Skipped outside pushes, so the jobs
+  # that need it check `!cancelled()` instead of its success.
+  reuse:
+    name: Find the merge queue's run
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      run-id: ${{ steps.find.outputs.run-id }}
+      skip-rust: ${{ steps.find.outputs.skip-rust }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+        run: python3 ci/merge_queue_run.py >> "$GITHUB_OUTPUT"
+
   # The Lean build is split into shards that build in parallel (see
   # ci/lean_shards.py).
   lean-plan:
@@ -63,8 +91,9 @@ jobs:
     # More independent files, with two compiler threads per file (lakefile.toml).
     env:
       LEAN_NUM_THREADS: "6"
-    needs: lean-plan
-    if: ${{ needs.lean-plan.outputs.count != '0' }}
+    needs: [reuse, lean-plan]
+    # Not when reusing the merge queue's run: `lean` adds its outputs.
+    if: ${{ !cancelled() && needs.lean-plan.result == 'success' && needs.lean-plan.outputs.count != '0' && needs.reuse.outputs.run-id == '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -128,10 +157,15 @@ jobs:
     env:
       LEAN_NUM_THREADS: "6"
     name: Lean proofs
-    needs: [lean-plan, lean-shard]
-    # Also when the plan has no shards, which skips `lean-shard`.
+    needs: [reuse, lean-plan, lean-shard]
+    # Also when the plan has no shards, or this run reuses the merge queue's,
+    # which skip `lean-shard`.
     if: ${{ !cancelled() && needs.lean-plan.result == 'success' && (needs.lean-shard.result == 'success' || needs.lean-shard.result == 'skipped') }}
     runs-on: ubuntu-latest
+    # To download the merge queue run's artifacts.
+    permissions:
+      actions: read
+      contents: read
     defaults:
       run:
         working-directory: lean
@@ -161,6 +195,19 @@ jobs:
           pattern: lean-build-*
           merge-multiple: true
           path: ${{ runner.temp }}/lean-build
+      # On a push reusing the merge queue's run (see `reuse`), the outputs
+      # of that run's shards and of its `lean` job (`lean-build-final`,
+      # which sorts, and so is extracted, last: what that job rebuilt wins),
+      # each with its build times. Lake rebuilds whatever doesn't match the
+      # sources, so a missing or partial artifact only costs time.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: ${{ needs.reuse.outputs.run-id != '' && steps.lean-build.outputs.cache-hit != 'true' }}
+        with:
+          pattern: lean-build-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/lean-build
+          run-id: ${{ needs.reuse.outputs.run-id }}
+          github-token: ${{ github.token }}
       - name: Add the shards' outputs to the build
         run: |
           mkdir -p .lake/build
@@ -174,12 +221,33 @@ jobs:
       - name: Check every proof (and the axiom audit)
         run: |
           set -o pipefail
+          touch "$RUNNER_TEMP/before-build"
           lake build 2>&1 | tee "$RUNNER_TEMP/build.log"
+      # In the merge queue, what this job built itself and how long it took,
+      # for the push to main of this commit to reuse (see `reuse`).
+      - name: Collect the outputs of this build
+        if: ${{ github.event_name == 'merge_group' }}
+        run: |
+          python3 ../ci/lean_shards.py times < "$RUNNER_TEMP/build.log" > "$RUNNER_TEMP/lean-times-final.json"
+          cd .lake/build
+          find . -type f -newer "$RUNNER_TEMP/before-build" -printf '%P\n' \
+            | tar --zstd -cf "$RUNNER_TEMP/lean-build-final.tar.zst" -T -
+      - if: ${{ github.event_name == 'merge_group' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lean-build-final
+          path: |
+            ${{ runner.temp }}/lean-build-final.tar.zst
+            ${{ runner.temp }}/lean-times-final.json
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
       # Only main saves. A pull request restores its own branch's caches
       # before main's, so an entry it saved would win over main's newer one
       # after it merges main, and it would re-prove everything main changed
       # since. (Merge queue runs each get their own branch, whose caches no
-      # other run can restore.)
+      # other run can restore; a push reuses only a merge queue run's
+      # outputs, see `reuse`, never a pull request's.)
       - name: Write the manifest of this build
         id: manifest
         if: ${{ steps.lean-build.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' }}
@@ -209,8 +277,11 @@ jobs:
       - name: Check the generated Rust is up to date
         run: lake env lean --run Emit.lean --check
 
+  # These only re-test, so a push reusing the merge queue's run skips them.
   lean-imports:
     name: Lean import discipline
+    needs: reuse
+    if: ${{ !cancelled() && needs.reuse.outputs.run-id == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -226,6 +297,8 @@ jobs:
 
   vectors:
     name: Test vector provenance
+    needs: reuse
+    if: ${{ !cancelled() && needs.reuse.outputs.run-id == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -233,7 +306,16 @@ jobs:
           persist-credentials: false
       - run: python3 ci/check_vectors.py
 
+  # The Rust jobs only re-test too, but on main they also save their
+  # dependencies' caches, which Swatinem/rust-cache saves only when its key
+  # misses. So a push reusing the merge queue's run skips them unless it
+  # changed a file the key hashes (ci/merge_queue_run.py). The key also
+  # hashes the compiler's version, which no commit changes: a new stable,
+  # beta or nightly is cached at the next push that runs these jobs, and
+  # until then a pull request builds the few dependencies itself.
   rust:
+    needs: reuse
+    if: ${{ !cancelled() && needs.reuse.outputs.skip-rust != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -340,6 +422,8 @@ jobs:
   # no profiler runtime, and its Rust code is the ARMv7 job's, which is
   # covered there.
   rust-thumb:
+    needs: reuse
+    if: ${{ !cancelled() && needs.reuse.outputs.skip-rust != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -397,6 +481,8 @@ jobs:
   # combinations of SHA-512 and field multiplication, is chosen somewhere;
   # the coverage, merged with the rest, checks that every one was.
   rust-cpu-features:
+    needs: reuse
+    if: ${{ !cancelled() && needs.reuse.outputs.skip-rust != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -556,6 +642,7 @@ jobs:
           path: "*.lcov"
           if-no-files-found: error
 
+  # Skipped with the jobs it merges.
   coverage:
     needs: [rust, rust-cpu-features]
     runs-on: ubuntu-latest
@@ -595,16 +682,40 @@ jobs:
 
   # The one check to require in branch protection (and so for the merge queue),
   # so the required checks don't have to track every job and matrix entry.
+  # Every job must succeed, except that `reuse` is skipped outside pushes,
+  # and a push reusing the merge queue's run skips the jobs that only
+  # re-test (the Rust jobs only if it may: `skip-rust`).
   all-green:
     if: ${{ always() }}
-    needs: [lean, lean-imports, vectors, rust, rust-thumb, rust-cpu-features, coverage]
+    needs: [reuse, lean, lean-imports, vectors, rust, rust-thumb, rust-cpu-features, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Check every job succeeded
         env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
+          PUSH: ${{ github.event_name == 'push' }}
+          REUSED: ${{ needs.reuse.outputs.run-id != '' }}
+          SKIP_RUST: ${{ needs.reuse.outputs.skip-rust == 'true' }}
+          REUSE: ${{ needs.reuse.result }}
+          LEAN: ${{ needs.lean.result }}
+          LEAN_IMPORTS: ${{ needs.lean-imports.result }}
+          VECTORS: ${{ needs.vectors.result }}
+          RUST: ${{ needs.rust.result }}
+          RUST_THUMB: ${{ needs.rust-thumb.result }}
+          RUST_CPU_FEATURES: ${{ needs.rust-cpu-features.result }}
+          COVERAGE: ${{ needs.coverage.result }}
         run: |
-          echo "$RESULTS"
-          for r in $RESULTS; do
-            [ "$r" = success ] || exit 1
-          done
+          ok=true
+          # A job's name, its result, and whether it may have been skipped.
+          check() {
+            echo "$1: $2"
+            [ "$2" = success ] || { [ "$3" = true ] && [ "$2" = skipped ]; } || ok=false
+          }
+          if [ "$PUSH" = true ]; then check reuse "$REUSE" false; else check reuse "$REUSE" true; fi
+          check lean "$LEAN" false
+          check lean-imports "$LEAN_IMPORTS" "$REUSED"
+          check vectors "$VECTORS" "$REUSED"
+          check rust "$RUST" "$SKIP_RUST"
+          check rust-thumb "$RUST_THUMB" "$SKIP_RUST"
+          check rust-cpu-features "$RUST_CPU_FEATURES" "$SKIP_RUST"
+          check coverage "$COVERAGE" "$SKIP_RUST"
+          "$ok"
