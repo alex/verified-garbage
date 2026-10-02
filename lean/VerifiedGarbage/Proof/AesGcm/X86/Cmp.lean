@@ -246,6 +246,68 @@ theorem cmpTail_ok {W : BitVec 32} {s : State} (he : WEnv W s) :
         rw [BitVec.toNat_ofNat]; omega
       simp only [h, ↓reduceIte, decide_eq_false hlt]
       rfl
-  all_goals sorry
+  · mems []
+  · mems []
+  · mems []
+  · intro r h₁ h₂
+    simp only [gpr_setReg_of_ne _ _ h₁, gpr_setReg_of_ne _ _ h₂, gpr_arithFlags, gpr_setFlags]
+
+/-- `zero4 d` folded. -/
+theorem zero4_fold (m : Mem) (W : BitVec 32) (d : Nat) :
+    (((m.writeW (w64 W + BitVec.ofNat 64 d) (BitVec.ofNat 32 0)).writeW (w64 W + BitVec.ofNat 64 (d + 4))
+      (BitVec.ofNat 32 0)).writeW (w64 W + BitVec.ofNat 64 (d + 8)) (BitVec.ofNat 32 0)).writeW
+      (w64 W + BitVec.ofNat 64 (d + 12)) (BitVec.ofNat 32 0) = Cmac.zero4 m (w64 W + BitVec.ofNat 64 d) := by
+  simp only [Cmac.zero4, Cmac.store4, add_ofNat_assoc]; rfl
+
+theorem recv_ok {W : BitVec 32} {t : Nat} {s : State} (he : WEnv W s) (hv : slotv s.mem W tglO = BitVec.ofNat 32 t)
+    (ht1 : 1 ≤ t) (ht : t ≤ 16) :
+    WP isa recv s fun s' => bytesAt s'.mem (w64 W + BitVec.ofNat 64 rO) 16 = bytesAt s.mem (w64 W) t ++ zeros (16 - t) ∧
+      Frame [⟨w64 W + BitVec.ofNat 64 rO, 16⟩] s.mem s'.mem ∧ s'.gpr .ebp = s.gpr .ebp ∧ s'.gpr .esi = s.gpr .esi ∧
+      s'.gpr .esp = s.gpr .esp ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  have aW : ∀ {o}, o < 2560 → w64 (W + BitVec.ofNat 32 o) = w64 W + BitVec.ofNat 64 o := fun ho => he.aW ho
+  have wIn : ∀ {o}, o + 4 ≤ 2560 → InRegions s.wr (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn ho
+  have rIn : ∀ {o}, o + 4 ≤ 2560 → InRegions (s.rd ++ s.wr) (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn' ho
+  rw [slotv_eq] at hv
+  simp only [tglO] at hv
+  have hz := zero4_fold s.mem W 256
+  simp only [Nat.reduceAdd] at hz
+  have hv' : (Cmac.zero4 s.mem (w64 W + BitVec.ofNat 64 256)).readW (w64 W + BitVec.ofNat 64 180) 32 =
+      BitVec.ofNat 32 t := by
+    have fz : Frame [⟨w64 W + BitVec.ofNat 64 256, 16⟩] s.mem (Cmac.zero4 s.mem (w64 W + BitVec.ofNat 64 256)) :=
+      Cmac.frame_store4 _ _ _ _ _
+    rw [slot_frame (W := W) (o := 180) fz (fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr
+      exact Lay.w_w (W := W) (a := 180) (n := 4) (d := 256) (k := 16) (by decide) (by decide) (by decide))]
+    exact hv
+  refine WP.seq (WP.of_runBlock ⟨_, by xrun [recv, zero4, he.ebp, aW, wIn, rIn, readW_writeW_off, hv, hz, hv'], ?_⟩)
+  refine WP.mono (padLoop_ok (o := 0) (d := 256) (t := t) (m := s.mem) (he.keep (by regs []) (by mems []))
+    (by mems []) (by regs [he.ebp]; exact (BitVec.add_zero W).symm) (by regs [he.ebp]) (by regs []) ht1 ht
+    (.inl (by decide)) (by decide) (by decide)) fun s' ⟨b, f, g, rd, wr⟩ => ⟨?_, f, ?_, ?_, ?_, ?_, ?_⟩
+  · simpa using b
+  · rw [g _ (by decide) (by decide) (by decide) (by decide)]; regs []
+  · rw [g _ (by decide) (by decide) (by decide) (by decide)]; regs []
+  · rw [g _ (by decide) (by decide) (by decide) (by decide)]; regs []
+  · rw [rd]; mems []
+  · rw [wr]; mems []
+
+theorem recv_ct {I : State → Prop} {W : BitVec 32} {t : Nat}
+    (h : ∀ s, I s → WEnv W s ∧ slotv s.mem W tglO = BitVec.ofNat 32 t) : CT I recv := by
+  refine CT.seq (J := fun s => s.gpr .edi = W ∧ s.gpr .edx = W + BitVec.ofNat 32 rO ∧ s.gpr .ecx = BitVec.ofNat 32 t)
+    (CT.taint [.ebp] (fun s₁ s₂ h₁ h₂ r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; rw [(h _ h₁).1.ebp, (h _ h₂).1.ebp]) (by taint_decide))
+    (fun s hs => ?_) (copyLoop_ct fun s₁ s₂ h₁ h₂ r hr => by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl
+      · rw [h₁.1, h₂.1]
+      · rw [h₁.2.1, h₂.2.1]
+      · rw [h₁.2.2, h₂.2.2])
+  obtain ⟨he, hv⟩ := h s hs
+  have aW : ∀ {o}, o < 2560 → w64 (W + BitVec.ofNat 32 o) = w64 W + BitVec.ofNat 64 o := fun ho => he.aW ho
+  have wIn : ∀ {o}, o + 4 ≤ 2560 → InRegions s.wr (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn ho
+  have rIn : ∀ {o}, o + 4 ≤ 2560 → InRegions (s.rd ++ s.wr) (w64 W + BitVec.ofNat 64 o) 4 := fun ho => he.wIn' ho
+  rw [slotv_eq] at hv
+  simp only [tglO] at hv
+  exact WP.of_runBlock ⟨_, by xrun [zero4, he.ebp, aW, wIn, rIn, readW_writeW_off, hv], by regs [he.ebp],
+    by regs [he.ebp], by regs []⟩
 
 end VG.Proof.AesGcm.X86
