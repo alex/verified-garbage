@@ -60,10 +60,20 @@ the next general-purpose register number NGRN is less than 8; otherwise
 NGRN is set to 8, the NSAA is rounded up to the larger of 8 and the
 argument's natural alignment, an argument of less than 8 bytes is given a
 size of 8 bytes, and the argument is copied to memory at the NSAA, which is
-then incremented by its size. Only 64-bit arguments (pointers, `usize`,
+then incremented by its size. Uniform 64-bit arguments (pointers, `usize`,
 `u64`) are modelled on the stack: Apple's arm64 ABI ("Writing ARM64 code for
 Apple platforms") passes narrower stack arguments in slots of their natural
-size instead, and for 8-byte arguments the two conventions agree. `abi` only
+size instead, and for 8-byte arguments the two conventions agree. We also
+accept a first 32-bit stack argument followed by a nonempty tail of 64-bit
+arguments. AAPCS64 C.14/C.16/C.17 place the second argument at offset 8;
+Apple uses four bytes for the first argument, then aligns the second to
+eight. The first slot's high half is unspecified and must be ignored.
+The nonempty tail ensures that reading the whole first slot stays within
+the caller's allocated argument area. Other narrow stack layouts remain
+unsupported because the two ABIs may assign different offsets.
+Sources: https://github.com/ARM-software/abi-aa/blob/2025Q4/aapcs64/aapcs64.rst
+and https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms
+("Pass arguments to functions correctly"). `abi` only
 grants reading the stack arguments, and assumes they do not wrap around the
 end of the address space. The return address is in `x30`, not in memory;
 the integer result is in `x0`.
@@ -75,11 +85,19 @@ def stackArgAddr (s : State) (i : Nat) : Addr := s.sp + BitVec.ofNat 64 (8 * i)
 /-- The `i`-th (from 0) stack argument, on entry. -/
 def stackArg (s : State) (i : Nat) : BitVec 64 := s.mem.readW (stackArgAddr s i) 64
 
+/-- A common stack layout under AAPCS64 and Apple's natural-size slots. -/
+def firstNarrowStack (ws : List Nat) : Bool :=
+  match ws with
+  | 32 :: 64 :: rest => rest.all (· = 64)
+  | _ => false
+
 def abi : Abi isa where
   ptrBits := 64
   args ws := if ws.length ≤ argRegs.length then
     some fun s => (argRegs.take ws.length).map s.gpr
   else if (ws.drop argRegs.length).all (· = 64) then
+    some fun s => argRegs.map s.gpr ++ (List.range (ws.length - argRegs.length)).map (stackArg s)
+  else if firstNarrowStack (ws.drop argRegs.length) then
     some fun s => argRegs.map s.gpr ++ (List.range (ws.length - argRegs.length)).map (stackArg s)
   else none
   argArea ws s := let n := ws.length - argRegs.length
