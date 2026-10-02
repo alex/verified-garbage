@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 import VerifiedGarbage.Proof.Rc2.AArch64.Cbc.Contract
 
 /-! # Verified RC2-CBC encryption and decryption -/
@@ -16,17 +17,14 @@ theorem cbc_body_correct (d : Spec.Rc2.Direction) (s : State) (hs : (contract d)
     exact ⟨⟨s.gpr .x4, 512⟩, by simp, Offset.contains_base _ hi (by omega)⟩
   rw [Impl.Rc2.AArch64.Cbc.cbc]
   apply WP.seq
-  rw [WP.block_append_iff]
-  obtain ⟨s₁, run₁, keep₁⟩ := save_ok s (writes 264 (by decide)) (writes 272 (by decide)) (writes 280 (by decide))
-  refine WP.of_runBlock ⟨s₁, run₁, ?_⟩
-  obtain ⟨s₂, run₂, iv₂, count₂, data₂, buf₂, flag₂, keep₂⟩ := setup_ok s₁
+  rw [save_eq]
+  refine Spill.save_ok (by decide) (fun p hp => writes p.2 (by revert p; decide)) ?_
+  obtain ⟨s₂, run₂, iv₂, count₂, data₂, buf₂, flag₂, keep₂⟩ := setup_ok { s with mem := savedMem s }
   refine WP.of_runBlock ⟨s₂, run₂, ?_⟩
-  have g₁ (r : Reg) : s₁.gpr r = s.gpr r := keep₁.reg r (by simp)
-  rw [g₁] at iv₂ count₂ data₂ buf₂ flag₂
-  have key₂ := (keep₂.reg .x0 (by decide)).trans (g₁ .x0)
-  have rd₂ := keep₂.rd.trans keep₁.rd
-  have wr₂ := keep₂.wr.trans keep₁.wr
-  have mem₂ : s₂.mem = savedMem s := keep₂.mem.trans keep₁.mem
+  have key₂ : s₂.gpr .x0 = s.gpr .x0 := keep₂.reg .x0 (by decide)
+  have rd₂ : s₂.rd = s.rd := keep₂.rd
+  have wr₂ : s₂.wr = s.wr := keep₂.wr
+  have mem₂ : s₂.mem = savedMem s := keep₂.mem
   have scratchFrame : Frame [⟨s.gpr .x4, 512⟩] s.mem s₂.mem := by
     rw [mem₂]; exact savedMem_frame s
   have initialKey := scheduleAt_frame scratchFrame (s.gpr .x0) (by simpa using keyBuf)
@@ -56,39 +54,32 @@ theorem cbc_body_correct (d : Spec.Rc2.Direction) (s : State) (hs : (contract d)
     rw [rd₃, wr₃, buf₃]
     obtain ⟨r, hr, hc⟩ := writes i hi
     exact ⟨r, List.mem_append_right _ hr, hc⟩
-  have v₁ : s₃.mem.readW (s₃.gpr .x2 + BitVec.ofNat 64 264) 64 = s.gpr .x23 := by
-    have h := h₃.scratchRead hp₂ 264 (by decide) (by decide)
-    rw [buf₂, mem₂, savedMem_rbx] at h
-    rw [buf₃]; exact h
-  have v₂ : s₃.mem.readW (s₃.gpr .x2 + BitVec.ofNat 64 272) 64 = s.gpr .x24 := by
-    have h := h₃.scratchRead hp₂ 272 (by decide) (by decide)
-    rw [buf₂, mem₂, savedMem_rbp] at h
-    rw [buf₃]; exact h
-  have v₃ : s₃.mem.readW (s₃.gpr .x2 + BitVec.ofNat 64 280) 64 = s.gpr .x30 := by
-    have h := h₃.scratchRead hp₂ 280 (by decide) (by decide)
-    rw [buf₂, mem₂, savedMem_link] at h
-    rw [buf₃]; exact h
-  obtain ⟨s₄, run₄, rbx₄, rbp₄, link₄, keep₄⟩ := restore_ok s₃ (s.gpr .x23) (s.gpr .x24) (s.gpr .x30)
-    (reads 264 (by decide)) (reads 272 (by decide)) (reads 280 (by decide)) v₁ v₂ v₃
-  refine WP.of_runBlock ⟨s₄, run₄, ?_⟩
+  have hsv : Spill.Saved (s₃.gpr .x2) s.gpr saved s₃.mem := fun p hp => by
+    have hb : 264 ≤ p.2 ∧ p.2 + 8 ≤ 512 := by revert p; decide
+    have h := h₃.scratchRead hp₂ p.2 hb.1 hb.2
+    rw [buf₂, mem₂] at h
+    rw [buf₃, h]
+    exact Spill.saveMem_saved (by decide) _ _ _ p hp
+  rw [restore_eq]
+  refine WP.mono (Spill.restore_wp rfl (by decide) (by decide)
+    (fun p hp => reads p.2 (by revert p; decide)) hsv) fun s₄ h₄ => ?_
   constructor
   · intro r hr
-    by_cases hb : r = .x23
-    · subst r; exact rbx₄
-    · by_cases hp : r = .x24
-      · subst r; exact rbp₄
-      · by_cases hl : r = .x30
-        · subst r; exact link₄
-        · have saved : ∀ r ∈ preserved, r ≠ .x30 → r ∈ savedAcrossCall := by decide
-          rw [keep₄.reg r (by simp [hb, hp, hl]), h₃.callee r (saved r hr hl) hp]
-          have sep : ∀ r ∈ preserved, r ≠ .x23 → r ≠ .x24 → r ∉ [.x23, .x24, .x1, .x2] := by decide
-          exact (keep₂.reg r (sep r hr hb hp)).trans (g₁ r)
+    by_cases hs : r ∈ saved.map Prod.fst
+    · exact h₄.gpr_of (.inl hs)
+    have hb : r ≠ .x23 ∧ r ≠ .x24 ∧ r ≠ .x30 := by
+      simpa only [saved, List.map_cons, List.map_nil, List.mem_cons, List.not_mem_nil, or_false,
+        not_or] using hs
+    have hsa : ∀ r ∈ preserved, r ≠ .x30 → r ∈ savedAcrossCall := by decide
+    have sep : ∀ r ∈ preserved, r ≠ .x23 → r ≠ .x24 → r ∉ [.x23, .x24, .x1, .x2] := by decide
+    rw [h₄.other r hs, h₃.callee r (hsa r hr hb.2.2) hb.2.1]
+    exact keep₂.reg r (sep r hr hb.1 hb.2.1)
   · have out := h₃.data
     have iv := h₃.iv
     rw [key₂, iv₂, data₂, initialKey, initialIv, initialData] at out iv
     constructor
-    · rw [keep₄.mem]; exact out
-    · rw [keep₄.mem]; exact iv
+    · rw [h₄.mem]; exact out
+    · rw [h₄.mem]; exact iv
 
 def satState : State where
   gpr r := match r with
