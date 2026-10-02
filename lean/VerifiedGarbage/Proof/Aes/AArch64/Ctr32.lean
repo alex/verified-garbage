@@ -95,9 +95,15 @@ def sreg : Nat → Reg
 /-- `savedRegs` at their offsets in bytes. -/
 abbrev savedSlots : List (Reg × Nat) := savedRegs.map fun (r, k) => (r, 8 * k)
 
-theorem slots_idx : ∀ p ∈ savedSlots, ∃ i < 10, p = (sreg i, 8 * (48 + i)) := by decide
+theorem savedSlots_eq : savedSlots = (List.range 10).map fun i => (sreg i, 8 * (48 + i)) := rfl
 
-theorem slots_mem : ∀ i < 10, (sreg i, 8 * (48 + i)) ∈ savedSlots := by decide
+theorem slots_idx {p : Reg × Nat} (hp : p ∈ savedSlots) : ∃ i < 10, p = (sreg i, 8 * (48 + i)) := by
+  rw [savedSlots_eq] at hp
+  obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hp
+  exact ⟨i, List.mem_range.mp hi, rfl⟩
+
+theorem slots_mem {i : Nat} (hi : i < 10) : (sreg i, 8 * (48 + i)) ∈ savedSlots := by
+  rw [savedSlots_eq]; exact List.mem_map_of_mem (List.mem_range.mpr hi)
 
 theorem slots_fits : Spill.Fits savedSlots := by decide
 
@@ -120,11 +126,11 @@ theorem save_ok {s : State} {b : Addr} {n : Nat} (hw : (⟨b, n⟩ : Region) ∈
   rw [saveRegs_eq]; subst hb
   refine WP.mono (Spill.save_wp slots_fits.1 fun p hp => ?_) fun s' h =>
     ⟨fun i hi => ?_, h.gpr, h.rd, h.wr, ?_⟩
-  · obtain ⟨i, hi, rfl⟩ := slots_idx p hp
+  · obtain ⟨i, hi, rfl⟩ := slots_idx hp
     refine ⟨_, hw, ?_⟩
     show (⟨s.gpr sb, n⟩ : Region).Contains (s.gpr sb + BitVec.ofNat 64 (8 * (48 + i))) 8
     exact Offset.contains_base _ (by omega) (by omega)
-  · have h' := Spill.saveMem_saved slots_fits s.mem (s.gpr sb) s.gpr _ (slots_mem i hi)
+  · have h' := Spill.saveMem_saved slots_fits s.mem (s.gpr sb) s.gpr _ (slots_mem hi)
     dsimp only at h'
     rw [h.mem]; exact h'
   · rw [h.mem]; exact Spill.saveMem_frame_base slots_end (by decide) _ _ _
@@ -135,12 +141,12 @@ theorem restore_ok {s₀ s : State} {b : Addr} {n : Nat} (hw : (⟨b, n⟩ : Reg
       Frame [⟨b, 8 * 59⟩] s.mem s'.mem := by
   rw [restoreRegs_eq]
   refine WP.mono (Spill.restore_wp hb slots_fits.1 slots_restorable (fun p hp => ?_) (fun p hp => ?_))
-    fun s' h => ⟨fun i hi => h.gpr _ (slots_mem i hi), by rw [h.mem]; exact Frame.refl _ _⟩
-  · obtain ⟨i, hi, rfl⟩ := slots_idx p hp
+    fun s' h => ⟨fun i hi => h.gpr _ (slots_mem hi), by rw [h.mem]; exact Frame.refl _ _⟩
+  · obtain ⟨i, hi, rfl⟩ := slots_idx hp
     refine ⟨_, List.mem_append_right _ hw, ?_⟩
     show (⟨b, n⟩ : Region).Contains (b + BitVec.ofNat 64 (8 * (48 + i))) 8
     exact Offset.contains_base _ (by omega) (by omega)
-  · obtain ⟨i, hi, rfl⟩ := slots_idx p hp
+  · obtain ⟨i, hi, rfl⟩ := slots_idx hp
     exact hs i hi
 
 /-! ## The counter block -/

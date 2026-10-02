@@ -33,21 +33,21 @@ theorem key_body_correct (s : State) (hs : keyContract.pre s) :
   rw [expandKey]
   apply WP.seq
   rw [WP.block_append_iff, keySave_eq]
-  apply WP.mono (saveCode_ok s .x4 savedReg 6 (by decide) writes)
+  apply WP.mono (Spill.save_wp (by decide) (Spill.forall_slots writes))
   intro s₁ h₁
   obtain ⟨s₂, run₂, key₂, len₂, ptr₂, bits₂, zero₂, keep₂⟩ := pinKey_ok s₁
   refine WP.of_runBlock ⟨s₂, run₂, ?_⟩
   have scratchFrame : Frame [⟨s.gpr .x4, 512⟩] s.mem s₂.mem := by
-    rw [keep₂.mem, h₁.2.2.2]
-    exact saveMem_frame_le _ _ _ 6 64 (by decide) (by decide)
-  rw [h₁.1] at key₂ len₂ ptr₂ bits₂
-  have rd₂ : s₂.rd = s.rd := keep₂.rd.trans h₁.2.1
-  have wr₂ : s₂.wr = s.wr := keep₂.wr.trans h₁.2.2.1
-  have r8₂ : s₂.gpr .x4 = s.gpr .x4 := (keep₂.reg .x4 (by decide)).trans (congrFun h₁.1 .x4)
+    rw [keep₂.mem, h₁.mem]
+    exact Spill.saveMem_frame_base (by decide) (by decide) _ _ _
+  rw [h₁.gpr] at key₂ len₂ ptr₂ bits₂
+  have rd₂ : s₂.rd = s.rd := keep₂.rd.trans h₁.rd
+  have wr₂ : s₂.wr = s.wr := keep₂.wr.trans h₁.wr
+  have r8₂ : s₂.gpr .x4 = s.gpr .x4 := (keep₂.reg .x4 (by decide)).trans (congrFun h₁.gpr .x4)
   have other₂ : ∀ r ∈ coreRegs, r ≠ .x21 → s₂.gpr r = s.gpr r := by
     intro r hr hn
     have sep : ∀ r ∈ coreRegs, r ≠ .x21 → r ∉ saved := by decide
-    exact (keep₂.reg r (sep r hr hn)).trans (congrFun h₁.1 r)
+    exact (keep₂.reg r (sep r hr hn)).trans (congrFun h₁.gpr r)
   have source₂ : Spec.Rc2.bytesAt s₂.mem (s₂.gpr .x19) (s.gpr .x1).toNat =
       Spec.Rc2.bytesAt s.mem (s.gpr .x0) (s.gpr .x1).toNat := by
     rw [key₂]
@@ -103,22 +103,24 @@ theorem key_body_correct (s : State) (hs : keyContract.pre s) :
     have bound := List.mem_range.mp hi
     rw [r8₄, outFrame.readW (r := ⟨s.gpr .x4, 512⟩)
       (Offset.contains_base _ (by omega) (by omega)) (by simpa using outScratch.symm) (by decide),
-      keep₂.mem, h₁.2.2.2]
-    exact saveMem_read _ _ _ 6 (by decide) i bound
+      keep₂.mem, h₁.mem]
+    exact Spill.saveMem_saved (l := Spill.slots savedReg 6) (by decide) s.mem (s.gpr .x4) s.gpr
+      (savedReg i, 8 * i) (Spill.mem_slots bound)
   rw [keyRestore_eq]
-  apply WP.mono (restoreCode_ok s₄ .x4 savedReg (List.range 6) s.gpr
-    (by decide) (by decide) scratchRead stored)
+  apply WP.mono (Spill.restore_wp rfl (by decide) (by decide)
+    (Spill.forall_slots fun i hi => scratchRead i (List.mem_range.mpr hi))
+    (Spill.forall_slots fun i hi => stored i (List.mem_range.mpr hi)))
   intro s₅ h₅
   constructor
   · intro r hr
     by_cases hm : r ∈ (List.range 6).map savedReg
-    · exact h₅.1 r hm
+    · exact h₅.gpr_of (.inl (by rwa [Spill.slots_fst]))
     · have covered : ∀ r ∈ preserved, r ∉ (List.range 6).map savedReg →
           r ∈ coreRegs ∧ r ≠ .x21 := by decide
       obtain ⟨hc, hn⟩ := covered r hr hm
-      exact (h₅.2.reg r hm).trans (other₄ r hc hn)
+      exact (h₅.other r (by rwa [Spill.slots_fst])).trans (other₄ r hc hn)
   · change Spec.Rc2.scheduleAt s₅.mem (s.gpr .x3) = _
-    rw [h₅.2.mem]
+    rw [h₅.mem]
     exact scheduleAt_expanded expanded
 
 def keySatState : State where

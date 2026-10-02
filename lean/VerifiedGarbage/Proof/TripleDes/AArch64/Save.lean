@@ -1,4 +1,5 @@
-import VerifiedGarbage.Proof.Rc2.AArch64.Save
+import VerifiedGarbage.Proof.Rc2.AArch64.BlockIO
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 import VerifiedGarbage.Proof.TripleDes.AArch64.RoundStep
 
 namespace VG.Proof.TripleDes.AArch64
@@ -7,10 +8,10 @@ open VG VG.AArch64 VG.Impl.TripleDes.AArch64
 
 def savedReg (i : Nat) : Reg := savedRegs.getD i .x19
 
-theorem blockSave_eq : blockSave = VG.Proof.Rc2.AArch64.saveCode .x2 savedReg 4 := by
+theorem blockSave_eq : blockSave = Spill.saveCode .x2 (Spill.slots savedReg 4) := by
   decide +kernel
 
-theorem blockRestore_eq : blockRestore = VG.Proof.Rc2.AArch64.restoreCode .x2 savedReg (List.range 4) := by
+theorem blockRestore_eq : blockRestore = Spill.restoreCode .x2 (Spill.slots savedReg 4) := by
   decide +kernel
 
 def Saved (original current : State) : Prop :=
@@ -29,13 +30,12 @@ theorem blockSave_ok (s : State)
     (hw : ∀ i < 4, InRegions s.wr (s.gpr .x2 + BitVec.ofNat 64 (8 * i)) 8) :
     WP isa (.block blockSave) s (SavePost s) := by
   rw [blockSave_eq]
-  obtain ⟨t, s', he, hs⟩ := VG.Proof.Rc2.AArch64.saveCode_ok s .x2 savedReg 4 (by decide) hw
-  refine ⟨t, s', he, hs.1, hs.2.1, hs.2.2.1, VG.AArch64.Exec.sp he, ?_, ?_⟩
-  · intro i hi
-    rw [hs.1, hs.2.2.2]
-    exact VG.Proof.Rc2.AArch64.saveMem_read _ _ _ 4 (by decide) i hi
-  · rw [hs.2.2.2]
-    exact VG.Proof.Rc2.AArch64.saveMem_frame _ _ _ 4 (by decide)
+  refine WP.mono (Spill.save_wp (by decide) (Spill.forall_slots hw)) fun s' h =>
+    ⟨h.gpr, h.rd, h.wr, h.sp, fun i hi => ?_, ?_⟩
+  · rw [h.gpr, h.mem]
+    exact Spill.saveMem_saved (l := Spill.slots savedReg 4) (by decide) s.mem (s.gpr .x2) s.gpr
+      (savedReg i, 8 * i) (Spill.mem_slots hi)
+  · rw [h.mem]; exact Spill.saveMem_frame_base (by decide) (by decide) _ _ _
 
 theorem savedReg_separate : ∀ i < 4, savedReg i ≠ .x2 := by decide +kernel
 
@@ -48,14 +48,11 @@ theorem blockRestore_ok (original s : State) (hsaved : Saved original s)
     (hread : ∀ i < 4, InRegions (s.rd ++ s.wr) (s.gpr .x2 + BitVec.ofNat 64 (8 * i)) 8) :
     WP isa (.block blockRestore) s (RestorePost original s) := by
   rw [blockRestore_eq]
-  have hregs : (List.range 4).map savedReg = savedRegs := by decide +kernel
-  obtain ⟨t, s', he, hs⟩ := VG.Proof.Rc2.AArch64.restoreCode_ok s .x2 savedReg (List.range 4) original.gpr
-    (fun i hi => by have := List.mem_range.mp hi; omega)
-    (fun i hi => savedReg_separate i (List.mem_range.mp hi))
-    (fun i hi => hread i (List.mem_range.mp hi))
-    (fun i hi => hsaved i (List.mem_range.mp hi))
-  rw [hregs] at hs
-  exact ⟨t, s', he, hs.1, hs.2, VG.AArch64.Exec.sp he⟩
+  have hregs : (Spill.slots savedReg 4).map Prod.fst = savedRegs := by decide +kernel
+  exact WP.mono (Spill.restore_wp rfl (by decide) (by decide) (Spill.forall_slots hread)
+    (Spill.forall_slots hsaved)) fun s' h =>
+    ⟨fun r hr => h.gpr_of (.inl (hregs ▸ hr)), ⟨fun r hr => h.other r (hregs ▸ hr), h.mem, h.rd, h.wr⟩,
+      h.sp⟩
 
 theorem savedSlot_spill_disjoint (s : State) (i : Nat) (hi : i < 4) :
     (⟨s.gpr .x2 + BitVec.ofNat 64 (8 * i), 8⟩ : Region).Disjoint (spillRegion s) :=

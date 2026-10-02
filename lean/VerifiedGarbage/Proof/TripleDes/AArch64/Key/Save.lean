@@ -1,4 +1,5 @@
-import VerifiedGarbage.Proof.Rc2.AArch64.Save
+import VerifiedGarbage.Proof.Rc2.AArch64.BlockIO
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 import VerifiedGarbage.Impl.TripleDes.AArch64.ExpandKey
 
 namespace VG.Proof.TripleDes.AArch64.Key
@@ -8,10 +9,10 @@ open VG VG.AArch64 VG.Impl.TripleDes.AArch64
 /-- The four callee-saved registers, in slot order. -/
 def savedReg (i : Nat) : Reg := (Impl.TripleDes.AArch64.Key.savedRegs).getD i .x19
 
-theorem save_eq : Impl.TripleDes.AArch64.Key.save = VG.Proof.Rc2.AArch64.saveCode .x3 savedReg 4 := by
+theorem save_eq : Impl.TripleDes.AArch64.Key.save = Spill.saveCode .x3 (Spill.slots savedReg 4) := by
   decide +kernel
 
-theorem restore_eq : Impl.TripleDes.AArch64.Key.restore = VG.Proof.Rc2.AArch64.restoreCode .x3 savedReg (List.range 4) := by
+theorem restore_eq : Impl.TripleDes.AArch64.Key.restore = Spill.restoreCode .x3 (Spill.slots savedReg 4) := by
   decide +kernel
 
 def Saved (original current : State) : Prop :=
@@ -24,14 +25,12 @@ theorem save_ok (s : State)
       s'.gpr = s.gpr ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ Saved s s' ∧
       Frame [⟨s.gpr .x3, 32⟩] s.mem s'.mem) := by
   rw [save_eq]
-  apply WP.mono (VG.Proof.Rc2.AArch64.saveCode_ok s .x3 savedReg 4 (by decide) hw)
-  intro s' hs
-  refine ⟨hs.1, hs.2.1, hs.2.2.1, ?_, ?_⟩
-  · intro i hi
-    rw [hs.1, hs.2.2.2]
-    exact VG.Proof.Rc2.AArch64.saveMem_read _ _ _ 4 (by decide) i hi
-  · rw [hs.2.2.2]
-    exact VG.Proof.Rc2.AArch64.saveMem_frame _ _ _ 4 (by decide)
+  refine WP.mono (Spill.save_wp (by decide) (Spill.forall_slots hw)) fun s' h =>
+    ⟨h.gpr, h.rd, h.wr, fun i hi => ?_, ?_⟩
+  · rw [h.gpr, h.mem]
+    exact Spill.saveMem_saved (l := Spill.slots savedReg 4) (by decide) s.mem (s.gpr .x3) s.gpr
+      (savedReg i, 8 * i) (Spill.mem_slots hi)
+  · rw [h.mem]; exact Spill.saveMem_frame_base (by decide) (by decide) _ _ _
 
 theorem savedReg_separate : ∀ i < 4, savedReg i ≠ .x3 := by decide +kernel
 
@@ -41,15 +40,10 @@ theorem restore_ok (original s : State) (hsaved : Saved original s)
       (∀ r ∈ Impl.TripleDes.AArch64.Key.savedRegs, s'.gpr r = original.gpr r) ∧
       VG.Proof.Rc2.AArch64.Keep (Impl.TripleDes.AArch64.Key.savedRegs) s s') := by
   rw [restore_eq]
-  have hregs : (List.range 4).map savedReg = Impl.TripleDes.AArch64.Key.savedRegs := by decide +kernel
-  have h := VG.Proof.Rc2.AArch64.restoreCode_ok s .x3 savedReg (List.range 4) original.gpr
-    (fun i hi => by have := List.mem_range.mp hi; omega)
-    (fun i hi => savedReg_separate i (List.mem_range.mp hi))
-    (fun i hi => hread i (List.mem_range.mp hi))
-    (fun i hi => hsaved i (List.mem_range.mp hi))
-  rw [hregs] at h
-  exact h
-
-
+  have hregs : (Spill.slots savedReg 4).map Prod.fst = Impl.TripleDes.AArch64.Key.savedRegs := by
+    decide +kernel
+  exact WP.mono (Spill.restore_wp rfl (by decide) (by decide) (Spill.forall_slots hread)
+    (Spill.forall_slots hsaved)) fun s' h =>
+    ⟨fun r hr => h.gpr_of (.inl (hregs ▸ hr)), ⟨fun r hr => h.other r (hregs ▸ hr), h.mem, h.rd, h.wr⟩⟩
 
 end VG.Proof.TripleDes.AArch64.Key

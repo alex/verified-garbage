@@ -8,9 +8,9 @@ open VG VG.AArch64 VG.AArch64.RegUpd VG.Impl.Rc2.AArch64
 
 def savedReg (i : Nat) : Reg := saved.getD i .x23
 
-theorem keySave_eq : save .x4 0 = saveCode .x4 savedReg 6 := by rfl
+theorem keySave_eq : save .x4 0 = Spill.saveCode .x4 (Spill.slots savedReg 6) := by rfl
 
-theorem keyRestore_eq : restore .x4 0 = restoreCode .x4 savedReg (List.range 6) := by rfl
+theorem keyRestore_eq : restore .x4 0 = Spill.restoreCode .x4 (Spill.slots savedReg 6) := by rfl
 
 theorem pinKey_ok (s : State) :
     ∃ s', runBlock isa [rr .x19 .x0, rr .x20 .x1, rr .x21 .x3, rr .x22 .x2, imm .x23 0] s = some s' ∧
