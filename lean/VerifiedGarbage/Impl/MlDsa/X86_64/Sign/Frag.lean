@@ -96,11 +96,11 @@ def setB (p : Ptr) (v : Nat) : List Instr := [.mov32 .rax (.imm (BitVec.ofNat 32
 /-- The 8 bytes `v` to `p`. -/
 def setQ (p : Ptr) (v : Nat) : List Instr := [.mov32 .rax (.imm (BitVec.ofNat 32 v)), .store (at_ p.1 p.2) .rax]
 
-/-- Copy `n` bytes from `src` to `dst`, one at a time. -/
+/-- Copy `n` bytes, a multiple of 8, from `src` to `dst`, 8 at a time. -/
 def copy (dst src : Ptr) (n : Nat) : Prog isa :=
-  .seq (.block (lea .rdi dst ++ lea .rsi src ++ [.mov32 .rcx (.imm (BitVec.ofNat 32 n))]))
-    (.loop (.block [.movzx8 .rax (at_ .rsi 0), .store8 (at_ .rdi 0) .rax, .alu .add .rdi (.imm 1),
-      .alu .add .rsi (.imm 1), .alu .sub .rcx (.imm 1)]) .ne)
+  .seq (.block (lea .rdi dst ++ lea .rsi src ++ [.mov32 .rcx (.imm (BitVec.ofNat 32 (n / 8)))]))
+    (.loop (.block [.mov .rax (.mem (at_ .rsi 0)), .store (at_ .rdi 0) .rax, .alu .add .rdi (.imm 8),
+      .alu .add .rsi (.imm 8), .alu .sub .rcx (.imm 1)]) .ne)
 
 /-! ## Calls
 
