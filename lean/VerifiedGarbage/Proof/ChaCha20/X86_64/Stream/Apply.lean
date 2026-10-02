@@ -389,7 +389,7 @@ theorem part1_ok {s₀ : State} (hp : APre s₀) (hle : L s₀ ≤ N s₀) {s : 
   apply WP.of_runBlock
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, readSrc,
     execAlu, arithFlags, State.setReg, State.setFlags, Option.map_some, Option.bind_some,
-    Option.some.injEq, exists_eq_left', ite_true, ite_false, hr12, and_mask,
+    Option.some.injEq, exists_eq_left', ite_true, hr12, and_mask,
     toNat_ofNat_lt (show L s₀ - H s₀ < 2 ^ 64 by omega)]
   have hnb : (L s₀ - H s₀) / 64 * 64 = 64 * NB s₀ := by simp only [NB, blocksOf, H]; omega
   rw [hnb]
@@ -428,5 +428,282 @@ theorem part1_ok {s₀ : State} (hp : APre s₀) (hle : L s₀ ≤ N s₀) {s : 
   · exact (h₃.frame.mono (by simp)).trans (h₄.frame.sub fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr
       exact ⟨dR s₀, by simp, prefix_sub _ hH⟩)
+
+
+/-! ## The whole blocks -/
+
+/-- The memory after the arguments of `vg_chacha20_xor` are set up: the
+state copied to `p + 192`, and its counter advanced by `c`. -/
+def copyMem (m : Mem) (p : Addr) (c : BitVec 32) : Mem :=
+  ((((((((m.writeW (off p 192) (m.readW (off p 0) 64)).writeW (off p 200) (m.readW (off p 8) 64)).writeW
+    (off p 208) (m.readW (off p 16) 64)).writeW (off p 216) (m.readW (off p 24) 64)).writeW
+    (off p 224) (m.readW (off p 32) 64)).writeW (off p 232) (m.readW (off p 40) 64)).writeW
+    (off p 240) (m.readW (off p 48) 64)).writeW (off p 248) (m.readW (off p 56) 64)).writeW
+    (off p 48) ((m.readW (off p 48) 64).setWidth 32 + c)
+
+set_option simprocs false in
+theorem args_exec {s : State} {p : Addr} (hrbx : s.gpr .rbx = p)
+    (hw : ∀ d, d + 8 ≤ 768 → InRegions s.wr (off p d) 8) (hrd : s.rd = []) :
+    WP isa (.block blocksArgs) s fun s' => s'.mem = copyMem s.mem p ((s.gpr .rdx >>> 6).setWidth 32) ∧
+      s'.gpr .rdi = p + BitVec.ofNat 64 192 ∧ s'.gpr .rsi = s.gpr .rbp ∧ s'.gpr .rcx = p + BitVec.ofNat 64 256 ∧
+      s'.gpr .rdx = s.gpr .rdx ∧ s'.gpr .rbp = s.gpr .rbp + s.gpr .rdx ∧
+      s'.gpr .r12 = s.gpr .r12 - s.gpr .rdx ∧
+      (∀ r ∈ [Reg.rbx, .r13, .r14, .r15, .rsp], s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  have i : ∀ d, d + 8 ≤ 768 → InRegions (s.rd ++ s.wr) (off p d) 8 := fun d hd => by
+    rw [hrd, List.nil_append]; exact hw d hd
+  have o4 : InRegions s.wr (off p 48) 4 := by
+    obtain ⟨r, hr, hc⟩ := hw 48 (by decide); exact ⟨r, hr, by simp only [Region.Contains] at hc ⊢; omega⟩
+  have i0 := i 0 (by decide); have i8 := i 8 (by decide); have i16 := i 16 (by decide)
+  have i24 := i 24 (by decide); have i32 := i 32 (by decide); have i40 := i 40 (by decide)
+  have i48 := i 48 (by decide); have i56 := i 56 (by decide)
+  have o192 := hw 192 (by decide); have o200 := hw 200 (by decide); have o208 := hw 208 (by decide)
+  have o216 := hw 216 (by decide); have o224 := hw 224 (by decide); have o232 := hw 232 (by decide)
+  have o240 := hw 240 (by decide); have o248 := hw 248 (by decide)
+  simp only [off] at i0 i8 i16 i24 i32 i40 i48 i56 o4 o192 o200 o208 o216 o224 o232 o240 o248
+  apply WP.of_runBlock
+  simp (config := {decide := true}) only [blocksArgs, runBlock_cons, runStep_some, runBlock_nil, exec,
+    ea_at, readSrc, readSrc32, execAlu, execAlu32, execShift, arithFlags, State.store64, State.store32,
+    State.load64, State.setReg, State.setReg32, State.setFlags, hrbx, i0, i8, i16, i24, i32,
+    i40, i48, i56, o4, o192, o200, o208, o216, o224, o232, o240, o248, ite_true, ite_false,
+    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left', RegUpd.setWidth_setWidth_32]
+  refine ⟨rfl, rfl, trivial, rfl, trivial, trivial, trivial, fun r hr => ?_, trivial⟩
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hrbx]
+
+
+/-- The memory before the counter is advanced. -/
+def copyMem8 (m : Mem) (p : Addr) : Mem :=
+  (((((((m.writeW (off p 192) (m.readW (off p 0) 64)).writeW (off p 200) (m.readW (off p 8) 64)).writeW
+    (off p 208) (m.readW (off p 16) 64)).writeW (off p 216) (m.readW (off p 24) 64)).writeW
+    (off p 224) (m.readW (off p 32) 64)).writeW (off p 232) (m.readW (off p 40) 64)).writeW
+    (off p 240) (m.readW (off p 48) 64)).writeW (off p 248) (m.readW (off p 56) 64)
+
+theorem copyMem_eq (m : Mem) (p : Addr) (c : BitVec 32) :
+    copyMem m p c = (copyMem8 m p).writeW (off p 48) ((m.readW (off p 48) 64).setWidth 32 + c) := rfl
+
+theorem copyMem8_frame (m : Mem) (p : Addr) : Frame [⟨off p 192, 64⟩] m (copyMem8 m p) := by
+  have c : ∀ d, 192 ≤ d → d + 8 ≤ 256 → (⟨off p 192, 64⟩ : Region).Contains (off p d) (64 / 8) := by
+    intro d h₁ h₂; simp only [off_eq]; exact Offset.contains _ h₁ (by omega) (by omega)
+  simp only [copyMem8]
+  have w : ∀ {m' : Mem} (_ : Frame [⟨off p 192, 64⟩] m m') (d : Nat), 192 ≤ d → d + 8 ≤ 256 →
+      ∀ v : BitVec 64, Frame [⟨off p 192, 64⟩] m (m'.writeW (off p d) v) :=
+    fun hf d h₁ h₂ v => hf.writeW (List.mem_singleton_self _) v (c d h₁ h₂)
+  exact w (w (w (w (w (w (w (w (Frame.refl _ _) 192 (by decide) (by decide) _) 200 (by decide) (by decide) _)
+    208 (by decide) (by decide) _) 216 (by decide) (by decide) _) 224 (by decide) (by decide) _) 232 (by decide)
+    (by decide) _) 240 (by decide) (by decide) _) 248 (by decide) (by decide) _
+
+theorem copyMem_frame (m : Mem) (p : Addr) (c : BitVec 32) :
+    Frame [⟨p, 64⟩, ⟨off p 192, 64⟩] m (copyMem m p c) := by
+  rw [copyMem_eq]
+  refine ((copyMem8_frame m p).mono (by simp)).writeW (List.mem_cons_self ..) _ ?_
+  simp only [off_eq]; exact Offset.contains_base _ (by omega) (by omega)
+
+/-- The copy of the state. -/
+theorem copyMem_copy (m : Mem) (p : Addr) (c : BitVec 32) :
+    stateAt (copyMem m p c) (p + BitVec.ofNat 64 192) = stateAt m p := by
+  refine stateAt_congr fun i hi => ?_
+  rw [copyMem_eq, Offset.add_add, byte_writeW_off _ _ _ (show 32 / 8 ≤ 8 by decide) (by omega) (by omega)
+    (by omega)]
+  have hw : ∀ k, 24 ≤ k → k < 32 → (copyMem8 m p).readW (p + BitVec.ofNat 64 (8 * k)) 64 =
+      m.readW (p + BitVec.ofNat 64 (8 * (k - 24))) 64 := by
+    intro k h₁ h₂
+    rw [word_off, word_off]
+    simp only [copyMem8]
+    obtain rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl :
+      k = 24 ∨ k = 25 ∨ k = 26 ∨ k = 27 ∨ k = 28 ∨ k = 29 ∨ k = 30 ∨ k = 31 := by omega
+    all_goals simp (config := {decide := true}) only [Mem.readW_writeW_self64, readW64_off]
+  have hm : ∀ k, 0 ≤ k → k < 8 → m.readW (p + BitVec.ofNat 64 (8 * k)) 64 = m.readW (p + BitVec.ofNat 64 (8 * k)) 64 :=
+    fun _ _ _ => rfl
+  rw [byte_of_words64 hw (by omega) (by omega), byte_of_words64 hm (i := i) (Nat.zero_le _) (by omega),
+    show (192 + i) / 8 - 24 = i / 8 by omega, show (192 + i) % 8 = i % 8 by omega]
+
+
+/-- The state, with its counter advanced. -/
+theorem copyMem_state (m : Mem) (p : Addr) (c : BitVec 32) :
+    stateAt (copyMem m p c) p = (stateAt m p).set 12 ((stateAt m p)[12] + c) := by
+  rw [copyMem_eq, Proof.ChaCha20.X86_64.Xor.stateAt_writeW_counter,
+    Proof.ChaCha20.X86_64.Xor.stateAt_frame (copyMem8_frame m p) (fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; simp only [off_eq]
+      exact Offset.base_disjoint _ (by omega) (by omega)),
+    readW64_setWidth]
+  simp [stateAt, off_eq]
+
+
+theorem shr_eq {nb : Nat} (h : 64 * nb < 2 ^ 64) :
+    (BitVec.ofNat 64 (64 * nb) >>> 6).setWidth 32 = BitVec.ofNat 32 nb := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_setWidth, BitVec.toNat_ushiftRight, toNat_ofNat_lt h, BitVec.toNat_ofNat,
+    Nat.shiftRight_eq_div_pow]
+  omega
+
+/-- After `part2`: the whole blocks XORed, and the counter advanced past
+them. -/
+structure Q2 (s₀ s : State) : Prop where
+  rbx : s.gpr .rbx = st s₀
+  rbp : s.gpr .rbp = dp s₀ + BitVec.ofNat 64 (H s₀ + 64 * NB s₀)
+  r12 : s.gpr .r12 = BitVec.ofNat 64 (T s₀)
+  keep : ∀ r ∈ [Reg.r13, .r14, .r15, .rsp], s.gpr r = s₀.gpr r
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  state : stateAt s.mem (st s₀) = ctr (S0 s₀) (NB s₀)
+  buf : ∀ i < 64, s.mem (st s₀ + BitVec.ofNat 64 (64 + i)) = s₀.mem (st s₀ + BitVec.ofNat 64 (64 + i))
+  saved : Saved s₀ s.mem
+  done : Done s₀ (H s₀ + 64 * NB s₀) s.mem
+  frame : Frame [stR s₀, dR s₀, stkR s₀] s₀.mem s.mem
+
+theorem T_eq (s₀ : State) : T s₀ = L s₀ - H s₀ - 64 * NB s₀ := by simp only [T, NB, tailLen, blocksOf, H]; omega
+theorem HNB_le (s₀ : State) : H s₀ + 64 * NB s₀ ≤ L s₀ := by
+  have := H_le s₀; simp only [NB, blocksOf, H] at *; omega
+
+theorem Mid.state {s₀ : State} {m : Mem} (h : Mid s₀ m) : stateAt m (st s₀) = S0 s₀ :=
+  stateAt_congr fun i hi => h.keep i (by omega)
+
+theorem nb_zero_ok {s₀ : State} {s : State} (h : Q1 s₀ s) (h0 : 64 * NB s₀ = 0) : Q2 s₀ s := by
+  have hT := T_eq s₀
+  refine ⟨h.rbx, by rw [h.rbp, h0, Nat.add_zero], by rw [h.r12, hT, h0, Nat.sub_zero], h.keep, h.rd, h.wr,
+    by rw [h.mid.state, show NB s₀ = 0 by omega, ctr_zero], fun i hi => h.mid.keep _ (by omega), h.mid.saved,
+    by rw [h0, Nat.add_zero]; exact h.done, h.frame.mono (by simp)⟩
+
+theorem Q1.w {s₀ s : State} (hp : APre s₀) (h : Q1 s₀ s) :
+    ∀ d, d + 8 ≤ 768 → InRegions s.wr (off (st s₀) d) 8 := fun d hd => by rw [h.wr]; exact hp.w_st hd
+
+/-- The regions of the call of `vg_chacha20_xor`: the copy of the state,
+the data and the working space. -/
+abbrev cpR (s₀ : State) : Region := ⟨st s₀ + BitVec.ofNat 64 192, 64⟩
+abbrev blR (s₀ : State) : Region := ⟨dp s₀ + BitVec.ofNat 64 (H s₀), 64 * NB s₀⟩
+abbrev wkR (s₀ : State) : Region := ⟨st s₀ + BitVec.ofNat 64 256, 320⟩
+
+theorem cpR_sub (s₀ : State) : Region.Sub (cpR s₀) (stR s₀) := Offset.sub_base _ (by omega)
+theorem wkR_sub (s₀ : State) : Region.Sub (wkR s₀) (stR s₀) := Offset.sub_base _ (by omega)
+theorem blR_sub (s₀ : State) : Region.Sub (blR s₀) (dR s₀) := Offset.sub_base _ (HNB_le s₀)
+
+
+theorem part2_eq (x : Impl.ChaCha20.X86_64.Callee) :
+    part2 x = .ite .e (.block []) (.seq (.block blocksArgs) (.call x.name x.code)) := rfl
+
+theorem blocks_ok (v : Proof.ChaCha20.X86_64.XorImpl) {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s)
+    (hnb : 0 < NB s₀) : WP isa (.seq (.block blocksArgs) (.call v.callee.name v.callee.code)) s (Q2 s₀) := by
+  have hL := L_lt s₀
+  have hH := H_le s₀
+  have hHNB := HNB_le s₀
+  have hT := T_eq s₀
+  refine WP.seq (WP.mono (args_exec h.rbx (h.w hp) (by rw [h.rd, hp.rd])) fun s₁ ⟨m₁, rdi₁, rsi₁, rcx₁, rdx₁,
+    rbp₁, r12₁, k₁, rd₁, wr₁⟩ => ?_)
+  rw [h.rdx, shr_eq (by omega)] at m₁
+  rw [h.rdx] at rdx₁
+  rw [h.rbp] at rsi₁
+  have hsp₁ : s₁.gpr .rsp = s₀.gpr .rsp := by rw [k₁ .rsp (by simp), h.keep .rsp (by simp)]
+  have hstk : below (s₁.gpr .rsp) 24 = stkR s₀ := by rw [hsp₁]; rfl
+  have hwr₁ : s₁.wr = [stR s₀, dR s₀] := by rw [wr₁, h.wr, hp.wr]
+  have hrd₁ : s₁.rd = [] := by rw [rd₁, h.rd, hp.rd]
+  have dSB : (cpR s₀).Disjoint (wkR s₀) := Offset.disjoint _ (by omega) (by omega) (by omega)
+  have dSD : (cpR s₀).Disjoint (blR s₀) := (hp.st_d.sub_left (cpR_sub s₀)).sub_right (blR_sub s₀)
+  have dDB : (blR s₀).Disjoint (wkR s₀) := (hp.st_d.sub_left (wkR_sub s₀)).symm.sub_left (blR_sub s₀)
+  have hcov : ∀ r ∈ [cpR s₀, blR s₀, wkR s₀], ∃ r' ∈ [stR s₀, dR s₀], ∃ o,
+      r.base = r'.base + BitVec.ofNat 64 o ∧ o + r.len ≤ r'.len := by
+    intro r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl
+    · exact ⟨stR s₀, by simp, 192, rfl, by simp⟩
+    · exact ⟨dR s₀, by simp, H s₀, rfl, hHNB⟩
+    · exact ⟨stR s₀, by simp, 256, rfl, by simp⟩
+  have hwrap : (dp s₀ + BitVec.ofNat 64 (H s₀)).toNat + 64 * NB s₀ ≤ 2 ^ 64 := by
+    have := hp.wrap_d
+    rw [BitVec.toNat_add, toNat_ofNat_lt (by omega)]
+    omega
+  refine xor_call v (S := st s₀ + BitVec.ofNat 64 192) (D := dp s₀ + BitVec.ofNat 64 (H s₀))
+    (B := st s₀ + BitVec.ofNat 64 256) (n := 64 * NB s₀) rdi₁ rsi₁ rdx₁ rcx₁ (by omega) dSD dSB dDB hwrap
+    (by rw [hstk]; exact hp.stk_st.sub_right (cpR_sub s₀)) (by rw [hstk]; exact hp.stk_d.sub_right (blR_sub s₀))
+    (by rw [hstk]; exact hp.stk_st.sub_right (wkR_sub s₀))
+    (by rw [hrd₁, hwr₁, List.nil_append, List.nil_append]; exact Covers.of_sub hcov)
+    (by rw [hwr₁]; exact Covers.of_sub hcov) ?_
+  intro s₂ rd₂ wr₂ cs₂ f₂ x₂
+  rw [hstk] at f₂
+  have g : ∀ r ∈ [Reg.rbx, .rbp, .r12, .r13, .r14, .r15, .rsp], s₂.gpr r = s₁.gpr r :=
+    fun r hr => cs₂ r (by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [calleeSaved])
+  -- Regions the call does not write.
+  have nd : ∀ R : Region, R.Disjoint (cpR s₀) → R.Disjoint (blR s₀) → R.Disjoint (wkR s₀) →
+      R.Disjoint (stkR s₀) → ∀ r ∈ [cpR s₀, blR s₀, wkR s₀, stkR s₀], R.Disjoint r := by
+    intro R h₁ h₂ h₃ h₄ r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl <;> assumption
+  have nc : ∀ R : Region, R.Disjoint ⟨st s₀, 64⟩ → R.Disjoint ⟨off (st s₀) 192, 64⟩ →
+      ∀ r ∈ [⟨st s₀, 64⟩, ⟨off (st s₀) 192, 64⟩], R.Disjoint r := by
+    intro R h₁ h₂ r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl <;> assumption
+  have fc := copyMem_frame s.mem (st s₀) (BitVec.ofNat 32 (NB s₀))
+  rw [← m₁] at fc
+  have stS : Region.Sub ⟨st s₀, 64⟩ (stR s₀) := prefix_sub _ (by omega)
+  have cpS : Region.Sub ⟨off (st s₀) 192, 64⟩ (stR s₀) := by rw [off_eq]; exact cpR_sub s₀
+  have bufS : Region.Sub ⟨st s₀ + BitVec.ofNat 64 64, 64⟩ (stR s₀) := Offset.sub_base _ (by omega)
+  have svS := savR_sub s₀
+  -- Anything in the state is apart from the data and the stack.
+  have sd : ∀ R, Region.Sub R (stR s₀) → R.Disjoint (blR s₀) := fun R hR =>
+    (hp.st_d.sub_left hR).sub_right (blR_sub s₀)
+  have sk : ∀ R, Region.Sub R (stR s₀) → R.Disjoint (stkR s₀) := fun R hR => hp.stk_st.symm.sub_left hR
+  have ds : ∀ R R', Region.Sub R (dR s₀) → Region.Sub R' (stR s₀) → R.Disjoint R' := fun R R' h₁ h₂ =>
+    (hp.st_d.symm.sub_left h₁).sub_right h₂
+  have dk : ∀ R, Region.Sub R (dR s₀) → R.Disjoint (stkR s₀) := fun R hR => hp.stk_d.symm.sub_left hR
+  refine ⟨by rw [g .rbx (by simp), k₁ .rbx (by simp), h.rbx], ?_, ?_, fun r hr => ?_, by rw [rd₂, rd₁, h.rd],
+    by rw [wr₂, wr₁, h.wr], ?_, fun i hi => ?_, ?_, fun k hk => ?_, ?_⟩
+  · rw [g .rbp (by simp), rbp₁, h.rbp, h.rdx, Offset.add_add]
+  · rw [g .r12 (by simp), r12₁, h.r12, h.rdx, Offset.ofNat_sub_ofNat (by omega), hT, Nat.sub_sub]
+  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rw [g r (by rcases hr with rfl | rfl | rfl | rfl <;> simp), k₁ r (by rcases hr with rfl | rfl | rfl | rfl <;> simp)]
+    exact h.keep r (by rcases hr with rfl | rfl | rfl | rfl <;> simp)
+  · rw [Proof.ChaCha20.X86_64.Xor.stateAt_frame f₂ (nd _
+        (Offset.base_disjoint _ (by omega) (by omega)) (sd _ stS)
+        (Offset.base_disjoint _ (by omega) (by omega)) (sk _ stS)),
+      m₁, copyMem_state, h.mid.state]
+    rfl
+  · rw [← Offset.add_add, f₂.bytes (R := ⟨st s₀ + BitVec.ofNat 64 64, 64⟩) (nd _
+        (Offset.disjoint _ (by omega) (by omega) (by omega)) (sd _ bufS)
+        (Offset.disjoint _ (by omega) (by omega) (by omega)) (sk _ bufS)) (show 64 ≤ 2 ^ 64 by decide) hi,
+      fc.bytes (R := ⟨st s₀ + BitVec.ofNat 64 64, 64⟩) (nc _ (Offset.disjoint_base _ (by omega) (by omega))
+        (by rw [off_eq]; exact Offset.disjoint _ (by omega) (by omega) (by omega))) (show 64 ≤ 2 ^ 64 by decide) hi,
+      Offset.add_add]
+    exact h.mid.keep _ (by omega)
+  · refine (h.mid.saved.frame fc (nc _ ?_ ?_)).frame f₂ (nd _ ?_ (sd _ svS) ?_ (sk _ svS))
+    · simp only [savR, off_eq]; exact Offset.disjoint_base _ (by omega) (by omega)
+    · simp only [savR, off_eq]; exact Offset.disjoint _ (by omega) (by omega) (by omega)
+    · simp only [savR, off_eq]; exact Offset.disjoint _ (by omega) (by omega) (by omega)
+    · simp only [savR, off_eq]; exact Offset.disjoint _ (by omega) (by omega) (by omega)
+  · have fcd : s₁.mem (dp s₀ + BitVec.ofNat 64 k) = s.mem (dp s₀ + BitVec.ofNat 64 k) :=
+      fc.bytes (R := dR s₀) (nc _ (ds _ _ (fun _ h => h) stS) (ds _ _ (fun _ h => h) cpS))
+        (show L s₀ ≤ 2 ^ 64 by omega) hk
+    by_cases hk₁ : k < H s₀
+    · have hpre : Region.Sub ⟨dp s₀, H s₀⟩ (dR s₀) := prefix_sub _ hH
+      rw [f₂.bytes (R := ⟨dp s₀, H s₀⟩) (nd _ (ds _ _ hpre (cpR_sub s₀))
+          (Offset.base_disjoint _ (by omega) (by omega)) (ds _ _ hpre (wkR_sub s₀)) (dk _ hpre))
+          (show H s₀ ≤ 2 ^ 64 by omega) hk₁]
+      rw [fcd, h.done k hk, ite_pos hk₁, ite_pos (by omega)]
+    by_cases hk₂ : k < H s₀ + 64 * NB s₀
+    · have e := xor_getD (length_keystream _ _) x₂ (j := k - H s₀) (by omega)
+      rw [Offset.add_add, show H s₀ + (k - H s₀) = k by omega, fcd, h.done k hk, ite_neg hk₁, m₁,
+        copyMem_copy, h.mid.state, keystream_getD _ (by omega)] at e
+      rw [e, ite_pos hk₂]
+      simp only [KS, ite_neg hk₁]
+    · have hR : Region.Sub ⟨dp s₀ + BitVec.ofNat 64 (H s₀ + 64 * NB s₀), L s₀ - (H s₀ + 64 * NB s₀)⟩ (dR s₀) :=
+        Offset.sub_base _ (by omega)
+      have := f₂.bytes (R := ⟨dp s₀ + BitVec.ofNat 64 (H s₀ + 64 * NB s₀), L s₀ - (H s₀ + 64 * NB s₀)⟩)
+        (nd _ (ds _ _ hR (cpR_sub s₀)) (Offset.disjoint _ (by omega) (by omega) (by omega))
+          (ds _ _ hR (wkR_sub s₀)) (dk _ hR)) (show L s₀ - (H s₀ + 64 * NB s₀) ≤ 2 ^ 64 by omega)
+          (i := k - (H s₀ + 64 * NB s₀)) (by simp only; omega)
+      rw [Offset.add_add, show H s₀ + 64 * NB s₀ + (k - (H s₀ + 64 * NB s₀)) = k by omega] at this
+      rw [this, fcd, h.done k hk, ite_neg hk₁, ite_neg hk₂]
+  · refine ((h.frame.mono (by simp)).trans (fc.sub fun r hr => ?_)).trans (f₂.sub fun r hr => ?_)
+    · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl
+      · exact ⟨stR s₀, by simp, stS⟩
+      · exact ⟨stR s₀, by simp, cpS⟩
+    · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl
+      · exact ⟨stR s₀, by simp, cpR_sub s₀⟩
+      · exact ⟨dR s₀, by simp, blR_sub s₀⟩
+      · exact ⟨stR s₀, by simp, wkR_sub s₀⟩
+      · exact ⟨stkR s₀, by simp, fun _ h => h⟩
 
 end VG.Proof.ChaCha20.X86_64.Stream

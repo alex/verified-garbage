@@ -97,16 +97,14 @@ def part1 : Prog isa :=
 /-- The whole blocks: the state copied and the counter advanced, then
 `vg_chacha20_xor` (`x`) on the copy. -/
 def blocksArgs : List Instr :=
-  [.mov .rax (.mem (at_ .rbx 0)), .store (at_ .rbx 192) .rax,
-   .mov .rax (.mem (at_ .rbx 8)), .store (at_ .rbx 200) .rax,
-   .mov .rax (.mem (at_ .rbx 16)), .store (at_ .rbx 208) .rax,
-   .mov .rax (.mem (at_ .rbx 24)), .store (at_ .rbx 216) .rax,
-   .mov .rax (.mem (at_ .rbx 32)), .store (at_ .rbx 224) .rax,
-   .mov .rax (.mem (at_ .rbx 40)), .store (at_ .rbx 232) .rax,
-   .mov .rax (.mem (at_ .rbx 48)), .store (at_ .rbx 240) .rax,
-   .mov .rax (.mem (at_ .rbx 56)), .store (at_ .rbx 248) .rax,
-   .mov .rcx (.reg .rdx), .shift .shr .rcx 6, .mov32 .rax (.mem (at_ .rbx 48)),
-   .alu32 .add .rax (.reg .rcx), .store32 (at_ .rbx 48) .rax,
+  [.mov .rax (.mem (at_ .rbx 0)), .mov .rcx (.mem (at_ .rbx 8)), .mov .rsi (.mem (at_ .rbx 16)),
+   .mov .rdi (.mem (at_ .rbx 24)), .mov .r8 (.mem (at_ .rbx 32)), .mov .r9 (.mem (at_ .rbx 40)),
+   .mov .r10 (.mem (at_ .rbx 48)), .mov .r11 (.mem (at_ .rbx 56)),
+   .store (at_ .rbx 192) .rax, .store (at_ .rbx 200) .rcx, .store (at_ .rbx 208) .rsi,
+   .store (at_ .rbx 216) .rdi, .store (at_ .rbx 224) .r8, .store (at_ .rbx 232) .r9,
+   .store (at_ .rbx 240) .r10, .store (at_ .rbx 248) .r11,
+   .mov32 .rax (.reg .r10), .mov .rcx (.reg .rdx), .shift .shr .rcx 6, .alu32 .add .rax (.reg .rcx),
+   .store32 (at_ .rbx 48) .rax,
    .mov .rdi (.reg .rbx), .alu .add .rdi (.imm 192), .mov .rsi (.reg .rbp),
    .mov .rcx (.reg .rbx), .alu .add .rcx (.imm 256),
    .alu .add .rbp (.reg .rdx), .alu .sub .r12 (.reg .rdx)]

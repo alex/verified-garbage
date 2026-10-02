@@ -280,6 +280,38 @@ theorem wordLE_bytesAt (m : Mem) (p : Addr) {n : Nat} (hn : 4 ≤ n) :
   word_ext fun i hi => by
     rw [wordLE_byte _ _ hi, Nat.mul_zero, Nat.zero_add, bytesAt_getD _ _ (by omega), Mem.readW_byte m p hi]
 
+/-- The low half of a 64-bit word. -/
+theorem readW64_setWidth (m : Mem) (a : Addr) : (m.readW a 64).setWidth 32 = m.readW a 32 := by
+  refine word_ext fun i hi => ?_
+  rw [← Mem.readW_byte m a hi, ← readW64_byte m a (by omega)]
+  ext j hj
+  simp [BitVec.getElem_extractLsb', BitVec.getLsbD_setWidth]
+  omega
+
+/-- A 16-word state with the same bytes. -/
+theorem stateAt_congr {m m' : Mem} {p q : Addr}
+    (h : ∀ i < 64, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i)) : stateAt m' q = stateAt m p := by
+  apply Vector.ext; intro j hj
+  simp only [stateAt, Vector.getElem_ofFn]
+  refine word_ext fun i hi => ?_
+  rw [← Mem.readW_byte m' _ hi, ← Mem.readW_byte m _ hi, Offset.add_add, Offset.add_add, h _ (by omega)]
+
+theorem getElem_eq_getD' (l : List Byte) {i : Nat} (h : i < l.length) : l[i] = l.getD i 0 := by
+  simp [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h]
+
+/-- XORing a keystream into data in memory, byte by byte (the converse of
+`bytesAt_xor`). -/
+theorem xor_getD {m m' : Mem} {p : Addr} {n : Nat} {ks : List Byte} (hks : ks.length = n)
+    (h : bytesAt m' p n = List.zipWith (· ^^^ ·) (bytesAt m p n) ks) {j : Nat} (hj : j < n) :
+    m' (p + BitVec.ofNat 64 j) = m (p + BitVec.ofNat 64 j) ^^^ ks.getD j 0 := by
+  have := congrArg (·.getD j 0) h
+  rw [bytesAt_getD _ _ hj] at this
+  rw [this, List.getD_eq_getElem?_getD, List.getElem?_zipWith, List.getElem?_eq_getElem
+    (by rw [length_bytesAt]; exact hj), List.getElem?_eq_getElem (by rw [hks]; exact hj)]
+  simp only [Option.getD_some]
+  rw [getElem_eq_getD' _ (by rw [length_bytesAt]; exact hj), bytesAt_getD _ _ hj,
+    getElem_eq_getD' _ (show j < ks.length by omega)]
+
 /-! ## Applying the keystream -/
 
 section Apply
