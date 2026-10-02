@@ -6,7 +6,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Instances
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: the instances
 
 The generic proof (`CT.lean`) at each hash function of
-`Proof/Hmac/Generic/Arm/Hashes.lean`: the functions it calls are verified by
+`Proof/Pbkdf2/Stream/Arm/Hashes.lean`: the functions it calls are verified by
 their own registration files (with 16 bytes of stack, the most their frames
 use: `armStack`), the taint checks are evaluated by the kernel, and a state
 satisfies the shared contract (`pbkSat`).
@@ -17,7 +17,7 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 open VG.Arm
 open VG.Arm.FrameStack
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
-open VG.Proof.Hmac.Generic.Arm (sha1H md5H sha384H sha512H' sha512_224H sha512_256H sha1OK md5OK sha384OK
+open VG.Proof.Pbkdf2.Stream.Arm (sha1H md5H sha384H sha512H' sha512_224H sha512_256H sha1OK md5OK sha384OK
   sha512OK sha512_224OK sha512_256OK)
 
 /-- The functions `pbkdf2` calls for the hash function `M` of the instance

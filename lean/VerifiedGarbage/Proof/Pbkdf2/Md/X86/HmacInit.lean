@@ -16,11 +16,11 @@ value (`cmpI_ok`, `cmpO_ok`): each state then represents its block
 namespace VG.Proof.Pbkdf2.Md.X86
 
 open VG.X86
-open VG.Impl.Hmac.Generic.X86 (at_)
+open VG.Impl.Pbkdf2.Stream.X86 (at_)
 open VG.Impl.Pbkdf2.Md.X86 (Hash)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd Fupd wp_mov wp_movi wp_movm wp_store wp_addi wp_subi wp_test
   wp_movzx8 wp_store8 ofNat_beq_zero ofNat_pred ofNat_succ addr_add_ofNat)
-open VG.Proof.Hmac.Generic.X86 (ea_at wp_xori count_loop)
+open VG.Proof.Pbkdf2.Stream.X86 (ea_at wp_xori count_loop)
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_add bytesAt_writeBytes_sep extractLsb'_read)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_append writeBytes_frame)
 open Spec.Sha256 (bytesAt)
@@ -177,10 +177,10 @@ namespace VG.Proof.Pbkdf2.Md.X86.HmacInit
 
 open VG.X86
 open VG.Impl.Pbkdf2.Md.X86 (Hash)
-open VG.Impl.Hmac.Generic.X86 (at_)
+open VG.Impl.Pbkdf2.Stream.X86 (at_)
 open VG.Proof.Pbkdf2.Md.X86
 open VG.Proof.MdStream (Md)
-open VG.Proof.Hmac.Generic.X86 (HashOK initG SavedRegs saveR savedRegs save_ok restore_ok callee_saved ea_at stk
+open VG.Proof.Pbkdf2.Stream.X86 (HashOK initG SavedRegs saveR savedRegs save_ok restore_ok callee_saved ea_at stk
   After stk_args stk_ret arg_keep arg_contains arg_sub argAddr_eq init_frame setWidth_add toNat_add_ofNat)
 open VG.Proof.Hmac.Generic.Common (off_disj off_disj0 covers_one InRegions.right' bytesAt_writeBytes_self')
 open VG.Proof.Sha256.X86.Stream (Upd wp_mov wp_movi wp_movm wp_add wp_addi wp_test sub_offset ofNat_beq_zero)
@@ -450,7 +450,7 @@ theorem KR.call {s s' : State} (hk : KR (H := H) sc s₀ s) {rs : List Region} (
 /-- What a call of the streaming `init` on the state at `p`, in `st`, needs. -/
 theorem initArgs {s : State} (hk : KR (H := H) sc s₀ s) {st : Reg} {p : BitVec 32}
     (hst : st = .ebx ∧ p = inn s₀ ∨ st = .esi ∧ p = out s₀) (hsr : s.gpr st = p) :
-    VG.Proof.Hmac.Generic.X86.InitArgs (H := H.st) s st p := by
+    VG.Proof.Pbkdf2.Stream.X86.InitArgs (H := H.st) s st p := by
   have hpR : p = inn s₀ ∨ p = out s₀ := by rcases hst with ⟨_, h⟩ | ⟨_, h⟩ <;> simp [h]
   obtain ⟨_, dK, _, np, hin⟩ := st_facts hz hp hpR
   have hS : H.st.S = H.N + H.B := hz.S
@@ -587,7 +587,7 @@ theorem fill_ok {s : State} (hk : KR (H := H) sc s₀ s) (hbx : s.gpr .ebx = inn
       k₂.readArg hp (by decide)]
   · rw [f₇.gpr, u₆.gpr, u₅.gpr, u₄.other _ (by decide), u₃.other _ (by decide), bx₂]
   · rw [hcx, kl, BitVec.ofNat_toNat, BitVec.setWidth_eq]
-  · rw [z₇, ← f₇.gpr, hcx, VG.Proof.Hmac.Generic.X86.test_z]
+  · rw [z₇, ← f₇.gpr, hcx, VG.Proof.Pbkdf2.Stream.X86.test_z]
 
 
 /-- The key loop: the key XORed with `ipad` over the start of the inner buffer. -/

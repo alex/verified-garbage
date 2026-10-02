@@ -8,7 +8,7 @@ As `finalize` (`HmacFinCT.lean`): correctness determines our registers from
 the public arguments alone, so the taint analysis proves the blocks between
 the calls constant time from them (`Checks`, evaluated for each hash
 function); the calls of the streaming `init` are constant time by its own
-proof (`init_rel`, `Proof/Hmac/Generic/Arm/Hash.lean`), and those of the
+proof (`init_rel`, `Proof/Pbkdf2/Stream/Arm/Hash.lean`), and those of the
 compression function by its own (`compressBlock_rel`).
 -/
 
@@ -17,7 +17,7 @@ namespace VG.Proof.Pbkdf2.Md.Arm.HmacInit
 open VG VG.Arm
 open VG.Impl.Pbkdf2.Md.Arm (Hash)
 open VG.Proof.Pbkdf2.Md.Arm
-open VG.Proof.Hmac.Generic.Arm (initG init_rel covers_one)
+open VG.Proof.Pbkdf2.Stream.Arm (initG init_rel covers_one)
 
 /-- The registers that the pieces between the calls use, which hold our
 variables: `inner`, `outer`, the key and its length, and `scratch`. -/
@@ -101,7 +101,7 @@ theorem callInit_rel (hc : Checks H) {st : Reg} {p : BitVec 32}
         ⟨k', d, by rw [g _ (by simp), r6], by rw [g _ (by simp), r7]⟩)
       (fun _ ⟨k, r6, r7⟩ => WP.mono (initArg_ok k hst') fun _ ⟨k', d, g, _⟩ =>
         ⟨k', d, by rw [g _ (by simp), r6], by rw [g _ (by simp), r7]⟩)
-  unfold Impl.Hmac.Generic.Arm.Hash.callInit
+  unfold Impl.Pbkdf2.Stream.Arm.Hash.callInit
   refine ha.seq (rel_wp (init_rel hH.stream (st := p) fun s s' ⟨⟨k, d, _⟩, ⟨k', d', _⟩⟩ =>
       ⟨d, d', by rw [hS]; exact np, by rw [k.wr, hS]; exact covers_one hin, by rw [k'.wr, hS]; exact covers_one hin'⟩)
     (fun _ ⟨k, d, r6, r7⟩ => initCall_ok hz hp hH k hpR d fun _ k' g _ _ =>

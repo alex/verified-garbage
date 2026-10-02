@@ -12,7 +12,7 @@ start (`keys_ok`), the outer buffer from the inner one, word by word
 (`opad_ok`), and compresses each buffer into its state's hash value
 (`compressBlock_ok`): each state then represents its block
 (`Md.repr_block`). The contract is `initG`
-(`Proof/Hmac/Generic/Arm/Hash.lean`), the shared one's at 16 bytes of stack.
+(`Proof/Pbkdf2/Stream/Arm/Hash.lean`), the shared one's at 16 bytes of stack.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm
@@ -21,7 +21,7 @@ open VG VG.Arm
 open VG.Impl.Pbkdf2.Md.Arm (Hash)
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_ldr wp_str wp_ldrb wp_strb wp_subs wp_cmp op2_imm
   op2_reg eval_eq)
-open VG.Proof.Hmac.Generic.Arm (count_loop addr3 left_z left_val)
+open VG.Proof.Pbkdf2.Stream.Arm (count_loop addr3 left_z left_val)
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_add)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_frame)
 open VG.Spec.Sha256 (bytesAt)
@@ -152,9 +152,9 @@ theorem key_step (H : Hash) {s : State} {kp p : BitVec 32} {kl : Nat} (hkp : kp.
       rw [u₆.other r h7, u₅.other r h8, u₄.other r h6, u₃.gpr, u₂.other r h12, u₁.other r h12,
         h.other r h6 h7 h8 h12],
     by rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.gpr, u₃.gpr, u₂.other _ (by decide),
-      u₁.other _ (by decide), h.r6, BitVec.add_assoc, Proof.Hmac.Generic.Arm.ofNat_succ32],
+      u₁.other _ (by decide), h.r6, BitVec.add_assoc, Proof.Pbkdf2.Stream.Arm.ofNat_succ32],
     by rw [u₆.other _ (by decide), u₅.gpr, u₄.other _ (by decide), u₃.gpr, u₂.other _ (by decide),
-      u₁.other _ (by decide), h.r8, BitVec.add_assoc, Proof.Hmac.Generic.Arm.ofNat_succ32],
+      u₁.other _ (by decide), h.r8, BitVec.add_assoc, Proof.Pbkdf2.Stream.Arm.ofNat_succ32],
     by rw [u₆.gpr, r7₅, left_val hj], ?_⟩, ?_⟩
   · rw [u₆.mem, u₅.mem, u₄.mem, u₃.mem, v, u₂.mem, u₁.mem, h.mem]
     have e := VG.Proof.Hmac.Generic.Common.writeBytes_snoc s.mem (State.addr p + BitVec.ofNat 64 H.N)
@@ -186,7 +186,7 @@ open VG VG.Arm
 open VG.Impl.Pbkdf2.Md.Arm (Hash)
 open VG.Proof.Pbkdf2.Md.Arm
 open VG.Proof.MdStream (Md)
-open VG.Proof.Hmac.Generic.Arm (initG below SavedRegs saveR savedRegs preserved_saved After below_eq covers_one
+open VG.Proof.Pbkdf2.Stream.Arm (initG below SavedRegs saveR savedRegs preserved_saved After below_eq covers_one
   init_call save_ok restore_ok)
 open VG.Proof.MdStream.Arm (Upd Fupd wp_mov wp_add wp_cmp wp_ldrSp op2_imm op2_reg cmp0)
 open VG.Proof.Hmac.Common (bytesAt_length xorPad_length)
@@ -435,7 +435,7 @@ theorem callInit_ok (hH : HashOK H) {s : State} (hk : KR H sc s₀ s) {st : Reg}
       Frame [⟨State.addr p, H.N + H.B⟩, below s₀] s.mem s'.mem → hH.SH.Repr s'.mem (State.addr p) [] → Q s') :
     WP isa (H.st.callInit st) s Q := by
   have hpR : p = inn s₀ ∨ p = out s₀ := by rcases hst with ⟨_, h⟩ | ⟨_, h⟩ <;> simp [h]
-  unfold Impl.Hmac.Generic.Arm.Hash.callInit
+  unfold Impl.Pbkdf2.Stream.Arm.Hash.callInit
   exact WP.seq (WP.mono (initArg_ok hk hst) fun t ⟨k, d, g, m⟩ =>
     initCall_ok hz hp hH k hpR d fun s' k' g' f r => hQ s' k' (fun r hr => (g' r hr).trans (g r hr)) (m ▸ f) r)
 

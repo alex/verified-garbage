@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Hash
+import VerifiedGarbage.Proof.Pbkdf2.Stream.Arm.Hash
 import VerifiedGarbage.Proof.Sha1.Arm.Shared
 import VerifiedGarbage.Proof.Md5.Arm.Shared
 import VerifiedGarbage.Proof.Sha512.Arm.Shared
@@ -8,16 +8,16 @@ import VerifiedGarbage.Proof.Hmac.Generic.Common
 # HMAC over any streaming hash function on 32-bit ARM: the hash functions
 
 `HashOK` for SHA-1, MD5 and the SHA-512 family, from their own proofs, as on
-x86 (`Proof/Hmac/Generic/X86/Hashes.lean`). Their contracts are `initK`,
+x86 (`Proof/Pbkdf2/Stream/X86/Hashes.lean`). Their contracts are `initK`,
 `updK` and `finK` at their sizes, but for the length bound of SHA-1's and
 MD5's `finK`, and for the SHA-512 family's, which hold from any initial hash
 value. SHA-256's and SHA-224's are in `Sha256.lean` and `Sha224.lean`.
 -/
 
-namespace VG.Proof.Hmac.Generic.Arm
+namespace VG.Proof.Pbkdf2.Stream.Arm
 
 open VG.Arm
-open VG.Impl.Hmac.Generic.Arm (Hash)
+open VG.Impl.Pbkdf2.Stream.Arm (Hash)
 open VG.Proof.Hmac.Generic.Common (sha1_repr md5_repr sha512_repr finalHash_length)
 
 /-! ## SHA-1 -/
@@ -155,4 +155,4 @@ def sha512_224OK : HashOK sha512_224H := sha512FamOK Spec.Hmac.sha512_224S 28 "v
 def sha512_256OK : HashOK sha512_256H := sha512FamOK Spec.Hmac.sha512_256S 32 "vg_sha512_256_init"
   Spec.Sha512.H0_512_256 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide) (by decide +kernel)
 
-end VG.Proof.Hmac.Generic.Arm
+end VG.Proof.Pbkdf2.Stream.Arm

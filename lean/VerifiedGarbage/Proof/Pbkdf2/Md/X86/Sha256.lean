@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Instances
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Sha256
+import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Sha256
 
 /-!
 # HMAC-SHA-256 and PBKDF2-HMAC-SHA-256 over the compression function on x86 (32-bit), for every backend
@@ -20,7 +20,7 @@ namespace VG.Proof.Pbkdf2.Md.X86
 
 open VG.X86
 open VG.Impl.Pbkdf2.Md.X86 (Hash)
-open VG.Proof.Hmac.Generic.X86 (Sha256Stream sha256OK)
+open VG.Proof.Pbkdf2.Stream.X86 (Sha256Stream sha256OK)
 open VG.Proof.Sha256.X86.Variants (mdHash)
 
 /-- SHA-256 with the compression function `cmpN`/`cmpC` and the streaming
@@ -70,7 +70,7 @@ namespace VG.Proof.Pbkdf2.Md.X86.Instances
 
 open VG.X86
 open VG.Proof.Pbkdf2.Md.X86
-open VG.Proof.Hmac.Generic.X86 (Sha256Stream initW initG finW finG iterW iterG countF)
+open VG.Proof.Pbkdf2.Stream.X86 (Sha256Stream initW initG finW finG iterW iterG countF)
 
 theorem sha256Shape_iterChecks : Iterate.Checks sha256Shape where
   pro := ⟨_, by taint_decide⟩
@@ -147,7 +147,7 @@ namespace VG.Proof.Pbkdf2.Md.X86.Instances
 
 open VG.X86
 open VG.Proof.Pbkdf2.Md.X86
-open VG.Proof.Hmac.Generic.X86 (Sha256Stream)
+open VG.Proof.Pbkdf2.Stream.X86 (Sha256Stream)
 
 /-- HMAC's `init` for SHA-256 with any backend. -/
 theorem sha256_init (v : Sha256Stream) (cmpN : String) {cmpC : Prog isa}

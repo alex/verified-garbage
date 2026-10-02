@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.IterateCT
 import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.HmacFinCT
 import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.HmacInitCT
 import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Sha512
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Hashes
+import VerifiedGarbage.Proof.Pbkdf2.Stream.Arm.Hashes
 import VerifiedGarbage.Proof.Hmac.Generic.Implies
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Sha1.Arm.Stream.Md
@@ -15,21 +15,21 @@ import VerifiedGarbage.Proof.Sha512.Arm.Shared
 # HMAC and PBKDF2-HMAC over Merkle–Damgård hash functions on ARMv7: the instances
 
 MD5, SHA-1 and the SHA-512 family as `Hash`es (their streaming functions as
-HMAC's `init` calls them, `Proof/Hmac/Generic/Arm/Hashes.lean`, with their
-hash value, length field, digest code and compression function), what the
-proofs need of them (`HashOK`, from the hash functions' own proofs), and the
-generic proofs of HMAC's `init` and `finalize` and PBKDF2's iteration
-(`HmacInitCT.lean`, `HmacFinCT.lean`, `IterateCT.lean`) at each of them, moved to the shared contracts of
-`Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean`, which the artifacts
-are emitted with. SHA-256 and SHA-224 are in `Sha256.lean` and
-`Sha224.lean`.
+the code calls them, `Proof/Pbkdf2/Stream/Arm/Hashes.lean`, with their hash
+value, length field, digest code and compression function), what the proofs
+need of them (`HashOK`, from the hash functions' own proofs), and the generic
+proofs of HMAC's `init` and `finalize` and PBKDF2's iteration
+(`HmacInitCT.lean`, `HmacFinCT.lean`, `IterateCT.lean`) at each of them, moved
+to the shared contracts of `Spec/Hmac/Generic.lean` and
+`Spec/Pbkdf2/Generic.lean`, which the artifacts are emitted with. SHA-256 and
+SHA-224 are in `Sha256.lean` and `Sha224.lean`.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm
 
 open VG VG.Arm VG.Proof.MdStream
 open VG.Impl.Pbkdf2.Md.Arm (Hash)
-open VG.Proof.Hmac.Generic.Arm (iterG below sha1H md5H sha384H sha512H' sha512_224H sha512_256H sha1OK md5OK
+open VG.Proof.Pbkdf2.Stream.Arm (iterG below sha1H md5H sha384H sha512H' sha512_224H sha512_256H sha1OK md5OK
   sha384OK sha512OK sha512_224OK sha512_256OK)
 
 /-! ## The hash functions -/
@@ -63,7 +63,7 @@ value `iv` and streaming `init` named `initN`: a 64-byte hash value, a
 16-byte big-endian length field, and `vg_sha512_compress`, with 224 bytes of
 scratch space. -/
 def sha512Md (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue) : Hash where
-  st := Hmac.Generic.Arm.sha512H D initN iv
+  st := Pbkdf2.Stream.Arm.sha512H D initN iv
   N := 64
   L := 16
   be := true
@@ -136,7 +136,7 @@ theorem sha512_comp : CompOk Proof.Sha512.md 224 Impl.Sha512.Arm.compress :=
 /-- `HashOK` for the member of the SHA-512 family with a `D`-byte digest, from
 the initial hash value `iv`. -/
 def sha512MdOK {D : Nat} {initN : String} {iv : Spec.Sha512.HashValue}
-    (hs : Hmac.Generic.Arm.HashOK (Hmac.Generic.Arm.sha512H D initN iv))
+    (hs : Pbkdf2.Stream.Arm.HashOK (Pbkdf2.Stream.Arm.sha512H D initN iv))
     (hR : hs.SH.Repr = Spec.Sha512.Repr iv) (hh : ∀ m, hs.SH.H.hash m = (Spec.Sha512.finalHash iv m).take D)
     (hz : Sizes (sha512Md D initN iv))
     (hlen : wordsBytes (Impl.Pbkdf2.Md.Arm.lenWords true 16 (128 + D)) = Proof.Sha512.md.lenBytes (128 + D)) :
@@ -184,7 +184,7 @@ namespace VG.Proof.Pbkdf2.Md.Arm.Instances
 
 open VG.Arm
 open VG.Proof.Pbkdf2.Md.Arm
-open VG.Proof.Hmac.Generic.Arm (initG finG iterG below count)
+open VG.Proof.Pbkdf2.Stream.Arm (initG finG iterG below count)
 
 /-- A state satisfying `init`'s precondition, with states of `S` bytes and
 `8 sc` bytes of scratch space (and a one-byte key); `scratch`, at `0x4000`,

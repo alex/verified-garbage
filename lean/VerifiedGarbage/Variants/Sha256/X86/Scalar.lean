@@ -11,7 +11,7 @@ which HMAC's and PBKDF2's functions call (`Generic/Sha256/X86/`).
 namespace VG.Variants.Sha256.X86.Scalar
 
 open VG.X86
-open VG.Proof.Hmac.Generic.X86 (Sha256Stream)
+open VG.Proof.Pbkdf2.Stream.X86 (Sha256Stream)
 open VG.Proof.Pbkdf2.Md.X86 (sha256M)
 open VG.Proof.Sha256.X86.Variants (pbkdf2Fns)
 

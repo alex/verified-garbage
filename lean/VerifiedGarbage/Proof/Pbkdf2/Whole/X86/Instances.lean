@@ -16,7 +16,7 @@ namespace VG.Proof.Pbkdf2.Whole.X86
 
 open VG.X86
 open VG.Impl.Pbkdf2.Whole.X86 (Fns)
-open VG.Proof.Hmac.Generic.X86 (nosp_of sha1OK md5OK sha384OK sha512OK sha512_224OK sha512_256OK)
+open VG.Proof.Pbkdf2.Stream.X86 (nosp_of sha1OK md5OK sha384OK sha512OK sha512_224OK sha512_256OK)
 
 /-! ## SHA-1 -/
 

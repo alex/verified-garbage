@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Upd
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: the prologue and the key
 
 As on x86 (`Proof/Pbkdf2/Whole/X86/Key.lean`): the prologue saves our caller's
-registers in `scratch` (`save_ok`, `VG.Proof.Hmac.Generic.Arm.save_ok` for any
+registers in `scratch` (`save_ok`, `VG.Proof.Pbkdf2.Stream.Arm.save_ok` for any
 amount of working space before the save area that an immediate offset reaches)
 and keeps the arguments in registers; then the key is the password, or its
 digest if it is longer than a block (`key_ok`): either gives the same `K₀`.
@@ -15,8 +15,8 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 
 open VG.Arm
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
-open VG.Impl.Hmac.Generic.Arm (Hash scrAt)
-open VG.Proof.Hmac.Generic.Arm (HashOK SavedRegs saveR FinArgs init_call fin_frame count saveMem_frameR
+open VG.Impl.Pbkdf2.Stream.Arm (Hash scrAt)
+open VG.Proof.Pbkdf2.Stream.Arm (HashOK SavedRegs saveR FinArgs init_call fin_frame count saveMem_frameR
   saveMem_read saved_mem saved_pairwise savedRegs)
 open VG.Proof.MdStream.Arm (Upd Fupd wp_mov wp_ldrSp op2_imm op2_reg saveList_ok contains_offset eval_eq)
 open VG.Proof.Hmac.Generic.Common (bytes_keep bytesAt_take)
@@ -26,7 +26,7 @@ open Spec.Hmac (blockKey)
 
 variable {F : Fns}
 
-/-- Saving the registers, with `scratch` in `r12`: `VG.Proof.Hmac.Generic.Arm.save_ok`, for any
+/-- Saving the registers, with `scratch` in `r12`: `VG.Proof.Pbkdf2.Stream.Arm.save_ok`, for any
 working space before the save area that an immediate offset reaches. -/
 theorem save_ok (H : Hash) {s : State} {sc : BitVec 32} {L : Nat} (h12 : s.gpr .r12 = sc)
     (hW : 8 * H.W + 36 ≤ 4096) (hsc : ⟨State.addr sc, L⟩ ∈ s.wr) (hL : 8 * H.W + 36 ≤ L)
@@ -34,7 +34,7 @@ theorem save_ok (H : Hash) {s : State} {sc : BitVec 32} {L : Nat} (h12 : s.gpr .
     (k : ∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
       Frame [saveR H sc] s.mem s'.mem → SavedRegs H sc s s'.mem → WP isa (.block rest) s' Q) :
     WP isa (.block (H.save ++ rest)) s Q := by
-  rw [Hmac.Generic.Arm.save_eq]
+  rw [Pbkdf2.Stream.Arm.save_eq]
   refine saveList_ok H.saved s Q (fun p hp => ?_) fun s' g rd wr sp m => k s' g rd wr sp ?_ ?_
   · obtain ⟨h₁, h₂⟩ := saved_mem H hp
     rw [h12]
@@ -107,7 +107,7 @@ theorem prologue_ok : WP isa (.block F.prologue) s₀ (KK F s₀) := by
 /-! ## The stack and `scratch`, while `KR` holds -/
 
 omit hp hz in
-theorem below_sub {s : State} (hk : KR F s₀ s) : Region.Sub (Hmac.Generic.Arm.below s) (stkR s₀) := by
+theorem below_sub {s : State} (hk : KR F s₀ s) : Region.Sub (Pbkdf2.Stream.Arm.below s) (stkR s₀) := by
   rw [← hk.stkE]; exact below_stk (n := 16) (by decide)
 
 omit hz in
@@ -117,7 +117,7 @@ theorem b24 {s : State} (hk : KR F s₀ s) {R : Region} (hR : Region.Sub R (scR 
 
 omit hz in
 theorem b16 {s : State} (hk : KR F s₀ s) {R : Region} (hR : Region.Sub R (scR s₀ F)) :
-    (Hmac.Generic.Arm.below s).Disjoint R :=
+    (Pbkdf2.Stream.Arm.below s).Disjoint R :=
   (hp.b_s.sub_left (below_sub hk)).sub_right hR
 
 omit hz in
@@ -133,11 +133,11 @@ theorem cov_low {s : State} (hk : KR F s₀ s) {k : Nat} (h : k ≤ F.L8) :
 
 omit hz in
 theorem cov_pw {s : State} (hk : KR F s₀ s) : Covers [pwR s₀] (s.rd ++ s.wr) :=
-  Hmac.Generic.Arm.covers_one (List.mem_append_left _ (by rw [hk.rd, hp.rd]; simp))
+  Pbkdf2.Stream.Arm.covers_one (List.mem_append_left _ (by rw [hk.rd, hp.rd]; simp))
 
 omit hz in
 theorem cov_salt {s : State} (hk : KR F s₀ s) : Covers [saltR s₀] (s.rd ++ s.wr) :=
-  Hmac.Generic.Arm.covers_one (List.mem_append_left _ (by rw [hk.rd, hp.rd]; simp))
+  Pbkdf2.Stream.Arm.covers_one (List.mem_append_left _ (by rw [hk.rd, hp.rd]; simp))
 
 /-! ## Hashing a password longer than a block -/
 
@@ -351,9 +351,9 @@ omit hp hz hH in
 theorem hk7_ok {s : State} (hk : KR F s₀ s) (ho : F.hkO < 2 ^ 16) (hD : F.H.D < 2 ^ 16) :
     WP isa (.block (scrAt .r2 F.hkO ++ ([.movw .r3 (BitVec.ofNat 16 F.H.D)] : List Instr))) s
       fun t => KR F s₀ t ∧ t.gpr .r2 = dO s₀ F.hkO ∧ t.gpr .r3 = BitVec.ofNat 32 F.H.D ∧ t.mem = s.mem :=
-  scr_ok hk ho fun s₁ u₁ => Hmac.Generic.Arm.wp_movw fun s₂ u₂ => WP.block_nil
+  scr_ok hk ho fun s₁ u₁ => Pbkdf2.Stream.Arm.wp_movw fun s₂ u₂ => WP.block_nil
     ⟨(hk.upd12 (by decide) u₁).upd (by decide) u₂, by rw [u₂.other _ (by decide), u₁.gpr],
-      by rw [u₂.gpr, Hmac.Generic.Arm.movw_ofNat hD], by rw [u₂.mem, u₁.mem]⟩
+      by rw [u₂.gpr, Pbkdf2.Stream.Arm.movw_ofNat hD], by rw [u₂.mem, u₁.mem]⟩
 
 theorem hashKey_ok {s : State} (hk : KK F s₀ s) :
     WP isa F.hashKey s fun t => KR F s₀ t ∧ t.gpr .r2 = dO s₀ F.hkO ∧ t.gpr .r3 = BitVec.ofNat 32 F.H.D ∧

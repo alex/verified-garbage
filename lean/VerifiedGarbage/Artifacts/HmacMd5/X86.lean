@@ -1,23 +1,22 @@
 import VerifiedGarbage.TCB.X86.Target
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Instances
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Instances
 
 /-!
 # HMAC-MD5 (RFC 2104) on x86
 
-`init` is the one HMAC implementation for every streaming hash function
-(`Impl/Hmac/Generic/X86.lean`), calling MD5's verified `init` and `update`.
-`finalize` is the one for every Merkle–Damgård hash function
-(`Impl/Pbkdf2/Md/X86.lean`): it calls MD5's verified streaming `finalize`
-for the inner hash, then computes the outer hash with one call of MD5's
-verified compression function, on a block it lays out word by word in
-`scratch`: the outer key's hash value, the inner digest, its padding and
-length.
+`init` and `finalize` are the ones for every Merkle–Damgård hash function
+(`Impl/Pbkdf2/Md/X86.lean`). `init` sets both states' hash values with MD5's
+verified streaming `init`, writes `K₀ ⊕ ipad` and `K₀ ⊕ opad` word by word
+into their buffers, and absorbs each with one call of MD5's verified
+compression function.
+
+`finalize` calls MD5's verified streaming `finalize` for the inner hash, then
+computes the outer hash with one call of MD5's verified compression function,
+on a block it lays out word by word in `scratch`: the outer key's hash value,
+the inner digest, its padding and length.
 -/
 
 namespace VG.Artifacts.HmacMd5.X86
-
-open VG.Proof.Hmac.Generic.X86
 
 def artifacts : List Artifact := [
   { Spec.Hmac.md5I.initApi with

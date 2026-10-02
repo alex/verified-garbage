@@ -27,7 +27,7 @@ that call it. What the kernel checks of each backend's code (that it keeps
 namespace VG.Proof.Sha256.X86.Variants
 
 open VG.X86
-open VG.Proof.Hmac.Generic.X86 (Sha256Stream)
+open VG.Proof.Pbkdf2.Stream.X86 (Sha256Stream)
 open VG.Proof.Pbkdf2.Md.X86 (sha256M)
 
 structure StreamFn where

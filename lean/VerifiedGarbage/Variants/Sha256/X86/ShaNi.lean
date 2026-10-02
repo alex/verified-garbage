@@ -14,7 +14,7 @@ open VG VG.X86
 open VG.Proof.Sha256.X86.Stream (params dims)
 open VG.Proof.Sha256 (md)
 open VG.Proof.MdStream VG.Proof.MdStream.X86
-open VG.Proof.Hmac.Generic.X86 (Sha256Stream)
+open VG.Proof.Pbkdf2.Stream.X86 (Sha256Stream)
 open VG.Proof.Pbkdf2.Md.X86 (sha256M)
 open VG.Proof.Sha256.X86.Variants (pbkdf2Fns)
 

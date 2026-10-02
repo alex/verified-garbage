@@ -5,7 +5,7 @@ import VerifiedGarbage.TCB.X86.Target
 # HMAC and PBKDF2-HMAC over any streaming hash function: the x86 contracts
 
 The contracts the proofs are written against, as on the other targets
-(`Proof/Hmac/Generic/Arm/Hash.lean`). Every argument is on the stack (cdecl).
+(`Proof/Pbkdf2/Stream/Arm/Hash.lean`). Every argument is on the stack (cdecl).
 
 * `initK`, `updK` and `finK` are the x86 contracts of a hash function's
   streaming `init`, `update` and `finalize` (`Proof.Sha512.initX86` and the
@@ -24,7 +24,7 @@ The contracts the proofs are written against, as on the other targets
   them.
 -/
 
-namespace VG.Proof.Hmac.Generic.X86
+namespace VG.Proof.Pbkdf2.Stream.X86
 
 open VG.X86
 open Spec.Hmac (StreamingHash xorPad ipad opad blockKey hmacBlockKey)
@@ -274,4 +274,4 @@ def iterW : Contract isa where
   post := (iterG S W).post
   pub := (iterG S W).pub
 
-end VG.Proof.Hmac.Generic.X86
+end VG.Proof.Pbkdf2.Stream.X86

@@ -7,18 +7,18 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86.HmacInitCT
 /-!
 # HMAC's `init` and `finalize` and PBKDF2's `iterate` on x86 (32-bit): the instances
 
-The generic proofs (`IterateCT.lean`, `HmacInitCT.lean`, `HmacFinCT.lean`) at each hash function
-of `Hashes.lean`, with the taint checks of their blocks, which the kernel
-evaluates for each hash function, moved to the shared contracts of
-`Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean` (`sig_implies`), which
-the artifacts are emitted with.
+The generic proofs (`IterateCT.lean`, `HmacInitCT.lean`, `HmacFinCT.lean`) at
+each hash function of `Hashes.lean`, with the taint checks of their blocks,
+which the kernel evaluates for each hash function, moved to the shared
+contracts of `Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean`
+(`sig_implies`), which the artifacts are emitted with.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86.Instances
 
 open VG.X86
 open VG.Proof.Pbkdf2.Md.X86
-open VG.Proof.Hmac.Generic.X86 (initW initG finW finG iterW iterG countF)
+open VG.Proof.Pbkdf2.Stream.X86 (initW initG finW finG iterW iterG countF)
 
 /-- Memory holding the arguments `0x1000, 0x1400, 0, 0x1800, 0x2000` of
 `iterate` at `0x6004`. -/

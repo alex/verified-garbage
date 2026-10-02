@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Compress
 import VerifiedGarbage.Proof.Pbkdf2.MdStep
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Init
+import VerifiedGarbage.Proof.Pbkdf2.Stream.Arm.Common
 
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on ARMv7: the hash function
@@ -58,7 +58,7 @@ structure HashOK (H : Hash) where
   /-- The constant length field is that of a `B + D`-byte message. -/
   len : wordsBytes (lenWords H.be H.L (H.B + H.D)) = md.lenBytes (H.B + H.D)
   /-- The streaming functions, verified. -/
-  stream : Hmac.Generic.Arm.HashOK H.st
+  stream : Pbkdf2.Stream.Arm.HashOK H.st
   /-- The specification is `md` from `iv`, with a `D`-byte digest. -/
   iv : md.HV
   repr : ∀ mem p m, stream.SH.Repr mem p m → md.Repr iv mem p m

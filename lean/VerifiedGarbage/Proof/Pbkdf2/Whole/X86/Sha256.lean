@@ -21,7 +21,7 @@ open VG.Proof.Sha256.X86.Variants (Backend)
 
 /-- The functions `pbkdf2` calls for SHA-256 with the backend `v`, verified. -/
 def sha256OKF (v : Backend) : FnsOK v.F where
-  hH := Proof.Hmac.Generic.X86.sha256OK v.stream
+  hH := Proof.Pbkdf2.Stream.X86.sha256OK v.stream
   Wi := 104
   Wf := 104
   Wt := 104

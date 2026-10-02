@@ -1,16 +1,16 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Block
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Finalize
+import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Finalize
 
 /-!
 # HMAC over a Merkle–Damgård hash function on x86 (32-bit): `finalize`, correct
 
-HMAC's `finalize` (`Impl/Pbkdf2/Md/X86.lean`) starts as in the streaming-level
-design: the prologue and the call of the hash function's streaming `finalize`
-on the inner state, which writes the inner digest to `scratch`
-(`Proof/Hmac/Generic/X86/Finalize.lean`, whose `KR` the rest keeps). Then the
-inner state gets the outer hash value and, in its buffer, the digest and the
-padding (`mid_ok`); one compression (`cmpF_ok`) gives the outer hash value,
-whose digest is the MAC (`out_ok`): `Md.Link.hmac_outer`.
+HMAC's `finalize` (`Impl/Pbkdf2/Md/X86.lean`) starts with the prologue and the
+call of the hash function's streaming `finalize` on the inner state, which
+writes the inner digest to `scratch` (`Proof/Pbkdf2/Stream/X86/Finalize.lean`,
+whose `KR` the rest keeps). Then the inner state gets the outer hash value
+and, in its buffer, the digest and the padding (`mid_ok`); one compression
+(`cmpF_ok`) gives the outer hash value, whose digest is the MAC (`out_ok`):
+`Md.Link.hmac_outer`.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86.HmacFin
@@ -19,9 +19,9 @@ open VG.X86
 open VG.Impl.Pbkdf2.Md.X86 (Hash copyW)
 open VG.Proof.Pbkdf2.Md.X86
 open VG.Proof.MdStream (Md)
-open VG.Proof.Hmac.Generic.X86 (HashOK finG SavedRegs saveR savedRegs restore_ok callee_saved ea_at stk After
+open VG.Proof.Pbkdf2.Stream.X86 (HashOK finG SavedRegs saveR savedRegs restore_ok callee_saved ea_at stk After
   setWidth_add toNat_add_ofNat)
-open VG.Proof.Hmac.Generic.X86.Finalize (Pre KR E inn outer op scr inR outerR opR scR stkR T tR calR tO wr_mem
+open VG.Proof.Pbkdf2.Stream.X86.Finalize (Pre KR E inn outer op scr inR outerR opR scR stkR T tR calR tO wr_mem
   save_sub t_sub save_t wrs kregs kregs_callee stk_eq pro_ok fin1Args_ok finCall_ok)
 open VG.Proof.Hmac.Generic.Common (InRegions.right' bytesAt_writeBytes_self' bytesAt_take covers_one)
 open VG.Proof.Sha256.X86.Stream (Upd wp_mov sub_offset)
@@ -345,14 +345,14 @@ theorem correct : WP isa H.hmacFin s₀ fun s' => abiPreserved s₀ s' ∧ (finG
     rintro r (rfl | rfl | rfl | rfl)
     · exact hp.i_o.symm
     · exact hp.o_s.sub_right (t_sub hp)
-    · exact hp.o_s.sub_right (VG.Proof.Hmac.Generic.X86.Finalize.cal_sub hO.hH hp)
+    · exact hp.o_s.sub_right (VG.Proof.Pbkdf2.Stream.X86.Finalize.cal_sub hO.hH hp)
     · exact hp.b_o.symm
-  have rO₂ := Hmac.Generic.X86.Init.repr_keep hO.hH f₂ o₂ (m₁ ▸ Hmac.Generic.X86.Init.repr_keep hO.hH f₁ oI hrO)
+  have rO₂ := Pbkdf2.Stream.X86.repr_keep hO.hH f₂ o₂ (m₁ ▸ Pbkdf2.Stream.X86.repr_keep hO.hH f₁ oI hrO)
   -- The inner digest.
-  have dig := d₂ _ (m₁ ▸ Hmac.Generic.X86.Init.repr_keep hO.hH f₁ (by
+  have dig := d₂ _ (m₁ ▸ Pbkdf2.Stream.X86.repr_keep hO.hH f₁ (by
       simp only [List.mem_singleton]; rintro r rfl; exact hp.i_s.sub_right (save_sub hp)) hrI)
     (by rw [hl0]; rw [hk0] at hlen; exact hlen)
-    (by rw [show arg s₀ 3 ++ arg s₀ 2 = Hmac.Generic.X86.countF s₀ from rfl, hcnt, hl0])
+    (by rw [show arg s₀ 3 ++ arg s₀ 2 = Pbkdf2.Stream.X86.countF s₀ from rfl, hcnt, hl0])
   rw [← bytesAt_take _ _ hDF] at dig
   -- The outer hash value.
   have lo : (xorPad k0 opad).length = H.B := by simp [xorPad, hk0]

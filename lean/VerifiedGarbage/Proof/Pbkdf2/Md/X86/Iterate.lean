@@ -15,10 +15,10 @@ namespace VG.Proof.Pbkdf2.Md.X86.Iterate
 
 open VG.X86
 open VG.Impl.Pbkdf2.Md.X86 (Hash copyW)
-open VG.Impl.Hmac.Generic.X86 (at_)
+open VG.Impl.Pbkdf2.Stream.X86 (at_)
 open VG.Proof.Pbkdf2.Md.X86
 open VG.Proof.MdStream (Md)
-open VG.Proof.Hmac.Generic.X86 (HashOK iterG SavedRegs saveR savedRegs save_ok restore_ok callee_saved ea_at stk
+open VG.Proof.Pbkdf2.Stream.X86 (HashOK iterG SavedRegs saveR savedRegs save_ok restore_ok callee_saved ea_at stk
   After setWidth_add toNat_add_ofNat stk_ret stk_args arg_contains arg_keep argAddr_eq saved_mem test_z)
 open VG.Proof.Hmac.Generic.Common (InRegions.right' bytesAt_writeBytes_self' bytesAt_take covers_one)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd Fupd wp_mov wp_movi wp_movm wp_store wp_addi wp_subi wp_test
@@ -666,7 +666,7 @@ theorem pro_ok : WP isa (.block H.prologue) s₀ fun s => Inv hO sc s₀ (nn s�
   have f₂' : Frame [saveR H.st (scr s₀)] s₀.mem s₂.mem := by rw [← u₁.mem]; exact f₂
   have rA : ∀ i < 5, s₂.mem.readW (argAddr s₀ i) 32 = arg s₀ i := fun i hi =>
     f₂'.readW (r := ⟨argAddr s₀ i, 4⟩) (Region.contains_self _ _) (fun r hr =>
-      (dA r hr).sub_left (VG.Proof.Hmac.Generic.X86.arg_sub rfl (by omega) (by have := hp.spf; omega))) (by decide)
+      (dA r hr).sub_left (VG.Proof.Pbkdf2.Stream.X86.arg_sub rfl (by omega) (by have := hp.spf; omega))) (by decide)
   have i₂ : ∀ i < 5, InRegions (s₂.rd ++ s₂.wr) (argAddr s₀ i) 4 := fun i hi => by
     rw [rd₂, wr₂, u₁.rd, u₁.wr]; exact argIn hp rfl rfl hi
   refine wp_mov fun s₃ u₃ => ?_

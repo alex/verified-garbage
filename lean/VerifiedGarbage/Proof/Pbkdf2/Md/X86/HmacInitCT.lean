@@ -16,7 +16,7 @@ namespace VG.Proof.Pbkdf2.Md.X86.HmacInit
 open VG.X86
 open VG.Impl.Pbkdf2.Md.X86 (Hash)
 open VG.Proof.Pbkdf2.Md.X86
-open VG.Proof.Hmac.Generic.X86 (initG initW argTaint ArgsOut agree_argTaint rel_agree rel_wp init_rel)
+open VG.Proof.Pbkdf2.Stream.X86 (initG initW argTaint ArgsOut agree_argTaint rel_agree rel_wp init_rel)
 
 /-- The taint checks of the pieces of `init` between its calls. -/
 structure Checks (H : Hash) : Prop where
@@ -152,7 +152,7 @@ namespace VG.Proof.Pbkdf2.Md.X86.HmacInit
 open VG.X86
 open VG.Impl.Pbkdf2.Md.X86 (Hash)
 open VG.Proof.Pbkdf2.Md.X86
-open VG.Proof.Hmac.Generic.X86 (initG initW)
+open VG.Proof.Pbkdf2.Stream.X86 (initG initW)
 
 /-- `init` is verified against `initG`, given the taint checks, which the
 kernel evaluates for each hash function. -/

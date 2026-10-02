@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Pbkdf2.MdHmac
 import VerifiedGarbage.Proof.Pbkdf2.Memory
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Init
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Hash
+import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Common
+import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Hash
 import VerifiedGarbage.Impl.Pbkdf2.Md.X86
 
 /-!
@@ -21,10 +21,10 @@ namespace VG.Proof.Pbkdf2.Md.X86
 
 open VG.X86
 open VG.Impl.Pbkdf2.Md.X86 (Hash cpW copyW wordOf storeW tail)
-open VG.Impl.Hmac.Generic.X86 (at_)
+open VG.Impl.Pbkdf2.Stream.X86 (at_)
 open VG.Proof.MdStream (Md)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd wp_mov wp_movi wp_movm wp_store wp_addi sub_offset)
-open VG.Proof.Hmac.Generic.X86 (ea_at stk After after_of stk_sub stk_sub' setWidth_add toNat_add_ofNat
+open VG.Proof.Pbkdf2.Stream.X86 (ea_at stk After after_of stk_sub stk_sub' setWidth_add toNat_add_ofNat
   rel_agree)
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_add bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_append writeBytes_frame)
@@ -529,7 +529,7 @@ bytes (`reloc`), whose
 padding of a `B + D`-byte message is the code's (`tail`), whose digest the
 code's `out` writes, and whose compression function is verified (`comp`). -/
 structure MdOk (H : Hash) where
-  hH : VG.Proof.Hmac.Generic.X86.HashOK H.st
+  hH : VG.Proof.Pbkdf2.Stream.X86.HashOK H.st
   md : Md H.B H.N H.L
   iv : md.HV
   link : md.Link hH.SH iv H.D

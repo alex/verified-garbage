@@ -21,7 +21,7 @@ calls, and their return address.
 
 namespace VG.Artifacts.Pbkdf2Sha512_256.X86
 
-open VG.Proof.Hmac.Generic.X86
+open VG.Proof.Pbkdf2.Stream.X86
 
 def artifacts : List Artifact := [
   { Spec.Hmac.sha512_256I.iterateApi with

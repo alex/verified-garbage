@@ -1,21 +1,28 @@
-import VerifiedGarbage.Impl.Hmac.Generic.Arm
+import VerifiedGarbage.Impl.Pbkdf2.Stream.Arm
 import VerifiedGarbage.Impl.MdStream.Arm
 
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function: 32-bit ARM implementation
 
 The design of x86-64 and AArch64 (`Impl/Pbkdf2/Md/X86_64.lean`,
-`Impl/Pbkdf2/Md/AArch64.lean`): one implementation of HMAC's `finalize` and
-of PBKDF2's iteration for every Merkle–Damgård hash function (MD5, SHA-1,
-SHA-224, SHA-256 and the SHA-512 family), calling its compression function directly
-on blocks laid out at fixed offsets. A `Hash` is what the code needs of one
-of them: its streaming functions as HMAC's `init` calls them (`st`, with the
+`Impl/Pbkdf2/Md/AArch64.lean`): one implementation of HMAC's `init` and
+`finalize` and of PBKDF2's iteration for every Merkle–Damgård hash function
+(MD5, SHA-1, SHA-224, SHA-256 and the SHA-512 family), calling its
+compression function directly on blocks laid out at fixed offsets. A `Hash`
+is what the code needs of one of them: its streaming functions as the code
+calls them (`st`, `Impl/Pbkdf2/Stream/Arm.lean`, with the
 block size `B`, the digest size `D` and their working space), the size `N`
 of its hash value and `L` of its length field and the byte order of the
 latter, the code writing its digest, and its compression function.
 
-* HMAC's `init` is the code of `Impl/Hmac/Generic/Arm.lean`, for the hash
-  function's streaming `init` and `update` (`st`).
+* `init(inner = r0, outer = r1, key = r2, key_len = r3, scratch = [sp])`,
+  for a key of at most a block, sets both states' hash values with the
+  streaming `init`, and makes each absorb its block with one compression, in
+  its own buffer: `K₀ ⊕ ipad` is written into the inner state's buffer as
+  words of `0x36` in every byte, then the key's bytes XORed in with a byte
+  loop over the key alone (its length is public); `K₀ ⊕ opad` is that block
+  XORed with `0x6a` in every byte (`ipad ⊕ opad`), word by word, into the
+  outer state's buffer.
 * `finalize(inner = r0, outer = r1, count = r2:r3, out = [sp],
   scratch = [sp, #4])` finalizes the inner state with the hash function's
   streaming `finalize`, into the block (its message has a length only known
@@ -38,24 +45,25 @@ latter, the code writing its digest, and its compression function.
 
 `scratch` holds the working space of the functions we call (`8 W` bytes, the
 streaming functions' and the compression function's), then our caller's
-`r4`–`r11` and our return address, which each call replaces (where HMAC's
-`init` keeps them, `Impl.Hmac.Generic.Arm.Hash.saved`), then the hash value
-being compressed (`N` bytes, at `hvO`) and right after it the block (`B`
-bytes, at `blkO`). The compression function is called with the hash value
-at `r0`, the block at `r1` (copied from `r6`), one block in `r2` and
-`scratch` in `r3`; it never writes `r0` or `r3` and preserves `r4`–`r11`, so
-our variables live there: `r11` is `scratch`, `r6` the block, and, in
-`iterate`, `r4` = `key`, `r5` = the steps left and `r7` = `t`; in
-`finalize`, `r5` = `outer` and `r7` = `out`. `r1`, `r9`, `r10` and `r12` are
-temporaries. `iterate` uses no stack; `finalize` pushes the streaming
-`finalize`'s two stack arguments around its call (`push {r1, r12}`), 8
-bytes. Every address and branch depends only on the pointers and `n`.
+`r4`–`r11` and our return address, which each call replaces
+(`Impl.Pbkdf2.Stream.Arm.Hash.saved`), then `finalize`'s and `iterate`'s hash
+value being compressed (`N` bytes, at `hvO`) and right after it the block (`B`
+bytes, at `blkO`); `init` compresses in the states. The compression function
+is called with the hash value at `r0`, the block at `r1` (copied from `r6`),
+one block in `r2` and `scratch` in `r3`; it never writes `r0` or `r3` and
+preserves `r4`–`r11`, so our variables live there: `r11` is `scratch`, `r6`
+the block, and, in `iterate`, `r4` = `key`, `r5` = the steps left and `r7` =
+`t`; in `finalize`, `r5` = `outer` and `r7` = `out`. `r1`, `r9`, `r10` and
+`r12` are temporaries (`init`'s registers are listed with its code). `init`
+and `iterate` use no stack; `finalize` pushes the streaming `finalize`'s two
+stack arguments around its call (`push {r1, r12}`), 8 bytes. Every address and
+branch depends only on the pointers, `key_len` and `n`.
 -/
 
 namespace VG.Impl.Pbkdf2.Md.Arm
 
 open VG.Arm
-open VG.Impl.Hmac.Generic.Arm (scrAt)
+open VG.Impl.Pbkdf2.Stream.Arm (scrAt)
 open VG.Impl.MdStream.Arm (compressAt)
 
 /-- A Merkle–Damgård hash function's 32-bit ARM functions, as HMAC and
@@ -65,7 +73,7 @@ structure Hash where
   block size `B`, the sizes of the streaming state and of the digest `D`,
   the words of working space `W` of `update` and `finalize` (which the
   layout of `scratch` starts with), and the functions. -/
-  st : Impl.Hmac.Generic.Arm.Hash
+  st : Impl.Pbkdf2.Stream.Arm.Hash
   /-- The size of the hash value. -/
   N : Nat
   /-- The size of the length field. -/

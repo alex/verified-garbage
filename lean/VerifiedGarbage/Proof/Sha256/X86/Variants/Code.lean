@@ -9,9 +9,9 @@ import VerifiedGarbage.Spec.Pbkdf2.Generic
 
 SHA-256 has backends on x86 (`Interface.lean`): implementations of its
 compression function, each with the streaming `update` and `finalize` made
-with it. HMAC and PBKDF2 are the code of every other hash function, at
-SHA-256 made with a backend: its streaming functions as HMAC's `init` calls
-them (`hmacHash`), SHA-256 as a Merkle–Damgård hash function for HMAC's
+with it. HMAC and PBKDF2 are the code of every other hash function, at SHA-256
+made with a backend: its streaming functions as the code calls them
+(`hmacHash`), SHA-256 as a Merkle–Damgård hash function for HMAC's `init` and
 `finalize` and PBKDF2's iteration, which call the compression function
 (`mdHash`, `Impl/Pbkdf2/Md/X86.lean`), and the functions the whole of PBKDF2
 calls (`fns`, `Impl/Pbkdf2/Whole/X86.lean`), by the names the generic
@@ -25,7 +25,7 @@ open VG.X86
 /-- SHA-256's streaming functions, with a backend's `update` and `finalize`
 (`updC`, `finC`), named with its suffix: a 96-byte state, 20 words of working
 space and a 32-byte digest. -/
-def hmacHash (suffix : String) (updC finC : Prog isa) : Impl.Hmac.Generic.X86.Hash :=
+def hmacHash (suffix : String) (updC finC : Prog isa) : Impl.Pbkdf2.Stream.X86.Hash :=
   ⟨64, 96, 32, 32, 20, Spec.Sha256.initApi.name, Impl.Sha256.X86.Stream.init,
     Spec.Sha256.updateApi.name ++ suffix, updC, Spec.Sha256.finalizeApi.name ++ suffix, finC⟩
 

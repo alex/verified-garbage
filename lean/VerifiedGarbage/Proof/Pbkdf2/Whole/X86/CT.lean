@@ -17,8 +17,8 @@ namespace VG.Proof.Pbkdf2.Whole.X86
 
 open VG.X86
 open VG.Impl.Pbkdf2.Whole.X86 (Fns)
-open VG.Impl.Hmac.Generic.X86 (Hash at_ copy)
-open VG.Proof.Hmac.Generic.X86 (HashOK argTaint ArgsOut agree_argTaint rel_agree rel_wp init_rel upd_rel fin_rel)
+open VG.Impl.Pbkdf2.Stream.X86 (Hash at_ copy)
+open VG.Proof.Pbkdf2.Stream.X86 (HashOK argTaint ArgsOut agree_argTaint rel_agree rel_wp init_rel upd_rel fin_rel)
 open VG.Proof.Sha256.X86.Stream (eval_e eval_ne)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad)
@@ -32,15 +32,15 @@ abbrev Ck (rs : List Reg) (c : Prog isa) : Prop :=
 structure Checks (F : Fns) : Prop where
   pro : Ck [] (.block F.prologue)
   cmp : Ck [.ebp] (.block F.cmpPw)
-  hk1 : Ck [.ebp] (.block (VG.Impl.Hmac.Generic.X86.scr .edi F.stWO))
+  hk1 : Ck [.ebp] (.block (VG.Impl.Pbkdf2.Stream.X86.scr .edi F.stWO))
   hk3 : Ck [.ebp] (.block [.mov .eax (.imm 0), .mov .esi (.imm 0), .mov .ecx (Fns.argM 1), .mov .edx (Fns.argM 0)])
-  hk5 : Ck [.ebp] (.block ([.mov .eax (Fns.argM 1), .mov .ecx (.imm 0)] ++ VG.Impl.Hmac.Generic.X86.scr .edx F.hkO))
+  hk5 : Ck [.ebp] (.block ([.mov .eax (Fns.argM 1), .mov .ecx (.imm 0)] ++ VG.Impl.Pbkdf2.Stream.X86.scr .edx F.hkO))
   hk7 : Ck [.ebp]
-    (.block (VG.Impl.Hmac.Generic.X86.scr .edx F.hkO ++ [.mov .ecx (.imm (BitVec.ofNat 32 F.H.D))]))
+    (.block (VG.Impl.Pbkdf2.Stream.X86.scr .edx F.hkO ++ [.mov .ecx (.imm (BitVec.ofNat 32 F.H.D))]))
   short : Ck [.ebp] (.block [.mov .edx (Fns.argM 0)])
-  su1 : Ck [.ebp] (.block (VG.Impl.Hmac.Generic.X86.scr .edi F.st0O ++ VG.Impl.Hmac.Generic.X86.scr .esi F.st1O))
+  su1 : Ck [.ebp] (.block (VG.Impl.Pbkdf2.Stream.X86.scr .edi F.st0O ++ VG.Impl.Pbkdf2.Stream.X86.scr .esi F.st1O))
   su3 : Ck [.ebp] (copy .ebp F.st0O .ebp F.stSO F.H.S)
-  su4 : Ck [.ebp] (.block (VG.Impl.Hmac.Generic.X86.scr .edi F.stSO ++ [.mov .eax (.imm 0),
+  su4 : Ck [.ebp] (.block (VG.Impl.Pbkdf2.Stream.X86.scr .edi F.stSO ++ [.mov .eax (.imm 0),
       .mov .esi (.imm (BitVec.ofNat 32 F.H.B)), .mov .ecx (Fns.argM 3), .mov .edx (Fns.argM 2)]))
   init : Ck [.ebp] (.block F.loopInit)
   b1 : Ck [.ebp, .ebx] (copy .ebp F.stSO .ebp F.stWO F.H.S)

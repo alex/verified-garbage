@@ -1,23 +1,23 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Sha256
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Sha224
+import VerifiedGarbage.Proof.Pbkdf2.Stream.Arm.Sha224
 
 /-!
 # HMAC-SHA-224 and PBKDF2-HMAC-SHA-224 over the compression function on ARMv7
 
-SHA-224 as a `Hash`: its streaming functions as HMAC's `init` calls them
-(`sha224H`, `Proof/Hmac/Generic/Arm/Sha224.lean`), SHA-256's hash value,
-length field, digest code and compression function (`Sha256.lean`); what
-the proofs need of it (`HashOK`), with SHA-256's `Md` from SHA-224's initial
-hash value and the digest its first 28 bytes; and the generic proofs at it,
-moved to the shared contracts of `Spec.Hmac.sha224I` (as for the hash
-functions of `Instances.lean`).
+SHA-224 as a `Hash`: its streaming functions as the code calls them
+(`sha224H`, `Proof/Pbkdf2/Stream/Arm/Sha224.lean`), SHA-256's hash value,
+length field, digest code and compression function (`Sha256.lean`); what the
+proofs need of it (`HashOK`), with SHA-256's `Md` from SHA-224's initial hash
+value and the digest its first 28 bytes; and the generic proofs at it, moved
+to the shared contracts of `Spec.Hmac.sha224I` (as for the hash functions of
+`Instances.lean`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm
 
 open VG VG.Arm VG.Proof.MdStream
 open VG.Impl.Pbkdf2.Md.Arm (Hash)
-open VG.Proof.Hmac.Generic.Arm (sha224H sha224OK)
+open VG.Proof.Pbkdf2.Stream.Arm (sha224H sha224OK)
 
 /-- SHA-224: SHA-256's 32-byte hash value, big-endian length field and
 `vg_sha256_compress`, with 112 bytes of scratch space. -/
@@ -55,7 +55,7 @@ namespace VG.Proof.Pbkdf2.Md.Arm.Instances
 
 open VG.Arm
 open VG.Proof.Pbkdf2.Md.Arm
-open VG.Proof.Hmac.Generic.Arm (initG finG iterG below count)
+open VG.Proof.Pbkdf2.Stream.Arm (initG finG iterG below count)
 
 theorem sha224_iterChecks : Iterate.Checks sha224Md :=
   ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,

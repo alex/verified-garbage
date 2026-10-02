@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Sha224
 # PBKDF2-HMAC-SHA-224 on 32-bit ARM, the whole derivation
 
 The generic proof (`CT.lean`) at SHA-224
-(`Proof/Hmac/Generic/Arm/Sha224.lean`), as for the other hash functions
+(`Proof/Pbkdf2/Stream/Arm/Sha224.lean`), as for the other hash functions
 (`Instances.lean`).
 -/
 
@@ -13,7 +13,7 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 
 open VG.Arm
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
-open VG.Proof.Hmac.Generic.Arm (sha224H sha224OK)
+open VG.Proof.Pbkdf2.Stream.Arm (sha224H sha224OK)
 
 def sha224F : Fns := fnsOf Spec.Hmac.sha224I Md.Arm.sha224Md
 

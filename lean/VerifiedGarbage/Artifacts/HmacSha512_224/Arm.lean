@@ -4,21 +4,20 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Instances
 /-!
 # HMAC-SHA-512/224 (RFC 2104) on ARMv7
 
-`init` is the one HMAC implementation for every streaming hash function
-(`Impl/Hmac/Generic/Arm.lean`), calling SHA-512/224's verified streaming
-`init` and `update`.
+`init` and `finalize` are the ones for every Merkle–Damgård hash function
+(`Impl/Pbkdf2/Md/Arm.lean`). `init` sets both states' hash values with
+SHA-512/224's verified streaming `init`, writes `K₀ ⊕ ipad` and `K₀ ⊕ opad`
+word by word into their buffers, and absorbs each with one call of
+SHA-512/224's verified compression function.
 
-`finalize` is the one for every Merkle–Damgård hash function
-(`Impl/Pbkdf2/Md/Arm.lean`): it finalizes the inner state with SHA-512/224's
-verified streaming `finalize`, then computes the outer hash as one call of
-SHA-512's verified compression function (`vg_sha512_compress`), on a block
-laid out at fixed offsets in `scratch`. It pushes 8 bytes of stack (the stack
-arguments of `finalize`); `stack` is that of the shared contract, 16 bytes.
+`finalize` finalizes the inner state with SHA-512/224's verified streaming
+`finalize`, then computes the outer hash as one call of SHA-512's verified
+compression function (`vg_sha512_compress`), on a block laid out at fixed
+offsets in `scratch`. It pushes 8 bytes of stack (the stack arguments of
+`finalize`); `stack` is that of the shared contract, 16 bytes.
 -/
 
 namespace VG.Artifacts.HmacSha512_224.Arm
-
-open VG.Proof.Hmac.Generic.Arm
 
 def artifacts : List Artifact := [
   { Spec.Hmac.sha512_224I.initApi with

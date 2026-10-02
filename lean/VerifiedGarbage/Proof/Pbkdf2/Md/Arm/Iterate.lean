@@ -9,7 +9,7 @@ generic streaming proofs describe (`Md`), whose digest code and length field
 are as `HashOK` says, with any correct compression function (`CompOk`), used
 as a black box through its proof; `Md.hmac_step` says that its two
 compressions per step compute HMAC. The contract is `iterG`
-(`Proof/Hmac/Generic/Arm/Hash.lean`), the shared one's at 16 bytes of stack,
+(`Proof/Pbkdf2/Stream/Arm/Hash.lean`), the shared one's at 16 bytes of stack,
 although the function uses none.
 -/
 
@@ -19,7 +19,7 @@ open VG VG.Arm
 open VG.Impl.Pbkdf2.Md.Arm (Hash copyW padFrom constW xorW lenWords)
 open VG.Proof.Pbkdf2.Md.Arm
 open VG.Proof.MdStream (Md)
-open VG.Proof.Hmac.Generic.Arm (iterG below SavedRegs saveR savedRegs preserved_saved)
+open VG.Proof.Pbkdf2.Stream.Arm (iterG below SavedRegs saveR savedRegs preserved_saved)
 open VG.Proof.MdStream.Arm (Upd Fupd wp_mov wp_ldrSp wp_cmp wp_subs op2_imm op2_reg eval_eq eval_ne
   ofNat_beq_zero sub_ofNat)
 open VG.Spec.Sha256 (bytesAt)
@@ -638,7 +638,7 @@ theorem setup_ok {rest : List Instr} {Q : State → Prop} (k : ∀ s, Setup H s�
   simp only [List.append_assoc, List.singleton_append]
   refine wp_ldrSp (a := stackArgAddr s₀ 0) (by decide) rfl ⟨argR s₀, by simp [hp.rd], Region.contains_self _ _⟩
     fun s₁ u₁ => ?_
-  refine Hmac.Generic.Arm.save_ok H.st (scr := scr s₀) u₁.gpr hz.W (by rw [u₁.wr, hp.wr]; simp) (L := 8 * sc)
+  refine Pbkdf2.Stream.Arm.save_ok H.st (scr := scr s₀) u₁.gpr hz.W (by rw [u₁.wr, hp.wr]; simp) (L := 8 * sc)
     (by omega) hp.ns fun s₂ g₂ rd₂ wr₂ sp₂ f₂ sv₂ => ?_
   simp only [List.cons_append, List.nil_append]
   refine wp_mov (op2_reg _ _) fun s₃ u₃ => wp_mov (op2_reg _ _) fun s₄ u₄ => wp_mov (op2_reg _ _) fun s₅ u₅ =>
@@ -796,7 +796,7 @@ theorem epilogue_ok {md : Md H.B H.N H.L} {S : Spec.Hmac.StreamingHash} {iv : md
     {s : State} (h : Inv H sc md s₀ 0 s) :
     WP isa (.block H.st.restore) s fun s' => abiPreserved s₀ s' ∧ (iterG S sc).post s₀ s' := by
   have hf := hp.fits; have := hz.W; rw [buf_eq H] at hf
-  refine WP.mono (Hmac.Generic.Arm.restore_ok H.st h.r11 hz.W h.saved (by rw [h.wr, hp.wr]; simp) (L := 8 * sc)
+  refine WP.mono (Pbkdf2.Stream.Arm.restore_ok H.st h.r11 hz.W h.saved (by rw [h.wr, hp.wr]; simp) (L := 8 * sc)
     (by omega) hp.ns) fun s' ⟨hm, _, _, hsp, hg, _⟩ =>
       ⟨⟨fun r hr => hg r (preserved_saved r hr), by rw [hsp, h.sp]⟩, fun k0 hk hi ho => ?_⟩
   have hT := h.val
