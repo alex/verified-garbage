@@ -21,7 +21,9 @@ keeps `scratch` in `rbx`, `sk` in `rbp`, `mu` in `r12`, `rnd` in `r13` and
 2. `ŝ₁`, `ŝ₂` and `t̂₀`: the `NTT` of the `BitUnpack` of their pieces of
    `sk`; and `ρ″ = H(K ‖ rnd ‖ μ, 64)` to `MS`.
 3. The rejection sampling loop, at most 814 iterations (`minBounds.sign`),
-   with the counter `κ` at `KAP`: the commitment (`y ← ExpandMask(ρ″, κ)`,
+   with the counter `κ` at `KAP`: the commitment (`y ← ExpandMask(ρ″, κ)`:
+   four polynomials at a time (`vg_mldsa_expand_mask_poly4`, from the seeds
+   `ρ″ ‖ κ + r` at `MS4`), then the last `ℓ mod 4` one at a time;
    `ŷ = NTT(y)`, `w = NTT⁻¹(Â ŷ)`, and `c̃ = H(μ ‖ w1Encode(HighBits(w)), λ/4)`
    at `CT`), then `c = SampleInBall(c̃)` and, if it succeeded, every validity
    check of the iteration, combined without a branch into `r15`: the norms
@@ -144,14 +146,28 @@ def decode : Prog isa :=
 
 /-! ### An iteration -/
 
+/-- The two bytes of `κ + r` to `scratch + o`. -/
+def setKap (o r : Nat) : List Instr :=
+  [.mov .rax (.mem (at_ .rbx oKAP)), .alu .add .rax (.imm (BitVec.ofNat 32 r)), .store8 (at_ .rbx o) .rax,
+    .shift .shr .rax 8, .store8 (at_ .rbx (o + 1)) .rax]
+
 /-- The two bytes of `κ + r` to `MS + 64`. -/
-def setKappa (r : Nat) : List Instr :=
-  [.mov .rax (.mem (at_ .rbx oKAP)), .alu .add .rax (.imm (BitVec.ofNat 32 r)), .store8 (at_ .rbx (oMS + 64)) .rax,
-    .shift .shr .rax 8, .store8 (at_ .rbx (oMS + 65)) .rax]
+def setKappa (r : Nat) : List Instr := setKap (oMS + 64) r
 
 /-- `y[r]` and `ŷ[r] = NTT(y[r])`. -/
 def maskR (r : Nat) : Prog isa :=
   .seq (.block (setKappa r)) (.seq (maskAt P p.γ₁ (yP p r)) (.seq (copy (yhP p r) (yP p r) 1024) (nttAt P (yhP p r))))
+
+/-- `ŷ[r] = NTT(y[r])`. -/
+def yhR (r : Nat) : Prog isa := .seq (copy (yhP p r) (yP p r) 1024) (nttAt P (yhP p r))
+
+/-- `ρ″ ‖ κ + 4g + k` to seed `k` of `MS4`. -/
+def cpM4 (g k : Nat) : Prog isa :=
+  .seq (copy (sc (oMS4 + 66 * k)) (sc oMS) 64) (.block (setKap (oMS4 + 66 * k + 64) (4 * g + k)))
+
+/-- `y[4g], …, y[4g + 3]`, four at a time, and their `ŷ`. -/
+def mask4 (g : Nat) : Prog isa :=
+  .seq (seqR (cpM4 g) 0 4) (.seq (mask4At P p.γ₁ (yP p (4 * g)) (r4P p)) (seqR (yhR P p) (4 * g) 4))
 
 /-- `w[i] = NTT⁻¹(∑_j Â[i, j] ŷ[j])`. -/
 def rowW (i : Nat) : Prog isa :=
@@ -164,8 +180,9 @@ def w1R (i : Nat) : Prog isa :=
 
 /-- `y`, `ŷ`, `w`, `w₁` and `c̃ = H(μ ‖ w1Encode(w₁), λ/4)` to `CT`. -/
 def commit : Prog isa :=
-  .seq (seqR (maskR P p) 0 p.ℓ) (.seq (seqR (rowW P p) 0 p.k) (.seq (seqR (w1R P p) 0 p.k)
-    (shakeAt [((.r12, 0), 64), (sc oW1, p.k * w1Len p)] (sc oCT) (cLen p))))
+  .seq (seqR (mask4 P p) 0 (p.ℓ / 4)) (.seq (seqR (maskR P p) (4 * (p.ℓ / 4)) (p.ℓ % 4))
+    (.seq (seqR (rowW P p) 0 p.k) (.seq (seqR (w1R P p) 0 p.k)
+      (shakeAt [((.r12, 0), 64), (sc oW1, p.k * w1Len p)] (sc oCT) (cLen p)))))
 
 /-- `z[r] = y[r] + NTT⁻¹(ĉ ŝ₁[r])` (in `y[r]`), and its norm. -/
 def zR (r : Nat) : Prog isa :=

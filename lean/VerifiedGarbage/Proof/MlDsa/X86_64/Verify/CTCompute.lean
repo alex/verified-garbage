@@ -104,7 +104,7 @@ theorem dot_tr : RelCT isa (RV p (IR p r)) (dot P p r)
   · have L := IRX.lrel hp (fun _ _ _ _ _ _ hd => ⟨_, hd.1⟩) hxy
     have hz : k ≠ 100 := by have := kl_le p hp; omega
     have red : ∀ {σ s}, VPre p σ → IRX p r (fun _ A' _ σ s₀ s => DI p σ A' r k s₀ s) σ s →
-        Reduced s.mem (pa s pW) ∧ Reduced s.mem (pa s (pA r k)) ∧ Reduced s.mem (pa s (pZ k)) :=
+        Reduced s.mem (pa s pW) ∧ Reduced s.mem (pa s (pA p.ℓ r k)) ∧ Reduced s.mem (pa s (pZ k)) :=
       fun hv ⟨_, _, _, _, s₀, hs, hP, _, hW⟩ => by
         have L₀ := hs.t.lay hp hv
         have H := hP.mono (sub1 (wsR_mem p r).1)
