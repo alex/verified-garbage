@@ -113,7 +113,8 @@ def sha512Ok {D : Nat} {initN : String} {iv : Spec.Sha512.HashValue}
     exact Hmac.Generic.Common.readW_reloc (n := 64) h (by omega)
   tail := tail
   out := outOk_of_shape Proof.Sha512.X86.Stream.shape
-  comp := ⟨Proof.Sha512.X86.Compress.compress_verified, NoSp.of_all (by lit_decide), by lit_decide⟩
+  comp := ⟨Proof.Sha512.X86.Compress.compress_verified, Proof.Sha512.X86.Stream.callee.nosp,
+    Proof.Sha512.X86.Stream.callee.stack⟩
   sizes := sizes
 
 def sha384Ok : MdOk sha384M := sha512Ok sha384OK rfl (fun _ => rfl) rfl rfl rfl (by decide) (by decide) ⟨by decide, by decide, by decide, by decide, rfl, by decide, by decide, by decide⟩
