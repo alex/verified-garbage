@@ -136,6 +136,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha1_init(inner: *mut [u8; 84], out
         "mov r14, QWORD PTR [r15+192]",
         "mov r15, QWORD PTR [r15+200]",
         "ret",
+        ".p2align 6",
         vg_sha1_init = sym super::sha1::vg_sha1_init,
         vg_sha1_compress = sym super::sha1::vg_sha1_compress,
     )
@@ -243,6 +244,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha1_finalize(inner: *mut [u8; 84],
         "mov r14, QWORD PTR [r15+192]",
         "mov r15, QWORD PTR [r15+200]",
         "ret",
+        ".p2align 6",
         vg_sha1_finalize = sym super::sha1::vg_sha1_finalize,
         vg_sha1_compress = sym super::sha1::vg_sha1_compress,
     )
@@ -386,6 +388,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha1_init_shani(inner: *mut [u8; 84
         "mov r14, QWORD PTR [r15+192]",
         "mov r15, QWORD PTR [r15+200]",
         "ret",
+        ".p2align 6",
         vg_sha1_init = sym super::sha1::vg_sha1_init,
         vg_sha1_compress_shani = sym super::sha1::vg_sha1_compress_shani,
     )
@@ -497,6 +500,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha1_finalize_shani(inner: *mut [u8
         "mov r14, QWORD PTR [r15+192]",
         "mov r15, QWORD PTR [r15+200]",
         "ret",
+        ".p2align 6",
         vg_sha1_finalize_shani = sym super::sha1::vg_sha1_finalize_shani,
         vg_sha1_compress_shani = sym super::sha1::vg_sha1_compress_shani,
     )

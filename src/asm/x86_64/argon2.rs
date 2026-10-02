@@ -6036,6 +6036,7 @@ pub(crate) unsafe extern "sysv64" fn vg_argon2_compress(x: *const [u64; 128], y:
         "xor rax, QWORD PTR [rcx+1016]",
         "mov QWORD PTR [rdi+1016], rax",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -6198,6 +6199,7 @@ pub(crate) unsafe extern "sysv64" fn vg_argon2_hprime(input: *const u8, input_le
         "mov r15, QWORD PTR [rbx+872]",
         "mov rbx, QWORD PTR [rbx+880]",
         "ret",
+        ".p2align 6",
         vg_blake2b_init = sym super::blake2b::vg_blake2b_init,
         vg_blake2b_update = sym super::blake2b::vg_blake2b_update,
         vg_blake2b_finalize = sym super::blake2b::vg_blake2b_finalize,
@@ -9050,6 +9052,7 @@ pub(crate) unsafe extern "sysv64" fn vg_argon2(kind: u32, password: *const u8, p
         "pop rbp",
         "pop rbx",
         "ret",
+        ".p2align 6",
         vg_blake2b_init = sym super::blake2b::vg_blake2b_init,
         vg_blake2b_update = sym super::blake2b::vg_blake2b_update,
         vg_blake2b_finalize = sym super::blake2b::vg_blake2b_finalize,

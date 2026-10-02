@@ -56,6 +56,7 @@ pub(crate) unsafe extern "sysv64" fn vg_rc2_cbc_init(key: *const u8, key_len: us
         "26:",
         "27:",
         "ret",
+        ".p2align 6",
         vg_rc2_expand_key = sym super::rc2::vg_rc2_expand_key,
     )
 }
@@ -149,6 +150,7 @@ pub(crate) unsafe extern "sysv64" fn vg_rc2_cbc_encrypt_update(ctx: *mut [u8; 14
         "212:",
         "21:",
         "ret",
+        ".p2align 6",
         vg_rc2_cbc_encrypt = sym super::rc2::vg_rc2_cbc_encrypt,
     )
 }
@@ -242,6 +244,7 @@ pub(crate) unsafe extern "sysv64" fn vg_rc2_cbc_decrypt_update(ctx: *mut [u8; 14
         "212:",
         "21:",
         "ret",
+        ".p2align 6",
         vg_rc2_cbc_decrypt = sym super::rc2::vg_rc2_cbc_decrypt,
     )
 }
@@ -288,6 +291,7 @@ pub(crate) unsafe extern "sysv64" fn vg_rc2_cbc_encrypt(schedule: *const [u8; 12
         "mov rbx, QWORD PTR [rdx+264]",
         "mov rbp, QWORD PTR [rdx+272]",
         "ret",
+        ".p2align 6",
         vg_rc2_encrypt_block = sym super::rc2::vg_rc2_encrypt_block,
     )
 }
@@ -336,6 +340,7 @@ pub(crate) unsafe extern "sysv64" fn vg_rc2_cbc_decrypt(schedule: *const [u8; 12
         "mov rbx, QWORD PTR [rdx+264]",
         "mov rbp, QWORD PTR [rdx+272]",
         "ret",
+        ".p2align 6",
         vg_rc2_decrypt_block = sym super::rc2::vg_rc2_decrypt_block,
     )
 }
@@ -1720,6 +1725,7 @@ pub(crate) unsafe extern "sysv64" fn vg_rc2_expand_key(key: *const u8, key_len: 
         "mov r14, QWORD PTR [r8+32]",
         "mov r15, QWORD PTR [r8+40]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3732,6 +3738,7 @@ pub(crate) unsafe extern "sysv64" fn vg_rc2_encrypt_block(schedule: *const [u8; 
         "mov r14, QWORD PTR [rdx+16]",
         "mov r15, QWORD PTR [rdx+24]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -5744,5 +5751,6 @@ pub(crate) unsafe extern "sysv64" fn vg_rc2_decrypt_block(schedule: *const [u8; 
         "mov r14, QWORD PTR [rdx+16]",
         "mov r15, QWORD PTR [rdx+24]",
         "ret",
+        ".p2align 6",
     )
 }

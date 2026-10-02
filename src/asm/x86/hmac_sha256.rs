@@ -148,6 +148,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha256_init(inner: *mut [u8; 96], outer:
         "mov edi, DWORD PTR [eax+168]",
         "mov ebp, DWORD PTR [eax+172]",
         "ret",
+        ".p2align 6",
         vg_sha256_init = sym super::sha256::vg_sha256_init,
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
@@ -287,6 +288,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha256_finalize(inner: *mut [u8; 96], ou
         "mov edi, DWORD PTR [eax+168]",
         "mov ebp, DWORD PTR [eax+172]",
         "ret",
+        ".p2align 6",
         vg_sha256_finalize = sym super::sha256::vg_sha256_finalize,
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
@@ -442,6 +444,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha256_init_shani(inner: *mut [u8; 96], 
         "mov edi, DWORD PTR [eax+168]",
         "mov ebp, DWORD PTR [eax+172]",
         "ret",
+        ".p2align 6",
         vg_sha256_init = sym super::sha256::vg_sha256_init,
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )
@@ -585,6 +588,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha256_finalize_shani(inner: *mut [u8; 9
         "mov edi, DWORD PTR [eax+168]",
         "mov ebp, DWORD PTR [eax+172]",
         "ret",
+        ".p2align 6",
         vg_sha256_finalize_shani = sym super::sha256::vg_sha256_finalize_shani,
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )

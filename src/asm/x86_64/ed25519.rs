@@ -276,6 +276,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_scalar_mul_add(out: *mut [u8; 32
         "mov QWORD PTR [rdi+16], r10",
         "mov QWORD PTR [rdi+24], r11",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -396,6 +397,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_scalar_reduce(out: *mut [u8; 32]
         "mov QWORD PTR [rdi+16], r10",
         "mov QWORD PTR [rdi+24], r11",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -26464,6 +26466,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_scalar_base(out: *mut [u8; 32], 
         "mov QWORD PTR [rdi+16], r10",
         "mov QWORD PTR [rdi+24], r11",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -47412,6 +47415,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_scalar_base_adx(out: *mut [u8; 3
         "mov QWORD PTR [rdi+16], r10",
         "mov QWORD PTR [rdi+24], r11",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -87988,6 +87992,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_equation(pk: *const [u8; 
         "mov r14, QWORD PTR [rdx+32]",
         "mov r15, QWORD PTR [rdx+40]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -110439,6 +110444,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_equation_adx(pk: *const [
         "mov r14, QWORD PTR [rdx+32]",
         "mov r15, QWORD PTR [rdx+40]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -129658,6 +129664,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_equation_ifma(pk: *const 
         "mov r14, QWORD PTR [rdx+32]",
         "mov r15, QWORD PTR [rdx+40]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -129733,6 +129740,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key(out: *mut [u8; 32], s
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update = sym super::sha512::vg_sha512_update,
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
@@ -129845,6 +129853,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify(pk: *const [u8; 32], mess
         "pop r11",
         "pop r11",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update = sym super::sha512::vg_sha512_update,
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
@@ -130080,6 +130089,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached(out: *mut [u8; 64], 
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update = sym super::sha512::vg_sha512_update,
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
@@ -130165,6 +130175,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key_adx(out: *mut [u8; 32
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update = sym super::sha512::vg_sha512_update,
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
@@ -130281,6 +130292,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_adx(pk: *const [u8; 32], 
         "pop r11",
         "pop r11",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update = sym super::sha512::vg_sha512_update,
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
@@ -130520,6 +130532,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached_adx(out: *mut [u8; 6
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update = sym super::sha512::vg_sha512_update,
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
@@ -130638,6 +130651,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_ifma(pk: *const [u8; 32],
         "pop r11",
         "pop r11",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update = sym super::sha512::vg_sha512_update,
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
@@ -130722,6 +130736,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key_avx2(out: *mut [u8; 3
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_avx2 = sym super::sha512::vg_sha512_update_avx2,
         vg_sha512_finalize_avx2 = sym super::sha512::vg_sha512_finalize_avx2,
@@ -130838,6 +130853,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_avx2(pk: *const [u8; 32],
         "pop r11",
         "pop r11",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_avx2 = sym super::sha512::vg_sha512_update_avx2,
         vg_sha512_finalize_avx2 = sym super::sha512::vg_sha512_finalize_avx2,
@@ -131077,6 +131093,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached_avx2(out: *mut [u8; 
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_avx2 = sym super::sha512::vg_sha512_update_avx2,
         vg_sha512_finalize_avx2 = sym super::sha512::vg_sha512_finalize_avx2,
@@ -131162,6 +131179,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key_avx2_adx(out: *mut [u
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_avx2 = sym super::sha512::vg_sha512_update_avx2,
         vg_sha512_finalize_avx2 = sym super::sha512::vg_sha512_finalize_avx2,
@@ -131278,6 +131296,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_avx2_adx(pk: *const [u8; 
         "pop r11",
         "pop r11",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_avx2 = sym super::sha512::vg_sha512_update_avx2,
         vg_sha512_finalize_avx2 = sym super::sha512::vg_sha512_finalize_avx2,
@@ -131517,6 +131536,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached_avx2_adx(out: *mut [
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_avx2 = sym super::sha512::vg_sha512_update_avx2,
         vg_sha512_finalize_avx2 = sym super::sha512::vg_sha512_finalize_avx2,
@@ -131635,6 +131655,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_avx2_ifma(pk: *const [u8;
         "pop r11",
         "pop r11",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_avx2 = sym super::sha512::vg_sha512_update_avx2,
         vg_sha512_finalize_avx2 = sym super::sha512::vg_sha512_finalize_avx2,
@@ -131719,6 +131740,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key_shani(out: *mut [u8; 
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_shani = sym super::sha512::vg_sha512_update_shani,
         vg_sha512_finalize_shani = sym super::sha512::vg_sha512_finalize_shani,
@@ -131835,6 +131857,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_shani(pk: *const [u8; 32]
         "pop r11",
         "pop r11",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_shani = sym super::sha512::vg_sha512_update_shani,
         vg_sha512_finalize_shani = sym super::sha512::vg_sha512_finalize_shani,
@@ -132074,6 +132097,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached_shani(out: *mut [u8;
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_shani = sym super::sha512::vg_sha512_update_shani,
         vg_sha512_finalize_shani = sym super::sha512::vg_sha512_finalize_shani,
@@ -132159,6 +132183,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key_shani_adx(out: *mut [
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_shani = sym super::sha512::vg_sha512_update_shani,
         vg_sha512_finalize_shani = sym super::sha512::vg_sha512_finalize_shani,
@@ -132275,6 +132300,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_shani_adx(pk: *const [u8;
         "pop r11",
         "pop r11",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_shani = sym super::sha512::vg_sha512_update_shani,
         vg_sha512_finalize_shani = sym super::sha512::vg_sha512_finalize_shani,
@@ -132514,6 +132540,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached_shani_adx(out: *mut 
         "pop rax",
         "pop rax",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_shani = sym super::sha512::vg_sha512_update_shani,
         vg_sha512_finalize_shani = sym super::sha512::vg_sha512_finalize_shani,
@@ -132632,6 +132659,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_shani_ifma(pk: *const [u8
         "pop r11",
         "pop r11",
         "ret",
+        ".p2align 6",
         vg_sha512_init = sym super::sha512::vg_sha512_init,
         vg_sha512_update_shani = sym super::sha512::vg_sha512_update_shani,
         vg_sha512_finalize_shani = sym super::sha512::vg_sha512_finalize_shani,

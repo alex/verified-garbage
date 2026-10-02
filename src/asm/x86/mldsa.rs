@@ -895,6 +895,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_ntt(f: *mut [u32; 256], scratch: *mut [
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1780,6 +1781,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_inv_ntt(f: *mut [u32; 256], scratch: *m
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1848,6 +1850,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_multiply_ntt(h: *mut [u32; 256], f: *co
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1922,6 +1925,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_multiply_add_ntt(h: *mut [u32; 256], f:
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1969,6 +1973,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_add(f: *mut [u32; 256], g: *const [u32;
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2017,6 +2022,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_sub(f: *mut [u32; 256], g: *const [u32;
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2128,6 +2134,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_simple_bit_pack(f: *const [u32; 256], b
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2444,6 +2451,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_bit_pack(f: *const [u32; 256], a: u32, 
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2837,6 +2845,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_bit_unpack(v: *const u8, len: usize, a:
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2910,6 +2919,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_unpack_t1(v: *const [u8; 320], f: *mut 
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2977,6 +2987,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_hint_bit_pack(h: *const u32, hlen: usiz
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3108,6 +3119,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_hint_bit_unpack(y: *const u8, len: usiz
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3161,6 +3173,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_power2round(t: *const [u32; 256], t1: *
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3237,6 +3250,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_high_bits(r: *const [u32; 256], gamma2:
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3329,6 +3343,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_low_bits(r: *const [u32; 256], gamma2: 
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3375,6 +3390,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_norm_lt(f: *const [u32; 256], bound: u3
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3501,6 +3517,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_make_hint(z: *const [u32; 256], r: *con
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3619,6 +3636,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_use_hint(h: *const [u32; 256], r: *cons
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3752,6 +3770,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_rej_ntt_poly(seed: *const [u8; 34], a: 
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,
@@ -3979,6 +3998,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_rej_bounded_poly(seed: *const [u8; 66],
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,
@@ -4175,6 +4195,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_expand_mask_poly(seed: *const [u8; 66],
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,
@@ -4343,6 +4364,7 @@ pub(crate) unsafe extern "C" fn vg_mldsa_sample_in_ball(ctilde: *const u8, len: 
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,

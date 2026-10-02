@@ -6801,6 +6801,7 @@ pub(crate) unsafe extern "sysv64" fn vg_x25519(out: *mut [u8; 32], scalar: *cons
         "mov QWORD PTR [rsi+16], r10",
         "mov QWORD PTR [rsi+24], r11",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -10461,6 +10462,7 @@ pub(crate) unsafe extern "sysv64" fn vg_x25519_adx(out: *mut [u8; 32], scalar: *
         "mov QWORD PTR [rsi+16], r10",
         "mov QWORD PTR [rsi+24], r11",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -14013,5 +14015,6 @@ pub(crate) unsafe extern "sysv64" fn vg_x25519_ifma(out: *mut [u8; 32], scalar: 
         "mov QWORD PTR [rsi+16], r10",
         "mov QWORD PTR [rsi+24], r11",
         "ret",
+        ".p2align 6",
     )
 }

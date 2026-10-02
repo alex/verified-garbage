@@ -49,5 +49,6 @@ pub(crate) unsafe extern "C" fn vg_ct_eq(a: *const u8, a_len: usize, b: *const u
         "21:",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }

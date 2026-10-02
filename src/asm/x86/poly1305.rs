@@ -41,6 +41,7 @@ pub(crate) unsafe extern "C" fn vg_poly1305_init(state: *mut [u64; 16], key: *co
         "mov DWORD PTR [eax+16], edx",
         "mov DWORD PTR [eax+20], edx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -310,6 +311,7 @@ pub(crate) unsafe extern "C" fn vg_poly1305_blocks(state: *mut [u64; 16], blocks
         "mov ecx, 0",
         "mov DWORD PTR [eax+20], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -782,6 +784,7 @@ pub(crate) unsafe extern "C" fn vg_poly1305_update(state: *mut [u64; 16], count:
         "mov ecx, 0",
         "mov DWORD PTR [eax+20], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1070,5 +1073,6 @@ pub(crate) unsafe extern "C" fn vg_poly1305_finalize(state: *mut [u64; 16], coun
         "mov ecx, 0",
         "mov DWORD PTR [eax+20], ecx",
         "ret",
+        ".p2align 6",
     )
 }

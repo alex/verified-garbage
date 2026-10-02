@@ -1708,6 +1708,7 @@ pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: 
         "mov esi, DWORD PTR [eax+68]",
         "mov edi, DWORD PTR [eax+72]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1779,6 +1780,7 @@ pub(crate) unsafe extern "C" fn vg_chacha20_xor(state: *mut [u32; 16], data: *mu
         "mov edi, DWORD PTR [eax+264]",
         "mov ebp, DWORD PTR [eax+268]",
         "ret",
+        ".p2align 6",
         vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
     )
 }
@@ -1833,6 +1835,7 @@ pub(crate) unsafe extern "C" fn vg_chacha20_init(state: *mut [u64; 96], key: *co
         "mov ecx, 1797285236",
         "mov DWORD PTR [eax+12], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1880,6 +1883,7 @@ pub(crate) unsafe extern "C" fn vg_chacha20_set_nonce(state: *mut [u64; 96], non
         "mov ecx, 1797285236",
         "mov DWORD PTR [eax+12], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2018,6 +2022,7 @@ pub(crate) unsafe extern "C" fn vg_chacha20_apply(state: *mut [u64; 96], data: *
         "mov eax, 0",
         "21:",
         "ret",
+        ".p2align 6",
         vg_chacha20_xor = sym super::chacha20::vg_chacha20_xor,
         vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
     )

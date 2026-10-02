@@ -81,6 +81,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_init(key: *const u8, key_len: usize, 
         "26:",
         "27:",
         "ret",
+        ".p2align 6",
         vg_rc2_expand_key = sym super::rc2::vg_rc2_expand_key,
     )
 }
@@ -207,6 +208,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_encrypt_update(ctx: *mut [u8; 144], p
         "mov esi, DWORD PTR [ebx+516]",
         "mov ebx, DWORD PTR [ebx+512]",
         "ret",
+        ".p2align 6",
         vg_rc2_cbc_encrypt = sym super::rc2::vg_rc2_cbc_encrypt,
     )
 }
@@ -333,6 +335,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_decrypt_update(ctx: *mut [u8; 144], p
         "mov esi, DWORD PTR [ebx+516]",
         "mov ebx, DWORD PTR [ebx+512]",
         "ret",
+        ".p2align 6",
         vg_rc2_cbc_decrypt = sym super::rc2::vg_rc2_cbc_decrypt,
     )
 }
@@ -399,6 +402,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_encrypt(schedule: *const [u8; 128], i
         "mov esi, DWORD PTR [eax+272]",
         "mov edi, DWORD PTR [eax+276]",
         "ret",
+        ".p2align 6",
         vg_rc2_encrypt_block = sym super::rc2::vg_rc2_encrypt_block,
     )
 }
@@ -469,6 +473,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_cbc_decrypt(schedule: *const [u8; 128], i
         "mov esi, DWORD PTR [eax+272]",
         "mov edi, DWORD PTR [eax+276]",
         "ret",
+        ".p2align 6",
         vg_rc2_decrypt_block = sym super::rc2::vg_rc2_decrypt_block,
     )
 }
@@ -6771,6 +6776,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_expand_key(key: *const u8, key_len: usize
         "mov esi, DWORD PTR [eax+8]",
         "mov edi, DWORD PTR [eax+12]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -14467,6 +14473,7 @@ pub(crate) unsafe extern "C" fn vg_rc2_encrypt_block(schedule: *const [u8; 128],
         "mov edi, DWORD PTR [eax+12]",
         "mov ecx, DWORD PTR [eax+16]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -22163,5 +22170,6 @@ pub(crate) unsafe extern "C" fn vg_rc2_decrypt_block(schedule: *const [u8; 128],
         "mov edi, DWORD PTR [eax+12]",
         "mov ecx, DWORD PTR [eax+16]",
         "ret",
+        ".p2align 6",
     )
 }

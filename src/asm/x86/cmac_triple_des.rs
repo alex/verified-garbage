@@ -3805,6 +3805,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_init(key: *const u8, key_len:
         "mov edi, DWORD PTR [ebp+92]",
         "mov ebp, DWORD PTR [ebp+96]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4959,6 +4960,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_update(schedule: *const [u8; 
         "mov edi, DWORD PTR [ebp+92]",
         "mov ebp, DWORD PTR [ebp+96]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -6129,5 +6131,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_triple_des_finalize(key: *const [u8; 400
         "mov edi, DWORD PTR [ebp+92]",
         "mov ebp, DWORD PTR [ebp+96]",
         "ret",
+        ".p2align 6",
     )
 }

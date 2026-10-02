@@ -705,6 +705,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_ntt(f: *mut [u32; 256], scratch: *
         "mov DWORD PTR [rsi+768], r11d",
         "ldmxcsr DWORD PTR [rsi+768]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1417,6 +1418,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_inv_ntt(f: *mut [u32; 256], scratc
         "mov DWORD PTR [rsi+768], r11d",
         "ldmxcsr DWORD PTR [rsi+768]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1539,6 +1541,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_multiply_ntt(h: *mut [u32; 256], f
         "ldmxcsr DWORD PTR [r8+1016]",
         "movdqu XMMWORD PTR [rdi], xmm3",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1674,6 +1677,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_multiply_add_ntt(h: *mut [u32; 256
         "ldmxcsr DWORD PTR [r8+1016]",
         "movdqu XMMWORD PTR [rdi], xmm3",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1713,6 +1717,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_add(f: *mut [u32; 256], g: *const 
         "sub rcx, 1",
         "jne 20b",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1751,6 +1756,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_sub(f: *mut [u32; 256], g: *const 
         "sub rcx, 1",
         "jne 20b",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2425,6 +2431,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_ntt_avx2(f: *mut [u32; 256], scrat
         "mov DWORD PTR [rsi+768], r11d",
         "ldmxcsr DWORD PTR [rsi+768]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3103,6 +3110,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_inv_ntt_avx2(f: *mut [u32; 256], s
         "mov DWORD PTR [rsi+768], r11d",
         "ldmxcsr DWORD PTR [rsi+768]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3220,6 +3228,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_multiply_ntt_avx2(h: *mut [u32; 25
         "vmovdqu YMMWORD PTR [rdi], ymm3",
         "vzeroupper",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3348,6 +3357,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_multiply_add_ntt_avx2(h: *mut [u32
         "vmovdqu YMMWORD PTR [rdi], ymm3",
         "vzeroupper",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3391,6 +3401,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_add_avx2(f: *mut [u32; 256], g: *c
         "jne 20b",
         "vzeroupper",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3433,6 +3444,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_sub_avx2(f: *mut [u32; 256], g: *c
         "jne 20b",
         "vzeroupper",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3530,6 +3542,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_simple_bit_pack(f: *const [u32; 25
         "jne 26b",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3832,6 +3845,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_bit_pack(f: *const [u32; 256], a: 
         "jne 212b",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4211,6 +4225,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_bit_unpack(v: *const u8, len: usiz
         "jne 212b",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4269,6 +4284,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_unpack_t1(v: *const [u8; 320], f: 
         "sub rcx, 1",
         "jne 20b",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4320,6 +4336,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_hint_bit_pack(h: *const u32, hlen:
         "sub r10, 1",
         "jne 21b",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4421,6 +4438,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_hint_bit_unpack(y: *const u8, len:
         "mov eax, 1",
         "sbb eax, 0",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4455,6 +4473,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_power2round(t: *const [u32; 256], 
         "sub rcx, 1",
         "jne 20b",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4513,6 +4532,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_high_bits(r: *const [u32; 256], ga
         "jne 23b",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4585,6 +4605,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_low_bits(r: *const [u32; 256], gam
         "jne 23b",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4686,6 +4707,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_high_bits_avx2(r: *const [u32; 256
         "21:",
         "vzeroupper",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4809,6 +4831,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_low_bits_avx2(r: *const [u32; 256]
         "21:",
         "vzeroupper",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4840,6 +4863,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_norm_lt(f: *const [u32; 256], boun
         "mov rax, r9",
         "shr rax, 63",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4944,6 +4968,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_make_hint(z: *const [u32; 256], r:
         "21:",
         "mov rax, r9",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4998,6 +5023,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_norm_lt_avx2(f: *const [u32; 256],
         "add rax, 1",
         "shr rax, 32",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -5187,6 +5213,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_make_hint_avx2(z: *const [u32; 256
         "mov rax, r9",
         "vzeroupper",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -5284,6 +5311,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_use_hint(h: *const [u32; 256], r: 
         "jne 23b",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -5436,6 +5464,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_use_hint_avx2(h: *const [u32; 256]
         "21:",
         "vzeroupper",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -5546,6 +5575,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_rej_ntt_poly(seed: *const [u8; 34]
         "mov r12, QWORD PTR [rbx+2040]",
         "mov rbx, QWORD PTR [rbx+2024]",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,
@@ -5617,6 +5647,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_rej_ntt_poly4(seeds: *const [u8; 1
         "mov rbp, QWORD PTR [rbx+4392]",
         "mov rbx, QWORD PTR [rbx+4384]",
         "ret",
+        ".p2align 6",
         vg_mldsa_rej_ntt_poly = sym super::mldsa::vg_mldsa_rej_ntt_poly,
     )
 }
@@ -10390,6 +10421,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_rej_ntt_poly4_avx2(seeds: *const [
         "mov rbp, QWORD PTR [rbx+4392]",
         "mov rbx, QWORD PTR [rbx+4384]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -10588,6 +10620,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_rej_bounded_poly(seed: *const [u8;
         "mov r12, QWORD PTR [rbx+2040]",
         "mov rbx, QWORD PTR [rbx+2024]",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,
@@ -10764,6 +10797,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_expand_mask_poly(seed: *const [u8;
         "mov r12, QWORD PTR [rbx+2040]",
         "mov rbx, QWORD PTR [rbx+2024]",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,
@@ -10835,6 +10869,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_expand_mask_poly4(seeds: *const [u
         "mov rbp, QWORD PTR [rbx+5096]",
         "mov rbx, QWORD PTR [rbx+5088]",
         "ret",
+        ".p2align 6",
         vg_mldsa_expand_mask_poly = sym super::mldsa::vg_mldsa_expand_mask_poly,
     )
 }
@@ -14865,6 +14900,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_expand_mask_poly4_avx2(seeds: *con
         "mov rbp, QWORD PTR [rbx+5096]",
         "mov rbx, QWORD PTR [rbx+5088]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -14989,6 +15025,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_sample_in_ball(ctilde: *const u8, 
         "mov r12, QWORD PTR [rbx+2040]",
         "mov rbx, QWORD PTR [rbx+2024]",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,

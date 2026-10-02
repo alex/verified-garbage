@@ -703,6 +703,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ghash(h: *const [u8; 16], y: *mut [u8; 1
         "mov r14, QWORD PTR [r8+32]",
         "mov r15, QWORD PTR [r8+40]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -981,6 +982,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ghash_pclmul(h: *const [u8; 16], y: *mut
         "pshufb xmm2, xmm0",
         "movdqu XMMWORD PTR [rsi], xmm2",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1042,6 +1044,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_aesni(key: *const u8, key_l
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_aes_expand_key_aesni = sym super::aes::vg_aes_expand_key_aesni,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -1626,6 +1629,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_aesni(ctx: *const [u64; 32]
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -2287,6 +2291,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_open_aesni(ctx: *const [u64; 32]
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -2500,6 +2505,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_init_aesni(ctx: *const [u
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
     )
 }
@@ -2624,6 +2630,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_aesni(ctx: *const [u6
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
     )
 }
@@ -2892,6 +2899,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_aesni(ctx: *const
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
         vg_ghash = sym super::gcm::vg_ghash,
     )
@@ -3165,6 +3173,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_aesni(ctx: *const
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -3287,6 +3296,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_aesni(ctx: *const 
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -3489,6 +3499,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify_aesni(ctx: *const 
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -3552,6 +3563,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_aesni_pclmul(key: *const u8
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_aes_expand_key_aesni = sym super::aes::vg_aes_expand_key_aesni,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -4136,6 +4148,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_aesni_pclmul(ctx: *const [u
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -4797,6 +4810,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_open_aesni_pclmul(ctx: *const [u
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -5014,6 +5028,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_init_aesni_pclmul(ctx: *c
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
     )
 }
@@ -5142,6 +5157,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_aesni_pclmul(ctx: *co
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
     )
 }
@@ -5410,6 +5426,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_aesni_pclmul(ctx:
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
     )
@@ -5683,6 +5700,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_aesni_pclmul(ctx:
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -5805,6 +5823,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_aesni_pclmul(ctx: 
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -6007,6 +6026,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify_aesni_pclmul(ctx: 
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
@@ -6066,6 +6086,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_pclmul(key: *const u8, key_
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_aes_expand_key = sym super::aes::vg_aes_expand_key,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -6650,6 +6671,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_pclmul(ctx: *const [u64; 32
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -7311,6 +7333,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_open_pclmul(ctx: *const [u64; 32
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -7528,6 +7551,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_init_pclmul(ctx: *const [
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
     )
 }
@@ -7656,6 +7680,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_pclmul(ctx: *const [u
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
     )
 }
@@ -7924,6 +7949,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_pclmul(ctx: *cons
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
     )
@@ -8197,6 +8223,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_pclmul(ctx: *cons
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -8319,6 +8346,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_pclmul(ctx: *const
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -8521,6 +8549,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify_pclmul(ctx: *const
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash_pclmul = sym super::gcm::vg_ghash_pclmul,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -8580,6 +8609,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init(key: *const u8, key_len: us
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_aes_expand_key = sym super::aes::vg_aes_expand_key,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -9160,6 +9190,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal(ctx: *const [u64; 32], roun
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -9817,6 +9848,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_open(ctx: *const [u64; 32], roun
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -10030,6 +10062,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_init(ctx: *const [u64; 32
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
     )
 }
@@ -10154,6 +10187,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad(ctx: *const [u64; 32]
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
     )
 }
@@ -10418,6 +10452,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt(ctx: *const [u64;
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
         vg_ghash = sym super::gcm::vg_ghash,
     )
@@ -10687,6 +10722,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt(ctx: *const [u64;
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -10805,6 +10841,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish(ctx: *const [u64; 
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
@@ -11003,6 +11040,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify(ctx: *const [u64; 
         "mov r14, QWORD PTR [r15+160]",
         "mov r15, QWORD PTR [r15+168]",
         "ret",
+        ".p2align 6",
         vg_ghash = sym super::gcm::vg_ghash,
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )

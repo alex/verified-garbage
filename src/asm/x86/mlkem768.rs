@@ -50,6 +50,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem768_check_ek(ek: *const [u8; 1184]) -> u
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1412,6 +1413,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem768_keygen(seed: *const [u8; 64], ek: *m
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,
@@ -3021,6 +3023,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem768_encaps(ek: *const [u8; 1184], m: *co
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,
@@ -4862,6 +4865,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem768_decaps(dk: *const [u8; 2400], ct: *c
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
         vg_mlkem_decode_decompress = sym super::mlkem::vg_mlkem_decode_decompress,
         vg_mlkem_ntt = sym super::mlkem::vg_mlkem_ntt,
         vg_mlkem_decode12 = sym super::mlkem::vg_mlkem_decode12,

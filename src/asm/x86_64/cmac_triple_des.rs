@@ -3926,6 +3926,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_init(key: *const u8, key
         "mov r14, QWORD PTR [r15+80]",
         "mov r15, QWORD PTR [r15+88]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4924,6 +4925,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_update(schedule: *const 
         "mov r14, QWORD PTR [r15+80]",
         "mov r15, QWORD PTR [r15+88]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -5931,5 +5933,6 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_triple_des_finalize(key: *const [u8
         "mov r14, QWORD PTR [r15+80]",
         "mov r15, QWORD PTR [r15+88]",
         "ret",
+        ".p2align 6",
     )
 }

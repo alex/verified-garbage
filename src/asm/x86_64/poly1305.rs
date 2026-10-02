@@ -28,6 +28,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_init(state: *mut [u64; 16], key
         "mov QWORD PTR [rdi+8], rax",
         "mov QWORD PTR [rdi+16], rax",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -140,6 +141,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_blocks(state: *mut [u64; 16], b
         "mov r14, QWORD PTR [rdi+104]",
         "mov r15, QWORD PTR [rdi+112]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -832,6 +834,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_blocks_avx2(state: *mut [u64; 1
         "call {vg_poly1305_blocks}",
         "21:",
         "ret",
+        ".p2align 6",
         vg_poly1305_blocks = sym super::poly1305::vg_poly1305_blocks,
     )
 }
@@ -1601,6 +1604,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_blocks_avx512(state: *mut [u64;
         "call {vg_poly1305_blocks_avx2}",
         "21:",
         "ret",
+        ".p2align 6",
         vg_poly1305_blocks = sym super::poly1305::vg_poly1305_blocks,
         vg_poly1305_blocks_avx2 = sym super::poly1305::vg_poly1305_blocks_avx2,
     )
@@ -1726,6 +1730,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_finalize(state: *mut [u64; 16],
         "mov r14, QWORD PTR [rdi+104]",
         "mov r15, QWORD PTR [rdi+112]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1908,6 +1913,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_update_avx2(state: *mut [u64; 1
         "mov r14, QWORD PTR [r15+32]",
         "mov r15, QWORD PTR [r15+40]",
         "ret",
+        ".p2align 6",
         vg_poly1305_blocks_avx2 = sym super::poly1305::vg_poly1305_blocks_avx2,
     )
 }
@@ -2091,6 +2097,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_update_avx512(state: *mut [u64;
         "mov r14, QWORD PTR [r15+32]",
         "mov r15, QWORD PTR [r15+40]",
         "ret",
+        ".p2align 6",
         vg_poly1305_blocks_avx512 = sym super::poly1305::vg_poly1305_blocks_avx512,
     )
 }
@@ -2270,6 +2277,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_update(state: *mut [u64; 16], c
         "mov r14, QWORD PTR [r15+32]",
         "mov r15, QWORD PTR [r15+40]",
         "ret",
+        ".p2align 6",
         vg_poly1305_blocks = sym super::poly1305::vg_poly1305_blocks,
     )
 }

@@ -17971,6 +17971,7 @@ pub(crate) unsafe extern "sysv64" fn vg_x448(out: *mut [u8; 56], scalar: *const 
         "mov r14, QWORD PTR [rdi+32]",
         "mov r15, QWORD PTR [rdi+40]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -32104,5 +32105,6 @@ pub(crate) unsafe extern "sysv64" fn vg_x448_adx(out: *mut [u8; 56], scalar: *co
         "mov r14, QWORD PTR [rdi+32]",
         "mov r15, QWORD PTR [rdi+40]",
         "ret",
+        ".p2align 6",
     )
 }

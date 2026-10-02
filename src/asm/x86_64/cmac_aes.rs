@@ -80,6 +80,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_subkeys_aesni(schedule: *const 
         "mov rbx, QWORD PTR [rbp+2064]",
         "mov rbp, QWORD PTR [rbp+2072]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
 }
@@ -152,6 +153,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_update_aesni(schedule: *const [
         "mov r14, QWORD PTR [r15+2096]",
         "mov r15, QWORD PTR [r15+2104]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
 }
@@ -229,6 +231,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_finalize_aesni(key: *const [u8;
         "mov r8d, 1",
         "call {vg_aes_ctr32_aesni}",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
     )
 }
@@ -282,6 +285,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_init_aesni(state: *mut [u64; 38
         "mov r12, QWORD PTR [rbp+2192]",
         "mov rbp, QWORD PTR [rbp+2184]",
         "ret",
+        ".p2align 6",
         vg_aes_expand_key_aesni = sym super::aes::vg_aes_expand_key_aesni,
         vg_cmac_aes_subkeys_aesni = sym super::cmac_aes::vg_cmac_aes_subkeys_aesni,
     )
@@ -413,6 +417,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_absorb_aesni(state: *mut [u64; 
         "mov r14, QWORD PTR [r15+2208]",
         "mov r15, QWORD PTR [r15+2216]",
         "ret",
+        ".p2align 6",
         vg_cmac_aes_update_aesni = sym super::cmac_aes::vg_cmac_aes_update_aesni,
     )
 }
@@ -459,6 +464,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_finish_aesni(state: *mut [u64; 
         "21:",
         "call {vg_cmac_aes_finalize_aesni}",
         "ret",
+        ".p2align 6",
         vg_cmac_aes_finalize_aesni = sym super::cmac_aes::vg_cmac_aes_finalize_aesni,
     )
 }
@@ -537,6 +543,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_subkeys(schedule: *const [u8; 2
         "mov rbx, QWORD PTR [rbp+2064]",
         "mov rbp, QWORD PTR [rbp+2072]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
 }
@@ -605,6 +612,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_update(schedule: *const [u8; 24
         "mov r14, QWORD PTR [r15+2096]",
         "mov r15, QWORD PTR [r15+2104]",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
 }
@@ -678,6 +686,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_finalize(key: *const [u8; 272],
         "mov r8d, 1",
         "call {vg_aes_ctr32}",
         "ret",
+        ".p2align 6",
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
 }
@@ -727,6 +736,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_init(state: *mut [u64; 38], key
         "mov r12, QWORD PTR [rbp+2192]",
         "mov rbp, QWORD PTR [rbp+2184]",
         "ret",
+        ".p2align 6",
         vg_aes_expand_key = sym super::aes::vg_aes_expand_key,
         vg_cmac_aes_subkeys = sym super::cmac_aes::vg_cmac_aes_subkeys,
     )
@@ -854,6 +864,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_absorb(state: *mut [u64; 38], r
         "mov r14, QWORD PTR [r15+2208]",
         "mov r15, QWORD PTR [r15+2216]",
         "ret",
+        ".p2align 6",
         vg_cmac_aes_update = sym super::cmac_aes::vg_cmac_aes_update,
     )
 }
@@ -896,6 +907,7 @@ pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_finish(state: *mut [u64; 38], r
         "21:",
         "call {vg_cmac_aes_finalize}",
         "ret",
+        ".p2align 6",
         vg_cmac_aes_finalize = sym super::cmac_aes::vg_cmac_aes_finalize,
     )
 }

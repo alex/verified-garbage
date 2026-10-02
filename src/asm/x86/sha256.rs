@@ -32,6 +32,7 @@ pub(crate) unsafe extern "C" fn vg_sha224_init(state: *mut [u8; 96]) {
         "mov ecx, -1090891868",
         "mov DWORD PTR [eax+28], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -65,6 +66,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
         "mov ecx, 1541459225",
         "mov DWORD PTR [eax+28], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3427,6 +3429,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks:
         "mov ebp, DWORD PTR [esi+108]",
         "mov esi, DWORD PTR [esi+100]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3567,6 +3570,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u6
         "mov edi, DWORD PTR [eax+120]",
         "mov ebp, DWORD PTR [eax+124]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
 }
@@ -3702,6 +3706,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_finalize(state: *mut [u8; 96], count: 
         "mov edi, DWORD PTR [ebp+120]",
         "mov ebp, DWORD PTR [ebp+124]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
 }
@@ -4110,6 +4115,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress_shani(state: *mut [u32; 8], b
         "mov ebp, DWORD PTR [esi+108]",
         "mov esi, DWORD PTR [esi+100]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -4254,6 +4260,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_update_shani(state: *mut [u8; 96], cou
         "mov edi, DWORD PTR [eax+120]",
         "mov ebp, DWORD PTR [eax+124]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )
 }
@@ -4393,6 +4400,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_finalize_shani(state: *mut [u8; 96], c
         "mov edi, DWORD PTR [ebp+120]",
         "mov ebp, DWORD PTR [ebp+124]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )
 }

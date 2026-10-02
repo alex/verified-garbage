@@ -226,6 +226,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem1024_compress_encode(f: *const [u32; 256
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -450,6 +451,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem1024_decode_decompress(b: *const u8, len
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -501,6 +503,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem1024_check_ek(ek: *const [u8; 1568]) -> 
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2469,6 +2472,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem1024_keygen(seed: *const [u8; 64], ek: *
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,
@@ -4716,6 +4720,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem1024_encaps(ek: *const [u8; 1568], m: *c
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
         vg_keccak_absorb = sym super::sha3::vg_keccak_absorb,
         vg_keccak_pad = sym super::sha3::vg_keccak_pad,
         vg_keccak_squeeze = sym super::sha3::vg_keccak_squeeze,
@@ -7254,6 +7259,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem1024_decaps(dk: *const [u8; 3168], ct: *
         "pop ebx",
         "pop ebx",
         "ret",
+        ".p2align 6",
         vg_mlkem1024_decode_decompress = sym super::mlkem1024::vg_mlkem1024_decode_decompress,
         vg_mlkem_ntt = sym super::mlkem::vg_mlkem_ntt,
         vg_mlkem_decode12 = sym super::mlkem::vg_mlkem_decode12,

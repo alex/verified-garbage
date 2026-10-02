@@ -212,6 +212,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_224_init(inner: *mut [u8; 192], o
         "mov edi, DWORD PTR [eax+280]",
         "mov ebp, DWORD PTR [eax+284]",
         "ret",
+        ".p2align 6",
         vg_sha512_224_init = sym super::sha512::vg_sha512_224_init,
         vg_sha512_compress = sym super::sha512::vg_sha512_compress,
     )
@@ -438,6 +439,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_224_finalize(inner: *mut [u8; 192
         "mov edi, DWORD PTR [eax+280]",
         "mov ebp, DWORD PTR [eax+284]",
         "ret",
+        ".p2align 6",
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
         vg_sha512_compress = sym super::sha512::vg_sha512_compress,
     )

@@ -155,6 +155,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha1_iterate(key: *const [u8
         "mov r14, QWORD PTR [r15+144]",
         "mov r15, QWORD PTR [r15+152]",
         "ret",
+        ".p2align 6",
         vg_sha1_compress = sym super::sha1::vg_sha1_compress,
     )
 }
@@ -320,6 +321,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha1(password: *const u8, pa
         "mov r14, QWORD PTR [r15+480]",
         "mov r15, QWORD PTR [r15+488]",
         "ret",
+        ".p2align 6",
         vg_sha1_init = sym super::sha1::vg_sha1_init,
         vg_sha1_update = sym super::sha1::vg_sha1_update,
         vg_sha1_finalize = sym super::sha1::vg_sha1_finalize,
@@ -486,6 +488,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha1_iterate_shani(key: *con
         "mov r14, QWORD PTR [r15+144]",
         "mov r15, QWORD PTR [r15+152]",
         "ret",
+        ".p2align 6",
         vg_sha1_compress_shani = sym super::sha1::vg_sha1_compress_shani,
     )
 }
@@ -655,6 +658,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha1_shani(password: *const 
         "mov r14, QWORD PTR [r15+480]",
         "mov r15, QWORD PTR [r15+488]",
         "ret",
+        ".p2align 6",
         vg_sha1_init = sym super::sha1::vg_sha1_init,
         vg_sha1_update_shani = sym super::sha1::vg_sha1_update_shani,
         vg_sha1_finalize_shani = sym super::sha1::vg_sha1_finalize_shani,
