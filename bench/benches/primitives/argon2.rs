@@ -12,7 +12,7 @@ pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;
 
     use criterion::BenchmarkId;
-    use verified_garbage::argon2::{Variant, derive};
+    use verified_garbage::argon2::{Params, Variant, derive};
 
     use crate::VG;
     for (variant, name) in [
@@ -27,15 +27,15 @@ pub fn bench(c: &mut Criterion) {
             g.bench_function(BenchmarkId::new(VG, memory), |b| {
                 b.iter(|| {
                     derive(
-                        variant,
+                        &Params {
+                            variant,
+                            iterations: 3,
+                            memory_kib: memory,
+                            lanes: 1,
+                        },
                         black_box(b"password"),
                         black_box(b"saltsalt"),
-                        3,
-                        memory,
-                        1,
-                        1,
-                        b"",
-                        b"",
+                        usize::MAX,
                         &mut out,
                     )
                     .unwrap()
