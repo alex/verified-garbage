@@ -6,9 +6,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.Control
 Untrusted: everything here is checked by Lean. `PrimsOk P`: each primitive
 of `P` is correct and constant time under its shared contract with at most
 16 bytes of stack (`CalleeOk`, from its `Verified` proof by
-`CalleeOk.of_verified`), never writes the stack pointer, calls at most two
-deep and never loads MXCSR. The proofs of `vg_mldsa*_verify` hold for any
-such `P`.
+`CalleeOk.of_verified`; 24 for `vg_mldsa_rej_ntt_poly4`), never writes the
+stack pointer, calls at most three deep and never loads MXCSR. The proofs
+of `vg_mldsa*_verify` hold for any such `P`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -31,5 +31,6 @@ structure PrimsOk (P : Prims) : Prop where
   unpackT1 : CalleeOk P.unpackT1 (unpackT1Contract X86_64.abi 16)
   hintUnpack : CalleeOk P.hintUnpack (hintBitUnpackContract X86_64.abi 16)
   normLt : CalleeOk P.normLt (normLtContract X86_64.abi 16)
+  rej4 : CalleeOk P.rej4 (rejNTT4Contract X86_64.abi 24)
 
 end VG.Proof.MlDsa.X86_64.Verify

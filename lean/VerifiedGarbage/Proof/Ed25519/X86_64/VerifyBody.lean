@@ -9,6 +9,7 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
 variable {fld : Arith} [EdArith fld]
+variable {dbl : Prog isa} [EdDouble dbl]
 
 private theorem decodedEquation_order (a r : Option Spec.Ed25519.Point) (s k : Nat) :
     (match a, r with
@@ -41,7 +42,7 @@ theorem verifyEquation_bytes (m : Mem) (pk sig challenge : Addr) :
 
 theorem verifyBody_ok {s : State} {base pk sig challenge : Addr}
     (h : VerifyContext s base pk sig challenge) :
-    WP isa (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld) recoverInvalid)) s fun t =>
+    WP isa (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld dbl) recoverInvalid)) s fun t =>
       VerifyKeep base s t ∧ t.gpr .rax = signWord
         (Spec.Ed25519.verifyEquation (Spec.Ed25519.bytesAt s.mem pk 32)
           (Spec.Ed25519.bytesAt s.mem sig 64) (Spec.Ed25519.bytesAt s.mem challenge 64)) := by

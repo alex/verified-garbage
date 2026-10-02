@@ -1,9 +1,13 @@
-//! The Poly1305 test vectors of RFC 8439 (Appendix A.3).
+//! The test vectors of RFC 8439: ChaCha20's block function and encryption
+//! (§2.3.2, §2.4.2, Appendices A.1 and A.2) and its Poly1305 key generation
+//! (§2.6.2, Appendix A.4), Poly1305 (Appendix A.3) and ChaCha20-Poly1305
+//! (§2.8.2, Appendix A.5).
 //!
 //! The RFC is vendored under `vectors/rfc8439/` (see
 //! `vectors/sources/rfc8439.toml` for where it comes from) and compiled into
-//! the test binary, so these tests always run. Every vector is checked in one
-//! call, split into two pieces at every position, and a byte at a time.
+//! the test binary, so these tests always run. Each value is read from the
+//! RFC's text: the rows of hex after its label, or the `name = value` of a
+//! line.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -12,13 +16,106 @@
     target_arch = "x86"
 ))]
 
-use verified_garbage::poly1305::Poly1305;
+mod chacha20;
+mod chacha20poly1305;
+mod poly1305;
 
-/// A Poly1305 test vector: the key, the message and the tag.
-struct Vector {
-    key: Vec<u8>,
-    msg: Vec<u8>,
-    tag: Vec<u8>,
+const TEXT: &str = include_str!("../../vectors/rfc8439/rfc8439.txt");
+
+/// A test vector: the lines of its text that are not rows of hex, each with
+/// the bytes of the rows of hex that follow it (none if it is not the label
+/// of a value).
+struct Vector(Vec<(&'static str, Vec<u8>)>);
+
+impl Vector {
+    /// Whether the vector has a line `label` (with or without colons after
+    /// it).
+    fn has(&self, label: &str) -> bool {
+        self.0.iter().any(|(l, _)| l.trim_end_matches(':') == label)
+    }
+
+    /// The value labelled `label` (with or without colons after it).
+    fn get(&self, label: &str) -> &[u8] {
+        let mut values = self
+            .0
+            .iter()
+            .filter(|(l, _)| l.trim_end_matches(':') == label);
+        let (_, value) = values.next().unwrap();
+        assert!(values.next().is_none(), "{label} is not unique");
+        assert!(!value.is_empty(), "{label} has no value");
+        value
+    }
+
+    /// The text after `name = ` on the line starting with `name`, and on the
+    /// lines after it while the value is a list of bytes ending with `:`.
+    fn assignment(&self, name: &str) -> String {
+        let prefix = format!("{name} = ");
+        let start = self.0.iter().position(|(l, _)| l.starts_with(&prefix));
+        let mut lines = self.0[start.unwrap()..].iter().map(|(l, _)| *l);
+        let mut text = lines.next().unwrap()[prefix.len()..].to_string();
+        while text.ends_with(':') {
+            text.push_str(lines.next().unwrap());
+        }
+        text
+    }
+
+    /// The bytes `name = xx:xx:…` or `name = (xx:xx:…)` of a bulleted
+    /// list (§2.3.2, §2.4.2), up to the `.` or `)` after them.
+    fn bytes(&self, name: &str) -> Vec<u8> {
+        let text = self.assignment(&format!("o  {name}"));
+        let text = text.trim_start_matches('(');
+        let text = text.split(['.', ')']).next().unwrap();
+        text.split(':').map(|b| byte(b).unwrap()).collect()
+    }
+
+    /// The decimal number `name = n`, which may be followed by a `.`.
+    fn number(&self, name: &str) -> u32 {
+        self.assignment(name).trim_end_matches('.').parse().unwrap()
+    }
+}
+
+/// The test vectors of the section from the line starting with `from` to the
+/// next one starting with `to`: one for each `Test Vector #…` in it (ignoring
+/// the text before the first), or the whole section if it has none. Blank
+/// lines, `====` underlines and page breaks are skipped, so a value continues
+/// on the next page.
+fn vectors(from: &str, to: &str) -> Vec<Vector> {
+    let lines = TEXT
+        .lines()
+        .skip_while(|l| !l.starts_with(from))
+        .take_while(|l| !l.starts_with(to))
+        .map(str::trim)
+        .filter(|l| {
+            !(l.is_empty()
+                || l.starts_with("===")
+                || l.starts_with("Nir & Langley ")
+                || l.starts_with("RFC 8439 "))
+        });
+    let mut vectors = vec![Vector(Vec::new())];
+    for line in lines {
+        if line.starts_with("Test Vector #") {
+            vectors.push(Vector(Vec::new()));
+        }
+        let lines = &mut vectors.last_mut().unwrap().0;
+        match hex_row(line) {
+            Some(row) => lines.last_mut().unwrap().1.extend(row),
+            None => lines.push((line, Vec::new())),
+        }
+    }
+    if vectors.len() > 1 {
+        vectors.remove(0);
+    }
+    vectors
+}
+
+/// The bytes of a row of hex: a hex dump row (`000  00 01 …  ascii`), 16
+/// bytes separated by spaces (`FF FF …`) or bytes separated by colons
+/// (`22:4f:…`, with or without one at the end).
+fn hex_row(line: &str) -> Option<Vec<u8>> {
+    dump_row(line).or_else(|| plain_row(line)).or_else(|| {
+        let bytes: Option<Vec<u8>> = line.trim_end_matches(':').split(':').map(byte).collect();
+        bytes.filter(|b| b.len() > 1)
+    })
 }
 
 /// The bytes of a hex dump row (`000  00 01 …  ascii`): the offset, then up
@@ -40,85 +137,4 @@ fn plain_row(line: &str) -> Option<Vec<u8>> {
 
 fn byte(s: &str) -> Option<u8> {
     (s.len() == 2).then(|| u8::from_str_radix(s, 16).ok())?
-}
-
-/// The vectors of Appendix A.3. The first four are hex dumps labelled "One-time
-/// Poly1305 Key", "Text to MAC" and "Tag"; the others are rows of hex labelled
-/// "R", "S", "data" and "tag". Page breaks and prose are skipped: only rows of
-/// hex after a label are data.
-fn vectors() -> Vec<Vector> {
-    let text = include_str!("../../vectors/rfc8439/rfc8439.txt");
-    let section = text
-        .lines()
-        .skip_while(|l| *l != "A.3.  Poly1305 Message Authentication Code")
-        .skip(1)
-        .take_while(|l| !l.starts_with("A.4."));
-    let mut vectors = Vec::new();
-    // The fields of the current vector, and the one being read.
-    let mut fields: [Vec<u8>; 4] = Default::default();
-    let mut field = None;
-    let mut finish = |fields: &mut [Vec<u8>; 4]| {
-        let [key, r_s, msg, tag] = core::mem::take(fields);
-        if !tag.is_empty() {
-            let key = if key.is_empty() { r_s } else { key };
-            vectors.push(Vector { key, msg, tag });
-        }
-    };
-    for line in section {
-        let line = line.trim();
-        if line.starts_with("Test Vector #") {
-            finish(&mut fields);
-            field = None;
-            continue;
-        }
-        let label = match line {
-            "One-time Poly1305 Key:" => Some(0),
-            "R:" | "S:" => Some(1),
-            "Text to MAC:" | "data:" => Some(2),
-            "Tag:" | "tag:" => Some(3),
-            _ => None,
-        };
-        if label.is_some() {
-            field = label;
-        } else if let Some(f) = field
-            && let Some(row) = dump_row(line).or_else(|| plain_row(line))
-        {
-            fields[f].extend(row);
-        }
-    }
-    finish(&mut fields);
-    vectors
-}
-
-#[test]
-fn rfc8439_poly1305() {
-    let vs = vectors();
-    assert_eq!(vs.len(), 11);
-    let lens: Vec<usize> = vs.iter().map(|v| v.msg.len()).collect();
-    assert_eq!(lens, [64, 375, 375, 127, 16, 16, 48, 48, 16, 64, 48]);
-    for v in &vs {
-        assert_eq!(v.key.len(), 32);
-        let key: [u8; 32] = v.key[..].try_into().unwrap();
-        assert_eq!(Poly1305::mac(&key, &v.msg)[..], v.tag[..]);
-    }
-}
-
-/// Every vector, absorbed in two pieces split at every position, and a byte
-/// at a time.
-#[test]
-fn rfc8439_poly1305_split() {
-    for v in &vectors() {
-        let key: [u8; 32] = v.key[..].try_into().unwrap();
-        for i in 0..=v.msg.len() {
-            let mut p = Poly1305::new(&key);
-            p.update(&v.msg[..i]);
-            p.update(&v.msg[i..]);
-            assert_eq!(p.finalize()[..], v.tag[..]);
-        }
-        let mut p = Poly1305::new(&key);
-        for byte in &v.msg {
-            p.update(core::slice::from_ref(byte));
-        }
-        assert_eq!(p.finalize()[..], v.tag[..]);
-    }
 }

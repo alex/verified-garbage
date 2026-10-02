@@ -7,7 +7,7 @@
     target_arch = "x86"
 ))]
 
-use verified_garbage::hashes::sha512::Sha512_256;
+use verified_garbage::hashes::sha512_256::Sha512_256;
 use verified_garbage::hmac::Hmac;
 
 use crate::hmac::check;

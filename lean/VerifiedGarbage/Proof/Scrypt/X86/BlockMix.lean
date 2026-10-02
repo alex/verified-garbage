@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.Scrypt.X86.Common
 # scryptBlockMix on x86 (32-bit): the loop
 
 Untrusted: everything here is checked by Lean. As on 32-bit ARM
-(`Proof/Scrypt/Arm/BlockMix.lean`), the calls of `vg_salsa20_8` are used
+(`Proof/Scrypt/Arm/BlockMixVerified.lean`), the calls of `vg_salsa20_8` are used
 through `SalsaSpec`, what its proof says about a call in a frame of its
 arguments; the proof of this file holds for any code meeting it. Pointers are
 read from the arguments on the stack, which nothing writes; the calls use the
 12 bytes below `esp` (`stkR`), which the memory frames include, as on x86-64
-(`Proof/Scrypt/X86_64/BlockMix.lean`).
+(`Proof/Scrypt/X86_64/BlockMixCT.lean`).
 -/
 
 namespace VG.Proof.Scrypt.X86.BlockMix

@@ -11,7 +11,7 @@
 //! `vg_scrypt_avx2` with AVX2, and on AArch64 `vg_scrypt_sha2` with the
 //! SHA-256 instructions.
 //!
-//! On ARMv7 and x86, the two PBKDF2 steps are `pbkdf2_hmac_sha256`, and
+//! On ARMv7 and x86, the two PBKDF2 steps are `pbkdf2_hmac::<Sha256>`, and
 //! each block goes through `vg_scrypt_romix` in between.
 //!
 //! ROMix (contract `VG.Spec.Scrypt.roMixContract`) calls the verified
@@ -49,7 +49,9 @@ use crate::arch::scrypt::{vg_scrypt_avx2, vg_scrypt_shani};
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use crate::hashes::sha256::Sha256Backend;
 #[cfg(any(target_arch = "arm", target_arch = "x86"))]
-use crate::pbkdf2::pbkdf2_hmac_sha256;
+use crate::hashes::sha256::Sha256;
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
+use crate::pbkdf2::pbkdf2_hmac;
 
 /// Why [`scrypt`] refused to derive a key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -210,7 +212,7 @@ fn derive(
     scratch: &mut [[u8; 128]],
     out: &mut [u8],
 ) {
-    pbkdf2_hmac_sha256(password, salt, NonZeroU32::MIN, b.as_flattened_mut());
+    pbkdf2_hmac::<Sha256>(password, salt, NonZeroU32::MIN, b.as_flattened_mut());
     for block in b.chunks_exact_mut(r) {
         // SAFETY: `block` is valid for reads and writes of `128 r` bytes,
         // `v` of `128 vlen` bytes and `scratch` of at least `128 (r + 2)`
@@ -228,7 +230,7 @@ fn derive(
             )
         };
     }
-    pbkdf2_hmac_sha256(password, b.as_flattened(), NonZeroU32::MIN, out);
+    pbkdf2_hmac::<Sha256>(password, b.as_flattened(), NonZeroU32::MIN, out);
 }
 
 #[cfg(all(test, any(target_arch = "x86_64", target_arch = "aarch64")))]

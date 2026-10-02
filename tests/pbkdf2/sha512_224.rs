@@ -7,7 +7,7 @@
     target_arch = "x86"
 ))]
 
-use verified_garbage::hashes::sha512::Sha512_224;
+use verified_garbage::hashes::sha512_224::Sha512_224;
 use verified_garbage::pbkdf2::pbkdf2_hmac;
 
 #[test]
