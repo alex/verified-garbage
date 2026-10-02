@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Mono
 /-!
 # ML-DSA key generation on 32-bit ARM: masking a sampled polynomial
 
-Untrusted: everything here is checked by Lean. After each sampler, `r11`
-is ANDed with its result (0 or 1, in `r0`), and each coefficient of the
-polynomial it wrote with `-r0`: the polynomial is kept if the sampler
-succeeded, and zeroed if it failed (`mask_ok`), without a branch
+After each sampler, `r11` is ANDed with its result (0 or 1, in `r0`), and each
+coefficient of the polynomial it wrote with `-r0`: the polynomial is kept if
+the sampler succeeded, and zeroed if it failed (`mask_ok`), without a branch
 (`mask_tr`).
 -/
 

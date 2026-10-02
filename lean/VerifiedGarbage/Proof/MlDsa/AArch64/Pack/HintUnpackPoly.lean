@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Pack.HintPack
 /-!
 # ML-DSA on AArch64: `vg_mldsa_hint_bit_unpack`, one polynomial
 
-Untrusted: everything here is checked by Lean. The code follows the fold
-form of `HintBitUnpack` (`hintBitUnpack_eq`, `Pack/Hint.lean`) step by step:
-while no check has failed, the words of `h` are the hint of the spec
-(`HArr`) and `x5` its index; once one has, `x5` is 256, which fails every
-later check (`SRel`). This file: the zeroing of `h`, and a polynomial
-(`upoly_ok`): its bound, checked against the index and `ω`, and its
-coefficients, each checked against the previous one plus one, which `x11`
-holds (0 before the first: `prevV`).
+The code follows the fold form of `HintBitUnpack` (`hintBitUnpack_eq`,
+`Pack/Hint.lean`) step by step: while no check has failed, the words of `h`
+are the hint of the spec (`HArr`) and `x5` its index; once one has, `x5` is
+256, which fails every later check (`SRel`). This file: the zeroing of `h`,
+and a polynomial (`upoly_ok`): its bound, checked against the index and `ω`,
+and its coefficients, each checked against the previous one plus one, which
+`x11` holds (0 before the first: `prevV`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Pack

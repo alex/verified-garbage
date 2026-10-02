@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.RecoverCTBlocks
 import VerifiedGarbage.Proof.Ed25519.Arm.DecodedThen
 
-/-! Untrusted: the success branch follows the public decoder flag. -/
+/-! The success branch follows the public decoder flag. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

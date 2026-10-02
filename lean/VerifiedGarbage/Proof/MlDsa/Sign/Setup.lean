@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Leak
 /-!
 # ML-DSA: signing's matrix and private key, polynomial by polynomial
 
-Untrusted: everything here is checked by Lean. The vectors that
-`skDecode` gives, transformed by `NTT` as `Sign_internal` uses them, are
-`List.range` mapped by a function of the index of the piece of the private
-key (`skS1_eq`, `skS2_eq`, `skT0_eq`); `ExpandA` is the matrix of its
-entries if each `RejNTTPoly` finishes (`expandA_some`), and fails if one
-does not (`expandA_none`). With them, `signMu` and `signLeakT` in terms of
-the loop (`signMu_some`, `signMu_none`, `signLeakT_eq`).
+The vectors that `skDecode` gives, transformed by `NTT` as `Sign_internal`
+uses them, are `List.range` mapped by a function of the index of the piece of
+the private key (`skS1_eq`, `skS2_eq`, `skT0_eq`); `ExpandA` is the matrix of
+its entries if each `RejNTTPoly` finishes (`expandA_some`), and fails if one
+does not (`expandA_none`). With them, `signMu` and `signLeakT` in terms of the
+loop (`signMu_some`, `signMu_none_A`, `signMu_none_L`, `signLeakT_eq`).
 -/
 
 namespace VG.Proof.MlDsa.Sign

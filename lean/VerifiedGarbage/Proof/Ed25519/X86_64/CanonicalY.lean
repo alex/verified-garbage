@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.PointDecode
 import VerifiedGarbage.Proof.Ed25519.X86_64.RecoverParity
 
-/-! Untrusted: canonical decoding checks y before reduction modulo p. -/
+/-! Canonical decoding checks y before reduction modulo p. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

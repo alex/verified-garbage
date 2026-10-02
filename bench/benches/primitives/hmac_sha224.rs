@@ -2,8 +2,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`): this one and those it calls.
 pub const USES: &[&str] = &["hmac_sha224", "sha224", "sha256"];
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]

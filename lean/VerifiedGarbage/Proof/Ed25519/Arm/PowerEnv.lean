@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.Arm.Power
 import VerifiedGarbage.Proof.Ed25519.Arm.FieldProg
 import VerifiedGarbage.Proof.X25519.Invert
 
-/-! Untrusted: compositional field exponentiation and fixed-count squaring loops. -/
+/-! Compositional field exponentiation and fixed-count squaring loops. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 open VG.Proof.X25519 (sqn)

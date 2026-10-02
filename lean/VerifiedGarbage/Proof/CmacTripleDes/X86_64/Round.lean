@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Rows
 /-!
 # A DES round on x86-64
 
-Untrusted: everything here is checked by Lean.
-
 The round's three parts are checked by evaluation (`Straight.check`): the
 broadcast inputs (`inputs`) and the output (`output`), which only move,
 mask and XOR bits, over the lane domain; the S-boxes (`sboxes`), which

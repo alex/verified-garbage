@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlKem.Arm.RowSum
 /-!
 # ML-KEM-768 on 32-bit ARM: the hash routine in constant time
 
-Untrusted: everything here is checked by Lean. Two runs of `hash` from
-states whose buffers are the same (`HashOk` of the same layout, and the
-same stack pointer) leak the same trace (`hash_ct`): the blocks that set up
-the arguments access no memory (`relct_noMem`), the Keccak state is zeroed
-through `r7` (the taint analysis), and the calls of the sponge functions are
-on the same arguments in both runs (`absorb_ct`, …), the positions being
-those of the same lengths.
+Two runs of `hash` from states whose buffers are the same (`HashOk` of the
+same layout, and the same stack pointer) leak the same trace (`hash_ct`): the
+blocks that set up the arguments access no memory (`relct_noMem`), the Keccak
+state is zeroed through `r7` (the taint analysis), and the calls of the sponge
+functions are on the same arguments in both runs (`absorb_ct`, …), the
+positions being those of the same lengths.
 -/
 
 namespace VG.Proof.MlKem.Arm

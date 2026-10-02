@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.RestBase
 /-!
 # ML-DSA key generation on x86 (32-bit): `s₁ ‖ s₂` packed, and `ŝ₁`
 
-Untrusted: everything here is checked by Lean. Each entry of `s₁ ‖ s₂`,
-`BitPack`ed to `sk` (`packS_piece`: its coefficients are in `[-η, η]`), and
-`ŝ₁[j] = NTT(s₁[j])` (`nttS_piece`).
+Each entry of `s₁ ‖ s₂`, `BitPack`ed to `sk` (`packS_piece`: its coefficients
+are in `[-η, η]`), and `ŝ₁[j] = NTT(s₁[j])` (`nttS_piece`).
 -/
 
 namespace VG.Proof.MlDsa.X86.KeyGen

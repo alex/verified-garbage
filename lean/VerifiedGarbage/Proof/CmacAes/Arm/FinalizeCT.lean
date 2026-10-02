@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.CmacAes.Arm.UpdateCT
 /-!
 # AES-CMAC on ARMv7: `vg_cmac_aes_finalize` is constant time
 
-Untrusted: everything here is checked by Lean. The code before the call is
-checked by the taint analysis, from the public arguments (its branches and
-the copy loop depend only on `last_len`), the call of `vg_aes_ctr32`, in its
-frame, is constant time by its own proof (`ctr_rel`), its arguments pinned
-by the correctness proof (`FMid`), and the restore after it by the taint
-analysis again, from `r5` (the scratch buffer).
+The code before the call is checked by the taint analysis, from the public
+arguments (its branches and the copy loop depend only on `last_len`), the call
+of `vg_aes_ctr32`, in its frame, is constant time by its own proof
+(`ctr_rel`), its arguments pinned by the correctness proof (`FMid`), and the
+restore after it by the taint analysis again, from `r5` (the scratch buffer).
 -/
 
 namespace VG.Proof.CmacAes.Arm

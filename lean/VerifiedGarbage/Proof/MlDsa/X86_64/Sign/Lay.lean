@@ -6,16 +6,15 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Mem
 /-!
 # ML-DSA signing on x86-64: the buffers of the function
 
-Untrusted: everything here is checked by Lean. The function keeps the
-address of each buffer it works in (its arguments and its working space)
-in a callee-saved register; a layout (`Lay`) lists these registers with the
-lengths of their buffers, which are apart from each other and from the `D`
-bytes of stack below `rsp` that the calls use. A pointer (a register and an
-offset) into a buffer, and two pointers into the same buffer or different
-ones, are then checked by evaluation (`inB`, `sepB`): each pair of regions a
-call needs apart is, and each region is readable or writable (`Lay.disj`,
-`Lay.stkD`, `Lay.cR`, `Lay.cW`). A call leaves the layout as it was
-(`Lay.post`), and the bytes of a region apart from those it writes
+The function keeps the address of each buffer it works in (its arguments and
+its working space) in a callee-saved register; a layout (`Lay`) lists these
+registers with the lengths of their buffers, which are apart from each other
+and from the `D` bytes of stack below `rsp` that the calls use. A pointer (a
+register and an offset) into a buffer, and two pointers into the same buffer
+or different ones, are then checked by evaluation (`inB`, `sepB`): each pair
+of regions a call needs apart is, and each region is readable or writable
+(`Lay.disj`, `Lay.stkD`, `Lay.cR`, `Lay.cW`). A call leaves the layout as it
+was (`Lay.post`), and the bytes of a region apart from those it writes
 (`Lay.keepBytes`, `Lay.keepPoly`).
 
 (As ML-KEM's `Proof/MlKem/X86_64/Lay.lean`, with the stack below `rsp` a

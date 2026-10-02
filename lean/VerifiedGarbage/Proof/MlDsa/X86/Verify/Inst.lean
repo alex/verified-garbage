@@ -15,10 +15,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Pack.HintUnpackEnd
 /-!
 # ML-DSA verification on x86 (32-bit), with this library's primitives
 
-Untrusted: everything here is checked by Lean. The x86 primitives
-(`Impl.MlDsa.X86.Verify.prims`) are verified against their contracts, use at
-most 56 bytes of stack and write `esp` only by frames and calls
-(`prims_ok`), so `vg_mldsa{44,65,87}_verify` meet theirs
+The x86 primitives (`Impl.MlDsa.X86.Verify.prims`) are verified against their
+contracts, use at most 56 bytes of stack and write `esp` only by frames and
+calls (`prims_ok`), so `vg_mldsa{44,65,87}_verify` meet theirs
 (`verify44_verified`, …).
 -/
 

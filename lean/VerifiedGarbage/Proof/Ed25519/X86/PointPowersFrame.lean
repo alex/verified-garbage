@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PointTableAddr
 import VerifiedGarbage.Proof.Ed25519.X86.PointLoop
 
-/-! Untrusted: frames for public counters, arithmetic and point tables. -/
+/-! Frames for public counters, arithmetic and point tables. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.MulAvx2
 /-!
 # ML-KEM on x86-64: the NTT and its inverse on AVX2 registers, before and after the layers
 
-Untrusted: everything here is checked by Lean. The packing of the 256
-`u32`s of `f` into the words of `S`, sixteen at a time (`ypack_ok`), their
-unpacking back (`yunpack_ok`), the multiplication by `3303` of `NTT⁻¹`
-(`yscale_ok`), and the prologue and epilogue around them (`ypro_ok`,
-`yepi_ok`); and the facts kept between the layers (`LIY`).
+The packing of the 256 `u32`s of `f` into the words of `S`, sixteen at a time
+(`ypack_ok`), their unpacking back (`yunpack_ok`), the multiplication by
+`3303` of `NTT⁻¹` (`yscale_ok`), and the prologue and epilogue around them
+(`ypro_ok`, `yepi_ok`); and the facts kept between the layers (`LIY`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

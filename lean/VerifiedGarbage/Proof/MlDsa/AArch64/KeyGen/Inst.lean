@@ -19,10 +19,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Pack.HintUnpack
 /-!
 # ML-DSA key generation on AArch64, with this library's primitives
 
-Untrusted: everything here is checked by Lean. The AArch64 implementations
-of the primitives (`prims`) are verified with at most 16 bytes of stack, and
-their frames use at most that (`prims_ok`), so key generation with them is
-verified with 16 bytes of stack (`keyGen44_verified`, …).
+The AArch64 implementations of the primitives (`prims`) are verified with at
+most 16 bytes of stack, and their frames use at most that (`prims_ok`), so key
+generation with them is verified with 16 bytes of stack (`keyGen44_verified`,
+…).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

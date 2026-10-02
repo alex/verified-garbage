@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.VerifyCTPublic
 import VerifiedGarbage.Proof.Ed25519.Arm.PointDecodeCT
 import VerifiedGarbage.Proof.Ed25519.Arm.DecodedThenCT
 
-/-! Untrusted: reload and decode either public point, retaining the equation's packed points. -/
+/-! Reload and decode either public point, retaining the equation's packed points. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

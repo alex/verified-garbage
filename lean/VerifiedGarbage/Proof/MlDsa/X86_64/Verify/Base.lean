@@ -7,8 +7,6 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # ML-DSA verification on x86-64: moves, layouts and calls
 
-Untrusted: everything here is checked by Lean.
-
 * The moves of a call's arguments (`glue_ok`): each argument register holds
   the argument's value (`Arg.val`: a pointer's address `pa`, or an integer).
 * Layouts (`Lay`): the function keeps the address of each buffer it works in

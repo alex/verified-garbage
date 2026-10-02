@@ -5,8 +5,6 @@ import VerifiedGarbage.Impl.Md5.X86_64.Stream
 
 /-!
 # Streaming MD5 on x86-64: `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Md5.X86_64.Stream

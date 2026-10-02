@@ -3,14 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNtt
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_ntt_poly`, constant time but for the seed
 
-Untrusted: everything here is checked by Lean. Two runs whose seeds (the
-declared leak) and pointers agree leak the same: the prologue and the
-blocks around the loop by the taint analysis, the sponge by `sponge_ct`,
-and the loop, whose branches and stores depend on the XOF output, by
-relating the two runs iteration by iteration (`body_ct`): both are at the
-same iteration with the same coefficients sampled and the same bytes to
-read, so each branch goes the same way and each store goes to the same
-address.
+Two runs whose seeds (the declared leak) and pointers agree leak the same: the
+prologue and the blocks around the loop by the taint analysis, the sponge by
+`sponge_ct`, and the loop, whose branches and stores depend on the XOF output,
+by relating the two runs iteration by iteration (`body_ct`): both are at the
+same iteration with the same coefficients sampled and the same bytes to read,
+so each branch goes the same way and each store goes to the same address.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

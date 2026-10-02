@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.PointTableIO
 import VerifiedGarbage.Proof.Ed25519.Arm.PointKeep
 
-/-! Untrusted: save and reload the verification equation's packed points. -/
+/-! Save and reload the verification equation's packed points. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

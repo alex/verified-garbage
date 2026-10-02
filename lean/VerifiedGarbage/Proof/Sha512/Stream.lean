@@ -5,9 +5,8 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # Streaming SHA-512: facts about the specification
 
-Untrusted: everything here is checked by Lean. How `Repr` evolves as bytes
-are buffered and blocks compressed, and how the padded message decomposes,
-independently of any target.
+How `Repr` evolves as bytes are buffered and blocks compressed, and how the
+padded message decomposes, independently of any target.
 -/
 
 namespace VG.Proof.Sha512.Stream

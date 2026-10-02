@@ -5,11 +5,11 @@ import VerifiedGarbage.Proof.MlDsa.Round.Decompose
 /-!
 # ML-DSA on x86-64: the functions with `γ₂` and one output
 
-Untrusted: everything here is checked by Lean. `vg_mldsa_high_bits`,
-`vg_mldsa_low_bits` and `vg_mldsa_use_hint` compare `γ₂` (in `gr`) with
-`(q - 1)/32`, move their output pointer (in `oa`) to `r10`, and run the loop
-of the body for the `γ₂` they found. `oneOut_ok` proves this once, from a
-body that stores `F γ₂ x` for the coefficients `x p` of the inputs `p`.
+`vg_mldsa_high_bits`, `vg_mldsa_low_bits` and `vg_mldsa_use_hint` compare `γ₂`
+(in `gr`) with `(q - 1)/32`, move their output pointer (in `oa`) to `r10`, and
+run the loop of the body for the `γ₂` they found. `oneOut_ok` proves this
+once, from a body that stores `F γ₂ x` for the coefficients `x p` of the
+inputs `p`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

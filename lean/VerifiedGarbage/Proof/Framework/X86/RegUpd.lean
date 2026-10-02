@@ -3,8 +3,6 @@ import VerifiedGarbage.TCB.X86.Isa
 /-!
 # x86 (32-bit): reading a state after a write, for symbolic execution
 
-Untrusted: everything here is checked by Lean.
-
 The registers and flags of a state after a write, read one write at a time,
 with `State.setReg`, `State.setFlags` and `arithFlags` kept folded, as in
 `VG.X86_64.RegUpd` (which explains why): `gpr_setReg` for registers that are

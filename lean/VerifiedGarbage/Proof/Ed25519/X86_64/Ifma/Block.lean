@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.Ifma.Stage
 /-!
 # Ed25519 doublings with AVX512_IFMA: the blocks as facts about states
 
-Untrusted: everything here is checked by Lean. Each vector block of
-`Ifma.double4` but X25519's products and carries: the limbs it leaves in
-registers and slots (`lanes`, `slotv`), as numbers, from those it starts
-with, and what it keeps.
+Each vector block of `Ifma.double4` but X25519's products and carries: the
+limbs it leaves in registers and slots (`lanes`, `slotv`), as numbers, from
+those it starts with, and what it keeps.
 -/
 
 namespace VG.Proof.Ed25519.X86_64.Ifma

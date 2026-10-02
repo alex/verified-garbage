@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Arith.NttSetup
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_ntt`
 
-Untrusted: everything here is checked by Lean. The eight layers of
-Algorithm 41 (`ntt_eq_layers`), each a `layer_piece` (`NttLoop.lean`) of the
-butterfly `bflyBody` (`bfly_spec`), with the zetas from `zetas 1` up.
+The eight layers of Algorithm 41 (`ntt_eq_layers`), each a `layer_piece`
+(`NttLoop.lean`) of the butterfly `bflyBody` (`bfly_spec`), with the zetas
+from `zetas 1` up.
 -/
 
 namespace VG.Proof.MlDsa.X86.Arith.NttFwd

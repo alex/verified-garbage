@@ -5,15 +5,14 @@ import VerifiedGarbage.Impl.MlDsa.X86.Sample.ExpandMask
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_expand_mask_poly`
 
-Untrusted: everything here is checked by Lean. The body is the SHAKE256
-output of the seed at `scratch + 840` (`sponge_piece`), then a branch on the
-public `γ₁` to the loop for its width `c` (18 or 20), whose iteration `g`
-stores coefficients `4g` to `4g + 3` (`coef_ok`): coefficient `i` reads the
-32-bit word at byte `⌊ci/8⌋` of the output, whose bits from `ci mod 8` on
-are those of the output from bit `ci` on (`wordBits`: only its first 3 bytes
-matter), and stores `γ₁` minus their low `c` bits modulo `q` (`subMask_eq`).
-Every address and branch depends only on the pointers and `γ₁`: the taint
-analysis proves it constant time.
+The body is the SHAKE256 output of the seed at `scratch + 840`
+(`sponge_piece`), then a branch on the public `γ₁` to the loop for its width
+`c` (18 or 20), whose iteration `g` stores coefficients `4g` to `4g + 3`
+(`coef_ok`): coefficient `i` reads the 32-bit word at byte `⌊ci/8⌋` of the
+output, whose bits from `ci mod 8` on are those of the output from bit `ci` on
+(`wordBits`: only its first 3 bytes matter), and stores `γ₁` minus their low
+`c` bits modulo `q` (`subMask_eq`). Every address and branch depends only on
+the pointers and `γ₁`: the taint analysis proves it constant time.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sample.ExpandMask

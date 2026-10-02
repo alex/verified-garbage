@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.X86.ArgTaint
 /-!
 # Streaming SHA-512 on x86 (32-bit): `update`
 
-Untrusted: everything here is checked by Lean. The structure of the ARMv7
-proof (`VG.Proof.Sha512.Arm.Stream.Update`), with `state` in `ebx`, `data`
-in `esi`, the bytes left in `ebp` and the buffered bytes in `edi`; every
-block goes through the buffer, which is compressed as soon as it is full,
-by calling the compression function (`compressAt_ok`) with the 20 bytes
-below `esp` for its frame.
+The structure of the ARMv7 proof (`VG.Proof.Sha512.Arm.Stream.Update`), with
+`state` in `ebx`, `data` in `esi`, the bytes left in `ebp` and the buffered
+bytes in `edi`; every block goes through the buffer, which is compressed as
+soon as it is full, by calling the compression function (`compressAt_ok`) with
+the 20 bytes below `esp` for its frame.
 -/
 
 namespace VG.Proof.Sha512.X86.Stream.Update

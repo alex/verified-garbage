@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Framework.Mem
 /-!
 # ML-DSA: little-endian words in memory, for every target
 
-Untrusted: everything here is checked by Lean. The `u64` a target loads
-from 8 bytes of memory is the little-endian integer of those bytes
-(`readW_leNat`), bit by bit (`readW64_getLsbD`).
+The `u64` a target loads from 8 bytes of memory is the little-endian integer
+of those bytes (`readW_leNat`), bit by bit (`readW64_getLsbD`).
 -/
 
 namespace VG.Proof.MlDsa.Sample

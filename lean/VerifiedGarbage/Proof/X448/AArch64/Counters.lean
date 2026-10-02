@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.AArch64.Ops
 /-!
 # X448 on AArch64: loop counters
 
-Untrusted: everything here is checked by Lean. Setting and decrementing
-public counters preserves memory and every other register.
+Setting and decrementing public counters preserves memory and every other
+register.
 -/
 
 namespace VG.Proof.X448.AArch64

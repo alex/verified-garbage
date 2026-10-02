@@ -6,8 +6,6 @@ use verified_garbage::hashes::sha512_224::Sha512_224;
 
 use crate::hash_group;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`).
 pub const USES: &[&str] = &["sha512_224", "sha512"];
 
 pub fn bench(c: &mut Criterion) {

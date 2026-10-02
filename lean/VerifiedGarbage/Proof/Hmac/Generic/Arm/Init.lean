@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: the byte loops
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Hmac/Generic/AArch64/Init.lean`, with the byte-list lemmas of
-`Proof/Hmac/Generic/Common.lean`): the byte copy (`copy`), the exclusive-or
-of `U` into `T`, and `init`'s loops that write `K₀ ⊕ ipad` and `K₀ ⊕ opad`. Each counts `r8` up
-from 0 and `r9` down to 0 with `subs`, and branches on its result.
-Addresses are 32 bits, zero-extended: every buffer the loops touch lies
+As on AArch64 (`Proof/Hmac/Generic/AArch64/Init.lean`, with the byte-list lemmas
+of `Proof/Hmac/Generic/Common.lean`): the byte copy (`copy`), the exclusive-or
+of `U` into `T`, and `init`'s loops that write `K₀ ⊕ ipad` and `K₀ ⊕ opad`. Each
+counts `r8` up from 0 and `r9` down to 0 with `subs`, and branches on its
+result. Addresses are 32 bits, zero-extended: every buffer the loops touch lies
 below 2³², so byte `k` of a buffer at `p + o` is at `State.addr p + o + k`.
 -/
 
@@ -476,11 +475,11 @@ end VG.Proof.Hmac.Generic.Arm
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: our caller's registers
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Hmac/Generic/AArch64/Init.lean`): the callee-saved registers we use,
-and our return address `lr`, are stored in `scratch` after the working space
-of the functions we call (`Hash.saved`), with `scratch` in `r12`, and loaded
-back at the end, with `scratch` in `r11`, which is loaded last.
+As on AArch64 (`Proof/Hmac/Generic/AArch64/Init.lean`): the callee-saved
+registers we use, and our return address `lr`, are stored in `scratch` after
+the working space of the functions we call (`Hash.saved`), with `scratch` in
+`r12`, and loaded back at the end, with `scratch` in `r11`, which is loaded
+last.
 -/
 
 namespace VG.Proof.Hmac.Generic.Arm
@@ -692,11 +691,10 @@ end VG.Proof.Hmac.Generic.Arm
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: `init`, correct
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Hmac/Generic/AArch64/Init.lean`). `scratch` is a stack argument,
-loaded into `r12` first; every callee-saved register (and `lr`) is saved in
-it, and loaded back at the end. The functions we call keep `r4`–`r11`, which
-hold our variables.
+As on AArch64 (`Proof/Hmac/Generic/AArch64/Init.lean`). `scratch` is a stack
+argument, loaded into `r12` first; every callee-saved register (and `lr`) is
+saved in it, and loaded back at the end. The functions we call keep
+`r4`–`r11`, which hold our variables.
 -/
 
 namespace VG.Proof.Hmac.Generic.Arm.Init

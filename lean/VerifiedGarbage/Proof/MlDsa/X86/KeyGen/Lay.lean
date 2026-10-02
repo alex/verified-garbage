@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ML-DSA key generation on x86 (32-bit): parameters and layout
 
-Untrusted: everything here is checked by Lean. What the proof uses of a
-parameter set (`PFacts`), the layout of key generation's arguments
-(`YK p`: `seed`, `pk`, `sk` and `scratch`, and 96 bytes of stack), and the
-tactic `lay`, which proves the checks of buffers against a layout (`Lay.ok`,
-`Lay.sep`, `Lay.apart`, …) whose offsets depend on the parameters and on
-indices, by unfolding them into arithmetic for `omega`.
+What the proof uses of a parameter set (`PFacts`), the layout of key
+generation's arguments (`YK p`: `seed`, `pk`, `sk` and `scratch`, and 96 bytes
+of stack), and the tactic `lay`, which proves the checks of buffers against a
+layout (`Lay.ok`, `Lay.sep`, `Lay.apart`, …) whose offsets depend on the
+parameters and on indices, by unfolding them into arithmetic for `omega`.
 -/
 
 namespace VG.Proof.MlDsa.X86.KeyGen

@@ -17,9 +17,9 @@ section
 /-!
 # SHA-3: the x86 (32-bit) contracts
 
-**Untrusted**: the contracts the proofs are written against; the artifacts
-are emitted with the shared contracts of `Spec/`, which imply these
-(`Contract.Implies`), with the arguments on the stack (cdecl).
+The contracts the proofs are written against; the artifacts are emitted with
+the shared contracts of `Spec/`, which imply these (`Contract.Implies`), with
+the arguments on the stack (cdecl).
 
 The streaming functions call the permutation, each call pushing its two
 arguments and storing its return address in the 12 bytes of stack below
@@ -170,12 +170,11 @@ section
 /-!
 # SHA-3 on x86 (32-bit): lanes as pairs of words
 
-Untrusted: everything here is checked by Lean. The halves of the lanes
-(`half`), their rotations as the code computes them (each half rotated, and
-their top bits exchanged), and weakest-precondition rules for the macros of
-`VG.Impl.Sha3.X86` that load, combine, rotate and store a lane in `(eax,
-edx)`, each proved once for any registers and offsets, in
-continuation-passing style. The halves and the 64-bit words in memory are
+The halves of the lanes (`half`), their rotations as the code computes them
+(each half rotated, and their top bits exchanged), and weakest-precondition
+rules for the macros of `VG.Impl.Sha3.X86` that load, combine, rotate and
+store a lane in `(eax, edx)`, each proved once for any registers and offsets,
+in continuation-passing style. The halves and the 64-bit words in memory are
 those of the SHA-512 proofs (`Proof/Sha512/X86/Rounds.lean`).
 -/
 
@@ -424,11 +423,11 @@ end
 /-!
 # Keccak-f[1600] on x86 (32-bit): one round
 
-Untrusted: everything here is checked by Lean. One round (`round src dst`)
-from the state at `src` to the state at `dst`, lane by lane
-(`Proof.Sha3.out`), each lane a pair of 32-bit words, through the work area
-of the scratch space (`C`, then `B`, and `D`), proved once for both of the
-rounds of an iteration (`src`, `dst` being `esi`, `edi` or `edi`, `esi`).
+One round (`round src dst`) from the state at `src` to the state at `dst`,
+lane by lane (`Proof.Sha3.out`), each lane a pair of 32-bit words, through the
+work area of the scratch space (`C`, then `B`, and `D`), proved once for both
+of the rounds of an iteration (`src`, `dst` being `esi`, `edi` or `edi`,
+`esi`).
 -/
 
 namespace VG.Proof.Sha3.X86
@@ -962,11 +961,10 @@ end
 /-!
 # Keccak-f[1600] on x86 (32-bit): the whole function
 
-Untrusted: everything here is checked by Lean. The prologue loads the
-arguments, saves the callee-saved registers and stores the round constants
-in the scratch space; each iteration of the loop runs two rounds
-(`round_ok`), from the state to the second state in the scratch space and
-back; the epilogue restores the registers.
+The prologue loads the arguments, saves the callee-saved registers and stores
+the round constants in the scratch space; each iteration of the loop runs two
+rounds (`round_ok`), from the state to the second state in the scratch space
+and back; the epilogue restores the registers.
 -/
 
 namespace VG.Proof.Sha3.X86
@@ -1545,9 +1543,8 @@ section
 /-!
 # SHA-3 on x86 (32-bit): calling the permutation
 
-Untrusted: everything here is checked by Lean. A call of `vg_keccak_f1600`
-in a frame of its two arguments (`permuteCall`), from its proof of
-`Verified` (`WP.callWith`).
+A call of `vg_keccak_f1600` in a frame of its two arguments (`permuteCall`),
+from its proof of `Verified` (`WP.callWith`).
 -/
 
 namespace VG.Proof.Sha3.X86
@@ -1631,9 +1628,8 @@ end
 /-!
 # The SHA-3 sponge on x86 (32-bit): common lemmas
 
-Untrusted: everything here is checked by Lean. Facts about bytes, the stack
-and the variables `absorb` and `squeeze` keep in their scratch space, which
-the proofs of the streaming functions share.
+Facts about bytes, the stack and the variables `absorb` and `squeeze` keep in
+their scratch space, which the proofs of the streaming functions share.
 -/
 
 namespace VG.Proof.Sha3.X86.Stream

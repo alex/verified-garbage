@@ -6,14 +6,13 @@ import VerifiedGarbage.Proof.Framework.X86_64.Mxcsr
 /-!
 # X25519 on x86-64 with AVX512_IFMA: `Verified`
 
-Untrusted: everything here is checked by Lean. The proof of `vg_x25519`
-(`Proof/X25519/X86_64/Main.lean`) with the ladder `vladder` (`vladder_ok`)
-and the field multiplications `adx` for the inversion: correctness from
-`correct_of`; MXCSR's control bits kept, as the ladder loads MXCSR only
-between saving it in `r11` and loading it back (`ctlOk`); constant time by
-taint tracking (the only branches are on the loop counters, and every
-address is an argument plus a constant or a counter); satisfiability, and the
-shared contract.
+The proof of `vg_x25519` (`Proof/X25519/X86_64/Main.lean`) with the ladder
+`vladder` (`vladder_ok`) and the field multiplications `adx` for the
+inversion: correctness from `correct_of`; MXCSR's control bits kept, as the
+ladder loads MXCSR only between saving it in `r11` and loading it back
+(`ctlOk`); constant time by taint tracking (the only branches are on the loop
+counters, and every address is an argument plus a constant or a counter);
+satisfiability, and the shared contract.
 -/
 
 namespace VG.Proof.X25519.X86_64

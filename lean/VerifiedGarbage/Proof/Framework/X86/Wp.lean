@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.Framework.X86.Exec
 /-!
 # x86 (32-bit): weakest-precondition rules for single instructions
 
-Untrusted: everything here is checked by Lean. Continuation-passing rules
-for one instruction at the head of a block, which expose only what changes:
-the rule for `i` proves `WP (i :: rest)` from a proof of `WP rest` for every
-state `i` can end in (`Upd`: one register written, `Mupd`: memory written,
-`Fupd`: only the flags).
+Continuation-passing rules for one instruction at the head of a block, which
+expose only what changes: the rule for `i` proves `WP (i :: rest)` from a
+proof of `WP rest` for every state `i` can end in (`Upd`: one register
+written, `Mupd`: memory written, `Fupd`: only the flags).
 -/
 
 namespace VG.X86.Wp

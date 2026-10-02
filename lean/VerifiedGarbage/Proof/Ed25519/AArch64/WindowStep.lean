@@ -8,10 +8,10 @@ import VerifiedGarbage.Proof.Ed25519.Group.Double
 /-!
 # Verification's windows: doublings, digits and table additions
 
-Untrusted. The accumulator in slots 0–3 always represents a point of the
-group: four doublings multiply it by 16 (`dbl-2008-hwcd`, which reads only
-`X : Y : Z`, `RepP`), and a nonzero digit `v` adds entry `v - 1` of a table,
-which represents `[v]X`.
+The accumulator in slots 0–3 always represents a point of the group: four
+doublings multiply it by 16 (`dbl-2008-hwcd`, which reads only `X : Y : Z`,
+`RepP`), and a nonzero digit `v` adds entry `v - 1` of a table, which
+represents `[v]X`.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

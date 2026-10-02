@@ -13,9 +13,9 @@ import VerifiedGarbage.Proof.Scrypt.AArch64.Lit
 /-!
 # scryptROMix on AArch64: the precondition
 
-Untrusted: everything here is checked by Lean. The regions the function
-works on, and `BlockMixSpec`: what a call of `vg_scrypt_blockmix` does (the
-verified one meets it: `Proof/Scrypt/AArch64/RoMixCT.lean`).
+The regions the function works on, and `BlockMixSpec`: what a call of
+`vg_scrypt_blockmix` does (the verified one meets it:
+`Proof/Scrypt/AArch64/RoMixCT.lean`).
 -/
 
 namespace VG.Proof.Scrypt.AArch64.RoMix
@@ -252,10 +252,9 @@ end VG.Proof.Scrypt.AArch64.RoMix
 /-!
 # scryptROMix on AArch64: the small loops
 
-Untrusted: everything here is checked by Lean. The word copy (`copyLoop`),
-the word exclusive-or (`xorLoop`) and the computation of `2 N` by doubling
-(`nLoop`). The memory lemmas are shared with the other targets
-(`Proof/Scrypt/Memory.lean`).
+The word copy (`copyLoop`), the word exclusive-or (`xorLoop`) and the
+computation of `2 N` by doubling (`nLoop`). The memory lemmas are shared with
+the other targets (`Proof/Scrypt/Memory.lean`).
 -/
 
 namespace VG.Proof.Scrypt.AArch64.RoMix
@@ -500,10 +499,10 @@ end VG.Proof.Scrypt.AArch64.RoMix
 /-!
 # scryptROMix on AArch64: correctness
 
-Untrusted: everything here is checked by Lean. The prologue saves our
-caller's registers and our return address in `scratch` and computes `N`;
-step 2 and step 3 are loops whose bodies call `vg_scrypt_blockmix` (through
-`BlockMixSpec`); the epilogue restores the registers.
+The prologue saves our caller's registers and our return address in `scratch`
+and computes `N`; step 2 and step 3 are loops whose bodies call
+`vg_scrypt_blockmix` (through `BlockMixSpec`); the epilogue restores the
+registers.
 -/
 
 namespace VG.Proof.Scrypt.AArch64.RoMix
@@ -1317,15 +1316,15 @@ end VG.Proof.Scrypt.AArch64.RoMix
 /-!
 # scryptROMix on AArch64: verified
 
-Untrusted: everything here is checked by Lean. `BlockMixSpec` of the
-verified `vg_scrypt_blockmix`, from its `Verified` proof by `WP.callF`; then
-constant time, up to the indices `j`, as on x86-64 (`X86_64/RoMixCT.lean`):
-we relate two runs (`RelCT`). Correctness determines our registers from the
-public arguments, so they agree between the calls, where the taint analysis
-proves each piece constant time; the calls are constant time by
-scryptBlockMix's own proof. In step 3, the address of `V[j]` depends on `j`,
-which the contract declares public: the two runs compute the same `j`, since
-both compute their indices in order (`Inv3.js`) and agree on the whole list.
+`BlockMixSpec` of the verified `vg_scrypt_blockmix`, from its `Verified` proof
+by `WP.callF`; then constant time, up to the indices `j`, as on x86-64
+(`X86_64/RoMixCT.lean`): we relate two runs (`RelCT`). Correctness determines
+our registers from the public arguments, so they agree between the calls,
+where the taint analysis proves each piece constant time; the calls are
+constant time by scryptBlockMix's own proof. In step 3, the address of `V[j]`
+depends on `j`, which the contract declares public: the two runs compute the
+same `j`, since both compute their indices in order (`Inv3.js`) and agree on
+the whole list.
 -/
 
 namespace VG.Proof.Scrypt.AArch64.RoMix

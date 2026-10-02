@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # ML-DSA: polynomials in memory, for every target
 
-Untrusted: everything here is checked by Lean. How the stored
-representation of `Spec/MlDsa/Poly.lean` (a polynomial as `[u32; 256]`,
-`coeffAt`, `polyAt`, `Reduced`, `PolyIs`) changes when a program writes a
-coefficient, and how to conclude `PolyIs` from what each word holds.
+How the stored representation of `Spec/MlDsa/Poly.lean` (a polynomial as
+`[u32; 256]`, `coeffAt`, `polyAt`, `Reduced`, `PolyIs`) changes when a program
+writes a coefficient, and how to conclude `PolyIs` from what each word holds.
 -/
 
 namespace VG.Proof.MlDsa.Arith

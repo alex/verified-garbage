@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Prims
 /-!
 # ML-DSA signing on x86 (32-bit): calls of the samplers
 
-Untrusted: everything here is checked by Lean. `RejNTTPoly` (`rej_piece`),
-a polynomial of `ExpandMask` (`mask_piece`) and `SampleInBall`
-(`ball_piece`); the first and the last return whether they succeeded, as a
-function of their seeds, which they may leak.
+`RejNTTPoly` (`rej_piece`), a polynomial of `ExpandMask` (`mask_piece`) and
+`SampleInBall` (`ball_piece`); the first and the last return whether they
+succeeded, as a function of their seeds, which they may leak.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

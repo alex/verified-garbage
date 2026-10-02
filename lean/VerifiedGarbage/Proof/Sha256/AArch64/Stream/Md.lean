@@ -11,12 +11,12 @@ import VerifiedGarbage.Proof.Sha256.AArch64.Lit
 /-!
 # Streaming SHA-256 on AArch64: `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/AArch64.lean`), so they are
-verified by the generic proofs (`Proof/MdStream/AArch64/`) for SHA-256's
-instance (`Proof/Sha256/Md.lean`), given what SHA-256's own pieces do: its length
-field and digest (`shape`), that its compression function is verified
-(`callee`), and that the taint analysis accepts its code.
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/AArch64.lean`), so they are verified by the generic proofs
+(`Proof/MdStream/AArch64/`) for SHA-256's instance (`Proof/Sha256/Md.lean`),
+given what SHA-256's own pieces do: its length field and digest (`shape`), that
+its compression function is verified (`callee`), and that the taint analysis
+accepts its code.
 -/
 
 namespace VG.Proof.Sha256.AArch64.Stream

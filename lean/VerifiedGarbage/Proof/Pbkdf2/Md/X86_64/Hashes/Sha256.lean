@@ -7,13 +7,12 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # SHA-256 on x86-64, as a Merkle–Damgård hash function
 
-Untrusted: everything here is checked by Lean. SHA-256 with an
-implementation `v` of its compression function (`Proof/Sha256/X86_64/Variant.lean`),
-as a variant of `MdHash` (`variant v`), from which HMAC and PBKDF2 are
-emitted (`Generic/MdHash/X86_64/`): its streaming code is the generic
-Merkle–Damgård code (`Stream.params`), its specification `Spec.Hmac.sha256S`.
-The facts about the code HMAC and PBKDF2 add, which do not depend on `v`,
-are checked once (`coreOK`).
+SHA-256 with an implementation `v` of its compression function
+(`Proof/Sha256/X86_64/Variant.lean`), as a variant of `MdHash` (`variant v`),
+from which HMAC and PBKDF2 are emitted (`Generic/MdHash/X86_64/`): its streaming
+code is the generic Merkle–Damgård code (`Stream.params`), its specification
+`Spec.Hmac.sha256S`. The facts about the code HMAC and PBKDF2 add, which do not
+depend on `v`, are checked once (`coreOK`).
 
 `stream v` are the streaming `update` and `finalize` made with `v`, which
 `Generic/MdHash/X86_64/Stream.lean` emits from their `Api`s, named with
@@ -175,8 +174,10 @@ def stream : List StreamFn := [
     verified := Proof.Sha256.X86_64.Shared.finalize v.ok v.mxcsr
     spSafe := Proof.Sha256.X86_64.Shared.finalize_spSafe v.spSafe }]
 
-/-- SHA-256 with the implementation `v` of its compression function. -/
+/-- SHA-256 with the implementation `v` of its compression function, which it
+carries for the functions built on SHA-256 alone (`MdHash.sha256`). -/
 def variant : MdHash :=
-  MdHash.of (ok v) coreOK (callees v) rfl rfl satI satF satT satP v.suffix v.features (stream v)
+  { MdHash.of (ok v) coreOK (callees v) rfl rfl satI satF satT satP v.suffix v.features (stream v) with
+    sha256 := some v }
 
 end VG.Proof.Pbkdf2.Md.X86_64.Sha256

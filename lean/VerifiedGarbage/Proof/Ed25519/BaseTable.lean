@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.Ed25519.ScalarMul
 /-!
 # The cached base-point powers match the specification
 
-Untrusted. `checkList` walks the table once, doubling a literal point with
-the specification's formula as it goes, so the kernel evaluates 256
-doublings and compares 256 entries. `d` is replaced by its value first, so
-that the kernel computes its inversion once.
+`checkList` walks the table once, doubling a literal point with the
+specification's formula as it goes, so the kernel evaluates 256 doublings and
+compares 256 entries. `d` is replaced by its value first, so that the kernel
+computes its inversion once.
 -/
 
 namespace VG.Proof.Ed25519

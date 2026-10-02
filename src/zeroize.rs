@@ -5,17 +5,9 @@
 //! * ML-KEM, ML-DSA, Ed25519, X25519 and X448 wipe their private keys when
 //!   they are dropped, and the intermediate values and working space of
 //!   each operation (FIPS 203 §3.3, FIPS 204 §3.6.3).
-//! * The key objects of the symmetric algorithms wipe their key material
-//!   when they are dropped: [`AesGcm`](crate::aes_gcm::AesGcm) its key
-//!   schedule and hash subkey, [`AesGcmStream`](crate::aes_gcm::AesGcmStream)
-//!   also its keystream, partial block and GHASH state,
-//!   [`ChaCha20`](crate::chacha20::ChaCha20) its state and keystream,
-//!   [`ChaCha20Poly1305`](crate::chacha20poly1305::ChaCha20Poly1305) its
-//!   key, [`Poly1305`](crate::poly1305::Poly1305) its state (which holds its
-//!   key), and the
-//!   hash functions (whose state, under HMAC, PBKDF2 or keyed BLAKE2,
-//!   represents the key) and [`Hmac`](crate::hmac::Hmac) their streaming
-//!   states.
+//! * Every other object holding key material (the ciphers, AEADs and MACs,
+//!   and the hash functions, whose state represents the key under HMAC,
+//!   PBKDF2 or keyed BLAKE2) wipes it when it is dropped.
 //!
 //! What is not: the working space (`scratch`) of the symmetric algorithms'
 //! calls, and the copies of states the Rust code makes on the stack when
@@ -54,9 +46,19 @@ int!(u8, u16, u32, u64, i16, i32, i64);
 pub(crate) fn zeroize<T: Int>(x: &mut [T]) {
     // SAFETY: `x` is writable for its entire byte length, cannot wrap, and
     // lies outside the callee’s stack frame. All-zero bytes are valid for T.
-    unsafe {
-        crate::arch::zeroize::vg_zeroize(x.as_mut_ptr().cast::<u8>(), core::mem::size_of_val(x));
-    }
+    unsafe { zeroize_raw(x.as_mut_ptr().cast::<u8>(), core::mem::size_of_val(x)) };
+}
+
+/// Overwrites the `len` bytes at `p` with zeros, as `zeroize` does, for
+/// memory that may not be initialized.
+///
+/// # Safety
+///
+/// `p` must be valid for writes of `len` bytes, which may not wrap around the
+/// end of the address space or overlap the callee's stack frame.
+pub(crate) unsafe fn zeroize_raw(p: *mut u8, len: usize) {
+    // SAFETY: the caller's.
+    unsafe { crate::arch::zeroize::vg_zeroize(p, len) };
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
 
@@ -66,12 +68,13 @@ mod tests {
 
     #[test]
     fn zeroizes() {
-        // Bytes before, between and after aligned words, at every offset.
+        // Bytes before, between and after aligned words, at every offset,
+        // through the 32-byte, word and byte loops.
         for start in 0..8 {
-            for end in start..=25 {
-                let mut words = [u64::MAX; 4];
-                // SAFETY: `words` is 32 bytes, and any bytes are a valid `u8`.
-                let bytes = unsafe { &mut *words.as_mut_ptr().cast::<[u8; 32]>() };
+            for end in start..=100 {
+                let mut words = [u64::MAX; 13];
+                // SAFETY: `words` is 104 bytes, and any bytes are a valid `u8`.
+                let bytes = unsafe { &mut *words.as_mut_ptr().cast::<[u8; 104]>() };
                 zeroize(&mut bytes[start..end]);
                 for (i, b) in bytes.iter().enumerate() {
                     assert_eq!(*b == 0, (start..end).contains(&i));

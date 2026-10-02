@@ -116,7 +116,7 @@ def body (fld : Arith) (fs : String) (f : Callee) (suffix : String) : Prog isa :
     (.seq (callWith mulAddArgs "vg_ed25519_scalar_mul_add" scalarMulAdd) (.block wipe))))))))
 
 /-- Signing, with the field multiplications `fld`, those of
-`vg_ed25519_scalar_base_precomputed` with the suffix `fs`. -/
+`vg_ed25519_scalar_base` with the suffix `fs`. -/
 def code (fld : Arith) (fs : String) (f : Callee) (suffix : String) : Prog isa :=
   .frame (.push ([.rdi, .rsi, .rdx, .rcx, .r8, .r9] ++ List.replicate 25 .rax))
     (body fld fs f suffix) (.pop .rax 31)

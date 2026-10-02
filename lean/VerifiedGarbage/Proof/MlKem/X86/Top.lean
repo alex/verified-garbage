@@ -7,13 +7,12 @@ import VerifiedGarbage.Impl.MlKem.X86.Top
 /-!
 # ML-KEM on x86 (32-bit): the setting of the top-level functions
 
-Untrusted: everything here is checked by Lean. A top-level function takes
-buffers as arguments (`Lay`: each one's length, and whether it is written),
-one of which (`sc`) is its working space `scratch`; its precondition
-(`TPre`, which its contract implies) says where they are. It saves its
-caller's registers in a frame of 16 bytes (`leaf`), keeps `esi = scratch`,
-and calls the primitives and the Keccak functions, whose calls use the
-`stk - 16` bytes of stack below the frame.
+A top-level function takes buffers as arguments (`Lay`: each one's length, and
+whether it is written), one of which (`sc`) is its working space `scratch`;
+its precondition (`TPre`, which its contract implies) says where they are. It
+saves its caller's registers in a frame of 16 bytes (`leaf`), keeps `esi =
+scratch`, and calls the primitives and the Keccak functions, whose calls use
+the `stk - 16` bytes of stack below the frame.
 
 Buffers are named by an argument and an offset (`Buf`), so that whether
 two are disjoint (`Buf.sep`), and whether one lies in its argument

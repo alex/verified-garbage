@@ -4,15 +4,14 @@ import VerifiedGarbage.Proof.MlKem.X86_64.SampleCT
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, constant time but for the seeds
 
-Untrusted: everything here is checked by Lean. Two runs whose seeds (the
-declared leak) and pointers agree leak the same. The code but for the loops
-of `parse` and their fallbacks is proven by the taint analysis, from the
-pointers. Both runs read the same XOF output, so in the loops they are at
-the same iteration with the same coefficients sampled: each group of four
-iterations takes the same branch (on `j < 249`, `vgrp_ct`); the vector code
-computes the same mask of the candidates in `eax` (`VI.rax`), so it loads
-the same entry of the table, stores to the same address and counts the same
-(the taint analysis, from `rax`, `rbx`, `rbp`, `rdi` and `rsi`), and
+Two runs whose seeds (the declared leak) and pointers agree leak the same. The
+code but for the loops of `parse` and their fallbacks is proven by the taint
+analysis, from the pointers. Both runs read the same XOF output, so in the
+loops they are at the same iteration with the same coefficients sampled: each
+group of four iterations takes the same branch (on `j < 249`, `vgrp_ct`); the
+vector code computes the same mask of the candidates in `eax` (`VI.rax`), so
+it loads the same entry of the table, stores to the same address and counts
+the same (the taint analysis, from `rax`, `rbx`, `rbp`, `rdi` and `rsi`), and
 `vg_mlkem_sample_ntt`'s loop runs as in that function (`body_ct`). The
 fallbacks take the same branch, and call `vg_mlkem_sample_ntt` on the same
 seed.

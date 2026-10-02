@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.X25519.Arm.Pass
 
 /-!
 # X448 on ARMv7: arithmetic steps
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X448.Arm

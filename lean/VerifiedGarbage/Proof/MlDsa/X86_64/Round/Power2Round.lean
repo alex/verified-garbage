@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 
 /-!
 # ML-DSA on x86-64: `vg_mldsa_power2round`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

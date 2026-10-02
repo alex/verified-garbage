@@ -9,15 +9,14 @@ import VerifiedGarbage.Impl.MlKem.Arm.Sample
 /-!
 # ML-KEM on 32-bit ARM: calling the SHA-3 sponge
 
-Untrusted: everything here is checked by Lean. The calls of
-`vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze` in their frames
-(`absorbCall`, `padCall`, `squeezeCall`), from the callees' proofs
-(`WP.callCalls`, with the per-target contracts `Proof.Sha3.absorbArm`, …):
-what each needs of the state it is called from (`AbsorbArgs`, …), and what
-holds when it returns; and that two runs that call it with the same
-arguments leak the same trace (`absorb_ct`, …, by `RelCT.frame` and
-`RelCT.call`). The frame stores the stack arguments in the 8 bytes below
-the stack pointer, which the callers' contracts reserve (`below`).
+The calls of `vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze` in
+their frames (`absorbCall`, `padCall`, `squeezeCall`), from the callees'
+proofs (`WP.callCalls`, with the per-target contracts `Proof.Sha3.absorbArm`,
+…): what each needs of the state it is called from (`AbsorbArgs`, …), and what
+holds when it returns; and that two runs that call it with the same arguments
+leak the same trace (`absorb_ct`, …, by `RelCT.frame` and `RelCT.call`). The
+frame stores the stack arguments in the 8 bytes below the stack pointer, which
+the callers' contracts reserve (`below`).
 -/
 
 namespace VG.Proof.MlKem.Arm

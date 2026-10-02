@@ -9,12 +9,11 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_norm_lt`
 
-Untrusted: everything here is checked by Lean. The loop body is
-symbolically executed once for any state (`body_ok`): a coefficient `a` is
-bad when `bound ≤ a` and `bound ≤ q - a` (the carries of the two
-comparisons), and `r4` becomes 1 at the first bad one (`acc`); the result
-`1 - r4` is 1 exactly when no coefficient is bad, that is when the norm is
-less than `bound` (`normRq_lt`, `normZq_lt`).
+The loop body is symbolically executed once for any state (`body_ok`): a
+coefficient `a` is bad when `bound ≤ a` and `bound ≤ q - a` (the carries of
+the two comparisons), and `r4` becomes 1 at the first bad one (`acc`); the
+result `1 - r4` is 1 exactly when no coefficient is bad, that is when the norm
+is less than `bound` (`normRq_lt`, `normZq_lt`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Round.NormLt

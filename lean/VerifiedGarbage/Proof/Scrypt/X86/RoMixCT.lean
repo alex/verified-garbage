@@ -8,21 +8,20 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 /-!
 # scryptROMix on x86 (32-bit): verified
 
-Untrusted: everything here is checked by Lean. `BlockMixSpec` of the verified
-`vg_scrypt_blockmix`, from its proof by `WP.callWith`; then constant time, up
-to the indices `j`, as on 32-bit ARM (`Proof/Scrypt/Arm/RoMixCT.lean`): the
-taint analysis cannot follow the calls (scryptBlockMix stores secrets
-through pointers into the middle of `y`, and restores its caller's registers
-from memory), so we relate two runs piece by piece (`RelCT`). Correctness
-determines our registers from the public arguments, so they agree between
-the calls, where the taint analysis proves each piece constant time, reading
-the pointers and `r` from the arguments, which nothing writes; the calls are
-constant time by scryptBlockMix's own proof (`RelCT.callWith`). In step 3,
-the address of `V[j]` depends on `j`, which the contract declares public:
-the two runs compute the same `j`, since both compute their indices in order
-(`Inv3.js`) and agree on the whole list. The proof is written against a
-contract under which the code only reads its arguments, and moved to the
-shared contract with `Verified.narrowTo`.
+`BlockMixSpec` of the verified `vg_scrypt_blockmix`, from its proof by
+`WP.callWith`; then constant time, up to the indices `j`, as on 32-bit ARM
+(`Proof/Scrypt/Arm/RoMixCT.lean`): the taint analysis cannot follow the calls
+(scryptBlockMix stores secrets through pointers into the middle of `y`, and
+restores its caller's registers from memory), so we relate two runs piece by
+piece (`RelCT`). Correctness determines our registers from the public
+arguments, so they agree between the calls, where the taint analysis proves
+each piece constant time, reading the pointers and `r` from the arguments,
+which nothing writes; the calls are constant time by scryptBlockMix's own
+proof (`RelCT.callWith`). In step 3, the address of `V[j]` depends on `j`,
+which the contract declares public: the two runs compute the same `j`, since
+both compute their indices in order (`Inv3.js`) and agree on the whole list.
+The proof is written against a contract under which the code only reads its
+arguments, and moved to the shared contract with `Verified.narrowTo`.
 -/
 
 namespace VG.Proof.Scrypt.X86.RoMix

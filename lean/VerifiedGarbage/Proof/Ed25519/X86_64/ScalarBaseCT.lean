@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseCTEngine
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseMain
 
-/-! Untrusted: public argument pointers survive the secret point arithmetic. -/
+/-! Public argument pointers survive the secret point arithmetic. -/
 
 namespace VG.Proof.Ed25519.X86_64
 
@@ -109,8 +109,5 @@ theorem scalarBase_ct_of_engine (engine : Prog isa) (engine_ok : BaseEngineCorre
     (VG.RelCT.seq (engine_ct engine_ok engineCT (x.gpr .rdx) (x.gpr .rsi) (x.gpr .rdi))
       (finish_ct (x.gpr .rdx) (x.gpr .rdi)))
   exact hc _ _ _ _ _ _ ⟨⟨hx, rfl, rfl, rfl⟩, ⟨hy, ho.symm, hk.symm, hb.symm⟩⟩ ex ey
-
-theorem scalarBase_ct : ConstantTime isa scalarBaseLocal.pre scalarBaseLocal.pub (scalarBase fld) :=
-  scalarBase_ct_of_engine (scalarBaseEngine fld) scalarBaseEngine_ok scalarBaseEngine_ct
 
 end VG.Proof.Ed25519.X86_64

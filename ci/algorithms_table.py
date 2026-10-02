@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""Generates the table in the Algorithms section of README.md.
-
-The table is built from what the repository contains, so that no PR edits
-it by hand (and two PRs for the same algorithm never conflict over a row):
-rerun this script instead. Each docs/algorithms/<name>.toml is a row:
+"""Generates the tables in the Algorithms section of README.md, one per
+family, from what the repository contains. Each docs/algorithms/<name>.toml
+is a row:
 
   name     what the table calls it
   family   the table it goes in, one of FAMILIES
@@ -21,9 +19,8 @@ rerun this script instead. Each docs/algorithms/<name>.toml is a row:
   followed by the CPU features that its `asm` modules' functions need (a
   generated `_FEATURES` constant) and its `optimized` note, if any.
 
-The table is HTML with every cell on a line of its own, between blank
-lines, so that git merges two PRs that change different cells (say, two
-architectures of one algorithm) without a conflict.
+Every cell is on a line of its own (`tr`), so that git merges PRs that
+change different cells without a conflict.
 
 `--check` writes nothing and fails if README.md is not up to date (CI runs
 it).

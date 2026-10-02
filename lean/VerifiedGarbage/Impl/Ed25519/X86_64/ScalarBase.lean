@@ -3,7 +3,9 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.Bits
 import VerifiedGarbage.Impl.Ed25519.X86_64.PointMul
 import VerifiedGarbage.Impl.Ed25519.X86_64.PointEncode
 
-/-! Base-point multiplication for the complete unsigned 256-bit input scalar. -/
+/-! Base-point multiplication for the complete unsigned 256-bit input scalar: the
+frame around an engine (`scalarBaseWith`), which the comb
+(`ScalarBasePrecomputed.lean`) fills, and the expansion of the scalar's bits. -/
 
 namespace VG.Impl.Ed25519.X86_64
 
@@ -14,9 +16,6 @@ def scalarBaseInit (fld : Arith) : List Instr := constField 16 Spec.Ed25519.d ++
 
 def scalarBasePrepare (fld : Arith) : Prog isa :=
   .seq (scalarBits 32) (.block (scalarBaseInit fld))
-
-def scalarBaseEngine (fld : Arith) : Prog isa :=
-  .seq (scalarBasePrepare fld) (.seq (pointMultiply fld 16) (pointEncode fld))
 
 def scalarBaseSetup : List Instr :=
   [.store (at_ .rdx 48) .rdi, .mov .rdi (.reg .rdx)]
@@ -30,7 +29,5 @@ def scalarBaseFinish : Prog isa :=
 
 def scalarBaseWith (engine : Prog isa) : Prog isa :=
   .seq (.block (scalarSave ++ scalarBaseSetup)) (.seq engine scalarBaseFinish)
-
-def scalarBase (fld : Arith) : Prog isa := scalarBaseWith (scalarBaseEngine fld)
 
 end VG.Impl.Ed25519.X86_64

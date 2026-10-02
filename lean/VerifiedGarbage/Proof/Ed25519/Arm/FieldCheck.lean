@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.WordsZero
 import VerifiedGarbage.Proof.Ed25519.Arm.Freeze
 
-/-! Untrusted: canonical representatives give exact field comparisons. -/
+/-! Canonical representatives give exact field comparisons. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 open Fin.CommRing

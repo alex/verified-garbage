@@ -7,15 +7,16 @@
 
 Verified Garbage is an experimental cryptography library, implemented entirely by LLMs. All of the cryptography primitives are formally verified using Lean.
 
+Our goal is to implement all the cryptographic algorithms that are used by the Python pyca/cryptography library.
+
 Its aims are, in order:
 
 1. Security
 2. Correctness
 3. Performance
 
-The library is implemented in Lean, assembly, and Rust.
-
-It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
+It targets x86 (i686 with SSE2), x86-64, ARMv7 and ARM64; PPC64le is not
+started yet.
 
 The crate refuses to build for configurations its ISA models do not
 describe: big-endian ARM and ARM64, x32, x86 or x86-64 without SSE2 (e.g.
@@ -281,7 +282,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -761,13 +762,13 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
-<td>✅</td>
-
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 </tr>
 
@@ -923,7 +924,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; matrix sampled four entries at a time in key generation and verification (four SHAKE128 instances at once with AVX2)</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
@@ -939,7 +940,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; matrix sampled four entries at a time in key generation and verification (four SHAKE128 instances at once with AVX2)</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
@@ -955,7 +956,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; matrix sampled four entries at a time in key generation and verification (four SHAKE128 instances at once with AVX2)</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
@@ -974,13 +975,11 @@ The tables are generated from the code by `ci/algorithms_table.py`.
 * **Spec landed**: the algorithm's specification, transcribed from its
   standard, is in `lean/VerifiedGarbage/Spec/`.
 * **x86-64**, **ARM64**, **ARMv7**, **x86**: ✅ when verified assembly and a
-  public Rust API exist on that architecture (PPC64le is not started yet),
-  followed by how it has been optimized, if it has (e.g. with SHA-NI or
-  NEON). Where an optimization needs CPU features beyond the architecture's
-  baseline, the features are detected at run time, and CPUs without them
-  run the straightforward scalar code that every other implementation is.
-
-Our goal is to implement all the cryptographic algorithms that are used by the Python pyca/cryptography library.
+  public Rust API exist on that architecture, followed by how it has been
+  optimized, if it has (e.g. with SHA-NI or NEON). Where an optimization
+  needs CPU features beyond the architecture's baseline, the features are
+  detected at run time, and CPUs without them run the straightforward
+  scalar code that every other implementation is.
 
 ## How it works
 
@@ -1090,11 +1089,6 @@ request that changes the library:
 (cd bench && cargo bench)
 python3 ci/bench_compare.py path/to/main-checkout .
 ```
-
-CI checks every proof, that `src/asm/` is exactly what Lean generates, and the
-import discipline of the Lean directories (`ci/check_lean_imports.py`); it
-builds and runs the Rust tests natively on each target architecture, and
-requires 100% line coverage of the Rust code, merged across all of them.
 
 ## Credits
 

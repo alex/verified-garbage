@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86.PointSelect
 import VerifiedGarbage.Proof.Ed25519.X86.Points
 
-/-! Untrusted: field and point selection by a fixed sequence of masked swaps. -/
+/-! Field and point selection by a fixed sequence of masked swaps. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

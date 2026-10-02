@@ -6,12 +6,12 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86 (32-bit): calls in the top-level functions
 
-Untrusted: everything here is checked by Lean. `call_piece` makes a call of
-verified code from a state satisfying `Ctx`, in a frame of its arguments,
-as a `Piece`: the callee's precondition (`CallPre`), its public data, and
-the regions it writes (within `W`) are what remains to prove, and `Ctx`
-holds after it. The calls of the Keccak functions (`absorb_call`,
-`pad_call`, `squeeze_call`) are made with their buffers named as `Buf`s.
+`call_piece` makes a call of verified code from a state satisfying `Ctx`, in a
+frame of its arguments, as a `Piece`: the callee's precondition (`CallPre`),
+its public data, and the regions it writes (within `W`) are what remains to
+prove, and `Ctx` holds after it. The calls of the Keccak functions
+(`absorb_call`, `pad_call`, `squeeze_call`) are made with their buffers named
+as `Buf`s.
 
 The callee sees the stack below `esp = E` as its arguments (`below E (4k)`),
 its return address, and its own stack below that (`entry_regions`).

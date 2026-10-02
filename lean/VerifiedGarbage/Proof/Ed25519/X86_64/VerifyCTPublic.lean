@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.WindowCT
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyContext
 
-/-! Untrusted: the verification inputs are public, and the equation's trace depends on them alone. -/
+/-! The verification inputs are public, and the equation's trace depends on them alone. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

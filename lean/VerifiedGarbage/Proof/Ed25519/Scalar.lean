@@ -3,8 +3,8 @@ import VerifiedGarbage.Spec.Ed25519
 /-!
 # Ed25519 scalar arithmetic: binary reduction
 
-Untrusted. A remainder below L becomes a value below 2L after consuming
-one bit, so one conditional subtraction is sufficient.
+A remainder below L becomes a value below 2L after consuming one bit, so one
+conditional subtraction is sufficient.
 -/
 
 namespace VG.Proof.Ed25519

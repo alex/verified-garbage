@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Bytes
 /-!
 # X448 on AArch64: expanding scalar bytes
 
-Untrusted: everything here is checked by Lean. Each byte is expanded into
-eight bytes holding its bits, through public offsets in the working space.
+Each byte is expanded into eight bytes holding its bits, through public
+offsets in the working space.
 -/
 
 namespace VG.Proof.X448.AArch64

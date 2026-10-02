@@ -6,17 +6,16 @@ import VerifiedGarbage.Proof.MlKem.X86_64.YNttLay
 /-!
 # ML-DSA on x86-64: the layers of the NTT and its inverse with `len ≥ 4` on AVX2 registers
 
-Untrusted: everything here is checked by Lean. For any butterfly code `bf`
-that does what `op` does to the doublewords of two SSE registers
-(`VBflyOk`) and whose AVX2 form does it in each lane
-(`laneSseBlock (toY bf) = some bf`), and any block of the specification
-whose butterflies do `op` (`BlkOk`): eight butterflies of a block
-(`ystep`), the `len / 8` of them of a block (`yblock_ok`), and the
-`128 / len` blocks of a layer with `len ≥ 8` (`ylay_ok`); and the layer
-with `len = 4`, two blocks at a time, the lower halves of their
-coefficients gathered into `ymm0` and the upper ones into `ymm1` by
-`vperm2i128` (`ylay4_ok`). The zetas: `yzeta1_ok` and `yzetaS_ok`, and the
-layers' result coefficient by coefficient (`layF_get`).
+For any butterfly code `bf` that does what `op` does to the doublewords of two
+SSE registers (`VBflyOk`) and whose AVX2 form does it in each lane
+(`laneSseBlock (toY bf) = some bf`), and any block of the specification whose
+butterflies do `op` (`BlkOk`): eight butterflies of a block (`ystep`), the
+`len / 8` of them of a block (`yblock_ok`), and the `128 / len` blocks of a
+layer with `len ≥ 8` (`ylay_ok`); and the layer with `len = 4`, two blocks at
+a time, the lower halves of their coefficients gathered into `ymm0` and the
+upper ones into `ymm1` by `vperm2i128` (`ylay4_ok`). The zetas: `yzeta1_ok`
+and `yzetaS_ok`, and the layers' result coefficient by coefficient
+(`layF_get`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

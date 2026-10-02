@@ -1,12 +1,43 @@
 import VerifiedGarbage.Proof.Rc2.X86_64.Block
 import VerifiedGarbage.Proof.Rc2.X86_64.Key
 import VerifiedGarbage.Proof.Rc2.X86_64.Cbc.Verified
+import VerifiedGarbage.Proof.Rc2.X86_64.Stream.Verified
 
 /-! # RC2 artifacts on baseline x86-64 -/
 
 namespace VG.Artifacts.Rc2.X86_64
 
 def artifacts : List Artifact := [
+  { Spec.Rc2.cbcInitApi with
+    target := X86_64.target
+    doc := Spec.Rc2.cbcInitApi.doc
+      (notes := ["Baseline x86-64: checks the lengths, copies the IV and calls the verified RC2 key expansion."])
+    code := Impl.Rc2.X86_64.Stream.init
+    contract := Spec.Rc2.cbcInitContract X86_64.abi 8
+    stack := 8
+    ofSig := ⟨_, _, _, by unfold Spec.Rc2.cbcInitContract; rfl⟩
+    verified := Proof.Rc2.X86_64.Stream.init_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Rc2.cbcEncryptUpdateApi with
+    target := X86_64.target
+    doc := Spec.Rc2.cbcEncryptUpdateApi.doc
+      (notes := ["Baseline x86-64: copies the pending and new bytes a byte at a time, then calls the verified RC2-CBC encryption on the complete blocks."])
+    code := Impl.Rc2.X86_64.Stream.encryptUpdate
+    contract := Spec.Rc2.cbcEncryptUpdateContract X86_64.abi 16
+    stack := 16
+    ofSig := ⟨_, _, _, by unfold Spec.Rc2.cbcEncryptUpdateContract Spec.Rc2.cbcUpdateContract; rfl⟩
+    verified := Proof.Rc2.X86_64.Stream.encryptUpdate_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Rc2.cbcDecryptUpdateApi with
+    target := X86_64.target
+    doc := Spec.Rc2.cbcDecryptUpdateApi.doc
+      (notes := ["Baseline x86-64: copies the pending and new bytes a byte at a time, then calls the verified RC2-CBC decryption on the complete blocks."])
+    code := Impl.Rc2.X86_64.Stream.decryptUpdate
+    contract := Spec.Rc2.cbcDecryptUpdateContract X86_64.abi 16
+    stack := 16
+    ofSig := ⟨_, _, _, by unfold Spec.Rc2.cbcDecryptUpdateContract Spec.Rc2.cbcUpdateContract; rfl⟩
+    verified := Proof.Rc2.X86_64.Stream.decryptUpdate_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Rc2.cbcEncryptApi with
     target := X86_64.target
     doc := Spec.Rc2.cbcEncryptApi.doc

@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.X25519.Arm.Setup
 /-!
 # X25519 on 32-bit ARM: the bits of the scalar
 
-Untrusted: everything here is checked by Lean. `bits` stores bit `t` of the
-decoded (clamped) scalar at byte `BITS + t` of the working space, for
-`t < 255` (`bits_ok`).
+`bits` stores bit `t` of the decoded (clamped) scalar at byte `BITS + t` of
+the working space, for `t < 255` (`bits_ok`).
 -/
 
 namespace VG.Proof.X25519.Arm

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.BatchBits
 import VerifiedGarbage.Proof.Ed25519.Arm.Packed
 
-/-! Untrusted: expansion of one scalar digit, with an exact sixteen-byte frame. -/
+/-! Expansion of one scalar digit, with an exact sixteen-byte frame. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

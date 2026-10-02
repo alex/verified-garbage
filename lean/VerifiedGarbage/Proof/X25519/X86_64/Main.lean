@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 /-!
 # X25519 on x86-64: the whole function
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (the facts of `Spec.X25519.x25519Contract` it uses, stated
-for x86-64), and the correctness of `vg_x25519` against it: every write is in
-the working space but the result's, so the arguments are read unchanged, the
-callee-saved registers restored from the working space, and the return
-address kept.
+The contract the proof is written against (the facts of
+`Spec.X25519.x25519Contract` it uses, stated for x86-64), and the correctness
+of `vg_x25519` against it: every write is in the working space but the
+result's, so the arguments are read unchanged, the callee-saved registers
+restored from the working space, and the return address kept.
 -/
 
 namespace VG.Proof.X25519

@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Framework.X86.Wp
 /-!
 # Ed25519 on x86 (32-bit): columns
 
-Untrusted: everything here is checked by Lean. Each term of a column adds its
-value to the 96-bit accumulator `ebx + 2³² ecx + 2⁶⁴ ebp` (`acc`), as long
-as the sum fits; the end of a column stores the accumulator's low word and
-shifts it down. `cols_ok` sums `n` columns into `n` words and a carry, when
-no column reads a word an earlier one stored.
+Each term of a column adds its value to the 96-bit accumulator `ebx + 2³² ecx +
+2⁶⁴ ebp` (`acc`), as long as the sum fits; the end of a column stores the
+accumulator's low word and shifts it down. `cols_ok` sums `n` columns into `n`
+words and a carry, when no column reads a word an earlier one stored.
 -/
 
 namespace VG.Proof.Ed25519.X86

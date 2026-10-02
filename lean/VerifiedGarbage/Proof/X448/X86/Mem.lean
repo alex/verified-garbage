@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # X448 on x86 (32-bit): the working space
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X448.X86

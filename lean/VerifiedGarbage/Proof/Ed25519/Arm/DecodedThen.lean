@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyHeaders
 
-/-! Untrusted: branch only on the public point-decoding result. -/
+/-! Branch only on the public point-decoding result. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

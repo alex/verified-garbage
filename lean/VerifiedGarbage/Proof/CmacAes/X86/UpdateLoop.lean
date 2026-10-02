@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.CmacAes.X86.Update
 /-!
 # AES-CMAC on x86: the loop of `vg_cmac_aes_update`
 
-Untrusted: everything here is checked by Lean. One block keeps the loop
-invariant (`body_ok`): the counter block is `C ⊕ Mᵢ` and the state is
-zeroed (`Cmac.chainMem4`), the call of `vg_aes_ctr32` leaves
-`CIPH_K(C ⊕ Mᵢ)` in the state, and ZF is set once `esi` reaches
-`data + 16 n` (`adv_zf`).
+One block keeps the loop invariant (`body_ok`): the counter block is `C ⊕ Mᵢ`
+and the state is zeroed (`Cmac.chainMem4`), the call of `vg_aes_ctr32` leaves
+`CIPH_K(C ⊕ Mᵢ)` in the state, and ZF is set once `esi` reaches `data + 16 n`
+(`adv_zf`).
 -/
 
 namespace VG.Proof.CmacAes.X86

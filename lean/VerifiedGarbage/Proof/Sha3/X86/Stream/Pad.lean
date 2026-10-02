@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # The SHA-3 sponge on x86 (32-bit): `pad`
 
-Untrusted: everything here is checked by Lean. The structure of the x86-64
-proof (`VG.Proof.Sha3.X86_64.Stream.Pad`): two bytes of the state XORed,
-then the permutation, with `ebx` and `esi` saved in the scratch space.
+The structure of the x86-64 proof (`VG.Proof.Sha3.X86_64.Stream.Pad`): two
+bytes of the state XORed, then the permutation, with `ebx` and `esi` saved in
+the scratch space.
 -/
 
 namespace VG.Proof.Sha3.X86.Stream.Pad

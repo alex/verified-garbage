@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.Arm.RowPass
 /-!
 # X448 on ARMv7: the multiplication-row working space
 
-Untrusted: everything here is checked by Lean. A row uses a second pointer,
-`r7`, at a public word offset from the working-space pointer in `r0`.
+A row uses a second pointer, `r7`, at a public word offset from the
+working-space pointer in `r0`.
 -/
 
 namespace VG.Proof.X448.Arm

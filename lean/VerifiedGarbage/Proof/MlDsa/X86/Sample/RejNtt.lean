@@ -6,16 +6,15 @@ import VerifiedGarbage.Proof.MlKem.X86.Sample
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_rej_ntt_poly`
 
-Untrusted: everything here is checked by Lean. The body is the SHAKE128
-output of the seed at `scratch + 840` (`sponge_piece`), then the 336
-iterations of the loop, iteration `t` of which starts with the coefficients
-`LA B t = rnFold [] ((G(B, 1008)).take (3t))` (`Proof/MlDsa/Sample/RejNtt.lean`)
-stored at `a`, `edi` after them and `ecx` counting them (`Loop`); the end
-returns whether there are 256. An iteration computes the value of its 3
-bytes in `eax` (`load_piece`) and, while there are fewer than 256
-coefficients, stores it if it is less than `q` (`try_piece`); its branches
-depend on the XOF output, a function of the seed, and so agree in two runs
-from the same seed (`Pub`), which the contract lets the function leak.
+The body is the SHAKE128 output of the seed at `scratch + 840` (`sponge_piece`),
+then the 336 iterations of the loop, iteration `t` of which starts with the
+coefficients `LA B t = rnFold [] ((G(B, 1008)).take (3t))`
+(`Proof/MlDsa/Sample/RejNtt.lean`) stored at `a`, `edi` after them and `ecx`
+counting them (`Loop`); the end returns whether there are 256. An iteration
+computes the value of its 3 bytes in `eax` (`load_piece`) and, while there are
+fewer than 256 coefficients, stores it if it is less than `q` (`try_piece`); its
+branches depend on the XOF output, a function of the seed, and so agree in two
+runs from the same seed (`Pub`), which the contract lets the function leak.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sample.RejNtt

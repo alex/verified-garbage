@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.SplitYSign
 import VerifiedGarbage.Proof.Ed25519.Arm.CanonicalY
 import VerifiedGarbage.Proof.Ed25519.Bytes
 
-/-! Untrusted: read canonical y and the encoded sign from the 32 input bytes. -/
+/-! Read canonical y and the encoded sign from the 32 input bytes. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

@@ -3,13 +3,15 @@ import VerifiedGarbage.Proof.Hmac.Sha256.X86.Finalize
 import VerifiedGarbage.Proof.Pbkdf2.Sha256.X86
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Variant
 import VerifiedGarbage.TCB.Artifact
+import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Sha256Fns
 
 /-!
 # SHA-256 backends on x86
 
 A backend is registered once. The emitter applies every generic construction
 to it, so adding compression acceleration also emits the corresponding SHA,
-HMAC, and PBKDF2 callers.
+HMAC, and PBKDF2 callers (PBKDF2's whole derivation among them, which calls
+the streaming, HMAC and PBKDF2 functions made with the backend).
 -/
 namespace VG.Proof.Sha256.X86.Variants
 
@@ -46,5 +48,25 @@ structure Backend where
   initSp : (Impl.Hmac.Sha256.X86.init cmpN cmpC).all (fun i => !isa.writesSp i) = true
   finSp : (Impl.Hmac.Sha256.X86.finalize cmpN cmpC).all (fun i => !isa.writesSp i) = true
   iterSp : (Impl.Pbkdf2.Sha256.X86.iterate cmpN cmpC).all (fun i => !isa.writesSp i) = true
+  /-- The streaming `update` and `finalize` calling `cmpC` (as in
+  `functions`), which PBKDF2's whole derivation calls, verified. -/
+  updC : Prog isa
+  upd : Verified X86.target updC Proof.Sha256.updateX86
+  updNoSp : NoSp updC
+  updStack : stackUse updC ≤ 20
+  finC : Prog isa
+  fin : Verified X86.target finC Proof.Sha256.finalizeX86
+  finNoSp : NoSp finC
+  finStack : stackUse finC ≤ 20
+  /-- What PBKDF2's whole derivation needs of the functions it calls: they
+  keep `esp`, and use at most 48 bytes of stack. -/
+  initNoSp : NoSp (Impl.Hmac.Sha256.X86.init cmpN cmpC)
+  initStack : stackUse (Impl.Hmac.Sha256.X86.init cmpN cmpC) ≤ 48
+  finalizeNoSp : NoSp (Impl.Hmac.Sha256.X86.finalize cmpN cmpC)
+  finalizeStack : stackUse (Impl.Hmac.Sha256.X86.finalize cmpN cmpC) ≤ 48
+  iterNoSp : NoSp (Impl.Pbkdf2.Sha256.X86.iterate cmpN cmpC)
+  iterStack : stackUse (Impl.Pbkdf2.Sha256.X86.iterate cmpN cmpC) ≤ 48
+  pbkdf2Sp : (Proof.Pbkdf2.Whole.X86.sha256Fns suffix cmpN cmpC updC finC).pbkdf2.all
+    (fun i => !isa.writesSp i) = true
 
 end VG.Proof.Sha256.X86.Variants

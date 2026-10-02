@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86_64.Copy
 /-!
 # X448 on x86-64: constant-time conditional swaps
 
-Untrusted: everything here is checked by Lean. An XOR mask exchanges the
-limbs without a branch or an address depending on the swap bit.
+An XOR mask exchanges the limbs without a branch or an address depending on
+the swap bit.
 -/
 
 namespace VG.Proof.X448.X86_64

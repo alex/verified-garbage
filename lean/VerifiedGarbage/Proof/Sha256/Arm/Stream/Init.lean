@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Sha256.Arm.Contract
 
 /-!
 # Streaming SHA-256 on ARMv7: `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha256.Arm.Stream

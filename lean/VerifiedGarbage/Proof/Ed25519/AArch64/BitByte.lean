@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.Bits
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointPowers
 
-/-! Untrusted: byte stores and expansion of one scalar byte into eight bits. -/
+/-! Byte stores and expansion of one scalar byte into eight bits. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 
@@ -44,6 +44,7 @@ theorem expandScalarBit_ok {s : State} {base : Addr} (hs : Scr s base)
     WP isa (.block (expandScalarBit j)) s fun t =>
       (∀ r, r ≠ .x2 → t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr ∧ t.sp = s.sp ∧
       t.mem = s.mem.writeW (off base (768 + (8 * i + j))) (BitVec.ofNat 8 ((b.toNat >>> j) &&& 1)) := by
+  have _hcap : workSize true = 8192 := rfl
   have hw : InRegions s.wr (off base (768 + (8 * i + j))) 1 :=
     ⟨_, hs.wr, Offset.contains_base _ (by omega) (by omega)⟩
   have he : off base (8 * i) + BitVec.ofNat 64 (768 + j) = off base (768 + (8 * i + j)) := by

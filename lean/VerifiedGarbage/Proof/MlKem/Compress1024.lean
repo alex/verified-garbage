@@ -4,8 +4,7 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024: Compress and Decompress without division, for every target
 
-Untrusted: everything here is checked by Lean. The analog of
-`Compress.lean` for the widths only ML-KEM-1024 compresses to
+The analog of `Compress.lean` for the widths only ML-KEM-1024 compresses to
 (`Spec.MlKem1024.compressWidths`: `d_v = 5` and `d_u = 11`), with a 32-bit
 multiply-low, an addition and shifts:
 

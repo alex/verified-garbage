@@ -5,12 +5,11 @@ import Mathlib.Tactic.Ring
 /-!
 # X25519: the inversion `z^(p-2)` as an addition chain
 
-Untrusted: everything here is checked by Lean. The spec's `pow` is the
-power of the monoid `GF(p)` (with Mathlib's ring structure on `Fin p`), and
-`invert`, the addition chain of ref10's `fe_invert` (254 squarings and 11
-multiplications, in the order implementations compute them), is
-`z^(p-2)`. An implementation of the chain is proven against `invert`, one
-multiplication or run of squarings (`sqn`) at a time.
+The spec's `pow` is the power of the monoid `GF(p)` (with Mathlib's ring
+structure on `Fin p`), and `invert`, the addition chain of ref10's `fe_invert`
+(254 squarings and 11 multiplications, in the order implementations compute
+them), is `z^(p-2)`. An implementation of the chain is proven against
+`invert`, one multiplication or run of squarings (`sqn`) at a time.
 -/
 
 namespace VG.Proof.X25519

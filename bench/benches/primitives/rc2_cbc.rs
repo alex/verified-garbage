@@ -2,7 +2,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run.
 pub const USES: &[&str] = &["rc2_cbc", "rc2"];
 
 #[cfg(any(

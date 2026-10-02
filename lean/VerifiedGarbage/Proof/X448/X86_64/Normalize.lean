@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86_64.Carry
 /-!
 # X448 on x86-64: modular reduction
 
-Untrusted: everything here is checked by Lean. Three carry passes and two
-folds normalize coefficients bounded by 2⁶², preserving their value modulo p.
+Three carry passes and two folds normalize coefficients bounded by 2⁶²,
+preserving their value modulo p.
 -/
 
 namespace VG.Proof.X448.X86_64

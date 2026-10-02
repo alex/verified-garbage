@@ -4,12 +4,11 @@ import Mathlib.Tactic.Ring
 /-!
 # Ed25519 on x86 (32-bit): the field operations
 
-Untrusted: everything here is checked by Lean. Each operation of
-`Impl/X25519/X86.lean` on elements at offsets of the working space, as the
-operation of `GF(p)` on their values modulo `p`: `mul` (by product scanning
-into `T`, then `lo + 38 hi`), `add`, `sub` (as `a + (2²⁵⁶ - 1 - b) + (2²⁵⁶ -
-75)`), `mulSmall` (by 121665). Each leaves the rest of memory unchanged but
-for the output and, for `mul`, `T`.
+Each operation of `Impl/X25519/X86.lean` on elements at offsets of the working
+space, as the operation of `GF(p)` on their values modulo `p`: `mul` (by
+product scanning into `T`, then `lo + 38 hi`), `add`, `sub` (as `a + (2²⁵⁶ - 1 -
+b) + (2²⁵⁶ - 75)`), `mulSmall` (by 121665). Each leaves the rest of memory
+unchanged but for the output and, for `mul`, `T`.
 -/
 
 namespace VG.Proof.Ed25519.X86

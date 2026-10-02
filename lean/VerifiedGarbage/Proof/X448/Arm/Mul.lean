@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Arm.Reduce
 /-!
 # X448 on ARMv7: field multiplication
 
-Untrusted: everything here is checked by Lean. The row loop produces the
-56 limbs of the product, which are folded and normalized modulo the prime.
+The row loop produces the 56 limbs of the product, which are folded and
+normalized modulo the prime.
 -/
 
 namespace VG.Proof.X448.Arm

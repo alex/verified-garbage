@@ -4,7 +4,7 @@ import VerifiedGarbage.Spec.MlDsa.Contract
 /-!
 # ML-DSA key generation: masked samples, and the leakage as bytes
 
-Untrusted: everything here is checked by Lean. A sampler's result `r` (0 or
+A sampler's result `r` (0 or
 1) is ANDed into an accumulator (`acc_and`), and its polynomial with `-r`
 (`masked`): kept if the sampler succeeded, zero (reduced, and small) if it
 failed. What key generation may leak (`keyGenLeak`) is a list of numbers

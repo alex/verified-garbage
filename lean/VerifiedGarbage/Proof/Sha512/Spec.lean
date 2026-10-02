@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # SHA-512: lemmas about the specification
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha512

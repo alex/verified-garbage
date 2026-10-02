@@ -5,10 +5,10 @@ import VerifiedGarbage.Impl.MlKem1024.X86_64.Decaps
 /-!
 # ML-KEM-1024 on x86-64: `vg_mlkem1024_decaps`, the choice of the key
 
-Untrusted: everything here is checked by Lean. As for ML-KEM-768
-(`Proof/MlKem/X86_64/DcSel.lean`, whose loop bodies, mask and choice of the
-bytes of the key it shares), over the 1568 bytes of the ciphertexts: the
-comparison (`cmp4_ok`) and the choice of the key (`select4_ok`).
+As for ML-KEM-768 (`Proof/MlKem/X86_64/DcSel.lean`, whose loop bodies, mask
+and choice of the bytes of the key it shares), over the 1568 bytes of the
+ciphertexts: the comparison (`cmp4_ok`) and the choice of the key
+(`select4_ok`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

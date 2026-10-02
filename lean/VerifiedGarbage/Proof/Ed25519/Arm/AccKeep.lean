@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.PointTableLoad
 
-/-! Untrusted: point accumulation changes the field workspace and its table pointer. -/
+/-! Point accumulation changes the field workspace and its table pointer. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

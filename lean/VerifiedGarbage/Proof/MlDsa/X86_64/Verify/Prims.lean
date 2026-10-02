@@ -16,11 +16,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Backend
 /-!
 # ML-DSA verification on x86-64: the primitives it calls
 
-Untrusted: everything here is checked by Lean. The x86-64 implementations
-of the primitives (`prims`) meet their contracts with at most 16 bytes of
-stack, never write the stack pointer or load MXCSR, and call at most two
-deep, with any implementation `v` of the polynomial arithmetic
-(`prims_okWith`), so `verify (primsWith v.code) p` meets `verifyContract p`.
+The x86-64 implementations of the primitives (`prims`) meet their contracts
+with at most 16 bytes of stack, never write the stack pointer or load MXCSR,
+and call at most two deep, with any implementation `v` of the polynomial
+arithmetic (`prims_okWith`), so `verify (primsWith v.code) p` meets
+`verifyContract p`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -54,6 +54,7 @@ def primsWith (B : Arith.Backend) : Prims :=
     mul := B.mul
     mulAdd := B.mulAdd
     sub := B.sub
+    normLt := B.normLt
     rej4 := B.rej4
     sfx := B.sfx }
 
@@ -104,10 +105,7 @@ theorem prims_okWith (v : ArithImpl) : PrimsOk (primsWith v.code) where
     (Proof.MlKem.X86_64.nosp_of (by lit_decide)) (by lit_decide) (by lit_decide)
     (Code.all_of_allInstrs (by lit_decide)) :
     CalleeOk prims.hintUnpack _)
-  normLt := (CalleeOk.of_verified Proof.MlDsa.X86_64.Round.normLt_verified (by decide)
-    (Proof.MlKem.X86_64.nosp_of (by lit_decide)) (by lit_decide) (by lit_decide)
-    (Code.all_of_allInstrs (by lit_decide)) :
-    CalleeOk prims.normLt _)
+  normLt := calleeOf v.ok.normLt
   rej4 := ⟨v.ok.rej4.ver.1, v.ok.rej4.ver.2.1, v.ok.rej4.nosp, v.ok.rej4.depth, v.ok.rej4.ctl, v.ok.rej4.sp⟩
 
 /-- `vg_mldsa*_verify` for the parameter set `p`, calling the x86-64

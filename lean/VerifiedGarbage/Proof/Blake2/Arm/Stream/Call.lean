@@ -9,14 +9,14 @@ import VerifiedGarbage.Impl.Blake2.Arm.Stream
 /-!
 # Streaming BLAKE2 on ARMv7: the calls of the compression function
 
-Untrusted: everything here is checked by Lean. The streaming functions call
-any compression function verified against `compressArm P` that makes no calls
-(`CalleeOk`), in a frame that pushes its stack arguments (`t` in `r3:r11`,
-`last` in `r12`, `scratch` in `lr`). `call_ok` runs such a frame from the
-state before its push (`WP.frame`, `WP.call`), and `call_rel` relates two
-runs of it (`RelCT.frame`, `RelCT.call`), as for HMAC's calls of `update`
-(`Proof/Hmac/Generic/Arm/Hash.lean`). The frame writes the 16 bytes below
-the stack pointer (`below`), which `After` lets change.
+The streaming functions call any compression function verified against
+`compressArm P` that makes no calls (`CalleeOk`), in a frame that pushes its
+stack arguments (`t` in `r3:r11`, `last` in `r12`, `scratch` in `lr`).
+`call_ok` runs such a frame from the state before its push (`WP.frame`,
+`WP.call`), and `call_rel` relates two runs of it (`RelCT.frame`,
+`RelCT.call`), as for HMAC's calls of `update`
+(`Proof/Hmac/Generic/Arm/Hash.lean`). The frame writes the 16 bytes below the
+stack pointer (`below`), which `After` lets change.
 -/
 
 namespace VG.Proof.Blake2.Arm.Stream

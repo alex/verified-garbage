@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.Arm.RecoverSign
 import VerifiedGarbage.Proof.Ed25519.Arm.FieldCheck
 import VerifiedGarbage.Proof.Ed25519.Arm.PointEncode
 
-/-! Untrusted: sign checks use the canonical x-coordinate and the saved sign bit. -/
+/-! Sign checks use the canonical x-coordinate and the saved sign bit. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

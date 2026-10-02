@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86_64.Columns
 /-!
 # X448 on x86-64: multiplication by a24
 
-Untrusted: everything here is checked by Lean. Each limb is multiplied by
-39081 before the common carry passes reduce the result.
+Each limb is multiplied by 39081 before the common carry passes reduce the
+result.
 -/
 
 namespace VG.Proof.X448.X86_64

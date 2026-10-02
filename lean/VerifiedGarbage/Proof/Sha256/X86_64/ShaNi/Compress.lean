@@ -7,9 +7,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # SHA-256 compression function on x86-64 with the SHA extensions
 
-Untrusted: everything here is checked by Lean. `compress_verified` proves
-`Impl.Sha256.X86_64.ShaNi.compress` against the same contract as the scalar
-`vg_sha256_compress`, reusing its precondition (`Pre`) and block lemmas.
+`compress_verified` proves `Impl.Sha256.X86_64.ShaNi.compress` against the
+same contract as the scalar `vg_sha256_compress`, reusing its precondition
+(`Pre`) and block lemmas.
 -/
 
 namespace VG.Proof.Sha256.X86_64.ShaNi

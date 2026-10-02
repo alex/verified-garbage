@@ -6,8 +6,6 @@ import VerifiedGarbage.Spec.Aes
 /-!
 # The AES key expansion on x86 (32-bit): the contract, and constant time
 
-Untrusted: everything here is checked by Lean.
-
 The contract the proof is written against, and the constant-time half of
 the proof: the taint analysis (`VG.X86.Taint`) starts with `esp` public
 and knows where the arguments are and which of them are the base addresses
@@ -20,12 +18,9 @@ the registers.
 namespace VG.Proof.Aes
 
 open _root_.VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86 (32-bit) contract for
-`vg_aes_expand_key(key: *const u8, key_len: usize, schedule: *mut [u8; 240], scratch: *mut [u64; 64])`,
-whose arguments are on the stack: writes the key schedule of the key at
-`key` to `schedule`.
+/-- X86 (32-bit) contract for `vg_aes_expand_key(key: *const u8, key_len: usize,
+schedule: *mut [u8; 240], scratch: *mut [u64; 64])`, whose arguments are on the
+stack: writes the key schedule of the key at `key` to `schedule`.
 
 The code may read `key` (`key_len` bytes) and the arguments (16 bytes above
 the return address), and read and write `schedule` (240 bytes) and

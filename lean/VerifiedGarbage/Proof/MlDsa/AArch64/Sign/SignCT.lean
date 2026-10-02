@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseACT
 /-!
 # ML-DSA signing on AArch64: constant time
 
-Untrusted: everything here is checked by Lean. Two runs whose entry states
-agree on `signK`'s public data (`signLeakT` among them) leak the same: the
-prologue and the return only the pointers, `ExpandA` only `ρ`
-(`expandA_tr`), and the rest what `signLeakT` says after `ρ`, on which they
-agree once `ExpandA` finished (`pub_leq`, `rest_tr`).
+Two runs whose entry states agree on `signK`'s public data (`signLeakT` among
+them) leak the same: the prologue and the return only the pointers, `ExpandA`
+only `ρ` (`expandA_tr`), and the rest what `signLeakT` says after `ρ`, on
+which they agree once `ExpandA` finished (`pub_leq`, `rest_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign

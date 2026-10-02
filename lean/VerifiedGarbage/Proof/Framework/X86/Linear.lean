@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Atoms
 /-!
 # x86 (32-bit): linear layers of bitsliced code, by evaluation
 
-Untrusted: everything here is checked by Lean.
-
 As on x86-64 (`Framework/X86_64/Linear.lean`), but with the words of the
 state in slots: straight-line code that only moves and XORs bits of 32-bit
 words, and masks them with constants, is checked by evaluating it

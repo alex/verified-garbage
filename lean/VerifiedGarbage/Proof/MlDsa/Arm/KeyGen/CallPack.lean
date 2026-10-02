@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.Call
 /-!
 # ML-DSA on 32-bit ARM: calling `Power2Round` and the encodings of key generation
 
-Untrusted: everything here is checked by Lean. As `ip_ok` and `ip_tr`
-(`Call.lean`), for `vg_mldsa_power2round`, `vg_mldsa_simple_bit_pack` and
-`vg_mldsa_bit_pack`, whose fifth argument, the length, is on the stack.
+As `ip_ok` and `ip_tr` (`Call.lean`), for `vg_mldsa_power2round`,
+`vg_mldsa_simple_bit_pack` and `vg_mldsa_bit_pack`, whose fifth argument, the
+length, is on the stack.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Rel
 /-!
 # ML-DSA verification on x86-64: constant time, the pieces without calls
 
-Untrusted: everything here is checked by Lean. Two runs from inputs with
-the same public data (`RV`) keep the same pointers (`T.lrel`). A block
-that accesses no memory, followed by code that the taint analysis checks
-from the registers it sets (`blockLoop_tr`), leaks the same in both: the
-copy (`copy_tr`), the mask of a sampler's output (`mask_tr`) and the
+Two runs from inputs with the same public data (`RV`) keep the same pointers
+(`T.lrel`). A block that accesses no memory, followed by code that the taint
+analysis checks from the registers it sets (`blockLoop_tr`), leaks the same in
+both: the copy (`copy_tr`), the mask of a sampler's output (`mask_tr`) and the
 comparison (`cmpAnd_tr`). The rest is checked by the taint analysis.
 -/
 

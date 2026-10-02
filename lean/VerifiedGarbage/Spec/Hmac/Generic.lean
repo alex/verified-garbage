@@ -31,19 +31,17 @@ SHA-256's functions also have contracts of their own
 are proven against: they have less working space than `sha256I`'s. They are
 removed once `sha256I` is implemented on every target.
 
-`init` has two contracts. `initContract` (`Instance.initApi`) takes a key
-of at most a block, and leaves FIPS 198-1 §4's step 2 (hashing a longer
-key) to its caller. `initAnyKeyContract` (`Instance.initAnyKeyApi`) takes a
-key of any length, and does all of steps 1–3 (`blockKey`): with the same
-signature but for more working space (`Instance.initAnyKeyScratch`), in
-which an implementation hashes a long key with the verified streaming
-functions of `H`. It is the contract of `vg_hmac_<hash>_init` on every
-target and for every hash function, SHA-256 on the 32-bit targets included
-(where `vg_hmac_sha256_init` is now proven against
-`VG.Spec.Hmac.initSha256Contract`). A target registers an implementation of
-`vg_hmac_<hash>_init` against one of them, never two: `initContract` and
-`initSha256Contract` are removed once every target's `init` is implemented
-against `initAnyKeyContract`.
+`init` has two contracts. `initContract` (`Instance.initApi`), which every
+target implements, takes a key of at most a block, and leaves FIPS 198-1
+§4's step 2 (hashing a longer key) to its caller. `initAnyKeyContract`
+(`Instance.initAnyKeyApi`), which no target implements yet, takes a key of
+any length, and does all of steps 1–3 (`blockKey`): with the same signature
+but for more working space (`Instance.initAnyKeyScratch`), in which an
+implementation hashes a long key with the verified streaming functions of
+`H`. A target registers an implementation of `vg_hmac_<hash>_init` against
+one of them (or `initSha256Contract`), never two; `initContract` and
+`initSha256Contract` are removed once every target implements
+`initAnyKeyContract`.
 
 `A` is the target's calling convention. The signatures fix where the
 arguments are, the memory each function may access, disjointness, and that

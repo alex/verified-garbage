@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.PointSelect
 import VerifiedGarbage.Proof.Ed25519.Arm.Points
 
-/-! Untrusted: branch-free selection using the verified limb swaps. -/
+/-! Branch-free selection using the verified limb swaps. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

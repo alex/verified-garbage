@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyCTMul
 import VerifiedGarbage.Proof.Ed25519.Arm.PointEqualCT
 
-/-! Untrusted: verification branches only on points determined by the public inputs. -/
+/-! Verification branches only on points determined by the public inputs. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

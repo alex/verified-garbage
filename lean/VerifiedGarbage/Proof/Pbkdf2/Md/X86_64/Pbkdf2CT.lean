@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.PbkLoop
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: `pbkdf2`, constant time
 
-Untrusted: everything here is checked by Lean. The pieces between the calls
-are checked by the taint analysis (`Checks`, `by taint_decide` for each hash
-function), each from registers that the correctness proof fixes to public
-values (`KE`, `Mid`, `KR`): they are the same in two runs that agree on the
-public arguments. The calls are constant time by their callees' proofs
-(`RelCT.call`, with arguments the correctness proof fixes to the same
-values), and the branches and the loop go the same way in both runs, by the
-facts the correctness proof gives about their flags.
+The pieces between the calls are checked by the taint analysis (`Checks`, `by
+taint_decide` for each hash function), each from registers that the
+correctness proof fixes to public values (`KE`, `Mid`, `KR`): they are the
+same in two runs that agree on the public arguments. The calls are constant
+time by their callees' proofs (`RelCT.call`, with arguments the correctness
+proof fixes to the same values), and the branches and the loop go the same way
+in both runs, by the facts the correctness proof gives about their flags.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64.Pbk

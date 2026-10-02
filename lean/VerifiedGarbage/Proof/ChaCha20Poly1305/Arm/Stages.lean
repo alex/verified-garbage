@@ -16,8 +16,6 @@ section
 
 /-!
 # ChaCha20-Poly1305 on ARMv7: the entry state, regions and invariant
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -50,9 +48,7 @@ def pubArm (s₁ s₂ : Arm.State) : Prop :=
   s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
+/-- `vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
 def sealArm : Contract Arm.isa where
   pre := preArm
   post s s' :=
@@ -64,9 +60,7 @@ def sealArm : Contract Arm.isa where
   pub := pubArm
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
+/-- `vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
 def openArm : Contract Arm.isa where
   pre := preArm
   post s s' :=
@@ -344,12 +338,12 @@ end
 /-!
 # ChaCha20-Poly1305 on ARMv7: the calls
 
-Untrusted: everything here is checked by Lean. Each call of a verified
-function, from its proof of `Verified` (with `WP.call`): what it needs of the
-state it is called from, and what holds when it returns. A call (`bl`)
-stores nothing in memory, so the callee changes memory only within the
-regions it may write; the frame around `vg_poly1305_finalize` also stores
-its stack arguments below the stack pointer.
+Each call of a verified function, from its proof of `Verified` (with
+`WP.call`): what it needs of the state it is called from, and what holds when
+it returns. A call (`bl`) stores nothing in memory, so the callee changes
+memory only within the regions it may write; the frame around
+`vg_poly1305_finalize` also stores its stack arguments below the stack
+pointer.
 -/
 
 open VG.PowLit
@@ -683,9 +677,8 @@ section
 /-!
 # ChaCha20-Poly1305 on ARMv7: the prologue
 
-Untrusted: everything here is checked by Lean. Saving the registers, moving
-the arguments, copying words of the context, the ChaCha20 state for counter
-0, the one-time key and the Poly1305 state for it.
+Saving the registers, moving the arguments, copying words of the context, the
+ChaCha20 state for counter 0, the one-time key and the Poly1305 state for it.
 -/
 
 open VG.PowLit
@@ -1221,9 +1214,8 @@ end
 /-!
 # ChaCha20-Poly1305 on ARMv7: absorbing padded data
 
-Untrusted: everything here is checked by Lean. `macPad p n` absorbs the `n`
-bytes at `p` into the Poly1305 state (at `ctx`), and zeros to a multiple of
-16: `msg ++ x ++ pad16 x`.
+`macPad p n` absorbs the `n` bytes at `p` into the Poly1305 state (at `ctx`),
+and zeros to a multiple of 16: `msg ++ x ++ pad16 x`.
 -/
 
 open VG.PowLit
@@ -1721,9 +1713,8 @@ end VG.Proof.ChaCha20Poly1305.Arm
 /-!
 # ChaCha20-Poly1305 on ARMv7: the other parts
 
-Untrusted: everything here is checked by Lean. The encryption, the lengths
-block, the arguments of `vg_poly1305_finalize` and the tag, copying and
-comparing tags, and restoring the registers.
+The encryption, the lengths block, the arguments of `vg_poly1305_finalize` and
+the tag, copying and comparing tags, and restoring the registers.
 -/
 
 open VG.PowLit

@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.CounterKeep
 /-!
 # The comb's constant-time selection, for two digits at once
 
-Untrusted. With `oddReg k` (`evenReg k`) all ones exactly for `k` the odd
-(even) digit's magnitude, and `x22` (`x8`) the bit of a zero magnitude,
-`selectWord` builds every candidate's word once, ANDs it with both digits'
-masks and ORs it into `x4` and `x5`, so only each digit's candidate
-survives, and stores them.
+With `oddReg k` (`evenReg k`) all ones exactly for `k` the odd (even) digit's
+magnitude, and `x22` (`x8`) the bit of a zero magnitude, `selectWord` builds
+every candidate's word once, ANDs it with both digits' masks and ORs it into
+`x4` and `x5`, so only each digit's candidate survives, and stores them.
 -/
 
 namespace VG.Proof.Ed25519.AArch64
@@ -188,6 +187,7 @@ theorem selectWord_ok {s : State} {base : Addr} (hs : Scr s base) {ao ae : Nat} 
     WP isa (.block (selectWord one vs o e w)) s fun t =>
       t.mem = (s.mem.writeW (off base (o + 8 * w)) (selWord vs ao 8 w)).writeW (off base (e + 8 * w))
         (selWord vs ae 8 w) ∧ RegsKept s t := by
+  have _hcap : workSize true = 8192 := rfl
   rw [selectWord, List.append_assoc, WP.block_append_iff]
   refine WP.mono (selectStart_ok s hm one vs h0 w hw) fun a ⟨a4, a5, ka⟩ => ?_
   rw [WP.block_append_iff]

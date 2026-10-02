@@ -1,8 +1,10 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Mem
 import VerifiedGarbage.Proof.Ed25519.AArch64.Carry
 
-/-! Untrusted: memory and register frames for field operations. -/
+/-! Memory and register frames for field operations. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64 VG.Proof.X25519
 
 abbrev F (m : Mem) (base : Addr) (o : Nat) : Spec.X25519.Fe := toFe (fe m base o)
@@ -18,15 +20,17 @@ structure Op (base : Addr) (o : Nat) (s t : State) : Prop where
   sp : t.sp = s.sp
   mem : Outside base o 32 s.mem t.mem
 
-theorem Op.scr {base : Addr} {o : Nat} {s t : State} (h : Op base o s t) (hs : Scr s base) :
-    Scr t base := ⟨(h.gpr _ (by decide)).trans hs.x0, h.wr ▸ hs.wr, hs.nowrap⟩
+theorem Op.scr {base : Addr} {o : Nat} {s t : State} (h : Op base o s t) (hs : Scr s base large) :
+    Scr t base large := ⟨(h.gpr _ (by decide)).trans hs.x0, h.wr ▸ hs.wr, hs.nowrap⟩
 
 theorem Op.fe {base : Addr} {o : Nat} {s t : State} (h : Op base o s t) {d : Nat}
-    (hd : d + 32 ≤ o ∨ o + 32 ≤ d) (hd' : FieldRange d) : fe t.mem base d = fe s.mem base d :=
-  h.mem.fe hd (by have := hd'.2; omega)
+    (hd : d + 32 ≤ o ∨ o + 32 ≤ d) (hd' : FieldRange d large) : fe t.mem base d = fe s.mem base d :=
+  h.mem.fe hd (by have := hd'.2; have := workSize_le large; omega)
 
-theorem Op.of_store {base : Addr} {o : Nat} {s t : State} (ho : FieldRange o) (h : Keeps clob s t)
+theorem Op.of_store {base : Addr} {o : Nat} {s t : State} (ho : FieldRange o large) (h : Keeps clob s t)
     (a b c d : Word) : Op base o s { t with mem := st4 t.mem base o a b c d } := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   refine ⟨h.gpr, h.rd, h.wr, h.sp, ?_⟩
   rw [h.mem]
   exact st4_outside _ _ (by have := ho.2; omega) _ _ _ _

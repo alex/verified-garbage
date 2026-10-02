@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.X448.AArch64.Freeze
 /-!
 # X448 on AArch64: the result and restored registers
 
-Untrusted: everything here is checked by Lean. The final multiplication,
-canonical reduction and encoding produce the affine coordinate. The two
-callee-saved registers are then restored from the disjoint working space.
+The final multiplication, canonical reduction and encoding produce the affine
+coordinate. The two callee-saved registers are then restored from the disjoint
+working space.
 -/
 
 namespace VG.Proof.X448.AArch64
@@ -70,7 +70,7 @@ theorem finish_ok {s : State} {base p : Addr} (hs : Scr s base) (hb : BoundedEnv
       t.gpr .x19 = g .x19 ∧ t.gpr .x20 = g .x20 ∧ Keeps finishRegs s t ∧
       Frame [⟨base, 8192⟩, ⟨p, 56⟩] s.mem t.mem ∧
       Spec.X448.bytesAt t.mem p 56 = Spec.X448.encodeUCoordinate (E s.mem base 1 * E s.mem base 21) := by
-  refine WP.seq (WP.mono (mul_ok hs (o := X2) (a := X2) (b := T7) (by decide) (by decide)
+  refine WP.seq (WP.mono (Wide.tailMul_ok hs (o := X2) (a := X2) (b := T7) (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) (hb 1) (hb 21)) fun u ⟨uk, ub, uv⟩ => ?_)
   have us := hs.of_keeps uk.1 (by decide)
   rw [List.append_assoc, WP.block_append_iff]

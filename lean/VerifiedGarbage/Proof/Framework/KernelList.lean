@@ -3,8 +3,6 @@ import Mathlib.Util.CompileInductive
 /-!
 # List functions for the kernel
 
-Untrusted: everything here is checked by Lean.
-
 The kernel evaluates the taint analyses (`VG.Taint`), and is slow at the
 library's list functions: they are structurally recursive, which compiles to
 `brecOn`, and `==` and `≤` on `Nat` go through `Decidable` instances. The

@@ -8,10 +8,9 @@ import VerifiedGarbage.Proof.Sha1.X86_64.Compress
 /-!
 # SHA-1 with the SHA extensions: the values in the SSE registers
 
-Untrusted: everything here is checked by Lean. How the working variables,
-the message schedule and the constants are laid out in SSE registers, and
-that `sha1rnds4`, `sha1nexte` and `sha1msg1`/`sha1msg2` compute rounds and
-schedule words of `Spec/Sha1.lean`.
+How the working variables, the message schedule and the constants are laid out
+in SSE registers, and that `sha1rnds4`, `sha1nexte` and `sha1msg1`/`sha1msg2`
+compute rounds and schedule words of `Spec/Sha1.lean`.
 -/
 
 namespace VG.Proof.Sha1.X86_64.ShaNi
@@ -163,9 +162,9 @@ end VG.Proof.Sha1.X86_64.ShaNi
 /-!
 # SHA-1 compression function on x86-64 with the SHA extensions
 
-Untrusted: everything here is checked by Lean. `compress_verified` proves
-`Impl.Sha1.X86_64.ShaNi.compress` against the same contract as the scalar
-`vg_sha1_compress`, reusing its precondition (`Pre`) and block lemmas.
+`compress_verified` proves `Impl.Sha1.X86_64.ShaNi.compress` against the same
+contract as the scalar `vg_sha1_compress`, reusing its precondition (`Pre`)
+and block lemmas.
 -/
 
 namespace VG.Proof.Sha1.X86_64.ShaNi

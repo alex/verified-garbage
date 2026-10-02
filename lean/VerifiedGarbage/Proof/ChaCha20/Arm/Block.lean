@@ -13,8 +13,6 @@ section
 
 /-!
 # ChaCha20 block function on 32-bit ARM: the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20.Arm
@@ -245,18 +243,15 @@ end
 
 /-!
 # ChaCha20 block function on 32-bit ARM: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20
 
 open Spec.ChaCha20 VG.Arm
 
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`:
-writes `block` of the state at `state` to the first 16 words of `buf`.
+/-- 32-bit ARM contract for `vg_chacha20_block(state: *const [u32; 16], buf:
+*mut [u32; 64])`: writes `block` of the state at `state` to the first 16 words
+of `buf`.
 
 The same function and Rust signature on every target: the code may
 read `state` (64 bytes) and read and write `buf` (256 bytes; its first 64
@@ -903,16 +898,19 @@ theorem block_correct (s : State) (hs : Proof.ChaCha20.blockArm.pre s) :
   obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
   exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
 
-theorem block_verified :
-    Verified Arm.target Impl.ChaCha20.Arm.block (Spec.ChaCha20.blockContract Arm.abi) := by
-  refine Verified.of_correct block_correct ?_ (by
-    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, Arm.abi, Arm.argRegs,
-      Arm.reduceClassify, Arm.Loc.val, Arm.State.addr, Proof.ChaCha20.blockArm, State.addr]
-      [satState] using satState)
+theorem block_ct :
+    ConstantTime isa Proof.ChaCha20.blockArm.pre Proof.ChaCha20.blockArm.pub Impl.ChaCha20.Arm.block := by
   refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0, .r1]) ?_ (by taint_decide)
   intro s₁ s₂ _ _ ⟨h1, h2⟩
   refine Taint.agree_ofRegs fun r hr => ?_
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl <;> assumption
+
+theorem block_verified :
+    Verified Arm.target Impl.ChaCha20.Arm.block (Spec.ChaCha20.blockContract Arm.abi) :=
+  Verified.of_correct block_correct block_ct (by
+    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, Arm.abi, Arm.argRegs,
+      Arm.reduceClassify, Arm.Loc.val, Arm.State.addr, Proof.ChaCha20.blockArm, State.addr]
+      [satState] using satState)
 
 end VG.Proof.ChaCha20.Arm

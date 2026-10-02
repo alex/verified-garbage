@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Finish
 /-!
 # X25519 on x86-64 with AVX512_IFMA: before the loop
 
-Untrusted: everything here is checked by Lean. `vsetup` puts the constants
-into the working space and the ladder's first state `(1, 0, x₁, 1)` into the
-lanes of `ymm0–ymm4`, with `x₁` split into limbs from its four words at `X1`.
+`vsetup` puts the constants into the working space and the ladder's first
+state `(1, 0, x₁, 1)` into the lanes of `ymm0–ymm4`, with `x₁` split into
+limbs from its four words at `X1`.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.MulKeep
 
-/-! Untrusted: the scalar input remains unchanged throughout table construction
+/-! The scalar input remains unchanged throughout table construction
 and descending accumulation. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm

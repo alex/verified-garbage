@@ -5,12 +5,11 @@ import VerifiedGarbage.Impl.MlDsa.X86_64.Arith.Ntt
 /-!
 # ML-DSA on x86-64: coefficients in the doublewords of SSE registers
 
-Untrusted: everything here is checked by Lean. A register holds four
-coefficients (`DLanes`), and the butterflies `vbfly` and `vibfly` compute
-four butterflies of the specification at once (`vbfly_ok`, `vibfly_ok`),
-from `q` and `-q⁻¹` in `xmm15` and `xmm14` (`VConsts`), with the zetas in
-Montgomery form in `xmm13` (`ZLanes`) and its odd doublewords in the even
-ones of `xmm12` (`ZOdd`).
+A register holds four coefficients (`DLanes`), and the butterflies `vbfly` and
+`vibfly` compute four butterflies of the specification at once (`vbfly_ok`,
+`vibfly_ok`), from `q` and `-q⁻¹` in `xmm15` and `xmm14` (`VConsts`), with the
+zetas in Montgomery form in `xmm13` (`ZLanes`) and its odd doublewords in the
+even ones of `xmm12` (`ZOdd`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

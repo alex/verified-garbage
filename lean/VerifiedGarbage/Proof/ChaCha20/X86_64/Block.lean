@@ -15,8 +15,6 @@ section
 
 /-!
 # ChaCha20 block function on x86-64: the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64
@@ -288,18 +286,15 @@ end
 
 /-!
 # ChaCha20 block function on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20
 
 open Spec.ChaCha20 VG.X86_64
 
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`:
-writes `block` of the state at `state` to the first 16 words of `buf`.
+/-- X86-64 contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut
+[u32; 64])`: writes `block` of the state at `state` to the first 16 words of
+`buf`.
 
 The code may read `state` (64 bytes) and read and write `buf` (256 bytes; its
 first 64 bytes hold the result on exit, and the rest is scratch space whose
@@ -859,16 +854,18 @@ theorem block_correct (s : State) (hs : Proof.ChaCha20.blockX86_64.pre s) :
   obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
   exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
 
-theorem block_verified :
-    Verified X86_64.target Impl.ChaCha20.X86_64.block (Spec.ChaCha20.blockContract X86_64.abi) := by
-  refine Verified.of_correct block_correct ?_ (by
-    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, X86_64.abi, X86_64.argRegs,
-      Proof.ChaCha20.blockX86_64]
-      [satState] using satState)
+theorem block_ct : ConstantTime isa Proof.ChaCha20.blockX86_64.pre Proof.ChaCha20.blockX86_64.pub block := by
   refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
   intro s₁ s₂ _ _ ⟨h1, h2⟩
   refine Taint.agree_ofRegs fun r hr => ?_
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl <;> assumption
+
+theorem block_verified :
+    Verified X86_64.target Impl.ChaCha20.X86_64.block (Spec.ChaCha20.blockContract X86_64.abi) :=
+  Verified.of_correct block_correct block_ct (by
+    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, X86_64.abi, X86_64.argRegs,
+      Proof.ChaCha20.blockX86_64]
+      [satState] using satState)
 
 end VG.Proof.ChaCha20.X86_64

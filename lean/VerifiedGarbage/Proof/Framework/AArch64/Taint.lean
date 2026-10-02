@@ -5,8 +5,6 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # Taint tracking for AArch64
 
-Untrusted: everything here is checked by Lean.
-
 The abstract state is the set of registers known to be public; the stack
 pointer is always public. Memory is always secret: a loaded value is secret,
 and an address must be computed from public registers or the stack pointer.
@@ -54,7 +52,8 @@ def step (τ : T) : Instr → Option T
   | .vop _ => some τ
   | .ldrq _ n _ | .strq _ n _ => if pub τ n then some τ else none
   | .umov _ d _ _ => some (set τ d false)
-  -- Frames are not analysed yet.
+  -- Frames are analysed by the `push` and `pop` hooks (`Taint.push`,
+  -- `Taint.pop`), not here.
   | .push .. | .pop .. | .alloc _ | .free _ => none
 
 def condPub (τ : T) : Cond → Bool

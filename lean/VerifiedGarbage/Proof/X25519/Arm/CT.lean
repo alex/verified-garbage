@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Framework.Arm.Taint
 /-!
 # X25519 on 32-bit ARM: constant time
 
-Untrusted: everything here is checked by Lean. Only the pointers in `r0`–`r3`
-are public; the taint analysis (`taint_decide`) finds that every branch and
-address depends on them and on the loop counters alone.
+Only the pointers in `r0`–`r3` are public; the taint analysis (`taint_decide`)
+finds that every branch and address depends on them and on the loop counters
+alone.
 -/
 
 namespace VG.Proof.X25519.Arm

@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.KeyGen.Samp
 /-!
 # ML-DSA key generation on x86-64: four entries of `Â` at a time
 
-Untrusted: everything here is checked by Lean. `expA4 g` sets the indices of
-entries `4g, …, 4g + 3` of `Â` in the four seeds at `oSA4` (`slot_piece`),
-samples the four polynomials with one call of `vg_mldsa_rej_ntt_poly4`, and
-masks them with its result (`call_piece`): it takes `KSamp (4g)` to
-`KSamp (4g + 4)` (`expA4_piece`), and `expAll`, the groups and then the
-last `kℓ mod 4` entries one at a time, takes `K1` to `KSamp (kℓ)`
-(`sampAll_piece`).
+`expA4 g` sets the indices of entries `4g, …, 4g + 3` of `Â` in the four seeds
+at `oSA4` (`slot_piece`), samples the four polynomials with one call of
+`vg_mldsa_rej_ntt_poly4`, and masks them with its result (`call_piece`): it
+takes `KSamp (4g)` to `KSamp (4g + 4)` (`expA4_piece`), and `expAll`, the
+groups and then the last `kℓ mod 4` entries one at a time, takes `K1` to
+`KSamp (kℓ)` (`sampAll_piece`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen

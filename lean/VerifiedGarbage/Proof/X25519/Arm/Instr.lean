@@ -6,10 +6,10 @@ import VerifiedGarbage.Proof.X25519.Arm.Limbs
 /-!
 # X25519 on 32-bit ARM: one instruction at a time
 
-Untrusted: everything here is checked by Lean. WP rules for the instructions
-the code uses, which expose only what changes (`Upd`: one register, `Mupd`:
-the memory), what a piece of code leaves unchanged (`Rest`), words of memory
-at offsets from a base (`wd`), and 32-bit arithmetic without overflow.
+WP rules for the instructions the code uses, which expose only what changes
+(`Upd`: one register, `Mupd`: the memory), what a piece of code leaves
+unchanged (`Rest`), words of memory at offsets from a base (`wd`), and 32-bit
+arithmetic without overflow.
 -/
 
 namespace VG.Proof.X25519.Arm

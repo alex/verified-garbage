@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Basic
 /-!
 # ML-DSA on x86-64: MXCSR through the end of a polynomial
 
-Untrusted: everything here is checked by Lean. `withMxcsr r 1016 c`
-(ML-KEM's, see `Impl/MlKem/X86_64/Vec.lean`) through the last 8 bytes `mxH`
-of a writable polynomial at `r` (`withMxcsrH_ok`), as ML-KEM's
-`withMxcsr_ok` through `scratch + 768`.
+`withMxcsr r 1016 c` (ML-KEM's, see `Impl/MlKem/X86_64/Vec.lean`) through the
+last 8 bytes `mxH` of a writable polynomial at `r` (`withMxcsrH_ok`), as
+ML-KEM's `withMxcsr_ok` through `scratch + 768`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

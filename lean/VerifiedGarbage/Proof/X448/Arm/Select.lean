@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.Arm.Swap
 /-!
 # X448 on ARMv7: selecting the canonical representative
 
-Untrusted: everything here is checked by Lean. An XOR mask selects each
-limb from the original value or the carried temporary value.
+An XOR mask selects each limb from the original value or the carried temporary
+value.
 -/
 
 namespace VG.Proof.X448.Arm
