@@ -1,17 +1,23 @@
 import VerifiedGarbage.Proof.MlKem.Arm.CallsCT
+import VerifiedGarbage.Proof.MlKem.Arm.KemLay
 import VerifiedGarbage.Proof.MlKem1024.Arm.CompressEncode
 import VerifiedGarbage.Proof.MlKem1024.Arm.Decompress
 import VerifiedGarbage.Impl.MlKem1024.Arm.Top
 
 /-!
-# ML-KEM-1024 on 32-bit ARM: calling the compression to 5 and 11 bits
+# ML-KEM-1024 on 32-bit ARM: the parameter set
 
-As `Proof/MlKem/Arm/Calls.lean` and `CallsCT.lean` for the other primitives: a
-contract written with the precondition of the proof of
-`vg_mlkem1024_compress_encode` (and of `vg_mlkem1024_decode_decompress`) and
-what it shows, the call of it with its arguments at offsets in the buffers of
-a layout (`compressL4`, `decompressL4`), and that it is constant time from any
-state whose argument registers are public (`compress4T`, `decompress4T`).
+Key generation, encapsulation and decapsulation are the functions of
+`Impl/MlKem/Arm/Top.lean` for `kl1024`, proven once for any parameter set
+(`Proof/MlKem/Arm/`). What they need of `kl1024` it proves here: its
+well-formedness (`kl1024_wf`, by `decide`), and what `KemLay.CallsOk` asks
+of its code (`kl1024_calls`). As `Proof/MlKem/Arm/Calls.lean` and
+`CallsCT.lean` for the other primitives: a contract written with the
+precondition of the proof of `vg_mlkem1024_compress_encode` (and of
+`vg_mlkem1024_decode_decompress`) and what it shows, the call of it with its
+arguments at offsets in the buffers of a layout (`compressL4`,
+`decompressL4`), and that it is constant time from any state whose argument
+registers are public (`compress4T`, `decompress4T`).
 -/
 
 namespace VG.Proof.MlKem1024.Arm
@@ -48,7 +54,7 @@ theorem compressL4 {L : Lay} {s : State} (hL : L.Ok) {i o j o' d : Nat}
     {Q : State → Prop}
     (hQ : ∀ s', Kept (L.RL [(j, o', 32 * d)]) s s' → bytesAt s'.mem (L.A j o') (32 * d) = compressEncode d f →
       Q s') :
-    WP isa callCompress4 s Q := by
+    WP isa kl1024.callCU s Q := by
   have ⟨d1, d2⟩ := width_lt4 hd
   have hd0 : 0 < 32 * d := by rcases VG.Proof.MlKem.mem_compressWidths1024 hd with rfl | rfl <;> decide
   obtain ⟨ea, fa⟩ := Lay.ptr_ok hL (sepB_bounds hs) (by decide)
@@ -81,7 +87,7 @@ theorem decompressL4 {L : Lay} {s : State} (hL : L.Ok) {i o j o' d : Nat}
     (wi : L.buf i ∈ s.rd ++ s.wr) (wj : L.buf j ∈ s.wr) {Q : State → Prop}
     (hQ : ∀ s', Kept (L.RL [(j, o', 1024)]) s s' →
       PolyIs s'.mem (L.A j o') (decodeDecompress d (bytesAt s.mem (L.A i o) (32 * d))) → Q s') :
-    WP isa callDecompress4 s Q := by
+    WP isa kl1024.callDU s Q := by
   have ⟨d1, d2⟩ := width_lt4 hd
   have hd0 : 0 < 32 * d := by rcases VG.Proof.MlKem.mem_compressWidths1024 hd with rfl | rfl <;> decide
   obtain ⟨ea, fa⟩ := Lay.ptr_ok hL (sepB_bounds hs) hd0
@@ -114,10 +120,15 @@ theorem decompress4T :
     ConstantTime isa (fun _ => True) (regsEq [.r0, .r1, .r2, .r3]) decodeDecompress1024 :=
   Add.ctRegs (k := kT [.r0, .r1, .r2, .r3]) [.r0, .r1, .r2, .r3] (fun _ _ h => h) (by taint_decide)
 
-theorem at352_eq (p : BitVec 32) {i : Nat} (_h : 352 * i < 2 ^ 32) :
-    p + BitVec.ofNat 32 i <<< 8 + BitVec.ofNat 32 i <<< 6 + BitVec.ofNat 32 i <<< 5 = p + BitVec.ofNat 32 (352 * i) := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_add, BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
-  omega
+/-! ## The parameter set -/
+
+theorem kl1024_wf : kl1024.WF := .of (by decide)
+
+theorem kl1024_calls : kl1024.CallsOk :=
+  ⟨fun hL _ _ _ _ _ g0 g1 g2 g3 hd => compressL4 hL g0 g1 g2 g3 (by rcases hd with rfl | rfl <;> decide),
+    fun hL _ _ _ _ _ g0 g1 g2 g3 hd => decompressL4 hL g0 g1 g2 g3 (by rcases hd with rfl | rfl <;> decide),
+    compress4T, decompress4T, fun t => by cases t <;> exact ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
+    ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
+    ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
 
 end VG.Proof.MlKem1024.Arm

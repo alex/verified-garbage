@@ -1,8 +1,8 @@
 import VerifiedGarbage.Proof.MlKem.Arm.Prims
-import VerifiedGarbage.Impl.MlKem.Arm.Top
+import VerifiedGarbage.Proof.MlKem.Arm.KemLay
 
 /-!
-# ML-KEM-768 on 32-bit ARM: the buffers of the top-level functions
+# ML-KEM on 32-bit ARM: the buffers of the top-level functions
 
 The top-level functions work on a few buffers (`Lay`): `scratch` (buffer 0),
 the 8 bytes below the stack pointer (buffer 1), and their arguments; the
