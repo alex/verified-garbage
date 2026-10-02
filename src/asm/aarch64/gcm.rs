@@ -210,8 +210,8 @@ pub(crate) unsafe extern "C" fn vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], d
     )
 }
 
-/// The CPU features `vg_ghash_pmull` requires (`Artifact.features`).
-pub(crate) const VG_GHASH_PMULL_FEATURES: &[&str] = &["aes"];
+/// The CPU features `vg_ghash_aes` requires (`Artifact.features`).
+pub(crate) const VG_GHASH_AES_FEATURES: &[&str] = &["aes"];
 
 /// GHASH (NIST SP 800-38D §6.4) continued over whole blocks: with the hash subkey `H` the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks big-endian, `•` the multiplication of §6.3).
 ///
@@ -230,7 +230,7 @@ pub(crate) const VG_GHASH_PMULL_FEATURES: &[&str] = &["aes"];
 /// * None of `h`, `y`, `data` and `scratch` may wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `aes` target feature.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_ghash_pmull(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32]) {
+pub(crate) unsafe extern "C" fn vg_ghash_aes(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32]) {
     core::arch::naked_asm!(
         ".arch_extension aes",
         "ldr q6, [x0, #0]",

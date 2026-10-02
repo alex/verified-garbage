@@ -9,7 +9,7 @@ determines our registers from the public arguments alone, so the taint
 analysis proves the blocks between the calls constant time from them
 (`Checks`, evaluated for each hash function); the call of the streaming
 `finalize` is constant time by its own proof (`fin_rel`,
-`Proof/Hmac/Generic/Arm/Hash.lean`), and the call of the compression function
+`Proof/Pbkdf2/Stream/Arm/Hash.lean`), and the call of the compression function
 by its own (`compressBlock_rel`).
 -/
 
@@ -17,9 +17,9 @@ namespace VG.Proof.Pbkdf2.Md.Arm.Fin
 
 open VG VG.Arm
 open VG.Impl.Pbkdf2.Md.Arm (Hash)
-open VG.Impl.Hmac.Generic.Arm (scrAt)
+open VG.Impl.Pbkdf2.Stream.Arm (scrAt)
 open VG.Proof.Pbkdf2.Md.Arm
-open VG.Proof.Hmac.Generic.Arm (finG count FinArgs fin_rel)
+open VG.Proof.Pbkdf2.Stream.Arm (finG count FinArgs fin_rel)
 
 /-- The registers the blocks after the outer hash value is set up use. -/
 abbrev regsO : List Reg := [.r0, .r3, .r5, .r6, .r7, .r11]
@@ -120,7 +120,7 @@ theorem fin_ct {H : Hash} (hH : HashOK H) (hc : Checks H) {sc : Nat} {s₀ s₀'
     (fun _ ⟨k, r0, c⟩ => WP.mono (fin1Args_ok hH hp k r0) fun _ ⟨k, a, c', _⟩ => ⟨k, a, c'.trans c⟩)
     (fun _ ⟨k, r0, c⟩ => WP.mono (fin1Args_ok hH hp' k r0) fun _ ⟨k, a, c', _⟩ => ⟨k, a, c'.trans c⟩)
   have call : RelCT isa (fun s s' => F₁ s₀ s ∧ F₁ s₀' s')
-      (.frame (.push Hmac.Generic.Arm.fin2) (.call H.st.finN H.st.finC) (.pop .r1 8))
+      (.frame (.push Pbkdf2.Stream.Arm.fin2) (.call H.st.finN H.st.finC) (.pop .r1 8))
       fun s s' => KR H sc s₀ s ∧ KR H sc s₀' s' :=
     rel_wp (fin_rel hH.stream (sp := s₀.sp) (st := inn s₀) (o := blk H s₀) (sc := scr s₀) fun s s' ⟨h, h'⟩ =>
       ⟨h.2.1, by rw [← e.1, ← e.2.1, ← e.2.2.1]; exact h'.2.1, by rw [h.2.2, h'.2.2, hcnt], h.1.sp,
@@ -143,7 +143,7 @@ theorem fin_ct {H : Hash} (hH : HashOK H) (hc : Checks H) {sc : Nat} {s₀ s₀'
   obtain ⟨_, ho⟩ := hc.out
   have out : RelCT isa (fun s s' => KR' H sc s₀ s ∧ KR' H sc s₀' s') (.block H.finOut) fun _ _ => True :=
     RelCT.taint (A := taint) (Taint.ofRegs regsO) (fun _ _ h => Taint.agree_ofRegs (kr'_agree hq h.1 h.2)) ho
-  unfold Hash.hmacFin Impl.Hmac.Generic.Arm.Hash.callFin
+  unfold Hash.hmacFin Impl.Pbkdf2.Stream.Arm.Hash.callFin
   exact pro.seq ((f1.seq call).seq (mid.seq (cmp.seq out)))
 
 /-! ## Verified -/

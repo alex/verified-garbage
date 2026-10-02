@@ -13,8 +13,8 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 
 open VG.Arm
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
-open VG.Impl.Hmac.Generic.Arm (Hash scrAt copy)
-open VG.Proof.Hmac.Generic.Arm (HashOK Copied copy_ok cclob count)
+open VG.Impl.Pbkdf2.Stream.Arm (Hash scrAt copy)
+open VG.Proof.Pbkdf2.Stream.Arm (HashOK Copied copy_ok cclob count)
 open VG.Proof.MdStream.Arm (Upd wp_mov op2_imm op2_reg)
 open VG.Proof.Hmac.Common (bytesAt_length writeBytes_at bytesAt_getD' xorPad_length)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
@@ -224,7 +224,7 @@ theorem su4_ok {s : State} (hk : KR F s₀ s) :
   refine scr_ok hk (by omega) fun s₁ u₁ => ?_
   have k₁ := hk.upd12 (by decide) u₁
   refine wp_mov (op2_reg _ _) fun s₂ u₂ => wp_mov (op2_reg _ _) fun s₃ u₃ => wp_mov (op2_reg _ _) fun s₄ u₄ =>
-    Hmac.Generic.Arm.wp_movw fun s₅ u₅ => wp_mov (op2_imm (by decide)) fun s₆ u₆ => WP.block_nil ?_
+    Pbkdf2.Stream.Arm.wp_movw fun s₅ u₅ => wp_mov (op2_imm (by decide)) fun s₆ u₆ => WP.block_nil ?_
   have k₆ := ((((k₁.upd (by decide) u₂).upd (by decide) u₃).upd (by decide) u₄).upd (by decide) u₅).upd
     (by decide) u₆
   refine ⟨k₆, ?_, ?_, ?_, ?_, ?_, by rw [u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem]⟩
@@ -237,7 +237,7 @@ theorem su4_ok {s : State} (hk : KR F s₀ s) :
   · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.gpr, u₃.other _ (by decide),
       u₂.other _ (by decide), u₁.other _ (by decide) (by decide), hk.r11]
   · simp only [count]
-    rw [u₆.gpr, u₆.other .r2 (by decide), u₅.gpr, Hmac.Generic.Arm.movw_ofNat (by omega), zero_append,
+    rw [u₆.gpr, u₆.other .r2 (by decide), u₅.gpr, Pbkdf2.Stream.Arm.movw_ofNat (by omega), zero_append,
       BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
 
 omit hF in

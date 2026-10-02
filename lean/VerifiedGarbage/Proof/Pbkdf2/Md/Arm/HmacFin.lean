@@ -5,22 +5,22 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Hash
 
 `finalize` (`Impl/Pbkdf2/Md/Arm.lean`) finalizes the inner state with the hash
 function's streaming `finalize`, in a frame that pushes its stack arguments
-(`fin_frame`, `Proof/Hmac/Generic/Arm/Hash.lean`), into the block; copies the
+(`fin_frame`, `Proof/Pbkdf2/Stream/Arm/Hash.lean`), into the block; copies the
 outer state's hash value to the hash value being compressed and writes the
 padding after the inner digest; compresses the block once
 (`compressBlock_ok`); and writes the digest to `out`. `Md.hmac_outer` says
 that this is HMAC. The contract is `finG`
-(`Proof/Hmac/Generic/Arm/Hash.lean`), the shared one's at 16 bytes of stack.
+(`Proof/Pbkdf2/Stream/Arm/Hash.lean`), the shared one's at 16 bytes of stack.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm.Fin
 
 open VG VG.Arm
 open VG.Impl.Pbkdf2.Md.Arm (Hash copyW padFrom constW lenWords)
-open VG.Impl.Hmac.Generic.Arm (scrAt)
+open VG.Impl.Pbkdf2.Stream.Arm (scrAt)
 open VG.Proof.Pbkdf2.Md.Arm
 open VG.Proof.MdStream (Md)
-open VG.Proof.Hmac.Generic.Arm (finG below count SavedRegs saveR savedRegs preserved_saved FinArgs fin_frame
+open VG.Proof.Pbkdf2.Stream.Arm (finG below count SavedRegs saveR savedRegs preserved_saved FinArgs fin_frame
   After below_eq)
 open VG.Proof.MdStream.Arm (Upd wp_mov wp_ldrSp op2_reg)
 open VG.Spec.Sha256 (bytesAt)
@@ -232,7 +232,7 @@ theorem pro_ok : WP isa (.block H.finPrologue) s₀ fun s => KR H sc s₀ s ∧ 
   simp only [List.singleton_append]
   refine wp_ldrSp (a := stackArgAddr s₀ 1) (by decide) rfl
     ⟨argR s₀, aR, by rw [sa1 hp]; exact Offset.contains_base _ (by omega) (by omega)⟩ fun s₁ u₁ => ?_
-  refine Hmac.Generic.Arm.save_ok H.st (scr := scr s₀) u₁.gpr hW (by rw [u₁.wr]; exact sR) (L := 8 * sc)
+  refine Pbkdf2.Stream.Arm.save_ok H.st (scr := scr s₀) u₁.gpr hW (by rw [u₁.wr]; exact sR) (L := 8 * sc)
     (by omega) nw fun s₂ g₂ rd₂ wr₂ sp₂ f₂ sv₂ => ?_
   have hsp₂ : s₂.sp = s₀.sp := by rw [sp₂, u₁.sp]
   refine wp_mov (op2_reg _ _) fun s₃ u₃ =>
@@ -328,7 +328,7 @@ theorem finCall_ok {t : State} (hk : KR H sc s₀ t) (ha : FinArgs hH.stream t (
       Frame [inR H s₀, ⟨blkA H s₀, H.N⟩, ⟨scA s₀, hH.stream.Wb⟩, below s₀] t.mem s'.mem →
       (∀ m, hH.SH.Repr t.mem (State.addr (inn s₀)) m → m.length < 2 ^ 64 → count t = BitVec.ofNat 64 m.length →
         bytesAt s'.mem (blkA H s₀) H.D = hH.SH.H.hash m) → Q s') :
-    WP isa (.frame (.push Hmac.Generic.Arm.fin2) (.call H.st.finN H.st.finC) (.pop .r1 8)) t Q :=
+    WP isa (.frame (.push Pbkdf2.Stream.Arm.fin2) (.call H.st.finN H.st.finC) (.pop .r1 8)) t Q :=
   fin_frame hH.stream ha fun s' ha' hpost => by
     have hz := hH.sizes
     have := hz.W; have := hH.stream.hWb; have := hz.DN; have := hz.NL; have hfi := hp.fits
@@ -575,7 +575,7 @@ theorem out_ok {md : Md H.B H.N H.L} (ho : OutOk md H.out) {s : State} (h : KR' 
         bytesAt s'.mem (State.addr (op s₀)) H.D = (md.digest (md.stateAt s.mem (hvA H s₀))).take H.D := by
     intro s₁ h11 hrd hwr hsp hsv hb
     have hfi := hp.fits; rw [buf_eq H] at hfi
-    exact WP.mono (Hmac.Generic.Arm.restore_ok H.st h11 hz.W hsv (by rw [hwr, h.wr, hp.wr]; simp) (L := 8 * sc)
+    exact WP.mono (Pbkdf2.Stream.Arm.restore_ok H.st h11 hz.W hsv (by rw [hwr, h.wr, hp.wr]; simp) (L := 8 * sc)
       (by omega) hp.nw) fun s' ⟨hm, _, _, hsp', hg, _⟩ =>
         ⟨⟨fun r hr => hg r (preserved_saved r hr), by rw [hsp', hsp, h.sp]⟩, by rw [hm]; exact hb⟩
   have sdisj : ∀ {R : Region}, R ∈ [opR H s₀, ⟨blkA H s₀, H.N⟩] → (saveR H.st (scr s₀)).Disjoint R := by
@@ -650,7 +650,7 @@ theorem correct {H : Hash} (hH : HashOK H) {sc : Nat} {s₀ : State} (hp : Pre H
   have hz := hH.sizes
   have := hz.N64; have := hz.DN; have := hz.NL; have := hp.fits
   have hB : 64 ≤ H.B ∧ H.B ≤ 128 := by rcases hz.B with h | h <;> omega
-  unfold Hash.hmacFin Impl.Hmac.Generic.Arm.Hash.callFin
+  unfold Hash.hmacFin Impl.Pbkdf2.Stream.Arm.Hash.callFin
   refine WP.seq (WP.mono (pro_ok hH hp) fun s₁ ⟨k₁, r0₁, c₁, f₁⟩ => ?_)
   refine WP.seq (WP.seq (WP.mono (fin1Args_ok hH hp k₁ r0₁) fun t₁ ⟨kt₁, a₁, ct₁, mt₁⟩ =>
     finCall_ok hH hp kt₁ a₁ fun s₂ k₂ _ d₂ => ?_))
@@ -664,7 +664,7 @@ theorem correct {H : Hash} (hH : HashOK H) {sc : Nat} {s₀ : State} (hp : Pre H
   -- The inner digest.
   have rI : hH.SH.Repr t₁.mem (State.addr (inn s₀)) (xorPad k0 ipad ++ text) := by
     rw [mt₁]
-    refine Hmac.Generic.Arm.Init.repr_keep hH.stream f₁ (fun r hr => ?_) hrI
+    refine Pbkdf2.Stream.Arm.repr_keep hH.stream f₁ (fun r hr => ?_) hrI
     simp only [List.mem_singleton] at hr; subst hr
     rw [hz.S]; exact (save_disj hz hp _ (by simp)).symm
   have dig := d₂ _ rI (by rw [hl0]; rw [hk0'] at hlen; exact hlen) (by rw [ct₁, c₁, hcnt, hl0, hH.hB])

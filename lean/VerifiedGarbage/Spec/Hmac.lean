@@ -12,9 +12,8 @@ transcribed from FIPS 198-1, *The Keyed-Hash Message Authentication Code*
 (July 2008), §4 (the same construction as RFC 2104 §2). Keys, messages and
 digests are sequences of bytes.
 
-The hash functions it is used with are below; the contracts of HMAC-SHA-256
-are in `Spec/Hmac/Contract.lean`, and those for any hash function with a
-streaming implementation in `Spec/Hmac/Generic.lean`.
+The hash functions it is used with are below; the contracts, for any hash
+function with a streaming implementation, are in `Spec/Hmac/Generic.lean`.
 -/
 
 namespace VG.Spec.Hmac
