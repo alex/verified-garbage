@@ -1,0 +1,5 @@
+name = "ECDH P-256"
+family = "Key agreement"
+specs = ["Weierstrass", "P256", "EcKey", "Ecdh"]
+modules = ["src/ecdh/p256.rs"]
+asm = ["ecdh_p256", "ec_p256"]
