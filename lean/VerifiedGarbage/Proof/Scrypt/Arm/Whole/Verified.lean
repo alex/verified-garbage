@@ -106,8 +106,8 @@ theorem pbkdf2_stack {F : Impl.Pbkdf2.Whole.Arm.Fns} (hi : F.H.initC.noFrames = 
 abbrev pbkC : Prog isa := Proof.Pbkdf2.Whole.Arm.sha256F.pbkdf2
 
 theorem pbk_stack : armStack pbkC ≤ 24 :=
-  pbkdf2_stack Proof.Pbkdf2.Whole.Arm.sha256OK.initNF Proof.Pbkdf2.Whole.Arm.sha256OK.updNF
-    Proof.Pbkdf2.Whole.Arm.sha256OK.finNF Proof.Pbkdf2.Whole.Arm.sha256OKF.hiSt
+  pbkdf2_stack Proof.Hmac.Generic.Arm.sha256OK.initNF Proof.Hmac.Generic.Arm.sha256OK.updNF
+    Proof.Hmac.Generic.Arm.sha256OK.finNF Proof.Pbkdf2.Whole.Arm.sha256OKF.hiSt
     Proof.Pbkdf2.Whole.Arm.sha256OKF.hfSt Proof.Pbkdf2.Whole.Arm.sha256OKF.itSt
 
 /-- `vg_scrypt`. -/
