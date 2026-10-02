@@ -30,7 +30,9 @@ def ArithImpl.avx2 : ArithImpl where
       add := FnOk.of Arith.addY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       sub := FnOk.of Arith.subY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
-        (by decide +kernel) }
+        (by decide +kernel)
+      rej4 := ⟨Rej4.rejNTT4Avx2_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
+        by decide +kernel, Code.all_of_allInstrs (by decide +kernel)⟩ }
   features := ["avx", "avx2"]
 
 end VG.Proof.MlDsa.X86_64

@@ -71,6 +71,7 @@ CPU_FEATURES = {
         "none",
     ],
     "aarch64": ["sha3", "none"],
+    "x86": ["none"],
 }
 
 SHARED = re.compile(

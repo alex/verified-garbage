@@ -427,10 +427,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        arch: [x86_64]
         chip: [native, skx, hsw, p4p]
         # Ed25519's are `ed25519` and RFC 8032's other two.
-        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
+        tests: [sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
         include:
+          # x86 feature dispatch, natively in a 32-bit userspace, with both
+          # the runner's features and the baseline implementations.
+          - chip: native
+            arch: x86
+            container:
+              image: rust:slim
+              options: --platform linux/386
+            install-amd64-libc: true
+            tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu
+          - chip: native
+            arch: x86
+            cpu-features: none
+            container:
+              image: rust:slim
+              options: --platform linux/386
+            install-amd64-libc: true
+            tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu
           - chip: arl
             tests: sha384 sha512 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           - chip: arl
@@ -451,12 +469,17 @@ jobs:
           - chip: dmr
             tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           - chip: native
+            arch: aarch64
             os: ubuntu-24.04-arm
-            tests: aes_gcm cmac sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
-    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
+            tests: aes_gcm cmac sha1 sha224 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }}${{ matrix.arch && format(', {0}', matrix.arch) || '' }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+    container:
+      image: ${{ matrix.container.image || '' }}
+      options: ${{ matrix.container.options || '' }}
     env:
       RUSTUP_TOOLCHAIN: stable
+      VG_CPU_FEATURES: ${{ matrix.cpu-features || '' }}
       RUSTFLAGS: -D warnings -Cinstrument-coverage
       LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
       WYCHEPROOF_ROOT: wycheproof
@@ -464,6 +487,13 @@ jobs:
       SDE_URL: https://downloadmirror.intel.com/924984/sde-external-10.13.1-2026-07-28-lin.tar.xz
       SDE_SHA256: 94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50
     steps:
+      - name: Install the amd64 libc for the runner's Node
+        if: ${{ matrix.install-amd64-libc }}
+        run: |
+          dpkg --add-architecture amd64
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends libc6:amd64 libstdc++6:amd64 git ca-certificates python3
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -508,7 +538,6 @@ jobs:
         run: cargo test --locked --features cpu-features-env -- $TESTS
         env:
           TESTS: ${{ matrix.tests }}
-          VG_CPU_FEATURES: ${{ matrix.cpu-features }}
       - name: Test scalar ChaCha on ARM64
         if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
         run: cargo test --locked --features cpu-features-env -- chacha20
