@@ -920,6 +920,22 @@ yours to keep:
 
 <tr>
 
+<td>ECDSA P-256</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>Ed25519</td>
 
 <td>✅</td>
