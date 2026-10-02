@@ -6,7 +6,7 @@ import VerifiedGarbage.TCB.X86_64.Target
 # ML-DSA on x86-64, `sign_message`: the precondition and the layout
 
 Untrusted: everything here is checked by Lean. The precondition of
-`signMessageContract p X86_64.abi 104`, spelled out (`SPre`), and the layout
+`signMessageContract p X86_64.abi 112`, spelled out (`SPre`), and the layout
 of a run from a state satisfying it (`slay`).
 -/
 
@@ -34,13 +34,13 @@ abbrev rArgs : Region := ⟨stackArgAddr s 0, 16⟩
 abbrev rSig : Region := ⟨stackArg s 0, p.sigLen⟩
 abbrev rScr : Region := ⟨stackArg s 1, mScrLen p⟩
 abbrev rRet : Region := ⟨s.gpr .rsp, 8⟩
-abbrev rStk : Region := ⟨s.gpr .rsp - BitVec.ofNat 64 104, 104⟩
+abbrev rStk : Region := ⟨s.gpr .rsp - BitVec.ofNat 64 112, 112⟩
 
 end
 
-/-- The precondition of `signMessageContract p X86_64.abi 104`. -/
+/-- The precondition of `signMessageContract p X86_64.abi 112`. -/
 structure SPre (p : Params) (s : State) : Prop where
-  sp : 104 ≤ (s.gpr .rsp).toNat
+  sp : 112 ≤ (s.gpr .rsp).toNat
   sp2 : (s.gpr .rsp).toNat + 24 ≤ 2 ^ 64
   rd : s.rd = [rSk p s, rMsg s, rCtx s, rRnd s, rArgs s]
   wr : s.wr = [rSig p s, rScr p s]
@@ -76,7 +76,7 @@ structure SPre (p : Params) (s : State) : Prop where
   nSig : (stackArg s 0).toNat + p.sigLen ≤ 2 ^ 64
   nScr : (stackArg s 1).toNat + mScrLen p ≤ 2 ^ 64
 
-theorem sPre_of {p : Params} {s : State} (h : (signMessageContract p X86_64.abi 104).pre s) : SPre p s := by
+theorem sPre_of {p : Params} {s : State} (h : (signMessageContract p X86_64.abi 112).pre s) : SPre p s := by
   sig_pre [signMessageContract, signMessageSig, X86_64.abi, X86_64.argRegs, List.range, List.range.loop] at h
   obtain ⟨sp, sp2, rd, wr, skSig, skScr, msgSig, msgScr, ctxSig, ctxScr, rndSig, rndScr, sigScr, sigArgs,
     scrArgs, retSk, retMsg, retCtx, retRnd, retSig, retScr, retArgs, stkSk, stkMsg, stkCtx, stkRnd, stkSig,
@@ -100,7 +100,7 @@ theorem skLen_ge {p : Params} (hp : p ∈ params) : 128 ≤ p.skLen ∧ p.skLen 
 
 /-- The layout of a run of `sign_message` from `s`. -/
 def slay (p : Params) (s : State) : Lay where
-  B := s.gpr .rsp - BitVec.ofNat 64 104
+  B := s.gpr .rsp - BitVec.ofNat 64 112
   key := s.gpr .rdi
   keyLen := p.skLen
   msg := s.gpr .rsi
@@ -115,7 +115,7 @@ def slay (p : Params) (s : State) : Lay where
   wr := s.wr
 
 theorem slay_B (p : Params) (s : State) :
-    (slay p s).B + BitVec.ofNat 64 104 = s.gpr .rsp := BitVec.sub_add_cancel _ _
+    (slay p s).B + BitVec.ofNat 64 112 = s.gpr .rsp := BitVec.sub_add_cancel _ _
 
 theorem slay_X (p : Params) (s : State) : Within (slay p s).XS (rScr p s) :=
   ⟨oE p, rfl, by show oE p + 1024 ≤ mScrLen p; rw [mScr_eq]⟩

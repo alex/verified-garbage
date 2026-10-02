@@ -19,13 +19,16 @@ open VG.Proof.MlDsa.X86_64 (Comp Same Same.ok ArithImpl Code.allInstrs_of_all)
 open VG.Proof.MlDsa.X86_64.Sign (primsWith prims_okWith sign_correct sign_ct sign_ctl sign_same Ok3)
 open VG.Spec.MlDsa
 
-/-- Calls nesting at most three deep, from functions whose calls nest at most twice. -/
-theorem depthComp : Comp (fun c => decide (c.depth ≤ 3)) (fun c => decide (c.depth ≤ 2)) := by
+/-- Calls nesting at most `n + 1` deep, from functions whose calls nest at most `n` deep. -/
+theorem depthCompN (n : Nat) : Comp (fun c => decide (c.depth ≤ n + 1)) (fun c => decide (c.depth ≤ n)) := by
   refine ⟨fun a b => ?_, fun _ t e => ?_, fun _ _ => rfl, fun _ b => ?_, rfl⟩
   · simp only [Code.depth, Nat.max_le, Bool.decide_and]
   · simp only [Code.depth, Nat.max_le, Bool.decide_and]
   · simp only [Code.depth]
     exact decide_eq_decide.mpr (by omega)
+
+/-- Calls nesting at most three deep, from functions whose calls nest at most twice. -/
+theorem depthComp : Comp (fun c => decide (c.depth ≤ 3)) (fun c => decide (c.depth ≤ 2)) := depthCompN 2
 
 /-- `NoSp` from evaluating the code. -/
 abbrev noSpB (c : Prog isa) : Bool := c.allInstrs fun i => !Taint.clobbers i .rsp
@@ -55,10 +58,13 @@ theorem signFn (v : ArithImpl) {p : Params} (hp : p ∈ params) :
   have dep : ∀ {c : Prog isa}, c.depth ≤ 2 → decide (c.depth ≤ 2) = true := fun h => decide_eq_true h
   refine ⟨sign_correct (prims_okWith v) h3 (Proof.MlDsa.X86_64.Sign.sign_ctl v h3), sign_ct (prims_okWith v) h3,
     noSp_of (Same.ok (sign_same (Comp.all _) (noSpB_of v.ok.ntt.nosp) (noSpB_of v.ok.invNtt.nosp)
-      (noSpB_of v.ok.mul.nosp) (noSpB_of v.ok.mulAdd.nosp) (noSpB_of v.ok.add.nosp) (noSpB_of v.ok.sub.nosp) p)
+      (noSpB_of v.ok.mul.nosp) (noSpB_of v.ok.mulAdd.nosp) (noSpB_of v.ok.add.nosp) (noSpB_of v.ok.sub.nosp)
+      (noSpB_of v.ok.highBits.nosp) (noSpB_of v.ok.lowBits.nosp) (noSpB_of v.ok.normLt.nosp)
+      (noSpB_of v.ok.makeHint.nosp) p)
       (sign0_noSp h3)), of_decide_eq_true (Same.ok (sign_same depthComp (dep v.ok.ntt.depth)
       (dep v.ok.invNtt.depth) (dep v.ok.mul.depth) (dep v.ok.mulAdd.depth) (dep v.ok.add.depth)
-      (dep v.ok.sub.depth) p) (sign0_depth h3))⟩
+      (dep v.ok.sub.depth) (dep v.ok.highBits.depth) (dep v.ok.lowBits.depth) (dep v.ok.normLt.depth)
+      (dep v.ok.makeHint.depth) p) (sign0_depth h3))⟩
 
 theorem kabs_spSafe : Impl.Sha3.X86_64.Stream.absorb.all (fun i => !isa.writesSp i) = true := by decide +kernel
 theorem kpad_spSafe : Impl.Sha3.X86_64.Stream.pad.all (fun i => !isa.writesSp i) = true := by decide +kernel

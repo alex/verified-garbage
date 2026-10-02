@@ -109,17 +109,17 @@ theorem signCall_tr {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
     have ek : ∀ {g mx m₀} {a a1 : State}, Ctx L g mx m₀ a → Moved (signArgs p) a a1 →
         bytesAt a1.callEntry.mem L.key p.skLen = bytesAt m₀ L.key p.skLen := fun c f => by
       rw [(c.regs f.2.2.1 f.2.2.2 f.1.2.1 f.1.2.2 fun r hr => f.2.gpr (argRegs_cs r hr)).ce_bytesAt
-        (hL.stk_r (r := ⟨L.key, p.skLen⟩) (F.key ▸ hL.kKey) (d := 24) (n := 8) (by decide)) (by omega),
+        (hL.stk_r (r := ⟨L.key, p.skLen⟩) (F.key ▸ hL.kKey) (d := 32) (n := 8) (by decide)) (by omega),
         f.1.2.1, c.bytesAt_eq (F.key ▸ hL.xKey) (F.key ▸ hL.kKey) (by omega)]
     have er : ∀ {g mx m₀} {a a1 : State}, Ctx L g mx m₀ a → Moved (signArgs p) a a1 →
         bytesAt a1.callEntry.mem L.rnd 32 = bytesAt m₀ L.rnd 32 := fun c f => by
       rw [(c.regs f.2.2.1 f.2.2.2 f.1.2.1 f.1.2.2 fun r hr => f.2.gpr (argRegs_cs r hr)).ce_bytesAt
-        (hL.stk_r F.kRnd (d := 24) (n := 8) (by decide)) (by decide), f.1.2.1,
+        (hL.stk_r F.kRnd (d := 32) (n := 8) (by decide)) (by decide), f.1.2.1,
         c.bytesAt_eq F.xRnd F.kRnd (by decide)]
     have eμ : ∀ {g mx m₀} {a a1 : State}, Ctx L g mx m₀ a → Moved (signArgs p) a a1 →
         bytesAt a1.callEntry.mem L.MU 64 = bytesAt a.mem L.MU 64 := fun c f => by
       rw [(c.regs f.2.2.1 f.2.2.2 f.1.2.1 f.1.2.2 fun r hr => f.2.gpr (argRegs_cs r hr)).ce_bytesAt
-        (hL.stk_x (d := 24) (n := 8) (e := 840) (k := 64) (by decide) (by decide)) (by decide), f.1.2.1]
+        (hL.stk_x (d := 32) (n := 8) (e := 840) (k := 64) (by decide) (by decide)) (by decide), f.1.2.1]
     rw [ek c₁ f₁, ek c₂ f₂, er c₁ f₁, er c₂ f₂, eμ c₁ f₁, eμ c₂ f₂, φ₁.2, φ₂.2,
       Sign.signLeakT_eq_signLeak, Sign.signLeakT_eq_signLeak, ← leak_eq hL F.key, ← leak_eq hL F.key]
     exact hi
@@ -151,7 +151,7 @@ structure SPub (p : Params) (s₁ s₂ : State) : Prop where
   a0 : stackArg s₁ 0 = stackArg s₂ 0
   a1 : stackArg s₁ 1 = stackArg s₂ 1
 
-theorem sPub_of {s₁ s₂ : State} (h : (signMessageContract p X86_64.abi 104).pub s₁ s₂) : SPub p s₁ s₂ := by
+theorem sPub_of {s₁ s₂ : State} (h : (signMessageContract p X86_64.abi 112).pub s₁ s₂) : SPub p s₁ s₂ := by
   sig_pub [signMessageContract, signMessageSig, X86_64.abi, X86_64.argRegs, List.range, List.range.loop] at h
   obtain ⟨a, b, c, d, e, f, g, h, i, j⟩ := h
   exact ⟨a, b, c, d, e, f, g, h, i, j⟩
@@ -179,7 +179,7 @@ theorem signBody_tr {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
       exact ⟨⟨_, List.mem_append_left _ hL.inKey, w⟩,
         (hL.xKey.symm.sub_left w.sub).sub_right (Region.sub_prefix (by decide : 200 ≤ 1024)),
         (hL.xKey.symm.sub_left w.sub).sub_right (Offset.sub_base _ (by decide : 200 + 640 ≤ 1024)),
-        (hL.kKey.sub_left (Region.sub_prefix (by decide : 32 ≤ 104))).sub_right w.sub⟩
+        (hL.kKey.sub_left (Region.sub_prefix (by decide : 40 ≤ 112))).sub_right w.sub⟩
   have mh' := two_wp (I := signI p) (Φ := fun L m _ => SOk p L m) (Ψ := fun L m t => SOk p L m ∧ MuOk L m t) mh
     fun L g mx m₀ t hL hc hφ => by
       have := hL.hKey
@@ -188,7 +188,7 @@ theorem signBody_tr {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
         (fun t' hc' => by rw [hc'.slotOff, fKey, hc'.pKey]) ⟨_, List.mem_append_left _ hL.inKey, w⟩
         ((hL.xKey.symm.sub_left w.sub).sub_right (Region.sub_prefix (by decide : 200 ≤ 1024)))
         ((hL.xKey.symm.sub_left w.sub).sub_right (Offset.sub_base _ (by decide : 200 + 640 ≤ 1024)))
-        ((hL.kKey.sub_left (Region.sub_prefix (by decide : 32 ≤ 104))).sub_right w.sub))
+        ((hL.kKey.sub_left (Region.sub_prefix (by decide : 40 ≤ 112))).sub_right w.sub))
         fun t' ⟨hc', _, hμ⟩ => ⟨hc', hφ, ?_⟩
       unfold MuOk
       rw [hμ, hc.bytesAt_eq (hL.xKey.sub_right w.sub) (hL.kKey.sub_right w.sub) (by decide)]
@@ -196,8 +196,8 @@ theorem signBody_tr {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
 
 /-- The entry states of two runs: the precondition and the public data. -/
 abbrev SP2 (p : Params) (x y : State) : Prop :=
-  (signMessageContract p X86_64.abi 104).pre x ∧ (signMessageContract p X86_64.abi 104).pre y ∧
-    (signMessageContract p X86_64.abi 104).pub x y
+  (signMessageContract p X86_64.abi 112).pre x ∧ (signMessageContract p X86_64.abi 112).pre y ∧
+    (signMessageContract p X86_64.abi 112).pub x y
 
 /-- After `cmp`. -/
 abbrev ACmp (x x1 : State) : Prop :=
@@ -214,11 +214,11 @@ theorem spOnly_nomem {i : Instr} (h : ∀ s, isa.addrs i s = []) (hc : Taint.clo
   ⟨fun s₁ s₂ _ => by rw [h, h], hc⟩
 
 theorem signMessage_ct {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ params) :
-    ConstantTime isa (signMessageContract p X86_64.abi 104).pre (signMessageContract p X86_64.abi 104).pub
+    ConstantTime isa (signMessageContract p X86_64.abi 112).pre (signMessageContract p X86_64.abi 112).pub
       (signMessage n c p) := by
   refine RelCT.constantTime (Q := fun _ _ => True) ?_
-  have e0 : (fun s₁ s₂ => (signMessageContract p X86_64.abi 104).pre s₁ ∧
-      (signMessageContract p X86_64.abi 104).pre s₂ ∧ (signMessageContract p X86_64.abi 104).pub s₁ s₂) =
+  have e0 : (fun s₁ s₂ => (signMessageContract p X86_64.abi 112).pre s₁ ∧
+      (signMessageContract p X86_64.abi 112).pre s₂ ∧ (signMessageContract p X86_64.abi 112).pub s₁ s₂) =
       Ghost (SP2 p) (fun x a => a = x) := by
     funext a b; apply propext
     exact ⟨fun h => ⟨a, b, h, rfl, rfl⟩, fun ⟨_, _, h, e₁, e₂⟩ => e₁ ▸ e₂ ▸ h⟩
@@ -243,7 +243,7 @@ theorem signMessage_ct {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈
           · exact spOnly_nomem (fun _ => rfl) rfl)
         fun a b ⟨x, y, hxy, f₁, f₂⟩ => by rw [f₁.1.1, f₂.1.1]; exact (sPub_of hxy.2.2).rsp)
       fun x y a b hxy f₁ f₂ => by
-        have mv : ∀ {x a : State}, (signMessageContract p X86_64.abi 104).pre x → ACmp x a →
+        have mv : ∀ {x a : State}, (signMessageContract p X86_64.abi 112).pre x → ACmp x a →
             (x.gpr .r8).toNat < 256 → WP isa (.block [.mov .r10 (.mem (stk 8)), .mov .r11 (.mem (stk 16)),
               .mov32 .rax (.imm 0)]) a (AMov x) := fun hx f h8 =>
           WP.mono (signMov_ok (sPre_of hx) f.1 f.2.1 f.2.2.1) fun x2 ⟨h, k⟩ =>
@@ -268,7 +268,7 @@ theorem signMessage_ct {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈
           subst e₁ e₂
           rw [pushed_rsp, pushed_rsp, f₁.2.2.1 _ (by decide), f₂.2.2.1 _ (by decide), (sPub_of hxy.2.2).rsp])
       fun x y a b hxy fa fb => by
-        have en : ∀ {x a : State}, (signMessageContract p X86_64.abi 104).pre x → A x a →
+        have en : ∀ {x a : State}, (signMessageContract p X86_64.abi 112).pre x → A x a →
             WP isa (.block setHdr) a (B x) := fun hx ⟨s₁, f, e⟩ => by
           subst e
           have h := sPre_of hx

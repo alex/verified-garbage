@@ -20,11 +20,11 @@ open VG.Spec.Sha3 (bytesAt)
 def Lay.vals (L : Lay) : List (BitVec 64) := [L.key, L.msg, L.len, L.ctx, L.ctxLen, L.sig, L.rnd, L.scr, 0]
 
 theorem push_slot (B : Addr) (j : Nat) (hj : j < 9) :
-    B + BitVec.ofNat 64 104 - BitVec.ofNat 64 (8 * (j + 1)) = B + BitVec.ofNat 64 32 + BitVec.ofNat 64 (64 - 8 * j) := by
-  rw [add_add, Offset.sub_ofNat_eq _ (a := 8 * (j + 1)) (b := 104) (by omega), BitVec.add_sub_cancel]
+    B + BitVec.ofNat 64 112 - BitVec.ofNat 64 (8 * (j + 1)) = B + BitVec.ofNat 64 40 + BitVec.ofNat 64 (64 - 8 * j) := by
+  rw [add_add, Offset.sub_ofNat_eq _ (a := 8 * (j + 1)) (b := 112) (by omega), BitVec.add_sub_cancel]
   congr 2; omega
 
-theorem push_base (B : Addr) : B + BitVec.ofNat 64 104 - BitVec.ofNat 64 (8 * 9) = B + BitVec.ofNat 64 32 := by
+theorem push_base (B : Addr) : B + BitVec.ofNat 64 112 - BitVec.ofNat 64 (8 * 9) = B + BitVec.ofNat 64 40 := by
   have := push_slot B 8 (by omega); simpa using this
 
 theorem setWidth8 (x : BitVec 64) (_h : x.toNat < 256) : x.setWidth 8 = BitVec.ofNat 8 x.toNat := by
@@ -34,7 +34,7 @@ theorem setWidth8 (x : BitVec 64) (_h : x.toNat < 256) : x.setWidth 8 = BitVec.o
 /-- After the push of the registers `rs` holding `L.vals` and the store of
 `ctx_len`: `Ctx`. -/
 theorem entry_ok {L : Lay} (hL : L.Ok) {rs : List Reg} (hlen : rs.length = 9) (hrs : .rsp ∉ rs) {s : State}
-    (hsp : s.gpr .rsp = L.B + BitVec.ofNat 64 104) (hrd : s.rd = L.rd) (hwr : s.wr = L.wr)
+    (hsp : s.gpr .rsp = L.B + BitVec.ofNat 64 112) (hrd : s.rd = L.rd) (hwr : s.wr = L.wr)
     (hv : ∀ j (hj : j < 9), s.gpr (rs[j]'(by omega)) = L.vals[j]'(by simp [Lay.vals]; omega))
     (h8 : s.gpr .r8 = L.ctxLen) :
     WP isa (.block setHdr) (pushed rs s) fun t => Ctx L s.gpr s.mxcsr s.mem t ∧
@@ -42,7 +42,7 @@ theorem entry_ok {L : Lay} (hL : L.Ok) {rs : List Reg} (hlen : rs.length = 9) (h
   have hn : 8 * rs.length ≤ (s.gpr .rsp).toNat := by
     rw [hsp, hlen, BitVec.toNat_add, BitVec.toNat_ofNat]
     have := hL.nB
-    rw [Nat.mod_eq_of_lt (a := 104) (by omega), Nat.mod_eq_of_lt this]; omega
+    rw [Nat.mod_eq_of_lt (a := 112) (by omega), Nat.mod_eq_of_lt this]; omega
   obtain ⟨hf, hw⟩ := pushRegs_mem s rs hrs hn
   have hslot : ∀ j (hj : j < 9), (pushed rs s).mem.readW (L.SP + BitVec.ofNat 64 (64 - 8 * j)) 64 =
       L.vals[j]'(by simp [Lay.vals]; omega) := fun j hj => by

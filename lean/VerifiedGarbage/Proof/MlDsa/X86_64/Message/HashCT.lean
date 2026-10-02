@@ -52,7 +52,7 @@ theorem kabsArgs {L : Lay} (hL : L.Ok) (hE : EOk p L) {g mx m₀} {t t1 : State}
     {src len pos : Arg} (hm : Moved (absArgs p src len pos) t t1) {dp : Addr} {n q : Nat}
     (hdp : src.val t = dp) (hn : len.val t = BitVec.ofNat 64 n) (hq : pos.val t = BitVec.ofNat 64 q)
     (hql : q < 136) (hnl : n < 2 ^ 64) (dS : Region.Disjoint ⟨dp, n⟩ ⟨L.ST, 200⟩)
-    (dK : Region.Disjoint ⟨dp, n⟩ ⟨L.KS, 640⟩) (kD : Region.Disjoint ⟨L.B, 32⟩ ⟨dp, n⟩) :
+    (dK : Region.Disjoint ⟨dp, n⟩ ⟨L.KS, 640⟩) (kD : Region.Disjoint ⟨L.B, 40⟩ ⟨dp, n⟩) :
     AbsorbArgs t1 L.ST dp L.KS 136 q n := by
   have hc1 : Ctx L g mx m₀ t1 := hc.regs hm.2.2.1 hm.2.2.2 hm.1.2.1 hm.1.2.2 fun r hr => hm.2.gpr (argRegs_cs r hr)
   obtain ⟨e1, e2, e3, e4, e5, e6⟩ := argsIn6 hm.1.1
@@ -72,7 +72,7 @@ theorem kabs_tr {Φ : Lay → Mem → State → Prop} (hΦ : ∀ L m t, Φ L m t
       src.val t = dp L ∧ len.val t = BitVec.ofNat 64 (n L) ∧ pos.val t = BitVec.ofNat 64 (q L))
     (hs : ∀ L : Lay, L.Ok → q L < 136 ∧ n L < 2 ^ 64 ∧ (∃ R ∈ L.rd ++ L.FR :: L.wr, Within ⟨dp L, n L⟩ R) ∧
       Region.Disjoint ⟨dp L, n L⟩ ⟨L.ST, 200⟩ ∧ Region.Disjoint ⟨dp L, n L⟩ ⟨L.KS, 640⟩ ∧
-      Region.Disjoint ⟨L.B, 32⟩ ⟨dp L, n L⟩) :
+      Region.Disjoint ⟨L.B, 40⟩ ⟨dp L, n L⟩) :
     RelCT isa (Two I Φ) (kabs p src len pos) fun _ _ => True := by
   have args : ∀ (L : Lay) g mx m₀ (t t1 : State), L.Ok → Ctx L g mx m₀ t → Φ L m₀ t →
       Moved (absArgs p src len pos) t t1 → AbsorbArgs t1 L.ST (dp L) L.KS 136 (q L) (n L) :=
@@ -169,16 +169,16 @@ theorem ksqz_tr {Φ : Lay → Mem → State → Prop} (hΦ : ∀ L m t, Φ L m t
 /-- Where the two bytes of the formatted message are. -/
 theorem hdrSide {L : Lay} (hL : L.Ok) : 64 < 136 ∧ 2 < 2 ^ 64 ∧ (∃ R ∈ L.rd ++ L.FR :: L.wr, Within ⟨L.SP, 2⟩ R) ∧
     Region.Disjoint ⟨L.SP, 2⟩ ⟨L.ST, 200⟩ ∧ Region.Disjoint ⟨L.SP, 2⟩ ⟨L.KS, 640⟩ ∧
-    Region.Disjoint ⟨L.B, 32⟩ ⟨L.SP, 2⟩ :=
+    Region.Disjoint ⟨L.B, 40⟩ ⟨L.SP, 2⟩ :=
   ⟨by decide, by decide, ⟨L.FR, by simp, within_base _ (by decide)⟩,
-    by have := hL.stk_x (d := 32) (n := 2) (e := 0) (k := 200) (by decide) (by decide); simpa only [x0] using this,
-    hL.stk_x (d := 32) (n := 2) (by decide) (by decide), Offset.base_disjoint _ (by decide) (by decide)⟩
+    by have := hL.stk_x (d := 40) (n := 2) (e := 0) (k := 200) (by decide) (by decide); simpa only [x0] using this,
+    hL.stk_x (d := 40) (n := 2) (by decide) (by decide), Offset.base_disjoint _ (by decide) (by decide)⟩
 
 /-- Where the context string is. -/
 theorem ctxSide {L : Lay} (hL : L.Ok) : 66 < 136 ∧ L.ctxLen.toNat < 2 ^ 64 ∧
     (∃ R ∈ L.rd ++ L.FR :: L.wr, Within ⟨L.ctx, L.ctxLen.toNat⟩ R) ∧
     Region.Disjoint ⟨L.ctx, L.ctxLen.toNat⟩ ⟨L.ST, 200⟩ ∧ Region.Disjoint ⟨L.ctx, L.ctxLen.toNat⟩ ⟨L.KS, 640⟩ ∧
-    Region.Disjoint ⟨L.B, 32⟩ ⟨L.ctx, L.ctxLen.toNat⟩ :=
+    Region.Disjoint ⟨L.B, 40⟩ ⟨L.ctx, L.ctxLen.toNat⟩ :=
   ⟨by decide, L.ctxLen.isLt, ⟨L.CTX, List.mem_append_left _ hL.inCtx, within_self _⟩,
     by have := hL.x_r hL.xCtx (e := 0) (k := 200) (by decide); simpa only [x0] using this.symm,
     (hL.x_r hL.xCtx (e := 200) (k := 640) (by decide)).symm,
@@ -188,7 +188,7 @@ theorem ctxSide {L : Lay} (hL : L.Ok) : 66 < 136 ∧ L.ctxLen.toNat < 2 ^ 64 ∧
 theorem msgSide {L : Lay} (hL : L.Ok) {q : Nat} (hq : q < 136) : q < 136 ∧ L.len.toNat < 2 ^ 64 ∧
     (∃ R ∈ L.rd ++ L.FR :: L.wr, Within ⟨L.msg, L.len.toNat⟩ R) ∧
     Region.Disjoint ⟨L.msg, L.len.toNat⟩ ⟨L.ST, 200⟩ ∧ Region.Disjoint ⟨L.msg, L.len.toNat⟩ ⟨L.KS, 640⟩ ∧
-    Region.Disjoint ⟨L.B, 32⟩ ⟨L.msg, L.len.toNat⟩ :=
+    Region.Disjoint ⟨L.B, 40⟩ ⟨L.msg, L.len.toNat⟩ :=
   ⟨hq, L.len.isLt, ⟨L.MSG, List.mem_append_left _ hL.inMsg, within_self _⟩,
     by have := hL.x_r hL.xMsg (e := 0) (k := 200) (by decide); simpa only [x0] using this.symm,
     (hL.x_r hL.xMsg (e := 200) (k := 640) (by decide)).symm,
@@ -211,7 +211,7 @@ theorem muHash_tr (hE : oE p + 1024 < 2 ^ 31) {Φ : Lay → Mem → State → Pr
     (htr : ∀ (L : Lay) g mx m (t : State), Ctx L g mx m t → EOk p L → tr.val t = trp L)
     (hs : ∀ L : Lay, L.Ok → (∃ R ∈ L.rd ++ L.FR :: L.wr, Within ⟨trp L, 64⟩ R) ∧
       Region.Disjoint ⟨trp L, 64⟩ ⟨L.ST, 200⟩ ∧ Region.Disjoint ⟨trp L, 64⟩ ⟨L.KS, 640⟩ ∧
-      Region.Disjoint ⟨L.B, 32⟩ ⟨trp L, 64⟩) :
+      Region.Disjoint ⟨L.B, 40⟩ ⟨trp L, 64⟩) :
     RelCT isa (Two I Φ) (muHash p tr) fun _ _ => True := by
   -- The relation keeps only `EOk` and the position in `rax`.
   let Ψ : (Lay → Nat) → Lay → Mem → State → Prop := fun q L _ t => EOk p L ∧ (t.gpr .rax).toNat = q L
@@ -282,7 +282,7 @@ theorem trHash_tr (hE : oE p + 1024 < 2 ^ 31) (hk : p.pkLen < 2 ^ 31) {Φ : Lay 
   have keySide : ∀ L : Lay, L.Ok → 0 < 136 ∧ L.keyLen < 2 ^ 64 ∧
       (∃ R ∈ L.rd ++ L.FR :: L.wr, Within ⟨L.key, L.keyLen⟩ R) ∧
       Region.Disjoint ⟨L.key, L.keyLen⟩ ⟨L.ST, 200⟩ ∧ Region.Disjoint ⟨L.key, L.keyLen⟩ ⟨L.KS, 640⟩ ∧
-      Region.Disjoint ⟨L.B, 32⟩ ⟨L.key, L.keyLen⟩ := fun L hL =>
+      Region.Disjoint ⟨L.B, 40⟩ ⟨L.key, L.keyLen⟩ := fun L hL =>
     ⟨by decide, by have := hL.hKey.2; omega, ⟨L.KEY, List.mem_append_left _ hL.inKey, within_self _⟩,
       by have := hL.x_r hL.xKey (e := 0) (k := 200) (by decide); simpa only [x0] using this.symm,
       (hL.x_r hL.xKey (e := 200) (k := 640) (by decide)).symm,

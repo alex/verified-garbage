@@ -91,14 +91,14 @@ theorem signK_pre (hp : p ∈ params) (h : SPre p s) (h8 : (s.gpr .r8).toNat < 2
   have hE := oE_lt hp
   refine ⟨trivial, trivial, h.skSig, h.skScr.sub_right hsub, h.sigScr.symm.sub_left hmu, mu_scrMu hp s, h.rndSig,
     h.rndScr.sub_right hsub, h.sigScr.sub_right hsub, hL.stk_r h.stkSk (by omega),
-    hL.stk_x (d := 24) (n := 8) (e := 840) (k := 64) (by omega) (by omega), hL.stk_r h.stkRnd (by omega),
+    hL.stk_x (d := 32) (n := 8) (e := 840) (k := 64) (by omega) (by omega), hL.stk_r h.stkRnd (by omega),
     hL.stk_r h.stkSig (by omega), hL.stk_r (h.stkScr.sub_right hsub) (by omega), ?_, ?_, ?_, ?_, ?_, h.nSk, ?_,
     h.nRnd, h.nSig, by simp only [mScrLen, scrLen, messageScratchWords] at hn ⊢; omega, ?_⟩
-  · exact h.stkSk.sub_left (Region.sub_prefix (by omega))
-  · exact (hL.kX.sub_left (Region.sub_prefix (by omega))).sub_right (Offset.sub_base _ (by omega))
-  · exact h.stkRnd.sub_left (Region.sub_prefix (by omega))
-  · exact h.stkSig.sub_left (Region.sub_prefix (by omega))
-  · exact (h.stkScr.sub_right hsub).sub_left (Region.sub_prefix (by omega))
+  · exact h.stkSk.sub_left (Offset.sub_base _ (by omega))
+  · exact (hL.kX.sub_left (Offset.sub_base _ (by omega))).sub_right (Offset.sub_base _ (by omega))
+  · exact h.stkRnd.sub_left (Offset.sub_base _ (by omega))
+  · exact h.stkSig.sub_left (Offset.sub_base _ (by omega))
+  · exact (h.stkScr.sub_right hsub).sub_left (Offset.sub_base _ (by omega))
   · exact mu_nowrap h
   · rw [toNat_add_ofNat (by omega)]; omega
 
@@ -110,7 +110,7 @@ theorem signCall_ok {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
     WP isa (callA n c (signArgs p)) t fun s' =>
       s'.rd = t.rd ∧ s'.wr = t.wr ∧ s'.gpr .rsp = t.gpr .rsp ∧ (∀ r ∈ calleeSaved, s'.gpr r = t.gpr r) ∧
       s'.mxcsr.extractLsb' 6 10 = t.mxcsr.extractLsb' 6 10 ∧
-      Frame [rSig p s, rScrMu p s, ⟨(slay p s).B, 32⟩] t.mem s'.mem ∧
+      Frame [rSig p s, rScrMu p s, ⟨(slay p s).B, 40⟩] t.mem s'.mem ∧
       Outcome (fun b => signMu p b (bytesAt t.mem (s.gpr .rdi) p.skLen) (bytesAt t.mem (slay p s).MU 64)
           (bytesAt t.mem (s.gpr .r9) 32)) ((s'.gpr .rax).setWidth 32)
         (bytesAt s'.mem (stackArg s 0) p.sigLen) := by
@@ -151,7 +151,7 @@ theorem signCall_ok {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
       · exact ⟨rSig p s, List.mem_cons_self .., fun _ h => h⟩
       · exact ⟨rScrMu p s, List.mem_cons_of_mem _ (List.mem_cons_self ..), fun _ h => h⟩
     · simp only [List.mem_singleton] at hr; subst hr
-      refine ⟨⟨(slay p s).B, 32⟩, List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_singleton_self _)), ?_⟩
+      refine ⟨⟨(slay p s).B, 40⟩, List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_singleton_self _)), ?_⟩
       rw [hrsp1]
       exact below_call_sub _ (by omega)
   · simp only [signK, State.withRegions_mem, gpr_ce t1 _ _ (by decide : Reg.rdi ≠ .rsp),
@@ -159,7 +159,7 @@ theorem signCall_ok {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
       gpr_ce t1 _ _ (by decide : Reg.rcx ≠ .rsp), e1, e2, e3, e4, hm₂] at hq
     have hL := slay_ok hp h h8
     rw [hc1.ce_bytesAt (p := s.gpr .rdi) (hL.stk_r h.stkSk (by omega)) (by have := h.nSk; omega),
-      hc1.ce_bytesAt (p := (slay p s).MU) (hL.stk_x (d := 24) (n := 8) (e := 840) (k := 64) (by omega)
+      hc1.ce_bytesAt (p := (slay p s).MU) (hL.stk_x (d := 32) (n := 8) (e := 840) (k := 64) (by omega)
         (by omega)) (by omega),
       hc1.ce_bytesAt (p := s.gpr .r9) (hL.stk_r h.stkRnd (by omega)) (by omega), hm,
       hg₂ _ (by decide)] at hq

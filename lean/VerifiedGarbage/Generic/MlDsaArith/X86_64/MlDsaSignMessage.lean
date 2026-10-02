@@ -26,7 +26,7 @@ open VG.Proof.MlDsa.X86_64.Message (signFn signMessage_verified signMessage_spSa
 
 /-- Notes on the implementation, the same for every parameter set. -/
 def notes : List String :=
-  ["The function keeps its arguments in a frame of 72 bytes on the stack, and its calls use the 32 \
+  ["The function keeps its arguments in a frame of 72 bytes on the stack, and its calls use the 40 \
     bytes of stack below the frame. It computes the message representative with the SHAKE256 sponge \
     (`vg_keccak_absorb`, `vg_keccak_pad`, `vg_keccak_squeeze`) in the last 1 KiB of `scratch`, and \
     calls the signing function on it, which uses the rest of `scratch`."]
@@ -39,8 +39,8 @@ def artifacts (v : ArithImpl) : List Artifact := [
     doc := Spec.MlDsa.signMessage44Api.doc (notes := notes)
     code := Impl.MlDsa.X86_64.Message.signMessage (Spec.MlDsa.sign44Api.name ++ v.code.sfx)
       (Impl.MlDsa.X86_64.Sign.sign (primsWith v.code) Spec.MlDsa.mlDsa44) Spec.MlDsa.mlDsa44
-    contract := Spec.MlDsa.signMessageContract Spec.MlDsa.mlDsa44 X86_64.abi 104
-    stack := 104
+    contract := Spec.MlDsa.signMessageContract Spec.MlDsa.mlDsa44 X86_64.abi 112
+    stack := 112
     verified := signMessage_verified (signFn v (List.mem_cons_self ..)) (List.mem_cons_self ..)
     spSafe := signMessage_spSafe (Proof.MlDsa.X86_64.Sign.sign_spSafe v (.inl rfl)) },
   { Spec.MlDsa.signMessage65Api with
@@ -50,8 +50,8 @@ def artifacts (v : ArithImpl) : List Artifact := [
     doc := Spec.MlDsa.signMessage65Api.doc (notes := notes)
     code := Impl.MlDsa.X86_64.Message.signMessage (Spec.MlDsa.sign65Api.name ++ v.code.sfx)
       (Impl.MlDsa.X86_64.Sign.sign (primsWith v.code) Spec.MlDsa.mlDsa65) Spec.MlDsa.mlDsa65
-    contract := Spec.MlDsa.signMessageContract Spec.MlDsa.mlDsa65 X86_64.abi 104
-    stack := 104
+    contract := Spec.MlDsa.signMessageContract Spec.MlDsa.mlDsa65 X86_64.abi 112
+    stack := 112
     verified := signMessage_verified (signFn v (List.mem_cons_of_mem _ (List.mem_cons_self ..)))
       (List.mem_cons_of_mem _ (List.mem_cons_self ..))
     spSafe := signMessage_spSafe (Proof.MlDsa.X86_64.Sign.sign_spSafe v (.inr (.inl rfl))) },
@@ -62,8 +62,8 @@ def artifacts (v : ArithImpl) : List Artifact := [
     doc := Spec.MlDsa.signMessage87Api.doc (notes := notes)
     code := Impl.MlDsa.X86_64.Message.signMessage (Spec.MlDsa.sign87Api.name ++ v.code.sfx)
       (Impl.MlDsa.X86_64.Sign.sign (primsWith v.code) Spec.MlDsa.mlDsa87) Spec.MlDsa.mlDsa87
-    contract := Spec.MlDsa.signMessageContract Spec.MlDsa.mlDsa87 X86_64.abi 104
-    stack := 104
+    contract := Spec.MlDsa.signMessageContract Spec.MlDsa.mlDsa87 X86_64.abi 112
+    stack := 112
     verified := signMessage_verified (signFn v (List.mem_cons_of_mem _ (List.mem_cons_of_mem _
       (List.mem_cons_self ..)))) (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self ..)))
     spSafe := signMessage_spSafe (Proof.MlDsa.X86_64.Sign.sign_spSafe v (.inr (.inr rfl))) }]

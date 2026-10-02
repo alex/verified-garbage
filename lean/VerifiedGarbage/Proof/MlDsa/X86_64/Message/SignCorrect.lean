@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Message.SignCall
 # ML-DSA on x86-64, `sign_message`: correctness
 
 Untrusted: everything here is checked by Lean. From a state satisfying
-`signMessageContract p X86_64.abi 104`, `signMessage n c p` returns 2 if
+`signMessageContract p X86_64.abi 112`, `signMessage n c p` returns 2 if
 the context string is longer than 255 bytes; otherwise it computes `μ` of
 the formatted message and calls the signing function on `μ` `c`, which
 gives the signature of `ML-DSA.Sign_internal` on the formatted message
@@ -77,9 +77,9 @@ theorem signRegs_vals {p : Params} {s s2 : State} (hk : ∀ r, r ∉ [Reg.r10, .
     exact hk _ (by decide)
 
 theorem signMessage_wp {p : Params} {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ params)
-    {s : State} (hpre : (signMessageContract p X86_64.abi 104).pre s) :
+    {s : State} (hpre : (signMessageContract p X86_64.abi 112).pre s) :
     WP isa (signMessage n c p) s fun s' =>
-      abiPreserved s s' ∧ (signMessageContract p X86_64.abi 104).post s s' := by
+      abiPreserved s s' ∧ (signMessageContract p X86_64.abi 112).post s s' := by
   have h := sPre_of hpre
   unfold signMessage top
   refine WP.seq (WP.mono (cmp_ok s) fun s1 ⟨hg1, hm1, hrd1, hwr1, hx1, hc1⟩ => ?_)
@@ -88,7 +88,7 @@ theorem signMessage_wp {p : Params} {n : String} {c : Prog isa} (hS : SignFn p c
     refine wp_ite_t hc1 (WP.seq (WP.mono (signMov_ok h hg1 hm1 hrd1) fun s2 ⟨⟨h10, h11, hax, hm2, hx2⟩, k2⟩ => ?_))
     have hL := slay_ok hp h h8
     have hg2 : ∀ r, r ∉ [Reg.r10, .r11, .rax] → s2.gpr r = s.gpr r := fun r hr => (k2.gpr hr).trans (by rw [hg1])
-    have hsp2 : s2.gpr .rsp = (slay p s).B + BitVec.ofNat 64 104 := by
+    have hsp2 : s2.gpr .rsp = (slay p s).B + BitVec.ofNat 64 112 := by
       rw [hg2 _ (by decide), slay_B]
     have hn : 8 * signRegs.length ≤ (s2.gpr .rsp).toNat := by
       rw [hg2 _ (by decide)]; have := h.sp; simp only [signRegs, List.length_cons, List.length_nil]; omega
@@ -103,7 +103,7 @@ theorem signMessage_wp {p : Params} {n : String} {c : Prog isa} (hS : SignFn p c
       (fun t' hc' => by rw [hc'.slotOff, fKey, hc'.pKey]) ⟨_, List.mem_append_left _ hL.inKey, wtr⟩
       ((hL.xKey.symm.sub_left wtr.sub).sub_right (Region.sub_prefix (by decide : 200 ≤ 1024)))
       ((hL.xKey.symm.sub_left wtr.sub).sub_right (Offset.sub_base _ (by decide : 200 + 640 ≤ 1024)))
-      ((hL.kKey.sub_left (Region.sub_prefix (by decide : 32 ≤ 104))).sub_right wtr.sub))
+      ((hL.kKey.sub_left (Region.sub_prefix (by decide : 40 ≤ 112))).sub_right wtr.sub))
       fun t₁ ⟨hc₁, hf₁, hμ⟩ => ?_)
     refine WP.mono (signCall_ok hS hp h h8 hc₁) fun s' ⟨hrd', hwr', hsp', hcs', hx', hf', hq⟩ => ?_
     have hm₀ : s2.mem = s.mem := hm2
@@ -112,22 +112,22 @@ theorem signMessage_wp {p : Params} {n : String} {c : Prog isa} (hS : SignFn p c
       refine ⟨fun r hr => ?_, ?_, ?_⟩
       · by_cases hr' : r = .rsp
         · subst hr'
-          rw [popped_rsp, hsp', hc₁.rsp, Lay.SP, add_add, show 32 + 8 * signRegs.length = 104 from rfl, slay_B]
+          rw [popped_rsp, hsp', hc₁.rsp, Lay.SP, add_add, show 40 + 8 * signRegs.length = 112 from rfl, slay_B]
         · rw [popped_gpr _ _ _ hr' (cs_r11 r hr), hcs' r hr, hc₁.cs r hr hr', hg2 r (cs_tmp r hr)]
-      · have eR : rRet s = ⟨(slay p s).B + BitVec.ofNat 64 104, 8⟩ := by rw [slay_B]
-        have dB : ∀ k, k ≤ 104 → (rRet s).Disjoint ⟨(slay p s).B, k⟩ := fun k hk => by
+      · have eR : rRet s = ⟨(slay p s).B + BitVec.ofNat 64 112, 8⟩ := by rw [slay_B]
+        have dB : ∀ k, k ≤ 112 → (rRet s).Disjoint ⟨(slay p s).B, k⟩ := fun k hk => by
           rw [eR]; exact Offset.disjoint_base _ hk (by have := hL.nB; omega)
         rw [popped_mem, hf'.readW (r := rRet s) (Region.contains_self _ _) (fun r hr => by
             simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
             rcases hr with rfl | rfl | rfl
             · exact h.retSig
             · exact h.retScr.sub_right (scrMu_sub p s)
-            · exact dB 32 (by decide)) (by decide),
+            · exact dB 40 (by decide)) (by decide),
           hc₁.frame.readW (r := rRet s) (Region.contains_self _ _) (fun r hr => by
             simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
             rcases hr with rfl | rfl
             · exact h.retScr.sub_right (slay_X p s).sub
-            · exact dB 104 (by decide)) (by decide), hm₀]
+            · exact dB 112 (by decide)) (by decide), hm₀]
       · rw [popped_mxcsr, hx', hc₁.mx, hx2, hx1]
     · sig_post [signMessageContract, signMessageSig, X86_64.abi, X86_64.argRegs, List.range, List.range.loop]
       rw [formatMessage_some (by rw [Proof.MlKem.bytesAt_length]; exact h8)]

@@ -25,7 +25,7 @@ structure VerifyFn (p : Params) (c : Prog isa) : Prop where
   ok : ∀ s, (verifyK p).pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ (verifyK p).post s s'
   ct : ConstantTime isa (verifyK p).pre (verifyK p).pub c
   nosp : NoSp c
-  depth : c.depth ≤ 3
+  depth : c.depth ≤ 4
 
 /-- The arguments of the call of the verification function on `μ`. -/
 abbrev verifyArgs (p : Params) : List Arg := [.slot fKey, aMu p, .slot fSig, .slot fScr]
@@ -105,19 +105,19 @@ theorem verifyK_pre {p : Params} (hp : p ∈ params) {L : Lay} (hL : L.Ok) (F : 
   have hB := hL.nB
   have hE := oE_lt hp
   have hkey : (⟨L.key, p.pkLen⟩ : Region) = L.KEY := by rw [Lay.KEY, F.key]
-  have hrsp : t1.callEntry.gpr .rsp = L.B + BitVec.ofNat 64 24 := by
+  have hrsp : t1.callEntry.gpr .rsp = L.B + BitVec.ofNat 64 32 := by
     rw [State.callEntry_rsp, hc1.rsp, Lay.SP]; exact sp_sub8 _
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   all_goals simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr,
     State.callEntry_gpr _ (by decide : Reg.rdi ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rsi ≠ .rsp),
     State.callEntry_gpr _ (by decide : Reg.rdx ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rcx ≠ .rsp),
-    hrsp, e1, e2, e3, e4, below24]
+    hrsp, e1, e2, e3, e4, below32]
   · rw [toNat_add_ofNat (by omega)]; omega
   · exact F.keyScr.sub_right hsub
   · exact mu_scrV hp F.e
   · exact F.sigScr.sub_right hsub
   · exact hL.stk_r (hkey ▸ hL.kKey) (by omega)
-  · exact hL.stk_x (d := 24) (n := 8) (e := 840) (k := 64) (by omega) (by omega)
+  · exact hL.stk_x (d := 32) (n := 8) (e := 840) (k := 64) (by omega) (by omega)
   · exact hL.stk_r F.kSig (by omega)
   · exact hL.stk_r (F.kScr.sub_right hsub) (by omega)
   · exact (hkey ▸ hL.kKey).sub_left (Region.sub_prefix (by omega))
@@ -146,7 +146,7 @@ theorem verifyCall_ok {p : Params} {n : String} {c : Prog isa} (hV : VerifyFn p 
     WP isa (callA n c (verifyArgs p)) t fun s' =>
       s'.rd = t.rd ∧ s'.wr = t.wr ∧ s'.gpr .rsp = t.gpr .rsp ∧ (∀ r ∈ calleeSaved, s'.gpr r = t.gpr r) ∧
       s'.mxcsr.extractLsb' 6 10 = t.mxcsr.extractLsb' 6 10 ∧
-      Frame [rScrV p L, ⟨L.B, 32⟩] t.mem s'.mem ∧
+      Frame [rScrV p L, ⟨L.B, 40⟩] t.mem s'.mem ∧
       (let v := fun b => verifyMu p b (bytesAt t.mem L.key p.pkLen) (bytesAt t.mem L.MU 64)
           (bytesAt t.mem L.sig p.sigLen);
         (Verify.res s' = 1 ∧ ∃ b, v b = some true) ∨ (Verify.res s' = 0 ∧ v minBounds ≠ some true)) := by
@@ -182,14 +182,14 @@ theorem verifyCall_ok {p : Params} {n : String} {c : Prog isa} (hV : VerifyFn p 
       subst hr
       exact ⟨rScrV p L, List.mem_cons_self .., fun _ h => h⟩
     · simp only [List.mem_singleton] at hr; subst hr
-      refine ⟨⟨L.B, 32⟩, List.mem_cons_of_mem _ (List.mem_singleton_self _), ?_⟩
+      refine ⟨⟨L.B, 40⟩, List.mem_cons_of_mem _ (List.mem_singleton_self _), ?_⟩
       rw [hrsp1]
       exact below_call_sub _ (by omega)
   · simp only [verifyK, Verify.vPk, Verify.vMu, Verify.vSig, State.withRegions_mem,
       gpr_ce t1 _ _ (by decide : Reg.rdi ≠ .rsp), gpr_ce t1 _ _ (by decide : Reg.rsi ≠ .rsp),
       gpr_ce t1 _ _ (by decide : Reg.rdx ≠ .rsp), e1, e2, e3, Verify.res] at hq
     rw [hc1.ce_bytesAt (p := L.key) (hL.stk_r (hkey ▸ hL.kKey) (by omega)) (by have := hL.nKey; rw [F.key] at this; omega),
-      hc1.ce_bytesAt (p := L.MU) (hL.stk_x (d := 24) (n := 8) (e := 840) (k := 64) (by omega) (by omega)) (by omega),
+      hc1.ce_bytesAt (p := L.MU) (hL.stk_x (d := 32) (n := 8) (e := 840) (k := 64) (by omega) (by omega)) (by omega),
       hc1.ce_bytesAt (p := L.sig) (hL.stk_r F.kSig (by omega)) (by have := F.nSig; omega), hm',
       hg₂ _ (by decide)] at hq
     exact hq

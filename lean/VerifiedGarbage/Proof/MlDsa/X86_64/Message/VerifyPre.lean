@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Message.SignPre
 # ML-DSA on x86-64, `verify_message`: the precondition and the layout
 
 Untrusted: everything here is checked by Lean. The precondition of
-`verifyMessageContract p X86_64.abi 104`, spelled out (`VPre`), and the
+`verifyMessageContract p X86_64.abi 112`, spelled out (`VPre`), and the
 layout of a run from a state satisfying it (`vlay`): the key is `pk`, there
 is no `rnd` (its slot holds 0) and `scratch` is the only argument on the
 stack.
@@ -27,9 +27,9 @@ abbrev vScr : Region := ⟨stackArg s 0, mScrLen p⟩
 
 end
 
-/-- The precondition of `verifyMessageContract p X86_64.abi 104`. -/
+/-- The precondition of `verifyMessageContract p X86_64.abi 112`. -/
 structure VPre (p : Params) (s : State) : Prop where
-  sp : 104 ≤ (s.gpr .rsp).toNat
+  sp : 112 ≤ (s.gpr .rsp).toNat
   sp2 : (s.gpr .rsp).toNat + 16 ≤ 2 ^ 64
   rd : s.rd = [vPk p s, rMsg s, rCtx s, vSigR p s, vArgs s]
   wr : s.wr = [vScr p s]
@@ -56,7 +56,7 @@ structure VPre (p : Params) (s : State) : Prop where
   nSig : (s.gpr .r9).toNat + p.sigLen ≤ 2 ^ 64
   nScr : (stackArg s 0).toNat + mScrLen p ≤ 2 ^ 64
 
-theorem vPre_of {p : Params} {s : State} (h : (verifyMessageContract p X86_64.abi 104).pre s) : VPre p s := by
+theorem vPre_of {p : Params} {s : State} (h : (verifyMessageContract p X86_64.abi 112).pre s) : VPre p s := by
   sig_pre [verifyMessageContract, verifyMessageSig, X86_64.abi, X86_64.argRegs, List.range, List.range.loop] at h
   obtain ⟨sp, sp2, rd, wr, pkScr, msgScr, ctxScr, sigScr, scrArgs, retPk, retMsg, retCtx, retSig, retScr,
     retArgs, stkPk, stkMsg, stkCtx, stkSig, stkScr, stkArgs, nPk, nMsg, nCtx, nSig, nScr⟩ := h
@@ -69,7 +69,7 @@ theorem pkLen_ge {p : Params} (hp : p ∈ params) : 128 ≤ p.pkLen ∧ p.pkLen 
 
 /-- The layout of a run of `verify_message` from `s`. -/
 def vlay (p : Params) (s : State) : Lay where
-  B := s.gpr .rsp - BitVec.ofNat 64 104
+  B := s.gpr .rsp - BitVec.ofNat 64 112
   key := s.gpr .rdi
   keyLen := p.pkLen
   msg := s.gpr .rsi
@@ -84,7 +84,7 @@ def vlay (p : Params) (s : State) : Lay where
   wr := s.wr
 
 theorem vlay_B (p : Params) (s : State) :
-    (vlay p s).B + BitVec.ofNat 64 104 = s.gpr .rsp := BitVec.sub_add_cancel _ _
+    (vlay p s).B + BitVec.ofNat 64 112 = s.gpr .rsp := BitVec.sub_add_cancel _ _
 
 theorem vlay_X (p : Params) (s : State) : Within (vlay p s).XS (vScr p s) :=
   ⟨oE p, rfl, by show oE p + 1024 ≤ mScrLen p; rw [mScr_eq]⟩

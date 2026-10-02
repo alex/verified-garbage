@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Message.SignCorrect
 # ML-DSA on x86-64, `verify_message`: correctness
 
 Untrusted: everything here is checked by Lean. From a state satisfying
-`verifyMessageContract p X86_64.abi 104`, `verifyMessage n c p` returns 2 if
+`verifyMessageContract p X86_64.abi 112`, `verifyMessage n c p` returns 2 if
 the context string is longer than 255 bytes; otherwise it computes
 `tr = H(pk, 64)`, then `μ` of the formatted message, and calls the
 verification function on `μ` `c`, which gives `ML-DSA.Verify_internal` of
@@ -49,9 +49,9 @@ theorem verifyRegs_vals {p : Params} {s s2 : State} (hk : ∀ r, r ∉ [Reg.r11,
     exact hk _ (by decide)
 
 theorem verifyMessage_wp {p : Params} {n : String} {c : Prog isa} (hV : VerifyFn p c) (hp : p ∈ params)
-    {s : State} (hpre : (verifyMessageContract p X86_64.abi 104).pre s) :
+    {s : State} (hpre : (verifyMessageContract p X86_64.abi 112).pre s) :
     WP isa (verifyMessage n c p) s fun s' =>
-      abiPreserved s s' ∧ (verifyMessageContract p X86_64.abi 104).post s s' := by
+      abiPreserved s s' ∧ (verifyMessageContract p X86_64.abi 112).post s s' := by
   have h := vPre_of hpre
   unfold verifyMessage top
   refine WP.seq (WP.mono (cmp_ok s) fun s1 ⟨hg1, hm1, hrd1, hwr1, hx1, hc1⟩ => ?_)
@@ -60,7 +60,7 @@ theorem verifyMessage_wp {p : Params} {n : String} {c : Prog isa} (hV : VerifyFn
     refine wp_ite_t hc1 (WP.seq (WP.mono (verifyMov_ok h hg1 hm1 hrd1) fun s2 ⟨⟨h11, hax, hm2, hx2⟩, k2⟩ => ?_))
     have hL := vlay_ok hp h h8
     have hg2 : ∀ r, r ∉ [Reg.r11, .rax] → s2.gpr r = s.gpr r := fun r hr => (k2.gpr hr).trans (by rw [hg1])
-    have hsp2 : s2.gpr .rsp = (vlay p s).B + BitVec.ofNat 64 104 := by
+    have hsp2 : s2.gpr .rsp = (vlay p s).B + BitVec.ofNat 64 112 := by
       rw [hg2 _ (by decide), vlay_B]
     have hn : 8 * verifyRegs.length ≤ (s2.gpr .rsp).toNat := by
       rw [hg2 _ (by decide)]; have := h.sp; simp only [verifyRegs, List.length_cons, List.length_nil]; omega
@@ -84,21 +84,21 @@ theorem verifyMessage_wp {p : Params} {n : String} {c : Prog isa} (hV : VerifyFn
       refine ⟨fun r hr => ?_, ?_, ?_⟩
       · by_cases hr' : r = .rsp
         · subst hr'
-          rw [popped_rsp, hsp', hc₂.rsp, Lay.SP, add_add, show 32 + 8 * verifyRegs.length = 104 from rfl, vlay_B]
+          rw [popped_rsp, hsp', hc₂.rsp, Lay.SP, add_add, show 40 + 8 * verifyRegs.length = 112 from rfl, vlay_B]
         · rw [popped_gpr _ _ _ hr' (cs_r11 r hr), hcs' r hr, hc₂.cs r hr hr', hg2 r (cs_tmpV r hr)]
-      · have eR : rRet s = ⟨(vlay p s).B + BitVec.ofNat 64 104, 8⟩ := by rw [vlay_B]
-        have dB : ∀ k, k ≤ 104 → (rRet s).Disjoint ⟨(vlay p s).B, k⟩ := fun k hk => by
+      · have eR : rRet s = ⟨(vlay p s).B + BitVec.ofNat 64 112, 8⟩ := by rw [vlay_B]
+        have dB : ∀ k, k ≤ 112 → (rRet s).Disjoint ⟨(vlay p s).B, k⟩ := fun k hk => by
           rw [eR]; exact Offset.disjoint_base _ hk (by have := hL.nB; omega)
         rw [popped_mem, hf'.readW (r := rRet s) (Region.contains_self _ _) (fun r hr => by
             simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
             rcases hr with rfl | rfl
             · exact h.retScr.sub_right (scrV_sub p _)
-            · exact dB 32 (by decide)) (by decide),
+            · exact dB 40 (by decide)) (by decide),
           hc₂.frame.readW (r := rRet s) (Region.contains_self _ _) (fun r hr => by
             simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
             rcases hr with rfl | rfl
             · exact h.retScr.sub_right (vlay_X p s).sub
-            · exact dB 104 (by decide)) (by decide), hm₀]
+            · exact dB 112 (by decide)) (by decide), hm₀]
       · rw [popped_mxcsr, hx', hc₂.mx, hx2, hx1]
     · sig_post [verifyMessageContract, verifyMessageSig, X86_64.abi, X86_64.argRegs, List.range,
         List.range.loop]

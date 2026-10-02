@@ -73,12 +73,12 @@ theorem verifyCall_tr {n : String} {c : Prog isa} (hV : VerifyFn p c) (hp : p �
     have hk := hL.nKey
     rw [F.key] at hk
     have ce : ∀ {g mx m₀} {a a1 : State} {q : Addr} {k : Nat}, Ctx L g mx m₀ a → Moved (verifyArgs p) a a1 →
-        Region.Disjoint ⟨L.B + BitVec.ofNat 64 24, 8⟩ ⟨q, k⟩ → k ≤ 2 ^ 64 →
+        Region.Disjoint ⟨L.B + BitVec.ofNat 64 32, 8⟩ ⟨q, k⟩ → k ≤ 2 ^ 64 →
         bytesAt a1.callEntry.mem q k = bytesAt a.mem q k := fun c f hd hn => by
       rw [(c.regs f.2.2.1 f.2.2.2 f.1.2.1 f.1.2.2 fun r hr => f.2.gpr (argRegs_cs r hr)).ce_bytesAt hd hn, f.1.2.1]
-    have dk := hL.stk_r (hkey ▸ hL.kKey) (d := 24) (n := 8) (by decide)
-    have dμ := hL.stk_x (d := 24) (n := 8) (e := 840) (k := 64) (by decide) (by decide)
-    have ds := hL.stk_r F.kSig (d := 24) (n := 8) (by decide)
+    have dk := hL.stk_r (hkey ▸ hL.kKey) (d := 32) (n := 8) (by decide)
+    have dμ := hL.stk_x (d := 32) (n := 8) (e := 840) (k := 64) (by decide) (by decide)
+    have ds := hL.stk_r F.kSig (d := 32) (n := 8) (by decide)
     have hsx : L.XS.Disjoint ⟨L.sig, p.sigLen⟩ := by
       have hX : Within L.XS ⟨L.scr, mScrLen p⟩ := ⟨L.E, rfl, by rw [mScr_eq, F.e]⟩
       exact F.sigScr.symm.sub_left hX.sub
@@ -118,7 +118,7 @@ structure VPub (p : Params) (s₁ s₂ : State) : Prop where
   r9 : s₁.gpr .r9 = s₂.gpr .r9
   a0 : stackArg s₁ 0 = stackArg s₂ 0
 
-theorem vPub_of {s₁ s₂ : State} (h : (verifyMessageContract p X86_64.abi 104).pub s₁ s₂) : VPub p s₁ s₂ := by
+theorem vPub_of {s₁ s₂ : State} (h : (verifyMessageContract p X86_64.abi 112).pub s₁ s₂) : VPub p s₁ s₂ := by
   sig_pub [verifyMessageContract, verifyMessageSig, X86_64.abi, X86_64.argRegs, List.range, List.range.loop] at h
   obtain ⟨a, b, c, d, e, f, g, h, i⟩ := h
   exact ⟨a, b, c, d, e, f, g, h, i⟩
@@ -161,8 +161,8 @@ theorem verifyBody_tr {n : String} {c : Prog isa} (hV : VerifyFn p c) (hp : p �
 
 /-- The entry states of two runs: the precondition and the public data. -/
 abbrev VP2 (p : Params) (x y : State) : Prop :=
-  (verifyMessageContract p X86_64.abi 104).pre x ∧ (verifyMessageContract p X86_64.abi 104).pre y ∧
-    (verifyMessageContract p X86_64.abi 104).pub x y
+  (verifyMessageContract p X86_64.abi 112).pre x ∧ (verifyMessageContract p X86_64.abi 112).pre y ∧
+    (verifyMessageContract p X86_64.abi 112).pub x y
 
 /-- After the moves before the push. -/
 abbrev VMov (x x2 : State) : Prop :=
@@ -171,11 +171,11 @@ abbrev VMov (x x2 : State) : Prop :=
     x2.rd = x.rd ∧ x2.wr = x.wr)
 
 theorem verifyMessage_ct {n : String} {c : Prog isa} (hV : VerifyFn p c) (hp : p ∈ params) :
-    ConstantTime isa (verifyMessageContract p X86_64.abi 104).pre (verifyMessageContract p X86_64.abi 104).pub
+    ConstantTime isa (verifyMessageContract p X86_64.abi 112).pre (verifyMessageContract p X86_64.abi 112).pub
       (verifyMessage n c p) := by
   refine RelCT.constantTime (Q := fun _ _ => True) ?_
-  have e0 : (fun s₁ s₂ => (verifyMessageContract p X86_64.abi 104).pre s₁ ∧
-      (verifyMessageContract p X86_64.abi 104).pre s₂ ∧ (verifyMessageContract p X86_64.abi 104).pub s₁ s₂) =
+  have e0 : (fun s₁ s₂ => (verifyMessageContract p X86_64.abi 112).pre s₁ ∧
+      (verifyMessageContract p X86_64.abi 112).pre s₂ ∧ (verifyMessageContract p X86_64.abi 112).pub s₁ s₂) =
       Ghost (VP2 p) (fun x a => a = x) := by
     funext a b; apply propext
     exact ⟨fun h => ⟨a, b, h, rfl, rfl⟩, fun ⟨_, _, h, e₁, e₂⟩ => e₁ ▸ e₂ ▸ h⟩
@@ -199,7 +199,7 @@ theorem verifyMessage_ct {n : String} {c : Prog isa} (hV : VerifyFn p c) (hp : p
           · exact spOnly_nomem (fun _ => rfl) rfl)
         fun a b ⟨x, y, hxy, f₁, f₂⟩ => by rw [f₁.1.1, f₂.1.1]; exact (vPub_of hxy.2.2).rsp)
       fun x y a b hxy f₁ f₂ => by
-        have mv : ∀ {x a : State}, (verifyMessageContract p X86_64.abi 104).pre x → ACmp x a →
+        have mv : ∀ {x a : State}, (verifyMessageContract p X86_64.abi 112).pre x → ACmp x a →
             (x.gpr .r8).toNat < 256 → WP isa (.block [.mov .r11 (.mem (stk 8)), .mov32 .rax (.imm 0)]) a
               (VMov x) := fun hx f h8 =>
           WP.mono (verifyMov_ok (vPre_of hx) f.1 f.2.1 f.2.2.1) fun x2 ⟨h, k⟩ =>
@@ -224,7 +224,7 @@ theorem verifyMessage_ct {n : String} {c : Prog isa} (hV : VerifyFn p c) (hp : p
           subst e₁ e₂
           rw [pushed_rsp, pushed_rsp, f₁.2.2.1 _ (by decide), f₂.2.2.1 _ (by decide), (vPub_of hxy.2.2).rsp])
       fun x y a b hxy fa fb => by
-        have en : ∀ {x a : State}, (verifyMessageContract p X86_64.abi 104).pre x → A x a →
+        have en : ∀ {x a : State}, (verifyMessageContract p X86_64.abi 112).pre x → A x a →
             WP isa (.block setHdr) a (B x) := fun hx ⟨s₁, f, e⟩ => by
           subst e
           have h := vPre_of hx
