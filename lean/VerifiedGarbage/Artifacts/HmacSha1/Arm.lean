@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.Arm.Target
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Instances
+import VerifiedGarbage.Proof.Hmac.Generic.Arm.InitAny
 
 /-!
 # HMAC-SHA-1 (RFC 2104) on ARMv7
@@ -24,15 +24,15 @@ namespace VG.Artifacts.HmacSha1.Arm
 open VG.Proof.Hmac.Generic.Arm
 
 def artifacts : List Artifact := [
-  { Spec.Hmac.sha1I.initApi with
+  { Spec.Hmac.sha1I.initAnyKeyApi with
     target := Arm.target
-    doc := Spec.Hmac.sha1I.initApi.doc
-    code := sha1H.init
-    contract := Spec.Hmac.sha1I.initContract Arm.abi 16
-    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
+    doc := Spec.Hmac.sha1I.initAnyKeyApi.doc
+    code := sha1H.initAny
+    contract := Spec.Hmac.sha1I.initAnyKeyContract Arm.abi 16
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initAnyKeyContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Instances.sha1_init
+    verified := Instances.sha1_initAny
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Hmac.sha1I.finalizeApi with
     target := Arm.target

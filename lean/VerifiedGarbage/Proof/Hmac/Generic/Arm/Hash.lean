@@ -339,7 +339,7 @@ structure UpdArgs (s : State) (st d sc : BitVec 32) (len : Nat) : Prop where
   r1 : s.gpr .r1 = d
   r7 : s.gpr .r7 = BitVec.ofNat 32 len
   r10 : s.gpr .r10 = sc
-  hlen : len < 2 ^ 16
+  hlen : len < 2 ^ 32
   sp16 : 16 ≤ s.sp.toNat
   cd : Covers [⟨State.addr d, len⟩] (s.rd ++ s.wr)
   cw : Covers [⟨State.addr st, H.S⟩, ⟨State.addr sc, hH.Wb⟩] s.wr

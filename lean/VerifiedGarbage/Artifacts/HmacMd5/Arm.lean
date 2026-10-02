@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.Arm.Target
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Instances
+import VerifiedGarbage.Proof.Hmac.Generic.Arm.InitAny
 
 /-!
 # HMAC-MD5 (RFC 2104) on ARMv7
@@ -24,15 +24,15 @@ namespace VG.Artifacts.HmacMd5.Arm
 open VG.Proof.Hmac.Generic.Arm
 
 def artifacts : List Artifact := [
-  { Spec.Hmac.md5I.initApi with
+  { Spec.Hmac.md5I.initAnyKeyApi with
     target := Arm.target
-    doc := Spec.Hmac.md5I.initApi.doc
-    code := md5H.init
-    contract := Spec.Hmac.md5I.initContract Arm.abi 16
-    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
+    doc := Spec.Hmac.md5I.initAnyKeyApi.doc
+    code := md5H.initAny
+    contract := Spec.Hmac.md5I.initAnyKeyContract Arm.abi 16
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initAnyKeyContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Instances.md5_init
+    verified := Instances.md5_initAny
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Hmac.md5I.finalizeApi with
     target := Arm.target

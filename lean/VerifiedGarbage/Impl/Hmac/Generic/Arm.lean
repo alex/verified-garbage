@@ -10,7 +10,8 @@ The same algorithm as on x86-64 and AArch64 (`VG.Impl.Hmac.Generic.X86_64`,
 * `init(inner = r0, outer = r1, key = r2, key_len = r3, scratch = [sp])`
   writes `K₀ ⊕ ipad` and `K₀ ⊕ opad` into `scratch`, then makes the inner
   state absorb the first and the outer state the second, with `init` and
-  `update`.
+  `update`, for a key of at most a block; `initAny`, for a key of any
+  length, first replaces a longer key by its digest (`hashKey`).
 * `finalize(inner = r0, outer = r1, count = r2:r3, out = [sp],
   scratch = [sp, #4])` finalizes the inner state into `scratch`, copies the
   outer state over the inner one, absorbs the inner digest into it with
@@ -142,6 +143,43 @@ def init : Prog isa :=
   (.seq (H.callInit .r5)
   (.seq (H.callUpd [.mov .r0 (.reg .r5)] 0 (H.buf + H.B) H.B)
     (.block H.restore)))))
+
+/-! ## `init` for a key of any length
+
+As on the other targets: `initAny` compares `key_len` with the block size
+(`key_len >> log₂ B` is zero for a shorter key, `key_len - B` for a key of a
+block). A longer key is hashed first (`hashKey`): `init`, `update` and
+`finalize` on a streaming state at `scratch + ext`, after `init`'s buffers,
+with the digest written after the state; then `init` runs on that digest,
+`D` bytes. `hashKey` keeps its variables where `init` does (`r4` =
+`inner`, `r5` = `outer`, `r6` = `key`, `r9` = `key_len`, `r11` =
+`scratch`), saving and restoring our caller's registers and our return
+address in the same place; the frames of `update` and `finalize` are
+`callUpd`'s and `callFin`'s, with the key as `update`'s data and its length
+as `finalize`'s count. -/
+
+/-- Where the streaming state of a long key is: after `init`'s buffers,
+rounded up to a whole word. Its digest follows it. -/
+def ext : Nat := 8 * ((H.buf + 2 * H.B + 7) / 8)
+
+def hashKey : Prog isa :=
+  .seq (.block ([.ldrSp .r12 0] ++ H.save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
+      .mov .r9 (.reg .r3), .mov .r11 (.reg .r12)] ++ scrAt .r0 H.ext))
+  (.seq (.call H.initN H.initC)
+  (.seq (.block (scrAt .r0 H.ext ++ [.mov .r1 (.reg .r6), .mov .r7 (.reg .r9), .mov .r10 (.reg .r11),
+      .mov .r2 (.imm 0), .mov .r3 (.imm 0)]))
+  (.seq (.frame (.push [.r1, .r7, .r10, .r12]) (.call H.updN H.updC) (.pop .r1 16))
+  (.seq (.block (scrAt .r0 H.ext ++ scrAt .r1 (H.ext + H.S) ++ [.mov .r2 (.reg .r9), .mov .r3 (.imm 0),
+      .mov .r12 (.reg .r11)]))
+  (.seq (.frame (.push [.r1, .r12]) (.call H.finN H.finC) (.pop .r1 8))
+    (.block ([.mov .r0 (.reg .r4), .mov .r1 (.reg .r5)] ++ scrAt .r2 (H.ext + H.S) ++
+      [.movw .r3 (BitVec.ofNat 16 H.D)] ++ H.restore)))))))
+
+def initAny : Prog isa :=
+  .seq (.block [.mov .r12 (.shifted .r3 .lsr (Nat.log2 H.B)), .cmp .r12 (.imm 0)])
+  (.seq (.ite .eq (.block [])
+      (.seq (.block [.subs .r12 .r3 (.imm (BitVec.ofNat 32 H.B))]) (.ite .eq (.block []) H.hashKey)))
+    H.init)
 
 /-! ## `finalize`
 
