@@ -10,11 +10,13 @@
 //! tag, and the length limits of §5.2.1.1. Decryption checks the tag, in
 //! constant time, before it decrypts anything.
 //!
-//! On x86-64, CPUs with AES-NI, PCLMULQDQ and SSSE3 run
-//! `vg_aes_expand_key_aesni`, `vg_aes_ctr32_aesni` and `vg_ghash_pclmul`
-//! instead, which have the same contracts; on AArch64, CPUs with the AES and
-//! PMULL extensions run `vg_aes_expand_key_aes`, `vg_aes_ctr32_aes` and
-//! `vg_ghash_pmull`.
+//! It follows the implementation of AES (`crate::aes::Backend`), with
+//! GHASH's for the same CPUs: on x86-64, CPUs with AES-NI, PCLMULQDQ and
+//! SSSE3 run `vg_aes_expand_key_aesni`, `vg_aes_ctr32_aesni` and
+//! `vg_ghash_pclmul` instead, which have the same contracts; on AArch64,
+//! CPUs with the AES and PMULL extensions run `vg_aes_expand_key_aes`,
+//! `vg_aes_ctr32_aes` and `vg_ghash_pmull`. A CPU with the AES instructions
+//! but not those GHASH needs runs the scalar AES too.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -23,17 +25,12 @@
     target_arch = "x86"
 ))]
 
-#[cfg(target_arch = "aarch64")]
-use crate::arch::aes::{
-    VG_AES_CTR32_AES_FEATURES, VG_AES_EXPAND_KEY_AES_FEATURES, vg_aes_ctr32_aes,
-    vg_aes_expand_key_aes,
-};
-#[cfg(target_arch = "x86_64")]
-use crate::arch::aes::{
-    VG_AES_CTR32_AESNI_FEATURES, VG_AES_EXPAND_KEY_AESNI_FEATURES, vg_aes_ctr32_aesni,
-    vg_aes_expand_key_aesni,
-};
+use crate::aes::Backend;
 use crate::arch::aes::{vg_aes_ctr32, vg_aes_expand_key};
+#[cfg(target_arch = "aarch64")]
+use crate::arch::aes::{vg_aes_ctr32_aes, vg_aes_expand_key_aes};
+#[cfg(target_arch = "x86_64")]
+use crate::arch::aes::{vg_aes_ctr32_aesni, vg_aes_expand_key_aesni};
 use crate::arch::gcm::vg_ghash;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
@@ -121,6 +118,7 @@ pub struct AesGcm {
     schedule: [u8; 240],
     rounds: usize,
     h: Block,
+    /// The implementation of AES, and the GHASH run with it.
     backend: Backend,
 }
 
@@ -132,54 +130,25 @@ impl Drop for AesGcm {
     }
 }
 
-/// The implementations of the primitives.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Backend {
-    /// Constant-time scalar code, for the target's baseline ISA.
-    Scalar,
-    /// AES-NI and PCLMULQDQ.
-    #[cfg(target_arch = "x86_64")]
-    AesNi,
-    /// The AES and PMULL extensions.
-    #[cfg(target_arch = "aarch64")]
-    ArmCrypto,
+/// The best implementation of AES a CPU with the features `f` can run
+/// together with GHASH's for the same CPUs.
+#[cfg(target_arch = "x86_64")]
+fn select(f: Features) -> Backend {
+    Backend::select_for(f, &[VG_GHASH_PCLMUL_FEATURES])
 }
 
-impl Backend {
-    /// The best implementation a CPU with the features `f` can run.
-    #[cfg(target_arch = "x86_64")]
-    fn select(f: Features) -> Backend {
-        if f.contains(Features::all(&[
-            VG_AES_EXPAND_KEY_AESNI_FEATURES,
-            VG_AES_CTR32_AESNI_FEATURES,
-            VG_GHASH_PCLMUL_FEATURES,
-        ])) {
-            Backend::AesNi
-        } else {
-            Backend::Scalar
-        }
-    }
+/// The best implementation of AES a CPU with the features `f` can run
+/// together with GHASH's for the same CPUs.
+#[cfg(target_arch = "aarch64")]
+fn select(f: Features) -> Backend {
+    Backend::select_for(f, &[VG_GHASH_PMULL_FEATURES])
+}
 
-    /// The best implementation a CPU with the features `f` can run.
-    #[cfg(target_arch = "aarch64")]
-    fn select(f: Features) -> Backend {
-        if f.contains(Features::all(&[
-            VG_AES_EXPAND_KEY_AES_FEATURES,
-            VG_AES_CTR32_AES_FEATURES,
-            VG_GHASH_PMULL_FEATURES,
-        ])) {
-            Backend::ArmCrypto
-        } else {
-            Backend::Scalar
-        }
-    }
-
-    /// The best implementation a CPU with the features `f` can run: there
-    /// is only one here.
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    fn select(_: Features) -> Backend {
-        Backend::Scalar
-    }
+/// The best implementation a CPU with the features `f` can run: there is
+/// only one here.
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+fn select(f: Features) -> Backend {
+    Backend::select(f)
 }
 
 impl AesGcm {
@@ -196,7 +165,7 @@ impl AesGcm {
             schedule: [0; 240],
             rounds: key.len() / 4 + 6,
             h: [0; 16],
-            backend: Backend::select(detected()),
+            backend: select(detected()),
         };
         let mut scratch = MaybeUninit::<[u64; 64]>::uninit();
         let (key_ptr, schedule) = (key.as_ptr(), &mut k.schedule);
@@ -217,7 +186,7 @@ impl AesGcm {
                     vg_aes_expand_key_aesni(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
                 }
                 #[cfg(target_arch = "aarch64")]
-                Backend::ArmCrypto => {
+                Backend::Aes => {
                     vg_aes_expand_key_aes(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
                 }
             }
@@ -241,7 +210,7 @@ impl AesGcm {
             #[cfg(target_arch = "x86_64")]
             Backend::AesNi => vg_aes_ctr32_aesni,
             #[cfg(target_arch = "aarch64")]
-            Backend::ArmCrypto => vg_aes_ctr32_aes,
+            Backend::Aes => vg_aes_ctr32_aes,
         };
         // SAFETY: `self.schedule` holds the key schedule for `self.rounds`
         // (10, 12 or 14) rounds, written by key expansion (every
@@ -273,7 +242,7 @@ impl AesGcm {
             #[cfg(target_arch = "x86_64")]
             Backend::AesNi => vg_ghash_pclmul,
             #[cfg(target_arch = "aarch64")]
-            Backend::ArmCrypto => vg_ghash_pmull,
+            Backend::Aes => vg_ghash_pmull,
         };
         if !blocks.is_empty() {
             // SAFETY: `self.h` is valid for reads of 16 bytes, `y` for reads and
@@ -581,32 +550,32 @@ impl AesGcmStream {
 
 #[cfg(test)]
 mod tests {
-    use super::{AesGcm, AesGcmStream, Backend, Direction, Error, MAX_AAD, MAX_TEXT, add_len};
-    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-    use crate::cpu::Features;
-    use crate::cpu::detected;
+    use super::{
+        AesGcm, AesGcmStream, Backend, Direction, Error, MAX_AAD, MAX_TEXT, add_len, select,
+    };
+    use crate::cpu::{Features, detected};
 
-    /// The implementation chosen for each set of features.
+    /// The implementation chosen for each set of features: AES's, and
+    /// GHASH's for the same CPUs.
     #[test]
-    fn select() {
+    fn backend() {
         #[cfg(target_arch = "x86_64")]
         {
             let all = Features::of(&["aes", "pclmulqdq", "ssse3"]);
-            assert_eq!(Backend::select(all), Backend::AesNi);
+            assert_eq!(select(all), Backend::AesNi);
             for f in [
                 Features::of(&["aes", "ssse3"]),
                 Features::of(&["pclmulqdq", "ssse3"]),
+                Features::of(&["aes", "pclmulqdq"]),
             ] {
-                assert_eq!(Backend::select(f), Backend::Scalar);
+                assert_eq!(select(f), Backend::Scalar);
             }
         }
         #[cfg(target_arch = "aarch64")]
-        {
-            assert_eq!(Backend::select(Features::of(&["aes"])), Backend::ArmCrypto);
-            assert_eq!(Backend::select(Features(0)), Backend::Scalar);
-        }
+        assert_eq!(select(Features::of(&["aes"])), Backend::Aes);
+        assert_eq!(select(Features(0)), Backend::Scalar);
         let best = AesGcm::new(&[0; 16]).unwrap().backend;
-        assert_eq!(best, Backend::select(detected()));
+        assert_eq!(best, select(detected()));
     }
 
     /// Encryption and decryption are inverse, for every key size, 12-byte
