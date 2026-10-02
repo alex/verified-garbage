@@ -13,7 +13,8 @@ compression functions and the code writing their digests
 proofs know of them (`MdOk`), from their own proofs: the `Md` of the generic
 streaming proofs (`Proof/Md5/Md.lean` and the others), the digests their code
 writes (`out512_ok` for the SHA-512 family), and their compression functions'
-contracts, which are `cmpK`.
+contracts, which are `cmpK`. SHA-256, whose compression function has a
+variant for each backend on x86, is in `Sha256.lean`.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86

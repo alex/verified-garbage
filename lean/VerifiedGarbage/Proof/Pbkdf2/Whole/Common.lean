@@ -11,8 +11,7 @@ The output is the blocks `T₁ ‖ T₂ ‖ …` (`G`), of which `nb` are needed
 `k` of them, the first `done k` bytes of the output are written. `INT (i)` is
 the bytes of a byte-reversed word in memory (`bytes_rev_int`), and two
 disjoint regions that do not wrap around fit in the address space together
-(`len_add_le`). SHA-256's streaming state depends only on its bytes
-(`sha256_repr`).
+(`len_add_le`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole
@@ -129,20 +128,5 @@ theorem byteRev32_byteRev32 (x : BitVec 32) : byteRev32 (byteRev32 x) = x := by
     rw [getLsbD_cat4]
     simp only [show (0 + (i - 24) < 8) by omega, ite_true, BitVec.getLsbD_extractLsb', decide_true,
       Bool.true_and, show 24 + (0 + (i - 24)) = i by omega]
-
-/-! ## SHA-256's streaming state -/
-
-/-- SHA-256's streaming state depends only on its 96 bytes. -/
-theorem sha256_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
-    (h : ∀ i < 96, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))
-    (hr : Spec.Sha256.Repr m p msg) : Spec.Sha256.Repr m' q msg := by
-  refine ⟨?_, ?_⟩
-  · rw [← hr.1]
-    apply Vector.ext
-    intro j hj
-    simp only [Spec.Sha256.stateAt, Vector.getElem_ofFn]
-    exact Hmac.Generic.Common.readW_reloc h (by omega)
-  · rw [← hr.2]
-    exact Hmac.Generic.Common.bytesAt_reloc h (o := 32) (k := msg.length % 64) (by omega)
 
 end VG.Proof.Pbkdf2.Whole
