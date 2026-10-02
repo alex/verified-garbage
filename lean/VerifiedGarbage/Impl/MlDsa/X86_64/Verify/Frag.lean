@@ -189,7 +189,7 @@ def hintUnpackAt (y : Ptr) (len omega : Nat) (h : Ptr) (hlen : Nat) : Prog isa :
     [(.rdi, .ptr y), (.rsi, .imm len), (.rdx, .imm omega), (.rcx, .ptr h), (.r8, .imm hlen)]
 
 def normLtAt (f : Ptr) (bound : Nat) : Prog isa :=
-  callAt "vg_mldsa_norm_lt" P.normLt [(.rdi, .ptr f), (.rsi, .imm bound)]
+  callAt ("vg_mldsa_norm_lt" ++ P.sfx) P.normLt [(.rdi, .ptr f), (.rsi, .imm bound)]
 
 end
 
