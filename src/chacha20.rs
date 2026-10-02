@@ -116,16 +116,6 @@ impl Backend {
     }
 }
 
-/// How many bytes at the start of the streaming state the functions write:
-/// the key, the position in the keystream and the partly used block (136
-/// bytes, `VG.Spec.ChaCha20.restAt`), then the working space of `apply` (the
-/// copy of the 16-word state and the working space it gives
-/// `vg_chacha20_xor`, our caller's registers and the bytes left), up to
-/// byte 616 on every target (see the layouts in
-/// `lean/VerifiedGarbage/Impl/ChaCha20/<Target>/Stream.lean`). The rest is
-/// never touched.
-const WRITTEN: usize = 616;
-
 /// A ChaCha20 keystream, applied incrementally.
 pub struct ChaCha20 {
     /// The streaming state of `vg_chacha20_init` and `vg_chacha20_apply`
@@ -138,14 +128,13 @@ pub struct ChaCha20 {
 }
 
 impl Drop for ChaCha20 {
-    /// Wipes the bytes of the state the functions write, which hold the key
-    /// and keystream.
+    /// Wipes the state, which holds the key and keystream. All of it: the
+    /// contract lets the functions write any of it.
     fn drop(&mut self) {
-        // SAFETY: `state` is valid for writes of 768 bytes, of which we write
-        // the first `WRITTEN`; it is a distinct object, so it does not
-        // overlap the callee's stack frame or wrap around the end of the
-        // address space.
-        unsafe { zeroize_raw(self.state.as_mut_ptr().cast::<u8>(), WRITTEN) };
+        // SAFETY: `state` is valid for writes of 768 bytes; it is a distinct
+        // object, so it does not overlap the callee's stack frame or wrap
+        // around the end of the address space.
+        unsafe { zeroize_raw(self.state.as_mut_ptr().cast::<u8>(), size_of::<[u64; 96]>()) };
     }
 }
 
