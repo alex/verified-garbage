@@ -66,21 +66,6 @@ theorem strs_ok (b : Reg) (B : Addr) : ∀ (as : List (Reg × Nat)) (t : State),
       · simp only [List.mem_singleton] at h; subst h; exact List.mem_cons_self ..
       · exact List.mem_cons_of_mem _ h
 
-theorem byte_writeW_self (m : Mem) (a : Addr) (v : BitVec 8) : (m.writeW a v) a = v := by
-  have h := Mem.readW_writeW_self m a 1 v (by decide)
-  have h1 := Proof.MlKem.AArch64.read_one (m.writeW a v) a
-  simp only [Mem.readW, BitVec.setWidth_eq] at h
-  rw [← h1]
-  exact h
-
-theorem byte_writeW_other {m : Mem} {a x : Addr} (v : BitVec 8) (h : x ≠ a) : (m.writeW a v) x = m x := by
-  simp only [Mem.writeW]
-  refine Mem.write_apply fun hl => h ?_
-  have : (x - a).toNat = 0 := by simp only [Nat.reduceDiv] at hl; omega
-  have e := BitVec.eq_of_toNat_eq (x := x - a) (y := 0) (by rw [this]; rfl)
-  rw [← BitVec.sub_add_cancel x a, e]
-  simp
-
 /-- The values the entry saves at `X + 920 + 8j`, and the registers they are in. -/
 theorem saves_ok {as : List (Reg × Nat)} (hf : as.map (·.2) = [920, 928, 936, 944, 952, 960, 968, 976]) :
     ∀ a ∈ as, a.2 % 8 = 0 ∧ 920 ≤ a.2 ∧ a.2 + 8 ≤ 984 := by

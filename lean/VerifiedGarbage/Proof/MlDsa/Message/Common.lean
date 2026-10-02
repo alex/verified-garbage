@@ -7,7 +7,7 @@ import VerifiedGarbage.Spec.MlDsa.Poly
 # ML-DSA, `sign_message` and `verify_message`: what every target's proof uses
 
 Untrusted: everything here is checked by Lean. Regions at an offset within
-others (`Within`); the formatted message `0 ‖ |ctx| ‖ ctx ‖ M` of a context
+others (`Within`); bytes written (`byte_writeW_self`); the formatted message `0 ‖ |ctx| ‖ ctx ‖ M` of a context
 string of at most 255 bytes (`formatMessage_some`); and the bytes behind
 equal leakage (`leakBytes_inj`).
 -/
@@ -51,6 +51,28 @@ theorem add_add (p : Addr) (a b : Nat) :
 theorem toNat_add_ofNat {x : Addr} {a : Nat} (h : x.toNat + a < 2 ^ 64) :
     (x + BitVec.ofNat 64 a).toNat = x.toNat + a := by
   rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := a) (by omega), Nat.mod_eq_of_lt h]
+
+/-! ## Bytes written -/
+
+theorem read_one (m : Mem) (a : Addr) : m.read a 1 = m a := by
+  have := Mem.extractLsb'_read m a (n := 1) (j := 0) (by decide)
+  rw [show 8 * 0 = 0 from rfl, BitVec.extractLsb'_eq_self, show BitVec.ofNat 64 0 = 0#64 from rfl,
+    BitVec.add_zero] at this
+  exact this
+
+theorem byte_writeW_self (m : Mem) (a : Addr) (v : BitVec 8) : (m.writeW a v) a = v := by
+  have h := Mem.readW_writeW_self m a 1 v (by decide)
+  simp only [Mem.readW, BitVec.setWidth_eq] at h
+  rw [← read_one (m.writeW a v) a]
+  exact h
+
+theorem byte_writeW_other {m : Mem} {a x : Addr} (v : BitVec 8) (h : x ≠ a) : (m.writeW a v) x = m x := by
+  simp only [Mem.writeW]
+  refine Mem.write_apply fun hl => h ?_
+  have : (x - a).toNat = 0 := by simp only [Nat.reduceDiv] at hl; omega
+  have e := BitVec.eq_of_toNat_eq (x := x - a) (y := 0) (by rw [this]; rfl)
+  rw [← BitVec.sub_add_cancel x a, e]
+  simp
 
 /-! ## The formatted message -/
 
