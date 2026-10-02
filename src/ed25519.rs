@@ -168,117 +168,6 @@ impl SigningKey {
     }
 }
 
-/// `vg_ed25519_public_key` and its variants.
-#[cfg(target_arch = "x86_64")]
-type PublicKeyFn = unsafe extern "sysv64" fn(*mut [u8; 32], *const [u8; 32], *mut [u64; 1024]);
-/// `vg_ed25519_public_key` and its variants.
-#[cfg(not(target_arch = "x86_64"))]
-type PublicKeyFn = unsafe extern "C" fn(*mut [u8; 32], *const [u8; 32], *mut [u64; 1024]);
-/// `vg_ed25519_verify` and its variants.
-#[cfg(target_arch = "x86_64")]
-type VerifyFn = unsafe extern "sysv64" fn(
-    *const [u8; 32],
-    *const u8,
-    usize,
-    *const [u8; 64],
-    *mut [u64; 1024],
-) -> u32;
-/// `vg_ed25519_verify` and its variants.
-#[cfg(not(target_arch = "x86_64"))]
-type VerifyFn = unsafe extern "C" fn(
-    *const [u8; 32],
-    *const u8,
-    usize,
-    *const [u8; 64],
-    *mut [u64; 1024],
-) -> u32;
-/// `vg_ed25519_sign_cached` and its variants.
-#[cfg(target_arch = "x86_64")]
-type SignFn = unsafe extern "sysv64" fn(
-    *mut [u8; 64],
-    *const [u8; 32],
-    *const [u8; 32],
-    *const u8,
-    usize,
-    *mut [u64; 1024],
-);
-/// `vg_ed25519_sign_cached` and its variants.
-#[cfg(not(target_arch = "x86_64"))]
-type SignFn = unsafe extern "C" fn(
-    *mut [u8; 64],
-    *const [u8; 32],
-    *const [u8; 32],
-    *const u8,
-    usize,
-    *mut [u64; 1024],
-);
-
-/// The implementation of key derivation for a CPU with the features `f`: that of
-/// SHA-512's backend and the field's.
-fn public_key_fn(f: Features) -> PublicKeyFn {
-    match (Sha512Backend::select(f), Field::select(f)) {
-        (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_public_key,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Scalar, Field::Adx | Field::Ifma) => vg_ed25519_public_key_adx,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_public_key_shani,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::ShaNi, Field::Adx | Field::Ifma) => vg_ed25519_public_key_shani_adx,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_public_key_avx2,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Avx2, Field::Adx | Field::Ifma) => vg_ed25519_public_key_avx2_adx,
-        #[cfg(target_arch = "aarch64")]
-        (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_public_key_sha3,
-    }
-}
-
-/// The implementation of verification for a CPU with the features `f`: that of
-/// SHA-512's backend and the field's.
-fn verify_fn(f: Features) -> VerifyFn {
-    match (Sha512Backend::select(f), Field::select(f)) {
-        (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_verify,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Scalar, Field::Adx) => vg_ed25519_verify_adx,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Scalar, Field::Ifma) => vg_ed25519_verify_ifma,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_verify_shani,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::ShaNi, Field::Adx) => vg_ed25519_verify_shani_adx,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::ShaNi, Field::Ifma) => vg_ed25519_verify_shani_ifma,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_verify_avx2,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Avx2, Field::Adx) => vg_ed25519_verify_avx2_adx,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Avx2, Field::Ifma) => vg_ed25519_verify_avx2_ifma,
-        #[cfg(target_arch = "aarch64")]
-        (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_verify_sha3,
-    }
-}
-
-/// The implementation of signing for a CPU with the features `f`: that of
-/// SHA-512's backend and the field's.
-fn sign_fn(f: Features) -> SignFn {
-    match (Sha512Backend::select(f), Field::select(f)) {
-        (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_sign_cached,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Scalar, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_adx,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_sign_cached_shani,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::ShaNi, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_shani_adx,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_sign_cached_avx2,
-        #[cfg(target_arch = "x86_64")]
-        (Sha512Backend::Avx2, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_avx2_adx,
-        #[cfg(target_arch = "aarch64")]
-        (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_sign_cached_sha3,
-    }
-}
-
 /// The public key of `seed` (RFC 8032 §5.1.5), with the verified
 /// `vg_ed25519_public_key` including SHA-512.
 fn public_key(seed: &[u8; 32]) -> [u8; 32] {
@@ -292,7 +181,21 @@ fn public_key(seed: &[u8; 32]) -> [u8; 32] {
 ///
 /// The CPU has the features `f`.
 unsafe fn public_key_with(f: Features, seed: &[u8; 32]) -> [u8; 32] {
-    let derive = public_key_fn(f);
+    let derive = match (Sha512Backend::select(f), Field::select(f)) {
+        (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_public_key,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Scalar, Field::Adx | Field::Ifma) => vg_ed25519_public_key_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_public_key_shani,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Adx | Field::Ifma) => vg_ed25519_public_key_shani_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_public_key_avx2,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Adx | Field::Ifma) => vg_ed25519_public_key_avx2_adx,
+        #[cfg(target_arch = "aarch64")]
+        (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_public_key_sha3,
+    };
     let mut public = [0u8; 32];
     let mut scratch = [0u64; 1024];
     // SAFETY: the output, seed, and scratch are distinct objects valid for
@@ -322,7 +225,27 @@ unsafe fn verify_message_with(
     message: &[u8],
     signature: &[u8; 64],
 ) -> u32 {
-    let verify = verify_fn(f);
+    let verify = match (Sha512Backend::select(f), Field::select(f)) {
+        (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_verify,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Scalar, Field::Adx) => vg_ed25519_verify_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Scalar, Field::Ifma) => vg_ed25519_verify_ifma,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_verify_shani,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Adx) => vg_ed25519_verify_shani_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Ifma) => vg_ed25519_verify_shani_ifma,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_verify_avx2,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Adx) => vg_ed25519_verify_avx2_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Ifma) => vg_ed25519_verify_avx2_ifma,
+        #[cfg(target_arch = "aarch64")]
+        (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_verify_sha3,
+    };
     let mut scratch = [0u64; 1024];
     // SAFETY: input references are valid for their declared lengths and scratch
     // is a distinct writable object. No object overlaps the call stack, and
@@ -351,7 +274,21 @@ unsafe fn sign_message_with(
     pk: &[u8; 32],
     message: &[u8],
 ) -> [u8; 64] {
-    let sign = sign_fn(f);
+    let sign = match (Sha512Backend::select(f), Field::select(f)) {
+        (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_sign_cached,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Scalar, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_sign_cached_shani,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_shani_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_sign_cached_avx2,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_avx2_adx,
+        #[cfg(target_arch = "aarch64")]
+        (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_sign_cached_sha3,
+    };
     let mut signature = [0u8; 64];
     let mut scratch = [0u64; 1024];
     // SAFETY: the input references are valid for their declared lengths.
@@ -474,8 +411,6 @@ mod x86_64_tests {
             let f = Features(bits);
             let r = required(Sha512Backend::select(f), Field::select(f));
             assert!(f.contains(Features::all(&r)), "{bits:#b}");
-            // Every choice, whether or not this CPU can run it.
-            let _ = (public_key_fn(f), verify_fn(f), sign_fn(f));
         }
     }
 
