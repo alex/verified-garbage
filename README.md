@@ -920,6 +920,22 @@ yours to keep:
 
 <tr>
 
+<td>DSA</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>Ed25519</td>
 
 <td>✅</td>

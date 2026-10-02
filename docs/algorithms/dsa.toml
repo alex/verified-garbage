@@ -1,0 +1,5 @@
+name = "DSA"
+family = "Signatures"
+specs = ["Dsa"]
+modules = ["src/dsa.rs"]
+asm = ["dsa"]
