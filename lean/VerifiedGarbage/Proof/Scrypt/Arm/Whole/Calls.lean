@@ -136,7 +136,7 @@ theorem frame4_rel {n : String} {c : Prog isa} {k : Contract isa}
       Covers (rd ++ wr) ((pushed fr4 s₂).rd ++ (pushed fr4 s₂).wr) ∧ Covers wr (pushed fr4 s₂).wr) :
     RelCT isa P (.frame (.push fr4) (.call n c) (.pop .r12 16)) fun _ _ => True := by
   refine RelCT.frame (fun s₁ s₂ hp => (h s₁ s₂ hp).1) (RelCT.call hv hct rd wr fun a b ⟨s₁, s₂, hp, pa, pb⟩ => ?_)
-  rw [Hmac.Generic.Arm.push_eq (by decide) pa, Hmac.Generic.Arm.push_eq (by decide) pb]
+  rw [Pbkdf2.Stream.Arm.push_eq (by decide) pa, Pbkdf2.Stream.Arm.push_eq (by decide) pb]
   exact (h s₁ s₂ hp).2
 
 /-! ## The stack below the stack pointer -/
