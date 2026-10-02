@@ -27,9 +27,8 @@ feature is benchmarked once with every feature the runner has, and once
 more for each restriction in `CPU_FEATURES` (as `VG_CPU_FEATURES`, see
 src/cpu.rs), so that every implementation is measured. Each entry's
 `cpu-features` is its restriction, empty for none. With `--base REV`, edits
-consisting only of module/benchmark registrations select their dependencies,
-and code without feature variants or CPU dispatch needs one job per target.
-Algorithms with variants keep the complete matrix, as do uncertain changes.
+consisting only of module/benchmark registrations select their dependencies.
+Every selected architecture keeps its complete CPU-feature matrix.
 """
 
 import functools
@@ -137,32 +136,6 @@ def registrations(path, base):
     return names
 
 
-def scalar(arch, modules, base, catalogs):
-    """Prune only feature-independent code; variants keep the original matrix.
-
-    USES is the existing declaration of each benchmark's dependencies. Inspect
-    both revisions, including dependencies removed from an existing benchmark.
-    Unknown metadata and missing generated code retain the complete matrix.
-    """
-    if not base or modules is ALL or any(c is None for c in catalogs):
-        return False
-    names = {name for c in catalogs for name, uses in c.items() if uses & modules}
-    uses = set().union(*(c.get(name, set()) for c in catalogs for name in names))
-    found = False
-    for revision in (base, None):
-        for module in uses:
-            text = read(f"src/asm/{arch}/{module}.rs", revision)
-            found |= text is not None
-            if text and "_FEATURES" in text:
-                return False
-            family, _, member = module.partition("_")
-            for path in (f"src/{module}.rs", f"src/hashes/{module}.rs", f"src/{family}/{member}.rs"):
-                api = read(path, revision) or ""
-                if re.search(r"\bcpu\b|\b\w*Backend\w*\b|\bdetected\b|VG_CPU_FEATURES", api):
-                    return False
-    return found
-
-
 def arches(changed, base=None):
     # The modules to benchmark on each architecture that needs it, or ALL.
     needed = {}
@@ -210,10 +183,10 @@ def arches(changed, base=None):
             for a in PLATFORMS:
                 needed[a] = ALL
     return [p for a in PLATFORMS if a in needed
-            for p in platforms(a, needed[a], scalar(a, needed[a], base, catalogs))]
+            for p in platforms(a, needed[a])]
 
 
-def platforms(arch, modules=ALL, scalar_only=False):
+def platforms(arch, modules=ALL):
     """The matrix entries of `arch`: one per CPU feature configuration."""
     return [
         {
@@ -222,7 +195,7 @@ def platforms(arch, modules=ALL, scalar_only=False):
             "cpu-features": features,
             "modules": " ".join(sorted(modules or ())),
         }
-        for features in ([""] if scalar_only else ["", *CPU_FEATURES.get(arch, [])])
+        for features in ["", *CPU_FEATURES.get(arch, [])]
     ]
 
 
