@@ -18,7 +18,6 @@ abbrev dot4 (a b : Nat → Poly) : Poly := KPke.dotK a b 4
 abbrev kgRho1024 (d : List Byte) : List Byte := KPke.kgRho mlKem1024 d
 abbrev kgSigma1024 (d : List Byte) : List Byte := KPke.kgSigma mlKem1024 d
 abbrev kgS1024 (d : List Byte) (j : Nat) : Poly := KPke.kgS mlKem1024 d j
-abbrev kgE1024 (d : List Byte) (i : Nat) : Poly := KPke.kgE mlKem1024 d i
 abbrev kgT1024 (a : Nat → Nat → Poly) (d : List Byte) (i : Nat) : Poly := KPke.kgT mlKem1024 a d i
 abbrev ekPKE1024 (a : Nat → Nat → Poly) (d : List Byte) : List Byte := KPke.ekPKE mlKem1024 a d
 abbrev dkPKE1024 (d : List Byte) : List Byte := KPke.dkPKE mlKem1024 d

@@ -833,7 +833,6 @@ abbrev dot3 (a b : Nat → Poly) : Poly := KPke.dotK a b 3
 abbrev kgRho (d : List Byte) : List Byte := KPke.kgRho mlKem768 d
 abbrev kgSigma (d : List Byte) : List Byte := KPke.kgSigma mlKem768 d
 abbrev kgS (d : List Byte) (j : Nat) : Poly := KPke.kgS mlKem768 d j
-abbrev kgE (d : List Byte) (i : Nat) : Poly := KPke.kgE mlKem768 d i
 abbrev kgT (a : Nat → Nat → Poly) (d : List Byte) (i : Nat) : Poly := KPke.kgT mlKem768 a d i
 abbrev ekPKE768 (a : Nat → Nat → Poly) (d : List Byte) : List Byte := KPke.ekPKE mlKem768 a d
 abbrev dkPKE768 (d : List Byte) : List Byte := KPke.dkPKE mlKem768 d
