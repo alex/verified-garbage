@@ -2,7 +2,7 @@ import VerifiedGarbage.Spec.Pbkdf2
 import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
-# PBKDF2-HMAC-SHA-256: the contract of its iteration, on every target
+# PBKDF2-HMAC-SHA-256: the contract of its iteration, on the 32-bit targets
 
 **Trusted** (as every file in `Spec/`). The expensive part of PBKDF2 is
 step 3's chain `Uⱼ₊₁ = PRF (P, Uⱼ)`, whose outputs are exclusive-or'ed into
@@ -14,8 +14,9 @@ with the password's HMAC-SHA-256 key given as the two streaming states that
 This contract is, definitionally, `VG.Spec.Hmac.sha256I.iterateContract`
 (`Spec/Pbkdf2/Generic.lean`, which also has the contract of
 `vg_pbkdf2_hmac_sha256`, the whole of PBKDF2-HMAC-SHA-256, as it has every
-hash function's). The existing implementations are proven against this one;
-it is removed once SHA-256 is implemented through `sha256I` on every target.
+hash function's). The implementations on the 32-bit targets are proven
+against this one; it is removed once SHA-256 is implemented through `sha256I`
+on every target, as it already is on the 64-bit ones.
 
 `A` is the target's calling convention. The signature fixes where the
 arguments are, the memory the function may access, disjointness, and that
@@ -49,7 +50,7 @@ def iterateSha256Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M 
     (writeArgs := true)
     (stack := stack)
 
-/-- `vg_pbkdf2_hmac_sha256_iterate` on every target. -/
+/-- `vg_pbkdf2_hmac_sha256_iterate` on the 32-bit targets. -/
 def iterateSha256Api : Api where
   module := "pbkdf2_sha256"
   name := "vg_pbkdf2_hmac_sha256_iterate"

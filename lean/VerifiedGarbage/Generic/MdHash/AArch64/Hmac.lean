@@ -32,7 +32,6 @@ def artifacts (v : Proof.Pbkdf2.Md.AArch64.MdHash) : List Artifact := [
     code := v.H.hmacInit
     contract := v.I.initAnyKeyContract AArch64.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initAnyKeyContract; rfl⟩
-    writeArgs := true
     stack := 16
     verified := v.hmacInit
     spSafe := Code.all_of_forall (fun _ => rfl) _
@@ -44,7 +43,6 @@ def artifacts (v : Proof.Pbkdf2.Md.AArch64.MdHash) : List Artifact := [
     code := v.H.hmacFin
     contract := v.I.finalizeContract AArch64.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
-    writeArgs := true
     stack := 16
     verified := v.hmacFin
     spSafe := Code.all_of_forall (fun _ => rfl) _

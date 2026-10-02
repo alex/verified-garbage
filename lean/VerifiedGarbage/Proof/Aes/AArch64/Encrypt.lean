@@ -265,8 +265,8 @@ Untrusted: everything here is checked by Lean.
 `encrypt4_ok`: from four blocks in the registers (`InRel`), with the
 bitsliced round keys in the scratch buffer (`KeysAt`), `encrypt4` leaves
 the four ciphertexts, having written only the first 384 bytes of the
-scratch buffer. The layers are composed from their proofs
-(`Sbox.lean`, `Linear.lean`); the round loop's invariant is the
+scratch buffer. The layers are composed from their proofs (above);
+the round loop's invariant is the
 specification's `foldl` over the rounds done.
 -/
 

@@ -8,10 +8,10 @@
 //! for every streaming hash function, calling SHA-256's verified functions.
 //!
 //! They follow the implementation of SHA-256 that `Sha256` runs on this CPU:
-//! on x86-64, e.g. `vg_hmac_sha256_init_shani` and
+//! on x86 and x86-64, e.g. `vg_hmac_sha256_init_shani` and
 //! `vg_hmac_sha256_finalize_shani`, the same verified code calling
-//! `vg_sha256_update_shani` and `vg_sha256_finalize_shani`, or the `_avx2`
-//! ones. On AArch64, the `_sha2` variants use the SHA-256 instructions through
+//! `vg_sha256_update_shani` and `vg_sha256_finalize_shani` (or, on x86-64,
+//! the `_avx2` ones). On AArch64, the `_sha2` variants use the SHA-256 instructions through
 //! the same generic code.
 
 #![cfg(any(
@@ -23,15 +23,18 @@
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::hmac_sha256::{
-    VG_HMAC_SHA256_FINALIZE_AVX2_FEATURES, VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES,
-    VG_HMAC_SHA256_INIT_AVX2_FEATURES, VG_HMAC_SHA256_INIT_SHANI_FEATURES,
-    vg_hmac_sha256_finalize_avx2, vg_hmac_sha256_finalize_shani, vg_hmac_sha256_init_avx2,
-    vg_hmac_sha256_init_shani,
+    VG_HMAC_SHA256_FINALIZE_AVX2_FEATURES, VG_HMAC_SHA256_INIT_AVX2_FEATURES,
+    vg_hmac_sha256_finalize_avx2, vg_hmac_sha256_init_avx2,
 };
 #[cfg(target_arch = "aarch64")]
 use crate::arch::hmac_sha256::{
     VG_HMAC_SHA256_FINALIZE_SHA2_FEATURES, VG_HMAC_SHA256_INIT_SHA2_FEATURES,
     vg_hmac_sha256_finalize_sha2, vg_hmac_sha256_init_sha2,
+};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use crate::arch::hmac_sha256::{
+    VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES, VG_HMAC_SHA256_INIT_SHANI_FEATURES,
+    vg_hmac_sha256_finalize_shani, vg_hmac_sha256_init_shani,
 };
 use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 use crate::hashes::sha256::{Sha256, Sha256Backend};
@@ -42,7 +45,7 @@ super::streaming_hmac!(
         #[cfg(target_arch = "aarch64")]
         Sha2 if [VG_HMAC_SHA256_INIT_SHA2_FEATURES, VG_HMAC_SHA256_FINALIZE_SHA2_FEATURES] =>
             (vg_hmac_sha256_init_sha2, vg_hmac_sha256_finalize_sha2),
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         ShaNi if [VG_HMAC_SHA256_INIT_SHANI_FEATURES, VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES] =>
             (vg_hmac_sha256_init_shani, vg_hmac_sha256_finalize_shani),
         #[cfg(target_arch = "x86_64")]

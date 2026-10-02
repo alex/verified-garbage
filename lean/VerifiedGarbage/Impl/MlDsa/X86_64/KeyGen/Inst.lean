@@ -29,6 +29,7 @@ def prims : Prims where
   power2Round := Round.power2Round
   simpleBitPack := Pack.simpleBitPack
   bitPack := Pack.bitPack
+  rej4 := Sample.Rej4.rejNTT4
 
 /-- The primitives, with the polynomial arithmetic of `B`. -/
 def primsWith (B : Arith.Backend) : Prims :=
@@ -38,6 +39,7 @@ def primsWith (B : Arith.Backend) : Prims :=
     mul := B.mul
     mulAdd := B.mulAdd
     add := B.add
+    rej4 := B.rej4
     sfx := B.sfx }
 
 end VG.Impl.MlDsa.X86_64.KeyGen

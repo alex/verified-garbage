@@ -51,7 +51,7 @@ theorem k_in {bs wbs : List (Reg × Nat)} (hk : kChk bs wbs = true) :
     inB bs (sc 0) 200 = true ∧ inB bs (sc 200) 640 = true := by
   simp only [kChk, Bool.and_eq_true] at hk; exact ⟨hk.1.1.1.2, hk.1.1.2⟩
 
-theorem kk16 {s s1 : State} (hsp : s1.gpr .rsp = s.gpr .rsp) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) :
+theorem kk16 {s s1 : State} (hsp : s1.gpr .rsp = s.gpr .rsp) {R : Region} (h : (below (s.gpr .rsp) 32).Disjoint R) :
     (below (s1.gpr .rsp) 16).Disjoint R := by
   rw [hsp]; exact h.sub_left (below_sub (by omega) (by omega))
 

@@ -198,6 +198,7 @@ def subAvx2 : Prog isa :=
   .seq (.block (yconst .xmm15 8380417)) (.seq (rcxLoop 32 (yaccBody .psubd (vcadd .xmm0 .xmm2))) (.block yepi))
 
 /-- The AVX2 code. -/
-def Backend.avx2 : Backend := ⟨nttAvx2, nttInvAvx2, mulAvx2, mulAddAvx2, addAvx2, subAvx2, "_avx2"⟩
+def Backend.avx2 : Backend :=
+  ⟨nttAvx2, nttInvAvx2, mulAvx2, mulAddAvx2, addAvx2, subAvx2, Sample.Rej4.rejNTT4Avx2, "_avx2"⟩
 
 end VG.Impl.MlDsa.X86_64.Arith

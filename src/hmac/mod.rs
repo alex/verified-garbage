@@ -19,6 +19,7 @@ use crate::hashes::HashFunction;
 
 mod md5;
 mod sha1;
+mod sha224;
 mod sha256;
 mod sha384;
 mod sha512;
@@ -46,7 +47,7 @@ pub trait HmacHash: HashFunction + sealed::Sealed {
 }
 
 /// The MAC did not match: the message or the key is not what was
-/// authenticated.
+/// authenticated. [`crate::cmac`] returns this type too.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InvalidMac;
 

@@ -25,13 +25,12 @@ use crate::hmac::HmacHash;
 
 mod md5;
 mod sha1;
+mod sha224;
 mod sha256;
 mod sha384;
 mod sha512;
 mod sha512_224;
 mod sha512_256;
-
-pub use sha256::pbkdf2_hmac_sha256;
 
 /// A hash function with a verified PBKDF2-HMAC implementation.
 pub trait Pbkdf2Hash: HmacHash {

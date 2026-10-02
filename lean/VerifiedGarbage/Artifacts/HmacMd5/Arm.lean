@@ -30,7 +30,6 @@ def artifacts : List Artifact := [
     code := md5H.initAny
     contract := Spec.Hmac.md5I.initAnyKeyContract Arm.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initAnyKeyContract; rfl⟩
-    writeArgs := true
     stack := 16
     verified := Instances.md5_initAny
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
@@ -40,7 +39,6 @@ def artifacts : List Artifact := [
     code := md5H.finalize
     contract := Spec.Hmac.md5I.finalizeContract Arm.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
-    writeArgs := true
     stack := 16
     verified := Instances.md5_finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
