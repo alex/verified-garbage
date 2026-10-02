@@ -29,7 +29,7 @@ theorem equation_call_ct (hL : L.Ok) {challenge : List Byte}
       Spec.Ed25519.bytesAt t.mem (L.E + 128) 64 = challenge)
       (.call "vg_ed25519_verify_equation" verifyEquation)
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
-  apply call_ct verify_ok verify_ct equation_noFrames (fun _ h => equation_ready hL h.1)
+  apply call_ct verify_ok verify_ct (Whole.depth_of_noFrames equation_noFrames) (fun _ h => equation_ready hL h.1)
   intro a b ar aw br bw h
   have hsp := two_sp h
   have aa := h.2.2.1.1

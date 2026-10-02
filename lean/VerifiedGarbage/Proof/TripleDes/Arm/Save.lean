@@ -4,18 +4,20 @@ import VerifiedGarbage.Proof.TripleDes.Arm.RoundStep
 namespace VG.Proof.TripleDes.Arm
 
 open VG VG.Arm VG.Impl.TripleDes.Arm
+open VG.Proof.Rc2.Arm (slotsOf)
 
-def savedReg (i : Nat) : Reg := savedRegs.getD i .r4
+theorem blockSave_eq : blockSave = (slotsOf savedRegs).map (fun p => Instr.str p.1 .r2 p.2) := by
+  rw [blockSave, slotsOf, List.map_map]; rfl
 
-theorem blockSave_eq : blockSave = VG.Proof.Rc2.Arm.saveCode .r2 savedReg 9 := by
-  decide +kernel
+theorem blockRestore_eq : blockRestore = (slotsOf savedRegs).map (fun p => Instr.ldr p.1 .r2 p.2) := by
+  rw [blockRestore, slotsOf, List.map_map]; rfl
 
-theorem blockRestore_eq : blockRestore = VG.Proof.Rc2.Arm.restoreCode .r2 savedReg (List.range 9) := by
-  decide +kernel
+theorem slots_ok : Spill.Slots 0 36 (slotsOf savedRegs) := by decide
+
+theorem slot_index : ∀ p ∈ slotsOf savedRegs, ∃ i < 9, p.2 = 4 * i := by decide
 
 def Saved (original current : State) : Prop :=
-  ∀ i < 9, current.mem.readW (State.addr (current.gpr .r2) + BitVec.ofNat 64 (4 * i)) 32 =
-    original.gpr (savedReg i)
+  Spill.Saved current.mem (State.addr (current.gpr .r2)) original.gpr (slotsOf savedRegs)
 
 structure SavePost (original current : State) : Prop where
   gpr : current.gpr = original.gpr
@@ -29,16 +31,11 @@ theorem blockSave_ok (s : State)
     (fit : (s.gpr .r2).toNat + 256 ≤ 2 ^ 32)
     (hw : ∀ i < 9, InRegions s.wr (State.addr (s.gpr .r2) + BitVec.ofNat 64 (4 * i)) 4) :
     WP isa (.block blockSave) s (SavePost s) := by
-  rw [blockSave_eq]
-  obtain ⟨t, s', he, hs⟩ := VG.Proof.Rc2.Arm.saveCode_ok s .r2 savedReg 9 (by decide) fit hw
-  refine ⟨t, s', he, hs.1, hs.2.1, hs.2.2.1, VG.Arm.Exec.sp he, ?_, ?_⟩
-  · intro i hi
-    rw [hs.1, hs.2.2.2]
-    exact VG.Proof.Rc2.Arm.saveMem_read _ _ _ 9 (by decide) i hi
-  · rw [hs.2.2.2]
-    exact VG.Proof.Rc2.Arm.saveMem_frame _ _ _ 9 (by decide)
-
-theorem savedReg_separate : ∀ i < 9, savedReg i ≠ .r2 := by decide +kernel
+  rw [blockSave_eq, ← List.append_nil (List.map _ _)]
+  refine Spill.save_ok _ s _ (fun p hp => ?_) (WP.block_nil ⟨rfl, rfl, rfl, rfl,
+    Spill.saveMem_saved _ _ _ _ slots_ok, Spill.saveMem_frame _ _ _ (by decide) _ (by decide)⟩)
+  obtain ⟨i, hi, he⟩ := slot_index p hp
+  exact ⟨by omega, by omega, he ▸ hw i hi⟩
 
 structure RestorePost (original origin current : State) : Prop where
   saved : ∀ r ∈ savedRegs, current.gpr r = original.gpr r
@@ -49,29 +46,20 @@ theorem blockRestore_ok (original s : State) (hsaved : Saved original s)
     (fit : (s.gpr .r2).toNat + 256 ≤ 2 ^ 32)
     (hread : ∀ i < 9, InRegions (s.rd ++ s.wr) (State.addr (s.gpr .r2) + BitVec.ofNat 64 (4 * i)) 4) :
     WP isa (.block blockRestore) s (RestorePost original s) := by
-  rw [blockRestore_eq]
-  have hregs : (List.range 9).map savedReg = savedRegs := by decide +kernel
-  obtain ⟨t, s', he, hs⟩ := VG.Proof.Rc2.Arm.restoreCode_ok s .r2 savedReg (List.range 9) original.gpr fit
-    (fun i hi => by have := List.mem_range.mp hi; omega)
-    (fun i hi => savedReg_separate i (List.mem_range.mp hi))
-    (fun i hi => hread i (List.mem_range.mp hi))
-    (fun i hi => hsaved i (List.mem_range.mp hi))
-  rw [hregs] at hs
-  exact ⟨t, s', he, hs.1, hs.2, VG.Arm.Exec.sp he⟩
-
-theorem savedSlot_spill_disjoint (s : State) (i : Nat) (hi : i < 9) :
-    (⟨State.addr (s.gpr .r2) + BitVec.ofNat 64 (4 * i), 4⟩ : Region).Disjoint (spillRegion s) :=
-  Offset.disjoint (State.addr (s.gpr .r2)) (by omega) (by omega) (by decide)
+  rw [blockRestore_eq, ← List.append_nil (List.map _ _)]
+  have hregs : (slotsOf savedRegs).map Prod.fst = savedRegs := by decide
+  refine Spill.restoreList_ok _ s _ (by decide) (fun p hp => ?_)
+    fun s' hl ho hm hrd hwr hsp => WP.block_nil ⟨?_, ⟨fun r hr => ho r (hregs ▸ hr), hm, hrd, hwr⟩, hsp⟩
+  · obtain ⟨i, hi, he⟩ := slot_index p hp
+    have hne : ∀ p ∈ slotsOf savedRegs, p.1 ≠ .r2 := by decide
+    exact ⟨hne p hp, by omega, by omega, he ▸ hread i hi⟩
+  · exact Spill.restored_of (hsaved.restored hl) fun r hr => hregs ▸ hr
 
 theorem Saved.congr {original s t : State} (hs : Saved original s)
     (hbase : t.gpr .r2 = s.gpr .r2) (hf : Frame [spillRegion s] s.mem t.mem) :
     Saved original t := by
-  intro i hi
-  have hmem := hf.readW (a := State.addr (s.gpr .r2) + BitVec.ofNat 64 (4 * i)) (w := 32)
-    (r := ⟨State.addr (s.gpr .r2) + BitVec.ofNat 64 (4 * i), 4⟩) (Region.contains_self _ _)
-    (fun q hq => by obtain rfl := List.mem_singleton.mp hq; exact savedSlot_spill_disjoint s i hi)
-    (by decide)
-  rw [hbase]
-  exact hmem.trans (hs i hi)
+  unfold Saved; rw [hbase]
+  exact Spill.Saved.frame hs slots_ok hf fun r hr => by
+    rw [List.mem_singleton.mp hr]; exact Offset.disjoint _ (.inl (by decide)) (by decide) (by decide)
 
 end VG.Proof.TripleDes.Arm

@@ -40,8 +40,8 @@ def baseArgs : List Instr := setup [(.x0, .caller 0 0), (.x1, .frame 32), (.x2, 
 
 def hash (f : Prog isa) (suffix : String) : Prog isa :=
   .seq (callWith initArgs Spec.Sha512.init512Api.name (Sha512.AArch64.Stream.init Spec.Sha512.H0_512))
-    (.seq (callWith updateArgs (Spec.Sha512.updateApi.name ++ suffix) (Sha512.AArch64.Stream.updateWith f))
-      (callWith finalizeArgs (Spec.Sha512.finalizeApi.name ++ suffix) (Sha512.AArch64.Stream.finalizeWith f)))
+    (.seq (callWith updateArgs (Spec.Sha512.updateApi.name ++ suffix) (Sha512.AArch64.Stream.updateWith suffix f))
+      (callWith finalizeArgs (Spec.Sha512.finalizeApi.name ++ suffix) (Sha512.AArch64.Stream.finalizeWith suffix f)))
 
 def wipe : List Instr := Whole.zeroWords 4 28
 

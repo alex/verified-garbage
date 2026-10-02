@@ -143,7 +143,8 @@ def ok : HashOK (hash v) where
   iv := Spec.Sha256.H0_224
   repr _ _ _ := Iff.rfl
   hash _ := rfl
-  sizes := ⟨⟨by simp only [hash] <;> decide, by simp only [hash] <;> decide⟩,
+  sizes := ⟨⟨by simp only [hash] <;> decide, by simp only [hash] <;> decide, by simp only [hash] <;> decide,
+      by simp only [hash] <;> decide⟩,
     by simp only [hash] <;> decide, by simp only [hash] <;> decide,
     by simp only [hash] <;> decide, by simp only [hash] <;> decide,
     by simp only [hash] <;> decide, by simp only [hash] <;> decide,

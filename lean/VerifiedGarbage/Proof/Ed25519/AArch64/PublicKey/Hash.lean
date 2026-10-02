@@ -34,7 +34,8 @@ theorem update_step (v : Whole.Backend) (hc : Ctx L g vec m₀ t) (hL : L.Ok) (h
   have h4 := hs (.x4, .caller 2 192) (by simp)
   simp only [argValue, Lay.value, BitVec.add_zero] at h0 h1 h2 h3 h4
   have hw := Whole.hash_writes (E := L.E) (wr := L.outputs) (by simp [Lay.outputs] : L.SCR ∈ L.outputs)
-  have hp := Whole.update_pre h0 h2 h3 h4 hL.sc
+  have hp := Whole.update_pre h0 h2 h3 h4 hL.sc (by rw [hu.sp]; exact hL.e16) (by rw [hu.sp]; exact hL.cc)
+    (by rw [hu.sp]; exact hL.cs)
   have cv : Covers (Whole.updateRd L.seed 32 ++ Whole.hashWr L.scr)
       (L.inputs ++ Whole.FR L.E :: L.outputs) := by
     intro a n hin
@@ -57,7 +58,7 @@ theorem finalize_writes (L : Lay) : ∀ r ∈ Whole.finalizeWr L.scr (L.E + 192)
   rcases hr with rfl | rfl | rfl
   · exact .inr ⟨L.SCR, by simp [Lay.outputs], 0, (BitVec.add_zero _).symm, by change 0 + 192 ≤ 8192; decide⟩
   · exact .inl ⟨192, rfl, by change 192 + 64 ≤ 256; decide⟩
-  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192 + 224 ≤ 8192; decide⟩
+  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192 + 688 ≤ 8192; decide⟩
 
 theorem finalize_step (v : Whole.Backend) (hc : Ctx L g vec m₀ t) (hL : L.Ok) (ha : Arguments L m₀)
     (hh : Spec.Sha512.Repr Spec.Sha512.H0_512 t.mem L.scr (Spec.Ed25519.bytesAt m₀ L.seed 32)) :
@@ -74,7 +75,8 @@ theorem finalize_step (v : Whole.Backend) (hc : Ctx L g vec m₀ t) (hL : L.Ok) 
   simp only [argValue, Lay.value, BitVec.add_zero] at h0 h1 h2 h3
   have hd : Region.Disjoint ⟨L.E + 192, 64⟩ L.SCR :=
     hL.kc.sub_left (Offset.sub_base _ (by decide : 192 + 64 ≤ 336))
-  have hp := Whole.finalize_pre h0 h2 h3 hd
+  have hp := Whole.finalize_pre h0 h2 h3 hd (by rw [hu.sp]; exact hL.e16) (by rw [hu.sp]; exact hL.cc)
+    (by rw [hu.sp]; exact Whole.ck_frame (by decide : 192 + 64 ≤ 304))
   have hw := finalize_writes L
   have hl : (Spec.Ed25519.bytesAt m₀ L.seed 32).length = 32 := by
     simp only [Spec.Ed25519.bytesAt, List.length_map, List.length_range]

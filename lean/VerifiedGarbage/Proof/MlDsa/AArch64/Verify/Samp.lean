@@ -14,6 +14,7 @@ the public key and the signature, the same in two runs.
 namespace VG.Proof.MlDsa.AArch64.Verify
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Poly IPoly toRq polyAt coeffAt Reduced PolyIs Bounds minBounds rejNTTPoly sampleInBall
   Outcome)
@@ -65,15 +66,15 @@ theorem VA.keep {p : Params} (hF : VFacts p) {S : Nat} {σ : State} (hp : vPre p
 
 theorem copyRho_vpiece {p : Params} (hF : VFacts p) {S : Nat} :
     VPiece p S (fun σ s => Z0 p p.ℓ σ s ∧ normOk p σ p.ℓ) (VA p · 0) (.block (copy32 .x25 0 .x28 oSA)) := by
-  have hc : copyChk (vR p) (vW p) (sc oSA) (.x25, 0) = true := by
-    have := hF.k; have := hF.l; have := hF.scr; have := hF.pk; unfold copyChk; vlay
+  have hc : copyPChk (vR p) (vW p) (sc oSA) (.x25, 0) = true := by
+    have := hF.k; have := hF.l; have := hF.scr; have := hF.pk; unfold copyPChk; vlay
   refine ⟨fun σ s hp h => ?_, taintRel [.x25, .x28] (fun x y ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩ => ?_)
     (by taint_decide)⟩
   · have L := h.1.1.vc.lay hF hp
     refine WP.mono (copyP_ok L hc) fun s' ⟨hP', k', hb⟩ => ?_
     refine ⟨h.1.1.keep hF hp hP' (by vzchk hF), h.2, ?_, fun _ h => absurd h (Nat.not_lt_zero _), true, ?_,
       fun _ _ h => absurd h (Nat.not_lt_zero _), fun h => absurd h (by decide)⟩
-    · rw [hP'.pa (show Reg.x28 ∈ bases by decide), hb, h.1.1.vc.pkSlice (by rw [hF.pk]; omega), List.drop_zero]
+    · rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide), hb, h.1.1.vc.pkSlice (by rw [hF.pk]; omega), List.drop_zero]
     · rw [k'.get .x24, h.1.2]; exact flag_congr (iff_of_true h.2 rfl)
   · have T := vc_two hF p₁ p₂ pub h₁.1.1.vc h₂.1.1.vc
     refine ⟨T.same.2, fun r hr => T.same.1 r ?_⟩
@@ -100,12 +101,12 @@ theorem vsetTwo_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay 
       PPostB S s s' [(sc o, 1), (sc (o + 1), 1)] ∧ Keep [.x9] s s' ∧
       bytesAt s'.mem (pa s (sc o)) 2 = [BitVec.ofNat 8 a, BitVec.ofNat 8 b] := by
   rw [WP.block_append_iff]
-  refine WP.mono (setB_ok L (p := sc o) (v := a) (by simp only; omega) h1 (show Reg.x28 ∈ bases by decide))
+  refine WP.mono (setB_ok L (p := sc o) (v := a) (by simp only; omega) h1 (show Reg.x28 ∈ keptRegs by decide))
     fun s₁ ⟨hP₁, k₁, m₁⟩ => WP.mono (setB_ok (L.post hP₁) (p := sc (o + 1)) (v := b) ho h2
-      (show Reg.x28 ∈ bases by decide))
+      (show Reg.x28 ∈ keptRegs by decide))
       fun s₂ ⟨hP₂, k₂, m₂⟩ => ⟨PPostB.app hP₁ hP₂ (sc_bases _ (by simp)), (k₁.trans k₂).mono (by simp), ?_⟩
   have e : pa s₁ (sc (o + 1)) = pa s (sc o) + BitVec.ofNat 64 1 := by
-    rw [hP₁.pa (show Reg.x28 ∈ bases by decide), pa, pa, BitVec.add_assoc, ← BitVec.ofNat_add]
+    rw [hP₁.pa (show Reg.x28 ∈ keptRegs by decide), pa, pa, BitVec.add_assoc, ← BitVec.ofNat_add]
   rw [m₂, m₁, e]
   exact bytesAt_two _ _ _ _
 

@@ -14,12 +14,14 @@ private theorem rounds_noFrames (n : Nat) : (Impl.Sha512.Arm.rounds n).noFrames 
   | succ n ih => simp only [Impl.Sha512.Arm.rounds, Code.noFrames, ih, Bool.and_self]
 
 theorem update_noFrames : update.noFrames = true := by
-  simp only [update, updateBody, fill, compressAt, compressCall,
+  simp only [update, Impl.MdStream.Arm.update, Impl.MdStream.Arm.updateBody, Impl.MdStream.Arm.fill,
+    Impl.MdStream.Arm.compressN, Impl.MdStream.Arm.compressWith,
     Impl.Sha512.Arm.compress, Impl.Sha512.Arm.body, Code.noFrames, Bool.and_self]
   rw [rounds_noFrames]; rfl
 
 theorem finalize_noFrames : finalize.noFrames = true := by
-  simp only [finalize, finalizeBody, compressAt, compressCall,
+  simp only [finalize, Impl.MdStream.Arm.finalize, Impl.MdStream.Arm.finalizeBody,
+    Impl.MdStream.Arm.compressAt, Impl.MdStream.Arm.compressWith,
     Impl.Sha512.Arm.compress, Impl.Sha512.Arm.body, Code.noFrames, Bool.and_self]
   rw [rounds_noFrames]; rfl
 

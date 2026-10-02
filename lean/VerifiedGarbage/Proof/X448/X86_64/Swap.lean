@@ -1,10 +1,10 @@
-import VerifiedGarbage.Proof.X448.X86_64.Copy
+import VerifiedGarbage.Proof.X448.X86_64.AddSub
 
 /-!
-# X448 on x86-64: constant-time conditional swaps
+# X448 on x86-64: the conditional swap
 
-An XOR mask exchanges the limbs without a branch or an address depending on
-the swap bit.
+An XOR mask exchanges the words without a branch or an address depending on
+the swap bit, word by word (`wp_range_flatMap`).
 -/
 
 namespace VG.Proof.X448.X86_64
@@ -24,8 +24,20 @@ theorem xor_sel (sw : Bool) (a b : BitVec 64) :
     · rw [← BitVec.xor_assoc, BitVec.xor_self, BitVec.zero_xor]
     · rw [BitVec.xor_comm a b, ← BitVec.xor_assoc, BitVec.xor_self, BitVec.zero_xor]
 
+/-- The registers (and regions) of `s'` are those of `s` but for `rs`. -/
+def KeepsR (rs : List Reg) (s s' : State) : Prop :=
+  (∀ r, r ∉ rs → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr
+
+theorem KeepsR.trans {rs : List Reg} {s₁ s₂ s₃ : State} (h₁ : KeepsR rs s₁ s₂)
+    (h₂ : KeepsR rs s₂ s₃) : KeepsR rs s₁ s₃ :=
+  ⟨fun r hr => (h₂.1 r hr).trans (h₁.1 r hr), h₂.2.1.trans h₁.2.1, h₂.2.2.trans h₁.2.2⟩
+
+theorem Scr.of_keepsR {rs : List Reg} {s s' : State} {base : Addr} (hs : Scr s base)
+    (h : KeepsR rs s s') (hr : .rdi ∉ rs) : Scr s' base :=
+  ⟨(h.1 _ hr).trans hs.rdi, h.2.2 ▸ hs.wr, hs.nowrap⟩
+
 theorem swapStep_ok {s : State} {base : Addr} (hs : Scr s base) {x y i : Nat}
-    (hx : Slot x) (hy : Slot y) (hi : i < 16) {sw : Bool} (hc : s.gpr .rcx = mask sw) :
+    (hx : x + 56 ≤ 1536) (hy : y + 56 ≤ 1536) (hi : i < 7) {sw : Bool} (hc : s.gpr .rcx = mask sw) :
     WP isa (.block
       [.mov .rax (.mem (sc (x + 8 * i))), .mov .rdx (.mem (sc (y + 8 * i))),
         .mov .r8 (.reg .rax), .alu .xor .r8 (.reg .rdx), .alu .and .r8 (.reg .rcx),
@@ -34,11 +46,11 @@ theorem swapStep_ok {s : State} {base : Addr} (hs : Scr s base) {x y i : Nat}
       t.mem = (s.mem.writeW (off base (x + 8 * i))
         (if sw then word s.mem base (y + 8 * i) else word s.mem base (x + 8 * i))).writeW
         (off base (y + 8 * i)) (if sw then word s.mem base (x + 8 * i) else word s.mem base (y + 8 * i)) ∧
-      Keeps [.rax, .rdx, .r8] s t := by
-  have lx := hs.read (d := x + 8 * i) (n := 8) (by change x + 128 ≤ 3584 at hx; omega)
-  have ly := hs.read (d := y + 8 * i) (n := 8) (by change y + 128 ≤ 3584 at hy; omega)
-  have wx := hs.write (d := x + 8 * i) (n := 8) (by change x + 128 ≤ 3584 at hx; omega)
-  have wy := hs.write (d := y + 8 * i) (n := 8) (by change y + 128 ≤ 3584 at hy; omega)
+      KeepsR [.rax, .rdx, .r8] s t := by
+  have lx := hs.read (d := x + 8 * i) (n := 8) (by omega)
+  have ly := hs.read (d := y + 8 * i) (n := 8) (by omega)
+  have wx := hs.write (d := x + 8 * i) (n := 8) (by omega)
+  have wy := hs.write (d := y + 8 * i) (n := 8) (by omega)
   apply WP.of_runBlock
   simp only [runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, execAlu, ea_sc,
     State.load64, State.store64, RegUpd.gpr_setReg, RegUpd.gpr_arithFlags,
@@ -50,77 +62,62 @@ theorem swapStep_ok {s : State} {base : Addr} (hs : Scr s base) {x y i : Nat}
   simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
   simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, hr.1, hr.2.1, hr.2.2, ite_false]
 
-/-- Reading two disjoint words after writing a limb pair. -/
-theorem pair_write {m : Mem} {base : Addr} {x y n j : Nat} (hx : Slot x) (hy : Slot y)
-    (hxy : x + 128 ≤ y ∨ y + 128 ≤ x) (hn : n < 16) (hj : j < 16) (vx vy : BitVec 64) :
-    let m' := (m.writeW (off base (x + 8 * n)) vx).writeW (off base (y + 8 * n)) vy
-    limbs m' base x j = (if j = n then vx.toNat else limbs m base x j) ∧
-    limbs m' base y j = (if j = n then vy.toNat else limbs m base y j) := by
-  have xb : x + 128 ≤ 8192 := Nat.le_trans hx (by decide)
-  have yb : y + 128 ≤ 8192 := Nat.le_trans hy (by decide)
-  dsimp only
-  constructor
-  · simp only [limbs, word]
-    rw [Mem.readW_writeW_sep (Offset.sep base (by omega) (by omega) (by omega)) (by decide)]
-    rw [show m.readW (off base (x + 8 * j)) 64 = word m base (x + 8 * j) from rfl]
-    change (word (m.writeW (off base (x + 8 * n)) vx) base (x + 8 * j)).toNat = _
-    rw [word_write m base (by omega) (by omega)]
-    split <;> rfl
-  · change (word ((m.writeW (off base (x + 8 * n)) vx).writeW (off base (y + 8 * n)) vy)
-      base (y + 8 * j)).toNat = _
-    rw [word_write (m.writeW (off base (x + 8 * n)) vx) base (by omega) (by omega)]
-    by_cases h : j = n
-    · rw [ite_eq_left h, ite_eq_left h]
-    · rw [ite_eq_right h, ite_eq_right h]
-      apply congrArg BitVec.toNat
-      exact Mem.readW_writeW_sep (Offset.sep base (by omega) (by omega) (by omega)) (by decide)
+theorem word_write (m : Mem) (base : Addr) {d e : Nat} (hd : d + 8 ≤ 8192) (he : e + 8 ≤ 8192)
+    (hde : d + 8 ≤ e ∨ e + 8 ≤ d ∨ e = d) (v : BitVec 64) :
+    word (m.writeW (off base d) v) base e = if e = d then v else word m base e := by
+  by_cases h : e = d
+  · rw [ite_eq_left h, h, word, Mem.readW_writeW_self64]
+  · rw [ite_eq_right h]
+    exact Mem.readW_writeW_sep (Offset.sep base (by omega) (by omega) (by omega)) (by decide)
 
-/-- Swap all sixteen limbs under the mask, preserving all other bytes. -/
-theorem cswap_ok {s : State} {base : Addr} (hs : Scr s base) {x y : Nat} (hx : Slot x) (hy : Slot y)
-    (hxy : x + 128 ≤ y ∨ y + 128 ≤ x) {sw : Bool} (hc : s.gpr .rcx = mask sw) :
+/-- Swap the seven words under the mask, and nothing else. -/
+theorem cswap_ok {s : State} {base : Addr} (hs : Scr s base) {x y : Nat} (hx : x + 56 ≤ 1536)
+    (hy : y + 56 ≤ 1536) (hxy : x + 56 ≤ y ∨ y + 56 ≤ x) {sw : Bool} (hc : s.gpr .rcx = mask sw) :
     WP isa (.block (cswap x y)) s fun t =>
-      (∀ i < 16, limbs t.mem base x i = if sw then limbs s.mem base y i else limbs s.mem base x i) ∧
-      (∀ i < 16, limbs t.mem base y i = if sw then limbs s.mem base x i else limbs s.mem base y i) ∧
-      Outside2 base x 128 y 128 s.mem t.mem ∧ Keeps [.rax, .rdx, .r8] s t := by
+      (∀ i < 7, word t.mem base (x + 8 * i) =
+        if sw then word s.mem base (y + 8 * i) else word s.mem base (x + 8 * i)) ∧
+      (∀ i < 7, word t.mem base (y + 8 * i) =
+        if sw then word s.mem base (x + 8 * i) else word s.mem base (y + 8 * i)) ∧
+      Outside2 base x 56 y 56 s.mem t.mem ∧ KeepsR [.rax, .rdx, .r8] s t := by
   let inv := fun n (t : State) =>
-    (∀ i < n, limbs t.mem base x i = if sw then limbs s.mem base y i else limbs s.mem base x i) ∧
-    (∀ i < n, limbs t.mem base y i = if sw then limbs s.mem base x i else limbs s.mem base y i) ∧
-    Outside2 base x (8 * n) y (8 * n) s.mem t.mem ∧ Keeps [.rax, .rdx, .r8] s t
-  have xb : x + 128 ≤ 8192 := Nat.le_trans hx (by decide)
-  have yb : y + 128 ≤ 8192 := Nat.le_trans hy (by decide)
-  have step : ∀ n t, n < 16 → inv n t → WP isa (.block
+    (∀ i < n, word t.mem base (x + 8 * i) =
+      if sw then word s.mem base (y + 8 * i) else word s.mem base (x + 8 * i)) ∧
+    (∀ i < n, word t.mem base (y + 8 * i) =
+      if sw then word s.mem base (x + 8 * i) else word s.mem base (y + 8 * i)) ∧
+    Outside2 base x (8 * n) y (8 * n) s.mem t.mem ∧ KeepsR [.rax, .rdx, .r8] s t
+  have step : ∀ n t, n < 7 → inv n t → WP isa (.block
       [.mov .rax (.mem (sc (x + 8 * n))), .mov .rdx (.mem (sc (y + 8 * n))),
         .mov .r8 (.reg .rax), .alu .xor .r8 (.reg .rdx), .alu .and .r8 (.reg .rcx),
         .alu .xor .rax (.reg .r8), .alu .xor .rdx (.reg .r8),
         .store (sc (x + 8 * n)) .rax, .store (sc (y + 8 * n)) .rdx]) t (inv (n + 1)) := by
     intro n t hn ⟨tx, ty, tm, tk⟩
     have tc := (tk.1 .rcx (by decide)).trans hc
-    refine WP.mono (swapStep_ok (hs.of_keeps tk (by decide)) hx hy hn tc) fun u ⟨um, uk⟩ => ?_
-    have ex : limbs t.mem base x n = limbs s.mem base x n :=
-      congrArg BitVec.toNat (tm.word (by omega) (by omega) (by omega))
-    have ey : limbs t.mem base y n = limbs s.mem base y n :=
-      congrArg BitVec.toNat (tm.word (by omega) (by omega) (by omega))
-    have pair := fun (j : Nat) (hj : j < 16) => pair_write (m := t.mem) (base := base) hx hy hxy hn hj
-      (if sw then word t.mem base (y + 8 * n) else word t.mem base (x + 8 * n))
-      (if sw then word t.mem base (x + 8 * n) else word t.mem base (y + 8 * n))
-    refine ⟨?_, ?_, ?_, tk.trans uk⟩
-    · intro j hj
-      rw [um, (pair j (by omega)).1]
+    refine WP.mono (swapStep_ok (hs.of_keepsR tk (by decide)) hx hy hn tc) fun u ⟨um, uk⟩ => ?_
+    have ex : word t.mem base (x + 8 * n) = word s.mem base (x + 8 * n) :=
+      tm.word (by omega) (by omega) (by omega)
+    have ey : word t.mem base (y + 8 * n) = word s.mem base (y + 8 * n) :=
+      tm.word (by omega) (by omega) (by omega)
+    refine ⟨fun j hj => ?_, fun j hj => ?_, ?_, tk.trans uk⟩
+    · rw [um, word_write _ _ (by omega) (by omega) (by omega),
+        word_write _ _ (by omega) (by omega) (by omega)]
       by_cases h : j = n
-      · rw [ite_eq_left h, h]
-        cases sw <;> simp only [ite_true, Bool.false_eq_true, ite_false] <;> with_reducible assumption
-      · rw [ite_eq_right h]; exact tx j (by omega)
-    · intro j hj
-      rw [um, (pair j (by omega)).2]
+      · subst h
+        rw [ite_eq_right (by omega), ite_eq_left rfl, ex, ey]
+      · rw [ite_eq_right (by omega), ite_eq_right (by omega)]
+        exact tx j (by omega)
+    · rw [um, word_write _ _ (by omega) (by omega) (by omega)]
       by_cases h : j = n
-      · rw [ite_eq_left h, h]
-        cases sw <;> simp only [ite_true, Bool.false_eq_true, ite_false] <;> with_reducible assumption
-      · rw [ite_eq_right h]; exact ty j (by omega)
-    · refine (tm.mono (by omega) (by omega)).trans ?_
-      intro p hp hq
-      rw [um, writeW_outside _ _ _ (by omega : y + 8 * n + 8 ≤ 8192) p (by omega),
-        writeW_outside _ _ _ (by omega : x + 8 * n + 8 ≤ 8192) p (by omega)]
-  exact wp_range_flatMap (M := isa) (N := 16) inv step 16 (by decide) s
-    ⟨fun _ hi => by omega, fun _ hi => by omega, Outside2.refl _ _ _ _ _ _, Keeps.refl _ _⟩
+      · subst h
+        rw [ite_eq_left rfl, ex, ey]
+      · rw [ite_eq_right (by omega), word_write _ _ (by omega) (by omega) (by omega),
+          ite_eq_right (by omega)]
+        exact ty j (by omega)
+    · intro p hp hq
+      rw [um, writeW_outside _ _ _ (by omega : y + 8 * n + 8 < 2 ^ 64) p (by omega),
+        writeW_outside _ _ _ (by omega : x + 8 * n + 8 < 2 ^ 64) p (by omega)]
+      exact tm p (by omega) (by omega)
+  exact wp_range_flatMap (M := isa) (N := 7) inv step 7 (by decide) s
+    ⟨fun _ hi => by omega, fun _ hi => by omega, Outside2.refl _ _ _ _ _ _,
+      ⟨fun _ _ => rfl, rfl, rfl⟩⟩
 
 end VG.Proof.X448.X86_64

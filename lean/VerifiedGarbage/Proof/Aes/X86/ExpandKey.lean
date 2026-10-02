@@ -970,7 +970,6 @@ theorem ek_correct {s₀ : State} (hp : EPre s₀) :
           (cC 284 (by decide) (by decide))).writeW hC _ (cC 272 (by decide) (by decide)) }
   -- The words, and the epilogue.
   refine WP.seq (WP.mono (words_ok ws wi) fun s₁₇ h₁₇ => ?_)
-  refine WP.mono (restore_ok h₁₇.edi fB (by rw [h₁₇.wr, h₁.wr]; exact hwB)) fun s₁₈ ⟨sv₁₈, o₁₈, m₁₈⟩ => ?_
   have F : Frame [reg32 S 240, reg32 B 512] s₀.mem s₁₇.mem :=
     (h₁.frame.sub fun r hr => ⟨reg32 B 512, by simp, by
       simp only [List.mem_singleton] at hr; subst hr; exact part_sub_reg fB (by omega)⟩).trans
@@ -980,11 +979,8 @@ theorem ek_correct {s₀ : State} (hp : EPre s₀) :
       · exact ⟨reg32 S 240, by simp, fun _ h => h⟩
       · exact ⟨reg32 B 512, by simp, Region.sub_prefix (by omega)⟩
       · exact ⟨reg32 B 512, by simp, part_sub_reg fB (by simp only [rcOff]; omega)⟩)
-  have saved : ∀ p ∈ savedRegs, s₁₇.mem.readW (addr B p.2) 32 = s₀.gpr p.1 := by
-    intro p hp'
-    have h2 : 256 ≤ p.2 ∧ p.2 + 4 ≤ 272 := by
-      simp only [savedRegs, List.mem_cons, List.not_mem_nil, or_false] at hp'
-      rcases hp' with rfl | rfl | rfl | rfl <;> decide
+  have saved : Spill.Saved s₁₇.mem (addr B) s₀.gpr savedRegs := fun p hp' => by
+    have h2 : 256 ≤ p.2 ∧ p.2 + 4 ≤ 272 := by revert p hp'; decide
     rw [← h₁.saved p hp']
     exact h₁₇.frame.readW (Region.contains_self _ _) (fun r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -994,15 +990,9 @@ theorem ek_correct {s₀ : State} (hp : EPre s₀) :
         rw [← addr_zero]; exact part_disj fB (by omega) (by omega) (.inr (by omega))
       · exact part_disj fB (by omega) (by simp only [rcOff]; omega) (.inl (by simp only [rcOff]; omega)))
       (by decide)
-  refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl
-    · rw [sv₁₈ (.ebx, 256) (by simp [savedRegs]), saved (.ebx, 256) (by simp [savedRegs])]
-    · rw [sv₁₈ (.esi, 260) (by simp [savedRegs]), saved (.esi, 260) (by simp [savedRegs])]
-    · rw [sv₁₈ (.edi, 264) (by simp [savedRegs]), saved (.edi, 264) (by simp [savedRegs])]
-    · rw [sv₁₈ (.ebp, 268) (by simp [savedRegs]), saved (.ebp, 268) (by simp [savedRegs])]
-    · rw [o₁₈ _ (by simp), h₁₇.esp, h₁.esp]
-  · rw [m₁₈]
+  refine WP.mono (restore_ok h₁₇.edi fB (by rw [h₁₇.wr, h₁.wr]; exact hwB) saved) fun s₁₈ r₁₈ => ?_
+  refine ⟨⟨r₁₈.abi (by decide) (by decide) (h₁₇.esp.trans h₁.esp), ?_⟩, ?_⟩
+  · rw [r₁₈.mem]
     exact F.readW (r := ekRetR s₀) (Region.contains_self _ _) (fun r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
@@ -1016,7 +1006,7 @@ theorem ek_correct {s₀ : State} (hp : EPre s₀) :
     refine flatten_expandWords ws.len (by omega) _ _ fun k hk => ?_
     have e : S.setWidth 64 + BitVec.ofNat 64 k = addr S (4 * (k / 4)) + BitVec.ofNat 64 (k % 4) := by
       rw [addr_add64 (by omega), Nat.div_add_mod, addr_eq (by omega)]
-    rw [m₁₈, e, Mem.readW_byte s₁₇.mem _ (Nat.mod_lt _ (by omega)),
+    rw [r₁₈.mem, e, Mem.readW_byte s₁₇.mem _ (Nat.mod_lt _ (by omega)),
       h₁₇.sched _ (by omega) _ (Nat.mod_lt _ (by omega))]
 
 /-- Memory holding the arguments `0x1000, 16, 0x2000, 0x3000` at `0x8004`. -/

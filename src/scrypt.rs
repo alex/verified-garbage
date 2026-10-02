@@ -13,7 +13,8 @@
 //!
 //! ROMix (contract `VG.Spec.Scrypt.roMixContract`) calls the verified
 //! `vg_scrypt_blockmix` and `vg_salsa20_8`. This module only checks the
-//! parameters and allocates the memory scrypt works in.
+//! parameters and allocates the memory scrypt works in (and, for [`verify`],
+//! compares the derived key with the expected one).
 //!
 //! scryptROMix reads its table `V` at indices derived from the password, so
 //! its memory accesses (and hence its timing, through the caches) depend on
@@ -42,7 +43,7 @@ use crate::arch::scrypt::vg_scrypt_sha2;
 use crate::arch::scrypt::vg_scrypt_shani;
 use crate::hashes::sha256::Sha256Backend;
 
-/// Why [`scrypt`] refused to derive a key.
+/// Why [`scrypt`] refused to derive a key, or [`verify`] to accept one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
     /// The parameters are not valid (RFC 7914 §2 and §6): `n` must be a
@@ -55,6 +56,9 @@ pub enum Error {
     MemoryLimitExceeded,
     /// Allocating that memory failed.
     AllocationFailed,
+    /// [`verify`] derived a key other than the expected one: the password
+    /// (or the salt or a parameter) is not the one it was derived from.
+    KeyMismatch,
 }
 
 impl fmt::Display for Error {
@@ -63,6 +67,7 @@ impl fmt::Display for Error {
             Error::InvalidParameters => "invalid scrypt parameters",
             Error::MemoryLimitExceeded => "scrypt would need more than the memory limit",
             Error::AllocationFailed => "could not allocate scrypt's memory",
+            Error::KeyMismatch => "scrypt derived key does not match",
         })
     }
 }
@@ -108,46 +113,122 @@ pub fn scrypt(
     max_memory: usize,
     out: &mut [u8],
 ) -> Result<(), Error> {
-    // RFC 7914 §2 and §6, as `VG.Spec.Scrypt.valid` states them.
-    let (n64, r64, p64) = (n, u64::from(r), u64::from(p));
-    let max_len = (u64::from(u32::MAX)) * 32;
-    let n_ok = n64 > 1 && n64.is_power_of_two() && (r64 * 16 >= 64 || n64 < 1 << (r64 * 16));
-    let p_ok = r64 > 0 && p64 > 0 && p64 <= max_len / (128 * r64);
-    let len_ok = !out.is_empty() && (out.len() as u64) <= max_len;
-    if !(n_ok && p_ok && len_ok) {
-        return Err(Error::InvalidParameters);
-    }
-    // `128 (r (n + p) + r + 2)` bytes, in chunks of 128.
-    let size = |n: u64| usize::try_from(n).ok();
-    let (n, r, p) = (size(n64), r as usize, p as usize);
-    let vlen = n.and_then(|n| n.checked_mul(r));
-    let total = vlen.and_then(|v| v.checked_add(r * p)?.checked_add(r + 2)?.checked_mul(128));
-    let (Some(vlen), Some(total)) = (vlen, total) else {
-        return Err(Error::MemoryLimitExceeded);
-    };
-    if total > max_memory {
-        return Err(Error::MemoryLimitExceeded);
-    }
-    let mut b = chunks(r * p)?;
-    let mut v = chunks(vlen)?;
-    let mut scratch = chunks(r + 2 + PBKDF2_CHUNKS)?;
-    let backend = Sha256Backend::select(crate::cpu::detected());
-    derive(
-        backend,
-        password,
-        salt,
-        r,
-        &mut b,
-        &mut v,
-        &mut scratch,
-        out,
-    );
+    Memory::new(n, r, p, max_memory, out.len())?.derive(password, salt, out);
     Ok(())
+}
+
+/// Checks a password against a stored derived key: derives a key of `N`
+/// bytes from `password` and `salt` by scrypt with parameters `n`, `r` and
+/// `p` (as [`scrypt`] does), if that needs at most `max_memory` bytes, and
+/// compares it with `expected`.
+///
+/// The comparison is constant time: the time taken does not depend on
+/// where, or whether, the keys differ. The derivation is [`scrypt`]'s, whose
+/// memory accesses depend on the password (see the module's documentation).
+/// `N` is public. The derived key is wiped before returning.
+///
+/// `N` is a type parameter, at least 16 (a smaller one is an error when the
+/// call is compiled), so that the length checked is fixed in the caller's
+/// code: scrypt's keys of different lengths share their prefixes, so a key
+/// checked at a length taken from a slice (a truncated stored key, or one an
+/// attacker sent) would match a password on as few bytes as it has. A caller
+/// with the stored key in a slice converts it (`stored.try_into()`), which
+/// fails if it does not have the length the code expects.
+///
+/// # Errors
+///
+/// [`Error::KeyMismatch`] if the derived key is not `expected`; otherwise
+/// as [`scrypt`], with `expected` in place of `out`.
+pub fn verify<const N: usize>(
+    password: &[u8],
+    salt: &[u8],
+    n: u64,
+    r: u32,
+    p: u32,
+    max_memory: usize,
+    expected: &[u8; N],
+) -> Result<(), Error> {
+    crate::ct::assert_verify_len!(N);
+    let mut memory = Memory::new(n, r, p, max_memory, N)?;
+    let mut key = [0u8; N];
+    memory.derive(password, salt, &mut key);
+    let matches = crate::ct::eq(&key, expected);
+    crate::zeroize::zeroize(&mut key);
+    if matches {
+        Ok(())
+    } else {
+        Err(Error::KeyMismatch)
+    }
+}
+
+/// The memory scrypt works in, for parameters [`Memory::new`] checked.
+struct Memory {
+    /// The block size parameter `r`.
+    r: usize,
+    /// The `p` blocks of `128 r` bytes.
+    b: Vec<[u8; 128]>,
+    /// ROMix's table, of `n` blocks.
+    v: Vec<[u8; 128]>,
+    /// `r + 16` chunks of working space.
+    scratch: Vec<[u8; 128]>,
+    /// The length of the key to derive.
+    len: usize,
+}
+
+impl Memory {
+    /// The memory to derive a key of `len` bytes with parameters `n`, `r`
+    /// and `p` in, if they are valid and it is at most `max_memory` bytes.
+    fn new(n: u64, r: u32, p: u32, max_memory: usize, len: usize) -> Result<Memory, Error> {
+        // RFC 7914 §2 and §6, as `VG.Spec.Scrypt.valid` states them.
+        let (n64, r64, p64) = (n, u64::from(r), u64::from(p));
+        let max_len = (u64::from(u32::MAX)) * 32;
+        let n_ok = n64 > 1 && n64.is_power_of_two() && (r64 * 16 >= 64 || n64 < 1 << (r64 * 16));
+        let p_ok = r64 > 0 && p64 > 0 && p64 <= max_len / (128 * r64);
+        let len_ok = len != 0 && (len as u64) <= max_len;
+        if !(n_ok && p_ok && len_ok) {
+            return Err(Error::InvalidParameters);
+        }
+        // `128 (r (n + p) + r + 2)` bytes, in chunks of 128.
+        let size = |n: u64| usize::try_from(n).ok();
+        let (n, r, p) = (size(n64), r as usize, p as usize);
+        let vlen = n.and_then(|n| n.checked_mul(r));
+        let total = vlen.and_then(|v| v.checked_add(r * p)?.checked_add(r + 2)?.checked_mul(128));
+        let (Some(vlen), Some(total)) = (vlen, total) else {
+            return Err(Error::MemoryLimitExceeded);
+        };
+        if total > max_memory {
+            return Err(Error::MemoryLimitExceeded);
+        }
+        Ok(Memory {
+            r,
+            b: chunks(r * p)?,
+            v: chunks(vlen)?,
+            scratch: chunks(r + 2 + PBKDF2_CHUNKS)?,
+            len,
+        })
+    }
+
+    /// Fills `out`, of the length the memory was allocated for, with the
+    /// key derived from `password` and `salt`.
+    fn derive(&mut self, password: &[u8], salt: &[u8], out: &mut [u8]) {
+        assert_eq!(out.len(), self.len);
+        let backend = Sha256Backend::select(crate::cpu::detected());
+        derive(
+            backend,
+            password,
+            salt,
+            self.r,
+            &mut self.b,
+            &mut self.v,
+            &mut self.scratch,
+            out,
+        );
+    }
 }
 
 /// scrypt with block size parameter `r`, cost parameter `N = v.len() / r`
 /// and parallelization parameter `p = b.len() / r`, for parameters that
-/// [`scrypt`] checked, with `r + 16` chunks of `scratch`, by the
+/// [`Memory::new`] checked, with `r + 16` chunks of `scratch`, by the
 /// implementation `backend` (which must have been selected for this CPU).
 #[allow(clippy::too_many_arguments)]
 fn derive(
@@ -170,7 +251,7 @@ fn derive(
         Sha256Backend::Avx2 => vg_scrypt_avx2,
     };
     // SAFETY: `r > 0`; `b.len() = r p` and `v.len() = n r` for `n`, `r`, `p`
-    // and `out.len()` that are valid (`scrypt` checked them as
+    // and `out.len()` that are valid (`Memory::new` checked them as
     // `VG.Spec.Scrypt.valid` states them, and `out.len() ≤ (2³² − 1) · 32`),
     // and `scratch.len() = r + 16`. `password` and `salt` are valid for
     // reads of their lengths, `b`, `v` and `scratch` for reads and writes of

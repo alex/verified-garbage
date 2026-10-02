@@ -23,6 +23,7 @@ agree (`VPiece`), as in key generation.
 namespace VG.Proof.MlDsa.AArch64.Verify
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params mlDsa44 mlDsa65 mlDsa87 q gamma2s ballParams simpleBitPackBounds bitlen)
 open VG.Spec.Sha3 (bytesAt)
@@ -101,7 +102,7 @@ theorem vLay {p : Params} (hF : VFacts p) {S : Nat} {σ s : State} (hp : vPre p 
   have e25 := h.x25; have e26 := h.x26; have e27 := h.x27; have e28 := h.x28
   have mrd : ∀ r ∈ σ.rd ++ σ.wr, InRegions (s.rd ++ s.wr) r.base r.len := fun r hr => by
     rw [h.rd, h.wr]; exact inR_self hr
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, by rw [h.sp]; exact hS⟩
+  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, by rw [h.sp]; exact hS⟩
   · simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false]
     rintro b (rfl | rfl | rfl | rfl)
     exacts [hsm.2.1, by decide, hsm.2.2, hsm.1]
@@ -157,11 +158,8 @@ theorem vinB_x28W (p : Params) (o l : Nat) : inB (vW p) (.x28, o) l = decide (o 
 theorem sepB_v {p : Params} {r r' : Reg} (h : r ≠ r') (hw : r = .x28 ∨ r' = .x28) (o l o' l' : Nat) :
     sepB (vR p) (vW p) (r, o) l (r', o') l' =
       (inB (vR p ++ vW p) (r, o) l && inB (vR p ++ vW p) (r', o') l') := by
-  have h1 : (r != r') = true := bne_iff_ne.mpr h
-  have h2 : (r == r') = false := beq_eq_false_iff_ne.mpr h
-  have h3 : (isW (vW p) r || isW (vW p) r') = true := by
-    rcases hw with rfl | rfl <;> simp [isW, List.lookup]
-  simp only [sepB, h1, h2, h3, Bool.false_and, Bool.or_false, Bool.and_true]
+  refine sepB_ne h ?_ o l o' l'
+  rcases hw with rfl | rfl <;> simp [isW, List.lookup]
 
 /-- Unfolds the checks of pointers into the layout into arithmetic, then `omega`. -/
 syntax "vlay" (" [" Lean.Parser.Tactic.simpLemma,* "]")? : tactic
@@ -169,8 +167,8 @@ macro_rules
   | `(tactic| vlay) => `(tactic| vlay [])
   | `(tactic| vlay [$ls,*]) => `(tactic| (
       set_option linter.unusedSimpArgs false in
-      simp (config := { decide := true }) only [VG.Proof.MlDsa.AArch64.KeyGen.keepB,
-        VG.Proof.MlDsa.AArch64.KeyGen.sepB_same, VG.Proof.MlDsa.AArch64.Verify.sepB_v,
+      simp (config := { decide := true }) only [VG.Proof.MlDsa.AArch64.keepB,
+        VG.Proof.MlDsa.AArch64.sepB_same, VG.Proof.MlDsa.AArch64.Verify.sepB_v,
         VG.Proof.MlDsa.AArch64.Verify.vinB_x25, VG.Proof.MlDsa.AArch64.Verify.vinB_x26,
         VG.Proof.MlDsa.AArch64.Verify.vinB_x27, VG.Proof.MlDsa.AArch64.Verify.vinB_x28,
         VG.Proof.MlDsa.AArch64.Verify.vinB_x28W, List.all_cons, List.all_nil, List.cons_append, List.nil_append,

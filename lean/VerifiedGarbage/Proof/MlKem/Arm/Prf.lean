@@ -1,10 +1,10 @@
 import VerifiedGarbage.Proof.MlKem.Arm.Loops
 
 /-!
-# ML-KEM-768 on 32-bit ARM: sampling with `PRF` and `SamplePolyCBD`
+# ML-KEM on 32-bit ARM: sampling with `PRF` and `SamplePolyCBD`
 
-`prfLoop withNtt N₀ N₁` writes `SamplePolyCBD₂(PRF₂(σ, N))` (its NTT if
-`withNtt`) to polynomial `3 + N` for `N₀ ≤ N < N₁` (`prfLoop_ok`), with `σ` at
+`K.prfLoop withNtt N₀ N₁` writes `SamplePolyCBD₂(PRF₂(σ, N))` (its NTT if
+`withNtt`) to polynomial `k + N` for `N₀ ≤ N < N₁` (`prfLoop_ok`), with `σ` at
 offset 920 of `scratch`, and changes only the regions of `prfW`.
 -/
 
@@ -83,6 +83,21 @@ theorem Ctx.sub0 {L : Lay} {s : State} (hc : Ctx L s) {a l b l' : Nat} (h₁ : b
   simp only [Region.Contains] at hx ⊢
   bv_omega
 
+/-- A separation decided with a `scratch` of 32 KiB holds for a bigger one. -/
+theorem sepB_scr {r : List Nat} {s : Nat} {a b : Nat × Nat × Nat} (h : sepB (32768 :: r) a b = true)
+    (hs : 32768 ≤ s) : sepB (s :: r) a b = true := by
+  obtain ⟨i, o, l⟩ := a
+  obtain ⟨j, o', l'⟩ := b
+  simp only [sepB, List.length_cons, Bool.and_eq_true, decide_eq_true_eq] at h ⊢
+  obtain ⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩ := h
+  refine ⟨⟨⟨⟨h1, h2⟩, ?_⟩, ?_⟩, h5⟩
+  · cases i <;> simp only [List.getD_cons_zero, List.getD_cons_succ] at h3 ⊢ <;> omega
+  · cases j <;> simp only [List.getD_cons_zero, List.getD_cons_succ] at h4 ⊢ <;> omega
+
+theorem sepAll_scr {r : List Nat} {s : Nat} {a : Nat × Nat × Nat} {W : List (Nat × Nat × Nat)}
+    (h : sepAll (32768 :: r) a W = true) (hs : 32768 ≤ s) : sepAll (s :: r) a W = true :=
+  List.all_eq_true.mpr fun w hw => sepB_scr (List.all_eq_true.mp h w hw) hs
+
 /-- `w` inside `w'`, a region of `scratch` or of the stack. -/
 def subB0 (w w' : Nat × Nat × Nat) : Bool :=
   w.1 == w'.1 && decide (w'.2.1 ≤ w.2.1) && decide (w.2.1 + w.2.2 ≤ w'.2.1 + w'.2.2) &&
@@ -117,18 +132,57 @@ theorem KeptX.subL {L : Lay} {xs : List Reg} {W W' : List (Nat × Nat × Nat)} {
 
 /-! ## Addresses -/
 
-/-- Arithmetic on the offsets in `scratch`. -/
+/-- `w` inside `w'`. -/
+def inB (w w' : Nat × Nat × Nat) : Bool :=
+  w.1 == w'.1 && decide (w'.2.1 ≤ w.2.1) && decide (w.2.1 + w.2.2 ≤ w'.2.1 + w'.2.2)
+
+/-- Arithmetic on the offsets in `scratch`, with the bounds on `k` of the
+`KemLay.WF` in the context, if any. -/
 macro "offs" : tactic => `(tactic| (
-  simp only [oPoly, oPrf, oNtt, oSeed, oSigma, oAcc, oTmp, oAhat, oSample, oK, oKbar, oMsg, oHek, oCt, oWork,
-    oSave, oExtra, oG, oCin]; omega))
+  (try have := (‹KemLay.WF _›).k1)
+  (try have := (‹KemLay.WF _›).k4)
+  (try have := (‹KemLay.WF _›).du)
+  (try have := (‹KemLay.WF _›).dv)
+  (try simp only [oPoly, oPrf, KemLay.oNtt, oSeed, oSigma, KemLay.oAcc, KemLay.oTmp, KemLay.oAhat, KemLay.oSample,
+    oK, oKbar, oMsg, oHek, KemLay.oCt, oWork, oSave, oExtra, oG, oCin, KemLay.ekLen, KemLay.ctLen, KemLay.uLen,
+    KemLay.vLen])
+  omega))
+
+theorem enc_le9 : ∀ n, n ≤ 9 → encodable (BitVec.ofNat 32 n) = true := by decide
+
+/-- Decides that an immediate is encodable: by evaluation, or, for an offset
+or a count that depends on the parameter set, from the bounds of its
+`KemLay.WF`. -/
+macro "kenc" : tactic => `(tactic| first
+  | decide
+  | exact enc_le9 _ (by have := (‹KemLay.WF _›).k4; omega)
+  | exact (‹KemLay.WF _›).enc (by omega))
+
+/-- Decides a fact about offsets and regions: by evaluation, or, for one that
+depends on the parameter set (of the `KemLay.WF` in the context), by `omega`
+on the offsets. -/
+macro "kdecide" : tactic => `(tactic| first
+  | decide
+  | (
+  (try have := (‹KemLay.WF _›).k1)
+  (try have := (‹KemLay.WF _›).k4)
+  (try have := (‹KemLay.WF _›).du)
+  (try have := (‹KemLay.WF _›).dv)
+  (try simp only [List.all_cons, List.all_nil, List.any_cons, List.any_nil, List.all_append, List.any_append, sep0,
+    subB0, inB, sepB, sepAll, List.length_cons, List.length_nil, List.getD_cons_zero, List.getD_cons_succ,
+    oPoly, oPrf, KemLay.oNtt, oSeed, oSigma, KemLay.oAcc, KemLay.oTmp, KemLay.oAhat, KemLay.oSample, oK,
+    oKbar, oMsg, oHek, KemLay.oCt, oWork, oSave, oExtra, oG, oCin, KemLay.ekLen, KemLay.ctLen, KemLay.uLen,
+    KemLay.vLen, KemLay.dkLen, Bool.and_true, Bool.or_false,
+    Bool.true_and, Bool.false_or, Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq, bne_iff_ne, ne_eq,
+    decide_eq_true_eq, true_and, and_true, not_true_eq_false, not_false_eq_true, false_or, or_false, true_or,
+    or_true])
+  omega))
 
 theorem slot_eq (p : BitVec 32) {N off : Nat} (_h : off + 1024 * N < 2 ^ 32) :
     p + BitVec.ofNat 32 N <<< 10 + BitVec.ofNat 32 off = p + BitVec.ofNat 32 (off + 1024 * N) := by
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_add, BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
   omega
-
-theorem enc_slot : ∀ k < 14, encodable (BitVec.ofNat 32 (oPoly k)) = true := by decide
 
 theorem setWidth8_ofNat {N : Nat} (h : N < 2 ^ 32) : (BitVec.ofNat 32 N).setWidth 8 = BitVec.ofNat 8 N := by
   apply BitVec.eq_of_toNat_eq
@@ -150,13 +204,13 @@ theorem count_ok {s : State} {c : Reg} {n k : Nat} (hk : k + 1 < 2 ^ 32)
 
 /-! ## One `PRF` -/
 
-/-- Polynomial `3 + N`: `SamplePolyCBD₂(PRF₂(σ, N))`, or its NTT. -/
+/-- Polynomial `k + N`: `SamplePolyCBD₂(PRF₂(σ, N))`, or its NTT. -/
 def prfOut (withNtt : Bool) (σ : List Byte) (N : Nat) : Poly :=
   if withNtt then ntt (VG.Proof.MlKem.cbd σ N) else VG.Proof.MlKem.cbd σ N
 
 /-- What one `PRF` changes. -/
-abbrev prfW (N : Nat) : List (Nat × Nat × Nat) :=
-  [(0, 0, 200), (0, 200, 640), (1, 0, 8), (0, 952, 1), (0, 1024, 128), (0, oPoly (3 + N), 1024), (0, oNtt, 1024)]
+abbrev prfW (K : KemLay) (N : Nat) : List (Nat × Nat × Nat) :=
+  [(0, 0, 200), (0, 200, 640), (1, 0, 8), (0, 952, 1), (0, 1024, 128), (0, oPoly (K.k + N), 1024), (0, K.oNtt, 1024)]
 
 theorem bytes_one (m : Mem) (p : Addr) : bytesAt m p 1 = [m p] := by
   simp [bytesAt]
@@ -178,38 +232,42 @@ theorem strb9_ok {L : Lay} {s : State} (hc : Ctx L s) {N : Nat} (hN : N < 2 ^ 32
   · show s.mem.writeW _ _ = _
     rw [e952, h9, setWidth8_ofNat hN]
 
+theorem rate136 : 136 ∈ rates := by decide
+
+section
+variable {K : KemLay} (hK : K.WF)
+include hK
+
 theorem cbdArgs_ok {s : State} {P : BitVec 32} {N : Nat} (h7 : s.gpr .r7 = P) (h9 : s.gpr .r9 = BitVec.ofNat 32 N) :
-    WP isa (.block (ptrTo .r0 .r7 oPrf :: slotAt .r1 .r9 (oPoly 3))) s fun s' => Only s s' ∧
-      s'.gpr .r0 = P + BitVec.ofNat 32 oPrf ∧ s'.gpr .r1 = P + BitVec.ofNat 32 N <<< 10 + BitVec.ofNat 32 (oPoly 3) := by
+    WP isa (.block (ptrTo .r0 .r7 oPrf :: slotAt .r1 .r9 (oPoly K.k))) s fun s' => Only s s' ∧
+      s'.gpr .r0 = P + BitVec.ofNat 32 oPrf ∧ s'.gpr .r1 = P + BitVec.ofNat 32 N <<< 10 + BitVec.ofNat 32 (oPoly K.k) := by
   have e1 : encodable (BitVec.ofNat 32 oPrf) = true := by decide
-  have e2 : encodable (BitVec.ofNat 32 (oPoly 3)) = true := by decide
+  have e2 := enc_poly K.k (by have := hK.k4; omega)
   run_block [ptrTo, slotAt, e1, e2, h7, h9]
   refine ⟨Only.of_gpr _ fun r hr hl => ?_, trivial⟩
   obtain ⟨m0, m1, -, -, -⟩ := pres_ne hr hl
   simp only [m0, m1, ite_false]
 
 theorem nttArgs_ok {s : State} {P : BitVec 32} {N : Nat} (h7 : s.gpr .r7 = P) (h9 : s.gpr .r9 = BitVec.ofNat 32 N) :
-    WP isa (.block (slotAt .r0 .r9 (oPoly 3) ++ [ptrTo .r1 .r7 oNtt])) s fun s' => Only s s' ∧
-      s'.gpr .r0 = P + BitVec.ofNat 32 N <<< 10 + BitVec.ofNat 32 (oPoly 3) ∧
-      s'.gpr .r1 = P + BitVec.ofNat 32 oNtt := by
-  have e1 : encodable (BitVec.ofNat 32 oNtt) = true := by decide
-  have e2 : encodable (BitVec.ofNat 32 (oPoly 3)) = true := by decide
+    WP isa (.block (slotAt .r0 .r9 (oPoly K.k) ++ [ptrTo .r1 .r7 K.oNtt])) s fun s' => Only s s' ∧
+      s'.gpr .r0 = P + BitVec.ofNat 32 N <<< 10 + BitVec.ofNat 32 (oPoly K.k) ∧
+      s'.gpr .r1 = P + BitVec.ofNat 32 K.oNtt := by
+  have e1 := enc_poly (3 * K.k + 7) (by have := hK.k4; omega)
+  have e2 := enc_poly K.k (by have := hK.k4; omega)
   run_block [ptrTo, slotAt, e1, e2, h7, h9]
   refine ⟨Only.of_gpr _ fun r hr hl => ?_, trivial⟩
   obtain ⟨m0, m1, -, -, -⟩ := pres_ne hr hl
   simp only [m0, m1, ite_false]
 
-theorem rate136 : 136 ∈ rates := by decide
-
-theorem enc_le7 : ∀ n, n ≤ 7 → encodable (BitVec.ofNat 32 n) = true := by decide
-
 theorem prfBody_ok {L : Lay} {s : State} (hc : Ctx L s) (withNtt : Bool) {N₁ N : Nat} (hN : N < N₁)
-    (hN₁ : N₁ ≤ 7) (h9 : s.gpr .r9 = BitVec.ofNat 32 N) {σ : List Byte} (hσ : bytesAt s.mem (L.A 0 oSigma) 32 = σ) :
-    WP isa (prfBody withNtt N₁) s fun s' => KeptX [.r9] (L.RL (prfW N)) s s' ∧
+    (hN₁ : N₁ ≤ 2 * K.k + 1) (h9 : s.gpr .r9 = BitVec.ofNat 32 N) {σ : List Byte}
+    (hσ : bytesAt s.mem (L.A 0 oSigma) 32 = σ) :
+    WP isa (K.prfBody withNtt N₁) s fun s' => KeptX [.r9] (L.RL (prfW K N)) s s' ∧
       s'.gpr .r9 = BitVec.ofNat 32 (N + 1) ∧ s'.z = decide (N + 1 = N₁) ∧
-      PolyIs s'.mem (L.A 0 (oPoly (3 + N))) (prfOut withNtt σ N) := by
+      PolyIs s'.mem (L.A 0 (oPoly (K.k + N))) (prfOut withNtt σ N) := by
   have hL := hc.ok
-  have eo : oPoly (3 + N) = oPoly 3 + 1024 * N := by unfold oPoly; omega
+  have k4 := hK.k4
+  have eo : oPoly (K.k + N) = oPoly K.k + 1024 * N := by unfold oPoly; omega
   refine WP.seq (WP.mono (strb9_ok hc (by omega) h9) fun s₁ ⟨k₁, m₁⟩ => ?_)
   have hc₁ := k₁.ctx (by decide) hc
   have g9₁ : s₁.gpr .r9 = BitVec.ofNat 32 N := by rw [k₁.cs .r9 (by decide) (by decide) (by decide), h9]
@@ -237,7 +295,7 @@ theorem prfBody_ok {L : Lay} {s : State} (hc : Ctx L s) (withNtt : Bool) {N₁ N
     simp only [Lay.pb, List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil] at this
     rw [bσ] at this
     rw [this, VG.Proof.MlKem.prf_eq]; rfl
-  refine WP.seq (WP.mono (cbdArgs_ok hc₂.r7 g9₂) fun s₃ ⟨o₃, g0, g1⟩ => ?_)
+  refine WP.seq (WP.mono (cbdArgs_ok hK hc₂.r7 g9₂) fun s₃ ⟨o₃, g0, g1⟩ => ?_)
   rw [slot_eq _ (by offs), ← eo] at g1
   have hc₃ := hc₂.only o₃
   refine WP.seq (cbd2L hL g0 g1 (hc.sep00 (by offs) (by offs) (by offs))
@@ -246,49 +304,54 @@ theorem prfBody_ok {L : Lay} {s : State} (hc : Ctx L s) (withNtt : Bool) {N₁ N
   have hc₄ := hc₃.kept k₄
   have g9₄ : s₄.gpr .r9 = BitVec.ofNat 32 N := by
     rw [k₄.cs .r9 (by decide) (by decide), o₃.cs .r9 (by decide) (by decide), g9₂]
-  have fin : ∀ s₅, KeptX [.r9] (L.RL [(0, oPoly (3 + N), 1024), (0, oNtt, 1024)]) s₄ s₅ →
-      s₅.gpr .r9 = BitVec.ofNat 32 N → PolyIs s₅.mem (L.A 0 (oPoly (3 + N))) (prfOut withNtt σ N) →
-      WP isa (.block (count .r9 N₁)) s₅ fun s' => KeptX [.r9] (L.RL (prfW N)) s s' ∧
+  have fin : ∀ s₅, KeptX [.r9] (L.RL [(0, oPoly (K.k + N), 1024), (0, K.oNtt, 1024)]) s₄ s₅ →
+      s₅.gpr .r9 = BitVec.ofNat 32 N → PolyIs s₅.mem (L.A 0 (oPoly (K.k + N))) (prfOut withNtt σ N) →
+      WP isa (.block (count .r9 N₁)) s₅ fun s' => KeptX [.r9] (L.RL (prfW K N)) s s' ∧
         s'.gpr .r9 = BitVec.ofNat 32 (N + 1) ∧ s'.z = decide (N + 1 = N₁) ∧
-        PolyIs s'.mem (L.A 0 (oPoly (3 + N))) (prfOut withNtt σ N) := fun s₅ k₅ g9₅ p₅ =>
-    WP.mono (count_ok (by omega) (by omega) (enc_le7 _ hN₁) g9₅) fun s' ⟨k', g', z'⟩ => ⟨by
-      exact ((k₁.weaken (by simp)).monoL (W' := prfW N) (by simp)).trans (((k₂.x _).monoL (by simp)).trans
+        PolyIs s'.mem (L.A 0 (oPoly (K.k + N))) (prfOut withNtt σ N) := fun s₅ k₅ g9₅ p₅ =>
+    WP.mono (count_ok (by omega) (by omega) (enc_le9 _ (by omega)) g9₅) fun s' ⟨k', g', z'⟩ => ⟨by
+      exact ((k₁.weaken (by simp)).monoL (W' := prfW K N) (by simp)).trans (((k₂.x _).monoL (by simp)).trans
         ((o₃.x _ _).trans (((k₄.x _).monoL (by simp)).trans ((k₅.monoL (by simp)).trans (k'.mono (fun _ h => absurd h List.not_mem_nil)))))),
       g', z', polyIs_frame k'.frame (fun _ h => absurd h List.not_mem_nil) p₅⟩
   cases withNtt
   · refine WP.seq (WP.block_nil ?_)
     exact fin s₄ ((Kept.refl _ _).x _) g9₄ p₄
-  · refine WP.seq (WP.seq (WP.mono (nttArgs_ok hc₄.r7 g9₄) fun s₅ ⟨o₅, g0', g1'⟩ => ?_))
+  · refine WP.seq (WP.seq (WP.mono (nttArgs_ok hK hc₄.r7 g9₄) fun s₅ ⟨o₅, g0', g1'⟩ => ?_))
     rw [slot_eq _ (by offs), ← eo] at g0'
     have hc₅ := hc₄.only o₅
     refine nttL hL g0' g1' (hc.sep00 (by offs) (by offs) (by offs)) hc₅.buf0 hc₅.buf0 (by rw [o₅.mem]; exact p₄)
       fun s₆ k₆ p₆ => fin s₆ (((o₅.kept _).trans k₆).x _) ?_ p₆
     rw [k₆.cs .r9 (by decide) (by decide), o₅.cs .r9 (by decide) (by decide), g9₄]
 
+end
+
 /-! ## The loop -/
 
 /-- What the loop changes: the regions of `prfW`, with all its polynomials. -/
-abbrev prfLW (N₀ N₁ : Nat) : List (Nat × Nat × Nat) :=
-  [(0, 0, 200), (0, 200, 640), (1, 0, 8), (0, 952, 1), (0, 1024, 128), (0, oPoly (3 + N₀), 1024 * (N₁ - N₀)),
-    (0, oNtt, 1024)]
+abbrev prfLW (K : KemLay) (N₀ N₁ : Nat) : List (Nat × Nat × Nat) :=
+  [(0, 0, 200), (0, 200, 640), (1, 0, 8), (0, 952, 1), (0, 1024, 128), (0, oPoly (K.k + N₀), 1024 * (N₁ - N₀)),
+    (0, K.oNtt, 1024)]
 
-structure PrfInv (L : Lay) (withNtt : Bool) (σ : List Byte) (N₀ N₁ : Nat) (s₀ : State) (t : Nat) (s : State) :
-    Prop where
-  kx : KeptX [.r9] (L.RL (prfLW N₀ N₁)) s₀ s
+structure PrfInv (K : KemLay) (L : Lay) (withNtt : Bool) (σ : List Byte) (N₀ N₁ : Nat) (s₀ : State) (t : Nat)
+    (s : State) : Prop where
+  kx : KeptX [.r9] (L.RL (prfLW K N₀ N₁)) s₀ s
   r9 : s.gpr .r9 = BitVec.ofNat 32 (N₀ + t)
   sig : bytesAt s.mem (L.A 0 oSigma) 32 = σ
-  slots : ∀ N, N₀ ≤ N → N < N₀ + t → PolyIs s.mem (L.A 0 (oPoly (3 + N))) (prfOut withNtt σ N)
+  slots : ∀ N, N₀ ≤ N → N < N₀ + t → PolyIs s.mem (L.A 0 (oPoly (K.k + N))) (prfOut withNtt σ N)
 
-theorem prfW_sig : ∀ N < 7, (prfW N).all (sep0 oSigma 32) = true := by decide
+theorem prfW_sig {K : KemLay} (hK : K.WF) : ∀ N < 2 * K.k + 1, (prfW K N).all (sep0 oSigma 32) = true := by
+  have := hK.k4
+  intro N hN
+  simp only [prfW, List.all_cons, List.all_nil, sep0, oPoly, KemLay.oNtt, oSigma, Bool.and_true, Bool.and_eq_true,
+    Bool.or_eq_true, beq_iff_eq, decide_eq_true_eq, true_and]
+  omega
 
-theorem prfW_slot' : ∀ N < 7, ∀ N' < 7, (N' == N || (prfW N).all (sep0 (oPoly (3 + N')) 1024)) = true := by
-  decide
-
-theorem prfW_slot {N N' : Nat} (hN : N < 7) (hN' : N' < 7) (h : N' ≠ N) :
-    (prfW N).all (sep0 (oPoly (3 + N')) 1024) = true := by
-  have := prfW_slot' N hN N' hN'
-  simp only [Bool.or_eq_true, beq_iff_eq] at this
-  exact this.resolve_left h
+theorem prfW_slot {K : KemLay} (hK : K.WF) {N N' : Nat} (hN : N < 2 * K.k + 1) (hN' : N' < 2 * K.k + 1)
+    (h : N' ≠ N) : (prfW K N).all (sep0 (oPoly (K.k + N')) 1024) = true := by
+  have := hK.k4
+  simp only [prfW, List.all_cons, List.all_nil, sep0, oPoly, KemLay.oNtt, Bool.and_true, Bool.and_eq_true,
+    Bool.or_eq_true, beq_iff_eq, decide_eq_true_eq, true_and]
+  omega
 
 theorem mov9_ok {s : State} {N : Nat} (he : encodable (BitVec.ofNat 32 N) = true) :
     WP isa (.block [.mov .r9 (.imm (BitVec.ofNat 32 N))]) s fun s' =>
@@ -298,13 +361,19 @@ theorem mov9_ok {s : State} {N : Nat} (he : encodable (BitVec.ofNat 32 N) = true
   show (if r = .r9 then _ else s.gpr r) = s.gpr r
   exact ite_eq_right (fun e : r = .r9 => hx (by rw [e]; exact List.mem_singleton_self _))
 
-theorem prfStep_ok {L : Lay} {s₀ : State} (hc : Ctx L s₀) (withNtt : Bool) {N₀ N₁ : Nat} (hN₁ : N₁ ≤ 7)
-    {σ : List Byte} {t : Nat} (ht : t < N₁ - N₀) {s : State} (h : PrfInv L withNtt σ N₀ N₁ s₀ t s) :
-    WP isa (prfBody withNtt N₁) s fun s' =>
-      PrfInv L withNtt σ N₀ N₁ s₀ (t + 1) s' ∧ s'.z = decide (t + 1 = N₁ - N₀) := by
+section
+variable {K : KemLay} (hK : K.WF)
+include hK
+
+theorem prfStep_ok {L : Lay} {s₀ : State} (hc : Ctx L s₀) (withNtt : Bool) {N₀ N₁ : Nat}
+    (hN₁ : N₁ ≤ 2 * K.k + 1) {σ : List Byte} {t : Nat} (ht : t < N₁ - N₀) {s : State}
+    (h : PrfInv K L withNtt σ N₀ N₁ s₀ t s) :
+    WP isa (K.prfBody withNtt N₁) s fun s' =>
+      PrfInv K L withNtt σ N₀ N₁ s₀ (t + 1) s' ∧ s'.z = decide (t + 1 = N₁ - N₀) := by
   have hL := hc.ok
+  have k4 := hK.k4
   have hcs := h.kx.ctx (by decide) hc
-  refine WP.mono (prfBody_ok hcs withNtt (N := N₀ + t) (by omega) hN₁ h.r9 h.sig) fun s' ⟨k', g', z', p'⟩ =>
+  refine WP.mono (prfBody_ok hK hcs withNtt (N := N₀ + t) (by omega) hN₁ h.r9 h.sig) fun s' ⟨k', g', z', p'⟩ =>
     ⟨⟨h.kx.trans (k'.sub fun r hr => ?_), by rw [g', Nat.add_assoc], ?_, fun N h1 h2 => ?_⟩, ?_⟩
   · simp only [Lay.RL, List.map_cons, List.map_nil, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
@@ -313,25 +382,28 @@ theorem prfStep_ok {L : Lay} {s₀ : State} (hc : Ctx L s₀) (withNtt : Bool) {
     · exact ⟨L.R 1 0 8, by simp, fun _ h => h⟩
     · exact ⟨L.R 0 952 1, by simp, fun _ h => h⟩
     · exact ⟨L.R 0 1024 128, by simp, fun _ h => h⟩
-    · exact ⟨L.R 0 (oPoly (3 + N₀)) (1024 * (N₁ - N₀)), by simp, hc.sub0 (by offs) (by offs) (by offs)⟩
-    · exact ⟨L.R 0 oNtt 1024, by simp, fun _ h => h⟩
+    · exact ⟨L.R 0 (oPoly (K.k + N₀)) (1024 * (N₁ - N₀)), by simp, hc.sub0 (by offs) (by offs) (by offs)⟩
+    · exact ⟨L.R 0 K.oNtt 1024, by simp, fun _ h => h⟩
   · rw [← h.sig]
-    exact Lay.bytes_keep hL k'.frame (hc.sepAll0 (by decide) (prfW_sig _ (by omega))) (by decide)
+    exact Lay.bytes_keep hL k'.frame (hc.sepAll0 (by decide) (prfW_sig hK _ (by omega))) (by decide)
   · by_cases e : N = N₀ + t
     · subst e; exact p'
-    · exact Lay.polyIs_keep hL k'.frame (hc.sepAll0 (by offs) (prfW_slot (by omega) (by omega) e))
+    · exact Lay.polyIs_keep hL k'.frame (hc.sepAll0 (by offs) (prfW_slot hK (by omega) (by omega) e))
         (h.slots N h1 (by omega))
   · rw [z']; simp only [decide_eq_decide]; omega
 
 theorem prfLoop_ok {L : Lay} {s₀ : State} (hc : Ctx L s₀) (withNtt : Bool) {N₀ N₁ : Nat} (h01 : N₀ < N₁)
-    (hN₁ : N₁ ≤ 7) {σ : List Byte} (hσ : bytesAt s₀.mem (L.A 0 oSigma) 32 = σ) :
-    WP isa (prfLoop withNtt N₀ N₁) s₀ fun s => KeptX [.r9] (L.RL (prfLW N₀ N₁)) s₀ s ∧
-      ∀ N, N₀ ≤ N → N < N₁ → PolyIs s.mem (L.A 0 (oPoly (3 + N))) (prfOut withNtt σ N) := by
-  refine WP.seq (WP.mono (mov9_ok (enc_le7 _ (by omega))) fun s₁ ⟨k₁, g₁, m₁⟩ => ?_)
-  exact wp_loop_ne (PrfInv L withNtt σ N₀ N₁ s₀) (N := N₁ - N₀) (by omega)
-    (fun t ht s h => prfStep_ok hc withNtt hN₁ ht h)
+    (hN₁ : N₁ ≤ 2 * K.k + 1) {σ : List Byte} (hσ : bytesAt s₀.mem (L.A 0 oSigma) 32 = σ) :
+    WP isa (K.prfLoop withNtt N₀ N₁) s₀ fun s => KeptX [.r9] (L.RL (prfLW K N₀ N₁)) s₀ s ∧
+      ∀ N, N₀ ≤ N → N < N₁ → PolyIs s.mem (L.A 0 (oPoly (K.k + N))) (prfOut withNtt σ N) := by
+  have k4 := hK.k4
+  refine WP.seq (WP.mono (mov9_ok (enc_le9 _ (by omega))) fun s₁ ⟨k₁, g₁, m₁⟩ => ?_)
+  exact wp_loop_ne (PrfInv K L withNtt σ N₀ N₁ s₀) (N := N₁ - N₀) (by omega)
+    (fun t ht s h => prfStep_ok hK hc withNtt hN₁ ht h)
     (fun s h => ⟨h.kx, fun N h1 h2 => h.slots N h1 (by omega)⟩)
     ⟨k₁.mono (fun _ h => absurd h List.not_mem_nil), by rw [g₁, Nat.add_zero], by rw [m₁]; exact hσ,
       fun N h1 h2 => absurd h2 (by omega)⟩
+
+end
 
 end VG.Proof.MlKem.Arm

@@ -35,7 +35,7 @@ abbrev kArgsR : Region := ⟨argAddr s₀ 0, 16⟩
 abbrev SBig : List Region := [kR s₀, scR s₀, stkR s₀]
 
 /-- The memory after saving the registers in the scratch buffer. -/
-def sSaved : Mem := saveMem s₀.mem ((Sc s₀).setWidth 64) s₀.gpr saved
+def sSaved : Mem := Spill.saveMem s₀.mem ((Sc s₀).setWidth 64 + BitVec.ofNat 64 ·) s₀.gpr saved
 
 /-- The memory before the call. -/
 def sPreMem : Mem :=
@@ -76,7 +76,8 @@ theorem ret_stk (s₀ : State) : (retR s₀).Disjoint (stkR s₀) := by
   exact this.symm
 
 theorem sSaved_frame (s₀ : State) : Frame [scR s₀] s₀.mem (sSaved s₀) :=
-  saveMem_frame _ _ _ (by decide) saved fun p hp => by have := saved_bound p hp; omega
+  Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p hp =>
+    have := saved_bound p hp; Offset.contains_base _ (by omega) (by omega)
 
 section
 variable {s₀ : State} (hp : SPre s₀)
@@ -180,23 +181,23 @@ theorem spre_wp {s₀ : State} (hp : SPre s₀) : WP isa (.block subkeysPre) s�
   rw [subkeysPre_eq]
   refine wp_arg (s₀ := s₀) rfl (hp.arg_in (by decide)) rfl fun s₁ u₁ => ?_
   have h₁ : s₁.gpr .eax = Sc s₀ := u₁.gpr
-  refine saveList_ok saved s₁ _ (fun p hp' => ?_) fun s₂ g₂ rd₂ wr₂ m₂ => ?_
+  refine Spill.save_ofNat_ok saved saved_fits (by rw [h₁]; omega) (fun p hp' => ?_) fun s₂ u₂ => ?_
   · have hb := saved_bound p hp'
     rw [h₁, u₁.wr, hp.wr]
-    exact ⟨by omega, ⟨scR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩⟩
+    exact ⟨scR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩
   have hm₂ : s₂.mem = sSaved s₀ := by
-    rw [m₂, u₁.mem, h₁, sSaved]
-    exact saveMem_congr _ _ _ fun p hp' => u₁.other _ (saved_ne_eax p hp')
-  have esp₂ : s₂.gpr .esp = E s₀ := by rw [g₂, u₁.other _ (by decide)]
-  have rw₂ : s₂.rd ++ s₂.wr = s₀.rd ++ s₀.wr := by rw [rd₂, wr₂, u₁.rd, u₁.wr]
+    rw [u₂.mem, u₁.mem, h₁, sSaved]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p hp' => u₁.other _ (saved_ne_eax p hp')
+  have esp₂ : s₂.gpr .esp = E s₀ := by rw [u₂.gpr, u₁.other _ (by decide)]
+  have rw₂ : s₂.rd ++ s₂.wr = s₀.rd ++ s₀.wr := by rw [u₂.rd, u₂.wr, u₁.rd, u₁.wr]
   have big₂ : Frame (SBig s₀) s₀.mem s₂.mem := by rw [hm₂]; exact (sSaved_frame s₀).mono (by simp)
   refine wp_mov fun s₃ u₃ => ?_
   refine wp_arg (s₀ := s₀) (by rw [u₃.other _ (by decide), esp₂])
     (by rw [u₃.rd, u₃.wr, rw₂]; exact hp.arg_in (by decide))
     (by rw [u₃.mem]; exact hp.arg_keep big₂ (by decide)) fun s₄ u₄ => ?_
-  have p₄ : s₄.gpr .ebp = Sc s₀ := by rw [u₄.other _ (by decide), u₃.gpr, g₂, h₁]
+  have p₄ : s₄.gpr .ebp = Sc s₀ := by rw [u₄.other _ (by decide), u₃.gpr, u₂.gpr, h₁]
   have b₄ : s₄.gpr .ebx = Kb s₀ := u₄.gpr
-  have w₄ : s₄.wr = s₀.wr := by rw [u₄.wr, u₃.wr, wr₂, u₁.wr]
+  have w₄ : s₄.wr = s₀.wr := by rw [u₄.wr, u₃.wr, u₂.wr, u₁.wr]
   refine zero4_ok (b := .ebp) (d := 2048) (by decide) (by rw [p₄]; omega) ?_ fun s₅ g₅ m₅ rd₅ wr₅ => ?_
   · rw [p₄, w₄, hp.wr]
     exact Covers.of_sub fun r hr => by
@@ -226,7 +227,7 @@ theorem spre_wp {s₀ : State} (hp : SPre s₀) : WP isa (.block subkeysPre) s�
   have p₆ : s₆.gpr .ebp = Sc s₀ := by rw [g₆ _ (by decide), g₅ _ (by decide), p₄]
   have b₆ : s₆.gpr .ebx = Kb s₀ := by rw [g₆ _ (by decide), b₅]
   have sp₁₁ : s₁₁.gpr .esp = E s₀ := by rw [keep _ (by decide) (by decide) (by decide) (by decide), esp₆]
-  have rd₁₁ : s₁₁.rd = s₀.rd := by rw [u₁₁.rd, u₁₀.rd, u₉.rd, u₈.rd, u₇.rd, rd₆, rd₅, u₄.rd, u₃.rd, rd₂, u₁.rd]
+  have rd₁₁ : s₁₁.rd = s₀.rd := by rw [u₁₁.rd, u₁₀.rd, u₉.rd, u₈.rd, u₇.rd, rd₆, rd₅, u₄.rd, u₃.rd, u₂.rd, u₁.rd]
   have wr₁₁ : s₁₁.wr = s₀.wr := by rw [u₁₁.wr, u₁₀.wr, u₉.wr, u₈.wr, u₇.wr, wr₆, wr₅, w₄]
   have mem₁₁ : s₁₁.mem = sPreMem s₀ := by rw [u₁₁.mem, u₁₀.mem, u₉.mem, u₈.mem, u₇.mem, mem₆]
   have hb : below (s₁₁.gpr .esp) 28 = stkR s₀ := by rw [sp₁₁]; exact hp.below_eq
@@ -343,20 +344,14 @@ theorem subkeys_wp {s₀ : State} (h0 : subkeysX86.pre s₀) :
       · exact Offset.disjoint_base _ hb.1 (by omega)
       · exact hp.b_scr.symm.sub_left (Offset.sub_base _ (by omega))) (by decide)]
     exact saveMem_slot _ _ _ hrd
-  refine restoreList_ok saved s₅ _ saved_nodup (fun p hp' => ?_) fun s₆ ld₆ ho₆ m₆ rd₆ wr₆ => WP.block_nil ?_
+  have hsc' : (arg s₀ 3).toNat + 2176 ≤ 2 ^ 32 := hsc
+  refine Spill.restore_ofNat_ok saved saved_fits (by rw [u₅.gpr]; omega) saved_ne_eax (fun p hp' => ?_)
+    (fun p hp' => by rw [u₅.gpr, u₅.mem]; exact sl p.1 p.2 hp') fun s₆ r₆ => WP.block_nil ?_
   · have hb := saved_bound p hp'
-    have hsc' : (arg s₀ 3).toNat + 2176 ≤ 2 ^ 32 := hsc
     rw [u₅.gpr, u₅.rd, u₅.wr, rdwr₄, hp.rd, hp.wr]
-    exact ⟨saved_ne_eax p hp', by omega, ⟨scR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩⟩
-  refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl
-    · rw [ld₆ (.ebx, 2064) (by decide), u₅.gpr, u₅.mem, sl .ebx 2064 (by decide)]
-    · rw [ld₆ (.esi, 2068) (by decide), u₅.gpr, u₅.mem, sl .esi 2068 (by decide)]
-    · rw [ld₆ (.edi, 2072) (by decide), u₅.gpr, u₅.mem, sl .edi 2072 (by decide)]
-    · rw [ld₆ (.ebp, 2076) (by decide), u₅.gpr, u₅.mem, sl .ebp 2076 (by decide)]
-    · rw [ho₆ _ (by decide), u₅.other _ (by decide), esp₄]
-  · rw [m₆, u₅.mem]; exact hp.ret_keep big₄
+    exact ⟨scR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩
+  refine ⟨⟨r₆.abi (by decide) (by decide) (by rw [u₅.other _ (by decide), esp₄]), ?_⟩, ?_⟩
+  · rw [r₆.mem, u₅.mem]; exact hp.ret_keep big₄
   · show Spec.Aes.bytesAt s₆.mem ((Kb s₀).setWidth 64) 32 = _
     have b₃' : Spec.Aes.bytesAt s₃.mem ((Kb s₀).setWidth 64) 16 =
         Spec.Cmac.dbl 16 (Spec.Aes.bytesAt s₂.mem ((Kb s₀).setWidth 64) 16) := by
@@ -371,7 +366,7 @@ theorem subkeys_wp {s₀ : State} (h0 : subkeysX86.pre s₀) :
         Spec.Cmac.dbl 16 (Spec.Aes.bytesAt s₃.mem ((Kb s₀).setWidth 64) 16) := by
       have := dblMem_bytes s₃.mem ((Kb s₀).setWidth 64) 0 16
       rw [add0] at this; rw [m₄, this]
-    rw [m₆, u₅.mem, Proof.Cmac.bytesAt_32, lo, hi, b₃', L]
+    rw [r₆.mem, u₅.mem, Proof.Cmac.bytesAt_32, lo, hi, b₃', L]
     rfl
 
 end VG.Proof.CmacAes.X86

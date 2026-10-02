@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlDsa.AArch64.Message.Rel
-import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Base
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Base
 
 /-!
 # ML-DSA on AArch64, `sign_message` and `verify_message`: two runs of the hashing
@@ -28,7 +28,7 @@ theorem zeroSt_taint : (taint.check (AArch64.Taint.ofRegs [.x28]) (.block zeroSt
   rfl
 
 theorem zeroSt_tr {Φ : Lay → Mem → State → Prop} : RelCT isa (Two I Φ) (.block zeroSt) fun _ _ => True :=
-  Sign.taintRel [.x28] (fun a b h => ⟨h.x28.2, fun r hr => by
+  AArch64.taintRel [.x28] (fun a b h => ⟨h.x28.2, fun r hr => by
     simp only [List.mem_singleton] at hr; subst hr; exact h.x28.1⟩) zeroSt_taint
 
 /-! ## The sponge functions -/

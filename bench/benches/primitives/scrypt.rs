@@ -5,7 +5,9 @@ use criterion::Criterion;
 pub const USES: &[&str] = &["scrypt", "pbkdf2_sha256", "hmac_sha256", "sha256"];
 
 /// scrypt with `r = 8` and `p = 1` (the RFC 7914 vectors' block size) at a
-/// few costs `N`, deriving a 64-byte key. The ids' sizes are `N`.
+/// few costs `N`, deriving a 64-byte key, and checking a password against it
+/// (`verify`; OpenSSL derives the key and compares it with
+/// `CRYPTO_memcmp`). The ids' sizes are `N`.
 #[cfg(any(
     target_arch = "x86_64",
     target_arch = "aarch64",
@@ -16,7 +18,7 @@ pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;
 
     use criterion::BenchmarkId;
-    use verified_garbage::scrypt::scrypt;
+    use verified_garbage::scrypt::{scrypt, verify};
 
     use crate::{OPENSSL, VG};
     let mut g = c.benchmark_group("scrypt");
@@ -49,6 +51,44 @@ pub fn bench(c: &mut Criterion) {
                     &mut out,
                 )
                 .unwrap()
+            })
+        });
+    }
+    g.finish();
+
+    let mut g = c.benchmark_group("scrypt-verify");
+    g.sample_size(10);
+    for n in [1024u64, 16384] {
+        let mut expected = [0u8; 64];
+        scrypt(b"password", b"NaCl", n, 8, 1, usize::MAX, &mut expected).unwrap();
+        g.bench_function(BenchmarkId::new(VG, n), |b| {
+            b.iter(|| {
+                verify(
+                    black_box(b"password"),
+                    black_box(b"NaCl"),
+                    n,
+                    8,
+                    1,
+                    usize::MAX,
+                    black_box(&expected),
+                )
+                .unwrap()
+            })
+        });
+        let mut out = [0u8; 64];
+        g.bench_function(BenchmarkId::new(OPENSSL, n), |b| {
+            b.iter(|| {
+                openssl::pkcs5::scrypt(
+                    black_box(b"password"),
+                    black_box(b"NaCl"),
+                    n,
+                    8,
+                    1,
+                    u64::MAX,
+                    &mut out,
+                )
+                .unwrap();
+                assert!(openssl::memcmp::eq(&out, black_box(&expected)))
             })
         });
     }

@@ -1,17 +1,19 @@
 import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.CallSample
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Round
 
 /-!
-# ML-DSA on AArch64: calls of the rounding primitives
+# ML-DSA key generation and verification on AArch64: calls of the rounding primitives
 
-For each call of `vg_mldsa_power2round`, `vg_mldsa_use_hint` and
-`vg_mldsa_norm_lt`: what it needs of the layout (`…Chk`), what it does
-(`…_ok`), and that two runs whose layout registers agree leak the same
-(`…_tr`).
+For each call of `vg_mldsa_power2round` and `vg_mldsa_use_hint` (the norm is
+in `Proof/MlDsa/AArch64/Call/Round.lean`): what it needs of the layout
+(`…Chk`), what it does (`…_ok`), and that two runs whose layout registers
+agree leak the same (`…_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 
@@ -24,11 +26,11 @@ def p2rChk (rbs wbs : List (Reg × Nat)) (t t1 t0 : Ptr) : Bool :=
 
 abbrev p2rArgs (t t1 t0 : Ptr) : List (Reg × Arg) := [(.x0, .ptr t), (.x1, .ptr t1), (.x2, .ptr t0)]
 
-theorem p2r_args {bs : List (Reg × Nat)} (L : LayOk bs) {t t1 t0 : Ptr} (c4 : inB bs t 1024 = true)
+theorem p2r_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {t t1 t0 : Ptr} (c4 : inB bs t 1024 = true)
     (c5 : inB bs t1 1024 = true) (c6 : inB bs t0 1024 = true) :
     ∀ x ∈ p2rArgs t t1 t0, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨ptr_ok (ptr_bs L c5), by decide⟩, ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨ptr_ok (ptr_kept L c5), by decide⟩, ⟨ptr_ok (ptr_kept L c6), by decide⟩⟩
 
 section
 variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {t t1 t0 : Ptr}
@@ -103,16 +105,12 @@ def useHintChk (rbs wbs : List (Reg × Nat)) (h r out : Ptr) : Bool :=
 abbrev useHintArgs (h r : Ptr) (g2 : Nat) (out : Ptr) : List (Reg × Arg) :=
   [(.x0, .ptr h), (.x1, .ptr r), (.x2, .imm g2), (.x3, .ptr out)]
 
-theorem useHint_args {bs : List (Reg × Nat)} (L : LayOk bs) {h r out : Ptr} (g2 : Nat) (c3 : inB bs h 1024 = true)
+theorem useHint_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {h r out : Ptr} (g2 : Nat) (c3 : inB bs h 1024 = true)
     (c4 : inB bs r 1024 = true) (c5 : inB bs out 1024 = true) :
     ∀ x ∈ useHintArgs h r g2 out, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c3), by decide⟩, ⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨trivial, by decide⟩,
-    ⟨ptr_ok (ptr_bs L c5), by decide⟩⟩
-
-theorem gamma2_lt {g2 : Nat} (h : g2 ∈ gamma2s) : g2 < 2 ^ 32 := by
-  simp only [gamma2s, List.mem_cons, List.not_mem_nil, or_false] at h
-  rcases h with rfl | rfl <;> decide
+  exact ⟨⟨ptr_ok (ptr_kept L c3), by decide⟩, ⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨trivial, by decide⟩,
+    ⟨ptr_ok (ptr_kept L c5), by decide⟩⟩
 
 section
 variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {h r out : Ptr}
@@ -180,63 +178,5 @@ theorem useHintAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.useHint (useHintCon
     exact ⟨e.2, e.pa hb.1, e.pa hb.2.1, trivial, e.pa hb.2.2⟩
   · rw [e.pa hb.1, e.pa hb.2.1, e.pa hb.2.2]; exact (useHint_cov Ly hc).1
   · rw [e.pa hb.2.2]; exact (useHint_cov Ly hc).2
-
-/-! ## The norm -/
-
-abbrev normArgs (f : Ptr) (bound : Nat) : List (Reg × Arg) := [(.x0, .ptr f), (.x1, .imm bound)]
-
-theorem norm_args {bs : List (Reg × Nat)} (L : LayOk bs) {f : Ptr} (bound : Nat) (c1 : inB bs f 1024 = true) :
-    ∀ x ∈ normArgs f bound, x.2.Ok ∧ x.1 ∈ argRegs := by
-  simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c1), by decide⟩, ⟨trivial, by decide⟩⟩
-
-section
-variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {f : Ptr}
-  (hc : inB (rbs ++ wbs) f 1024 = true)
-include L hc
-
-theorem norm_cov : Covers ([⟨pa s f, 1024⟩] ++ []) (s.rd ++ s.wr) ∧ Covers [] s.wr :=
-  ⟨by rw [List.append_nil]; exact L.cR hc, Covers.nil⟩
-
-theorem norm_pre {bound : Nat} (hr : Reduced s.mem (pa s f)) {s1 : State} (h1 : Args (normArgs f bound) s s1) :
-    (normLtContract AArch64.abi S).pre (s1.callEntry.withRegions [⟨pa s f, 1024⟩] []) := by
-  sig_pre [normLtContract, normLtSig, AArch64.abi, VG.AArch64.argRegs]
-  rw [Args.r0 h1, Args.sp h1, Args.mem h1]
-  simp only [Arg.val]
-  cpre L
-  exact hr
-
-end
-
-theorem normAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.normLt (normLtContract AArch64.abi S))
-    {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {f : Ptr} (hc : inB (rbs ++ wbs) f 1024 = true)
-    {bound : Nat} (hb : bound < 2 ^ 32) (hr : Reduced s.mem (pa s f)) :
-    WP isa (normLtAt P f bound) s fun s' => PPostB S s s' [] ∧ s'.gpr .x24 = s.gpr .x24 ∧
-      (s'.gpr .x0).setWidth 32 = if normRq [polyAt s.mem (pa s f)] < bound then 1 else 0 := by
-  refine WP.mono (callAt_ok hS C (norm_args L.ok bound hc) (by simp only [List.map_cons, List.map_nil]; decide)
-    (fun s1 h1 => norm_pre L hc hr h1) (norm_cov L hc).1 (norm_cov L hc).2)
-    fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
-  sig_post [normLtContract, normLtSig, AArch64.abi, VG.AArch64.argRegs] at hq
-  rw [Args.r0 h1, Args.r1 h1, Args.mem h1] at hq
-  simp only [Arg.val, imm32 hb] at hq
-  exact hq
-
-theorem normAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.normLt (normLtContract AArch64.abi S))
-    {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {f : Ptr} (hc : inB (rbs ++ wbs) f 1024 = true)
-    {bound : Nat} {Q : State → State → Prop}
-    (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧ Reduced x.mem (pa x f) ∧ Reduced y.mem (pa y f) ∧
-      SameB x y) :
-    RelCT isa Q (normLtAt P f bound) fun _ _ => True := by
-  have hb : f.1 ∈ bases := ptr_bs hB hc
-  refine callAt_tr C (norm_args hB bound hc) (by simp only [List.map_cons, List.map_nil]; decide)
-    fun x y x1 y1 hp h1 h2 => ?_
-  obtain ⟨Lx, Ly, rx, ry, e⟩ := hQ x y hp
-  refine ⟨_, _, norm_pre Lx hc rx h1, ?_, ?_, (norm_cov Lx hc).1, (norm_cov Lx hc).2, ?_, (norm_cov Ly hc).2⟩
-  · rw [e.pa hb]; exact norm_pre Ly hc ry h2
-  · sig_pub [normLtContract, normLtSig, AArch64.abi, VG.AArch64.argRegs]
-    rw [Args.r0 h1, Args.r1 h1, Args.r0 h2, Args.r1 h2, Args.sp h1, Args.sp h2]
-    simp only [Arg.val]
-    exact ⟨e.2, e.pa hb, trivial⟩
-  · rw [e.pa hb]; exact (norm_cov Ly hc).1
 
 end VG.Proof.MlDsa.AArch64.KeyGen

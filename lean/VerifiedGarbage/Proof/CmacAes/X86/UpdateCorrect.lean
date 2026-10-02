@@ -40,8 +40,6 @@ theorem ret_read {s₀ : State} (hp : UPre s₀) {m : Mem}
     · exact hp.ret_scr
     · exact hp.ret_stk) (by decide)
 
-theorem saved_nodup : (saved.map Prod.fst).Nodup := by decide
-
 theorem epilogue_wp {s₀ : State} (hp : UPre s₀) {s : State} (h : LInv s₀ (N s₀) s) :
     WP isa (.block (restore 5)) s fun s' => abiPreserved s₀ s' ∧ updateX86.post s₀ s' := by
   have hsc : (arg s₀ 5).toNat + 2176 ≤ 2 ^ 32 := hp.scr_fit
@@ -55,21 +53,15 @@ theorem epilogue_wp {s₀ : State} (hp : UPre s₀) {s : State} (h : LInv s₀ (
   rw [restore_eq]
   refine wp_arg (s₀ := s₀) h.esp (by rw [hrw]; exact hp.arg_in (by decide))
     (hp.arg_keep (UPre.big_of h.frame) (by decide)) fun s₁ u₁ => ?_
-  refine restoreList_ok saved s₁ _ saved_nodup (fun p hp' => ?_) fun s₂ ld₂ ho₂ m₂ rd₂ wr₂ => WP.block_nil ?_
+  refine Spill.restore_ofNat_ok saved saved_fits (by rw [u₁.gpr]; omega) saved_ne_eax (fun p hp' => ?_)
+    (fun p hp' => by rw [u₁.gpr, u₁.mem]; exact sl p.1 p.2 hp') fun s₂ r₂ => WP.block_nil ?_
   · have hb := saved_bound p hp'
     rw [u₁.gpr, u₁.rd, u₁.wr, rdwr]
-    exact ⟨saved_ne_eax p hp', by omega, ⟨scrR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩⟩
-  refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl
-    · rw [ld₂ (.ebx, 2064) (by decide), u₁.gpr, u₁.mem, sl .ebx 2064 (by decide)]
-    · rw [ld₂ (.esi, 2068) (by decide), u₁.gpr, u₁.mem, sl .esi 2068 (by decide)]
-    · rw [ld₂ (.edi, 2072) (by decide), u₁.gpr, u₁.mem, sl .edi 2072 (by decide)]
-    · rw [ld₂ (.ebp, 2076) (by decide), u₁.gpr, u₁.mem, sl .ebp 2076 (by decide)]
-    · rw [ho₂ _ (by decide), u₁.other _ (by decide), h.esp]
-  · rw [m₂, u₁.mem]; exact ret_read hp h.frame
+    exact ⟨scrR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩
+  refine ⟨⟨r₂.abi (by decide) (by decide) (by rw [u₁.other _ (by decide), h.esp]), ?_⟩, ?_⟩
+  · rw [r₂.mem, u₁.mem]; exact ret_read hp h.frame
   · show Spec.Aes.bytesAt s₂.mem ((St s₀).setWidth 64) 16 = Spec.Cmac.chain (ciph s₀) _ (blks s₀)
-    rw [m₂, u₁.mem, h.state, List.take_of_length_le (by simp [Spec.Cmac.blocksAt])]
+    rw [r₂.mem, u₁.mem, h.state, List.take_of_length_le (by simp [Spec.Cmac.blocksAt])]
 
 theorem mid_wp {s₀ : State} (hp : UPre s₀) {s₁ : State} (h : LInv s₀ 0 s₁)
     (hz : s₁.zf = some (decide (N s₀ = 0))) :

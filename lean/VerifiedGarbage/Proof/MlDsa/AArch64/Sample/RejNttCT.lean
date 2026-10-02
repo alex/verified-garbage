@@ -145,7 +145,7 @@ theorem rejNTT_verifiedWith (v : Proof.Sha3.AArch64.Permutation) :
         intro s₁ s₂ _ _ h
         sig_pub [Spec.MlDsa.rejNTTContract, Spec.MlDsa.rejNTTSig, rnK, AArch64.abi, AArch64.argRegs] at h
         obtain ⟨hsp, hb, hx0, hx1, hx2⟩ := h
-        exact ⟨hx0, hx1, hx2, hsp, Proof.MlKem.AArch64.Sample.map_toNat_inj hb⟩
+        exact ⟨hx0, hx1, hx2, hsp, VG.Proof.MlKem.map_toNat_inj hb⟩
       sat := by sig_implies_sat [Spec.MlDsa.rejNTTContract, Spec.MlDsa.rejNTTSig, rnK, AArch64.abi,
         AArch64.argRegs] [rnSat] using rnSat }
 

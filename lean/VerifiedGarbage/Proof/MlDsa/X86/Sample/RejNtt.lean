@@ -344,7 +344,7 @@ theorem Pre.of {s₀ : State} (h : (Spec.MlDsa.rejNTTContract X86.abi 56).pre s�
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, show (34 : Nat) < 168 by decide⟩
 
 theorem map_toNat_inj : ∀ {l₁ l₂ : List Byte}, l₁.map (·.toNat) = l₂.map (·.toNat) → l₁ = l₂ :=
-  VG.Proof.MlKem.X86.Sample.map_toNat_inj
+  VG.Proof.MlKem.map_toNat_inj
 
 /-- The coefficients at `a`, when there are 256. -/
 theorem poly_eq {s₀ s : State} (h : Loop s₀ 336 (LA (L.Msg s₀) 336) s) (hl : (LA (L.Msg s₀) 336).length = 256) :

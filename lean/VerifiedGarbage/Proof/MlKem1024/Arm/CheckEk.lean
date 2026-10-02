@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlKem.Arm.CheckEk
-import VerifiedGarbage.Proof.MlKem.EkCheck1024
+import VerifiedGarbage.Proof.MlKem.EkCheck
 import VerifiedGarbage.Impl.MlKem1024.Arm.Poly
 import VerifiedGarbage.Spec.MlKem.Contract1024
 

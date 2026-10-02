@@ -120,11 +120,12 @@ theorem finalize_wp {s₀ : State} (h0 : finalizeX86.pre s₀) :
       · exact hp.ret_scr.sub_right (Offset.sub_base _ (by decide))
       · exact hp.ret_scr.sub_right (Region.sub_prefix (by decide))
       · exact hp.ret_st
-  refine WP.mono (restore_ok ebp₁₂ (by omega) fun d h₁' h₂' => by
+  refine WP.mono (restore_ok ebp₁₂ (by omega) (fun d h₁' h₂' => by
       rw [rdwr₁₂]; exact in_rw (r := fscrR s₀) (by simp) (Offset.contains_base _ (by omega) (by omega)))
-    fun s' ⟨hl, ho, m', _, _⟩ => ⟨restored slots hl (by
-      rw [ho _ (by decide), w₁₂.gpr, w₁₁.gpr, u₁₀.other _ (by decide), u₉.other _ (by decide),
-        u₈.other _ (by decide), esp₇]) (by rw [m', ret]), ?_⟩
+      (saved_of slots))
+    fun s' r' => ⟨restored r' (by
+      rw [w₁₂.gpr, w₁₁.gpr, u₁₀.other _ (by decide), u₉.other _ (by decide),
+        u₈.other _ (by decide), esp₇]) (by rw [r'.mem, ret]), ?_⟩
   intro hk msg hml hne hst
   have F₈ : Frame [fscrR s₀] s₀.mem s₇.mem := by
     refine ((savedMem_frame s₀ (FS s₀)).sub fun r hr => ⟨fscrR s₀, by simp, by
@@ -160,7 +161,7 @@ theorem finalize_wp {s₀ : State} (h0 : finalizeX86.pre s₀) :
       (Offset.add_add _ 384 8).symm, ← bytesAt_split]; exact hk
   obtain ⟨k1, k2⟩ := List.append_inj hk' (by rw [Proof.Cmac.bytesAt_length, ciphAt, hks, length_le8])
   show Spec.Aes.bytesAt s'.mem ((FSt s₀).setWidth 64) 8 = _
-  rw [m', mem₁₂, ← le8_readW, readW64_split, Mem.readW_writeW_self32, readW_lo_of_hi, bswap_eq, bswap_eq,
+  rw [r'.mem, mem₁₂, ← le8_readW, readW64_split, Mem.readW_writeW_self32, readW_lo_of_hi, bswap_eq, bswap_eq,
     byteRev32_append, ax₇, ax₆, hS', ← tdesWith_le8, le8_xor, h₁.blk, hst₁,
     macFull_split8 _ hml (by rw [Proof.Cmac.bytesAt_length]; exact hp.len)
       (by rw [Proof.Cmac.bytesAt_length]; exact hne), ← hst, ← k1, ← k2, Proof.Cmac.xor_comm]

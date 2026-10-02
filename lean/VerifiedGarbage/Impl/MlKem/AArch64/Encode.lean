@@ -14,8 +14,9 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Basic
   of `b` in its four 2-bit fields `x₀, y₀, x₁, y₁`, and coefficient `j` is
   `(xⱼ + q - yⱼ) mod q`.
 
-* `checkEk(ek = x0) -> w0`: the modulus check of ML-KEM-768: for each of
-  the 384 groups of 3 bytes of `ek[0 : 1152]`, its two 12-bit fields `f`
+* `checkEk(ek = x0) -> w0`: the modulus check of ML-KEM-768 (and, with
+  `checkEkWith 512`, of ML-KEM-1024): for each of the 384 (512) groups of
+  3 bytes of `ek[0 : 1152]` (`ek[0 : 1536]`), its two 12-bit fields `f`
   (as in `decode12`), each counted in `x10` if `q - 1 - f` is negative;
   returns 1 if the count is 0 (`x10 - 1` negative), and 0 otherwise.
 
@@ -82,9 +83,14 @@ def checkEkBody : List Instr :=
     .sub .x .x13 .x9 .x13, .lsr .x .x13 .x13 63, .add .x .x10 .x10 .x13,
     .addImm .x .x0 .x0 3, .subImm .x .x11 .x11 1]
 
-def checkEk : Prog isa :=
-  .seq (.block [.movz .x .x9 3328 0, .movz .x .x10 0 0, .movz .x .x11 384 0, .movz .x .x14 15 0]) <|
+/-- The check of the `n` groups of a key's `3n` bytes. -/
+def checkEkWith (n : Nat) : Prog isa :=
+  .seq (.block [.movz .x .x9 3328 0, .movz .x .x10 0 0, .movz .x .x11 (BitVec.ofNat 16 n) 0,
+      .movz .x .x14 15 0]) <|
   .seq (.loop (.block checkEkBody) (.nonzero .x .x11))
     (.block [.subImm .x .x0 .x10 1, .lsr .x .x0 .x0 63])
+
+/-- The check of ML-KEM-768 (`k = 3`): 384 groups. -/
+abbrev checkEk : Prog isa := checkEkWith 384
 
 end VG.Impl.MlKem.AArch64

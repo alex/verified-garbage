@@ -1,12 +1,13 @@
 import VerifiedGarbage.Proof.MlKem.Encode
 
 /-!
-# ML-KEM-768: the encapsulation key check, for every target
+# ML-KEM: the encapsulation key check, for every target
 
 The modulus check of §7.2, `ByteEncode₁₂(ByteDecode₁₂(ek[0 : 384k])) = ek[0 :
 384k]`, holds exactly when both 12-bit fields of every 3-byte group of `ek[0 :
-384k]` are less than `q` (`encode12_decode12`, `ekCheck768`): what a
-constant-time implementation checks, without encoding anything.
+384k]` are less than `q` (`encode12_decode12`, `ekCheck_iff`, for any parameter set,
+and `ekCheck768`, `ekCheck1024`): what a constant-time implementation checks,
+without encoding anything.
 -/
 
 namespace VG.Proof.MlKem
@@ -112,19 +113,20 @@ theorem encode12_decode12 (C : List Byte) (hC : C.length = 384) :
   have := byte_lt (C.getD (3 * g + 2) 0)
   exact group_ok (by omega) (by omega) (by omega) (by omega) (by omega)
 
-/-! ## ML-KEM-768 -/
+/-! ## The encapsulation key check -/
 
-/-- The encapsulation key check of ML-KEM-768 (§7.2) of a key of 1184
-bytes: both 12-bit fields of each of the 384 groups of 3 bytes of
-`ek[0 : 1152]` are less than `q`. -/
-theorem ekCheck768 (ek : List Byte) (h : ek.length = 1184) :
-    ekCheck mlKem768 ek = true ↔ ∀ g < 384, field0 ek g < q ∧ field1 ek g < q := by
-  have hE : (ek.take 1152).length = 384 * 3 := by simp [h]
-  have hs : ∀ i < 3, (((ek.take 1152).drop (384 * i)).take 384).length = 384 := fun i hi => by
+/-- The encapsulation key check (§7.2) of a key of `384k + 32` bytes: both
+12-bit fields of each of the `128k` groups of 3 bytes of `ek[0 : 384k]` are
+less than `q`. -/
+theorem ekCheck_iff (p : Params) (ek : List Byte) (h : ek.length = p.ekLen) :
+    ekCheck p ek = true ↔ ∀ g < 128 * p.k, field0 ek g < q ∧ field1 ek g < q := by
+  have hE : (ek.take (384 * p.k)).length = 384 * p.k := by
+    simp only [List.length_take, h, Params.ekLen]; omega
+  have hs : ∀ i < p.k, (((ek.take (384 * p.k)).drop (384 * i)).take 384).length = 384 := fun i hi => by
     simp only [List.length_take, List.length_drop, hE]; omega
-  simp only [ekCheck, Params.ekLen, mlKem768, h, Bool.and_eq_true, beq_iff_eq, decide_true, true_and]
+  simp only [ekCheck, h, Bool.and_eq_true, beq_iff_eq, decide_true, true_and]
   rw [encodeVec, decodeVec, List.flatMap_map]
-  conv => lhs; rhs; rw [eq_flatMap_slices (ek.take 1152) (by decide) hE]
+  conv => lhs; rhs; rw [eq_flatMap_slices (ek.take (384 * p.k)) (c := 384) (N := p.k) (by decide) hE]
   rw [flatMap_range_inj (c := 384) (by decide) (fun _ _ => encode12_length _) hs]
   constructor
   · intro H g hg
@@ -148,5 +150,19 @@ theorem ekCheck768 (ek : List Byte) (h : ek.length = 1184) :
       show 384 * i + (3 * g + 1) = 3 * (128 * i + g) + 1 by omega,
       show 384 * i + (3 * g + 2) = 3 * (128 * i + g) + 2 by omega]
     exact this
+
+/-- The encapsulation key check of ML-KEM-768 (§7.2) of a key of 1184
+bytes: both 12-bit fields of each of the 384 groups of 3 bytes of
+`ek[0 : 1152]` are less than `q`. -/
+theorem ekCheck768 (ek : List Byte) (h : ek.length = 1184) :
+    ekCheck mlKem768 ek = true ↔ ∀ g < 384, field0 ek g < q ∧ field1 ek g < q :=
+  ekCheck_iff mlKem768 ek h
+
+/-- The encapsulation key check of ML-KEM-1024 (§7.2) of a key of 1568
+bytes: both 12-bit fields of each of the 512 groups of 3 bytes of
+`ek[0 : 1536]` are less than `q`. -/
+theorem ekCheck1024 (ek : List Byte) (h : ek.length = 1568) :
+    ekCheck mlKem1024 ek = true ↔ ∀ g < 512, field0 ek g < q ∧ field1 ek g < q :=
+  ekCheck_iff mlKem1024 ek h
 
 end VG.Proof.MlKem

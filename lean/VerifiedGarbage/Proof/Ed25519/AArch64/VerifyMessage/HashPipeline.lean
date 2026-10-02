@@ -21,9 +21,10 @@ theorem sig_prefix_same (hc : Ctx L g v m₀ s) (hL : L.Ok) :
   exact hc.frame.bytes (R := L.SIG) (by
     intro r hr
     simp only [Lay.outputs, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl
+    rcases hr with rfl | rfl | rfl
     · exact hL.sc _ (by simp [Lay.inputs])
-    · exact (hL.ks _ (by simp [Lay.inputs])).symm)
+    · exact (hL.ks _ (by simp [Lay.inputs])).symm
+    · exact (hL.ck _ (by simp [Lay.inputs])).symm)
     (by change 64 ≤ 2 ^ 64; decide) (by change i < 64; have := List.mem_range.mp hi; omega)
 
 theorem input_sig (hL : L.Ok) : Region.Disjoint ⟨L.value 3,32⟩ L.SCR ∧

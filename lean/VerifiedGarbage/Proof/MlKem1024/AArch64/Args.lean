@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem1024.AArch64.CompressEncode
 import VerifiedGarbage.Proof.MlKem1024.AArch64.DecodeDecompress
 
 /-!
-# ML-KEM-1024 on AArch64: buffers of the top-level functions, and calls
+# ML-KEM-1024 on AArch64: the calls of the compression functions
 
-As `TopArgs.lean` of ML-KEM-768 (whose `R`, `R.sub` and `R.cov` serve here),
-for arguments of up to 64 KiB, as ML-KEM-1024's 48 KiB `scratch` (`Args`,
-`Args.rdisj`, `Args.rstk`); and the calls of ML-KEM-1024's compression
-functions, from their proofs (as `PrimCall.lean` of ML-KEM-768).
+The calls of ML-KEM-1024's compression functions, from their proofs (as
+`PrimCall.lean` of ML-KEM-768), which the top-level functions make at the
+widths `d_u` and `d_v`.
 -/
 
 namespace VG.Proof.MlKem1024.AArch64
@@ -16,30 +15,6 @@ namespace VG.Proof.MlKem1024.AArch64
 open VG VG.AArch64 VG.Proof.MlKem VG.Proof.MlKem.AArch64
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
-
-/-- The arguments' regions `⟨A b, L b⟩` (for `b < nb`) are pairwise
-disjoint, at most 64 KiB, and apart from the 16 bytes below `sp`. -/
-structure Args (A : Nat → Addr) (L : Nat → Nat) (nb : Nat) (sp : Addr) : Prop where
-  disj : ∀ b < nb, ∀ c < nb, b ≠ c → Region.Disjoint ⟨A b, L b⟩ ⟨A c, L c⟩
-  len : ∀ b < nb, L b ≤ 65536
-  stk : ∀ b < nb, Region.Disjoint ⟨sp - 16, 16⟩ ⟨A b, L b⟩
-
-theorem Args.rdisj {A : Nat → Addr} {L : Nat → Nat} {nb : Nat} {sp : Addr} (h : Args A L nb sp)
-    {b₁ o₁ l₁ b₂ o₂ l₂ : Nat} (hb₁ : b₁ < nb) (hb₂ : b₂ < nb) (f₁ : o₁ + l₁ ≤ L b₁)
-    (f₂ : o₂ + l₂ ≤ L b₂) (hs : b₁ ≠ b₂ ∨ o₁ + l₁ ≤ o₂ ∨ o₂ + l₂ ≤ o₁) :
-    (R A b₁ o₁ l₁).Disjoint (R A b₂ o₂ l₂) := by
-  by_cases hb : b₁ = b₂
-  · subst hb
-    have hl := h.len b₁ hb₁
-    have hs' : o₁ + l₁ ≤ o₂ ∨ o₂ + l₂ ≤ o₁ := hs.resolve_left (fun h => h rfl)
-    intro x h₁ h₂
-    simp only [Region.Contains] at h₁ h₂
-    exact sep_off (A b₁) hs' (by omega) (by omega) x (Nat.lt_of_succ_le h₁) (Nat.lt_of_succ_le h₂)
-  · exact ((h.disj b₁ hb₁ b₂ hb₂ hb).sub_left (R.sub f₁)).sub_right (R.sub f₂)
-
-theorem Args.rstk {A : Nat → Addr} {L : Nat → Nat} {nb : Nat} {sp : Addr} (h : Args A L nb sp)
-    {b o l : Nat} (hb : b < nb) (f : o + l ≤ L b) : Region.Disjoint ⟨sp - 16, 16⟩ (R A b o l) :=
-  (h.stk b hb).sub_right (R.sub f)
 
 /-- `vg_mlkem1024_compress_encode(f, d, out, 32 d)`. -/
 theorem compressEncode1024_call {s : State} {f o : Addr} {d : Nat} (h0 : s.gpr .x0 = f)
