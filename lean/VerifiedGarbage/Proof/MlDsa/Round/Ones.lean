@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.Round.Mem
 /-!
 # ML-DSA: counting the 1s of a hint from its first coefficient, for every target
 
-Untrusted: everything here is checked by Lean. `onesTo h i`, the number of
-1s among coefficients `0` to `i - 1` of a hint polynomial, for a loop that
-counts them in order (`onesTo_succ`), and all 256 of them are those of
-`hintOnes` (`hintOnes_onesTo`).
+`onesTo h i`, the number of 1s among coefficients `0` to `i - 1` of a hint
+polynomial, for a loop that counts them in order (`onesTo_succ`), and all 256
+of them are those of `hintOnes` (`hintOnes_onesTo`).
 -/
 
 namespace VG.Proof.MlDsa.Round

@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.Keccak
 /-!
 # ML-DSA signing on ARMv7: `H` of pieces of memory
 
-Untrusted: everything here is checked by Lean. `shakeAt ps out len` zeroes
-the Keccak state, absorbs the pieces `ps`, pads and squeezes `len` bytes to
-`out`: `H` of their concatenation (`shake_ok`), leaking only the addresses
-(`shake_tr`).
+`shakeAt ps out len` zeroes the Keccak state, absorbs the pieces `ps`, pads
+and squeezes `len` bytes to `out`: `H` of their concatenation (`shake_ok`),
+leaking only the addresses (`shake_tr`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

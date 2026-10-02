@@ -4,15 +4,14 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Streaming Merkle–Damgård hash functions on ARMv7: `finalize`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`finalize`, for any hash function (`Md`) whose code stores the length field
-and writes the digest as `Shape` says, and any correct compression function
-(`CalleeOk`). The same structure as the AArch64 proof
-(`VG.Proof.MdStream.AArch64.Finalize`), with `state` in `r0`, `scratch` in
-`r3`, `out` in `r6`, `count` in `r4:r5` (low, high), the buffered bytes in
+The functional correctness of `finalize`, for any hash function (`Md`) whose
+code stores the length field and writes the digest as `Shape` says, and any
+correct compression function (`CalleeOk`). The same structure as the AArch64
+proof (`VG.Proof.MdStream.AArch64.Finalize`), with `state` in `r0`, `scratch`
+in `r3`, `out` in `r6`, `count` in `r4:r5` (low, high), the buffered bytes in
 `r7`, and whether the block is not the last in `r8`. Constant time is proven
-for each hash function's code by the taint analysis, calls included, from
-the initial taint `τ₀`.
+for each hash function's code by the taint analysis, calls included, from the
+initial taint `τ₀`.
 -/
 
 namespace VG.Proof.MdStream.Arm.Finalize

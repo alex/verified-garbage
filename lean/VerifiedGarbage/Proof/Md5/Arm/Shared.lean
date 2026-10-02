@@ -7,10 +7,9 @@ import VerifiedGarbage.Spec.Md5.Contract
 /-!
 # Md5 on Arm: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Md5/Arm/Compress.lean`); these theorems move
-them to the shared contracts of `Spec/Md5/Contract.lean`, which the
-artifacts are emitted with.
+The proofs are written against per-target contracts
+(`Proof/Md5/Arm/Compress.lean`); these theorems move them to the shared
+contracts of `Spec/Md5/Contract.lean`, which the artifacts are emitted with.
 -/
 
 namespace VG.Proof.Md5.Arm.Shared

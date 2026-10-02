@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # scrypt on 32-bit ARM: the shared contract
 
-Untrusted: everything here is checked by Lean. `vg_scrypt`, calling any
-implementation of PBKDF2-HMAC-SHA256 verified against its shared contract
-whose frames use at most 24 bytes of stack, is verified against
-`Spec.Scrypt.scryptContract` for the 40 bytes of stack its calls use
+`vg_scrypt`, calling any implementation of PBKDF2-HMAC-SHA256 verified against
+its shared contract whose frames use at most 24 bytes of stack, is verified
+against `Spec.Scrypt.scryptContract` for the 40 bytes of stack its calls use
 (`scrypt_verified_of`); and so is the one calling `vg_pbkdf2_hmac_sha256`
 (`scrypt_verified`).
 -/

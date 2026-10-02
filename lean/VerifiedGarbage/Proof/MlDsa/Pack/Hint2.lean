@@ -5,14 +5,13 @@ import VerifiedGarbage.Proof.MlDsa.Pack.HintMem
 /-!
 # ML-DSA: `HintBitPack` and `HintBitUnpack` in memory, for every target
 
-Untrusted: everything here is checked by Lean. What an implementation of
-`HintBitPack` and `HintBitUnpack` that follows the folds of `Pack/Hint.lean`
-needs about memory and the parameters, on any target: the parameters of
-`hintParams`, the coefficients of `hintAt` and when two memories give the
-same hint (`hintAt_congr`, from equal leaks: `coeffAt_of_leak`), the
-state of the fold of `HintBitPack` after `i` polynomials and `j` more
-coefficients (`hpS`, `hpT`), and the words of a hint that `HintBitUnpack`
-fills in (`HArr`).
+What an implementation of `HintBitPack` and `HintBitUnpack` that follows the
+folds of `Pack/Hint.lean` needs about memory and the parameters, on any
+target: the parameters of `hintParams`, the coefficients of `hintAt` and when
+two memories give the same hint (`hintAt_congr`, from equal leaks:
+`coeffAt_of_leak`), the state of the fold of `HintBitPack` after `i`
+polynomials and `j` more coefficients (`hpS`, `hpT`), and the words of a hint
+that `HintBitUnpack` fills in (`HArr`).
 -/
 
 namespace VG.Proof.MlDsa.Pack

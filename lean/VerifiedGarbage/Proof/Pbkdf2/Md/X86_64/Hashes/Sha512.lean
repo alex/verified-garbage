@@ -9,16 +9,14 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # The SHA-512 family on x86-64, as Merkle–Damgård hash functions
 
-Untrusted: everything here is checked by Lean. SHA-384, SHA-512,
-SHA-512/224 and SHA-512/256, each with an implementation `v` of their
-compression function (`Proof/Sha512/X86_64/Variant.lean`), as variants of
-`MdHash` (`sha384 v`, …), from which HMAC and PBKDF2 are emitted
-(`Generic/MdHash/X86_64/`): their streaming code is the generic
-Merkle–Damgård code (`Stream.params`), shared by the four, which differ in
-their initial hash value `iv` and the size `D` of their digest, the first
-`D` bytes of the final hash value. The facts about the code HMAC and PBKDF2
-add, which do not depend on `v`, are checked once for each member
-(`coreOK`).
+SHA-384, SHA-512, SHA-512/224 and SHA-512/256, each with an implementation `v`
+of their compression function (`Proof/Sha512/X86_64/Variant.lean`), as
+variants of `MdHash` (`sha384 v`, …), from which HMAC and PBKDF2 are emitted
+(`Generic/MdHash/X86_64/`): their streaming code is the generic Merkle–Damgård
+code (`Stream.params`), shared by the four, which differ in their initial hash
+value `iv` and the size `D` of their digest, the first `D` bytes of the final
+hash value. The facts about the code HMAC and PBKDF2 add, which do not depend
+on `v`, are checked once for each member (`coreOK`).
 
 `stream v` are the streaming `update` and `finalize` made with `v`, which
 the four share: SHA-512's variant (`sha512 v`) carries them, and

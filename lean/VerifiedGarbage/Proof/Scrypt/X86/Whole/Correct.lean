@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.Scrypt.X86.Whole.Calls
 /-!
 # scrypt on x86 (32-bit): correctness
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Scrypt/X86_64/Whole/Correct.lean`): step 1 leaves the blocks `X k`
-of `PBKDF2-HMAC-SHA256 (P, S, 1, 128 blen)` in `b` (`step1_ok`); the loop
-replaces them by their scryptROMix one at a time (`Inv`, `loop_ok`); step 3
-derives the key from them (`step3_ok`). `scrypt_ok` puts the frame around
-it (`push_ctx`), for any implementation `pbk` of PBKDF2 verified against
-its shared contract that uses at most 76 bytes of stack.
+As on x86-64 (`Proof/Scrypt/X86_64/Whole/Correct.lean`): step 1 leaves the
+blocks `X k` of `PBKDF2-HMAC-SHA256 (P, S, 1, 128 blen)` in `b` (`step1_ok`);
+the loop replaces them by their scryptROMix one at a time (`Inv`, `loop_ok`);
+step 3 derives the key from them (`step3_ok`). `scrypt_ok` puts the frame
+around it (`push_ctx`), for any implementation `pbk` of PBKDF2 verified
+against its shared contract that uses at most 76 bytes of stack.
 -/
 
 namespace VG.Proof.Scrypt.X86.Whole

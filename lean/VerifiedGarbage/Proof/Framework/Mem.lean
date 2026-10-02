@@ -8,8 +8,6 @@ import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # Memory: reads after writes, regions, frames
-
-Untrusted: everything here is checked by Lean.
 -/
 
 -- `rw` closes goals `a ≤ a`, as it does with Mathlib's `le_refl`.

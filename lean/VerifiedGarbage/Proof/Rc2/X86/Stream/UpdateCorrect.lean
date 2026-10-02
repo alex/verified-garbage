@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.Rc2.X86.Stream.UpdateCall
 /-!
 # Streaming RC2-CBC on x86 (32-bit): the update functions are correct
 
-Untrusted: everything here is checked by Lean. From the state before the
-call (`Mid`): with no complete block, the data is already appended to the
-pending bytes; otherwise the CBC function runs on `out`. Then our caller's
-registers are restored, and `update_post_short` or `update_post_long`
-gives the contract's postcondition.
+From the state before the call (`Mid`): with no complete block, the data is
+already appended to the pending bytes; otherwise the CBC function runs on
+`out`. Then our caller's registers are restored, and `update_post_short` or
+`update_post_long` gives the contract's postcondition.
 -/
 
 namespace VG.Proof.Rc2.X86.Stream.Update

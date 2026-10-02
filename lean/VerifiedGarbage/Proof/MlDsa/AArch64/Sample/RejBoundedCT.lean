@@ -3,17 +3,16 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.RejBounded
 /-!
 # ML-DSA on AArch64: `vg_mldsa_rej_bounded_poly`, constant time but for which half-bytes it accepts
 
-Untrusted: everything here is checked by Lean. Two runs whose leaks agree
-(which half-bytes of the first 1088 bytes of output are accepted,
-`rejBoundedLeak`) and whose pointers and `η` agree leak the same, piece by
-piece (`Rel.lean`): the prologue, the sponge and the end by the taint
-analysis, and the loop iteration by iteration. At iteration `t`, both runs
-have sampled as many coefficients (`rbFold_length_congr`, from
-`leak_hbOks`), so `x3` and `x4` agree, and so does whether each half-byte
-of byte `t` is accepted: each branch goes the same way, and each store to
-the same address. Each piece between the branches is proved constant time
-by the taint analysis from `x2` or `x3`, and correctness then describes
-where both runs are (`relTaintStep`).
+Two runs whose leaks agree (which half-bytes of the first 1088 bytes of output
+are accepted, `rejBoundedLeak`) and whose pointers and `η` agree leak the
+same, piece by piece (`Rel.lean`): the prologue, the sponge and the end by the
+taint analysis, and the loop iteration by iteration. At iteration `t`, both
+runs have sampled as many coefficients (`rbFold_length_congr`, from
+`leak_hbOks`), so `x3` and `x4` agree, and so does whether each half-byte of
+byte `t` is accepted: each branch goes the same way, and each store to the
+same address. Each piece between the branches is proved constant time by the
+taint analysis from `x2` or `x3`, and correctness then describes where both
+runs are (`relTaintStep`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sample

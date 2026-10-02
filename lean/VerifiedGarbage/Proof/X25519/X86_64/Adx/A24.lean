@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.X25519.X86_64.Adx.Sqr
 /-!
 # X25519 on x86-64: multiplication by `a24` with BMI2 and ADX, and `adx_ok`
 
-Untrusted: everything here is checked by Lean. `a24X o a`: `r8–r12 =
-a24 · [a]` through CF (as row 0 of a product), then `r12` folded as 38; and
-the field multiplications `adx` satisfy `FieldOk`.
+`a24X o a`: `r8–r12 = a24 · [a]` through CF (as row 0 of a product), then
+`r12` folded as 38; and the field multiplications `adx` satisfy `FieldOk`.
 -/
 
 namespace VG.Proof.X25519.X86_64

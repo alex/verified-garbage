@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.WindowByte
 /-!
 # Verification's loops over the bytes of the scalars
 
-Untrusted. The leading zero bytes of `k` above its low 32 are skipped, as
-the sum before them is zero; bytes 63 down to 32 hold digits of `k` alone,
-bytes 31 down to 0 of both scalars; after the loops the accumulator
-represents `[k]A - [S]B`.
+The leading zero bytes of `k` above its low 32 are skipped, as the sum before
+them is zero; bytes 63 down to 32 hold digits of `k` alone, bytes 31 down to 0
+of both scalars; after the loops the accumulator represents `[k]A - [S]B`.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

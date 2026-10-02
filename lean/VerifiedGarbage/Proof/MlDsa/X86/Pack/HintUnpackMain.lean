@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.X86.Pack.HintUnpackLoop
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_hint_bit_unpack`
 
-Untrusted: everything here is checked by Lean. The polynomials
-(`poly_piece`: the bound `y[ω + i]`, its two checks, and the coefficients
-of `HintUnpackLoop.lean`), the bytes from the index up to `ω`
+The polynomials (`poly_piece`: the bound `y[ω + i]`, its two checks, and the
+coefficients of `HintUnpackLoop.lean`), the bytes from the index up to `ω`
 (`trail_piece`), and the return value (`ret_piece`), which is 1 iff no check
 failed; `hintBitUnpack_eq` (`Pack/Hint.lean`) gives the contract.
 -/

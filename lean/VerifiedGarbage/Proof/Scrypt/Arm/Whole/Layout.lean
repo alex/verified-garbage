@@ -11,13 +11,12 @@ import VerifiedGarbage.TCB.Arm.Target
 /-!
 # scrypt on 32-bit ARM: where everything is
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Scrypt/AArch64/Whole/Layout.lean`): the contract the proof is
-written against (`scryptArm`), the function's buffers, its stack arguments
-(`ARGS`, 36 bytes at the stack pointer) and the 40 bytes of stack below the
-stack pointer the calls use (`STK`), and the save area in `scratch` (`SV`,
-from `scratch + 128 (r + 15)`), which holds our caller's `r4`–`r11` and our
-return address (`Saved`). `Ctx` is what holds between the calls.
+As on AArch64 (`Proof/Scrypt/AArch64/Whole/Layout.lean`): the contract the
+proof is written against (`scryptArm`), the function's buffers, its stack
+arguments (`ARGS`, 36 bytes at the stack pointer) and the 40 bytes of stack
+below the stack pointer the calls use (`STK`), and the save area in `scratch`
+(`SV`, from `scratch + 128 (r + 15)`), which holds our caller's `r4`–`r11` and
+our return address (`Saved`). `Ctx` is what holds between the calls.
 -/
 
 namespace VG.Proof.Scrypt

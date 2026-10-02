@@ -6,12 +6,12 @@ import VerifiedGarbage.Proof.Sha256.Arm.Lit
 /-!
 # Streaming SHA-256 on ARMv7: calling the compression function, and saving registers
 
-Untrusted: everything here is checked by Lean. What HMAC and PBKDF2, which
-call SHA-256's compression function themselves and save our caller's
-registers where its streaming code does, use: the call (`compressAt`), and
-saving and restoring the registers (`save`, `restore`). The streaming
-`update` and `finalize` are proven generically (`Proof/Sha256/Arm/Stream/Md.lean`),
-and the per-instruction rules are `VG.Proof.MdStream.Arm`'s.
+What HMAC and PBKDF2, which call SHA-256's compression function themselves and
+save our caller's registers where its streaming code does, use: the call
+(`compressAt`), and saving and restoring the registers (`save`, `restore`). The
+streaming `update` and `finalize` are proven generically
+(`Proof/Sha256/Arm/Stream/Md.lean`), and the per-instruction rules are
+`VG.Proof.MdStream.Arm`'s.
 -/
 
 namespace VG.Proof.Sha256.Arm.Stream

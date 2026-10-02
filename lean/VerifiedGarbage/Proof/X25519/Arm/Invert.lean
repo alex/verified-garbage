@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.X25519.Invert
 /-!
 # X25519 on 32-bit ARM: the inversion
 
-Untrusted: everything here is checked by Lean. `invert` computes
-`z^(p-2)` into `R` for the element `z` at `Z2` by square-and-multiply over the
-bits of `p - 2` from 254 down to 0 (`invert_ok`): after the bits down to `n`,
-`R` holds `z^((p - 2) >> n)`.
+`invert` computes `z^(p-2)` into `R` for the element `z` at `Z2` by
+square-and-multiply over the bits of `p - 2` from 254 down to 0 (`invert_ok`):
+after the bits down to `n`, `R` holds `z^((p - 2) >> n)`.
 -/
 
 namespace VG.Proof.X25519.Arm

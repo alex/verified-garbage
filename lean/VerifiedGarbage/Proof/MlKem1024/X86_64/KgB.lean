@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem1024.X86_64.KgA
 /-!
 # ML-KEM-1024 on x86-64: `vg_mlkem1024_keygen`, the keys
 
-Untrusted: everything here is checked by Lean. When every entry of `Â` was
-sampled (`allOk4`): `ŝ` and `ê` (`se_ok`), `t̂` encoded to `ek` (`row_ok`),
-`ŝ` encoded to `dk` (`encS_ok`), and `ρ`, `ek`, `H(ek)` and `z` to the keys
-(`fin_ok`). Between the steps, `KRest n r e`: the first `n` of `ŝ ‖ ê`, `r`
-rows of `ek` and `e` of `dk` are done.
+When every entry of `Â` was sampled (`allOk4`): `ŝ` and `ê` (`se_ok`), `t̂`
+encoded to `ek` (`row_ok`), `ŝ` encoded to `dk` (`encS_ok`), and `ρ`, `ek`,
+`H(ek)` and `z` to the keys (`fin_ok`). Between the steps, `KRest n r e`: the
+first `n` of `ŝ ‖ ê`, `r` rows of `ek` and `e` of `dk` are done.
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

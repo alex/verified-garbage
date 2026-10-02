@@ -5,8 +5,6 @@ import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on x86-64: `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Poly1305.X86_64

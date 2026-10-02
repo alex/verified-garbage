@@ -7,10 +7,10 @@ import Mathlib.Tactic.Ring
 /-!
 # The comb's additions, negation and doublings
 
-Untrusted. `pointAddMixed` adds an affine cached point (`Z = 1`, so its `2Z`
-is `2` and the product `Z₁ · 2Z₂` is `Z₁ + Z₁`) exactly as the
-specification's `pointAdd`; `combNeg` negates the selected cached point
-under the sign's mask; `double4` doubles four times, exactly.
+`pointAddMixed` adds an affine cached point (`Z = 1`, so its `2Z` is `2` and
+the product `Z₁ · 2Z₂` is `Z₁ + Z₁`) exactly as the specification's
+`pointAdd`; `combNeg` negates the selected cached point under the sign's mask;
+`double4` doubles four times, exactly.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

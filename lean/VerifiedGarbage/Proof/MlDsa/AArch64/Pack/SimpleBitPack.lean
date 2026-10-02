@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Pack.Lit
 /-!
 # ML-DSA on AArch64: `vg_mldsa_simple_bit_pack`
 
-Untrusted: everything here is checked by Lean. The loop is proven once for
-every width (`packLoop_ok`), and the function by its three cases, which the
-length chooses.
+The loop is proven once for every width (`packLoop_ok`), and the function by
+its three cases, which the length chooses.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Pack

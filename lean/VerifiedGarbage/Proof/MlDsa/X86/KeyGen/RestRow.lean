@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.RestPack
 /-!
 # ML-DSA key generation on x86 (32-bit): the rows of `t`
 
-Untrusted: everything here is checked by Lean. Row `i` (`row_piece`):
-`t = Σⱼ Â[i, j] ŝ₁[j]` (`dotK`, a product then `ℓ - 1` products added),
-`NTT⁻¹`, `s₂[i]` added (`tK`), `Power2Round`, and `t₁` `SimpleBitPack`ed to
-`pk` and `t₀` `BitPack`ed to `sk`.
+Row `i` (`row_piece`): `t = Σⱼ Â[i, j] ŝ₁[j]` (`dotK`, a product then `ℓ - 1`
+products added), `NTT⁻¹`, `s₂[i]` added (`tK`), `Power2Round`, and `t₁`
+`SimpleBitPack`ed to `pk` and `t₀` `BitPack`ed to `sk`.
 -/
 
 namespace VG.Proof.MlDsa.X86.KeyGen

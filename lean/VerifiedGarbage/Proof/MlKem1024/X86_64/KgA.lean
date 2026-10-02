@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.FragS4
 /-!
 # ML-KEM-1024 on x86-64: `vg_mlkem1024_keygen`, `G` and the matrix
 
-Untrusted: everything here is checked by Lean. `(ρ, σ) = G(d ‖ 4)` to `G`,
-and `ρ` to `SB` (`gRho_ok`); then `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)` for the
-sixteen entries `e = 4i + j` (`samples_ok`), four at a time with
-`vg_mlkem_sample_ntt4` (`quad_step`), with `r15` the AND of the results: 1
-exactly when all of them succeed within 280 iterations (`allOk4`).
+`(ρ, σ) = G(d ‖ 4)` to `G`, and `ρ` to `SB` (`gRho_ok`); then `Â[i, j] =
+SampleNTT(ρ ‖ j ‖ i)` for the sixteen entries `e = 4i + j` (`samples_ok`),
+four at a time with `vg_mlkem_sample_ntt4` (`quad_step`), with `r15` the AND
+of the results: 1 exactly when all of them succeed within 280 iterations
+(`allOk4`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

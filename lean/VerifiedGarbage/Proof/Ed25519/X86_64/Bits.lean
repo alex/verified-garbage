@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.BitByte
 import VerifiedGarbage.Proof.Ed25519.Bytes
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointPowersLoop
 
-/-! Untrusted: expand all scalar bits, without X25519's clamping. -/
+/-! Expand all scalar bits, without X25519's clamping. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

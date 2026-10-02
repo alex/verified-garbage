@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarBaseEngine
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarMemory
 import VerifiedGarbage.Proof.Ed25519.AArch64.MulAddCodec
 
-/-! Untrusted: output pointer and saved registers remain outside the point workspace. -/
+/-! Output pointer and saved registers remain outside the point workspace. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 

@@ -5,12 +5,10 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 /-!
 # Inlining verified code (x86-64)
 
-Untrusted: everything here is checked by Lean.
-
 The code of a verified function can be inlined into another function whose
 state permits more memory. Running code from a state that permits more
 (`Exec.widen`) gives the same result, and code never writes outside the
-regions its state permits (`Exec.frame`). `WP.inline` combines the two with
+regions its state permits (`Exec.regions`). `WP.inline` combines the two with
 the correctness part of the inlined function's `Verified` proof.
 -/
 

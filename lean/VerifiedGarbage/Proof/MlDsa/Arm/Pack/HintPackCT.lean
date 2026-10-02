@@ -4,14 +4,14 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Pack.HintCT
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_hint_bit_pack`, constant time and `Verified`
 
-Untrusted: everything here is checked by Lean. Two runs from states that
-agree on the public data (the pointers, the lengths, `ω`, the stack pointer
-and the hint, which the contract lets the function leak) leak the same trace
-(`RelCT`), phase by phase: the load of `len` and the frame's reload of `r5`
-access only the stack (`RelCT.spBlock`); zeroing `y` is proved by the taint
-analysis; the loops by `memTaint`, from the states narrowed to the hint and
-`y` (`RelCT.narrow`), on which both runs agree once `y` is zeroed. What each
-run is at each point comes from the correctness proof (`RelCT.wp`).
+Two runs from states that agree on the public data (the pointers, the lengths,
+`ω`, the stack pointer and the hint, which the contract lets the function
+leak) leak the same trace (`RelCT`), phase by phase: the load of `len` and the
+frame's reload of `r5` access only the stack (`RelCT.spBlock`); zeroing `y` is
+proved by the taint analysis; the loops by `memTaint`, from the states
+narrowed to the hint and `y` (`RelCT.narrow`), on which both runs agree once
+`y` is zeroed. What each run is at each point comes from the correctness proof
+(`RelCT.wp`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Pack.Hint

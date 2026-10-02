@@ -5,8 +5,6 @@ import VerifiedGarbage.TCB.Arm.Isa
 
 /-!
 # ARMv7: instruction-level rewrite lemmas for symbolic execution
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Arm

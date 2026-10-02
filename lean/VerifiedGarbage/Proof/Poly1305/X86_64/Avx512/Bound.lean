@@ -4,16 +4,15 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Bound
 /-!
 # Poly1305 on x86-64 with AVX-512: terms as numbers
 
-Untrusted: everything here is checked by Lean. As for AVX2 (`Avx2/Bound.lean`),
-on the eight quadwords of `zmm` registers. The limbs the code computes
-stay far below `2⁶⁴`, so its additions, products and shifts never wrap.
-`Q.bnd` bounds each term from bounds on the registers it starts from,
-`Q.ok` checks that its additions and left shifts do not wrap under those
-bounds, and `Q.nat` is its value as a number, with the reductions modulo
-`2⁶⁴` (and to the low doubleword, for products) left out. `nat_ok` proves
-that a term is `Q.nat` and within `Q.bnd` where the kernel evaluates `Q.ok`
-of concrete terms to `true`, so the number a block computes is `nat` of its
-term, which unfolds to the arithmetic of `Limbs26` by definition. `Q.natw`
+As for AVX2 (`Avx2/Bound.lean`), on the eight quadwords of `zmm` registers.
+The limbs the code computes stay far below `2⁶⁴`, so its additions, products
+and shifts never wrap. `Q.bnd` bounds each term from bounds on the registers
+it starts from, `Q.ok` checks that its additions and left shifts do not wrap
+under those bounds, and `Q.nat` is its value as a number, with the reductions
+modulo `2⁶⁴` (and to the low doubleword, for products) left out. `nat_ok`
+proves that a term is `Q.nat` and within `Q.bnd` where the kernel evaluates
+`Q.ok` of concrete terms to `true`, so the number a block computes is `nat` of
+its term, which unfolds to the arithmetic of `Limbs26` by definition. `Q.natw`
 is the value with every reduction kept, which `natw_ok` proves exact for any
 term, for the blocks that shift bits out on purpose.
 -/

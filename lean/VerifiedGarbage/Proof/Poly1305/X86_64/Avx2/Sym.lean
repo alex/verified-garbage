@@ -6,14 +6,13 @@ import VerifiedGarbage.Impl.Poly1305.X86_64.Avx2
 /-!
 # Poly1305 on x86-64 with AVX2: straight-line code, quadword by quadword
 
-Untrusted: everything here is checked by Lean. The vector code of
-`vg_poly1305_blocks_avx2` moves, adds, multiplies, masks and shifts the four
-quadwords of `ymm` registers, and loads 64 bytes at `rsi`. `Sym.run`
-computes each quadword after a block of such instructions as a term (`Q`) in
-the quadwords, general-purpose registers and memory before it, and `srun_ok`
-proves the machine agrees. Every instruction but the loads, `vpermq`,
-`vpunpck{l,h}qdq`, `vmovq` and `vpbroadcastq` acts on each quadword on its
-own, so a term is evaluated at a quadword (a lane) `k < 4`.
+The vector code of `vg_poly1305_blocks_avx2` moves, adds, multiplies, masks
+and shifts the four quadwords of `ymm` registers, and loads 64 bytes at `rsi`.
+`Sym.run` computes each quadword after a block of such instructions as a term
+(`Q`) in the quadwords, general-purpose registers and memory before it, and
+`srun_ok` proves the machine agrees. Every instruction but the loads,
+`vpermq`, `vpunpck{l,h}qdq`, `vmovq` and `vpbroadcastq` acts on each quadword
+on its own, so a term is evaluated at a quadword (a lane) `k < 4`.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx2

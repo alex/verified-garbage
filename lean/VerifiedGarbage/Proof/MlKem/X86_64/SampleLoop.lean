@@ -6,9 +6,8 @@ import VerifiedGarbage.Proof.MlKem.KPke
 /-!
 # ML-KEM on x86-64: the loop of `vg_mlkem_sample_ntt`
 
-Untrusted: everything here is checked by Lean. An iteration of the loop
-does what `sampleStepCap` does to the coefficients sampled so far, stored
-at `a` (`Stored`) and counted in `rdi` (`snBody_ok`).
+An iteration of the loop does what `sampleStepCap` does to the coefficients
+sampled so far, stored at `a` (`Stored`) and counted in `rdi` (`snBody_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

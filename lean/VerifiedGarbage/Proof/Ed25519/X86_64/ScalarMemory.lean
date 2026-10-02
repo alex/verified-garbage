@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Finish
 /-!
 # Scalar reduction: memory and callee-saved registers
 
-Untrusted. Saving and restoring use the first 48 bytes of the scratch
-argument, and the next 8 hold the output's address while the loop keeps the
-scratch in `rdi`. The arithmetic loop changes no memory.
+Saving and restoring use the first 48 bytes of the scratch argument, and the
+next 8 hold the output's address while the loop keeps the scratch in `rdi`.
+The arithmetic loop changes no memory.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

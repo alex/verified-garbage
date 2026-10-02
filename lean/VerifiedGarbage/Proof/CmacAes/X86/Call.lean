@@ -7,8 +7,6 @@ import VerifiedGarbage.Impl.CmacAes.X86
 /-!
 # AES-CMAC on x86: calling `vg_aes_ctr32` on one block
 
-Untrusted: everything here is checked by Lean.
-
 `ctr_call`: the frame that pushes `vg_aes_ctr32`'s six arguments (`eax` the
 schedule, `ecx` the rounds, `edx` the counter block `C`, `ebx` the data
 block `D` holding zeros, `edi = 1` and `ebp` the working space `S`) around

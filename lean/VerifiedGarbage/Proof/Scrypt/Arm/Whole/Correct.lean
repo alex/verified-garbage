@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.Scrypt.Arm.Whole.Calls
 /-!
 # scrypt on 32-bit ARM: correctness
 
-Untrusted: everything here is checked by Lean. As on the other targets
-(`Proof/Scrypt/AArch64/Whole/Correct.lean`): our caller's registers are
-saved (`entry_ok`); step 1 leaves the blocks `X k` of
+As on the other targets (`Proof/Scrypt/AArch64/Whole/Correct.lean`): our
+caller's registers are saved (`entry_ok`); step 1 leaves the blocks `X k` of
 `PBKDF2-HMAC-SHA256 (P, S, 1, 128 blen)` in `b` (`step1_ok`); the loop
 replaces them by their scryptROMix one at a time (`Inv`, `loop_ok`); step 3
 derives the key from them (`step3_ok`); our caller's registers are restored

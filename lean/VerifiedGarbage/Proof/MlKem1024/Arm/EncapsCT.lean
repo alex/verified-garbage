@@ -5,14 +5,14 @@ import VerifiedGarbage.Proof.MlKem.Arm.EncapsCT
 /-!
 # ML-KEM-1024 on 32-bit ARM: `vg_mlkem1024_encaps`, constant time and `Verified`
 
-Untrusted: everything here is checked by Lean. Two runs from states that
-agree on the public data (the pointers, the stack pointer, `scratch` on the
-stack, and `ρ` of `ek`, which the contract lets the function leak) leak the
-same trace (`all_ct`), phase by phase: the load of `scratch` from the stack
-pointer; the blocks by the taint analysis, from the pointers, or because
-they access no memory; the hashes by `hash_ct`; and K-PKE.Encrypt by
-`encrypt_ct`, whose `SampleNTT`s take the seeds of the same `ρ`. What each
-run is at each point comes from its correctness (`Encaps.lean`).
+Two runs from states that agree on the public data (the pointers, the stack
+pointer, `scratch` on the stack, and `ρ` of `ek`, which the contract lets the
+function leak) leak the same trace (`all_ct`), phase by phase: the load of
+`scratch` from the stack pointer; the blocks by the taint analysis, from the
+pointers, or because they access no memory; the hashes by `hash_ct`; and
+K-PKE.Encrypt by `encrypt_ct`, whose `SampleNTT`s take the seeds of the same
+`ρ`. What each run is at each point comes from its correctness
+(`Encaps.lean`).
 -/
 
 namespace VG.Proof.MlKem1024.Arm.Encaps

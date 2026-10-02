@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointAffine
 import VerifiedGarbage.Proof.X25519.X86_64.Freeze
 
-/-! Untrusted: canonical point encoding in four machine words. -/
+/-! Canonical point encoding in four machine words. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

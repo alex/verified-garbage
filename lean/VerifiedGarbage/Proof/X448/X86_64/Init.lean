@@ -4,8 +4,7 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # X448 on x86-64: initializing coefficient arrays
 
-Untrusted: everything here is checked by Lean. Zeroing a bounded range of
-words preserves all other memory and the registers.
+Zeroing a bounded range of words preserves all other memory and the registers.
 -/
 
 namespace VG.Proof.X448.X86_64

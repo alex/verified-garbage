@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Ntt
 /-!
 # ML-KEM on x86-64: `vg_mlkem_inv_ntt`
 
-Untrusted: everything here is checked by Lean. As `vg_mlkem_ntt`
-(`Ntt.lean`): each layer is `nttInvLayer`, the seven layers are those of
-`NTT⁻¹` (`nttInv_eq_layers`), and the last pass multiplies each coefficient
-by 3303 (`vscale_ok`).
+As `vg_mlkem_ntt` (`Ntt.lean`): each layer is `nttInvLayer`, the seven layers
+are those of `NTT⁻¹` (`nttInv_eq_layers`), and the last pass multiplies each
+coefficient by 3303 (`vscale_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

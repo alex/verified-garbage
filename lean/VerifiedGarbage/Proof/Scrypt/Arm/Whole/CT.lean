@@ -4,16 +4,15 @@ import VerifiedGarbage.Proof.Framework.Arm.ArgTaint
 /-!
 # scrypt on 32-bit ARM: constant time, up to the indices `j`
 
-Untrusted: everything here is checked by Lean. As on the other targets
-(`Proof/Scrypt/AArch64/Whole/CT.lean`): two runs whose public data agree
-have the same layout, so they are related by `Two P`: both satisfy `P` with
-that layout (each with its own registers on entry and memory), whatever
-their secrets, and the indices of all the scryptROMix calls agree
-(`LeakEq`). The blocks address only our stack arguments, from `sp`, and
-`scratch` from registers that hold the same in both runs (the taint
-analysis, with the stack arguments public); each call is of constant-time
-code whose public data agree (`frame4_rel`, `frame2_rel`); the loop's
-branch agrees since both runs count the same blocks.
+As on the other targets (`Proof/Scrypt/AArch64/Whole/CT.lean`): two runs whose
+public data agree have the same layout, so they are related by `Two P`: both
+satisfy `P` with that layout (each with its own registers on entry and
+memory), whatever their secrets, and the indices of all the scryptROMix calls
+agree (`LeakEq`). The blocks address only our stack arguments, from `sp`, and
+`scratch` from registers that hold the same in both runs (the taint analysis,
+with the stack arguments public); each call is of constant-time code whose
+public data agree (`frame4_rel`, `frame2_rel`); the loop's branch agrees since
+both runs count the same blocks.
 -/
 
 namespace VG.Proof.Scrypt.Arm.Whole

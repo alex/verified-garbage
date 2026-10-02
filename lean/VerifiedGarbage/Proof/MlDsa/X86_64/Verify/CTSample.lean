@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CTStages
 /-!
 # ML-DSA verification on x86-64: constant time, the samplers
 
-Untrusted: everything here is checked by Lean. The seed of each entry of
-`Â` is `ρ ‖ s ‖ r`, and `c̃` a piece of the signature, public in both runs;
-each sampler's output is masked with its result without a branch
-(`sampledTail_tr`).
+The seed of each entry of `Â` is `ρ ‖ s ‖ r`, and `c̃` a piece of the
+signature, public in both runs; each sampler's output is masked with its
+result without a branch (`sampledTail_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

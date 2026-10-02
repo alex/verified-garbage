@@ -2,8 +2,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`): this one and those it calls.
 pub const USES: &[&str] = &["scrypt", "pbkdf2_sha256", "hmac_sha256", "sha256"];
 
 /// scrypt with `r = 8` and `p = 1` (the RFC 7914 vectors' block size) at a

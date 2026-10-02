@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Bytes
 import VerifiedGarbage.Proof.X25519.Field
 
-/-! Untrusted: the length and canonical-coordinate branches of point decoding. -/
+/-! The length and canonical-coordinate branches of point decoding. -/
 
 namespace VG.Proof.Ed25519
 

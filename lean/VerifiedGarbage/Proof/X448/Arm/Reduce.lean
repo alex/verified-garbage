@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.Arm.Columns
 /-!
 # X448 on ARMv7: reducing product limbs
 
-Untrusted: everything here is checked by Lean. The upper half folds using
-`2^448 = 2^224 + 1` modulo the field prime.
+The upper half folds using `2^448 = 2^224 + 1` modulo the field prime.
 -/
 
 namespace VG.Proof.X448.Arm

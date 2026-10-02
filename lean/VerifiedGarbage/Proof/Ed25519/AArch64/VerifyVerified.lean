@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyCT
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyLit
 import VerifiedGarbage.Proof.Framework.Contract
 
-/-! Untrusted: the complete verifier satisfies the merged specification and leakage contract. -/
+/-! The complete verifier satisfies the merged specification and leakage contract. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PointMulInit
 
-/-! Untrusted: the whole scalar multiplication follows the specification's exact coordinates. -/
+/-! The whole scalar multiplication follows the specification's exact coordinates. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

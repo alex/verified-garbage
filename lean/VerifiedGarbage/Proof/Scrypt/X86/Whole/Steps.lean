@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.X86.RegUpd
 /-!
 # scrypt on x86 (32-bit): the blocks between the calls
 
-Untrusted: everything here is checked by Lean. The parameters as numbers
-(`Lay.Ok`), the frame's push (`push_ctx`), and what each block between the
-calls does: it keeps `Ctx`, and sets up the next call's arguments in the
-frame (`PbkArgs`, `RomixArgs`) or the next block.
+The parameters as numbers (`Lay.Ok`), the frame's push (`push_ctx`), and what
+each block between the calls does: it keeps `Ctx`, and sets up the next call's
+arguments in the frame (`PbkArgs`, `RomixArgs`) or the next block.
 -/
 
 namespace VG.Proof.Scrypt.X86.Whole

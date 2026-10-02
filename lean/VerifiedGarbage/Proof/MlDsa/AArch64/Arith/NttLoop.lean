@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.NttBfly
 /-!
 # ML-DSA on AArch64: the blocks and layers of `NTT` and `NTT⁻¹`
 
-Untrusted: everything here is checked by Lean. The loops of `nttBlk` and
-`nttLay`, for any butterfly code that does what a butterfly `op` of the
-specification does (`BflyOk`): a block runs `len` butterflies (`blockN`),
-and a layer its `128 / len` blocks (`layerN`), with the zetas `Z (zi c)`,
-whose values `tab` the table at `zP` holds.
+The loops of `nttBlk` and `nttLay`, for any butterfly code that does what a
+butterfly `op` of the specification does (`BflyOk`): a block runs `len`
+butterflies (`blockN`), and a layer its `128 / len` blocks (`layerN`), with
+the zetas `Z (zi c)`, whose values `tab` the table at `zP` holds.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Arith

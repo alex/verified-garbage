@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # BLAKE2b compression function on x86 (32-bit): the precondition
 
-Untrusted: everything here is checked by Lean. The facts `compressX86 b`'s
-precondition gives (`Pre`), and the addresses and regions the code uses.
+The facts `compressX86 b`'s precondition gives (`Pre`), and the addresses and
+regions the code uses.
 -/
 
 namespace VG.Proof.Blake2.X86.CompressB

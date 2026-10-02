@@ -6,11 +6,10 @@ import VerifiedGarbage.Proof.Scrypt.AArch64.Lit
 /-!
 # scrypt on AArch64: the calls
 
-Untrusted: everything here is checked by Lean. What a call of
-`vg_pbkdf2_hmac_sha256` (`pbk_call`) and of `vg_scrypt_romix`
+What a call of `vg_pbkdf2_hmac_sha256` (`pbk_call`) and of `vg_scrypt_romix`
 (`romix_call`) from the frames does, from their arguments (`PbkArgs`,
-`RomixArgs`): each keeps `Ctx`, and changes memory only in what it writes
-and the stack below the frames. `pbk_pre'` and `romix_pre` are their
+`RomixArgs`): each keeps `Ctx`, and changes memory only in what it writes and
+the stack below the frames. `pbk_pre'` and `romix_pre` are their
 preconditions, which the proof of constant time uses too.
 -/
 

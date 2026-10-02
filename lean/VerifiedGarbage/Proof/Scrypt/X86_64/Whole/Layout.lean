@@ -8,16 +8,15 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 /-!
 # scrypt on x86-64: where everything is
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (`scryptX86_64`), the function's buffers and the 88 bytes of
-stack below its return address, from `B` up (`Lay`): the 32 bytes the calls
-use, then the frame (56 bytes, from `B + 32`: PBKDF2's two stack arguments,
-the next block, then the password, its length, `r` and `b`). Our own stack
-arguments are at `B + 96`. `Ctx` is what holds between the frame's push and
-pop: the permissions, `rsp`, the callee-saved registers, the words the
-calls cannot change (`Kept`), and that memory changed only in the writable
-buffers and the stack. `call_ok` runs a call of verified code in such a
-state.
+The contract the proof is written against (`scryptX86_64`), the function's
+buffers and the 88 bytes of stack below its return address, from `B` up
+(`Lay`): the 32 bytes the calls use, then the frame (56 bytes, from `B + 32`:
+PBKDF2's two stack arguments, the next block, then the password, its length,
+`r` and `b`). Our own stack arguments are at `B + 96`. `Ctx` is what holds
+between the frame's push and pop: the permissions, `rsp`, the callee-saved
+registers, the words the calls cannot change (`Kept`), and that memory changed
+only in the writable buffers and the stack. `call_ok` runs a call of verified
+code in such a state.
 -/
 
 namespace VG.Proof.Scrypt

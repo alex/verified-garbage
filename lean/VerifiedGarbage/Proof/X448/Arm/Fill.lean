@@ -4,8 +4,7 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # X448 on ARMv7: filling words with zero
 
-Untrusted: everything here is checked by Lean. Each store touches only
-its designated word in the working space.
+Each store touches only its designated word in the working space.
 -/
 
 namespace VG.Proof.X448.Arm

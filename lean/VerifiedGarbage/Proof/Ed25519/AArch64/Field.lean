@@ -10,8 +10,8 @@ import VerifiedGarbage.Spec.Ed25519
 /-!
 # Ed25519 field programs: correctness of the lowering
 
-Untrusted. Each arithmetic operation uses the A64 field arithmetic proof. An
-induction composes these into a proof for any list of field operations.
+Each arithmetic operation uses the A64 field arithmetic proof. An induction
+composes these into a proof for any list of field operations.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

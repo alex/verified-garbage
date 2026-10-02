@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Params
 /-!
 # ML-DSA signing on x86 (32-bit): the blocks between calls
 
-Untrusted: everything here is checked by Lean. Loads and stores of words
-and bytes of `scratch` from `Ctx` (`wp_ldsc`, `wp_stsc`, `wp_st8sc`), and
-the pieces made of them: sequences (`seqR_piece`), the empty block
-(`nil_piece`), and the branch on `OK` (`okIte_piece`).
+Loads and stores of words and bytes of `scratch` from `Ctx` (`wp_ldsc`,
+`wp_stsc`, `wp_st8sc`), and the pieces made of them: sequences (`seqR_piece`),
+the empty block (`nil_piece`), and the branch on `OK` (`okIte_piece`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

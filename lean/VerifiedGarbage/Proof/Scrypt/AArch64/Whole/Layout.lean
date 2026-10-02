@@ -9,11 +9,10 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # scrypt on AArch64: where everything is
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Scrypt/X86_64/Whole/Layout.lean`): the contract the proof is written
-against (`scryptAArch64`), the function's buffers and the 96 bytes of stack
-below the stack pointer, from `B` up (`Lay`): the 16 bytes the calls use,
-the 64-byte frame (from `B + 16`: the next block, then the password, its
+As on x86-64 (`Proof/Scrypt/X86_64/Whole/Layout.lean`): the contract the proof
+is written against (`scryptAArch64`), the function's buffers and the 96 bytes
+of stack below the stack pointer, from `B` up (`Lay`): the 16 bytes the calls
+use, the 64-byte frame (from `B + 16`: the next block, then the password, its
 length, `r`, `b`, `blen` and `v`), then the frame holding our return address
 (`B + 80`). Our stack arguments are at `B + 96`. `Ctx` is what holds between
 the frames' pushes and pops, and `call_ok` runs a call of verified code in

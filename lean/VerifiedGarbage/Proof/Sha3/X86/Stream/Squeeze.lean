@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # The SHA-3 sponge on x86 (32-bit): `squeeze`
 
-Untrusted: everything here is checked by Lean. The structure of the x86-64
-proof (`VG.Proof.Sha3.X86_64.Stream.Squeeze`), with `state` in `ebx`,
-`scratch` in `ebp`, `out` in `esi`, the bytes left in `edi`, and
-`state + pos` and `rate` in the scratch space.
+The structure of the x86-64 proof (`VG.Proof.Sha3.X86_64.Stream.Squeeze`),
+with `state` in `ebx`, `scratch` in `ebp`, `out` in `esi`, the bytes left in
+`edi`, and `state + pos` and `rate` in the scratch space.
 -/
 
 namespace VG.Proof.Sha3.X86.Stream.Squeeze

@@ -6,8 +6,6 @@ import VerifiedGarbage.TCB.Artifact
 /-!
 # Merkle–Damgård hash functions on x86-64, as variants
 
-Untrusted: everything here is checked by Lean.
-
 An `MdHash` is one Merkle–Damgård hash function with one implementation of
 its compression function: each is a variant of the interface `MdHash` on
 x86-64 (`Variants/MdHash/X86_64/`), and each function built on the hash

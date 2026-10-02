@@ -5,13 +5,13 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # scrypt on x86 (32-bit): the shared contract
 
-Untrusted: everything here is checked by Lean. `vg_scrypt`, calling any
-implementation of PBKDF2-HMAC-SHA256 verified against its shared contract
-that never writes `esp` and uses at most 76 bytes of stack, is verified
-against `Spec.Scrypt.scryptContract` for the 116 bytes of stack its frame
-and calls use (`scrypt_verified_of`); and so is the one calling the
-`vg_pbkdf2_hmac_sha256` made with any SHA-256 backend (`scrypt_verified`),
-whose code never writes `esp` but by the frame (`scrypt_spSafe`).
+`vg_scrypt`, calling any implementation of PBKDF2-HMAC-SHA256 verified against
+its shared contract that never writes `esp` and uses at most 76 bytes of
+stack, is verified against `Spec.Scrypt.scryptContract` for the 116 bytes of
+stack its frame and calls use (`scrypt_verified_of`); and so is the one
+calling the `vg_pbkdf2_hmac_sha256` made with any SHA-256 backend
+(`scrypt_verified`), whose code never writes `esp` but by the frame
+(`scrypt_spSafe`).
 -/
 
 namespace VG.Proof.Scrypt.X86.Whole

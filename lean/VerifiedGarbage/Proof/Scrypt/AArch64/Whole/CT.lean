@@ -5,15 +5,14 @@ import VerifiedGarbage.Proof.Framework.AArch64.Taint
 /-!
 # scrypt on AArch64: constant time, up to the indices `j`
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Scrypt/X86_64/Whole/CT.lean`): two runs whose public data agree
-have the same layout, so between the frames' pushes and pops they are
-related by `Two`: both satisfy `Ctx` with that layout (and `Φ`, what the
-next piece needs), whatever their secrets, and the indices of all the
-scryptROMix calls agree (`LeakEq`). The blocks address only the stack, from
-`sp` (the taint analysis); each call is of constant-time code whose public
-data agree (`RelCT.call`); the loop's branch agrees since both runs count
-the same blocks. The frames leak only `sp` (`frame_ct`, `alloc_ct`).
+As on x86-64 (`Proof/Scrypt/X86_64/Whole/CT.lean`): two runs whose public data
+agree have the same layout, so between the frames' pushes and pops they are
+related by `Two`: both satisfy `Ctx` with that layout (and `Φ`, what the next
+piece needs), whatever their secrets, and the indices of all the scryptROMix
+calls agree (`LeakEq`). The blocks address only the stack, from `sp` (the
+taint analysis); each call is of constant-time code whose public data agree
+(`RelCT.call`); the loop's branch agrees since both runs count the same
+blocks. The frames leak only `sp` (`frame_ct`, `alloc_ct`).
 -/
 
 namespace VG.Proof.Scrypt.AArch64.Whole

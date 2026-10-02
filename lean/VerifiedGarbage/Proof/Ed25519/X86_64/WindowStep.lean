@@ -9,9 +9,9 @@ import VerifiedGarbage.Proof.Framework.RelCT
 /-!
 # Verification's windows: doublings, digits and table additions
 
-Untrusted. The accumulator in slots 0–3 always represents a point of the
-group (`Rep`): four doublings multiply it by 16, and a nonzero digit `v`
-adds entry `v - 1` of a table, which represents `[v]X`.
+The accumulator in slots 0–3 always represents a point of the group (`Rep`):
+four doublings multiply it by 16, and a nonzero digit `v` adds entry `v - 1`
+of a table, which represents `[v]X`.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

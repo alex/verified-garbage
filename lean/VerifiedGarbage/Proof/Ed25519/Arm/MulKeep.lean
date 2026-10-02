@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.PointBatch
 import VerifiedGarbage.Proof.Ed25519.Arm.BatchBits
 
-/-! Untrusted: frames for scalar multiplication preserve argument pointers,
+/-! Frames for scalar multiplication preserve argument pointers,
 register saves, and all data beyond the compact tables. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm

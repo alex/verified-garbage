@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.Blocks
 /-!
 # ML-DSA signing on x86-64: blocks that leak only their pointers
 
-Untrusted: everything here is checked by Lean. A block of moves, arithmetic
-and stores whose memory operands are `[b + disp]` with `b` among registers
-`rs` that it never writes leaks the same from two states that agree on `rs`
-(`block_tr`). Unlike the taint analysis, which evaluates the code, this
-holds for code with immediates and displacements that are variables, such
-as the pieces of the function indexed by a polynomial or an entry of `Â`;
-`blockOk` is checked by `rfl`.
+A block of moves, arithmetic and stores whose memory operands are `[b + disp]`
+with `b` among registers `rs` that it never writes leaks the same from two
+states that agree on `rs` (`block_tr`). Unlike the taint analysis, which
+evaluates the code, this holds for code with immediates and displacements that
+are variables, such as the pieces of the function indexed by a polynomial or
+an entry of `Â`; `blockOk` is checked by `rfl`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

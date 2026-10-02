@@ -8,15 +8,14 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 /-!
 # scrypt on x86 (32-bit): where everything is
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Scrypt/X86_64/Whole/Layout.lean`): the contract the proof is
-written against (`scryptX86`), the function's buffers and the 116 bytes of
+As on x86-64 (`Proof/Scrypt/X86_64/Whole/Layout.lean`): the contract the proof
+is written against (`scryptX86`), the function's buffers and the 116 bytes of
 stack below its return address, from `A` up (`Lay`): the 80 bytes the calls
-use, then the frame (36 bytes, from `A + 80`: the callee's arguments, then
-the next block). The return address is at `A + 116`, our arguments from
-`A + 120`. `Ctx` is what holds between the frame's push and pop: the
-permissions, `esp`, the callee-saved registers, our arguments (`Kept`), and
-that memory changed only in the writable buffers and the stack.
+use, then the frame (36 bytes, from `A + 80`: the callee's arguments, then the
+next block). The return address is at `A + 116`, our arguments from `A + 120`.
+`Ctx` is what holds between the frame's push and pop: the permissions, `esp`,
+the callee-saved registers, our arguments (`Kept`), and that memory changed
+only in the writable buffers and the stack.
 -/
 
 namespace VG.Proof.Scrypt

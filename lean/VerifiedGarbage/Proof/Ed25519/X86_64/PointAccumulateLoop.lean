@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.PointAccumulateLoop
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointAccumulate
 
-/-! Untrusted: the descending-bit loop follows the specification exactly. -/
+/-! The descending-bit loop follows the specification exactly. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

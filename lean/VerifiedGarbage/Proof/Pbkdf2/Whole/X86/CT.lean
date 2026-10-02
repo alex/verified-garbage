@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Loop
 /-!
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: constant time
 
-Untrusted: everything here is checked by Lean. As for `iterate`
-(`Proof/Pbkdf2/Generic/X86/IterateCT.lean`): the pieces of code between the
-calls are checked by the taint analysis (`Checks`, which the kernel
-evaluates for each hash function), with the arguments, `esp`, `ebp` and, in
-the loop over the blocks, `ebx` public (`piece`); the calls are related by
-their contracts (`init_rel`, `upd_rel`, `fin_rel`, `hi_rel`, `hf_rel`,
-`it_rel`), whose public arguments are the same in two runs with the same
-public arguments (`PubEq`). The branches (whether the password is hashed,
+As for `iterate` (`Proof/Pbkdf2/Generic/X86/IterateCT.lean`): the pieces of
+code between the calls are checked by the taint analysis (`Checks`, which the
+kernel evaluates for each hash function), with the arguments, `esp`, `ebp`
+and, in the loop over the blocks, `ebx` public (`piece`); the calls are
+related by their contracts (`init_rel`, `upd_rel`, `fin_rel`, `hi_rel`,
+`hf_rel`, `it_rel`), whose public arguments are the same in two runs with the
+same public arguments (`PubEq`). The branches (whether the password is hashed,
 and the loop over the blocks) depend only on the lengths.
 -/
 

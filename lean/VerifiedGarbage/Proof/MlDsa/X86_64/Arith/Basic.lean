@@ -11,9 +11,9 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # ML-DSA on x86-64: reduction modulo `q`, and the contracts
 
-Untrusted: everything here is checked by Lean. It uses the symbolic
-execution of ML-KEM's x86-64 proofs (`xrun`, `Keep`, `WP.keep`, the counted
-loops, `Proof/MlKem/X86_64/Wp.lean`), which are about the ISA, not ML-KEM.
+It uses the symbolic execution of ML-KEM's x86-64 proofs (`xrun`, `Keep`,
+`WP.keep`, the counted loops, `Proof/MlKem/X86_64/Wp.lean`), which are about
+the ISA, not ML-KEM.
 
 * `csubQ` leaves `csubD v` of `v`, `v mod q` for `v < 2q` (`csubD_toNat`);
 * `reduce` leaves `redD x` in `r10` of any `x` in `rax`, which is `x mod q`

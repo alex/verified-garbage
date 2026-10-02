@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-KEM on x86-64: polynomials between `u32`s and words
 
-Untrusted: everything here is checked by Lean. `vpack` stores the 256
-`u32`s of a reduced polynomial as words (`vpack_ok`), and `vunpack` the
-words back as `u32`s (`vunpack_ok`), eight at a time.
+`vpack` stores the 256 `u32`s of a reduced polynomial as words (`vpack_ok`),
+and `vunpack` the words back as `u32`s (`vunpack_ok`), eight at a time.
 -/
 
 namespace VG.Proof.MlKem.X86_64

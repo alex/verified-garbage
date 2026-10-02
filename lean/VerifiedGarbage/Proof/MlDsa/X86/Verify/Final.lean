@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.Seeds
 /-!
 # ML-DSA verification on x86 (32-bit): `c̃′` and the result
 
-Untrusted: everything here is checked by Lean. `c̃′ = H(μ ‖ w1Encode(w′₁), λ/4)`
-(`hash_piece`), and the result ANDed with `c̃′ = c̃` (`cmp_piece`): with the
-samplers' outputs those of the standard for bounds `b`, the result is 1
-exactly when `verifyMu` is true for `b` (`verifyMu_rows`), and it stays 0 if
-verification is not true within the least bounds, which is the contract's
-postcondition (`VFin`, `compute_piece`).
+`c̃′ = H(μ ‖ w1Encode(w′₁), λ/4)` (`hash_piece`), and the result ANDed with
+`c̃′ = c̃` (`cmp_piece`): with the samplers' outputs those of the standard for
+bounds `b`, the result is 1 exactly when `verifyMu` is true for `b`
+(`verifyMu_rows`), and it stays 0 if verification is not true within the least
+bounds, which is the contract's postcondition (`VFin`, `compute_piece`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

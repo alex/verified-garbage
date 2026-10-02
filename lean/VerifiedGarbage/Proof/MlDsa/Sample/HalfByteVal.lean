@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.Sample.HalfByte
 /-!
 # ML-DSA: the coefficient of a half-byte, without a branch
 
-Untrusted: everything here is checked by Lean. An implementation can compute
-the coefficient `rbC η b` of an accepted half-byte (`HalfByte.lean`) modulo
-`q` without a branch or a table (`hbVal`): `b mod 5` by subtracting 10 and
-then 5 where they are no greater (`csubV`, a subtraction plus the subtrahend
-masked by its borrow), and `(η - b') mod q` as `η - b'` plus `q` masked by
-the borrow (`etaV`); `hbVal_eq` checks it on the accepted half-bytes by
-evaluation.
+An implementation can compute the coefficient `rbC η b` of an accepted
+half-byte (`HalfByte.lean`) modulo `q` without a branch or a table (`hbVal`):
+`b mod 5` by subtracting 10 and then 5 where they are no greater (`csubV`, a
+subtraction plus the subtrahend masked by its borrow), and `(η - b') mod q` as
+`η - b'` plus `q` masked by the borrow (`etaV`); `hbVal_eq` checks it on the
+accepted half-bytes by evaluation.
 -/
 
 namespace VG.Proof.MlDsa.Sample

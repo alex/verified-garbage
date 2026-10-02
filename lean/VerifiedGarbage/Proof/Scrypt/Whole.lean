@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Scrypt.Memory
 /-!
 # scrypt: facts about the specification of the whole function
 
-Untrusted: everything here is checked by Lean. Target-independent facts
-for the proofs of `vg_scrypt`: the parameters `valid` admits, the blocks of
-step 1 in memory (`bytesAt_chunks`, `chunk_bytesAt`), the indices each
-scryptROMix leaks, recovered from the list the contract declares
-(`indices_eq`), and `scrypt` from its three steps (`scrypt_eq`).
+Target-independent facts for the proofs of `vg_scrypt`: the parameters `valid`
+admits, the blocks of step 1 in memory (`bytesAt_chunks`, `chunk_bytesAt`),
+the indices each scryptROMix leaks, recovered from the list the contract
+declares (`indices_eq`), and `scrypt` from its three steps (`scrypt_eq`).
 -/
 
 namespace VG.Proof.Scrypt.Whole

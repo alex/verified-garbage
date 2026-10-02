@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.WindowByte
 /-!
 # Verification's loops over the bytes of the scalars
 
-Untrusted. Bytes 63 down to 32 hold digits of `k` alone, bytes 31 down to 0
-of both scalars; after the loops the accumulator represents `[k]A - [S]B`.
+Bytes 63 down to 32 hold digits of `k` alone, bytes 31 down to 0 of both
+scalars; after the loops the accumulator represents `[k]A - [S]B`.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

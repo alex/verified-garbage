@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Encoding
 /-!
 # X448 on x86-64: writing seven-byte chunks
 
-Untrusted: everything here is checked by Lean. Each pair of bounded limbs
-is combined in a register and written with seven byte stores.
+Each pair of bounded limbs is combined in a register and written with seven
+byte stores.
 -/
 
 namespace VG.Proof.X448.X86_64

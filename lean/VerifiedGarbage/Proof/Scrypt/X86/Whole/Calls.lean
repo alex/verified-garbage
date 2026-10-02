@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Scrypt.X86.RoMixCT
 /-!
 # scrypt on x86 (32-bit): the calls
 
-Untrusted: everything here is checked by Lean. What a call of
-`vg_pbkdf2_hmac_sha256` (`pbk_call`) and of `vg_scrypt_romix`
+What a call of `vg_pbkdf2_hmac_sha256` (`pbk_call`) and of `vg_scrypt_romix`
 (`romix_call`) from the frame does, from their arguments in the frame
-(`PbkArgs`, `RomixArgs`): each keeps `Ctx`, and changes memory only in what
-it writes and the 80 bytes below the frame (`call_ok`). `pbk_pre'` and
+(`PbkArgs`, `RomixArgs`): each keeps `Ctx`, and changes memory only in what it
+writes and the 80 bytes below the frame (`call_ok`). `pbk_pre'` and
 `romix_pre` are their preconditions, which the proof of constant time uses
 too.
 -/

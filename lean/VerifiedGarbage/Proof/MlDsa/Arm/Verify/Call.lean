@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.CallPack
 /-!
 # ML-DSA on 32-bit ARM: calling the primitives only verification uses
 
-Untrusted: everything here is checked by Lean. As `ip_ok` and `ip_tr`
-(`KeyGen/Call.lean`), in the buffers of a `Site`: `vg_mldsa_hint_bit_unpack`,
-`vg_mldsa_bit_unpack` and `vg_mldsa_sample_in_ball` (whose fifth argument
-is on the stack), `vg_mldsa_norm_lt`, `vg_mldsa_use_hint` and
-`vg_mldsa_unpack_t1`.
+As `ip_ok` and `ip_tr` (`KeyGen/Call.lean`), in the buffers of a `Site`:
+`vg_mldsa_hint_bit_unpack`, `vg_mldsa_bit_unpack` and
+`vg_mldsa_sample_in_ball` (whose fifth argument is on the stack),
+`vg_mldsa_norm_lt`, `vg_mldsa_use_hint` and `vg_mldsa_unpack_t1`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

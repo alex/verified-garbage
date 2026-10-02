@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlKem.Arm.CmpSel
 /-!
 # ML-DSA verification on 32-bit ARM: `c̃′ = c̃`
 
-Untrusted: everything here is checked by Lean. `cmpAnd` ORs the XORs of the
-bytes of `c̃′` and `c̃` into `r12` (ML-KEM's `cmp_step`), and ANDs `r11`
-with 1 exactly when that is 0 (`cmpAnd_ok`), without a branch.
+`cmpAnd` ORs the XORs of the bytes of `c̃′` and `c̃` into `r12` (ML-KEM's
+`cmp_step`), and ANDs `r11` with 1 exactly when that is 0 (`cmpAnd_ok`),
+without a branch.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

@@ -5,15 +5,14 @@ import VerifiedGarbage.Proof.MlDsa.Round.Mem
 /-!
 # ML-DSA on x86-64: the loop over the coefficients
 
-Untrusted: everything here is checked by Lean. `mapLoop body` runs `body`
-for `rcx` = 256 down to 1, and iteration `i` (from 0) handles coefficient
-`255 - i` at `[p + 4·rcx - 4]` (`cfAddr`) of each polynomial `p`. `loop_ok`
-proves it once for every function: from a body that writes, to coefficient
-`255 - i` of each output polynomial (in a register of `outs`), the value
-`V o (255 - i)` and keeps an invariant `J` of its other registers, the loop
-writes every coefficient of each output. The inputs (registers `ins`) are
-never written, so the body reads the coefficients of the initial memory
-(`Inv.read`).
+`mapLoop body` runs `body` for `rcx` = 256 down to 1, and iteration `i` (from 0)
+handles coefficient `255 - i` at `[p + 4·rcx - 4]` (`cfAddr`) of each
+polynomial `p`. `loop_ok` proves it once for every function: from a body that
+writes, to coefficient `255 - i` of each output polynomial (in a register of
+`outs`), the value `V o (255 - i)` and keeps an invariant `J` of its other
+registers, the loop writes every coefficient of each output. The inputs
+(registers `ins`) are never written, so the body reads the coefficients of the
+initial memory (`Inv.read`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

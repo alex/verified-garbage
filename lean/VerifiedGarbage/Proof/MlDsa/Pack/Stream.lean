@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem.Bits
 /-!
 # ML-DSA: streaming `d`-bit fields through an accumulator, for every target
 
-Untrusted: everything here is checked by Lean. An implementation packs a
-group of fields, the base-`2ᵈ` digits of a number `G`, by adding each field
-to an accumulator above the bits it holds, and storing each byte it
-completes; it unpacks the fields of `H`, the number whose bytes are the
-group's, by adding each byte it needs to an accumulator, and taking the low
-`d` bits. The accumulator is always a slice of the number:
+An implementation packs a group of fields, the base-`2ᵈ` digits of a number
+`G`, by adding each field to an accumulator above the bits it holds, and
+storing each byte it completes; it unpacks the fields of `H`, the number whose
+bytes are the group's, by adding each byte it needs to an accumulator, and
+taking the low `d` bits. The accumulator is always a slice of the number:
 
 * packing, before field `j`: `G mod 2^(dj)` without its `⌊dj/8⌋` bytes
   already stored, `G % 2 ^ (d * j) / 2 ^ (8 * (d * j / 8))`, which is less

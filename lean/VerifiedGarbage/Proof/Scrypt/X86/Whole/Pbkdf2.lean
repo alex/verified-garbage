@@ -5,13 +5,12 @@ import VerifiedGarbage.Spec.Pbkdf2.Generic
 /-!
 # scrypt on x86 (32-bit): PBKDF2-HMAC-SHA256 as a callee
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Scrypt/X86_64/Whole/Pbkdf2.lean`): `vg_pbkdf2_hmac_sha256` (any
-implementation of it) is verified against the shared contract
-`VG.Spec.Hmac.sha256I.pbkdf2Contract`; its caller works with the same
-contract spelt out (`pbkG`, the contract its proof is written against):
-`pbk_correct` and `pbk_ct` are its correctness and constant time under
-`pbkG`, from its `Verified` proof.
+As on x86-64 (`Proof/Scrypt/X86_64/Whole/Pbkdf2.lean`):
+`vg_pbkdf2_hmac_sha256` (any implementation of it) is verified against the
+shared contract `VG.Spec.Hmac.sha256I.pbkdf2Contract`; its caller works with
+the same contract spelt out (`pbkG`, the contract its proof is written
+against): `pbk_correct` and `pbk_ct` are its correctness and constant time
+under `pbkG`, from its `Verified` proof.
 -/
 
 namespace VG.Proof.Scrypt.X86.Whole

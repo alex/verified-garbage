@@ -8,12 +8,7 @@ import VerifiedGarbage.Proof.Scrypt.X86.Whole.Verified
 A generic file (see `TCB/Emit.lean`): `vg_scrypt`, calling the
 `vg_pbkdf2_hmac_sha256` made with the backend's SHA-256 functions (and
 `vg_scrypt_romix`), is emitted for every x86 SHA-256 backend, named with its
-suffix (e.g. `vg_scrypt_shani`), and needs its CPU features. **Review
-note**: `sig` and `doc` are trusted, as they tie the Rust caller to the
-contract: they are those of the function's `Api` (`Spec/Scrypt/Contract.lean`),
-and this file adds only notes on the implementation. The emitter adds the
-`# Safety` items that depend on the target (`Sig.layoutDoc`), from `stack`
-and `writeArgs`, which `ofSig` checks against the contract.
+suffix (e.g. `vg_scrypt_shani`), and needs its CPU features.
 
 The stack is 116 bytes: a 36-byte frame, the return address of a call, and
 the 76 bytes `vg_pbkdf2_hmac_sha256` uses.

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyCTBody
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyMain
 
-/-! Untrusted: complete verification leaks only the inputs declared public by its contract. -/
+/-! Complete verification leaks only the inputs declared public by its contract. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

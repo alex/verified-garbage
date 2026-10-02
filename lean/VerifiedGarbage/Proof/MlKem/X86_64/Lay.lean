@@ -3,16 +3,16 @@ import VerifiedGarbage.Proof.MlKem.X86_64.FragK
 /-!
 # ML-KEM-768 on x86-64: the buffers of the top-level functions
 
-Untrusted: everything here is checked by Lean. The top-level functions keep
-the address of each buffer they work in (their arguments and their working
-space) in a callee-saved register; a layout (`Lay`) lists these registers
-with the lengths of their buffers, which are apart from each other and
-from the stack. A pointer (a register and an offset) into a buffer, and two
-pointers into the same buffer or different ones, are then checked by
-evaluation (`inB`, `sepB`): each pair of regions a call needs apart is, and
-each region is readable or writable (`Lay.disj`, `Lay.stk`, `Lay.cR`,
-`Lay.cW`). A call leaves the layout as it was (`Lay.post`), and the bytes
-of a region apart from those it writes (`Lay.keepBytes`, `Lay.keepPoly`).
+The top-level functions keep the address of each buffer they work in (their
+arguments and their working space) in a callee-saved register; a layout
+(`Lay`) lists these registers with the lengths of their buffers, which are
+apart from each other and from the stack. A pointer (a register and an offset)
+into a buffer, and two pointers into the same buffer or different ones, are
+then checked by evaluation (`inB`, `sepB`): each pair of regions a call needs
+apart is, and each region is readable or writable (`Lay.disj`, `Lay.stk`,
+`Lay.cR`, `Lay.cW`). A call leaves the layout as it was (`Lay.post`), and the
+bytes of a region apart from those it writes (`Lay.keepBytes`,
+`Lay.keepPoly`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

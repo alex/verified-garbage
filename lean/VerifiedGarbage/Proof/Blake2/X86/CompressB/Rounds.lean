@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.Blake2.X86.CompressB.G
 /-!
 # BLAKE2b on x86 (32-bit): the rounds
 
-Untrusted: everything here is checked by Lean. `G_step` moves `g_ok` to the
-work vector (`Holds`), for any four of its words; `round_ok` composes the
-eight `G`s of a round, for any round, and `rounds_ok` the rounds.
+`G_step` moves `g_ok` to the work vector (`Holds`), for any four of its words;
+`round_ok` composes the eight `G`s of a round, for any round, and `rounds_ok`
+the rounds.
 -/
 
 namespace VG.Proof.Blake2.X86.CompressB

@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.StageZ
 /-!
 # ML-DSA verification on x86-64: the samplers
 
-Untrusted: everything here is checked by Lean. `ρ` to `SB`; each entry
-`Â[r, s]` sampled from `ρ ‖ s ‖ r` (`aOne_ok`), and `c` (`ball_ok`), each
-reduced, and `r15` 1 only if every sampler succeeded, with their outputs
-(`S3`, `S4`).
+`ρ` to `SB`; each entry `Â[r, s]` sampled from `ρ ‖ s ‖ r` (`aOne_ok`), and
+`c` (`ball_ok`), each reduced, and `r15` 1 only if every sampler succeeded,
+with their outputs (`S3`, `S4`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

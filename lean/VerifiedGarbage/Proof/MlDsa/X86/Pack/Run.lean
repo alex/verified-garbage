@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.MlKem.X86.Common
 /-!
 # ML-DSA on x86 (32-bit): running blocks symbolically
 
-Untrusted: everything here is checked by Lean.
-
 A block is run with `xrun`, a `simp only` that steps it one instruction at
 a time (`runBlock_cons`, `runStep_some`) and keeps the state a chain of
 `State.setReg`, `State.setFlags` and memory updates, whose projections the

@@ -4,10 +4,9 @@ import VerifiedGarbage.Impl.Blake2.AArch64.Stream
 /-!
 # Streaming BLAKE2 on AArch64: the code as literals
 
-Untrusted: everything here is checked by Lean. `init`, `update` and
-`finalize` of BLAKE2b and BLAKE2s as literals (`materialize_code`,
-`Proof/Framework/Lit.lean`), whose calls refer to the literals of the
-compression functions (`Proof/Blake2/AArch64/Lit.lean`).
+`init`, `update` and `finalize` of BLAKE2b and BLAKE2s as literals
+(`materialize_code`, `Proof/Framework/Lit.lean`), whose calls refer to the
+literals of the compression functions (`Proof/Blake2/AArch64/Lit.lean`).
 -/
 
 namespace VG.Proof.Blake2.AArch64.Stream

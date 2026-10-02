@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Verify.Lay
 /-!
 # ML-DSA verification on AArch64: the prologue, the hint and `z`
 
-Untrusted: everything here is checked by Lean. The prologue (`pro_vpiece`);
-the hint of the signature, with `x24` whether it is well formed
-(`hint_vpiece`); then, if it is, `z[i]` (polynomial `k + i` after `Â`) and
-`x24` whether each norm so far is small (`zOne_vpiece`). The results in
-`x24` are functions of the signature, so they are the same in two runs.
+The prologue (`pro_vpiece`); the hint of the signature, with `x24` whether it
+is well formed (`hint_vpiece`); then, if it is, `z[i]` (polynomial `k + i`
+after `Â`) and `x24` whether each norm so far is small (`zOne_vpiece`). The
+results in `x24` are functions of the signature, so they are the same in two
+runs.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Verify

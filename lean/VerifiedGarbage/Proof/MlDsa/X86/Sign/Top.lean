@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Pre
 /-!
 # ML-DSA signing on x86 (32-bit): `vg_mldsa{44,65,87}_sign`
 
-Untrusted: everything here is checked by Lean. The body in the leaf's frame
-(`piece`), and `Verified` against `signContract` (`verified`), for any
-implementations of the primitives that `PrimsOk` says are verified, and any
-of the three parameter sets.
+The body in the leaf's frame (`piece`), and `Verified` against `signContract`
+(`verified`), for any implementations of the primitives that `PrimsOk` says
+are verified, and any of the three parameter sets.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

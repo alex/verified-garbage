@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.RelCT
 /-!
 # A taint state for code reading its stack arguments (ARMv7)
 
-Untrusted: everything here is checked by Lean.
-
 As `Framework/X86/ArgTaint.lean`: pieces of code between calls (proved by
 relating two runs, `RelCT`) may read their function's stack arguments:
 `argTaint rs n` makes the registers `rs` and the first `n` bytes of stack

@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.KeyGen.Seeds
 /-!
 # ML-DSA key generation on x86-64: the samplers
 
-Untrusted: everything here is checked by Lean. The entries of `Â`
-(`expA_piece`) and of `s₁ ‖ s₂` (`expS_piece`): after the first `e` entries
-of `Â` and `r` of `s₁ ‖ s₂` (`KSamp`), each polynomial is reduced (and those
-of `s₁ ‖ s₂` small), and `r15` is 1 if every sampler succeeded, with the
-polynomials those of the standard for some bounds, or 0 if key generation
-fails within the least bounds (`Good`).
+The entries of `Â` (`expA_piece`) and of `s₁ ‖ s₂` (`expS_piece`): after the
+first `e` entries of `Â` and `r` of `s₁ ‖ s₂` (`KSamp`), each polynomial is
+reduced (and those of `s₁ ‖ s₂` small), and `r15` is 1 if every sampler
+succeeded, with the polynomials those of the standard for some bounds, or 0 if
+key generation fails within the least bounds (`Good`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen

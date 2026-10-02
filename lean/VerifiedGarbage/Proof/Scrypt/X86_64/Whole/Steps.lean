@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Framework.X86_64.Exec
 /-!
 # scrypt on x86-64: the blocks between the calls
 
-Untrusted: everything here is checked by Lean. The parameters as numbers
-(`Lay.Ok`), and what each block between the calls does: it keeps `Ctx`, and
-sets up the next call's arguments (`PbkArgs`, `RomixArgs`) or the next block.
+The parameters as numbers (`Lay.Ok`), and what each block between the calls
+does: it keeps `Ctx`, and sets up the next call's arguments (`PbkArgs`,
+`RomixArgs`) or the next block.
 -/
 
 namespace VG.Proof.Scrypt.X86_64.Whole

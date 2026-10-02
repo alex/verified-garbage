@@ -8,10 +8,9 @@ import VerifiedGarbage.Spec.MlKem.Poly
 /-!
 # ML-KEM on AArch64: what the proofs share
 
-Untrusted: everything here is checked by Lean. Memory of zeros (for the
-states that show a precondition satisfiable), the tactic that moves a
-proof from a per-target contract to the shared one, and facts about the
-registers a function never writes.
+Memory of zeros (for the states that show a precondition satisfiable), the
+tactic that moves a proof from a per-target contract to the shared one, and
+facts about the registers a function never writes.
 -/
 
 namespace VG.Proof.MlKem.AArch64

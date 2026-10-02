@@ -15,12 +15,11 @@ import VerifiedGarbage.Proof.Blake2.AArch64.Lit
 /-!
 # BLAKE2 compression function on AArch64
 
-Untrusted: everything here is checked by Lean. The proof is written once for
-both word sizes, over the operand size `z` (`.x` for BLAKE2b, `.w` for
-BLAKE2s, words of `z.bits` bits): each code shape is symbolically executed
-once, for any registers and offsets (`g_ok` for every `G`, `ld_ok`, `iv_ok`,
-`fin_ok` for every word), and only the load of the high word of the counter
-(`hiW_ok`) is executed once per word size.
+The proof is written once for both word sizes, over the operand size `z` (`.x`
+for BLAKE2b, `.w` for BLAKE2s, words of `z.bits` bits): each code shape is
+symbolically executed once, for any registers and offsets (`g_ok` for every
+`G`, `ld_ok`, `iv_ok`, `fin_ok` for every word), and only the load of the high
+word of the counter (`hiW_ok`) is executed once per word size.
 
 The loop is proven against `Proof.Blake2.compressAArch64` (`compress_correct`,
 for any `P` whose rotations fit the word), which the streaming functions use

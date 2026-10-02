@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 
 /-!
 # ML-DSA on x86-64: `vg_mldsa_high_bits` and `vg_mldsa_low_bits`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

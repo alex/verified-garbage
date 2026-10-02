@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Freeze
 /-!
 # X448 on AArch64: preparing canonical reduction
 
-Untrusted: everything here is checked by Lean. Adding one in limbs zero
-and eight implements the addition of 1 + 2²²⁴ before carry propagation.
+Adding one in limbs zero and eight implements the addition of 1 + 2²²⁴ before
+carry propagation.
 -/
 
 namespace VG.Proof.X448.AArch64

@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.X25519.Arm.Pass
 /-!
 # Ed25519 on ARMv7: field elements in the working space
 
-Untrusted: everything here is checked by Lean. A field element is 16 words
-at an offset `o` of the working space at `B` (`limb`), each below `2¹⁶`
-(`Lim`), for the number `V` and its residue `FS`. The carry out of a `pass`
-folded in again (`tail_ok`), and `add` and `sub` (`add_ok`, `sub_ok`).
+A field element is 16 words at an offset `o` of the working space at `B`
+(`limb`), each below `2¹⁶` (`Lim`), for the number `V` and its residue `FS`.
+The carry out of a `pass` folded in again (`tail_ok`), and `add` and `sub`
+(`add_ok`, `sub_ok`).
 -/
 
 namespace VG.Proof.Ed25519.Arm

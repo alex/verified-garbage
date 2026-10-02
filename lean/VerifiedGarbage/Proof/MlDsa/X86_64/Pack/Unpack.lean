@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Pack.BitPack
 /-!
 # ML-DSA on x86-64: `vg_mldsa_bit_unpack` and `vg_mldsa_unpack_t1`
 
-Untrusted: everything here is checked by Lean. The coefficient of a field
-`y` is `b - y`, plus `q` if that borrows (`subModQ`), which is `b - y` in
-`ℤ_q` (`Pack/Arith.lean`), or `y · 2¹³`. The loop is proven once for every
-width (`unpackLoop_ok`), and `vg_mldsa_bit_unpack` by its five cases.
+The coefficient of a field `y` is `b - y`, plus `q` if that borrows
+(`subModQ`), which is `b - y` in `ℤ_q` (`Pack/Arith.lean`), or `y · 2¹³`. The
+loop is proven once for every width (`unpackLoop_ok`), and
+`vg_mldsa_bit_unpack` by its five cases.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Pack

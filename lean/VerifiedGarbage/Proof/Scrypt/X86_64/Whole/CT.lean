@@ -4,16 +4,15 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # scrypt on x86-64: constant time, up to the indices `j`
 
-Untrusted: everything here is checked by Lean. Two runs whose public data
-agree have the same layout, so between the frame's push and pop they are
-related by `Two`: both satisfy `Ctx` with that layout (and `Φ`, what the
-next piece needs), whatever their secrets, and the indices of all the
-scryptROMix calls agree (`LeakEq`, from the contract's leakage). The blocks
-address only the stack, from `rsp` (the taint analysis); each call is of
-constant-time code whose public data agree (`RelCT.callEx`): for PBKDF2 its
-pointers and lengths, for scryptROMix also the indices of its block, which
-`LeakEq` gives (`leak_X`); the loop's branch agrees since both runs count
-the same blocks.
+Two runs whose public data agree have the same layout, so between the frame's
+push and pop they are related by `Two`: both satisfy `Ctx` with that layout
+(and `Φ`, what the next piece needs), whatever their secrets, and the indices
+of all the scryptROMix calls agree (`LeakEq`, from the contract's leakage).
+The blocks address only the stack, from `rsp` (the taint analysis); each call
+is of constant-time code whose public data agree (`RelCT.callEx`): for PBKDF2
+its pointers and lengths, for scryptROMix also the indices of its block, which
+`LeakEq` gives (`leak_X`); the loop's branch agrees since both runs count the
+same blocks.
 -/
 
 namespace VG.Proof.Scrypt.X86_64.Whole

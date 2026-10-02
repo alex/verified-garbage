@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlKem.EkCheck
 /-!
 # ML-KEM-768 on 32-bit ARM: `vg_mlkem768_check_ek`
 
-Untrusted: everything here is checked by Lean. The loop counts the 12-bit
-fields that are at least `q` (`badCount`); the key passes the check exactly
-when there are none (`ekCheck768`, `badCount_eq_zero`).
+The loop counts the 12-bit fields that are at least `q` (`badCount`); the key
+passes the check exactly when there are none (`ekCheck768`,
+`badCount_eq_zero`).
 -/
 
 namespace VG.Proof.MlKem.Arm.CheckEk

@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Product
 /-!
 # X448 on AArch64: reducing product coefficients
 
-Untrusted: everything here is checked by Lean. Coefficients 16–31 fold
-into the lower sixteen according to the relation 2⁴⁴⁸ = 2²²⁴ + 1 modulo p.
+Coefficients 16–31 fold into the lower sixteen according to the relation 2⁴⁴⁸ =
+2²²⁴ + 1 modulo p.
 -/
 
 namespace VG.Proof.X448.AArch64

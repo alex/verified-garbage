@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86_64.Mul
 /-!
 # X448 on x86-64: copying field elements
 
-Untrusted: everything here is checked by Lean. Source and destination are
-equal or disjoint; every limb is copied without changing its representation.
+Source and destination are equal or disjoint; every limb is copied without
+changing its representation.
 -/
 
 namespace VG.Proof.X448.X86_64

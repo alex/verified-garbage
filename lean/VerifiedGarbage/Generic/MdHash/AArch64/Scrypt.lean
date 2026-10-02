@@ -7,13 +7,8 @@ import VerifiedGarbage.Proof.Scrypt.AArch64.Whole.Verified
 A generic file (see `TCB/Emit.lean`): `vg_scrypt`, calling the
 `vg_pbkdf2_hmac_sha256` made with the variant's SHA-256 compression function
 (and `vg_scrypt_romix`), is emitted for every SHA-256 variant carried by
-`MdHash.sha256`, named with its suffix (e.g. `vg_scrypt_sha2`), and needs
-its CPU features. Other hash functions emit no scrypt artifact. **Review
-note**: `sig` and `doc` are trusted, as they tie the Rust caller to the
-contract: they are those of the function's `Api` (`Spec/Scrypt/Contract.lean`),
-and this file adds only notes on the implementation. The emitter adds the
-`# Safety` items that depend on the target (`Sig.layoutDoc`), from `stack`
-and `writeArgs`, which `ofSig` checks against the contract.
+`MdHash.sha256`, named with its suffix (e.g. `vg_scrypt_sha2`), and needs its
+CPU features. Other hash functions emit no scrypt artifact.
 
 The stack is 96 bytes: a 16-byte frame saving `x30`, a 64-byte one, and the
 16 bytes the frames of the functions called may use.

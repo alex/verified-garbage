@@ -7,14 +7,14 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Calls
 /-!
 # scrypt on 32-bit ARM: the calls
 
-Untrusted: everything here is checked by Lean. Each call passes its stack
-arguments in a frame of its own: four words for `vg_pbkdf2_hmac_sha256`
-(`frame4_ok`, as `frame2_ok` of PBKDF2's proof, whose callee uses at most 24
-bytes below it), two for `vg_scrypt_romix` (`frame2_ok`). What such a call
-does from `Ctx` and its arguments (`PbkArgs`, `RomixArgs`): it keeps `Ctx`,
-and changes memory only in what it writes and the 40 bytes of stack below
-the stack pointer (`pbk_call`, `romix_call`). `pbk_pre'` and `romix_pre` are
-their preconditions, which the proof of constant time uses too.
+Each call passes its stack arguments in a frame of its own: four words for
+`vg_pbkdf2_hmac_sha256` (`frame4_ok`, as `frame2_ok` of PBKDF2's proof, whose
+callee uses at most 24 bytes below it), two for `vg_scrypt_romix`
+(`frame2_ok`). What such a call does from `Ctx` and its arguments (`PbkArgs`,
+`RomixArgs`): it keeps `Ctx`, and changes memory only in what it writes and
+the 40 bytes of stack below the stack pointer (`pbk_call`, `romix_call`).
+`pbk_pre'` and `romix_pre` are their preconditions, which the proof of
+constant time uses too.
 -/
 
 namespace VG.Proof.Scrypt.Arm.Whole

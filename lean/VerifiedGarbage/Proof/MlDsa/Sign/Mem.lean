@@ -4,10 +4,9 @@ import VerifiedGarbage.Spec.MlDsa.Poly
 /-!
 # ML-DSA: polynomials in memory, for every target
 
-Untrusted: everything here is checked by Lean. The stored polynomials of
-`Spec/MlDsa/Poly.lean` (`coeffAt`, `polyAt`, `natPolyAt`, `hintAt`,
-`Reduced`, `PolyIs`) depend only on the 1024 bytes of the polynomial, so
-they survive writes elsewhere (`…_frame`).
+The stored polynomials of `Spec/MlDsa/Poly.lean` (`coeffAt`, `polyAt`,
+`natPolyAt`, `hintAt`, `Reduced`, `PolyIs`) depend only on the 1024 bytes of
+the polynomial, so they survive writes elsewhere (`…_frame`).
 -/
 
 namespace VG.Proof.MlDsa.Sign

@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.Scrypt.Arm.Whole.Layout
 /-!
 # scrypt on 32-bit ARM: the blocks between the calls
 
-Untrusted: everything here is checked by Lean. The parameters as numbers
-(`Lay.Ok`), the saving of our caller's registers (`save1_ok`, `save2_ok`,
-`save3_ok`), and what each block between the calls does: it keeps `Ctx`,
-and sets up the next call's arguments (`PbkArgs`, `RomixArgs`) or the next
-block; `restore_ok` restores our caller's registers.
+The parameters as numbers (`Lay.Ok`), the saving of our caller's registers
+(`save1_ok`, `save2_ok`, `save3_ok`), and what each block between the calls
+does: it keeps `Ctx`, and sets up the next call's arguments (`PbkArgs`,
+`RomixArgs`) or the next block; `restore_ok` restores our caller's registers.
 -/
 
 namespace VG.Proof.Scrypt.Arm.Whole

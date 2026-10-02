@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlKem1024.X86.EncBase
 /-!
 # ML-KEM-1024 on x86 (32-bit): `ŷ` in K-PKE.Encrypt
 
-Untrusted: everything here is checked by Lean. `SamplePolyCBD₂(PRF₂(r, N))`
-into a polynomial, keeping what a predicate states (`cbd_piece`); `ŷ[N]`
-(`y_piece`), and the start of `encrypt4`: `e4ACC` set to 1 and the four
-`ŷ[N]` (`ys_piece`), which reach `P 4`.
+`SamplePolyCBD₂(PRF₂(r, N))` into a polynomial, keeping what a predicate
+states (`cbd_piece`); `ŷ[N]` (`y_piece`), and the start of `encrypt4`: `e4ACC`
+set to 1 and the four `ŷ[N]` (`ys_piece`), which reach `P 4`.
 -/
 
 namespace VG.Proof.MlKem1024.X86.Enc

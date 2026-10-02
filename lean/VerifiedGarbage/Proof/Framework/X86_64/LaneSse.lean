@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 /-!
 # x86-64: AVX2 blocks as SSE blocks on each lane
 
-Untrusted: everything here is checked by Lean. Most VEX.256 instructions
-act on each 128-bit lane as an SSE instruction does on a register (see
-`VBinOp.sse`). For a block of them (`laneSseBlock`), what it leaves in
-lane `l` of the vector registers is what the corresponding SSE block leaves
-in the SSE registers of `s.proj l`, the state with lane `l` of each vector
-register as its SSE register (`WP.lanes`). A proof about SSE code then
-holds of each lane of the AVX2 code that does the same in both lanes.
+Most VEX.256 instructions act on each 128-bit lane as an SSE instruction does
+on a register (see `VBinOp.sse`). For a block of them (`laneSseBlock`), what
+it leaves in lane `l` of the vector registers is what the corresponding SSE
+block leaves in the SSE registers of `s.proj l`, the state with lane `l` of
+each vector register as its SSE register (`WP.lanes`). A proof about SSE code
+then holds of each lane of the AVX2 code that does the same in both lanes.
 -/
 
 namespace VG.X86_64

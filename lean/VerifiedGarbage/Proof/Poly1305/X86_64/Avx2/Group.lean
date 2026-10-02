@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Powers
 /-!
 # Poly1305 on x86-64 with AVX2: groups of four blocks
 
-Untrusted: everything here is checked by Lean. Each group of four blocks is
-added to the lanes of `H` and multiplied by `r⁴` (Horner's rule in four
-lanes, `Horner.lean`); the last group is multiplied lane by lane by `r⁴`,
-`r³`, `r²` and `r`, after which the sum of the lanes is the accumulator.
+Each group of four blocks is added to the lanes of `H` and multiplied by `r⁴`
+(Horner's rule in four lanes, `Horner.lean`); the last group is multiplied
+lane by lane by `r⁴`, `r³`, `r²` and `r`, after which the sum of the lanes is
+the accumulator.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx2

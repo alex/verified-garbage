@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulBatch
 
-/-! Untrusted: verification preserves input buffers and its saved pointers. -/
+/-! Verification preserves input buffers and its saved pointers. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

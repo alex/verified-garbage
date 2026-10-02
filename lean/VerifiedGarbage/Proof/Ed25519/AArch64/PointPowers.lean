@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.PointPowers
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointTableAddr
 
-/-! Untrusted: constructing bounded tables of exact point doublings. -/
+/-! Constructing bounded tables of exact point doublings. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

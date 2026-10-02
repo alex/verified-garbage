@@ -7,13 +7,12 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Sample4
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, the vector sampling
 
-Untrusted: everything here is checked by Lean. Four iterations of
-`SampleNTT`'s loop, from fewer than 249 coefficients, append the
-candidates less than `q` of their 12 bytes (`sampleAfter_four`). The code
-computes the eight candidates in the doublewords of `ymm0` (`cand_dword`)
-and their mask in `eax` (`vcand_ok`), and stores the doublewords that the
-table's entry for the mask selects (`vput_ok`): those of the candidates
-less than `q`, in order (`setBits_bsum`).
+Four iterations of `SampleNTT`'s loop, from fewer than 249 coefficients,
+append the candidates less than `q` of their 12 bytes (`sampleAfter_four`).
+The code computes the eight candidates in the doublewords of `ymm0`
+(`cand_dword`) and their mask in `eax` (`vcand_ok`), and stores the
+doublewords that the table's entry for the mask selects (`vput_ok`): those of
+the candidates less than `q`, in order (`setBits_bsum`).
 -/
 
 namespace VG.Proof.MlKem

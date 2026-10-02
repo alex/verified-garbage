@@ -10,15 +10,6 @@ import VerifiedGarbage.Proof.Scrypt.Arm.Whole.Verified
 /-!
 # scrypt (RFC 7914): Salsa20/8, scryptBlockMix, scryptROMix and scrypt on 32-bit ARM
 
-A registration file (see `TCB/Emit.lean`): the artifacts it lists are
-emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`. An
-artifact made from a function's `Api` (in `Spec/`, reviewed with the
-contract) takes them from there, and this file adds only notes on the
-implementation. The emitter adds the `# Safety` items that depend on the
-target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract.
-
 `vg_scrypt` calls `vg_pbkdf2_hmac_sha256` (registered in
 `Artifacts/Pbkdf2Sha256/Arm.lean`), the one implementation of PBKDF2-HMAC-SHA256
 on this target, and `vg_scrypt_romix`. Its `stack` is the 40 bytes the frame

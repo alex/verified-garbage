@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyCTPublic
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyCTLit
 
-/-! Untrusted: canonical scalar checking loads through the public signature pointer. -/
+/-! Canonical scalar checking loads through the public signature pointer. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

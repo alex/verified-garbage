@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlKem.AArch64.Sample
 /-!
 # ML-DSA on AArch64: `vg_mldsa_rej_ntt_poly`, constant time and verified
 
-Untrusted: everything here is checked by Lean. Two runs whose seeds and
-pointers agree leak the same (`RejNtt.ct`), piece by piece (`Rel.lean`),
-and the shared contract follows from `rnK` (`rejNTT_verified`).
+Two runs whose seeds and pointers agree leak the same (`RejNtt.ct`), piece by
+piece (`Rel.lean`), and the shared contract follows from `rnK`
+(`rejNTT_verified`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sample

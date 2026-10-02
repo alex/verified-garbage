@@ -9,13 +9,12 @@ import VerifiedGarbage.Impl.Md5.X86_64.Stream
 /-!
 # Streaming MD5 on x86-64: `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/X86_64.lean`), so they are
-verified by the generic proofs (`Proof/MdStream/X86_64/`) for MD5's
-instance (`Proof/Md5/Md.lean`), given what MD5's own pieces do: its length
-field and digest (`shape`), that the taint analysis accepts its code between
-the calls (`taints`), and that its compression function is verified
-(`callee`).
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/X86_64.lean`), so they are verified by the generic proofs
+(`Proof/MdStream/X86_64/`) for MD5's instance (`Proof/Md5/Md.lean`), given
+what MD5's own pieces do: its length field and digest (`shape`), that the
+taint analysis accepts its code between the calls (`taints`), and that its
+compression function is verified (`callee`).
 -/
 
 namespace VG.Proof.Md5.X86_64.Stream

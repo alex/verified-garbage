@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.CallRound
 /-!
 # ML-DSA on AArch64: calls of the encodings
 
-Untrusted: everything here is checked by Lean. For each call of
-`vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_pack`, `vg_mldsa_bit_unpack`,
-`vg_mldsa_unpack_t1` and `vg_mldsa_hint_bit_unpack`: what it needs of the
-layout (`…Chk`), what it does (`…_ok`), and that two runs whose layout
-registers agree (and whose hint agrees) leak the same (`…_tr`).
+For each call of `vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_pack`,
+`vg_mldsa_bit_unpack`, `vg_mldsa_unpack_t1` and `vg_mldsa_hint_bit_unpack`:
+what it needs of the layout (`…Chk`), what it does (`…_ok`), and that two runs
+whose layout registers agree (and whose hint agrees) leak the same (`…_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

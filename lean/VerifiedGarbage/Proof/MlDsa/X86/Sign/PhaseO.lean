@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.Round.Decompose
 /-!
 # ML-DSA signing on x86 (32-bit): the signature
 
-Untrusted: everything here is checked by Lean. Once an iteration passed,
-`sig` is `c̃` (`outCopy_piece`), the `BitPack` of `z` (`packZ_piece`), in
-range by the check of its norm (`inRange_of_norm`), and `HintBitPack(h)`
-(`hpack_piece`), whose 1s are at most `ω` by the check of their number, and
-whose leakage, the hint, two runs whose checks pass agree on (`hint_list`).
+Once an iteration passed, `sig` is `c̃` (`outCopy_piece`), the `BitPack` of
+`z` (`packZ_piece`), in range by the check of its norm (`inRange_of_norm`),
+and `HintBitPack(h)` (`hpack_piece`), whose 1s are at most `ω` by the check of
+their number, and whose leakage, the hint, two runs whose checks pass agree on
+(`hint_list`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

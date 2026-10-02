@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.Verify
 import VerifiedGarbage.Proof.Ed25519.X86_64.DecodeBits
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarStep
 
-/-! Untrusted: reload verification pointers and check the complete unsigned scalar S. -/
+/-! Reload verification pointers and check the complete unsigned scalar S. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

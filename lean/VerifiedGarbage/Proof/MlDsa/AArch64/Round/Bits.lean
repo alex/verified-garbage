@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Round.Power2Round
 
 /-!
 # ML-DSA on AArch64: `vg_mldsa_high_bits` and `vg_mldsa_low_bits`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Round

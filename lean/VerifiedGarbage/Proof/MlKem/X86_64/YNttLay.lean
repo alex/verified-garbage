@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlKem.X86_64.YNtt
 /-!
 # ML-KEM on x86-64: the layers of the NTT and its inverse with `len ≥ 8` on AVX2 registers
 
-Untrusted: everything here is checked by Lean. For any butterfly code `bf`
-that does what `op` does to the words of two SSE registers (`VBflyOk`) and
-whose AVX2 form does it in each lane (`laneSseBlock (toY bf) = some bf`),
-and any block of the specification whose butterflies do `op` (`BlkOk`):
-sixteen butterflies of a block (`ystep`), the `len / 16` of them of a block
-(`yblock_ok`), and the `128 / len` blocks of a layer with `len ≥ 16`
-(`ylay_ok`); and the layer with `len = 8`, two blocks at a time
+For any butterfly code `bf` that does what `op` does to the words of two SSE
+registers (`VBflyOk`) and whose AVX2 form does it in each lane (`laneSseBlock
+(toY bf) = some bf`), and any block of the specification whose butterflies do
+`op` (`BlkOk`): sixteen butterflies of a block (`ystep`), the `len / 16` of
+them of a block (`yblock_ok`), and the `128 / len` blocks of a layer with `len
+≥ 16` (`ylay_ok`); and the layer with `len = 8`, two blocks at a time
 (`ylay8_ok`).
 -/
 

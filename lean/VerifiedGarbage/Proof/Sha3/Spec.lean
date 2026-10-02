@@ -4,8 +4,6 @@ import VerifiedGarbage.Impl.Sha3.Tables
 /-!
 # SHA-3: lemmas about the specification
 
-Untrusted: everything here is checked by Lean.
-
 A round of Keccak-f[1600] lane by lane, in the form the implementations
 compute it (`out`): the column parities `C`, `D`, the lanes `B` of
 `π(ρ(θ(A)))` plane by plane, and χ and ι.
