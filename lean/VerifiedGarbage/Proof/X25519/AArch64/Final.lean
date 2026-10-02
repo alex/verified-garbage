@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.X25519.AArch64.Codec
 /-!
 # X25519 on AArch64: the full reduction and the result
 
-Untrusted: everything here is checked by Lean. `finish`: the product
-`x2 · z2^(p-2)`, loaded into the limb registers, reduced fully (`freeze`),
-packed into four words at `out` (`pack`), and our caller's registers
-restored.
+`finish`: the product `x2 · z2^(p-2)`, loaded into the limb registers, reduced
+fully (`freeze`), packed into four words at `out` (`pack`), and our caller's
+registers restored.
 -/
 
 namespace VG.Proof.X25519.AArch64

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.PointPowers
 
-/-! Untrusted: checkpoint-loop termination and exact table contents. -/
+/-! Checkpoint-loop termination and exact table contents. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

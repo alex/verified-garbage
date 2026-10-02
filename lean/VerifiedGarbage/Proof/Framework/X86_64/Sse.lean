@@ -4,9 +4,8 @@ import VerifiedGarbage.TCB.X86_64.Isa
 /-!
 # x86-64: SSE values as doublewords
 
-Untrusted: everything here is checked by Lean. The SSE instructions of the
-model, stated on the doublewords of their operands (`dword`, `ofDwords`), and
-128-bit loads and stores as four 32-bit words.
+The SSE instructions of the model, stated on the doublewords of their operands
+(`dword`, `ofDwords`), and 128-bit loads and stores as four 32-bit words.
 -/
 
 namespace VG.X86_64

@@ -13,14 +13,13 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.M4Verified
 /-!
 # ML-DSA on x86-64: what the callers of the polynomial arithmetic need of it
 
-Untrusted: everything here is checked by Lean. An `ArithImpl` is an
-implementation of the polynomial arithmetic (`Impl.MlDsa.X86_64.Arith.Backend`)
-with what key generation, signing and verification need of each of its
-functions (`FnOk`): it meets its contract without using the stack, never
-writes `rsp`, calls no deeper than twice, and loads MXCSR only to restore
-it. Each is a variant of the interface `MlDsaArith` on x86-64
-(`Variants/MlDsaArith/X86_64/`), and the functions that call it are proven
-once for all of them (`Generic/MlDsaArith/X86_64/`).
+An `ArithImpl` is an implementation of the polynomial arithmetic
+(`Impl.MlDsa.X86_64.Arith.Backend`) with what key generation, signing and
+verification need of each of its functions (`FnOk`): it meets its contract
+without using the stack, never writes `rsp`, calls no deeper than twice, and
+loads MXCSR only to restore it. Each is a variant of the interface `MlDsaArith`
+on x86-64 (`Variants/MlDsaArith/X86_64/`), and the functions that call it are
+proven once for all of them (`Generic/MlDsaArith/X86_64/`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64

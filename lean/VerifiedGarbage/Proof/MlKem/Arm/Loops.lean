@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlKem.Arm.Calls
 /-!
 # ML-KEM-768 on 32-bit ARM: copying bytes and zeroing a polynomial
 
-Untrusted: everything here is checked by Lean. `copy` copies bytes one at
-a time (`copy_ok`: the destination holds the source's bytes, and nothing
-else changes), and `zeroPoly` stores zero to every coefficient
-(`zeroPoly_ok`).
+`copy` copies bytes one at a time (`copy_ok`: the destination holds the
+source's bytes, and nothing else changes), and `zeroPoly` stores zero to every
+coefficient (`zeroPoly_ok`).
 -/
 
 namespace VG.Proof.MlKem.Arm

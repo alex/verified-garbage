@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.ScalarBaseSetup
 import VerifiedGarbage.Proof.Ed25519.Arm.ScalarBaseEngine
 import VerifiedGarbage.Proof.Ed25519.Arm.ScalarBaseFinish
 
-/-! Untrusted: base-point multiplication, output encoding, and the complete ARM ABI. -/
+/-! Base-point multiplication, output encoding, and the complete ARM ABI. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

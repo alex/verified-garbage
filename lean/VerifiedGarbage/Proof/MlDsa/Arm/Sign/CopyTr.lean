@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlKem.Arm.CallsCT
 /-!
 # ML-DSA signing on ARMv7: copies leak only their addresses
 
-Untrusted: everything here is checked by Lean. The setup of a copy
-accesses no memory, and its loop leaks only the pointers and the count in
-`r0`–`r2` (by the taint analysis), so two runs of a copy between the same
-addresses leak the same (`copy_tr`).
+The setup of a copy accesses no memory, and its loop leaks only the pointers
+and the count in `r0`–`r2` (by the taint analysis), so two runs of a copy
+between the same addresses leak the same (`copy_tr`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

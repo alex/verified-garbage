@@ -6,13 +6,12 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.HmacFin
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: the functions, verified
 
-Untrusted: everything here is checked by Lean. What the kernel checks of a
-hash function's code does not depend on its compression function or its
-streaming `init`, which our functions only call: `core H` is `H` with both
-replaced by empty code, and the facts about every instruction of `H`'s
-functions follow from those about `core H` and about the two callees
-(`core_pbkdf2`, …). `CoreOK` is what the kernel checks of `core H`, once for
-each hash function; `Callees` is what each implementation of the
+What the kernel checks of a hash function's code does not depend on its
+compression function or its streaming `init`, which our functions only call:
+`core H` is `H` with both replaced by empty code, and the facts about every
+instruction of `H`'s functions follow from those about `core H` and about the
+two callees (`core_pbkdf2`, …). `CoreOK` is what the kernel checks of `core
+H`, once for each hash function; `Callees` is what each implementation of the
 compression function brings. From them, HMAC's `init` and `finalize`,
 `iterate` and `pbkdf2` are verified against the shared contracts of
 `Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean`.

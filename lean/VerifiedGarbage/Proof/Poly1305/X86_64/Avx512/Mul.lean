@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.Poly1305.Limbs26
 /-!
 # Poly1305 on x86-64 with AVX-512: the product
 
-Untrusted: everything here is checked by Lean. `mul` multiplies the eight
-quadwords of the accumulator `H` by the low doublewords of `Y`, quadword by
-quadword, and carries: `Limbs26.mul`, with the limbs small enough that
-nothing wraps (as `Avx2.mul` does on four). `mulM` multiplies them by the
-limbs in the state instead, with the products by five times them in place of
-five times the products (`pdM`), which is the same.
+`mul` multiplies the eight quadwords of the accumulator `H` by the low
+doublewords of `Y`, quadword by quadword, and carries: `Limbs26.mul`, with the
+limbs small enough that nothing wraps (as `Avx2.mul` does on four). `mulM`
+multiplies them by the limbs in the state instead, with the products by five
+times them in place of five times the products (`pdM`), which is the same.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx512

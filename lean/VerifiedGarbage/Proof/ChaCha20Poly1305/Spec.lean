@@ -4,8 +4,6 @@ import VerifiedGarbage.Spec.ChaCha20Poly1305
 
 /-!
 # Facts about the ChaCha20-Poly1305 specification
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305

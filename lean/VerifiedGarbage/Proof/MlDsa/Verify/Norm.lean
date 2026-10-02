@@ -5,12 +5,12 @@ import Mathlib.Tactic.SplitIfs
 /-!
 # ML-DSA: the norm of `z` and the range of `UseHint`
 
-Untrusted: everything here is checked by Lean. The coefficients of `z`
-unpacked from a signature are in `(-γ₁, γ₁]` (`bitUnpack_bounds`), so the
-norm of each, as a polynomial of `R_q` (what `vg_mldsa_norm_lt` computes),
-is its norm in `R` (`normZq_ofInt`), and `‖z‖∞ < B` exactly when each
-`‖z[i]‖∞ < B` (`normR_vZ_iff`). `UseHint` gives a coefficient of `w₁` of at
-most `(q - 1)/(2γ₂) - 1` (`useHint_le`), which `SimpleBitPack` needs.
+The coefficients of `z` unpacked from a signature are in `(-γ₁, γ₁]`
+(`bitUnpack_bounds`), so the norm of each, as a polynomial of `R_q` (what
+`vg_mldsa_norm_lt` computes), is its norm in `R` (`normZq_ofInt`), and `‖z‖∞ <
+B` exactly when each `‖z[i]‖∞ < B` (`normR_vZ_iff`). `UseHint` gives a
+coefficient of `w₁` of at most `(q - 1)/(2γ₂) - 1` (`useHint_le`), which
+`SimpleBitPack` needs.
 -/
 
 namespace VG.Proof.MlDsa.Verify

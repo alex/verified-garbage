@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Init
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: `pbkdf2`'s parts
 
-Untrusted: everything here is checked by Lean. The precondition of `pbkdf2`
-(`Pre`), the parts of its `scratch`, what every piece of it keeps (`KR`),
-and the calls of the functions it calls: the hash function's streaming
-functions (`VG.Proof.Hmac.Generic.X86_64.HashOK`), HMAC's `init` and
-`finalize`, and `iterate`, whose proofs it takes as hypotheses.
+The precondition of `pbkdf2` (`Pre`), the parts of its `scratch`, what every
+piece of it keeps (`KR`), and the calls of the functions it calls: the hash
+function's streaming functions (`VG.Proof.Hmac.Generic.X86_64.HashOK`), HMAC's
+`init` and `finalize`, and `iterate`, whose proofs it takes as hypotheses.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64.Pbk

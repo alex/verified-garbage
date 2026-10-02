@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.PackField
 import VerifiedGarbage.Proof.Ed25519.Arm.UnpackField
 import VerifiedGarbage.Proof.Ed25519.Arm.Points
 
-/-! Untrusted: compact point tables in the caller's eight-KiB workspace. -/
+/-! Compact point tables in the caller's eight-KiB workspace. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

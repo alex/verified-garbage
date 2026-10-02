@@ -6,13 +6,13 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_ntt`
 
-Untrusted: everything here is checked by Lean. The registers saved and the
-table of the zetas stored (`setup_ok`); then the three nested loops of
-`nttLayer`, `nttBlock` and `nttBlockN` (`Proof/MlKem/Ntt.lean`), with an
-invariant each (`LInv`, `BInv`, `FInv`) saying which polynomial `f` holds;
-the butterfly is symbolically executed once for any pointers (`bfly_ok`),
-and writes the coefficients `bfly` writes (`polyIs_bfly`); then the
-registers restored. Layer `ℓ` has `len = 128 / 2^ℓ` and `2^ℓ` blocks.
+The registers saved and the table of the zetas stored (`setup_ok`); then the
+three nested loops of `nttLayer`, `nttBlock` and `nttBlockN`
+(`Proof/MlKem/Ntt.lean`), with an invariant each (`LInv`, `BInv`, `FInv`)
+saying which polynomial `f` holds; the butterfly is symbolically executed once
+for any pointers (`bfly_ok`), and writes the coefficients `bfly` writes
+(`polyIs_bfly`); then the registers restored. Layer `ℓ` has `len = 128 / 2^ℓ`
+and `2^ℓ` blocks.
 -/
 
 namespace VG.Proof.MlKem.Arm.Ntt

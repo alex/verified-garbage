@@ -5,11 +5,10 @@ import VerifiedGarbage.Impl.MlDsa.X86.Sample.RejBounded
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_rej_bounded_poly`
 
-Untrusted: everything here is checked by Lean. The body is the SHAKE256
-output of the seed at `scratch + 840` (`sponge_piece`), then a branch on
-the public `η` to its loop, iteration `t` of which starts with the
-coefficients `LA s₀ t = rbFold η [] ((H(ρ, 544)).take t)`
-(`Proof/MlDsa/Sample/RejBounded.lean`) stored at `a`, `edi` after them and
+The body is the SHAKE256 output of the seed at `scratch + 840`
+(`sponge_piece`), then a branch on the public `η` to its loop, iteration `t`
+of which starts with the coefficients `LA s₀ t = rbFold η [] ((H(ρ, 544)).take
+t)` (`Proof/MlDsa/Sample/RejBounded.lean`) stored at `a`, `edi` after them and
 `ecx` counting them (`Loop`); the end returns whether there are 256. A
 half-byte is tried (`try_piece`) as `hbTry` does: its coefficient, computed
 without a branch (`hbVal`), is stored if it is accepted.

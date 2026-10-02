@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PointTable
 
-/-! Untrusted: a public table index is multiplied by the point's 128 bytes. -/
+/-! A public table index is multiplied by the point's 128 bytes. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

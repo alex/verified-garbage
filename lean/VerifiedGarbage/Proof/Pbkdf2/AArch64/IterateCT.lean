@@ -4,15 +4,14 @@ import VerifiedGarbage.Proof.Hmac.Generic.Implies
 /-!
 # PBKDF2-HMAC's iteration over a Merkle–Damgård hash function on AArch64: constant time
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/X86_64/IterateCT.lean`): this holds for any compression
-function (`CompOk`), so it is proven once for every implementation. The
-taint analysis cannot prove it without looking into the compression
-function, so we relate two runs (`RelCT`): at every point, correctness
-determines our registers from the public arguments alone, so they agree;
-between the calls, the taint analysis proves each block constant time from
-that (`Checks`, evaluated for each hash function, since the code depends on
-its sizes); and the calls are constant time by the compression function's
+As on x86-64 (`Proof/Pbkdf2/X86_64/IterateCT.lean`): this holds for any
+compression function (`CompOk`), so it is proven once for every
+implementation. The taint analysis cannot prove it without looking into the
+compression function, so we relate two runs (`RelCT`): at every point,
+correctness determines our registers from the public arguments alone, so they
+agree; between the calls, the taint analysis proves each block constant time
+from that (`Checks`, evaluated for each hash function, since the code depends
+on its sizes); and the calls are constant time by the compression function's
 own proof (`compressAt_rel`).
 -/
 

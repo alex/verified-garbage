@@ -7,10 +7,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Rel
 /-!
 # ML-DSA on x86-64: `vg_mldsa_hint_bit_pack`
 
-Untrusted: everything here is checked by Lean. The code follows the fold
-form of `HintBitPack` (`Pack/Hint.lean`) step by step: the bytes of `y` are
-the array of the spec, and `rax` its index, which stays below `ω` because
-it counts the 1s before the current coefficient (`hpIdx_lt`).
+The code follows the fold form of `HintBitPack` (`Pack/Hint.lean`) step by
+step: the bytes of `y` are the array of the spec, and `rax` its index, which
+stays below `ω` because it counts the 1s before the current coefficient
+(`hpIdx_lt`).
 
 Constant time but for the hint: once `y` is zeroed, the two runs agree on
 all the memory the function may access (the hint, which the contract lets it

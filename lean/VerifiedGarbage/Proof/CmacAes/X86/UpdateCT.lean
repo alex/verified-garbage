@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Framework.X86.ArgTaint
 /-!
 # AES-CMAC on x86: `vg_cmac_aes_update` is constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis does not
-analyse frames, so two runs from states that agree on the public arguments
-are related piece by piece (`RelCT`): the taint analysis covers the code
-between the calls, from `esp`, the stack arguments (which nothing writes,
-`argTaint`) and `esi` (the next block, which the correctness proof pins to
-the public arguments), and each call of `vg_aes_ctr32`, in its frame, is
-constant time by its own proof (`ctr_rel`).
+The taint analysis does not analyse frames, so two runs from states that agree
+on the public arguments are related piece by piece (`RelCT`): the taint
+analysis covers the code between the calls, from `esp`, the stack arguments
+(which nothing writes, `argTaint`) and `esi` (the next block, which the
+correctness proof pins to the public arguments), and each call of
+`vg_aes_ctr32`, in its frame, is constant time by its own proof (`ctr_rel`).
 -/
 
 namespace VG.Proof.CmacAes.X86

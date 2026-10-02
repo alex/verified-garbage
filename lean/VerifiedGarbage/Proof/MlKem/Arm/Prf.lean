@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlKem.Arm.Loops
 /-!
 # ML-KEM-768 on 32-bit ARM: sampling with `PRF` and `SamplePolyCBD`
 
-Untrusted: everything here is checked by Lean. `prfLoop withNtt N₀ N₁`
-writes `SamplePolyCBD₂(PRF₂(σ, N))` (its NTT if `withNtt`) to polynomial
-`3 + N` for `N₀ ≤ N < N₁` (`prfLoop_ok`), with `σ` at offset 920 of
-`scratch`, and changes only the regions of `prfW`.
+`prfLoop withNtt N₀ N₁` writes `SamplePolyCBD₂(PRF₂(σ, N))` (its NTT if
+`withNtt`) to polynomial `3 + N` for `N₀ ≤ N < N₁` (`prfLoop_ok`), with `σ` at
+offset 920 of `scratch`, and changes only the regions of `prfW`.
 -/
 
 namespace VG.Proof.MlKem.Arm

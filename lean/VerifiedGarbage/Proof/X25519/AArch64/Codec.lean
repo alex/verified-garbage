@@ -4,9 +4,8 @@ import VerifiedGarbage.Impl.X25519.AArch64
 /-!
 # X25519 on AArch64: decoding and encoding, as numbers
 
-Untrusted: everything here is checked by Lean. The u-coordinate's four
-64-bit words cut into fifteen 17-bit limbs (the top bit left out), and the
-full reduction and packing of the result.
+The u-coordinate's four 64-bit words cut into fifteen 17-bit limbs (the top
+bit left out), and the full reduction and packing of the result.
 -/
 
 namespace VG.Proof.X25519.AArch64

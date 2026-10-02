@@ -7,11 +7,11 @@ import Mathlib.Tactic.Module
 /-!
 # The comb's loop
 
-Untrusted. After step `c`, the accumulator represents `[v]B` for the partial
-sum `v = combVal S c`: `G` and the odd digits `d_{2j+1} 256^j` for `j < c`
-while `c ≤ 32`, then sixteen times all of those, `G` again, and the even
-digits `d_{2j} 256^j` for `j < c - 32`, with the digits `d_i = n_i - 8`. At
-`c = 64` that is the scalar (`comb_sum`), since `G = 8 Σ_{j < 32} 256^j`.
+After step `c`, the accumulator represents `[v]B` for the partial sum `v =
+combVal S c`: `G` and the odd digits `d_{2j+1} 256^j` for `j < c` while `c ≤
+32`, then sixteen times all of those, `G` again, and the even digits `d_{2j}
+256^j` for `j < c - 32`, with the digits `d_i = n_i - 8`. At `c = 64` that is
+the scalar (`comb_sum`), since `G = 8 Σ_{j < 32} 256^j`.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

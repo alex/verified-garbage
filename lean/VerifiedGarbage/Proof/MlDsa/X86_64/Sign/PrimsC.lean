@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.Prims
 /-!
 # ML-DSA signing on x86-64: calls of rounding, norms, hints and packing
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_high_bits`, `vg_mldsa_low_bits`, `vg_mldsa_norm_lt`,
-`vg_mldsa_make_hint`, `vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_pack`,
-`vg_mldsa_bit_unpack` and `vg_mldsa_hint_bit_pack`.
+As `Prims.lean`, for `vg_mldsa_high_bits`, `vg_mldsa_low_bits`,
+`vg_mldsa_norm_lt`, `vg_mldsa_make_hint`, `vg_mldsa_simple_bit_pack`,
+`vg_mldsa_bit_pack`, `vg_mldsa_bit_unpack` and `vg_mldsa_hint_bit_pack`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

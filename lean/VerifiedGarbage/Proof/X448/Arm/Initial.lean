@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.X448.Arm.Fill
 /-!
 # X448 on ARMv7: initial field values
 
-Untrusted: everything here is checked by Lean. Every slot starts with
-bounded limbs. The decoded coordinates are retained, and the ladder starts
-with X2 = 1, Z2 = 0, Z3 = 1, and a zero swap bit.
+Every slot starts with bounded limbs. The decoded coordinates are retained,
+and the ladder starts with X2 = 1, Z2 = 0, Z3 = 1, and a zero swap bit.
 -/
 
 namespace VG.Proof.X448.Arm

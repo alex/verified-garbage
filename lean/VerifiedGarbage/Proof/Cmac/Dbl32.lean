@@ -6,10 +6,10 @@ import VerifiedGarbage.Proof.Gcm.Bits
 /-!
 # CMAC: doubling a block in four 32-bit words
 
-Untrusted: everything here is checked by Lean. The 32-bit targets load a
-block as four byte-reversed words (`byteRev32`), the block as a big-endian
-128-bit integer `b₀ ++ b₁ ++ b₂ ++ b₃` (`ofBytes_rev4`), double it a word at a
-time (`dbl_words4`), and store the words byte-reversed again (`le4_rev4`).
+The 32-bit targets load a block as four byte-reversed words (`byteRev32`), the
+block as a big-endian 128-bit integer `b₀ ++ b₁ ++ b₂ ++ b₃` (`ofBytes_rev4`),
+double it a word at a time (`dbl_words4`), and store the words byte-reversed
+again (`le4_rev4`).
 -/
 
 namespace VG.Proof.Cmac

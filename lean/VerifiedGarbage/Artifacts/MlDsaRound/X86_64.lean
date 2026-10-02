@@ -7,17 +7,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Round.MakeHint
 import VerifiedGarbage.Proof.MlDsa.X86_64.Round.YBits
 import VerifiedGarbage.Proof.MlDsa.X86_64.Round.YHint
 
-/-!
-# ML-DSA (FIPS 204) on x86-64: rounding and hints
-
-A registration file (see `TCB/Emit.lean`): the artifacts it lists are
-emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`. An
-artifact made from a function's `Api` (in `Spec/`, reviewed with the
-contract) takes them from there. The emitter adds the `# Safety` items that
-depend on the target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which
-`ofSig` checks against the contract.
--/
+/-! # ML-DSA (FIPS 204) on x86-64: rounding and hints -/
 
 namespace VG.Artifacts.MlDsaRound.X86_64
 

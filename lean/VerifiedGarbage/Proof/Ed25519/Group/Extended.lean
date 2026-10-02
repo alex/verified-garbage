@@ -5,11 +5,11 @@ import Mathlib.Algebra.Group.Basic
 /-!
 # The specification's extended coordinates represent points of the group
 
-Untrusted. `Rep p a`: the extended point `p` of the specification (with
-coordinates in `Fe`) represents the affine point `a`: `Z ≠ 0`, `X = xZ`,
-`Y = yZ` and `T = xyZ`. The specification's addition, scalar multiplication,
-encoding and comparison only depend on the points represented, which is what
-lets an implementation compute other representatives of the same points.
+`Rep p a`: the extended point `p` of the specification (with coordinates in
+`Fe`) represents the affine point `a`: `Z ≠ 0`, `X = xZ`, `Y = yZ` and `T =
+xyZ`. The specification's addition, scalar multiplication, encoding and
+comparison only depend on the points represented, which is what lets an
+implementation compute other representatives of the same points.
 -/
 
 namespace VG.Proof.Ed25519

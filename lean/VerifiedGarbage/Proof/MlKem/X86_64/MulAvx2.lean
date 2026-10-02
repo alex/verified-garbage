@@ -5,13 +5,12 @@ import VerifiedGarbage.Impl.MlKem.X86_64.MulAvx2
 /-!
 # ML-KEM on x86-64: `vg_mlkem_multiply_ntts_avx2`
 
-Untrusted: everything here is checked by Lean. Each iteration of the loop
-loads 32 coefficients of `f` and of `g` (`yload4_ok`) and, in each lane,
-does what an iteration of `vg_mlkem_multiply_ntts` does (`Mul.lean`): the
-SSE2 code's `deint`, `vbase` and `vinter`, whose proofs hold of each lane
-(`ylanes`), on the pairs of coefficients `32i + 8t + 4l + (0 … 3)`, `t <
-4`, of lane `l` (`MulY.step`); the stores put each product in its place
-(`ystore4`).
+Each iteration of the loop loads 32 coefficients of `f` and of `g`
+(`yload4_ok`) and, in each lane, does what an iteration of
+`vg_mlkem_multiply_ntts` does (`Mul.lean`): the SSE2 code's `deint`, `vbase`
+and `vinter`, whose proofs hold of each lane (`ylanes`), on the pairs of
+coefficients `32i + 8t + 4l + (0 … 3)`, `t < 4`, of lane `l` (`MulY.step`);
+the stores put each product in its place (`ystore4`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.PhaseC
 /-!
 # ML-DSA signing on x86-64: the commitment leaks only the pointers
 
-Untrusted: everything here is checked by Lean. Each piece of the
-commitment leaks only its pointers, given that its inputs are reduced (and
-the coefficients of `HighBits(w[i])` bounded): `maskR_trL`, `rowW_trL`,
-`w1R_trL`; so two runs agree on what the commitment leaks (`commit_tr`).
+Each piece of the commitment leaks only its pointers, given that its inputs
+are reduced (and the coefficients of `HighBits(w[i])` bounded): `maskR_trL`,
+`rowW_trL`, `w1R_trL`; so two runs agree on what the commitment leaks
+(`commit_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

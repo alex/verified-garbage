@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.MulAddCodec
 
-/-! Untrusted: save the caller's registers and prepare the scalar operands. -/
+/-! Save the caller's registers and prepare the scalar operands. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

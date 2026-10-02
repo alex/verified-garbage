@@ -4,13 +4,11 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Upd
 /-!
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: the prologue and the key
 
-Untrusted: everything here is checked by Lean. As on x86
-(`Proof/Pbkdf2/Whole/X86/Key.lean`): the prologue saves our caller's
-registers in `scratch` (`save_ok`, `VG.Proof.Hmac.Generic.Arm.save_ok` for
-any amount of working space before the save area that an immediate offset
-reaches) and keeps the arguments in registers; then the key is the
-password, or its digest if it is longer than a block (`key_ok`): either
-gives the same `K₀`.
+As on x86 (`Proof/Pbkdf2/Whole/X86/Key.lean`): the prologue saves our caller's
+registers in `scratch` (`save_ok`, `VG.Proof.Hmac.Generic.Arm.save_ok` for any
+amount of working space before the save area that an immediate offset reaches)
+and keeps the arguments in registers; then the key is the password, or its
+digest if it is longer than a block (`key_ok`): either gives the same `K₀`.
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.Arm

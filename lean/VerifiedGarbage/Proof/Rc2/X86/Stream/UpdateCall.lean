@@ -6,9 +6,8 @@ import VerifiedGarbage.Proof.Framework.X86.CallWith
 /-!
 # Streaming RC2-CBC on x86 (32-bit): the call of the CBC function
 
-Untrusted: everything here is checked by Lean. The call of the verified CBC
-function on the blocks at `out` (`cbcCall_ok`), from the state before it
-(`Mid`), in a frame of its arguments.
+The call of the verified CBC function on the blocks at `out` (`cbcCall_ok`),
+from the state before it (`Mid`), in a frame of its arguments.
 -/
 
 namespace VG.Proof.Rc2.X86.Stream.Update

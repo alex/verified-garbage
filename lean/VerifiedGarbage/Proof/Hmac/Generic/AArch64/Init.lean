@@ -7,12 +7,11 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function on AArch64: the byte loops
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Hmac/Generic/X86_64/Init.lean`, with the lemmas on byte lists and
-memory of `Proof/Hmac/Generic/Common.lean`): the byte copy (`copy`), used for
-states, digests and `U`; the exclusive-or of `U` into `T`; and `init`'s loops that write
-`K₀ ⊕ ipad` and `K₀ ⊕ opad`. Each counts `x24` up from 0, and computes the
-bytes left into `x11`, on which it branches.
+As on x86-64 (`Proof/Hmac/Generic/X86_64/Init.lean`, with the lemmas on byte
+lists and memory of `Proof/Hmac/Generic/Common.lean`): the byte copy (`copy`),
+used for states, digests and `U`; the exclusive-or of `U` into `T`; and `init`'s
+loops that write `K₀ ⊕ ipad` and `K₀ ⊕ opad`. Each counts `x24` up from 0, and
+computes the bytes left into `x11`, on which it branches.
 -/
 
 namespace VG.Proof.Hmac.Generic.AArch64
@@ -429,11 +428,10 @@ end VG.Proof.Hmac.Generic.AArch64
 /-!
 # HMAC over any streaming hash function on AArch64: our caller's registers
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Hmac/Generic/X86_64/Init.lean`): the six callee-saved registers we
-use, and our return address `x30`, are stored in `scratch` after the working
-space of the functions we call (`Hash.saved`), and loaded back at the end,
-`x23` (which holds `scratch`) last.
+As on x86-64 (`Proof/Hmac/Generic/X86_64/Init.lean`): the six callee-saved
+registers we use, and our return address `x30`, are stored in `scratch` after
+the working space of the functions we call (`Hash.saved`), and loaded back at
+the end, `x23` (which holds `scratch`) last.
 -/
 
 namespace VG.Proof.Hmac.Generic.AArch64
@@ -628,11 +626,10 @@ end VG.Proof.Hmac.Generic.AArch64
 /-!
 # HMAC over any streaming hash function on AArch64: `init`, correct
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Hmac/Generic/X86_64/Init.lean`). The return address is in `x30`,
-which each call replaces: it is saved in `scratch` with our caller's
-registers, and loaded back at the end. The other callee-saved registers
-we do not use (`x25`–`x28`) are kept by the calls, and never written.
+As on x86-64 (`Proof/Hmac/Generic/X86_64/Init.lean`). The return address is in
+`x30`, which each call replaces: it is saved in `scratch` with our caller's
+registers, and loaded back at the end. The other callee-saved registers we do
+not use (`x25`–`x28`) are kept by the calls, and never written.
 -/
 
 namespace VG.Proof.Hmac.Generic.AArch64.Init

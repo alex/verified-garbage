@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.Seeds
 /-!
 # ML-DSA key generation on x86 (32-bit): the samplers
 
-Untrusted: everything here is checked by Lean. Each entry of `Â` (`expA_piece`)
-and of `s₁ ‖ s₂` (`expS_piece`): its seed set, the sampler called, its result
-ANDed into `oACC` and the polynomial masked with it (`maskA`), which keeps
-`KSamp` for one more entry.
+Each entry of `Â` (`expA_piece`) and of `s₁ ‖ s₂` (`expS_piece`): its seed
+set, the sampler called, its result ANDed into `oACC` and the polynomial
+masked with it (`maskA`), which keeps `KSamp` for one more entry.
 -/
 
 namespace VG.Proof.MlDsa.X86.KeyGen

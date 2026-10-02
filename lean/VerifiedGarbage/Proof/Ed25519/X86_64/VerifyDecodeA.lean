@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyDecodeR
 
-/-! Untrusted: reject an invalid public key encoding before computing the equation. -/
+/-! Reject an invalid public key encoding before computing the equation. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

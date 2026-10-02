@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_high_bits` and `vg_mldsa_low_bits`
 
-Untrusted: everything here is checked by Lean. `γ₂` selects one of two
-loops (`bits_ok`); each loop body is symbolically executed once for each
-value of `γ₂` (`hbBody_ok`, `lbBody_ok`), and its values are those of
-`HighBits` and `LowBits` (`bhb_highBits`, `blb_lowBits`).
+`γ₂` selects one of two loops (`bits_ok`); each loop body is symbolically
+executed once for each value of `γ₂` (`hbBody_ok`, `lbBody_ok`), and its
+values are those of `HighBits` and `LowBits` (`bhb_highBits`, `blb_lowBits`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Round.Bits

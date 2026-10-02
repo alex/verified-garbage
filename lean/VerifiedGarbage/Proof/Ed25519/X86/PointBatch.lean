@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86.PointBatch
 import VerifiedGarbage.Proof.Ed25519.X86.PointPowersLoop
 import VerifiedGarbage.Proof.Ed25519.X86.PrepareAdd
 
-/-! Untrusted: each batch contains sixteen consecutive exact powers. -/
+/-! Each batch contains sixteen consecutive exact powers. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

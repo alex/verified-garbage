@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlKem.Arm.CmpSel
 /-!
 # ML-KEM-1024 on 32-bit ARM: comparing `c` with `c'`
 
-Untrusted: everything here is checked by Lean. `compare_ok` of
-`Proof/MlKem/Arm/CmpSel.lean` for the 1568 bytes of an ML-KEM-1024
-ciphertext (`compare4`); the mask and the selection of the key are those of
-ML-KEM-768.
+`compare_ok` of `Proof/MlKem/Arm/CmpSel.lean` for the 1568 bytes of an
+ML-KEM-1024 ciphertext (`compare4`); the mask and the selection of the key are
+those of ML-KEM-768.
 -/
 
 namespace VG.Proof.MlKem1024.Arm

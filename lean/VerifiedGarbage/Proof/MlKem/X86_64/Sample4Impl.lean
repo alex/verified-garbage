@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Prfs
 /-!
 # Implementations of `vg_mlkem_sample_ntt4` on x86-64
 
-Untrusted: everything here is checked by Lean.
-
 A `Sample4Impl` is what a function that calls `vg_mlkem_sample_ntt4` needs
 of it, so that its proof holds for every implementation: each is a variant
 of the interface `MlKemSample4` on x86-64 (`Variants/MlKemSample4/X86_64/`),

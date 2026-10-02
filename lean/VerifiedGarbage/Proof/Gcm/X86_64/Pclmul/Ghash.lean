@@ -24,11 +24,11 @@ section
 /-!
 # GHASH with PCLMULQDQ: the arithmetic
 
-Untrusted: everything here is checked by Lean. What the instructions of
-`Impl.Gcm.X86_64.Pclmul` compute, in the ring `Q` of `Proof/Gcm/Poly.lean`:
+What the instructions of `Impl.Gcm.X86_64.Pclmul` compute, in the ring `Q` of
+`Proof/Gcm/Poly.lean`:
 
 * `pclmulqdq` multiplies polynomials (`gp_clmul`), so the four of `acc`
-  compute `x · a · b` as a 256-bit value (`Prod.val_prod`);
+  compute `x · a · b` as a 256-bit value (`Prod.val_acc`);
 * `reduce` maps a 256-bit value to a block of the same class
   (`φ_reduce`);
 * `hInv` computes `H · x⁻¹` (`x_φ_hInv`).
@@ -324,9 +324,8 @@ end
 /-!
 # GHASH with PCLMULQDQ: the instruction groups
 
-Untrusted: everything here is checked by Lean. What each group of
-instructions of `Impl.Gcm.X86_64.Pclmul` does to the state, each proved by
-one symbolic execution for any registers it is used with.
+What each group of instructions of `Impl.Gcm.X86_64.Pclmul` does to the state,
+each proved by one symbolic execution for any registers it is used with.
 -/
 
 namespace VG.Proof.Gcm.X86_64.Pclmul
@@ -486,8 +485,7 @@ section
 /-!
 # GHASH with PCLMULQDQ: the whole function
 
-Untrusted: everything here is checked by Lean. `ghash_verified` proves
-`Impl.Gcm.X86_64.Pclmul.ghash` against `ghashX86_64`.
+`ghash_verified` proves `Impl.Gcm.X86_64.Pclmul.ghash` against `ghashX86_64`.
 
 The registers `xmm3`–`xmm6` hold `Tₖ` with `x · Tₖ = Hᵏ` (`k = 1 … 4`), so
 that `mul(a, Tₖ) = a · Hᵏ`, and `xmm2` holds `Y` after `i` blocks, as a
@@ -501,12 +499,10 @@ namespace VG.Proof.Gcm.X86_64.Pclmul
 open Spec.Gcm
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for
-`vg_ghash_pclmul(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32])`:
-replaces the block `Y` at `y` with `GHASH_H` continued from `Y` over the `n`
-blocks at `data`, where `H` is the block at `h`.
+/-- X86-64 contract for `vg_ghash_pclmul(h: *const [u8; 16], y: *mut [u8; 16],
+data: *const [u8; 16], n: usize, scratch: *mut [u64; 32])`: replaces the block
+`Y` at `y` with `GHASH_H` continued from `Y` over the `n` blocks at `data`,
+where `H` is the block at `h`.
 
 The code may read `h` (16 bytes) and `data` (`16 * n` bytes), and read and
 write `y` (16 bytes) and `scratch` (256 bytes). `y` and `scratch` may not

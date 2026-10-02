@@ -3,13 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sample.BallLoop
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_sample_in_ball`
 
-Untrusted: everything here is checked by Lean. The SHAKE256 output, `c`
-zeroed, the setup and the loop (`Ball.lean`, `BallLoop.lean`) leave the
-state of `SampleInBall`'s loop over the 264 bytes after the sign bits
-(`ballFold`) at `c` and `i` in `edi`; the function returns `i >> 8`, and
-`sampleInBall_some` and `sampleInBall_none` (`Proof/MlDsa/Sample/Ball.lean`)
-give the contract. Two runs with the same pointers and `c̃` leak the same
-(`QPub`): the contract lets the function leak `c̃`.
+The SHAKE256 output, `c` zeroed, the setup and the loop (`Ball.lean`,
+`BallLoop.lean`) leave the state of `SampleInBall`'s loop over the 264 bytes
+after the sign bits (`ballFold`) at `c` and `i` in `edi`; the function returns
+`i >> 8`, and `sampleInBall_some` and `sampleInBall_none`
+(`Proof/MlDsa/Sample/Ball.lean`) give the contract. Two runs with the same
+pointers and `c̃` leak the same (`QPub`): the contract lets the function leak
+`c̃`.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sample.Ball

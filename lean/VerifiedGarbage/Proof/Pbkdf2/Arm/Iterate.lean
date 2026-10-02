@@ -12,12 +12,12 @@ import VerifiedGarbage.Proof.Pbkdf2.Arm.Lit
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on ARMv7: the parts of a step
 
-Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 and AArch64 proofs (`Proof/Pbkdf2/X86_64/Iterate.lean`,
-`VG.Proof.Pbkdf2.AArch64`), with the same target-independent memory lemmas
-(`VG.Proof.Pbkdf2.Memory`). Each step is two calls of `vg_sha256_compress`, used as a black box
-through its proof (`compressAt_ok`, from the streaming SHA-256 proof). The
-hash value being compressed is `t`, and `T` is kept in `scratch[160..192)`.
+The same structure as the x86-64 and AArch64 proofs
+(`Proof/Pbkdf2/X86_64/Iterate.lean`, `VG.Proof.Pbkdf2.AArch64`), with the same
+target-independent memory lemmas (`VG.Proof.Pbkdf2.Memory`). Each step is two
+calls of `vg_sha256_compress`, used as a black box through its proof
+(`compressAt_ok`, from the streaming SHA-256 proof). The hash value being
+compressed is `t`, and `T` is kept in `scratch[160..192)`.
 -/
 
 namespace VG.Proof.Pbkdf2
@@ -26,14 +26,12 @@ open Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
 open Spec.Sha256 (Repr bytesAt)
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for
-`vg_pbkdf2_hmac_sha256_iterate(key: *const [u8; 192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 48])`:
-if, for a 64-byte key `K₀`, the streaming state at `key` represents
-`K₀ ⊕ ipad` and the one at `key + 96` represents `K₀ ⊕ opad`, runs `n` steps
-`U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` from the `U` at `u` and the `T` at
-`t`, leaving the final `T` at `t`.
+/-- 32-bit ARM contract for `vg_pbkdf2_hmac_sha256_iterate(key: *const [u8;
+192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 48])`:
+if, for a 64-byte key `K₀`, the streaming state at `key` represents `K₀ ⊕ ipad`
+and the one at `key + 96` represents `K₀ ⊕ opad`, runs `n` steps `U ←
+HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` from the `U` at `u` and the `T` at `t`,
+leaving the final `T` at `t`.
 
 Under AAPCS, `key`, `u`, `n` and `t` are in `r0`–`r3`, and `scratch` is the
 stack argument 0. The code may read that argument (4 bytes at `sp`), `key`
@@ -492,8 +490,8 @@ end VG.Proof.Pbkdf2.Arm
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on ARMv7: the loop
 
-Untrusted: everything here is checked by Lean. One step is HMAC-SHA-256 of
-`U` as two compressions (`VG.Proof.Pbkdf2.hmac_step`), then `T ← T ⊕ U`.
+One step is HMAC-SHA-256 of `U` as two compressions
+(`VG.Proof.Pbkdf2.hmac_step`), then `T ← T ⊕ U`.
 -/
 
 namespace VG.Proof.Pbkdf2.Arm
@@ -690,11 +688,11 @@ end VG.Proof.Pbkdf2.Arm
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on ARMv7
 
-Untrusted: everything here is checked by Lean. The prologue, the epilogue,
-and `Verified`. Constant time is proven by the taint analysis: `t` (in `r0`
-around the calls) and the scratch space (in `r3`) are the bases of the two
-writable regions, so the registers `vg_sha256_compress` saves in its scratch
-space and restores are known to keep their public values.
+The prologue, the epilogue, and `Verified`. Constant time is proven by the
+taint analysis: `t` (in `r0` around the calls) and the scratch space (in `r3`)
+are the bases of the two writable regions, so the registers
+`vg_sha256_compress` saves in its scratch space and restores are known to keep
+their public values.
 -/
 
 namespace VG.Proof.Pbkdf2.Arm

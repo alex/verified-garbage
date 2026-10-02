@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Inv
 /-!
 # ML-DSA key generation on AArch64: the prologue and the seeds
 
-Untrusted: everything here is checked by Lean. The prologue saves the
-caller's registers and keeps the pointers (`pro_piece`); then
-`(ρ, ρ′, K) = H(ξ ‖ k ‖ ℓ, 128)` to `HX`, `ρ` to the seed of `RejNTTPoly` and
-`ρ′ ‖ 0` to that of `RejBoundedPoly` (`seeds_piece`, `K1`).
+The prologue saves the caller's registers and keeps the pointers
+(`pro_piece`); then `(ρ, ρ′, K) = H(ξ ‖ k ‖ ℓ, 128)` to `HX`, `ρ` to the seed
+of `RejNTTPoly` and `ρ′ ‖ 0` to that of `RejBoundedPoly` (`seeds_piece`,
+`K1`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

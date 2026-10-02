@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Env
 /-!
 # X25519 on x86-64: multiplication with BMI2 and ADX
 
-Untrusted: everything here is checked by Lean. The rows of a product
-(`rowX0`, and `rowX` for any five registers), the reduction (`reduceX`), and
-the multiplication `mulX o a b`, as `mul_ok` states `mul`.
+The rows of a product (`rowX0`, and `rowX` for any five registers), the
+reduction (`reduceX`), and the multiplication `mulX o a b`, as `mul_ok` states
+`mul`.
 -/
 
 namespace VG.Proof.X25519.X86_64

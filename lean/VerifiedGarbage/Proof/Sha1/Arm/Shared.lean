@@ -7,10 +7,9 @@ import VerifiedGarbage.Spec.Sha1.Contract
 /-!
 # Sha1 on Arm: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha1/Arm/Compress.lean`); these theorems move
-them to the shared contracts of `Spec/Sha1/Contract.lean`, which the
-artifacts are emitted with.
+The proofs are written against per-target contracts
+(`Proof/Sha1/Arm/Compress.lean`); these theorems move them to the shared
+contracts of `Spec/Sha1/Contract.lean`, which the artifacts are emitted with.
 -/
 
 namespace VG.Proof.Sha1.Arm.Shared

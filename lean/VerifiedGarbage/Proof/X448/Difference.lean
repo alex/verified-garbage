@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.Limbs
 /-!
 # X448: nonnegative limb subtraction
 
-Untrusted: everything here is checked by Lean. Adding twice the field
-prime permits every limb subtraction to be performed without borrowing.
+Adding twice the field prime permits every limb subtraction to be performed
+without borrowing.
 -/
 
 namespace VG.Proof.X448

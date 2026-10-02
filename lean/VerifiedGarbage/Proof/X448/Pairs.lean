@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Limbs
 /-!
 # X448: seven-byte chunks and limb pairs
 
-Untrusted: everything here is checked by Lean. A seven-byte chunk contains
-exactly two 28-bit limbs. Reading eight chunks uses all 56 input bytes.
+A seven-byte chunk contains exactly two 28-bit limbs. Reading eight chunks
+uses all 56 input bytes.
 -/
 
 namespace VG.Proof.X448

@@ -14,10 +14,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Pack.HintUnpackCT
 /-!
 # ML-DSA verification on 32-bit ARM, with this library's primitives
 
-Untrusted: everything here is checked by Lean. The ARM implementations of
-the primitives (`prims`) are verified with at most 28 bytes of stack, and
-their frames use no more (`prims_ok`), so verification with them is
-verified with 36 (`verify44_verified`, …).
+The ARM implementations of the primitives (`prims`) are verified with at most
+28 bytes of stack, and their frames use no more (`prims_ok`), so verification
+with them is verified with 36 (`verify44_verified`, …).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

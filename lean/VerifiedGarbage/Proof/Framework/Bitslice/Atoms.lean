@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Table
 /-!
 # Words of atoms, for checking linear layers
 
-Untrusted: everything here is checked by Lean.
-
 The lane domain (`Bitslice.lanes`) evaluates straight-line code that only
 moves and XORs bits of 64-bit words, and masks them with constants, on
 input words given as atoms: bit `t` of input word `i` is atom `64 i + t`

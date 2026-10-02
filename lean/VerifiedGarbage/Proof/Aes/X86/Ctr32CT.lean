@@ -6,8 +6,6 @@ import VerifiedGarbage.Spec.Gcm
 /-!
 # AES counter mode on x86 (32-bit): the contract, and constant time
 
-Untrusted: everything here is checked by Lean.
-
 The contract the proof is written against, and the constant-time half of
 the proof: the taint analysis (`VG.X86.Taint`) starts with `esp` public
 and knows where the arguments are and which of them are the base addresses
@@ -22,13 +20,11 @@ namespace VG.Proof.Aes
 open Spec.Gcm
 
 open _root_.VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86 (32-bit) contract for
-`vg_aes_ctr32(schedule: *const [u8; 240], rounds: usize, counter: *mut [u8; 16], data: *mut [u8; 16], n: usize, scratch: *mut [u64; 256])`,
-whose arguments are on the stack: XORs the AES counter-mode keystream from
-the counter block at `counter` into the `n` blocks at `data`, and advances
-the counter block by `n`.
+/-- X86 (32-bit) contract for `vg_aes_ctr32(schedule: *const [u8; 240], rounds:
+usize, counter: *mut [u8; 16], data: *mut [u8; 16], n: usize, scratch: *mut
+[u64; 256])`, whose arguments are on the stack: XORs the AES counter-mode
+keystream from the counter block at `counter` into the `n` blocks at `data`, and
+advances the counter block by `n`.
 
 The code may read `schedule` (240 bytes) and the arguments (24 bytes above
 the return address), and read and write `counter` (16 bytes), `data`

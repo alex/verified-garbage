@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Calls of code with frames (ARMv7)
 
-Untrusted: everything here is checked by Lean. `WP.call` and
-`WP.callCalls` (`Proof/Framework/Arm/`) are for callees without frames. A
-callee with frames also stores below the stack pointer: at most
+`WP.call` and `WP.callCalls` (`Proof/Framework/Arm/`) are for callees without
+frames. A callee with frames also stores below the stack pointer: at most
 `stackUse c` bytes (the frames' pushes, nested), so it changes memory only
 within the regions it may write and those bytes (`Exec.frameSp`), and
 `WP.callF` runs a call of it from its proof of `Verified`.

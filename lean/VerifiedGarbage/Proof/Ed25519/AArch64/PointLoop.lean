@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.AArch64.PointLoop
 import VerifiedGarbage.Proof.Ed25519.AArch64.Points
 import VerifiedGarbage.Proof.Ed25519.ScalarMul
 
-/-! Untrusted: sixteen exact doublings, preserving the saved accumulator. -/
+/-! Sixteen exact doublings, preserving the saved accumulator. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

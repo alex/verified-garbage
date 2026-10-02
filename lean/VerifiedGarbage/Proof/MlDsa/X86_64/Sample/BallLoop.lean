@@ -4,11 +4,10 @@ import VerifiedGarbage.Impl.MlDsa.X86_64.Sample.Ball
 /-!
 # ML-DSA on x86-64: the loops of `vg_mldsa_sample_in_ball`
 
-Untrusted: everything here is checked by Lean. The polynomial `c` is kept
-in memory as the words that represent its coefficients modulo `q`
-(`CStored`); the first loop zeroes it (`bZero_ok`), and an iteration of the
-second does what `bStep` does to it and to `i` (in `rdi`), with the sign
-bits not yet used in `r9` (`bBody_ok`).
+The polynomial `c` is kept in memory as the words that represent its
+coefficients modulo `q` (`CStored`); the first loop zeroes it (`bZero_ok`),
+and an iteration of the second does what `bStep` does to it and to `i` (in
+`rdi`), with the sign bits not yet used in `r9` (`bBody_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

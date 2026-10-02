@@ -3,12 +3,11 @@ import VerifiedGarbage.Spec.X448
 /-!
 # X448: field elements as natural numbers
 
-Untrusted: everything here is checked by Lean. Implementations compute with
-natural numbers (the limbs of a field element, as any number standing for
-its residue modulo `p`); `toFe` reads one as an element of `GF(p)`, and the
-lemmas here turn what an implementation proves about its numbers (modulo
-`p`) into the operations of `Spec/X448.lean`, in the order the spec writes
-them.
+Implementations compute with natural numbers (the limbs of a field element, as
+any number standing for its residue modulo `p`); `toFe` reads one as an
+element of `GF(p)`, and the lemmas here turn what an implementation proves
+about its numbers (modulo `p`) into the operations of `Spec/X448.lean`, in the
+order the spec writes them.
 -/
 
 namespace VG.Proof.X448

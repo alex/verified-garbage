@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Blake2.Arm.Stream.Verified
 /-!
 # BLAKE2s on ARMv7: the streaming functions
 
-Untrusted: everything here is checked by Lean. The streaming layer
-(`Proof/Blake2/Arm/Stream/`) instantiated with BLAKE2s and its compression
-function (`Proof/Blake2/Arm/CompressS/`), against the shared contracts of
-`Spec/Blake2/Contract.lean`.
+The streaming layer (`Proof/Blake2/Arm/Stream/`) instantiated with BLAKE2s and
+its compression function (`Proof/Blake2/Arm/CompressS/`), against the shared
+contracts of `Spec/Blake2/Contract.lean`.
 -/
 
 namespace VG.Proof.Blake2.Arm.Blake2s

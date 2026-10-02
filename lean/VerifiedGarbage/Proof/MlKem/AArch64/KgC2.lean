@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlKem.AArch64.KgC
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_keygen`, `ŝ` and `t̂`
 
-Untrusted: everything here is checked by Lean. `ŝ[j]` and its encoding into
-`dk` (`s_step`), then `ê[i]` and `t̂[i]` and its encodings into `ek` and `dk`
-(`t_step`), each keeping what the steps before established (`CInv`).
+`ŝ[j]` and its encoding into `dk` (`s_step`), then `ê[i]` and `t̂[i]` and its
+encodings into `ek` and `dk` (`t_step`), each keeping what the steps before
+established (`CInv`).
 -/
 
 namespace VG.Proof.MlKem.AArch64.KeyGen

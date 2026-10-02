@@ -13,8 +13,6 @@ import VerifiedGarbage.Proof.Sha512.X86_64.Lit
 
 /-!
 # SHA-512 compression function on x86-64: the message schedule and the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha512.X86_64
@@ -229,16 +227,15 @@ end VG.Proof.Sha512.X86_64
 
 /-!
 # SHA-512 compression function on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!
 ## SHA-512: the x86-64 contracts
 
-**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86-64
-implementations of the compression function and the streaming interface, in
-terms of `Spec/Sha512.lean`.
+The contracts the proofs are written against; the artifacts are emitted with the
+shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the x86-64 implementations of the compression function and the
+streaming interface, in terms of `Spec/Sha512.lean`.
 -/
 
 namespace VG.Proof.Sha512

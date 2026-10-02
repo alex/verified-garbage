@@ -5,11 +5,11 @@ import VerifiedGarbage.Proof.X25519.X86_64.Verified
 /-!
 # X25519 on x86-64 with BMI2 and ADX: `Verified`
 
-Untrusted: everything here is checked by Lean. The proof of `vg_x25519`
-(`Proof/X25519/X86_64/Verified.lean`) for the field multiplications `adx`
-(`adx_ok`): correctness from `correct`, constant time by taint tracking (the
-only branches are on the loop counters, and every address is an argument plus
-a constant or a counter), satisfiability, and the shared contract.
+The proof of `vg_x25519` (`Proof/X25519/X86_64/Verified.lean`) for the field
+multiplications `adx` (`adx_ok`): correctness from `correct`, constant time by
+taint tracking (the only branches are on the loop counters, and every address
+is an argument plus a constant or a counter), satisfiability, and the shared
+contract.
 -/
 
 namespace VG.Proof.X25519.X86_64

@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.Arm.PointAccumulate
 import VerifiedGarbage.Proof.Ed25519.Arm.AccKeep
 import VerifiedGarbage.Proof.Ed25519.Arm.PointPowers
 
-/-! Untrusted: save the accumulator and load the next exact power into Q. -/
+/-! Save the accumulator and load the next exact power into Q. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

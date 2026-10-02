@@ -4,12 +4,11 @@ import VerifiedGarbage.Impl.Pbkdf2.Whole.X86
 /-!
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: the functions it calls, and its code as literals
 
-Untrusted: everything here is checked by Lean. For each hash function of
-`Proof/Hmac/Generic/X86/Hashes.lean`, the functions `pbkdf2` calls (`Fns`):
-its streaming functions, HMAC's `init` and `finalize` and PBKDF2's
-`iterate` for it, by the names they are registered with; and `pbkdf2` as a
-literal (`materialize_code`, `Proof/Framework/Lit.lean`), which the
-registration files' `spSafe` checks evaluate.
+For each hash function of `Proof/Hmac/Generic/X86/Hashes.lean`, the functions
+`pbkdf2` calls (`Fns`): its streaming functions, HMAC's `init` and `finalize`
+and PBKDF2's `iterate` for it, by the names they are registered with; and
+`pbkdf2` as a literal (`materialize_code`, `Proof/Framework/Lit.lean`), which
+the registration files' `spSafe` checks evaluate.
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.X86

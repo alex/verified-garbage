@@ -8,8 +8,6 @@ import VerifiedGarbage.Proof.Rc2.Stream
 /-!
 # Streaming RC2-CBC on ARMv7: the calls
 
-Untrusted: everything here is checked by Lean.
-
 The callees take their scratch buffer `S` on the stack: a frame pushes it
 (`push {r12, lr}`, with `S` in `r12` at `[sp]`) around the call. `key_call`
 and `cbc_call` run the frame around the call of `vg_rc2_expand_key` and of

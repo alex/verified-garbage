@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ML-DSA key generation on x86-64: its contract, parameters and buffers
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (`kgK p`, which the shared contract implies), the facts about
-the parameter sets it uses (`PFacts`), the layout of its buffers (`seed` in
-`rbp`; `scratch`, `pk` and `sk` in `rbx`, `r12` and `r13`: `kgR`, `kgW p`),
-and the checks of pointers into them, for any parameter set, which `lay`
-proves from the offsets by `omega`.
+The contract the proof is written against (`kgK p`, which the shared contract
+implies), the facts about the parameter sets it uses (`PFacts`), the layout of
+its buffers (`seed` in `rbp`; `scratch`, `pk` and `sk` in `rbx`, `r12` and
+`r13`: `kgR`, `kgW p`), and the checks of pointers into them, for any
+parameter set, which `lay` proves from the offsets by `omega`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen

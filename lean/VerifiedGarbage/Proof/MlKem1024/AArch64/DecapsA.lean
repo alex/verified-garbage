@@ -4,8 +4,8 @@ import VerifiedGarbage.Impl.MlKem1024.AArch64.Decaps
 /-!
 # ML-KEM-1024 on AArch64: `vg_mlkem1024_decaps`, the first phase
 
-Untrusted: everything here is checked by Lean. The prologue,
-`m' = K-PKE.Decrypt(dk_PKE, c)` (`m_ok`), `G(m' ‖ h)` and `ρ` (`a_ok`).
+The prologue, `m' = K-PKE.Decrypt(dk_PKE, c)` (`m_ok`), `G(m' ‖ h)` and `ρ`
+(`a_ok`).
 -/
 
 namespace VG.Proof.MlKem1024
@@ -13,9 +13,8 @@ namespace VG.Proof.MlKem1024
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against; the artifact's is the
-shared contract of `Spec/`, which implies it. AArch64 contract for
-`(decapsWith keccak.callee)(dk = x0, ct = x1, key = x2, scratch = x3) -> w0`. -/
+/-- AArch64 contract for `(decapsWith keccak.callee)(dk = x0, ct = x1, key = x2,
+scratch = x3) -> w0`. -/
 def decaps1024AArch64 : Contract AArch64.isa where
   pre s :=
     let dk : Region := ⟨s.gpr .x0, 3168⟩

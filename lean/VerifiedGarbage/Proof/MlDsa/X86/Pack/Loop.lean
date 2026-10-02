@@ -6,9 +6,8 @@ import VerifiedGarbage.Proof.MlKem.Mem
 /-!
 # ML-DSA on x86 (32-bit): the loops over the groups, as pieces
 
-Untrusted: everything here is checked by Lean. In a leaf (whose frame's
-push leaves the state `P0 s₀`), once the input pointer `iP s₀` is in `esi`
-and the output pointer `oP s₀` in `edi` (`Start`):
+In a leaf (whose frame's push leaves the state `P0 s₀`), once the input
+pointer `iP s₀` is in `esi` and the output pointer `oP s₀` in `edi` (`Start`):
 
 * `packLoop_piece`: the loop of `packBody` writes the packing of the values
   of the 256 coefficients at `iP s₀`;

@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Round.Arith
 /-!
 # ML-DSA on AArch64: `vg_mldsa_norm_lt`
 
-Untrusted: everything here is checked by Lean. The top bit of `x10` says
-whether every coefficient `a` so far has `a < B` or `q - a < B` (`J`):
-each is the sign bit of a difference of numbers less than `2³²`
-(`sgn_sub`).
+The top bit of `x10` says whether every coefficient `a` so far has `a < B` or
+`q - a < B` (`J`): each is the sign bit of a difference of numbers less than
+`2³²` (`sgn_sub`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Round

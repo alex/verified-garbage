@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.Framework.X86.Taint
 /-!
 # x86 (32-bit) code as literals
 
-Untrusted: everything here is checked by Lean. The instances `materialize_code`
-needs to write x86 code as a literal (`Proof/Framework/Lit.lean`).
+The instances `materialize_code` needs to write x86 code as a literal
+(`Proof/Framework/Lit.lean`).
 -/
 
 namespace VG.X86

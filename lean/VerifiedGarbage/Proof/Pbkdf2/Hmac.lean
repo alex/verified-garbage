@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Sha256.Stream
 /-!
 # PBKDF2-HMAC-SHA-256: one step as two compressions
 
-Untrusted: everything here is checked by Lean. For a 64-byte key `K₀`, both
-hashes of HMAC-SHA-256 of a 32-byte `U` are of 96-byte messages: a block
-(`K₀ ⊕ ipad` or `K₀ ⊕ opad`) whose compression is the state
-`vg_hmac_sha256_init` leaves, then 32 bytes, which the padding completes to
-a second block (`block96`). So a step of PBKDF2's iteration is two
-compressions, whatever the target.
+For a 64-byte key `K₀`, both hashes of HMAC-SHA-256 of a 32-byte `U` are of
+96-byte messages: a block (`K₀ ⊕ ipad` or `K₀ ⊕ opad`) whose compression is
+the state `vg_hmac_sha256_init` leaves, then 32 bytes, which the padding
+completes to a second block (`block96`). So a step of PBKDF2's iteration is
+two compressions, whatever the target.
 -/
 
 namespace VG.Proof.Pbkdf2

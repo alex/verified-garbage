@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.AArch64.KemCommon
 /-!
 # ML-KEM-768 on AArch64: the building blocks of `(encapsWith keccak.callee)` and `(decapsWith keccak.callee)`
 
-Untrusted: everything here is checked by Lean. Each building block
-(`(prfCbdWith keccak.callee)`, `nttAt`, `nttInvAt`, `mulAt`, `addAt`, `subAt`, `ceAt`, `ddAt`,
-`dec12At`): what it needs, what it computes, what it keeps (`KB`, `x24`),
-and the only memory it changes (`Frame`), so that the facts established
-before it survive it.
+Each building block (`(prfCbdWith keccak.callee)`, `nttAt`, `nttInvAt`, `mulAt`,
+`addAt`, `subAt`, `ceAt`, `ddAt`, `dec12At`): what it needs, what it computes,
+what it keeps (`KB`, `x24`), and the only memory it changes (`Frame`), so that
+the facts established before it survive it.
 -/
 
 namespace VG.Proof.MlKem.AArch64.Kem

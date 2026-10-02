@@ -5,16 +5,16 @@ import VerifiedGarbage.Impl.Poly1305.X86_64.Avx512
 /-!
 # Poly1305 on x86-64 with AVX-512: straight-line code, quadword by quadword
 
-Untrusted: everything here is checked by Lean. The vector code of
-`vg_poly1305_blocks_avx512` moves, adds, multiplies, masks, shifts and
-shuffles the eight quadwords of `zmm` registers, and loads 128 bytes at
-`rsi`. As for AVX2 (`Avx2/Sym.lean`), `Sym.run` computes each quadword after
-a block of such instructions as a term (`Q`) in the quadwords, general-purpose
-registers and memory before it, and `srun_ok` proves the machine agrees.
-Every instruction but the loads, `vpunpck{l,h}qdq`, `vshufi32x4`, `vmovq` and
-`vpbroadcastq` acts on each quadword on its own, so a term is evaluated at a
-quadword `k < 8`. The second source of `vpmuludq`, `vpandq` and `vporq` may
-be a quadword of the state at `rdi`, broadcast (`zbcst`).
+The vector code of `vg_poly1305_blocks_avx512` moves, adds, multiplies, masks,
+shifts and shuffles the eight quadwords of `zmm` registers, and loads 128
+bytes at `rsi`. As for AVX2 (`Avx2/Sym.lean`), `Sym.run` computes each
+quadword after a block of such instructions as a term (`Q`) in the quadwords,
+general-purpose registers and memory before it, and `srun_ok` proves the
+machine agrees. Every instruction but the loads, `vpunpck{l,h}qdq`,
+`vshufi32x4`, `vmovq` and `vpbroadcastq` acts on each quadword on its own, so
+a term is evaluated at a quadword `k < 8`. The second source of `vpmuludq`,
+`vpandq` and `vporq` may be a quadword of the state at `rdi`, broadcast
+(`zbcst`).
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx512

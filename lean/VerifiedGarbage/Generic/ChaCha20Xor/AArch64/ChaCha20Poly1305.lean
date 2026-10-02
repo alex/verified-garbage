@@ -7,14 +7,9 @@ import VerifiedGarbage.Proof.ChaCha20Poly1305.AArch64.Lit
 # ChaCha20-Poly1305 (RFC 8439 §2.8) on AArch64
 
 A generic caller (see `TCB/Emit.lean`), emitted for every ChaCha20 stream
-backend. The one-time Poly1305 key uses the scalar block function. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`. An
-artifact made from a function's `Api` (in `Spec/`, reviewed with the
-contract) takes them from there, and this file adds only notes on the
-implementation. The emitter adds the `# Safety` items that depend on the
-target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract. The functions use no stack: their calls (`bl`) keep
-the return address in `x30`, which they save in the context.
+backend. The one-time Poly1305 key uses the scalar block function. The
+functions use no stack: their calls (`bl`) keep the return address in `x30`,
+which they save in the context.
 -/
 
 namespace VG.Generic.ChaCha20Xor.AArch64.ChaCha20Poly1305

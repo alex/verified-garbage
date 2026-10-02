@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.PointMulLoop
 
-/-! Untrusted: full scalar multiplication agrees with the reviewed specification. -/
+/-! Full scalar multiplication agrees with the reviewed specification. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

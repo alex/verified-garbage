@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.X86.VerifyLit
 import VerifiedGarbage.Proof.Ed25519.X86.VerifyMain
 import VerifiedGarbage.Proof.Ed25519.X86.VerifyCT
 
-/-! Untrusted: transfer the verifier from its framed local contract to the reviewed ABI. -/
+/-! Transfer the verifier from its framed local contract to the reviewed ABI. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

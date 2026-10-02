@@ -9,11 +9,10 @@ import VerifiedGarbage.Spec.Blake2.Contract
 /-!
 # BLAKE2s compression function on ARMv7: the whole function
 
-Untrusted: everything here is checked by Lean. The prologue, which keeps the
-arguments, the counter, the flag word and our caller's registers in
-`scratch` (`setup_ok`); one block (`body_ok`: `init_ok`, `rounds_ok`,
-`fin_ok` and `advance_ok`), whose loop invariant is all in `scratch`; and the
-epilogue (`restore_ok`). The loop is proven against
+The prologue, which keeps the arguments, the counter, the flag word and our
+caller's registers in `scratch` (`setup_ok`); one block (`body_ok`: `init_ok`,
+`rounds_ok`, `fin_ok` and `advance_ok`), whose loop invariant is all in
+`scratch`; and the epilogue (`restore_ok`). The loop is proven against
 `Proof.Blake2.compressArm Spec.Blake2.s` (`compress_verified'`), which the
 streaming functions use for their calls; `compress_verified` moves it to the
 shared contract of `Spec/Blake2/Contract.lean`. Constant time is the taint

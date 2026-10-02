@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.MlKem.Mem
 /-!
 # ML-DSA key generation: coefficients and polynomials in memory
 
-Untrusted: everything here is checked by Lean. `mod± q` inverts the cast of a
-small integer to `ℤ_q` (`modPm_ofInt`), and the cast inverts `mod± q`
-(`ofInt_modPm`); the ranges of the coefficients `RejBoundedPoly` samples
-(`rejBoundedPoly_range`) and of `Power2Round` (`power2Round_fst`,
-`power2Round_snd`); and ML-DSA's polynomials in memory (`Spec/MlDsa/Poly.lean`)
-depend only on their 1024 bytes (`polyAt_congr`, `polyIs_frame`, …).
+`mod± q` inverts the cast of a small integer to `ℤ_q` (`modPm_ofInt`), and the
+cast inverts `mod± q` (`ofInt_modPm`); the ranges of the coefficients
+`RejBoundedPoly` samples (`rejBoundedPoly_range`) and of `Power2Round`
+(`power2Round_fst`, `power2Round_snd`); and ML-DSA's polynomials in memory
+(`Spec/MlDsa/Poly.lean`) depend only on their 1024 bytes (`polyAt_congr`,
+`polyIs_frame`, …).
 -/
 
 namespace VG.Proof.MlDsa.KeyGen

@@ -4,10 +4,11 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # MD5: the x86 (32-bit) contract
 
-**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86 (32-bit)
-implementations of the compression function and of streaming MD5
-(`init`/`update`/`finalize`, on the representation `Repr`), in terms of
-`Spec/Md5.lean`.
+The contracts the proofs are written against; the artifacts are emitted with the
+shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the x86 (32-bit) implementations of the compression function and of
+streaming MD5 (`init`/`update`/`finalize`, on the representation `Repr`), in
+terms of `Spec/Md5.lean`.
 
 The shared contracts let the streaming functions write their own argument
 area (cdecl passes the arguments in the caller's frame, just above the

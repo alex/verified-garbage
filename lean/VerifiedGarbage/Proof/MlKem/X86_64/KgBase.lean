@@ -4,11 +4,10 @@ import VerifiedGarbage.Impl.MlKem.X86_64.KeyGen
 /-!
 # ML-KEM-768 on x86-64: `vg_mlkem768_keygen`, its contract, layout and entry
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (`keyGenK`, which the shared contract implies), the layout
-of the function's buffers (`seed` in `rbp`; `scratch`, `ek`, `dk` in `rbx`,
-`r12`, `r13`), what holds throughout (`KC`: `Top`, and `d ‖ z` at `seed`),
-and the prologue.
+The contract the proof is written against (`keyGenK`, which the shared
+contract implies), the layout of the function's buffers (`seed` in `rbp`;
+`scratch`, `ek`, `dk` in `rbx`, `r12`, `r13`), what holds throughout (`KC`:
+`Top`, and `d ‖ z` at `seed`), and the prologue.
 -/
 
 namespace VG.Proof.MlKem.X86_64

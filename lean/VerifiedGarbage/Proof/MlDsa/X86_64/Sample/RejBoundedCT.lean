@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNttCT
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_bounded_poly`, constant time but for which half-bytes it accepts
 
-Untrusted: everything here is checked by Lean. Two runs whose leaks agree
-(which half-bytes of the first 1088 bytes of output are accepted,
-`rejBoundedLeak`) and whose pointers and `η` agree leak the same: the
-prologue and the blocks around the loop by the taint analysis, the sponge by
-`sponge_ct`, and the loop by relating the two runs iteration by iteration.
-At iteration `t`, both runs have sampled as many coefficients (the number
-depends only on which half-bytes were accepted, `rbFold_length_congr`), and
-the byte to read has its half-bytes accepted alike (`leak_hbOks`): so each
+Two runs whose leaks agree (which half-bytes of the first 1088 bytes of output
+are accepted, `rejBoundedLeak`) and whose pointers and `η` agree leak the
+same: the prologue and the blocks around the loop by the taint analysis, the
+sponge by `sponge_ct`, and the loop by relating the two runs iteration by
+iteration. At iteration `t`, both runs have sampled as many coefficients (the
+number depends only on which half-bytes were accepted, `rbFold_length_congr`),
+and the byte to read has its half-bytes accepted alike (`leak_hbOks`): so each
 branch goes the same way, and each store goes to the same address. The
 coefficients themselves are computed and stored by code that the taint
 analysis proves leaks nothing of them (`tryTrace`).

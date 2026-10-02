@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.Framework.PowLit
 /-!
 # Poly1305: lemmas about the specification
 
-Untrusted: everything here is checked by Lean. Facts about `Spec/Poly1305.lean`
-that do not depend on the target: little-endian numbers of byte strings in
-memory, the accumulator of a message extended by whole blocks or a last
-block, and the tag.
+Facts about `Spec/Poly1305.lean` that do not depend on the target:
+little-endian numbers of byte strings in memory, the accumulator of a message
+extended by whole blocks or a last block, and the tag.
 -/
 
 open VG.PowLit

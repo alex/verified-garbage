@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86_64.Ops
 /-!
 # X448 on x86-64: loop counters
 
-Untrusted: everything here is checked by Lean. Setting and decrementing
-public counters without changing memory or the other registers.
+Setting and decrementing public counters without changing memory or the other
+registers.
 -/
 
 namespace VG.Proof.X448.X86_64

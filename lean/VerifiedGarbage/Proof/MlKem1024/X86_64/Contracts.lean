@@ -4,8 +4,7 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024 on x86-64: the contracts of the compressions the proofs are written against
 
-Untrusted: everything here is checked by Lean. As
-`Proof/MlKem/X86_64/Contracts.lean`, for `vg_mlkem1024_compress_encode` and
+As `Proof/MlKem/X86_64/Contracts.lean`, for `vg_mlkem1024_compress_encode` and
 `vg_mlkem1024_decode_decompress`, whose widths are ML-KEM-1024's
 (`Spec.MlKem1024.compressWidths`).
 -/

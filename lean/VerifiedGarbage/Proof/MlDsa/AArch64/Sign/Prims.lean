@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Inv
 /-!
 # ML-DSA signing on AArch64: the primitives it calls
 
-Untrusted: everything here is checked by Lean. What the proofs need of the
-implementations of the primitives (`PrimsOk`): each is correct and constant
-time under its shared contract (`Spec/MlDsa/Poly.lean`) with the `S` bytes
-of stack the function gives its calls, and its frames use at most those
-(`CalleeOk`); and, of the two samplers whose result the function branches
-on, that the result is public in their own runs (`RetPub`) and that they
-succeed only when the algorithm finishes within `maxBounds`, the bounds the
-leakage of signing is stated for.
+What the proofs need of the implementations of the primitives (`PrimsOk`):
+each is correct and constant time under its shared contract
+(`Spec/MlDsa/Poly.lean`) with the `S` bytes of stack the function gives its
+calls, and its frames use at most those (`CalleeOk`); and, of the two samplers
+whose result the function branches on, that the result is public in their own
+runs (`RetPub`) and that they succeed only when the algorithm finishes within
+`maxBounds`, the bounds the leakage of signing is stated for.
 
 For each call of a primitive, as the proof of signing uses it: what it does
 (`…_ok`), and that two runs in the same layout leak the same (`…_tr`), from

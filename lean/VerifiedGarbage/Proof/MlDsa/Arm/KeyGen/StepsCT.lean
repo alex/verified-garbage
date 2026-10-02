@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.Arm.CallsCT
 /-!
 # ML-DSA on 32-bit ARM: two runs in the buffers of a `Site`
 
-Untrusted: everything here is checked by Lean. Two runs in the same layout,
-with the same stack pointer (`Two`): a part that leaks the same, and changes
-only what `Kept` allows, leaves two runs in it (`RelCT.two`); and two runs of
-a byte stored, a copy or the sponge leak the same (`setB_tr`, `copy_tr`,
-`hashS_tr`).
+Two runs in the same layout, with the same stack pointer (`Two`): a part that
+leaks the same, and changes only what `Kept` allows, leaves two runs in it
+(`RelCT.two`); and two runs of a part leak the same by taint analysis from
+the pointers (`taint7`, `taint4`), or, for the sponge, by `hashS_tr`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

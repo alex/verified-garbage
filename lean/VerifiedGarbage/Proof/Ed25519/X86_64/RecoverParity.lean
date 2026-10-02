@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.RecoverSign
 import VerifiedGarbage.Proof.Ed25519.X86_64.FieldCheck
 
-/-! Untrusted: the public sign bit is compared to the canonical x-coordinate. -/
+/-! The public sign bit is compared to the canonical x-coordinate. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

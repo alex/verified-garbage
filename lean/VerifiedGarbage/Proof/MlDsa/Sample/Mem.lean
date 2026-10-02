@@ -5,12 +5,12 @@ import VerifiedGarbage.Spec.MlDsa.Poly
 /-!
 # ML-DSA: polynomials sampled into memory, for every target
 
-Untrusted: everything here is checked by Lean. The sampling functions store
-the coefficients of a polynomial one at a time: `Stored m p L` says that the
-first `L.length` coefficients at `p` are those of the list `L` (each as its
-representative less than `q`), and a polynomial stored this way in full is
-`PolyIs` of the vector of the list (`stored_polyIs`). A polynomial whose
-every coefficient holds a value is `PolyIs` of it (`polyIs_of_coeffAt`).
+The sampling functions store the coefficients of a polynomial one at a time:
+`Stored m p L` says that the first `L.length` coefficients at `p` are those of
+the list `L` (each as its representative less than `q`), and a polynomial
+stored this way in full is `PolyIs` of the vector of the list
+(`stored_polyIs`). A polynomial whose every coefficient holds a value is
+`PolyIs` of it (`polyIs_of_coeffAt`).
 -/
 
 namespace VG.Proof.MlDsa.Sample

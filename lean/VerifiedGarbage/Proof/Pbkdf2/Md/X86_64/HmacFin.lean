@@ -4,16 +4,15 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Instances
 /-!
 # HMAC over any Merkle–Damgård hash function on x86-64: `finalize`
 
-Untrusted: everything here is checked by Lean. HMAC's `finalize`
-(`Impl/Pbkdf2/Md/X86_64.lean`) differs from the generic one
+HMAC's `finalize` (`Impl/Pbkdf2/Md/X86_64.lean`) differs from the generic one
 (`Proof/Hmac/Generic/X86_64/Finalize.lean`) only between its two calls of
 `finalize`: instead of copying the outer state over the inner one and
 absorbing the inner digest into it with `update`, it writes the outer hash
 value and the digest over the inner state (`finMid`), which then represents
-the outer block followed by the digest (`md.Repr`), and copies the MAC out
-in words (`finOut`). Everything else is the generic proof's, for the hash
-function's streaming functions (`HashOK.stream`); constant time likewise,
-from the taint checks of the pieces between the calls (`Checks`).
+the outer block followed by the digest (`md.Repr`), and copies the MAC out in
+words (`finOut`). Everything else is the generic proof's, for the hash
+function's streaming functions (`HashOK.stream`); constant time likewise, from
+the taint checks of the pieces between the calls (`Checks`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64.HmacFin

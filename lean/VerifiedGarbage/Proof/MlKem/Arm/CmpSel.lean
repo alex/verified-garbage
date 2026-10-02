@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlKem.Arm.Prf
 /-!
 # ML-KEM-768 on 32-bit ARM: comparing `c` with `c'`, and selecting the key
 
-Untrusted: everything here is checked by Lean. `compare` ORs the XORs of the
-bytes of two buffers into `r12` (`compare_ok`: 0 exactly when they are
-equal); `selSetup` turns it into a mask, all ones exactly when it is 0
-(`selSetup_ok`); and the loop of `selBody` writes, byte by byte, the first
-source under the mask and the second one otherwise (`select_ok`).
+`compare` ORs the XORs of the bytes of two buffers into `r12` (`compare_ok`: 0
+exactly when they are equal); `selSetup` turns it into a mask, all ones
+exactly when it is 0 (`selSetup_ok`); and the loop of `selBody` writes, byte
+by byte, the first source under the mask and the second one otherwise
+(`select_ok`).
 -/
 
 namespace VG.Proof.MlKem.Arm

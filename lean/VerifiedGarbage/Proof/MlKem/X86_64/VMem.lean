@@ -7,11 +7,10 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Ntt
 /-!
 # ML-KEM on x86-64: polynomials as words in the working space
 
-Untrusted: everything here is checked by Lean. A polynomial stored as 256
-words (`S16`), 16-byte loads of eight of its coefficients (`lanes_load`)
-and stores of them (`s16_write2`), and the table of the zetas as words
-(`T16`), from which `vzeta` loads the zetas of up to four blocks
-(`vzeta_ok`).
+A polynomial stored as 256 words (`S16`), 16-byte loads of eight of its
+coefficients (`lanes_load`) and stores of them (`s16_write2`), and the table
+of the zetas as words (`T16`), from which `vzeta` loads the zetas of up to
+four blocks (`vzeta_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

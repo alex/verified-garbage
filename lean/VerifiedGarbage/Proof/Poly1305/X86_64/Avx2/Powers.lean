@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Poly1305.Horner
 /-!
 # Poly1305 on x86-64 with AVX2: the powers of `r`
 
-Untrusted: everything here is checked by Lean. `powers` leaves `r⁴` in the
-low doubleword of every quadword of `Y` and `r^(4-k)` in the high doubleword
-of lane `k`, each as limbs below `2²⁷`.
+`powers` leaves `r⁴` in the low doubleword of every quadword of `Y` and
+`r^(4-k)` in the high doubleword of lane `k`, each as limbs below `2²⁷`.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx2

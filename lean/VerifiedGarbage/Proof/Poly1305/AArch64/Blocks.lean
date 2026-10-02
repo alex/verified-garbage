@@ -22,9 +22,9 @@ section
 /-!
 # Poly1305 on AArch64: the arithmetic in radix `2²⁶`
 
-Untrusted: everything here is checked by Lean. The numbers the code computes
-(see `Impl/Poly1305/AArch64.lean`), as natural numbers: five limbs `a0, …, a4`
-stand for `val5 a0 a1 a2 a3 a4 = a0 + 2²⁶ a1 + 2⁵² a2 + 2⁷⁸ a3 + 2¹⁰⁴ a4`.
+The numbers the code computes (see `Impl/Poly1305/AArch64.lean`), as natural
+numbers: five limbs `a0, …, a4` stand for `val5 a0 a1 a2 a3 a4 = a0 + 2²⁶ a1 +
+2⁵² a2 + 2⁷⁸ a3 + 2¹⁰⁴ a4`.
 -/
 
 open VG.PowLit
@@ -339,9 +339,8 @@ end
 /-!
 # Poly1305 on AArch64: the steps of the code
 
-Untrusted: everything here is checked by Lean. Each lemma runs a few
-instructions symbolically and states their effect on the numbers in the
-registers, unconditionally (modulo `2⁶⁴` where the code wraps).
+Each lemma runs a few instructions symbolically and states their effect on the
+numbers in the registers, unconditionally (modulo `2⁶⁴` where the code wraps).
 -/
 
 open VG.PowLit
@@ -765,8 +764,6 @@ section
 
 /-!
 # Poly1305 on AArch64: absorbing a block
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -971,8 +968,6 @@ section
 
 /-!
 # Poly1305 on AArch64: the final reduction
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Poly1305.AArch64
@@ -1005,8 +1000,6 @@ section
 
 /-!
 # Poly1305 on AArch64: the state in memory
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -1130,8 +1123,6 @@ end
 
 /-!
 # Poly1305 on AArch64: the coefficients and the accumulator on entry
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -1429,8 +1420,6 @@ section
 
 /-!
 # Poly1305 on AArch64: `blocks`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -1440,9 +1429,7 @@ namespace VG.Proof.Poly1305
 open Spec.Poly1305
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
+/-- `vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
 def initAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 128⟩
@@ -1452,9 +1439,8 @@ def initAArch64 : Contract AArch64.isa where
   pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.sp = s₂.sp
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n: usize)`. -/
+/-- `vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n:
+usize)`. -/
 def blocksAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 128⟩
@@ -1467,12 +1453,10 @@ def blocksAArch64 : Contract AArch64.isa where
     s₁.sp = s₂.sp
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len: usize, …)`:
-only `count mod 16`, the number of bytes buffered, matters. The state must be
-writable, and it may be permitted to write other regions (which it does
-not). -/
+/-- `vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len:
+usize, …)`: only `count mod 16`, the number of bytes buffered, matters. The
+state must be writable, and it may be permitted to write other regions (which it
+does not). -/
 def updateAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 128⟩
@@ -1485,12 +1469,10 @@ def updateAArch64 : Contract AArch64.isa where
     s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], …)`:
-only `count mod 16`, the number of bytes buffered, matters. The state and
-`out` must be writable, and it may be permitted to write other regions
-(which it does not). -/
+/-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16],
+…)`: only `count mod 16`, the number of bytes buffered, matters. The state and
+`out` must be writable, and it may be permitted to write other regions (which it
+does not). -/
 def finalizeAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 128⟩

@@ -7,11 +7,10 @@ import VerifiedGarbage.Impl.Blake2.X86.Stream
 /-!
 # Streaming BLAKE2 on x86 (32-bit): common lemmas
 
-Untrusted: everything here is checked by Lean. What the proofs of `init`,
-`update` and `finalize` need of the parameters (`Ok`) and of the compression
-function they call (`CalleeOk`: BLAKE2s's or BLAKE2b's, verified against
-`compressX86`), the call (`call_ok`), and the loop copying bytes into the
-buffer (`copyLoop_ok`).
+What the proofs of `init`, `update` and `finalize` need of the parameters
+(`Ok`) and of the compression function they call (`CalleeOk`: BLAKE2s's or
+BLAKE2b's, verified against `compressX86`), the call (`call_ok`), and the loop
+copying bytes into the buffer (`copyLoop_ok`).
 -/
 
 namespace VG.Proof.Blake2.X86.Stream

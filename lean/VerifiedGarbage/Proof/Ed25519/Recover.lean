@@ -1,7 +1,7 @@
 import VerifiedGarbage.Spec.Ed25519
 import VerifiedGarbage.Proof.X25519.Invert
 
-/-! Untrusted: intermediate values in RFC 8032 point decoding. -/
+/-! Intermediate values in RFC 8032 point decoding. -/
 
 namespace VG.Proof.Ed25519
 

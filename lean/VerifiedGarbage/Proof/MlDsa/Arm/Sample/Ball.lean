@@ -3,12 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sample.BallLoop
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_sample_in_ball`, correctness
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `H(c̃, 272)` (`J6`), the
-zeroing of `c` (`ZDone`), the setup of the loop, which loads the sign bits
-(`setup_ok`, with `readW_pair`: the two words are the first 8 bytes of
-output as a little-endian number), and the 264 iterations of the loop
-(`BAt`, `body_ok`), after which `c` and `i` are what `ballFold` computes.
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`H(c̃, 272)` (`J6`), the zeroing of `c` (`ZDone`), the setup of the loop,
+which loads the sign bits (`setup_ok`, with `readW_pair`: the two words are
+the first 8 bytes of output as a little-endian number), and the 264 iterations
+of the loop (`BAt`, `body_ok`), after which `c` and `i` are what `ballFold`
+computes.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sample.Ball

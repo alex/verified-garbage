@@ -6,9 +6,8 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Bytes
 /-!
 # ML-DSA on x86-64: the loop of `vg_mldsa_rej_ntt_poly`
 
-Untrusted: everything here is checked by Lean. An iteration of the loop does
-what `rnStep` does to the coefficients sampled so far, stored at `a`
-(`Stored`) and counted in `rdi` (`rnBody_ok`).
+An iteration of the loop does what `rnStep` does to the coefficients sampled
+so far, stored at `a` (`Stored`) and counted in `rdi` (`rnBody_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

@@ -14,8 +14,6 @@ section
 /-!
 # The bitsliced S-box on AArch64
 
-Untrusted: everything here is checked by Lean.
-
 `sboxCode` only combines words bitwise (and builds all ones with `movz` and
 `sub`), so it computes the same Boolean function at each of the 64 bit
 positions: the kernel evaluates it once on truth tables of the 256 inputs
@@ -117,8 +115,6 @@ end
 
 /-!
 # The linear layers of bitsliced AES on AArch64
-
-Untrusted: everything here is checked by Lean.
 
 Each layer is checked by evaluation over the lane domain
 (`Framework/AArch64/Linear.lean`): the kernel runs it on the input words
@@ -259,8 +255,6 @@ end
 
 /-!
 # Encrypting four blocks, bitsliced, on AArch64
-
-Untrusted: everything here is checked by Lean.
 
 `encrypt4_ok`: from four blocks in the registers (`InRel`), with the
 bitsliced round keys in the scratch buffer (`KeysAt`), `encrypt4` leaves

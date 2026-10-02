@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CTSample
 /-!
 # ML-DSA verification on x86-64: constant time, `w′₁`, the hash and the comparison
 
-Untrusted: everything here is checked by Lean. Each run's invariant is
-`SC` at the start of a row, with the facts after each step of it (`IRX`),
-which give each call's trace the reduced inputs it needs.
+Each run's invariant is `SC` at the start of a row, with the facts after each
+step of it (`IRX`), which give each call's trace the reduced inputs it needs.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

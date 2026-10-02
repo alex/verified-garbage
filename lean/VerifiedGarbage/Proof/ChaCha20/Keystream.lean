@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Framework.Mem
 /-!
 # Facts about the ChaCha20 keystream
 
-Untrusted: everything here is checked by Lean. The keystream byte by byte
-(`keystream_getD`), the bytes of a state in memory (`serialize_stateAt`),
-and incrementing the counter of a state in memory (`stateAt_writeW_counter`).
+The keystream byte by byte (`keystream_getD`), the bytes of a state in memory
+(`serialize_stateAt`), and incrementing the counter of a state in memory
+(`stateAt_writeW_counter`).
 -/
 
 namespace VG.Proof.ChaCha20

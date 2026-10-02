@@ -8,8 +8,8 @@ import Mathlib.Tactic.Conv
 /-!
 # Streaming SHA-256 on x86-64: common lemmas
 
-Untrusted: everything here is checked by Lean. The call of the compression
-function (`compressAt`), for either `Callee`, and memory written byte by byte.
+The call of the compression function (`compressAt`), for either `Callee`, and
+memory written byte by byte.
 -/
 
 namespace VG.Proof.Sha256.X86_64.Stream

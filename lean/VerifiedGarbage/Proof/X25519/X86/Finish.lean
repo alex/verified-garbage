@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.X25519.X86.Invert
 /-!
 # X25519 on x86 (32-bit): the end of the ladder, and the result
 
-Untrusted: everything here is checked by Lean. The swap after the loop, and
-`finish`: `x2 · z2^(p-2)` (with `z2^(p-2)` in `T1`), reduced fully, stored
-to `out`, and the saved registers restored.
+The swap after the loop, and `finish`: `x2 · z2^(p-2)` (with `z2^(p-2)` in
+`T1`), reduced fully, stored to `out`, and the saved registers restored.
 -/
 
 namespace VG.Proof.X25519.X86

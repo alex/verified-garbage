@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Block
 
 /-!
 # x86-64: lemmas for symbolic execution
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.X86_64

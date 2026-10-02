@@ -5,14 +5,13 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86.Hashes
 /-!
 # PBKDF2-HMAC-SHA-256 on x86 (32-bit), the whole derivation, for every backend
 
-Untrusted: everything here is checked by Lean. The generic proof (`CT.lean`)
-at SHA-256, for any backend (`Proof/Sha256/X86/Variants/Interface.lean`):
-its streaming functions, verified for any initial hash value, give
-`HashOK` at `H0`; its HMAC and PBKDF2 functions, verified against SHA-256's
-own contracts with 20 bytes of stack, are moved to the shared ones with 48
-(`pre_20_of_48`, and a weaker postcondition for HMAC's `finalize`). The
-taint checks depend only on the sizes, so they are evaluated once, for any
-backend (`sha256Shape`).
+The generic proof (`CT.lean`) at SHA-256, for any backend
+(`Proof/Sha256/X86/Variants/Interface.lean`): its streaming functions,
+verified for any initial hash value, give `HashOK` at `H0`; its HMAC and
+PBKDF2 functions, verified against SHA-256's own contracts with 20 bytes of
+stack, are moved to the shared ones with 48 (`pre_20_of_48`, and a weaker
+postcondition for HMAC's `finalize`). The taint checks depend only on the
+sizes, so they are evaluated once, for any backend (`sha256Shape`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.X86

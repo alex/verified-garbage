@@ -5,11 +5,11 @@ import VerifiedGarbage.Proof.MlKem.KPke1024
 /-!
 # ML-KEM-1024 on 32-bit ARM: a row of `Â ∘ v̂`
 
-Untrusted: everything here is checked by Lean. `Proof/MlKem/Arm/RowSum.lean`
-for ML-KEM-1024: `rowSum4 transpose` sums, in polynomial 14, the products
-of the entries `j < 4` of row `i` (in `r9`) of `Â` (or of `Â^⊺`) with
-polynomials `4 + j`, sampling each entry into polynomial 16 (`rowSum_ok`);
-`dotP4` sums the products of polynomials `j` and `4 + j` (`dot_ok`).
+`Proof/MlKem/Arm/RowSum.lean` for ML-KEM-1024: `rowSum4 transpose` sums, in
+polynomial 14, the products of the entries `j < 4` of row `i` (in `r9`) of `Â`
+(or of `Â^⊺`) with polynomials `4 + j`, sampling each entry into polynomial 16
+(`rowSum_ok`); `dotP4` sums the products of polynomials `j` and `4 + j`
+(`dot_ok`).
 -/
 
 namespace VG.Proof.MlKem1024.Arm

@@ -6,9 +6,9 @@ import VerifiedGarbage.Spec.MlKem.Contract
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_check_ek`
 
-Untrusted: everything here is checked by Lean. The modulus check holds
-exactly when no 12-bit field of `ek[0 : 1152]` is at least `q`
-(`ekCheck768`); the code counts those fields (`cnt`) without branching.
+The modulus check holds exactly when no 12-bit field of `ek[0 : 1152]` is at
+least `q` (`ekCheck768`); the code counts those fields (`cnt`) without
+branching.
 -/
 
 namespace VG.Proof.MlKem
@@ -16,11 +16,9 @@ namespace VG.Proof.MlKem
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against; the artifact's is the
-shared contract of `Spec/`, which implies it. AArch64 contract for
-`vg_mlkem768_check_ek(ek = x0) -> w0`: returns 1 if the 1184 bytes at `ek`
-pass the encapsulation key check of ML-KEM-768, and 0 otherwise. The code
-may read `ek`. -/
+/-- AArch64 contract for `vg_mlkem768_check_ek(ek = x0) -> w0`: returns 1 if
+the 1184 bytes at `ek` pass the encapsulation key check of ML-KEM-768, and 0
+otherwise. The code may read `ek`. -/
 def checkEkAArch64 : Contract AArch64.isa where
   pre s := s.rd = [⟨s.gpr .x0, 1184⟩] ∧ s.wr = []
   post s s' := (s'.gpr .x0).setWidth 32 =

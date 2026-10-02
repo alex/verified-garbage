@@ -7,9 +7,8 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Round.YHint
 /-!
 # ML-DSA on x86-64: the polynomial arithmetic with AVX2, as an `ArithImpl`
 
-Untrusted: everything here is checked by Lean. The AVX2 code
-(`Impl/MlDsa/X86_64/Arith/Avx2.lean`) meets what the callers of the
-polynomial arithmetic need of it (`FnOk`), and requires AVX and AVX2.
+The AVX2 code (`Impl/MlDsa/X86_64/Arith/Avx2.lean`) meets what the callers of
+the polynomial arithmetic need of it (`FnOk`), and requires AVX and AVX2.
 -/
 
 namespace VG.Proof.MlDsa.X86_64

@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.Ed25519.Group.Decode
 /-!
 # The small multiples of the base point represent `[i + 1]B`
 
-Untrusted. `checkMultiples` walks the list of affine multiples once, adding
-the base point with the specification's formula as it goes and comparing
-projectively, so the kernel evaluates fourteen additions. The cached
-negations are checked entry by entry.
+`checkMultiples` walks the list of affine multiples once, adding the base
+point with the specification's formula as it goes and comparing projectively,
+so the kernel evaluates fourteen additions. The cached negations are checked
+entry by entry.
 -/
 
 namespace VG.Proof.Ed25519

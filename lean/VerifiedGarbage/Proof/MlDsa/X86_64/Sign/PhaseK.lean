@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Framework.X86_64.Avx
 /-!
 # ML-DSA signing on x86-64: the checks of an iteration
 
-Untrusted: everything here is checked by Lean. `c = SampleInBall(c̃)` at
-`ĉ` (`ball_ok`), and, if it succeeded, `ĉ = NTT(c)` and each check of the
-iteration, their results ANDed into `r15`: the norm of each `z[r]`
-(`zR_ok`), of each `r₀[i]` (`r0R_ok`) and of each `ct₀[i]`, with each
-hint `h[i]` and the number of its 1s summed at `ONES` (`hR_ok`), and that
-sum against `ω` (`onesOk_ok`); so `r15` is 1 exactly when the iteration
-passes (`checks_ok`).
+`c = SampleInBall(c̃)` at `ĉ` (`ball_ok`), and, if it succeeded, `ĉ = NTT(c)`
+and each check of the iteration, their results ANDed into `r15`: the norm of
+each `z[r]` (`zR_ok`), of each `r₀[i]` (`r0R_ok`) and of each `ct₀[i]`, with
+each hint `h[i]` and the number of its 1s summed at `ONES` (`hR_ok`), and that
+sum against `ω` (`onesOk_ok`); so `r15` is 1 exactly when the iteration passes
+(`checks_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

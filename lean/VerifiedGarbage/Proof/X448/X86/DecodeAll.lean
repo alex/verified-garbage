@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Decode
 /-!
 # X448 on x86 (32-bit): decoding the whole coordinate
 
-Untrusted: everything here is checked by Lean. The 28 limb loads fill two
-slots while preserving input bytes outside the working space.
+The 28 limb loads fill two slots while preserving input bytes outside the
+working space.
 -/
 
 namespace VG.Proof.X448.X86

@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.MdStream.Arm.Common
 /-!
 # AES-CMAC on ARMv7: blocks formed a word at a time
 
-Untrusted: everything here is checked by Lean. Weakest preconditions of the
-instruction sequences the functions build blocks with: the XOR of the blocks
-at `pb + pd` and `qb + qd` stored at `cb + cd` through two temporaries
-(`xorBlk`, which leaves `Cmac.xor4Mem`), and four stores of a zero register
-(`zeroBlk`, which leaves `Cmac.zero4`).
+Weakest preconditions of the instruction sequences the functions build blocks
+with: the XOR of the blocks at `pb + pd` and `qb + qd` stored at `cb + cd`
+through two temporaries (`xorBlk`, which leaves `Cmac.xor4Mem`), and four
+stores of a zero register (`zeroBlk`, which leaves `Cmac.zero4`).
 -/
 
 namespace VG.Proof.CmacAes.Arm
