@@ -76,7 +76,7 @@ theorem Ctx.store {t t' : State} (hc : Ctx L g mx m₀ t) (hrd : t'.rd = t.rd) (
 abbrev dw (t : State) (L : Lay) (k : Nat) : BitVec 64 :=
   t.mem.readW (L.scr + BitVec.ofNat 64 (1568 + 8 * k)) 64
 
-/-- The arguments of `scalar_base_precomputed`. -/
+/-- The arguments of `vg_ed25519_scalar_base`. -/
 def BaseArgs (L : Lay) (t : State) : Prop :=
   t.gpr .rdi = L.out ∧ t.gpr .rsi = L.B + BitVec.ofNat 64 16 ∧ t.gpr .rdx = L.scr
 

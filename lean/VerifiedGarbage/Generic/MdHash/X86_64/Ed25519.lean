@@ -63,7 +63,7 @@ def withField (c : Proof.Sha512.X86_64.Compress) (fld : Impl.Ed25519.X86_64.Arit
       doc := Spec.Ed25519.publicKeyApi.doc (notes := ["Hashes the seed with `vg_sha512_init`, \
         `vg_sha512_update" ++ c.suffix ++ "` and `vg_sha512_finalize" ++ c.suffix ++ "`, keeping \
         the state and the digest in `scratch`, and encodes `[s]B` with \
-        `vg_ed25519_scalar_base_precomputed" ++ fs ++ "`. The pruned scalar `s` is kept in a \
+        `vg_ed25519_scalar_base" ++ fs ++ "`. The pruned scalar `s` is kept in a \
         56-byte stack frame with the pointers and cleared before the frame is popped; the calls \
         use the 16 bytes below it."])
       code := Impl.Ed25519.X86_64.publicKey fld fs c.callee c.suffix
@@ -78,7 +78,7 @@ def withField (c : Proof.Sha512.X86_64.Compress) (fld : Impl.Ed25519.X86_64.Arit
       target := X86_64.target
       doc := Spec.Ed25519.signCachedApi.doc (notes := ["Computes all three SHA-512 hashes with \
         the selected backend, reduces the nonce and challenge, encodes the nonce point \
-        with `vg_ed25519_scalar_base_precomputed" ++ fs ++ "`, and computes the final scalar. \
+        with `vg_ed25519_scalar_base" ++ fs ++ "`, and computes the final scalar. \
         The 248-byte stack frame holds the pruned scalar, nonce prefix, nonce, challenge, digest \
         and saved arguments; its secret buffers are cleared before return. Calls use another 16 \
         bytes below the frame."])

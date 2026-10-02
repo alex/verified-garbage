@@ -7,7 +7,8 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 
 Untrusted. The small target-specific contract below is implied by the
 merged signature contract. It records the separation needed to preserve
-the input and return address while saving registers.
+the input and return address while saving registers, and the output's address
+while the loop keeps it in the scratch.
 -/
 
 namespace VG.Proof.Ed25519.X86_64
@@ -22,7 +23,8 @@ def scalarReduceLocal : Contract isa where
     s.rd = [⟨s.gpr .rsi, 64⟩] ∧ s.wr = [⟨s.gpr .rdi, 32⟩, ⟨s.gpr .rdx, 8192⟩] ∧
     (⟨s.gpr .rsi, 64⟩ : Region).Disjoint ⟨s.gpr .rdx, 8192⟩ ∧
     (⟨s.gpr .rsp, 8⟩ : Region).Disjoint ⟨s.gpr .rdi, 32⟩ ∧
-    (⟨s.gpr .rsp, 8⟩ : Region).Disjoint ⟨s.gpr .rdx, 8192⟩
+    (⟨s.gpr .rsp, 8⟩ : Region).Disjoint ⟨s.gpr .rdx, 8192⟩ ∧
+    (⟨s.gpr .rdi, 32⟩ : Region).Disjoint ⟨s.gpr .rdx, 8192⟩
   post s t := bytesAt t.mem (s.gpr .rdi) 32 =
     Spec.Ed25519.scalarReduce (bytesAt s.mem (s.gpr .rsi) 64)
   pub s t := s.gpr .rsp = t.gpr .rsp ∧ s.gpr .rdi = t.gpr .rdi ∧
@@ -50,46 +52,62 @@ theorem encodeLE_eq (n x : Nat) : Spec.Ed25519.encodeLE n x = Proof.X25519.leByt
 
 theorem scalarReduce_correct {s : State} (hs : scalarReduceLocal.pre s) :
     WP isa scalarReduce s fun t => gprPreserved s t ∧ scalarReduceLocal.post s t := by
-  obtain ⟨hr, hw, hd, hro, hrs⟩ := hs
+  obtain ⟨hr, hw, hd, hro, hrs, -⟩ := hs
   have hws : (⟨s.gpr .rdx, 8192⟩ : Region) ∈ s.wr := by rw [hw]; simp
   rw [scalarReduce]
   apply WP.seq
-  rw [List.append_assoc, WP.block_append_iff]
+  simp only [List.append_assoc]
+  rw [WP.block_append_iff]
   refine WP.mono (scalarSave_ok rfl hws) fun s₁ ⟨g₁, rd₁, wr₁, o₁, sv₁⟩ => ?_
-  refine WP.mono (scalarInit_ok s₁) fun s₂ ⟨b₂, v₂, k₂⟩ => ?_
-  have rsi₂ : s₂.gpr .rsi = s.gpr .rsi := (k₂.1 _ (by decide)).trans (congrFun g₁ _)
-  have rdx₂ : s₂.gpr .rdx = s.gpr .rdx := (k₂.1 _ (by decide)).trans (congrFun g₁ _)
-  have rdi₂ : s₂.gpr .rdi = s.gpr .rdi := (k₂.1 _ (by decide)).trans (congrFun g₁ _)
-  have read₂ : ∀ n < 64, InRegions (s₂.rd ++ s₂.wr) (s₂.gpr .rsi + BitVec.ofNat 64 n) 1 := by
-    intro n hn
+  rw [WP.block_append_iff]
+  refine WP.mono (stashOut_ok (base := s.gpr .rdx) (by rw [g₁]) (by rw [wr₁]; exact hws))
+    fun s₁' ⟨m₁', di₁', g₁', rd₁', wr₁'⟩ => ?_
+  refine WP.mono (scalarInit_ok s₁') fun s₂ ⟨b₂, v₂, k₂⟩ => ?_
+  have rsi₂ : s₂.gpr .rsi = s.gpr .rsi :=
+    (k₂.1 _ (by decide)).trans ((g₁' _ (by decide)).trans (congrFun g₁ _))
+  have rdi₂ : s₂.gpr .rdi = s.gpr .rdx := (k₂.1 _ (by decide)).trans di₁'
+  have mem₂ : s₂.mem = s₁.mem.writeW (off (s.gpr .rdx) 48) (s.gpr .rdi) := by
+    rw [k₂.2.1, m₁', g₁]
+  have rw₂ : s₂.rd = s.rd ∧ s₂.wr = s.wr := ⟨by rw [k₂.2.2.1, rd₁', rd₁], by rw [k₂.2.2.2, wr₁', wr₁]⟩
+  have read₂ : ∀ k < 8, InRegions (s₂.rd ++ s₂.wr) (s₂.gpr .rsi + BitVec.ofNat 64 (8 * k)) 8 := by
+    intro k hk
     refine ⟨⟨s.gpr .rsi, 64⟩, ?_, ?_⟩
-    · rw [k₂.2.2.1, rd₁, hr]; simp
+    · rw [rw₂.1, hr]; simp
     · rw [rsi₂]; exact Offset.contains_base _ (by omega) (by omega)
+  have o₂ : Outside (s.gpr .rdx) 48 8 s₁.mem s₂.mem := by
+    rw [mem₂]; exact writeW_outside _ _ _ (by omega)
+  have fm₂ : Frame [⟨s.gpr .rdx, 8192⟩] s.mem s₂.mem :=
+    (scalarSave_frame o₁).trans (scratchFrame o₂ (by decide))
   apply WP.seq
   refine WP.mono (scalarLoop_ok s₂ b₂ v₂ read₂) fun s₃ ⟨v₃, k₃⟩ => ?_
-  have rdx₃ : s₃.gpr .rdx = s.gpr .rdx := (k₃.1 _ (by decide)).trans rdx₂
-  have wr₃ : s₃.wr = s.wr := k₃.2.2.2.trans (k₂.2.2.2.trans wr₁)
-  have sv₃ : Saved (s.gpr .rdx) s.gpr s₃.mem := by rw [k₃.2.1, k₂.2.1]; exact sv₁
+  have rdi₃ : s₃.gpr .rdi = s.gpr .rdx := (k₃.1 _ (by decide)).trans rdi₂
+  have wr₃ : s₃.wr = s.wr := k₃.2.2.2.trans rw₂.2
   rw [WP.block_append_iff]
-  refine WP.mono (scalarRestore_ok rdx₃ (wr₃ ▸ hws) sv₃)
-    fun s₄ ⟨r₄, g₄, m₄, _, wr₄⟩ => ?_
-  have rdi₄ : s₄.gpr .rdi = s.gpr .rdi :=
-    (g₄ _ (by decide)).trans ((k₃.1 _ (by decide)).trans rdi₂)
-  have hwo : (⟨s.gpr .rdi, 32⟩ : Region) ∈ s₄.wr := by rw [wr₄, wr₃, hw]; simp
-  refine WP.mono (scalarOut_ok rdi₄ hwo) fun t ⟨mt, gt, _, _⟩ => ?_
-  have fm : Frame [⟨s.gpr .rdx, 8192⟩] s.mem s₄.mem := by
-    rw [m₄, k₃.2.1, k₂.2.1]; exact scalarSave_frame o₁
+  refine WP.mono (finishArgs_ok rdi₃ (wr₃ ▸ hws)) fun s₄ ⟨dx₄, di₄, g₄', m₄', rd₄', wr₄'⟩ => ?_
+  have sv₄ : Saved (s.gpr .rdx) s.gpr s₄.mem := by
+    rw [m₄', k₃.2.1]; exact sv₁.outside o₂ (by decide)
+  have out₄ : s₄.gpr .rdi = s.gpr .rdi := by
+    rw [di₄, k₃.2.1, mem₂]; exact Mem.readW_writeW_self64 _ _ _
+  rw [WP.block_append_iff]
+  refine WP.mono (scalarRestore_ok dx₄ (by rw [wr₄', wr₃]; exact hws) sv₄)
+    fun s₅ ⟨r₅, g₅, m₅, _, wr₅⟩ => ?_
+  have rdi₅ : s₅.gpr .rdi = s.gpr .rdi := (g₅ _ (by decide)).trans out₄
+  have hwo : (⟨s.gpr .rdi, 32⟩ : Region) ∈ s₅.wr := by rw [wr₅, wr₄', wr₃, hw]; simp
+  refine WP.mono (scalarOut_ok rdi₅ hwo) fun t ⟨mt, gt, _, _⟩ => ?_
+  have fm : Frame [⟨s.gpr .rdx, 8192⟩] s.mem s₅.mem := by
+    rw [m₅, m₄', k₃.2.1]; exact fm₂
   refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
   · rw [gt]
     simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact r₄ (.rbx, 0) (by decide)
-    · exact r₄ (.rbp, 8) (by decide)
-    · rw [g₄ _ (by decide), k₃.1 _ (by decide), k₂.1 _ (by decide), g₁]
-    · exact r₄ (.r12, 16) (by decide)
-    · exact r₄ (.r13, 24) (by decide)
-    · exact r₄ (.r14, 32) (by decide)
-    · exact r₄ (.r15, 40) (by decide)
+    · exact r₅ (.rbx, 0) (by decide)
+    · exact r₅ (.rbp, 8) (by decide)
+    · rw [g₅ _ (by decide), g₄' _ (by decide) (by decide), k₃.1 _ (by decide), k₂.1 _ (by decide),
+        g₁' _ (by decide), g₁]
+    · exact r₅ (.r12, 16) (by decide)
+    · exact r₅ (.r13, 24) (by decide)
+    · exact r₅ (.r14, 32) (by decide)
+    · exact r₅ (.r15, 40) (by decide)
   · have ft : Frame [⟨s.gpr .rdx, 8192⟩, ⟨s.gpr .rdi, 32⟩] s.mem t.mem := by
       rw [mt]
       have c : ∀ d, d + 8 ≤ 32 → (⟨s.gpr .rdi, 32⟩ : Region).Contains (off (s.gpr .rdi) d) (64 / 8) :=
@@ -107,10 +125,11 @@ theorem scalarReduce_correct {s : State} (hs : scalarReduceLocal.pre s) :
     change Spec.X25519.bytesAt (st4 _ _ _ _ _ _ _) _ 32 = _
     rw [bytesAt_st4, Spec.Ed25519.scalarReduce, encodeLE_eq]
     apply congrArg (Proof.X25519.leBytes 32)
-    change scalarValue s₄ = _
-    have val₄ : scalarValue s₄ = scalarValue s₃ := by
-      simp only [scalarValue, g₄ .r8 (by decide), g₄ .r9 (by decide),
-        g₄ .r10 (by decide), g₄ .r11 (by decide)]
-    rw [val₄, v₃, rsi₂, k₂.2.1, bytesAt_frame (scalarSave_frame o₁) hd]
+    change scalarValue s₅ = _
+    have val₅ : scalarValue s₅ = scalarValue s₃ := by
+      simp only [scalarValue, g₅ .r8 (by decide), g₅ .r9 (by decide),
+        g₅ .r10 (by decide), g₅ .r11 (by decide), g₄' .r8 (by decide) (by decide),
+        g₄' .r9 (by decide) (by decide), g₄' .r10 (by decide) (by decide), g₄' .r11 (by decide) (by decide)]
+    rw [val₅, v₃, rsi₂, bytesAt_frame fm₂ hd]
 
 end VG.Proof.Ed25519.X86_64
