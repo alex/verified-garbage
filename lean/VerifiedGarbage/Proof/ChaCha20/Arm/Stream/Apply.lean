@@ -291,4 +291,140 @@ theorem startB_ok {s₀ : State} (hp : APre s₀) {s : State} (h0 : s.gpr .r0 = 
     simp
   · rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hO, carry_z]
 
+theorem start_ok {s₀ : State} (hp : APre s₀) (hle : L s₀ ≤ N s₀) {s : State} (h : Q0 s₀ s) :
+    WP isa (.block start) s fun s' => R1 s₀ (L s₀) s' ∧ s'.z = decide (O s₀ < L s₀) := by
+  rw [start_eq, WP.block_append_iff]
+  refine WP.mono (startA_ok hp hle h) fun s₁ ⟨m₁, g₁, r₁, w₁, p₁⟩ => startB_ok hp
+    (by rw [g₁ _ (by decide) (by decide) (by decide)]) (by rw [g₁ _ (by decide) (by decide) (by decide)])
+    (by rw [g₁ _ (by decide) (by decide) (by decide)])
+    (fun r hr => g₁ r (kept_ne hr) (kept_ne hr) (kept_ne hr)) m₁ (by rw [r₁, h.rd]) (by rw [w₁, h.wr])
+    (by rw [p₁, h.sp])
+
+theorem sel_ok {s₀ : State} {s : State} (h : R1 s₀ (L s₀) s) (hz : s.z = decide (O s₀ < L s₀)) :
+    WP isa (.ite .eq (.block [.mov .r2 (.reg .r12)]) (.block [])) s (R1 s₀ (H s₀)) := by
+  refine WP.ite (decide (O s₀ < L s₀)) (by rw [eval_eq, hz]) (fun hlt => ?_) (fun hge => ?_)
+  · simp only [decide_eq_true_eq] at hlt
+    refine wp_mov (op2_reg _ _) fun s' u => WP.block_nil ?_
+    exact ⟨by rw [u.other _ (by decide), h.r4], by rw [u.other _ (by decide), h.r5],
+      by rw [u.other _ (by decide), h.r6],
+      by rw [u.gpr, h.r12, H, headLen, bufLeft, Nat.min_eq_left (Nat.le_of_lt hlt)],
+      by rw [u.other _ (by decide), h.r12],
+      fun r hr => by rw [u.other r (kept_ne hr)]; exact h.keep r hr,
+      by rw [u.rd, h.rd], by rw [u.wr, h.wr], by rw [u.sp, h.sp], u.mem ▸ h.mid, u.mem ▸ h.done,
+      u.mem ▸ h.frame⟩
+  · simp only [decide_eq_false_iff_not, Nat.not_lt] at hge
+    refine WP.block_nil (M := isa) ⟨h.r4, h.r5, h.r6, ?_, h.r12, h.keep, h.rd, h.wr, h.sp, h.mid, h.done,
+      h.frame⟩
+    rw [h.r2, H, headLen, bufLeft, Nat.min_eq_right hge]
+
+/-- After `part1`: the bytes from the buffered block XORed, and `r2` the
+bytes of the whole blocks, Z whether there are none. -/
+structure Q1 (s₀ s : State) : Prop where
+  r4 : s.gpr .r4 = ST s₀
+  r5 : s.gpr .r5 = DP s₀ + BitVec.ofNat 32 (H s₀)
+  r6 : s.gpr .r6 = BitVec.ofNat 32 (L s₀ - H s₀)
+  r2 : s.gpr .r2 = BitVec.ofNat 32 (64 * NB s₀)
+  z : s.z = decide (64 * NB s₀ = 0)
+  keep : ∀ r ∈ kept, s.gpr r = s₀.gpr r
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  sp : s.sp = s₀.sp
+  mid : Mid s₀ s.mem
+  done : Done s₀ (H s₀) s.mem
+  frame : Frame [stR s₀, dR s₀] s₀.mem s.mem
+
+/-- `(x >>> 6) <<< 6` rounds down to a multiple of 64. -/
+theorem round64 {x : Nat} (hx : x < 2 ^ 32) :
+    (BitVec.ofNat 32 x >>> 6) <<< 6 = BitVec.ofNat 32 (64 * (x / 64)) := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_shiftLeft, BitVec.toNat_ushiftRight, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt hx, Nat.shiftRight_eq_div_pow, Nat.shiftLeft_eq]
+  omega
+
+theorem part1_eq : part1 = .seq (.block start)
+    (.seq (.ite .eq (.block [.mov .r2 (.reg .r12)]) (.block []))
+    (.seq (.block [.dp .add .r3 .r4 (.imm 128), .dp .sub .r3 .r3 (.reg .r12), .dp .sub .r6 .r6 (.reg .r2)])
+    (.seq xorBytes (.block [.mov .r2 (.shifted .r6 .lsr 6), .mov .r2 (.shifted .r2 .lsl 6), .cmp .r2 (.imm 0)])))) :=
+  rfl
+
+theorem part1_ok {s₀ : State} (hp : APre s₀) (hle : L s₀ ≤ N s₀) {s : State} (h : Q0 s₀ s) :
+    WP isa part1 s (Q1 s₀) := by
+  have hL := L_lt s₀
+  have hH := H_le s₀
+  have hHO := H_le_O s₀
+  have hO := O_lt s₀
+  have hst := hp.st_fit
+  have hd := hp.d_fit
+  rw [part1_eq]
+  refine WP.seq (WP.mono (start_ok hp hle h) fun s₁ ⟨h₁, hz₁⟩ => ?_)
+  refine WP.seq (WP.mono (sel_ok h₁ hz₁) fun s₂ h₂ => ?_)
+  -- The pointer to the bytes left in the buffered block, and the length left.
+  refine WP.seq (wp_add (op2_imm (by decide)) fun s₃ u₃ => wp_sub (op2_reg _ _) fun s₄ u₄ =>
+    wp_sub (op2_reg _ _) fun s₅ u₅ => WP.block_nil ?_)
+  have hK : s₅.gpr .r3 = ST s₀ + BitVec.ofNat 32 (128 - O s₀) := by
+    rw [u₅.other _ (by decide), u₄.gpr, u₃.gpr, u₄.other _ (by decide), u₃.other _ (by decide), h₂.r4, h₂.r12,
+      show (128 : BitVec 32) = BitVec.ofNat 32 (128 - O s₀) + BitVec.ofNat 32 (O s₀) by
+        rw [BitVec.ofNat_add_ofNat, show 128 - O s₀ + O s₀ = 128 by omega]; rfl,
+      ← BitVec.add_assoc, BitVec.add_sub_cancel]
+  have g : ∀ r, r ≠ .r3 → r ≠ .r6 → s₅.gpr r = s₂.gpr r := fun r h₁ h₂ => by
+    rw [u₅.other r h₂, u₄.other r h₁, u₃.other r h₁]
+  have hm₅ : s₅.mem = s₂.mem := by rw [u₅.mem, u₄.mem, u₃.mem]
+  have hr6 : s₅.gpr .r6 = BitVec.ofNat 32 (L s₀ - H s₀) := by
+    rw [u₅.gpr, u₄.other _ (by decide), u₃.other _ (by decide), h₂.r6, u₄.other _ (by decide),
+      u₃.other _ (by decide), h₂.r2, sub_ofNat hH]
+  have eK : State.addr (ST s₀ + BitVec.ofNat 32 (128 - O s₀)) = st s₀ + BitVec.ofNat 64 (128 - O s₀) :=
+    hp.eaS (by omega)
+  have hb : BPre s₅ (DP s₀) (ST s₀ + BitVec.ofNat 32 (128 - O s₀)) (H s₀) :=
+    ⟨by rw [g _ (by decide) (by decide), h₂.r5], hK, by rw [g _ (by decide) (by decide), h₂.r2],
+      by omega, by rw [hp.sNat (by omega)]; omega,
+      fun k hk => by rw [u₅.wr, u₄.wr, u₃.wr, h₂.wr]; exact dR_byte hp (by omega),
+      fun k hk => by
+        rw [u₅.rd, u₄.rd, u₃.rd, u₅.wr, u₄.wr, u₃.wr, h₂.rd, h₂.wr, eK, Offset.add_add]
+        exact hp.r_st (by omega),
+      fun j hj k hk => by rw [eK, Offset.add_add]; exact d_ne_st hp (by omega) (by omega)⟩
+  refine WP.seq (WP.mono (xorBytes_ok hb) fun s₆ h₆ => ?_)
+  refine wp_mov (op2_lsr (by decide)) fun s₇ u₇ => wp_mov (op2_lsl (by decide)) fun s₈ u₈ =>
+    wp_cmp (n := .r2) (op2_imm imm0) fun s₉ f₉ hz => WP.block_nil ?_
+  have g' : ∀ r, r ≠ .r2 → s₉.gpr r = s₆.gpr r := fun r hr => by
+    rw [f₉.gpr, u₈.other r hr, u₇.other r hr]
+  have hm : s₉.mem = s₆.mem := by rw [f₉.mem, u₈.mem, u₇.mem]
+  have hnb : 64 * ((L s₀ - H s₀) / 64) = 64 * NB s₀ := by simp only [NB, blocksOf, H]
+  have hr2 : s₉.gpr .r2 = BitVec.ofNat 32 (64 * NB s₀) := by
+    rw [f₉.gpr, u₈.gpr, u₇.gpr, h₆.keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hr6,
+      round64 (by omega), hnb]
+  have kp : ∀ r ∈ kept, s₉.gpr r = s₀.gpr r := fun r hr => by
+    rw [g' r (kept_ne hr), h₆.keep r (kept_ne hr) (kept_ne hr) (kept_ne hr) (kept_ne hr) (kept_ne hr),
+      g r (kept_ne hr) (kept_ne hr)]
+    exact h₂.keep r hr
+  refine ⟨by rw [g' _ (by decide), h₆.keep _ (by decide) (by decide) (by decide) (by decide) (by decide),
+      g _ (by decide) (by decide), h₂.r4],
+    by rw [g' _ (by decide), h₆.r5], by rw [g' _ (by decide), h₆.keep _ (by decide) (by decide) (by decide)
+      (by decide) (by decide), hr6], hr2,
+    by rw [hz, hr2, sub_zero', ofNat_beq_zero (by omega)], kp,
+    by rw [f₉.rd, u₈.rd, u₇.rd, h₆.rd, u₅.rd, u₄.rd, u₃.rd, h₂.rd],
+    by rw [f₉.wr, u₈.wr, u₇.wr, h₆.wr, u₅.wr, u₄.wr, u₃.wr, h₂.wr],
+    by rw [f₉.sp, u₈.sp, u₇.sp, h₆.sp, u₅.sp, u₄.sp, u₃.sp, h₂.sp], ⟨fun i hi => ?_, ?_⟩, fun k hk => ?_, ?_⟩
+  · rw [hm, h₆.frame _ fun r hr hc => ?_, hm₅]
+    · exact h₂.mid.keep i hi
+    · simp only [List.mem_singleton] at hr; subst hr
+      exact hp.st_d _ (Offset.contains_base (st s₀) (d := i) (n := 1) (k := 768) (by omega) (by omega))
+        (Offset.sub_base (dp s₀) (d := 0) (n := H s₀) (k := L s₀) (by omega) _ (by simpa using hc))
+  · rw [hm]
+    refine (hm₅ ▸ h₂.mid.saved).frame h₆.frame fun r hr => ?_
+    simp only [List.mem_singleton] at hr; subst hr
+    exact (hp.st_d.sub_left (savR_sub s₀)).sub_right fun x hx => by
+      simpa using Offset.sub_base (dp s₀) (d := 0) (n := H s₀) (k := L s₀) (by omega) x (by simpa using hx)
+  · rw [hm]
+    by_cases hk' : k < H s₀
+    · rw [h₆.data k hk', hm₅, h₂.done k hk, eK, Offset.add_add, h₂.mid.keep _ (by omega)]
+      simp [hk', KS]
+    · rw [h₆.frame _ fun r hr => by
+          simp only [List.mem_singleton] at hr; subst hr; exact not_in_prefix _ (by omega) (by omega),
+        hm₅, h₂.done k hk]
+      simp [hk']
+  · rw [hm]
+    exact (hm₅ ▸ h₂.frame.mono (by simp)).trans (h₆.frame.sub fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr
+      exact ⟨dR s₀, by simp, prefix_sub _ hH⟩)
+
 end VG.Proof.ChaCha20.Arm.Stream
