@@ -13,19 +13,21 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt ctxH ctxCiph zeros padLen inc32 ghash ghashFrom blocks toBytes ofBytes)
 open VG.Proof.Gcm (Absorbed Ctr xorKs lensBlock)
 
-theorem oneCrypt_eq : oneCrypt = .seq (.block [.mov .eax (slot dataO), .store (at_ .ebp dO) .eax,
-    .mov .eax (slot lenO), .store (at_ .ebp nO) .eax, .mov .eax (imm 0), .store (at_ .ebp bO) .eax]) crypt := rfl
+theorem oneCrypt_eq : (oneCrypt vg.callees) = .seq (.block [.mov .eax (slot dataO), .store (at_ .ebp dO) .eax,
+    .mov .eax (slot lenO), .store (at_ .ebp nO) .eax, .mov .eax (imm 0), .store (at_ .ebp bO) .eax]) (crypt vg.callees) := rfl
 
-theorem oneTag_eq (o : Nat) : oneTag o = .seq (.block [.mov .eax (slot dataO), .store (at_ .ebp dO) .eax,
+theorem oneTag_eq (o : Nat) : (oneTag vg.callees) o = .seq (.block [.mov .eax (slot dataO), .store (at_ .ebp dO) .eax,
     .mov .eax (slot lenO), .store (at_ .ebp nO) .eax, .mov .eax (imm 0), .store (at_ .ebp bO) .eax])
-  (.seq (absorb 16)
+  (.seq (absorb vg.callees 16)
   (.seq (.block [.mov .eax (slot lenO), .alu .and .eax (imm 15), .store (at_ .ebp bO) .eax])
-  (.seq (flush 16) (tag o alO zO lenO zO)))) := rfl
+  (.seq (flush vg.callees 16) (tag vg.callees o alO zO lenO zO)))) := rfl
 
 /-- What GHASH has absorbed before the data: the additional data, padded. -/
 abbrev xA (p : BitVec 32 × (Nat → BitVec 32)) (s₀ : State) : List Byte :=
@@ -75,7 +77,7 @@ theorem dataW_of {s₀ s : State} (h : OEnv p s₀ s) :
 
 theorem oneCrypt_pc (icb : State → Block) :
     Pc (fun (b : State × State) s => (OEnv p b.1 s ∧
-        CtrS s.mem (stOf (p.2 8)) (ctxCiph b.1.mem (w64 (p.2 0)) (p.2 1).toNat) (icb b.1) 0) ∧ s = b.2) oneCrypt
+        CtrS s.mem (stOf (p.2 8)) (ctxCiph b.1.mem (w64 (p.2 0)) (p.2 1).toNat) (icb b.1) 0) ∧ s = b.2) (oneCrypt vg.callees)
       (fun b s' => OEnv p b.1 s' ∧
         bytesAt s'.mem (w64 (p.2 6)) (p.2 7).toNat =
           xorKs (ctxCiph b.1.mem (w64 (p.2 0)) (p.2 1).toNat) (icb b.1) 0 (bytesAt b.2.mem (w64 (p.2 6)) (p.2 7).toNat) ∧
@@ -210,7 +212,7 @@ theorem cb_oT {o : Nat} (ho : o = 0 ∨ o = 112) :
   · exact (G.L.stk_w (by decide)).symm
 
 theorem oneTag_pc {o : Nat} (ho : o = 0 ∨ o = 112) :
-    Pc (fun (b : State × State) s => OTIn p b.1 s ∧ s = b.2) (oneTag o)
+    Pc (fun (b : State × State) s => OTIn p b.1 s ∧ s = b.2) (oneTag vg.callees o)
       (fun b s' => OEnv p b.1 s' ∧
         bytesAt s'.mem (w64 (p.2 8) + BitVec.ofNat 64 o) 16 =
           toBytes (ghashFrom (ctxH b.1.mem (w64 (p.2 0))) (ghash (ctxH b.1.mem (w64 (p.2 0)))

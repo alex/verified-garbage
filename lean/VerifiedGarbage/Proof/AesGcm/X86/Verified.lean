@@ -18,7 +18,11 @@ time, a state satisfying each precondition, and the shared contracts of
 for `stream_init` and `stream_aad`, which call only `vg_ghash` (five).
 -/
 
+set_option linter.unusedSimpArgs false
+
 namespace VG.Proof.AesGcm.X86
+
+variable {vg : GcmImpl}
 
 open VG VG.X86 VG.Impl.AesGcm.X86
 
@@ -36,7 +40,7 @@ def saSat : State where
   rd := [⟨0x1000, 256⟩, ⟨0x2000, 0⟩]
   wr := [⟨0x3000, 80⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 28⟩]
 
-theorem streamAad_verified : Verified X86.target streamAad (Spec.Gcm.streamAadContract X86.abi 24) :=
+theorem streamAad_verified : Verified X86.target (streamAad vg.callees) (Spec.Gcm.streamAadContract X86.abi 24) :=
   Verified.of_correct streamAad_correct streamAad_ct (by
     have a0 : arg saSat 0 = 0x1000 := by decide
     have a1 : arg saSat 1 = 0x3000 := by decide
@@ -64,7 +68,7 @@ def siSat : State where
   rd := [⟨0x1000, 256⟩, ⟨0x2000, 0⟩]
   wr := [⟨0x3000, 80⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 20⟩]
 
-theorem streamInit_verified : Verified X86.target streamInit (Spec.Gcm.streamInitContract X86.abi 24) :=
+theorem streamInit_verified : Verified X86.target (streamInit vg.callees) (Spec.Gcm.streamInitContract X86.abi 24) :=
   Verified.of_correct streamInit_correct streamInit_ct (by
     have a0 : arg siSat 0 = 0x1000 := by decide
     have a1 : arg siSat 1 = 0x2000 := by decide
@@ -90,7 +94,7 @@ def crSat : State where
   rd := [⟨0x1000, 256⟩]
   wr := [⟨0x3000, 80⟩, ⟨0x2000, 0⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 40⟩]
 
-theorem streamEncrypt_verified : Verified X86.target streamEncrypt (Spec.Gcm.streamEncryptContract X86.abi 28) :=
+theorem streamEncrypt_verified : Verified X86.target (streamEncrypt vg.callees) (Spec.Gcm.streamEncryptContract X86.abi 28) :=
   Verified.of_correct streamEncrypt_correct streamEncrypt_ct (by
     have a0 : arg crSat 0 = 0x1000 := by decide
     have a1 : arg crSat 1 = 10 := by decide
@@ -108,7 +112,7 @@ theorem streamEncrypt_verified : Verified X86.target streamEncrypt (Spec.Gcm.str
       roundsOk, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
       [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, e, esp] using crSat)
 
-theorem streamDecrypt_verified : Verified X86.target streamDecrypt (Spec.Gcm.streamDecryptContract X86.abi 28) :=
+theorem streamDecrypt_verified : Verified X86.target (streamDecrypt vg.callees) (Spec.Gcm.streamDecryptContract X86.abi 28) :=
   Verified.of_correct streamDecrypt_correct streamDecrypt_ct (by
     have a0 : arg crSat 0 = 0x1000 := by decide
     have a1 : arg crSat 1 = 10 := by decide
@@ -140,7 +144,7 @@ def finSat : State where
   rd := [⟨0x1000, 256⟩]
   wr := [⟨0x3000, 80⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 32⟩]
 
-theorem streamFinish_verified : Verified X86.target streamFinish (Spec.Gcm.streamFinishContract X86.abi 28) :=
+theorem streamFinish_verified : Verified X86.target (streamFinish vg.callees) (Spec.Gcm.streamFinishContract X86.abi 28) :=
   Verified.of_correct streamFinish_correct streamFinish_ct (by
     have a0 : arg finSat 0 = 0x1000 := by decide
     have a1 : arg finSat 1 = 10 := by decide
@@ -169,7 +173,7 @@ def verSat : State where
   rd := [⟨0x1000, 256⟩]
   wr := [⟨0x3000, 80⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 36⟩]
 
-theorem streamVerify_verified : Verified X86.target streamVerify (Spec.Gcm.streamVerifyContract X86.abi 28) :=
+theorem streamVerify_verified : Verified X86.target (streamVerify vg.callees) (Spec.Gcm.streamVerifyContract X86.abi 28) :=
   Verified.of_correct streamVerify_correct streamVerify_ct (by
     have a0 : arg verSat 0 = 0x1000 := by decide
     have a1 : arg verSat 1 = 10 := by decide
@@ -201,7 +205,7 @@ def sealSat : State where
   rd := [⟨0x1000, 256⟩, ⟨0x2000, 0⟩, ⟨0x2100, 0⟩]
   wr := [⟨0x3000, 0⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 36⟩]
 
-theorem seal_verified : Verified X86.target «seal» (Spec.Gcm.sealContract X86.abi 28) :=
+theorem seal_verified : Verified X86.target («seal» vg.callees) (Spec.Gcm.sealContract X86.abi 28) :=
   Verified.of_correct seal_correct seal_ct (by
     have a0 : arg sealSat 0 = 0x1000 := by decide
     have a1 : arg sealSat 1 = 10 := by decide
@@ -237,7 +241,7 @@ theorem leak_bool {a b : Bool} (h : [if a = true then 1 else 0] = [if b = true t
 
 /-- `open`'s public data include its leak, from which `pub` has whether it
 succeeds. -/
-theorem open_verified : Verified X86.target «open» (Spec.Gcm.openContract X86.abi 28) :=
+theorem open_verified : Verified X86.target («open» vg.callees) (Spec.Gcm.openContract X86.abi 28) :=
   Verified.of_correct open_correct open_ct
     { pre := by sig_implies_pre [Spec.Gcm.openContract, Spec.Gcm.openSig, openX86, onePre, pubN, roundsOk,
         X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
@@ -288,7 +292,7 @@ def initSat : State where
   rd := [⟨0x1000, 16⟩]
   wr := [⟨0x2000, 256⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 16⟩]
 
-theorem init_verified : Verified X86.target init (Spec.Gcm.initContract X86.abi 28) :=
+theorem init_verified : Verified X86.target (init vg.callees) (Spec.Gcm.initContract X86.abi 28) :=
   Verified.of_correct init_correct init_ct (by
     have a0 : arg initSat 0 = 0x1000 := by decide
     have a1 : arg initSat 1 = 16 := by decide
@@ -298,5 +302,58 @@ theorem init_verified : Verified X86.target init (Spec.Gcm.initContract X86.abi 
     have esp : initSat.gpr .esp = 0x8000 := rfl
     sig_implies [Spec.Gcm.initContract, Spec.Gcm.initSig, initX86, initPre, pubN,
       X86.abi, X86.argSlots, X86.argVal, X86.argBytes] [a0, a1, a2, a3, e, esp] using initSat)
+
+
+/-! ## The stack pointer -/
+
+section
+variable (vg : GcmImpl)
+
+theorem init_spSafe : (init vg.callees).all (fun i => !X86.isa.writesSp i) = true := by
+  simp only [absorb, absorbHead, absorbWhole, crypt, cryptTail, cryptWhole, ctrCall, finTag, firstFlush, flush, ghCall, ghash1, init, j0, j0hash, keyCall, lens, oneAad, oneCrypt, oneTag, streamAad, streamDecrypt, streamEncrypt, streamFinish, streamInit, streamVerify, tag, textAbsorb, «open», «seal», Code.all, GcmImpl.callees, vg.ctr.spSafe, vg.ctr.expandSpSafe, vg.gh.spSafe,
+    Bool.true_and, Bool.and_true]
+  decide +kernel
+
+theorem streamInit_spSafe : (streamInit vg.callees).all (fun i => !X86.isa.writesSp i) = true := by
+  simp only [absorb, absorbHead, absorbWhole, crypt, cryptTail, cryptWhole, ctrCall, finTag, firstFlush, flush, ghCall, ghash1, init, j0, j0hash, keyCall, lens, oneAad, oneCrypt, oneTag, streamAad, streamDecrypt, streamEncrypt, streamFinish, streamInit, streamVerify, tag, textAbsorb, «open», «seal», Code.all, GcmImpl.callees, vg.ctr.spSafe, vg.ctr.expandSpSafe, vg.gh.spSafe,
+    Bool.true_and, Bool.and_true]
+  decide +kernel
+
+theorem streamAad_spSafe : (streamAad vg.callees).all (fun i => !X86.isa.writesSp i) = true := by
+  simp only [absorb, absorbHead, absorbWhole, crypt, cryptTail, cryptWhole, ctrCall, finTag, firstFlush, flush, ghCall, ghash1, init, j0, j0hash, keyCall, lens, oneAad, oneCrypt, oneTag, streamAad, streamDecrypt, streamEncrypt, streamFinish, streamInit, streamVerify, tag, textAbsorb, «open», «seal», Code.all, GcmImpl.callees, vg.ctr.spSafe, vg.ctr.expandSpSafe, vg.gh.spSafe,
+    Bool.true_and, Bool.and_true]
+  decide +kernel
+
+theorem streamEncrypt_spSafe : (streamEncrypt vg.callees).all (fun i => !X86.isa.writesSp i) = true := by
+  simp only [absorb, absorbHead, absorbWhole, crypt, cryptTail, cryptWhole, ctrCall, finTag, firstFlush, flush, ghCall, ghash1, init, j0, j0hash, keyCall, lens, oneAad, oneCrypt, oneTag, streamAad, streamDecrypt, streamEncrypt, streamFinish, streamInit, streamVerify, tag, textAbsorb, «open», «seal», Code.all, GcmImpl.callees, vg.ctr.spSafe, vg.ctr.expandSpSafe, vg.gh.spSafe,
+    Bool.true_and, Bool.and_true]
+  decide +kernel
+
+theorem streamDecrypt_spSafe : (streamDecrypt vg.callees).all (fun i => !X86.isa.writesSp i) = true := by
+  simp only [absorb, absorbHead, absorbWhole, crypt, cryptTail, cryptWhole, ctrCall, finTag, firstFlush, flush, ghCall, ghash1, init, j0, j0hash, keyCall, lens, oneAad, oneCrypt, oneTag, streamAad, streamDecrypt, streamEncrypt, streamFinish, streamInit, streamVerify, tag, textAbsorb, «open», «seal», Code.all, GcmImpl.callees, vg.ctr.spSafe, vg.ctr.expandSpSafe, vg.gh.spSafe,
+    Bool.true_and, Bool.and_true]
+  decide +kernel
+
+theorem streamFinish_spSafe : (streamFinish vg.callees).all (fun i => !X86.isa.writesSp i) = true := by
+  simp only [absorb, absorbHead, absorbWhole, crypt, cryptTail, cryptWhole, ctrCall, finTag, firstFlush, flush, ghCall, ghash1, init, j0, j0hash, keyCall, lens, oneAad, oneCrypt, oneTag, streamAad, streamDecrypt, streamEncrypt, streamFinish, streamInit, streamVerify, tag, textAbsorb, «open», «seal», Code.all, GcmImpl.callees, vg.ctr.spSafe, vg.ctr.expandSpSafe, vg.gh.spSafe,
+    Bool.true_and, Bool.and_true]
+  decide +kernel
+
+theorem streamVerify_spSafe : (streamVerify vg.callees).all (fun i => !X86.isa.writesSp i) = true := by
+  simp only [absorb, absorbHead, absorbWhole, crypt, cryptTail, cryptWhole, ctrCall, finTag, firstFlush, flush, ghCall, ghash1, init, j0, j0hash, keyCall, lens, oneAad, oneCrypt, oneTag, streamAad, streamDecrypt, streamEncrypt, streamFinish, streamInit, streamVerify, tag, textAbsorb, «open», «seal», Code.all, GcmImpl.callees, vg.ctr.spSafe, vg.ctr.expandSpSafe, vg.gh.spSafe,
+    Bool.true_and, Bool.and_true]
+  decide +kernel
+
+theorem seal_spSafe : («seal» vg.callees).all (fun i => !X86.isa.writesSp i) = true := by
+  simp only [absorb, absorbHead, absorbWhole, crypt, cryptTail, cryptWhole, ctrCall, finTag, firstFlush, flush, ghCall, ghash1, init, j0, j0hash, keyCall, lens, oneAad, oneCrypt, oneTag, streamAad, streamDecrypt, streamEncrypt, streamFinish, streamInit, streamVerify, tag, textAbsorb, «open», «seal», Code.all, GcmImpl.callees, vg.ctr.spSafe, vg.ctr.expandSpSafe, vg.gh.spSafe,
+    Bool.true_and, Bool.and_true]
+  decide +kernel
+
+theorem open_spSafe : («open» vg.callees).all (fun i => !X86.isa.writesSp i) = true := by
+  simp only [absorb, absorbHead, absorbWhole, crypt, cryptTail, cryptWhole, ctrCall, finTag, firstFlush, flush, ghCall, ghash1, init, j0, j0hash, keyCall, lens, oneAad, oneCrypt, oneTag, streamAad, streamDecrypt, streamEncrypt, streamFinish, streamInit, streamVerify, tag, textAbsorb, «open», «seal», Code.all, GcmImpl.callees, vg.ctr.spSafe, vg.ctr.expandSpSafe, vg.gh.spSafe,
+    Bool.true_and, Bool.and_true]
+  decide +kernel
+
+end
 
 end VG.Proof.AesGcm.X86

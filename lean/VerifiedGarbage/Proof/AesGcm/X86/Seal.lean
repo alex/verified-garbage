@@ -13,6 +13,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt ctxH ctxCiph zeros padLen inc32 ghash ghashFrom blocks toBytes ofBytes gctr
@@ -73,7 +75,7 @@ theorem d_woF {o : Nat} (ho : o + 16 ≤ 2560) :
 end
 
 theorem seal_pc (p : BitVec 32 × (Nat → BitVec 32)) :
-    Pc (fun (s₀ : State) s => onePre 9 s₀ ∧ pubOf 9 s₀ = p ∧ s = s₀) «seal»
+    Pc (fun (s₀ : State) s => onePre 9 s₀ ∧ pubOf 9 s₀ = p ∧ s = s₀) («seal» vg.callees)
       (fun s₀ s' => abiPreserved s₀ s' ∧ sealX86.post s₀ s') := by
   by_cases hex : ∃ s₀, onePre 9 s₀ ∧ pubOf 9 s₀ = p
   swap
@@ -122,10 +124,10 @@ theorem seal_pc (p : BitVec 32 × (Nat → BitVec 32)) :
   rw [ht, Proof.Gcm.fullTag_eq, toBytes_take16, padded_eq, length_bytesAt, length_bytesAt]
 
 theorem seal_correct (s : State) (hs : sealX86.pre s) :
-    ∃ t s', Exec isa «seal» s t s' ∧ abiPreserved s s' ∧ sealX86.post s s' :=
+    ∃ t s', Exec isa («seal» vg.callees) s t s' ∧ abiPreserved s s' ∧ sealX86.post s s' :=
   (seal_pc (pubOf 9 s)).wp s s ⟨hs, rfl, rfl⟩
 
-theorem seal_ct : ConstantTime isa sealX86.pre sealX86.pub «seal» :=
+theorem seal_ct : ConstantTime isa sealX86.pre sealX86.pub («seal» vg.callees) :=
   Pc.constantTime (pubOf 9) (fun _ _ _ _ h => pubOf_eq h) seal_pc fun _ hs => ⟨hs, rfl, rfl⟩
 
 end VG.Proof.AesGcm.X86

@@ -13,17 +13,19 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt StreamRepr ctxH ctxCiph gctr inc32 j0)
 open VG.Proof.Gcm (Absorbed Ctr xorKs)
 
-theorem streamDecrypt_eq : streamDecrypt = .seq (entry 9 (([.mov .esi (argOp 2)] : List Instr) ++
+theorem streamDecrypt_eq : (streamDecrypt vg.callees) = .seq (entry 9 (([.mov .esi (argOp 2)] : List Instr) ++
     (crKeeps.flatMap (fun p => keep p.1 p.2) ++ [])))
-    (.seq textAbsorb (.seq (.block setText) (.seq crypt (.block restore)))) := rfl
+    (.seq (textAbsorb vg.callees) (.seq (.block setText) (.seq (crypt vg.callees) (.block restore)))) := rfl
 
 theorem streamDecrypt_pc (p : BitVec 32 × (Nat → BitVec 32)) :
-    Pc (fun (s₀ : State) s => streamCryptPre s₀ ∧ pubOf 10 s₀ = p ∧ s = s₀) streamDecrypt
+    Pc (fun (s₀ : State) s => streamCryptPre s₀ ∧ pubOf 10 s₀ = p ∧ s = s₀) (streamDecrypt vg.callees)
       (fun s₀ s' => abiPreserved s₀ s' ∧ streamDecryptX86.post s₀ s') := by
   by_cases hex : ∃ s₀, streamCryptPre s₀ ∧ pubOf 10 s₀ = p
   swap
@@ -139,10 +141,10 @@ theorem streamDecrypt_pc (p : BitVec 32 × (Nat → BitVec 32)) :
   · rw [List.length_append, length_bytesAt, ← hct]; exact hct₄
 
 theorem streamDecrypt_correct (s : State) (hs : streamDecryptX86.pre s) :
-    ∃ t s', Exec isa streamDecrypt s t s' ∧ abiPreserved s s' ∧ streamDecryptX86.post s s' :=
+    ∃ t s', Exec isa (streamDecrypt vg.callees) s t s' ∧ abiPreserved s s' ∧ streamDecryptX86.post s s' :=
   (streamDecrypt_pc (pubOf 10 s)).wp s s ⟨hs, rfl, rfl⟩
 
-theorem streamDecrypt_ct : ConstantTime isa streamDecryptX86.pre streamDecryptX86.pub streamDecrypt :=
+theorem streamDecrypt_ct : ConstantTime isa streamDecryptX86.pre streamDecryptX86.pub (streamDecrypt vg.callees) :=
   Pc.constantTime (pubOf 10) (fun _ _ _ _ h => pubOf_eq h) streamDecrypt_pc fun _ hs => ⟨hs, rfl, rfl⟩
 
 end VG.Proof.AesGcm.X86

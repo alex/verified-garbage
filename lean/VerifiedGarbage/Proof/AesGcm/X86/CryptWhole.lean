@@ -13,6 +13,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt blocksAt aesWith)
@@ -200,7 +202,7 @@ theorem cWhole3 (hK : K = 28) {j nb : Nat} (hnb : nb ≠ 0) (hnbd : nb = (n - j)
     have := h.nO; rw [slotv_eq] at this; rw [this]; congr 1; omega
 
 theorem cryptWhole_pc (hK : K = 28) {j : Nat} :
-    Pc (CrMid Ctx St W SP K R icb D n P · j) cryptWhole
+    Pc (CrMid Ctx St W SP K R icb D n P · j) (cryptWhole vg.callees)
       (CrMid Ctx St W SP K R icb D n P · (j + 16 * ((n - j) / 16))) := by
   generalize hnb : (n - j) / 16 = nb
   refine Pc.seq (Q := CWhole1 (Ctx := Ctx) (St := St) (W := W) (SP := SP) (K := K) (R := R) (icb := icb) (D := D)

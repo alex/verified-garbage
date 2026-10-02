@@ -13,6 +13,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt blocksAt ghashFrom ofBytes toBytes)
@@ -167,7 +169,7 @@ theorem ctx_tFrame' : ∀ r ∈ tFrame St W SP 28 16, (⟨w64 Ctx, 256⟩ : Regi
 
 theorem tag_pc {R o al ah tl th : Nat} (ho : o = 0 ∨ o = 112) (hc : LensAt 16 al ah tl th)
     {alo ahi tlo thi : BitVec 32} :
-    Pc (fun (m₀ : Mem) s => TagIn Ctx St W SP R al ah tl th alo ahi tlo thi s ∧ s.mem = m₀) (tag o al ah tl th)
+    Pc (fun (m₀ : Mem) s => TagIn Ctx St W SP R al ah tl th alo ahi tlo thi s ∧ s.mem = m₀) (tag vg.callees o al ah tl th)
       (TagOut Ctx St W SP R o (val64 alo ahi) (val64 tlo thi) ·) := by
   refine Pc.seq (Pc.lift (lens_pc L hc) (fun m₀ _ => m₀) fun m₀ s ⟨h, hm⟩ => ⟨⟨h.env, h.sl⟩, hm⟩) ?_
   have hw : ∀ (m₀ : Mem) s', (∃ s, (TagIn Ctx St W SP R al ah tl th alo ahi tlo thi s ∧ s.mem = m₀) ∧

@@ -16,6 +16,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt blocksAt ghashFrom ghash blocks zeros padLen)
@@ -122,7 +124,7 @@ theorem zeroT_ok {s : State} (he : Env Ctx St W SP s) :
   all_goals rfl
 
 theorem flush_pc (hyo : yo = 0 ∨ yo = 16) {b : Nat} (hb : b < 16) :
-    Pc (fun (m₀ : Mem) s => (Env Ctx St W SP s ∧ slotv s.mem W bO = BitVec.ofNat 32 b) ∧ s.mem = m₀) (flush yo)
+    Pc (fun (m₀ : Mem) s => (Env Ctx St W SP s ∧ slotv s.mem W bO = BitVec.ofNat 32 b) ∧ s.mem = m₀) (flush vg.callees yo)
       (FlOut Ctx St W SP K yo b ·) := by
   refine Pc.seq (Q := fun m₀ s => ((Env Ctx St W SP s ∧ slotv s.mem W bO = BitVec.ofNat 32 b) ∧ s.mem = m₀) ∧
       s.zf = some (decide (b = 0)) ∧ s.gpr .ecx = BitVec.ofNat 32 b)
@@ -370,7 +372,7 @@ theorem lens_pc_aux {yo al ah tl th : Nat} (hyo : yo = 0 ∨ yo = 16) (hc : Lens
     {alo ahi tlo thi : BitVec 32} {hh : Taint.Hint VG.X86.taint.T}
     (ht : (VG.X86.taint.check (τr [.ebp]) (.block (be64w al ah tO ++ be64w tl th (tO + 8))) hh).isSome = true) :
     Pc (fun (m₀ : Mem) s => (Env Ctx St W SP s ∧ LensSlots W al ah tl th alo ahi tlo thi s.mem) ∧ s.mem = m₀)
-      (lens yo al ah tl th) (LensOut Ctx St W SP K yo (val64 alo ahi) (val64 tlo thi) ·) := by
+      (lens vg.callees yo al ah tl th) (LensOut Ctx St W SP K yo (val64 alo ahi) (val64 tlo thi) ·) := by
   refine Pc.seq (Q := fun m₀ s => Env Ctx St W SP s ∧ s.mem = Cmac.store4 m₀ (w64 W + BitVec.ofNat 64 96)
       (VG.X86.bswap (ahi + ahi + (ahi + ahi) + (ahi + ahi + (ahi + ahi)) + alo >>> 29))
       (VG.X86.bswap (alo + alo + (alo + alo) + (alo + alo + (alo + alo))))
@@ -404,7 +406,7 @@ theorem lens_pc_aux {yo al ah tl th : Nat} (hyo : yo = 0 ∨ yo = 16) (hc : Lens
 
 theorem lens_pc {yo al ah tl th : Nat} (hc : LensAt yo al ah tl th) {alo ahi tlo thi : BitVec 32} :
     Pc (fun (m₀ : Mem) s => (Env Ctx St W SP s ∧ LensSlots W al ah tl th alo ahi tlo thi s.mem) ∧ s.mem = m₀)
-      (lens yo al ah tl th) (LensOut Ctx St W SP K yo (val64 alo ahi) (val64 tlo thi) ·) := by
+      (lens vg.callees yo al ah tl th) (LensOut Ctx St W SP K yo (val64 alo ahi) (val64 tlo thi) ·) := by
   have hc' := hc
   rcases hc with ⟨rfl, rfl, rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl, rfl, rfl⟩
   · exact lens_pc_aux L (.inl rfl) hc' (by taint_decide)

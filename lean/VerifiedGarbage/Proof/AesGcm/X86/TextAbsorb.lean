@@ -12,6 +12,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt ghashFrom ghash blocks zeros padLen ghashInput)
@@ -159,7 +161,7 @@ theorem ta_keep {D : BitVec 32} {n : Nat} {al xl xh : BitVec 32} {s s' : State}
   ⟨h.env.keep hbp hsi hsp hrd hwr (by rw [hm]), by rw [hm]; exact h.sl, h.nlt, h.data.of_eq hrd hwr⟩
 
 theorem textAbsorb_pc {D : BitVec 32} {n : Nat} {al ah xl xh : BitVec 32} :
-    Pc (fun (m₀ : Mem) s => TaIn Ctx St W SP K D n al xl xh s ∧ s.mem = m₀) textAbsorb
+    Pc (fun (m₀ : Mem) s => TaIn Ctx St W SP K D n al xl xh s ∧ s.mem = m₀) (textAbsorb vg.callees)
       (TaOut Ctx St W SP K D n al ah xl xh ·) := by
   by_cases hnlt : n < 2 ^ 32
   swap

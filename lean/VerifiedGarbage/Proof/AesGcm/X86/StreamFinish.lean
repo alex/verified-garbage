@@ -13,14 +13,16 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt StreamRepr ctxH ctxCiph)
 
 abbrev finKeeps : List (Nat × Nat) := [(0, ctxO), (1, roundsO), (3, alO), (4, ahO), (5, xlO), (6, xhO)]
 
-theorem streamFinish_eq : streamFinish = .seq (entry 7 (([.mov .esi (argOp 2)] : List Instr) ++
-    ((finKeeps ++ []).flatMap (fun (p : Nat × Nat) => keep p.1 p.2) ++ []))) (.seq (finTag 0) (.block restore)) := rfl
+theorem streamFinish_eq : (streamFinish vg.callees) = .seq (entry 7 (([.mov .esi (argOp 2)] : List Instr) ++
+    ((finKeeps ++ []).flatMap (fun (p : Nat × Nat) => keep p.1 p.2) ++ []))) (.seq (finTag vg.callees 0) (.block restore)) := rfl
 
 /-- What the precondition of `finish` and `verify` (with `nA` arguments) gives. -/
 structure FinPre (nA : Nat) (s : State) : Prop where
@@ -174,7 +176,7 @@ theorem fin_repr {nA : Nat} {p : BitVec 32 × (Nat → BitVec 32)} {s₀ s₁ : 
     simpa using L.st_w (a := 0) (n := 80) (d := 128) (k := 2432) (by decide) (.inr ⟨by decide, by decide⟩)) hr
 
 theorem streamFinish_pc (p : BitVec 32 × (Nat → BitVec 32)) :
-    Pc (fun (s₀ : State) s => finPre s₀ ∧ pubOf 8 s₀ = p ∧ s = s₀) streamFinish
+    Pc (fun (s₀ : State) s => finPre s₀ ∧ pubOf 8 s₀ = p ∧ s = s₀) (streamFinish vg.callees)
       (fun s₀ s' => abiPreserved s₀ s' ∧ streamFinishX86.post s₀ s') := by
   by_cases hex : ∃ s₀, finPre s₀ ∧ pubOf 8 s₀ = p
   swap
@@ -205,10 +207,10 @@ theorem streamFinish_pc (p : BitVec 32 × (Nat → BitVec 32)) :
   exact this
 
 theorem streamFinish_correct (s : State) (hs : streamFinishX86.pre s) :
-    ∃ t s', Exec isa streamFinish s t s' ∧ abiPreserved s s' ∧ streamFinishX86.post s s' :=
+    ∃ t s', Exec isa (streamFinish vg.callees) s t s' ∧ abiPreserved s s' ∧ streamFinishX86.post s s' :=
   (streamFinish_pc (pubOf 8 s)).wp s s ⟨hs, rfl, rfl⟩
 
-theorem streamFinish_ct : ConstantTime isa streamFinishX86.pre streamFinishX86.pub streamFinish :=
+theorem streamFinish_ct : ConstantTime isa streamFinishX86.pre streamFinishX86.pub (streamFinish vg.callees) :=
   Pc.constantTime (pubOf 8) (fun _ _ _ _ h => pubOf_eq h) streamFinish_pc fun _ hs => ⟨hs, rfl, rfl⟩
 
 end VG.Proof.AesGcm.X86

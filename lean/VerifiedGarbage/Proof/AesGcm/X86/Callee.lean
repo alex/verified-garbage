@@ -4,6 +4,8 @@ import VerifiedGarbage.Proof.Aes.X86.ExpandKey
 import VerifiedGarbage.Proof.Aes.X86.ExpandKeyCT
 import VerifiedGarbage.Proof.Gcm.X86.Ghash
 import VerifiedGarbage.Proof.Gcm.X86.GhashCT
+import VerifiedGarbage.Proof.Gcm.X86.Pclmul.Ghash
+import VerifiedGarbage.Proof.Aes.X86.VariantProof
 import VerifiedGarbage.Proof.Framework.X86.CallWith
 import VerifiedGarbage.Proof.AesGcm.X86.CT
 import VerifiedGarbage.Impl.AesGcm.X86
@@ -66,12 +68,65 @@ theorem one_disj {k : Region} {p : Addr} {n : Nat} (h : k.Disjoint ⟨p, n⟩) :
 
 /-! ## The callees -/
 
-theorem gh_nosp : NoSp Impl.Gcm.X86.ghash := NoSp.of_all (by decide +kernel)
-theorem gh_stack : stackUse Impl.Gcm.X86.ghash = 0 := by decide +kernel
-theorem ctr_nosp : NoSp Impl.Aes.X86.ctr32 := NoSp.of_all (by decide +kernel)
-theorem ctr_stack : stackUse Impl.Aes.X86.ctr32 = 0 := by decide +kernel
-theorem key_nosp : NoSp Impl.Aes.X86.expandKey := NoSp.of_all (by decide +kernel)
-theorem key_stack : stackUse Impl.Aes.X86.expandKey = 0 := by decide +kernel
+/-- An implementation of `vg_ghash` on x86. -/
+structure GhashImpl where
+  fn : Impl.AesGcm.X86.Fn
+  stack : stackUse fn.code = 0
+  ok : ∀ s, Proof.Gcm.ghashX86.pre s →
+    ∃ t s', Exec isa fn.code s t s' ∧ abiPreserved s s' ∧ Proof.Gcm.ghashX86.post s s'
+  ct : ConstantTime isa Proof.Gcm.ghashX86.pre Proof.Gcm.ghashX86.pub fn.code
+  nosp : NoSp fn.code
+  spSafe : fn.code.all (fun i => !isa.writesSp i) = true
+  suffix : String
+  features : List String
+
+namespace GhashImpl
+
+/-- `vg_ghash`, in the baseline ISA. -/
+def scalar : GhashImpl where
+  fn := ⟨"vg_ghash", Impl.Gcm.X86.ghash⟩
+  stack := by decide +kernel
+  ok := Proof.Gcm.X86.ghash_correct
+  ct := Proof.Gcm.X86.ghash_ct
+  nosp := NoSp.of_all (by decide +kernel)
+  spSafe := Code.all_of_allInstrs (by decide +kernel)
+  suffix := ""
+  features := []
+
+/-- `vg_ghash_pclmul`. -/
+def pclmul : GhashImpl where
+  fn := ⟨"vg_ghash_pclmul", Impl.Gcm.X86.Pclmul.ghash⟩
+  stack := by lit_decide
+  ok := Proof.Gcm.X86.Pclmul.ghash_correct
+  ct := Proof.Gcm.X86.Pclmul.ghash_ct
+  nosp := NoSp.of_all (by lit_decide)
+  spSafe := Code.all_of_allInstrs (by lit_decide)
+  suffix := "_pclmul"
+  features := ["pclmulqdq", "ssse3"]
+
+end GhashImpl
+
+/-- The implementations a set of AES-GCM functions calls: of
+`vg_aes_ctr32` with its `vg_aes_expand_key` (`Ctr32Impl`), and of
+`vg_ghash`. -/
+structure GcmImpl where
+  ctr : Proof.Aes.X86.Ctr32Impl
+  gh : GhashImpl
+
+namespace GcmImpl
+
+variable (v : GcmImpl)
+
+def callees : Callees :=
+  ⟨⟨v.ctr.callee.name, v.ctr.callee.code⟩, ⟨v.ctr.expand.name, v.ctr.expand.code⟩, v.gh.fn⟩
+
+/-- What the names of the functions calling them end with. -/
+def suffix : String := v.ctr.suffix ++ v.gh.suffix
+
+/-- The CPU features of the functions calling both. -/
+def features : List String := (v.ctr.features ++ v.gh.features).dedup
+
+end GcmImpl
 
 /-! ## `vg_ghash` -/
 
@@ -171,15 +226,15 @@ theorem callPre : CallPre Proof.Gcm.ghashX86 ghRegs (ghRd (s.gpr .esp) H D n) (g
 
 end GhCall
 
-theorem gh_call {s : State} {H Y D S : BitVec 32} {n : Nat} (h : GhCall s H Y D S n) :
-    WP isa ghCall s (GhPost s H Y D S n) := by
+theorem gh_call (v : GcmImpl) {s : State} {H Y D S : BitVec 32} {n : Nat} (h : GhCall s H Y D S n) :
+    WP isa (ghCall v.callees) s (GhPost s H Y D S n) := by
   have hn := toNat_ofNat32 h.n_lt
   unfold ghCall
-  refine WP.callWith (rs := ghRegs) (k := Proof.Gcm.ghashX86) Proof.Gcm.X86.ghash_correct gh_nosp (by simp)
-    ghRegs_esp (by rw [gh_stack]; have := h.esp; simp only [List.length_cons, List.length_nil]; omega)
+  refine WP.callWith (rs := ghRegs) (k := Proof.Gcm.ghashX86) v.gh.ok v.gh.nosp (by simp)
+    ghRegs_esp (by rw [v.gh.stack]; have := h.esp; simp only [List.length_cons, List.length_nil]; omega)
     h.callPre fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   obtain ⟨a0, a1, a2, a3, -⟩ := h.args
-  rw [gh_stack] at f'
+  rw [v.gh.stack] at f'
   have fE := callEntry_frame h.fit ghRegs_esp
   rw [show 4 * ghRegs.length + 4 = 24 from rfl] at fE
   simp only [Proof.Gcm.ghashX86, arg_withRegions, State.withRegions_mem, a0, a1, a2, a3, hn, m₂] at post
@@ -190,9 +245,9 @@ theorem gh_call {s : State} {H Y D S : BitVec 32} {n : Nat} (h : GhCall s H Y D 
 
 /-- Calls of `vg_ghash` with the same arguments and stack pointer in both
 runs are constant time. -/
-theorem gh_ct {I : State → Prop} {H Y D S E : BitVec 32} {n : Nat}
-    (h : ∀ s, I s → GhCall s H Y D S n ∧ s.gpr .esp = E) : CT I ghCall := by
-  refine CT.callWith Proof.Gcm.X86.ghash_correct Proof.Gcm.X86.ghash_ct (ghRd E H D n) (ghWr Y S)
+theorem gh_ct (v : GcmImpl) {I : State → Prop} {H Y D S E : BitVec 32} {n : Nat}
+    (h : ∀ s, I s → GhCall s H Y D S n ∧ s.gpr .esp = E) : CT I (ghCall v.callees) := by
+  refine CT.callWith v.gh.ok v.gh.ct (ghRd E H D n) (ghWr Y S)
     fun s₁ s₂ i₁ i₂ => ?_
   obtain ⟨h₁, e₁⟩ := h s₁ i₁
   obtain ⟨h₂, e₂⟩ := h s₂ i₂
@@ -316,17 +371,17 @@ theorem callPre : CallPre Proof.Aes.ctr32X86 ctrRegs (ctrRd (s.gpr .esp) K) (ctr
 
 end CtrCall
 
-theorem ctr_call {s : State} {K C D S : BitVec 32} {R n : Nat} (h : CtrCall s K C D S R n) :
-    WP isa ctrCall s (CtrPost s K C D S R n) := by
+theorem ctr_call (v : GcmImpl) {s : State} {K C D S : BitVec 32} {R n : Nat} (h : CtrCall s K C D S R n) :
+    WP isa (ctrCall v.callees) s (CtrPost s K C D S R n) := by
   have hR := toNat_rounds h.rounds
   have hn := toNat_ofNat32 h.n_lt
   have hR' : 16 * (R + 1) ≤ 240 := by rcases h.rounds with h' | h' | h' <;> omega
   unfold ctrCall
-  refine WP.callWith (rs := ctrRegs) (k := Proof.Aes.ctr32X86) Proof.Aes.X86.ctr32_correct ctr_nosp (by simp)
-    ctrRegs_esp (by rw [ctr_stack]; have := h.esp; simp only [List.length_cons, List.length_nil]; omega)
+  refine WP.callWith (rs := ctrRegs) (k := Proof.Aes.ctr32X86) v.ctr.ok v.ctr.nosp (by simp)
+    ctrRegs_esp (by rw [v.ctr.stack]; have := h.esp; simp only [List.length_cons, List.length_nil]; omega)
     h.callPre fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   obtain ⟨a0, a1, a2, a3, a4, -⟩ := h.args
-  rw [ctr_stack] at f'
+  rw [v.ctr.stack] at f'
   have fE := callEntry_frame h.fit ctrRegs_esp
   rw [show 4 * ctrRegs.length + 4 = 28 from rfl] at fE
   obtain ⟨hdata, hctr⟩ := post
@@ -343,9 +398,9 @@ theorem ctr_call {s : State} {K C D S : BitVec 32} {R n : Nat} (h : CtrCall s K 
 
 /-- Calls of `vg_aes_ctr32` with the same arguments and stack pointer in
 both runs are constant time. -/
-theorem ctr_ct {I : State → Prop} {K C D S E : BitVec 32} {R n : Nat}
-    (h : ∀ s, I s → CtrCall s K C D S R n ∧ s.gpr .esp = E) : CT I ctrCall := by
-  refine CT.callWith Proof.Aes.X86.ctr32_correct Proof.Aes.X86.ctr32_ct (ctrRd E K) (ctrWr C D S n)
+theorem ctr_ct (v : GcmImpl) {I : State → Prop} {K C D S E : BitVec 32} {R n : Nat}
+    (h : ∀ s, I s → CtrCall s K C D S R n ∧ s.gpr .esp = E) : CT I (ctrCall v.callees) := by
+  refine CT.callWith v.ctr.ok v.ctr.ct (ctrRd E K) (ctrWr C D S n)
     fun s₁ s₂ i₁ i₂ => ?_
   obtain ⟨h₁, e₁⟩ := h s₁ i₁
   obtain ⟨h₂, e₂⟩ := h s₂ i₂
@@ -454,15 +509,15 @@ theorem callPre : CallPre Proof.Aes.expandKeyX86 keyRegs (keyRd (s.gpr .esp) K L
 
 end KeyCall
 
-theorem key_call {s : State} {K C S : BitVec 32} {L : Nat} (h : KeyCall s K C S L) :
-    WP isa keyCall s (KeyPost s K C S L) := by
+theorem key_call (v : GcmImpl) {s : State} {K C S : BitVec 32} {L : Nat} (h : KeyCall s K C S L) :
+    WP isa (keyCall v.callees) s (KeyPost s K C S L) := by
   have hL := toNat_ofNat32 h.L_lt
   unfold keyCall
-  refine WP.callWith (rs := keyRegs) (k := Proof.Aes.expandKeyX86) Proof.Aes.X86.expandKey_correct key_nosp
-    (by simp) keyRegs_esp (by rw [key_stack]; have := h.esp; simp only [List.length_cons, List.length_nil]; omega)
+  refine WP.callWith (rs := keyRegs) (k := Proof.Aes.expandKeyX86) v.ctr.expandOk v.ctr.expandNosp
+    (by simp) keyRegs_esp (by rw [v.ctr.expandStack]; have := h.esp; simp only [List.length_cons, List.length_nil]; omega)
     h.callPre fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   obtain ⟨a0, a1, a2, -⟩ := h.args
-  rw [key_stack] at f'
+  rw [v.ctr.expandStack] at f'
   have fE := callEntry_frame h.fit keyRegs_esp
   rw [show 4 * keyRegs.length + 4 = 20 from rfl] at fE
   simp only [Proof.Aes.expandKeyX86, arg_withRegions, State.withRegions_mem, a0, a1, a2, hL, m₂] at post
@@ -472,9 +527,9 @@ theorem key_call {s : State} {K C S : BitVec 32} {L : Nat} (h : KeyCall s K C S 
 
 /-- Calls of `vg_aes_expand_key` with the same arguments and stack pointer
 in both runs are constant time. -/
-theorem key_ct {I : State → Prop} {K C S E : BitVec 32} {L : Nat}
-    (h : ∀ s, I s → KeyCall s K C S L ∧ s.gpr .esp = E) : CT I keyCall := by
-  refine CT.callWith Proof.Aes.X86.expandKey_correct Proof.Aes.X86.expandKey_ct (keyRd E K L) (keyWr C S)
+theorem key_ct (v : GcmImpl) {I : State → Prop} {K C S E : BitVec 32} {L : Nat}
+    (h : ∀ s, I s → KeyCall s K C S L ∧ s.gpr .esp = E) : CT I (keyCall v.callees) := by
+  refine CT.callWith v.ctr.expandOk v.ctr.expandCt (keyRd E K L) (keyWr C S)
     fun s₁ s₂ i₁ i₂ => ?_
   obtain ⟨h₁, e₁⟩ := h s₁ i₁
   obtain ⟨h₂, e₂⟩ := h s₂ i₂

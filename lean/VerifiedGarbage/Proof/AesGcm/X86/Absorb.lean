@@ -16,6 +16,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt blocksAt ghashFrom)
@@ -362,7 +364,7 @@ theorem pslot_gh (hyo : yo = 0 ∨ yo = 16) {o : Nat} (h₁ : 96 ≤ o) (h₂ : 
   · exact (L.stk_w (by omega)).symm
 
 theorem head_pc (hyo : yo = 0 ∨ yo = 16) (hn0 : n ≠ 0) (hb0 : b ≠ 0) (hb16 : b < 16) (hnlt : n < 2 ^ 32) :
-    Pc (fun (m₀ : Mem) s => AbsIn Ctx St W SP K D n b s ∧ s.mem = m₀) (absorbHead yo)
+    Pc (fun (m₀ : Mem) s => AbsIn Ctx St W SP K D n b s ∧ s.mem = m₀) (absorbHead vg.callees yo)
       (AbsMid Ctx St W SP K yo D n b · (min (16 - b) n)) := by
   generalize hk : min (16 - b) n = k
   have hkn : k ≤ n := by omega
@@ -520,7 +522,7 @@ theorem ghArgs_pc (hyo : yo = 0 ∨ yo = 16) {j nb : Nat} (hnb : nb ≠ 0) (hj :
   · exact Pc.taint [.ebp, .esi] hw hr (by taint_decide)
 
 theorem whole_pc (hyo : yo = 0 ∨ yo = 16) {j : Nat} (hj : j ≤ n) (hnlt : n < 2 ^ 32) :
-    Pc (AbsMid Ctx St W SP K yo D n b · j) (absorbWhole yo)
+    Pc (AbsMid Ctx St W SP K yo D n b · j) (absorbWhole vg.callees yo)
       (AbsMid Ctx St W SP K yo D n b · (j + 16 * ((n - j) / 16))) := by
   generalize hnb : (n - j) / 16 = nb
   have h16 : 16 * nb ≤ n - j := by omega
@@ -644,7 +646,7 @@ theorem tail_pc (hyo : yo = 0 ∨ yo = 16) {j : Nat} (hj : j ≤ n) (hr : n - j 
       rw [cm, hlen]; exact this
 
 theorem absorb_pc (hyo : yo = 0 ∨ yo = 16) (hb16 : b < 16) (hnlt : n < 2 ^ 32) :
-    Pc (fun (m₀ : Mem) s => AbsIn Ctx St W SP K D n b s ∧ s.mem = m₀) (absorb yo)
+    Pc (fun (m₀ : Mem) s => AbsIn Ctx St W SP K D n b s ∧ s.mem = m₀) (absorb vg.callees yo)
       (AbsOut Ctx St W SP K yo D n b ·) := by
   refine Pc.seq (Q := fun m₀ s => (AbsIn Ctx St W SP K D n b s ∧ s.mem = m₀) ∧ s.zf = some (decide (n = 0)))
     (Pc.taint [.ebp] (fun m₀ s ⟨h, hm⟩ => WP.mono (test_ok L h.env .eax nO (by decide) h.nO hnlt)

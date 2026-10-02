@@ -15,7 +15,8 @@
 //! which have the same contracts: on x86-64, CPUs with AES-NI and SSSE3 run
 //! the `_aesni` instances (with `vg_aes_ctr32_aesni`), CPUs with PCLMULQDQ
 //! and SSSE3 the `_pclmul` ones (with `vg_ghash_pclmul`), and CPUs with all
-//! three the `_aesni_pclmul` ones; on AArch64, CPUs with the AES and PMULL
+//! three the `_aesni_pclmul` ones; likewise on x86, where AES-NI needs no
+//! SSSE3; on AArch64, CPUs with the AES and PMULL
 //! extensions (which Rust's `aes` feature stands for together) run the
 //! `_aes_pmull` ones.
 
@@ -41,7 +42,7 @@ use crate::arch::gcm::{
     vg_aes_gcm_stream_init_pmull, vg_aes_gcm_stream_verify_aes, vg_aes_gcm_stream_verify_aes_pmull,
     vg_aes_gcm_stream_verify_pmull,
 };
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::gcm::{
     VG_AES_GCM_SEAL_AESNI_FEATURES, VG_AES_GCM_SEAL_AESNI_PCLMUL_FEATURES,
     VG_AES_GCM_SEAL_PCLMUL_FEATURES, vg_aes_gcm_init_aesni, vg_aes_gcm_init_aesni_pclmul,
@@ -90,13 +91,13 @@ enum Backend {
     /// The baseline ISA: `vg_aes_ctr32`, `vg_aes_expand_key` and `vg_ghash`.
     Scalar,
     /// AES-NI for AES: the `_aesni` instances.
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     AesNi,
     /// PCLMULQDQ for GHASH: the `_pclmul` instances.
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     Pclmul,
     /// Both: the `_aesni_pclmul` instances.
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     AesNiPclmul,
     /// The AES instructions for AES: the `_aes` instances.
     #[cfg(target_arch = "aarch64")]
@@ -117,11 +118,11 @@ macro_rules! instance {
      aarch64: [$aes:ident, $pmull:ident, $aes_pmull:ident]) => {
         match $backend {
             Backend::Scalar => $scalar,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => $aesni,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::Pclmul => $pclmul,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNiPclmul => $aesni_pclmul,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => $aes,
@@ -139,11 +140,11 @@ const BASELINE: &[&str] = &[];
 impl Backend {
     /// Every implementation, best first.
     const ALL: &[Backend] = &[
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         Backend::AesNiPclmul,
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         Backend::AesNi,
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         Backend::Pclmul,
         #[cfg(target_arch = "aarch64")]
         Backend::AesPmull,
@@ -646,12 +647,20 @@ mod tests {
     #[test]
     fn backend() {
         let f = |names: &[&str]| select(Features::of(names));
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
             assert_eq!(f(&["aes", "pclmulqdq", "ssse3"]), Backend::AesNiPclmul);
             assert_eq!(f(&["aes", "ssse3"]), Backend::AesNi);
             assert_eq!(f(&["pclmulqdq", "ssse3"]), Backend::Pclmul);
-            assert_eq!(f(&["aes", "pclmulqdq"]), Backend::Scalar);
+        }
+        // AES-NI needs SSSE3 too on x86-64 (`vg_aes_ctr32_aesni`'s byte
+        // shuffles), not on x86.
+        #[cfg(target_arch = "x86_64")]
+        assert_eq!(f(&["aes", "pclmulqdq"]), Backend::Scalar);
+        #[cfg(target_arch = "x86")]
+        {
+            assert_eq!(f(&["aes"]), Backend::AesNi);
+            assert_eq!(f(&["aes", "pclmulqdq"]), Backend::AesNi);
         }
         #[cfg(target_arch = "aarch64")]
         assert_eq!(f(&["aes"]), Backend::AesPmull);
@@ -710,6 +719,53 @@ mod tests {
     /// `stream_aad` only GHASH's).
     #[test]
     fn features() {
+        #[cfg(target_arch = "x86")]
+        {
+            use crate::arch::gcm::*;
+            let groups: [(&[&str], &[&[&str]]); 3] = [
+                (
+                    VG_AES_GCM_SEAL_AESNI_FEATURES,
+                    &[
+                        VG_AES_GCM_INIT_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_ENCRYPT_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_DECRYPT_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_FINISH_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_VERIFY_AESNI_FEATURES,
+                        VG_AES_GCM_OPEN_AESNI_FEATURES,
+                    ][..],
+                ),
+                (
+                    VG_AES_GCM_SEAL_PCLMUL_FEATURES,
+                    &[
+                        VG_AES_GCM_STREAM_AAD_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_INIT_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_ENCRYPT_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_DECRYPT_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_FINISH_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_VERIFY_PCLMUL_FEATURES,
+                        VG_AES_GCM_OPEN_PCLMUL_FEATURES,
+                    ][..],
+                ),
+                (
+                    VG_AES_GCM_SEAL_AESNI_PCLMUL_FEATURES,
+                    &[
+                        VG_AES_GCM_INIT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_AAD_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_INIT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_ENCRYPT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_DECRYPT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_FINISH_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_VERIFY_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_OPEN_AESNI_PCLMUL_FEATURES,
+                    ][..],
+                ),
+            ];
+            for (seal, others) in groups {
+                for other in others {
+                    assert!(Features::of(seal).contains(Features::of(other)));
+                }
+            }
+        }
         #[cfg(target_arch = "x86_64")]
         {
             use crate::arch::gcm::*;

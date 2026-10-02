@@ -17,6 +17,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt ghashFrom ghash blocks zeros padLen ofBytes inc32)
@@ -303,7 +305,7 @@ theorem j0z_ok {D : BitVec 32} {n : Nat} {m₀ : Mem} {s : State} (h : J0In Ctx 
 
 theorem j0a_pc {D : BitVec 32} {n : Nat} (hnlt : n < 2 ^ 32) :
     Pc (fun (m₀ : Mem) s => AbsIn Ctx St W SP K D n 0 s ∧ J0H Ctx St W SP K n [] m₀ s ∧
-        bytesAt s.mem (w64 D) n = bytesAt m₀ (w64 D) n) (absorb 0)
+        bytesAt s.mem (w64 D) n = bytesAt m₀ (w64 D) n) (absorb vg.callees 0)
       (fun m₀ s => J0H Ctx St W SP K n (bytesAt m₀ (w64 D) n) m₀ s) := by
   refine Pc.mono (Pc.lift (absorb_pc L (yo := 0) (.inl rfl) (by decide) hnlt) (fun _ s => s.mem)
     fun m₀ s h => ⟨h.1, rfl⟩) (fun _ _ h => h) fun m₀ s' ⟨s, ⟨_, hh, hD⟩, ho, _, _⟩ => ?_
@@ -354,7 +356,7 @@ theorem j0b_pc {n : Nat} (hnlt : n < 2 ^ 32) {x : Mem → List Byte} :
 
 theorem j0c_pc {D : BitVec 32} {n : Nat} :
     Pc (fun (m₀ : Mem) s => J0H Ctx St W SP K n (bytesAt m₀ (w64 D) n) m₀ s ∧
-        slotv s.mem W bO = BitVec.ofNat 32 (n % 16)) (flush 0)
+        slotv s.mem W bO = BitVec.ofNat 32 (n % 16)) (flush vg.callees 0)
       (fun m₀ s => J0H Ctx St W SP K n (bytesAt m₀ (w64 D) n ++ zeros (padLen n)) m₀ s) := by
   refine Pc.mono (Pc.lift (flush_pc L (yo := 0) (.inl rfl) (b := n % 16) (Nat.mod_lt _ (by decide)))
     (fun _ s => s.mem) fun m₀ s h => ⟨⟨h.1.env, h.2⟩, rfl⟩) (fun _ _ h => h) fun m₀ s' ⟨s, ⟨hh, _⟩, ho, _, _⟩ => ?_
@@ -367,7 +369,7 @@ theorem j0c_pc {D : BitVec 32} {n : Nat} :
 
 theorem j0d_pc {D : BitVec 32} {n : Nat} (hnlt : n < 2 ^ 32) (hn : n ≠ 12) :
     Pc (fun (m₀ : Mem) s => J0H Ctx St W SP K n (bytesAt m₀ (w64 D) n ++ zeros (padLen n)) m₀ s)
-      (lens 0 zO zO nlO zO) (J0Mid Ctx St W SP K D n ·) := by
+      (lens vg.callees 0 zO zO nlO zO) (J0Mid Ctx St W SP K D n ·) := by
   refine Pc.mono (Pc.lift (lens_pc L (yo := 0) (al := zO) (ah := zO) (tl := nlO) (th := zO)
     (.inl ⟨rfl, rfl, rfl, rfl, rfl⟩) (alo := 0) (ahi := 0) (tlo := BitVec.ofNat 32 n) (thi := 0))
     (fun _ s => s.mem) fun m₀ s h => ⟨⟨h.env, h.sl.2, h.sl.2, h.sl.1, h.sl.2⟩, rfl⟩) (fun _ _ h => h)
@@ -386,7 +388,7 @@ theorem j0d_pc {D : BitVec 32} {n : Nat} (hnlt : n < 2 ^ 32) (hn : n ≠ 12) :
   rw [this, Proof.Gcm.j0_eq _ (by rw [length_bytesAt]; exact hn), length_bytesAt]
 
 theorem j0hash_pc {D : BitVec 32} {n : Nat} (hnlt : n < 2 ^ 32) (hn : n ≠ 12) :
-    Pc (fun (m₀ : Mem) s => J0In Ctx St W SP K D n s ∧ s.mem = m₀) j0hash (J0Mid Ctx St W SP K D n ·) := by
+    Pc (fun (m₀ : Mem) s => J0In Ctx St W SP K D n s ∧ s.mem = m₀) (j0hash vg.callees) (J0Mid Ctx St W SP K D n ·) := by
   refine Pc.seq (Pc.taint [.ebp, .esi] (fun m₀ s ⟨h, hm⟩ => j0z_ok L h hm) (fun _ _ s₁ s₂ h₁ h₂ r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
@@ -396,7 +398,7 @@ theorem j0hash_pc {D : BitVec 32} {n : Nat} (hnlt : n < 2 ^ 32) (hn : n ≠ 12) 
     (Pc.seq (j0c_pc L) (j0d_pc L hnlt hn)))
 
 theorem j0_pc {D : BitVec 32} {n : Nat} :
-    Pc (fun (m₀ : Mem) s => J0In Ctx St W SP K D n s ∧ s.mem = m₀) j0 (J0Out Ctx St W SP K D n ·) := by
+    Pc (fun (m₀ : Mem) s => J0In Ctx St W SP K D n s ∧ s.mem = m₀) (j0 vg.callees) (J0Out Ctx St W SP K D n ·) := by
   refine Pc.seq (Q := fun m₀ s => (J0In Ctx St W SP K D n s ∧ s.mem = m₀) ∧ s.zf = some (decide (n = 12)))
     (Pc.taint [.ebp] (fun m₀ s ⟨h, hm⟩ => ?_) (fun _ _ s₁ s₂ h₁ h₂ r hr => by
       simp only [List.mem_singleton] at hr; subst hr; rw [h₁.1.env.ebp, h₂.1.env.ebp]) (by taint_decide)) ?_

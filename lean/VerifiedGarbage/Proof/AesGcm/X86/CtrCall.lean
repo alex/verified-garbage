@@ -15,6 +15,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt blocksAt aesWith ctr32)
@@ -53,7 +55,7 @@ theorem covers_pre {p : Addr} {k n : Nat} {rs : List Region} (h : Covers [⟨p, 
   rwa [BitVec.add_zero] at this
 
 /-- The call of `vg_aes_ctr32` and `ebp` back to `W`. -/
-abbrev ctrW : Prog isa := .seq ctrCall (.block unscr)
+abbrev ctrW (vg : GcmImpl) : Prog isa := .seq (ctrCall vg.callees) (.block unscr)
 
 /-- Ready for `ctrW`: the arguments of `vg_aes_ctr32` in their registers. -/
 structure CtrReady (Ctx St W SP : BitVec 32) (R : Nat) (C Dp : BitVec 32) (nb : Nat) (s : State) : Prop where
@@ -129,9 +131,9 @@ theorem CtrReady.kept {R : Nat} {C Dp : BitVec 32} {nb : Nat} {s : State}
 
 theorem ctrW_ok {R : Nat} {C Dp : BitVec 32} {nb : Nat} {s : State}
     (h : CtrReady Ctx St W SP R C Dp nb s) :
-    WP isa ctrW s (CtrOut Ctx St W SP R C Dp nb s) := by
+    WP isa (ctrW vg) s (CtrOut Ctx St W SP R C Dp nb s) := by
   have eS := L.aW (o := 512) (by decide)
-  refine WP.seq (WP.mono (ctr_call (h.call L hK)) fun s₁ g => ?_)
+  refine WP.seq (WP.mono (ctr_call vg (h.call L hK)) fun s₁ g => ?_)
   have gf := g.frame
   have hsp : below (s.gpr .esp) 28 = below SP 28 := by rw [h.esp]
   rw [eS, hsp] at gf
@@ -154,9 +156,9 @@ theorem ctrW_ok {R : Nat} {C Dp : BitVec 32} {nb : Nat} {s : State}
   · mems [g.rd]
   · mems [g.wr]
 
-theorem ctrW_ct {R : Nat} {C Dp : BitVec 32} {nb : Nat} : CT (CtrReady Ctx St W SP R C Dp nb) ctrW := by
+theorem ctrW_ct {R : Nat} {C Dp : BitVec 32} {nb : Nat} : CT (CtrReady Ctx St W SP R C Dp nb) (ctrW vg) := by
   refine CT.seq (J := fun s => s.gpr .ebp = W + BitVec.ofNat 32 512)
-    (ctr_ct (E := SP) fun s h => ⟨h.call L hK, h.esp⟩) (fun s h => WP.mono (ctr_call (h.call L hK))
+    (ctr_ct vg (E := SP) fun s h => ⟨h.call L hK, h.esp⟩) (fun s h => WP.mono (ctr_call vg (h.call L hK))
       fun s₁ g => by rw [g.saved .ebp (by decide), h.ebp]) ?_
   exact CT.taint [.ebp] (fun s₁ s₂ h₁ h₂ r hr => by
     simp only [List.mem_singleton] at hr; subst hr; rw [h₁, h₂]) (by taint_decide)

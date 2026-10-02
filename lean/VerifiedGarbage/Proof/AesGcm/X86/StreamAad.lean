@@ -13,6 +13,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt StreamRepr ctxH)
@@ -21,8 +23,8 @@ open VG.Proof.Gcm (Absorbed Ctr)
 abbrev aadTail : List Instr := [.mov .eax (argOp 2), .alu .and .eax (imm 15), .store (at_ .ebp bO) .eax]
 abbrev aadKeeps : List (Nat × Nat) := [(0, ctxO), (4, dO), (5, nO)]
 
-theorem streamAad_eq : streamAad = .seq (entry 6 (([.mov .esi (argOp 1)] : List Instr) ++
-    (aadKeeps.flatMap (fun p => keep p.1 p.2) ++ aadTail))) (.seq (absorb 16) (.block restore)) := rfl
+theorem streamAad_eq : (streamAad vg.callees) = .seq (entry 6 (([.mov .esi (argOp 1)] : List Instr) ++
+    (aadKeeps.flatMap (fun p => keep p.1 p.2) ++ aadTail))) (.seq (absorb vg.callees 16) (.block restore)) := rfl
 
 theorem streamAad_lay {s : State} (h : streamAadPre s) :
     Lay (arg s 0) (arg s 1) (arg s 6) (s.gpr .esp) 24 := by
@@ -129,7 +131,7 @@ theorem aad_ret {p : BitVec 32 × (Nat → BitVec 32)} {s₀ : State} (h : strea
   exact ⟨r_s, r_w, sp⟩
 
 theorem streamAad_pc (p : BitVec 32 × (Nat → BitVec 32)) :
-    Pc (fun (s₀ : State) s => streamAadPre s₀ ∧ pubOf 7 s₀ = p ∧ s = s₀) streamAad
+    Pc (fun (s₀ : State) s => streamAadPre s₀ ∧ pubOf 7 s₀ = p ∧ s = s₀) (streamAad vg.callees)
       (fun s₀ s' => abiPreserved s₀ s' ∧ streamAadX86.post s₀ s') := by
   by_cases hex : ∃ s₀, streamAadPre s₀ ∧ pubOf 7 s₀ = p
   swap
@@ -218,10 +220,10 @@ theorem streamAad_pc (p : BitVec 32 × (Nat → BitVec 32)) :
       blockAt_frame fE (dE (by decide))])
 
 theorem streamAad_correct (s : State) (hs : streamAadX86.pre s) :
-    ∃ t s', Exec isa streamAad s t s' ∧ abiPreserved s s' ∧ streamAadX86.post s s' :=
+    ∃ t s', Exec isa (streamAad vg.callees) s t s' ∧ abiPreserved s s' ∧ streamAadX86.post s s' :=
   (streamAad_pc (pubOf 7 s)).wp s s ⟨hs, rfl, rfl⟩
 
-theorem streamAad_ct : ConstantTime isa streamAadX86.pre streamAadX86.pub streamAad :=
+theorem streamAad_ct : ConstantTime isa streamAadX86.pre streamAadX86.pub (streamAad vg.callees) :=
   Pc.constantTime (pubOf 7) (fun _ _ _ _ h => pubOf_eq h) streamAad_pc fun _ hs => ⟨hs, rfl, rfl⟩
 
 end VG.Proof.AesGcm.X86

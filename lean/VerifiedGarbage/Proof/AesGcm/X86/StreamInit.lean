@@ -12,6 +12,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt StreamRepr ctxH)
@@ -20,8 +22,8 @@ open VG.Proof.Gcm (Absorbed Ctr)
 abbrev siTail : List Instr := [.mov .eax (imm 0), .store (at_ .ebp zO) .eax]
 abbrev siKeeps : List (Nat × Nat) := [(0, ctxO), (1, dO), (2, nO), (2, nlO)]
 
-theorem streamInit_eq : streamInit = .seq (entry 4 (([.mov .esi (argOp 3)] : List Instr) ++
-    (siKeeps.flatMap (fun p => keep p.1 p.2) ++ siTail))) (.seq j0 (.block restore)) := rfl
+theorem streamInit_eq : (streamInit vg.callees) = .seq (entry 4 (([.mov .esi (argOp 3)] : List Instr) ++
+    (siKeeps.flatMap (fun p => keep p.1 p.2) ++ siTail))) (.seq (j0 vg.callees) (.block restore)) := rfl
 
 theorem streamInit_lay {s : State} (h : streamInitPre s) :
     Lay (arg s 0) (arg s 3) (arg s 4) (s.gpr .esp) 24 := by
@@ -128,7 +130,7 @@ theorem si_ret {p : BitVec 32 × (Nat → BitVec 32)} {s₀ : State} (h : stream
   exact ⟨r_s, r_w, sp⟩
 
 theorem streamInit_pc (p : BitVec 32 × (Nat → BitVec 32)) :
-    Pc (fun (s₀ : State) s => streamInitPre s₀ ∧ pubOf 5 s₀ = p ∧ s = s₀) streamInit
+    Pc (fun (s₀ : State) s => streamInitPre s₀ ∧ pubOf 5 s₀ = p ∧ s = s₀) (streamInit vg.callees)
       (fun s₀ s' => abiPreserved s₀ s' ∧ streamInitX86.post s₀ s') := by
   by_cases hex : ∃ s₀, streamInitPre s₀ ∧ pubOf 5 s₀ = p
   swap
@@ -181,10 +183,10 @@ theorem streamInit_pc (p : BitVec 32 × (Nat → BitVec 32)) :
   rw [ho.cb, hH, hD]
 
 theorem streamInit_correct (s : State) (hs : streamInitX86.pre s) :
-    ∃ t s', Exec isa streamInit s t s' ∧ abiPreserved s s' ∧ streamInitX86.post s s' :=
+    ∃ t s', Exec isa (streamInit vg.callees) s t s' ∧ abiPreserved s s' ∧ streamInitX86.post s s' :=
   (streamInit_pc (pubOf 5 s)).wp s s ⟨hs, rfl, rfl⟩
 
-theorem streamInit_ct : ConstantTime isa streamInitX86.pre streamInitX86.pub streamInit :=
+theorem streamInit_ct : ConstantTime isa streamInitX86.pre streamInitX86.pub (streamInit vg.callees) :=
   Pc.constantTime (pubOf 5) (fun _ _ _ _ h => pubOf_eq h) streamInit_pc fun _ hs => ⟨hs, rfl, rfl⟩
 
 end VG.Proof.AesGcm.X86

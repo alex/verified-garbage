@@ -18,6 +18,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt ctxH ctxCiph zeros padLen inc32 ghash ghashFrom blocks toBytes ofBytes gctr
@@ -147,14 +149,14 @@ structure OD (q : (BitVec 32 × (Nat → BitVec 32)) × Bool) (s₀ s : State) :
     gctr (ctxCiph s₀.mem (w64 (q.1.2 0)) (q.1.2 1).toNat) (inc32 (jOf q.1 s₀))
       (bytesAt s₀.mem (w64 (q.1.2 6)) (q.1.2 7).toNat) else bytesAt s₀.mem (w64 (q.1.2 6)) (q.1.2 7).toNat
 
-theorem open_eq : «open» = .seq (oneEntry (keep 9 tglO)) (.seq tagLenOk (.seq (.ite .e (.block [.mov .eax (imm 0)])
-    (.seq oneAad (.seq (oneTag uO) (.seq recv (.seq (cmp uO)
+theorem open_eq : («open» vg.callees) = .seq (oneEntry (keep 9 tglO)) (.seq tagLenOk (.seq (.ite .e (.block [.mov .eax (imm 0)])
+    (.seq (oneAad vg.callees) (.seq (oneTag vg.callees uO) (.seq recv (.seq (cmp uO)
       (.seq (.block [.store (at_ .ebp auxO) .eax, .alu .test .eax (.reg .eax)])
-      (.seq (.ite .e (.block []) oneCrypt) (.block [.mov .eax (slot auxO)]))))))))
+      (.seq (.ite .e (.block []) (oneCrypt vg.callees)) (.block [.mov .eax (slot auxO)]))))))))
     (.block restore))) := rfl
 
 theorem open_pc (q : (BitVec 32 × (Nat → BitVec 32)) × Bool) :
-    Pc (fun (s₀ : State) s => onePre 10 s₀ ∧ (pubOf 10 s₀, (openRes s₀).isSome) = q ∧ s = s₀) «open»
+    Pc (fun (s₀ : State) s => onePre 10 s₀ ∧ (pubOf 10 s₀, (openRes s₀).isSome) = q ∧ s = s₀) («open» vg.callees)
       (fun s₀ s' => abiPreserved s₀ s' ∧ openX86.post s₀ s') := by
   by_cases hex : ∃ s₀, onePre 10 s₀ ∧ (pubOf 10 s₀, (openRes s₀).isSome) = q
   swap
@@ -354,10 +356,10 @@ theorem open_pc (q : (BitVec 32 × (Nat → BitVec 32)) × Bool) :
   exact hpost
 
 theorem open_correct (s : State) (hs : openX86.pre s) :
-    ∃ t s', Exec isa «open» s t s' ∧ abiPreserved s s' ∧ openX86.post s s' :=
+    ∃ t s', Exec isa («open» vg.callees) s t s' ∧ abiPreserved s s' ∧ openX86.post s s' :=
   (open_pc (pubOf 10 s, (openRes s).isSome)).wp s s ⟨hs, rfl, rfl⟩
 
-theorem open_ct : ConstantTime isa openX86.pre openX86.pub «open» :=
+theorem open_ct : ConstantTime isa openX86.pre openX86.pub («open» vg.callees) :=
   Pc.constantTime (fun s => (pubOf 10 s, (openRes s).isSome))
     (fun _ _ _ _ h => by rw [pubOf_eq h.1, h.2]) open_pc fun _ hs => ⟨hs, rfl, rfl⟩
 

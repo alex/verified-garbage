@@ -13,6 +13,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt ctxH ctxCiph zeros padLen inc32)
@@ -154,7 +156,7 @@ theorem st_pslot {d : Nat} (hd : d + 16 ≤ 80) :
   exact G.L.st_w (by omega) (.inr ⟨by decide, by decide⟩)
 
 theorem oneAad_pc :
-    Pc (fun (b : State × State) s => OEnt p b.1 s ∧ s = b.2) oneAad
+    Pc (fun (b : State × State) s => OEnt p b.1 s ∧ s = b.2) (oneAad vg.callees)
       (fun b s' => OAad p b.1 s' ∧ Frame (oF p) b.2.mem s'.mem) := by
   have L := G.L
   have sW : (⟨w64 (stOf (p.2 8)), 80⟩ : Region).Sub ⟨w64 (p.2 8), 2560⟩ := by

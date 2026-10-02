@@ -14,6 +14,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt blocksAt aesWith)
@@ -228,7 +230,7 @@ theorem tail3 {j : Nat} {m₀ : Mem} {s : State}
     · rw [cm, e, xorBytes, h.rest]; exact t
 
 theorem cryptTail_pc (hK : K = 28) {j : Nat} (hlt : n - j < 16) :
-    Pc (CrMid Ctx St W SP K R icb D n P · j) cryptTail (CrOut Ctx St W SP K R icb D n P ·) := by
+    Pc (CrMid Ctx St W SP K R icb D n P · j) (cryptTail vg.callees) (CrOut Ctx St W SP K R icb D n P ·) := by
   refine Pc.seq (Q := fun m₀ s => CrMid Ctx St W SP K R icb D n P m₀ j s ∧ s.zf = some (decide (n - j = 0)))
     (Pc.taint [.ebp] (fun m₀ s h => WP.mono (test_ok L h.at_.env .eax nO (by decide) h.nO
         (by have := h.at_.nlt; omega))
@@ -328,7 +330,7 @@ theorem CrIn.keep {s s' : State} (h : CrIn Ctx St W SP K R D n P s) (hbp : s'.gp
     by rw [hm]; exact h.bO, h.nlt, h.data.of_eq hrd hwr, by rw [hm]; exact h.rounds⟩
 
 theorem crypt_pc (hK : K = 28) :
-    Pc (fun (m₀ : Mem) s => CrIn Ctx St W SP K R D n P s ∧ s.mem = m₀) crypt
+    Pc (fun (m₀ : Mem) s => CrIn Ctx St W SP K R D n P s ∧ s.mem = m₀) (crypt vg.callees)
       (CrOut Ctx St W SP K R icb D n P ·) := by
   have hb16 : P % 16 < 16 := Nat.mod_lt _ (by decide)
   refine Pc.seq (Q := fun m₀ s => (CrIn Ctx St W SP K R D n P s ∧ s.mem = m₀) ∧ s.zf = some (decide (n = 0)))

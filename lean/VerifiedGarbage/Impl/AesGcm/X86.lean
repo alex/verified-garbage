@@ -124,17 +124,32 @@ def zero4 (o : Nat) : List Instr :=
 
 /-! ## Calls -/
 
+/-- A function called: its symbol and its code. -/
+structure Fn where
+  name : String
+  code : Prog isa
+
+/-- The implementations of `vg_aes_ctr32`, `vg_aes_expand_key` and
+`vg_ghash` a set of AES-GCM functions calls. -/
+structure Callees where
+  ctr : Fn
+  key : Fn
+  gh : Fn
+
+section
+variable (c : Callees)
+
 /-- `vg_aes_ctr32(eax, ecx, edx, ebx, edi, ebp)`. -/
 def ctrCall : Prog isa :=
-  .frame (.push [.ebp, .edi, .ebx, .edx, .ecx, .eax]) (.call "vg_aes_ctr32" Impl.Aes.X86.ctr32) (.pop .eax 6)
+  .frame (.push [.ebp, .edi, .ebx, .edx, .ecx, .eax]) (.call c.ctr.name c.ctr.code) (.pop .eax 6)
 
 /-- `vg_ghash(eax, edx, ebx, edi, ebp)`. -/
 def ghCall : Prog isa :=
-  .frame (.push [.ebp, .edi, .ebx, .edx, .eax]) (.call "vg_ghash" Impl.Gcm.X86.ghash) (.pop .eax 5)
+  .frame (.push [.ebp, .edi, .ebx, .edx, .eax]) (.call c.gh.name c.gh.code) (.pop .eax 5)
 
 /-- `vg_aes_expand_key(eax, ecx, edx, ebp)`. -/
 def keyCall : Prog isa :=
-  .frame (.push [.ebp, .edx, .ecx, .eax]) (.call "vg_aes_expand_key" Impl.Aes.X86.expandKey) (.pop .eax 4)
+  .frame (.push [.ebp, .edx, .ecx, .eax]) (.call c.key.name c.key.code) (.pop .eax 4)
 
 /-- `ebp` back to `W` after a call. -/
 def unscr : List Instr := [.alu .sub .ebp (imm scrO)]
@@ -175,7 +190,7 @@ def ghArgs (yo : Nat) : List Instr :=
 /-- `vg_ghash` of the block at `b + o` into the accumulator at `esi + yo`. -/
 def ghash1 (yo : Nat) (b : Reg) (o : Nat) : Prog isa :=
   .seq (.block ([.mov .ebx (.reg b), .alu .add .ebx (imm o), .mov .edi (imm 1)] ++ ghArgs yo))
-    (.seq ghCall (.block unscr))
+    (.seq (ghCall c) (.block unscr))
 
 /-- The buffer filled from `dO`, and absorbed if full. -/
 def absorbHead (yo : Nat) : Prog isa :=
@@ -186,12 +201,12 @@ def absorbHead (yo : Nat) : Prog isa :=
       .mov .eax (.reg .edi), .alu .add .eax (.reg .ecx), .store (at_ .ebp dO) .eax])
   (.seq copyLoop
   (.seq (.block [.mov .eax (slot bO), .alu .cmp .eax (imm 16)])
-    (.ite .e (ghash1 yo .esi 32) (.block [])))))
+    (.ite .e (ghash1 c yo .esi 32) (.block [])))))
 
 /-- The whole blocks at `dO` absorbed. -/
 def absorbWhole (yo : Nat) : Prog isa :=
   .seq (.block splitWhole)
-    (.ite .e (.block []) (.seq (.block (ghArgs yo)) (.seq ghCall (.block unscr))))
+    (.ite .e (.block []) (.seq (.block (ghArgs yo)) (.seq (ghCall c) (.block unscr))))
 
 /-- The last `nO` bytes at `dO` buffered. -/
 def absorbTail : Prog isa :=
@@ -203,8 +218,8 @@ def absorb (yo : Nat) : Prog isa :=
   .seq (.block [.mov .eax (slot nO), .alu .test .eax (.reg .eax)])
     (.ite .e (.block [])
       (.seq (.block [.mov .eax (slot bO), .alu .test .eax (.reg .eax)])
-      (.seq (.ite .e (.block []) (absorbHead yo))
-      (.seq (absorbWhole yo) absorbTail))))
+      (.seq (.ite .e (.block []) (absorbHead c yo))
+      (.seq (absorbWhole c yo) absorbTail))))
 
 /-- The `bO` buffered bytes, padded with zeros in `T`, absorbed. -/
 def flush (yo : Nat) : Prog isa :=
@@ -212,7 +227,7 @@ def flush (yo : Nat) : Prog isa :=
     (.ite .e (.block [])
       (.seq (.block (zero4 tO ++ [.mov .edi (.reg .esi), .alu .add .edi (imm 32), .mov .edx (.reg .ebp),
           .alu .add .edx (imm tO)]))
-      (.seq copyLoop (ghash1 yo .ebp tO))))
+      (.seq copyLoop (ghash1 c yo .ebp tO))))
 
 /-- `8 x` (modulo 2⁶⁴) for the 64-bit `x` whose words are at `W + lo` and
 `W + hi`, big-endian, into `W + o`: each word doubled three times, and the
@@ -225,7 +240,7 @@ def be64w (lo hi o : Nat) : List Instr :=
 
 /-- The lengths block, absorbed. -/
 def lens (yo al ah tl th : Nat) : Prog isa :=
-  .seq (.block (be64w al ah tO ++ be64w tl th (tO + 8))) (ghash1 yo .ebp tO)
+  .seq (.block (be64w al ah tO ++ be64w tl th (tO + 8))) (ghash1 c yo .ebp tO)
 
 /-! ## Counter mode -/
 
@@ -247,7 +262,7 @@ def cryptHead : Prog isa :=
 /-- Whole blocks at `dO`, by `vg_aes_ctr32`. -/
 def cryptWhole : Prog isa :=
   .seq (.block splitWhole)
-    (.ite .e (.block []) (.seq (.block ctrArgs) (.seq ctrCall (.block unscr))))
+    (.ite .e (.block []) (.seq (.block ctrArgs) (.seq (ctrCall c) (.block unscr))))
 
 /-- The last `nO` bytes at `dO`, with a new keystream block. -/
 def cryptTail : Prog isa :=
@@ -256,7 +271,7 @@ def cryptTail : Prog isa :=
       (.seq (.block ([.mov .eax (imm 0), .store (at_ .esi 64) .eax, .store (at_ .esi 68) .eax,
           .store (at_ .esi 72) .eax, .store (at_ .esi 76) .eax, .mov .ebx (.reg .esi), .alu .add .ebx (imm 64),
           .mov .edi (imm 1)] ++ ctrArgs))
-      (.seq (.seq ctrCall (.block unscr))
+      (.seq (.seq (ctrCall c) (.block unscr))
       (.seq (.block [.mov .edi (slot dO), .mov .edx (.reg .esi), .alu .add .edx (imm 64), .mov .ecx (slot nO)])
         xorLoop))))
 
@@ -265,19 +280,19 @@ def crypt : Prog isa :=
     (.ite .e (.block [])
       (.seq (.block [.mov .eax (slot bO), .alu .test .eax (.reg .eax)])
       (.seq (.ite .e (.block []) cryptHead)
-      (.seq cryptWhole cryptTail))))
+      (.seq (cryptWhole c) (cryptTail c)))))
 
 /-! ## The tag and `J₀` -/
 
 /-- The tag into `W + o`, for the lengths kept at `W + al`, … -/
 def tag (o al ah tl th : Nat) : Prog isa :=
-  .seq (lens 16 al ah tl th)
+  .seq (lens c 16 al ah tl th)
   (.seq (.block [.mov .eax (.mem (at_ .esi 16)), .mov .ecx (.mem (at_ .esi 20)), .mov .edx (.mem (at_ .esi 24)),
       .mov .ebx (.mem (at_ .esi 28)), .store (at_ .ebp o) .eax, .store (at_ .ebp (o + 4)) .ecx,
       .store (at_ .ebp (o + 8)) .edx, .store (at_ .ebp (o + 12)) .ebx, .mov .ebx (.reg .ebp),
       .alu .add .ebx (imm o), .mov .edi (imm 1), .mov .eax (slot ctxO), .mov .ecx (slot roundsO),
       .mov .edx (.reg .esi), .alu .add .ebp (imm scrO)])
-    (.seq ctrCall (.block unscr)))
+    (.seq (ctrCall c) (.block unscr)))
 
 /-- `J₀` of a 12-byte nonce: its words and `0x00000001` (big-endian). -/
 def j012 : Prog isa :=
@@ -290,9 +305,9 @@ def j012 : Prog isa :=
 def j0hash : Prog isa :=
   .seq (.block [.mov .eax (imm 0), .store (at_ .esi 0) .eax, .store (at_ .esi 4) .eax, .store (at_ .esi 8) .eax,
       .store (at_ .esi 12) .eax, .store (at_ .ebp bO) .eax])
-  (.seq (absorb 0)
+  (.seq (absorb c 0)
   (.seq (.block [.mov .eax (slot nlO), .alu .and .eax (imm 15), .store (at_ .ebp bO) .eax])
-  (.seq (flush 0) (lens 0 zO zO nlO zO))))
+  (.seq (flush c 0) (lens c 0 zO zO nlO zO))))
 
 /-- The first counter block `inc₃₂(J₀)`, word by word, and the accumulator zeroed. -/
 def initState : List Instr :=
@@ -305,7 +320,7 @@ def initState : List Instr :=
 /-- The streaming state for the nonce at `dO`, of `nO` bytes (also kept at `W + nlO`). -/
 def j0 : Prog isa :=
   .seq (.block [.mov .eax (slot nlO), .alu .cmp .eax (imm 12)])
-    (.seq (.ite .e j012 j0hash) (.block initState))
+    (.seq (.ite .e j012 (j0hash c)) (.block initState))
 
 /-! ## Comparing tags -/
 
@@ -351,25 +366,25 @@ def entry (w : Nat) (rest : List Instr) : Prog isa :=
 def init : Prog isa :=
   .seq (entry 3 [.mov .esi (argOp 2), .mov .ecx (argOp 1), .mov .ebx (.reg .ecx), .shift .shr .ebx 2,
       .alu .add .ebx (imm 6), .mov .eax (argOp 0), .mov .edx (.reg .esi), .alu .add .ebp (imm scrO)])
-  (.seq keyCall
+  (.seq (keyCall c)
   (.seq (.block (unscr ++ [.mov .eax (imm 0), .store (at_ .esi 240) .eax, .store (at_ .esi 244) .eax,
       .store (at_ .esi 248) .eax, .store (at_ .esi 252) .eax] ++ zero4 tO ++
       [.mov .eax (.reg .esi), .mov .ecx (.reg .ebx), .mov .edx (.reg .ebp), .alu .add .edx (imm tO),
         .mov .ebx (.reg .esi), .alu .add .ebx (imm 240), .mov .edi (imm 1), .alu .add .ebp (imm scrO)]))
-  (.seq ctrCall
+  (.seq (ctrCall c)
     (.block (unscr ++ restore)))))
 
 /-- `vg_aes_gcm_stream_init(ctx, nonce, nonce_len, state, scratch)`. -/
 def streamInit : Prog isa :=
   .seq (entry 4 ([.mov .esi (argOp 3)] ++ keep 0 ctxO ++ keep 1 dO ++ keep 2 nO ++ keep 2 nlO ++
       [.mov .eax (imm 0), .store (at_ .ebp zO) .eax]))
-  (.seq j0 (.block restore))
+  (.seq (j0 c) (.block restore))
 
 /-- `vg_aes_gcm_stream_aad(ctx, state, aad_len (2 words), data, len, scratch)`. -/
 def streamAad : Prog isa :=
   .seq (entry 6 ([.mov .esi (argOp 1)] ++ keep 0 ctxO ++ keep 4 dO ++ keep 5 nO ++
       [.mov .eax (argOp 2), .alu .and .eax (imm 15), .store (at_ .ebp bO) .eax]))
-  (.seq (absorb 16) (.block restore))
+  (.seq (absorb c 16) (.block restore))
 
 /-- The entry of `encrypt` and `decrypt`: `(ctx, rounds, state, aad_len (2 words),
 text_len (2 words), data, len, scratch)`. -/
@@ -384,23 +399,23 @@ def setText : List Instr :=
 
 /-- The additional data padded, before the first text. -/
 def firstFlush : Prog isa :=
-  .seq (.block [.mov .eax (slot alO), .alu .and .eax (imm 15), .store (at_ .ebp bO) .eax]) (flush 16)
+  .seq (.block [.mov .eax (slot alO), .alu .and .eax (imm 15), .store (at_ .ebp bO) .eax]) (flush c 16)
 
 /-- The text absorbed into GHASH. -/
 def textAbsorb : Prog isa :=
   .seq (.block [.mov .eax (slot lenO), .alu .test .eax (.reg .eax)])
     (.ite .e (.block [])
       (.seq (.block [.mov .eax (slot xlO), .alu .or .eax (slot xhO)])
-      (.seq (.ite .e firstFlush (.block []))
-      (.seq (.block setText) (absorb 16)))))
+      (.seq (.ite .e (firstFlush c) (.block []))
+      (.seq (.block setText) (absorb c 16)))))
 
 /-- `vg_aes_gcm_stream_encrypt`. -/
 def streamEncrypt : Prog isa :=
-  .seq cryptEntry (.seq (.block setText) (.seq crypt (.seq textAbsorb (.block restore))))
+  .seq cryptEntry (.seq (.block setText) (.seq (crypt c) (.seq (textAbsorb c) (.block restore))))
 
 /-- `vg_aes_gcm_stream_decrypt`. -/
 def streamDecrypt : Prog isa :=
-  .seq cryptEntry (.seq textAbsorb (.seq (.block setText) (.seq crypt (.block restore))))
+  .seq cryptEntry (.seq (textAbsorb c) (.seq (.block setText) (.seq (crypt c) (.block restore))))
 
 /-- The entry of `finish` and `verify`: `(ctx, rounds, state, aad_len (2 words),
 text_len (2 words), work)`, and `rest`. -/
@@ -413,11 +428,11 @@ def finTag (o : Nat) : Prog isa :=
   .seq (.block [.mov .eax (slot xlO), .mov .ecx (slot alO), .mov .edx (slot xlO), .alu .or .edx (slot xhO)])
   (.seq (.ite .e (.block [.mov .eax (.reg .ecx)]) (.block []))
   (.seq (.block [.alu .and .eax (imm 15), .store (at_ .ebp bO) .eax])
-  (.seq (flush 16) (tag o alO ahO xlO xhO))))
+  (.seq (flush c 16) (tag c o alO ahO xlO xhO))))
 
 /-- `vg_aes_gcm_stream_finish`. -/
 def streamFinish : Prog isa :=
-  .seq (finEntry []) (.seq (finTag 0) (.block restore))
+  .seq (finEntry []) (.seq (finTag c 0) (.block restore))
 
 /-- The computed tag at `W` kept if `eax` is 1, zeroed if it is 0. -/
 def mask : List Instr :=
@@ -431,7 +446,7 @@ def streamVerify : Prog isa :=
   .seq (finEntry (keep 8 tglO))
   (.seq tagLenOk
   (.seq (.ite .e (.block (zero4 0))
-      (.seq recv (.seq (finTag 0) (.seq (cmp 0) (.block mask)))))
+      (.seq recv (.seq (finTag c 0) (.seq (cmp 0) (.block mask)))))
     (.block restore)))
 
 /-- The entry of `seal` and `open`: `(ctx, rounds, nonce, nonce_len, aad,
@@ -443,12 +458,12 @@ def oneEntry (rest : List Instr) : Prog isa :=
 
 /-- `J₀`, then the additional data absorbed and padded. -/
 def oneAad : Prog isa :=
-  .seq j0
+  .seq (j0 c)
   (.seq (.block [.mov .eax (slot aadO), .store (at_ .ebp dO) .eax, .mov .eax (slot alO),
       .store (at_ .ebp nO) .eax, .mov .eax (imm 0), .store (at_ .ebp bO) .eax])
-  (.seq (absorb 16)
+  (.seq (absorb c 16)
   (.seq (.block [.mov .eax (slot alO), .alu .and .eax (imm 15), .store (at_ .ebp bO) .eax])
-    (flush 16))))
+    (flush c 16))))
 
 /-- The data, from the start. -/
 def setData : List Instr :=
@@ -458,29 +473,31 @@ def setData : List Instr :=
 /-- The data (as ciphertext) absorbed and padded, and the tag into `W + o`. -/
 def oneTag (o : Nat) : Prog isa :=
   .seq (.block setData)
-  (.seq (absorb 16)
+  (.seq (absorb c 16)
   (.seq (.block [.mov .eax (slot lenO), .alu .and .eax (imm 15), .store (at_ .ebp bO) .eax])
-  (.seq (flush 16) (tag o alO zO lenO zO))))
+  (.seq (flush c 16) (tag c o alO zO lenO zO))))
 
 /-- The data encrypted or decrypted, from the first counter block. -/
-def oneCrypt : Prog isa := .seq (.block setData) crypt
+def oneCrypt : Prog isa := .seq (.block setData) (crypt c)
 
 /-- `vg_aes_gcm_seal`. -/
 def «seal» : Prog isa :=
-  .seq (oneEntry []) (.seq oneAad (.seq oneCrypt (.seq (oneTag 0) (.block restore))))
+  .seq (oneEntry []) (.seq (oneAad c) (.seq (oneCrypt c) (.seq (oneTag c 0) (.block restore))))
 
 /-- `vg_aes_gcm_open`, with `tag_len` the stack argument 9. -/
 def «open» : Prog isa :=
   .seq (oneEntry (keep 9 tglO))
   (.seq tagLenOk
   (.seq (.ite .e (.block [.mov .eax (imm 0)])
-      (.seq oneAad
-      (.seq (oneTag uO)
+      (.seq (oneAad c)
+      (.seq (oneTag c uO)
       (.seq recv
       (.seq (cmp uO)
       (.seq (.block [.store (at_ .ebp auxO) .eax, .alu .test .eax (.reg .eax)])
-      (.seq (.ite .e (.block []) oneCrypt)
+      (.seq (.ite .e (.block []) (oneCrypt c))
         (.block [.mov .eax (slot auxO)]))))))))
     (.block restore)))
+
+end
 
 end VG.Impl.AesGcm.X86

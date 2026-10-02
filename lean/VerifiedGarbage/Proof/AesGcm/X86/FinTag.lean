@@ -14,6 +14,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt ghashFrom ghash blocks zeros padLen ofBytes toBytes StreamRepr fullTag ghashInput)
@@ -98,7 +100,7 @@ variable {Ctx St W SP : BitVec 32} (L : Lay Ctx St W SP 28)
 include L
 
 theorem finTag_pc {R o : Nat} (ho : o = 0 ∨ o = 112) {al ah xl xh : BitVec 32} :
-    Pc (fun (m₀ : Mem) s => FinIn Ctx St W SP R al ah xl xh s ∧ s.mem = m₀) (finTag o)
+    Pc (fun (m₀ : Mem) s => FinIn Ctx St W SP R al ah xl xh s ∧ s.mem = m₀) (finTag vg.callees o)
       (FinOut Ctx St W SP R o al ah xl xh ·) := by
   generalize hv : (if (xl ||| xh == 0) = true then al else xl) = v
   refine Pc.seq (Q := fun m₀ s => (FinIn Ctx St W SP R al ah xl xh s ∧ s.mem = m₀) ∧ s.gpr .eax = xl ∧

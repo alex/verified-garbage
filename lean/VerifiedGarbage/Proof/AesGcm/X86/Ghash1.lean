@@ -16,12 +16,14 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt blocksAt ghashFrom)
 
 /-- The call of `vg_ghash` and `ebp` back to `W`. -/
-abbrev ghW : Prog isa := .seq ghCall (.block unscr)
+abbrev ghW (vg : GcmImpl) : Prog isa := .seq (ghCall vg.callees) (.block unscr)
 
 /-- Ready for `ghW`: the arguments of `vg_ghash` in their registers, `nb`
 blocks at `P`. -/
@@ -89,11 +91,11 @@ theorem GhReady.call {P : BitVec 32} {nb : Nat} {s : State} (h : GhReady Ctx St 
       (by decide)) covers_nil)
 
 theorem ghW_ok {P : BitVec 32} {nb : Nat} {s : State} (h : GhReady Ctx St W SP K yo P nb s) :
-    WP isa ghW s (GhOut Ctx St W SP K yo P nb s) := by
+    WP isa (ghW vg) s (GhOut Ctx St W SP K yo P nb s) := by
   have eH := L.aC (o := 240) (by decide)
   have eY := L.aS (o := yo) (by omega)
   have eS := L.aW (o := 512) (by decide)
-  refine WP.seq (WP.mono (gh_call (h.call L hyo)) fun s₁ g => ?_)
+  refine WP.seq (WP.mono (gh_call vg (h.call L hyo)) fun s₁ g => ?_)
   have gf := g.frame
   have go := g.out
   rw [eY, eS] at gf
@@ -129,9 +131,9 @@ theorem ghW_ok {P : BitVec 32} {nb : Nat} {s : State} (h : GhReady Ctx St W SP K
   · mems [g.rd]
   · mems [g.wr]
 
-theorem ghW_ct {P : BitVec 32} {nb : Nat} : CT (GhReady Ctx St W SP K yo P nb) ghW := by
+theorem ghW_ct {P : BitVec 32} {nb : Nat} : CT (GhReady Ctx St W SP K yo P nb) (ghW vg) := by
   refine CT.seq (J := fun s => s.gpr .ebp = W + BitVec.ofNat 32 512)
-    (gh_ct (E := SP) fun s h => ⟨h.call L hyo, h.esp⟩) (fun s h => WP.mono (gh_call (h.call L hyo))
+    (gh_ct vg (E := SP) fun s h => ⟨h.call L hyo, h.esp⟩) (fun s h => WP.mono (gh_call vg (h.call L hyo))
       fun s₁ g => by rw [g.saved .ebp (by decide), h.ebp]) ?_
   exact CT.taint [.ebp] (fun s₁ s₂ h₁ h₂ r hr => by
     simp only [List.mem_singleton] at hr; subst hr; rw [h₁, h₂]) (by taint_decide)
@@ -209,7 +211,7 @@ theorem ghash1_ok {s : State} (he : Env Ctx St W SP s) (b : Reg) (o : Nat) (hb :
     (py : (⟨w64 St + BitVec.ofNat 64 yo, 16⟩ : Region).Disjoint ⟨w64 P, 16⟩)
     (pw : (⟨w64 P, 16⟩ : Region).Disjoint ⟨w64 W + BitVec.ofNat 64 512, 256⟩)
     (pk : (below SP K).Disjoint ⟨w64 P, 16⟩) :
-    WP isa (ghash1 yo b o) s (G1Out Ctx St W SP K yo P s) :=
+    WP isa (ghash1 vg.callees yo b o) s (G1Out Ctx St W SP K yo P s) :=
   WP.seq (WP.mono (ghash1Pre_ok L (yo := yo) he b o hb hP fP rP py pw pk) fun s₁ ⟨h, m, rd, wr⟩ =>
     WP.mono (ghW_ok L hyo h) fun s' g => ⟨g.env, m ▸ g.frame, by
       have := g.out; rw [m] at this; rw [this, blocksAt_one], by rw [g.rd, rd], by rw [g.wr, wr]⟩)
@@ -220,7 +222,7 @@ theorem ghash1_ct {I : State → Prop} (b : Reg) (o : Nat) (hbo : (b = .esi ∧ 
       Covers [⟨w64 P, 16⟩] (s.rd ++ s.wr) ∧
       (⟨w64 St + BitVec.ofNat 64 yo, 16⟩ : Region).Disjoint ⟨w64 P, 16⟩ ∧
       (⟨w64 P, 16⟩ : Region).Disjoint ⟨w64 W + BitVec.ofNat 64 512, 256⟩ ∧ (below SP K).Disjoint ⟨w64 P, 16⟩) :
-    CT I (ghash1 yo b o) := by
+    CT I (ghash1 vg.callees yo b o) := by
   have hb : b = .esi ∨ b = .ebp := by rcases hbo with ⟨h, -⟩ | ⟨h, -⟩ <;> simp [h]
   refine CT.seq (J := GhReady Ctx St W SP K yo P 1) ?_ (fun s hs => by
     obtain ⟨he, hP, fP, rP, py, pw, pk⟩ := h s hs

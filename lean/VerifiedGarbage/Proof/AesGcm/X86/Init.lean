@@ -13,6 +13,8 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt blocksAt KeyRepr)
@@ -65,9 +67,9 @@ abbrev initMid : List Instr :=
       [.mov .eax (.reg .esi), .mov .ecx (.reg .ebx), .mov .edx (.reg .ebp), .alu .add .edx (imm tO),
         .mov .ebx (.reg .esi), .alu .add .ebx (imm 240), .mov .edi (imm 1), .alu .add .ebp (imm scrO)]
 
-theorem init_eq : init = .seq (entry 3 (([.mov .esi (argOp 2)] : List Instr) ++
+theorem init_eq : init vg.callees = .seq (entry 3 (([.mov .esi (argOp 2)] : List Instr) ++
     (([] : List (Nat × Nat)).flatMap (fun p => keep p.1 p.2) ++ initTail)))
-    (.seq keyCall (.seq (.block initMid) (.seq ctrCall (.block (unscr ++ restore))))) := rfl
+    (.seq (keyCall vg.callees) (.seq (.block initMid) (.seq (ctrCall vg.callees) (.block (unscr ++ restore))))) := rfl
 
 /-- After the entry: the arguments of `vg_aes_expand_key`. -/
 structure IEnt (p : BitVec 32 × (Nat → BitVec 32)) (s₀ s : State) : Prop where
@@ -296,7 +298,7 @@ theorem iMid_ok {p : BitVec 32 × (Nat → BitVec 32)} (hc : InitPure p) {s₀ s
   · simp only [mem_setMem, mem_setReg, mem_arithFlags]; exact hsv
 
 theorem init_pc (p : BitVec 32 × (Nat → BitVec 32)) :
-    Pc (fun (s₀ : State) s => initPre s₀ ∧ pubOf 4 s₀ = p ∧ s = s₀) init
+    Pc (fun (s₀ : State) s => initPre s₀ ∧ pubOf 4 s₀ = p ∧ s = s₀) (init vg.callees)
       (fun s₀ s' => abiPreserved s₀ s' ∧ initX86.post s₀ s') := by
   by_cases hex : ∃ s₀, initPre s₀ ∧ pubOf 4 s₀ = p
   swap
@@ -306,7 +308,7 @@ theorem init_pc (p : BitVec 32 × (Nat → BitVec 32)) :
   rw [init_eq]
   refine Pc.seq (iEntry_pc p) ?_
   refine Pc.seq (Pc.of (I := fun s => KeyCall s (p.2 0) (p.2 2) (p.2 3 + BitVec.ofNat 32 512) (p.2 1).toNat ∧
-    s.gpr .esp = p.1) (fun s h => key_call h.1) (key_ct fun s h => h) _ fun _ _ h => ⟨h.call, h.esp⟩) ?_
+    s.gpr .esp = p.1) (fun s h => (key_call vg) h.1) (key_ct vg fun s h => h) _ fun _ _ h => ⟨h.call, h.esp⟩) ?_
   refine Pc.seq (Q := IMid p) (Pc.taint [.esi, .ebp] (fun s₀ s ⟨s₁, h, g⟩ => iMid_ok hc h g)
     (fun _ _ s₁ s₂ ⟨t₁, h₁, g₁⟩ ⟨t₂, h₂, g₂⟩ r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -314,8 +316,8 @@ theorem init_pc (p : BitVec 32 × (Nat → BitVec 32)) :
       · rw [g₁.saved .esi (by decide), g₂.saved .esi (by decide), h₁.esi, h₂.esi]
       · rw [g₁.saved .ebp (by decide), g₂.saved .ebp (by decide), h₁.call.ebp, h₂.call.ebp]) (by taint_decide)) ?_
   refine Pc.seq (Pc.of (I := fun s => CtrCall s (p.2 2) (p.2 3 + BitVec.ofNat 32 96) (p.2 2 + BitVec.ofNat 32 240)
-    (p.2 3 + BitVec.ofNat 32 512) ((p.2 1).toNat / 4 + 6) 1 ∧ s.gpr .esp = p.1) (fun s h => ctr_call h.1)
-    (ctr_ct fun s h => h) _ fun _ _ h => ⟨h.call, h.esp⟩) ?_
+    (p.2 3 + BitVec.ofNat 32 512) ((p.2 1).toNat / 4 + 6) 1 ∧ s.gpr .esp = p.1) (fun s h => (ctr_call vg) h.1)
+    (ctr_ct vg fun s h => h) _ fun _ _ h => ⟨h.call, h.esp⟩) ?_
   refine Pc.taint [.ebp] (fun s₀ s' ⟨s, hm, g⟩ => ?_) (fun _ _ s₁ s₂ ⟨_, h₁, g₁⟩ ⟨_, h₂, g₂⟩ r hr => by
       simp only [List.mem_singleton] at hr; subst hr
       rw [g₁.saved .ebp (by decide), g₂.saved .ebp (by decide), h₁.call.ebp, h₂.call.ebp]) (by taint_decide)
@@ -397,10 +399,10 @@ theorem init_pc (p : BitVec 32 × (Nat → BitVec 32)) :
   exact BitVec.zero_xor
 
 theorem init_correct (s : State) (hs : initX86.pre s) :
-    ∃ t s', Exec isa init s t s' ∧ abiPreserved s s' ∧ initX86.post s s' :=
+    ∃ t s', Exec isa (init vg.callees) s t s' ∧ abiPreserved s s' ∧ initX86.post s s' :=
   (init_pc (pubOf 4 s)).wp s s ⟨hs, rfl, rfl⟩
 
-theorem init_ct : ConstantTime isa initX86.pre initX86.pub init :=
+theorem init_ct : ConstantTime isa initX86.pre initX86.pub (init vg.callees) :=
   Pc.constantTime (pubOf 4) (fun _ _ _ _ h => pubOf_eq h) init_pc fun _ hs => ⟨hs, rfl, rfl⟩
 
 end VG.Proof.AesGcm.X86

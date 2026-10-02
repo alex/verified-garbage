@@ -17,14 +17,16 @@ set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
 
+variable {vg : GcmImpl}
+
 open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt StreamRepr ctxH ctxCiph fullTag zeros)
 
-theorem streamVerify_eq : streamVerify = .seq (entry 7 (([.mov .esi (argOp 2)] : List Instr) ++
+theorem streamVerify_eq : (streamVerify vg.callees) = .seq (entry 7 (([.mov .esi (argOp 2)] : List Instr) ++
     ((finKeeps ++ [(8, tglO)]).flatMap (fun (p : Nat × Nat) => keep p.1 p.2) ++ [])))
     (.seq tagLenOk (.seq (.ite .e (.block (zero4 0))
-      (.seq recv (.seq (finTag 0) (.seq (cmp 0) (.block mask))))) (.block restore))) := rfl
+      (.seq recv (.seq (finTag vg.callees 0) (.seq (cmp 0) (.block mask))))) (.block restore))) := rfl
 
 /-- Where the received tag is copied. -/
 abbrev rR (W : BitVec 32) : Region := ⟨w64 W + BitVec.ofNat 64 rO, 16⟩
@@ -131,7 +133,7 @@ def VOut (p : BitVec 32 × (Nat → BitVec 32)) (s₀ s : State) : Prop :=
     Frame (rR (p.2 7) :: tagFrame (p.2 2) (p.2 7) p.1 0) s₁.mem s.mem ∧ streamVerifyX86.post s₀ s
 
 theorem streamVerify_pc (p : BitVec 32 × (Nat → BitVec 32)) :
-    Pc (fun (s₀ : State) s => verifyPre s₀ ∧ pubOf 9 s₀ = p ∧ s = s₀) streamVerify
+    Pc (fun (s₀ : State) s => verifyPre s₀ ∧ pubOf 9 s₀ = p ∧ s = s₀) (streamVerify vg.callees)
       (fun s₀ s' => abiPreserved s₀ s' ∧ streamVerifyX86.post s₀ s') := by
   by_cases hex : ∃ s₀, verifyPre s₀ ∧ pubOf 9 s₀ = p
   swap
@@ -292,10 +294,10 @@ theorem streamVerify_pc (p : BitVec 32 × (Nat → BitVec 32)) :
   exact hpost
 
 theorem streamVerify_correct (s : State) (hs : streamVerifyX86.pre s) :
-    ∃ t s', Exec isa streamVerify s t s' ∧ abiPreserved s s' ∧ streamVerifyX86.post s s' :=
+    ∃ t s', Exec isa (streamVerify vg.callees) s t s' ∧ abiPreserved s s' ∧ streamVerifyX86.post s s' :=
   (streamVerify_pc (pubOf 9 s)).wp s s ⟨hs, rfl, rfl⟩
 
-theorem streamVerify_ct : ConstantTime isa streamVerifyX86.pre streamVerifyX86.pub streamVerify :=
+theorem streamVerify_ct : ConstantTime isa streamVerifyX86.pre streamVerifyX86.pub (streamVerify vg.callees) :=
   Pc.constantTime (pubOf 9) (fun _ _ _ _ h => pubOf_eq h) streamVerify_pc fun _ hs => ⟨hs, rfl, rfl⟩
 
 end VG.Proof.AesGcm.X86
