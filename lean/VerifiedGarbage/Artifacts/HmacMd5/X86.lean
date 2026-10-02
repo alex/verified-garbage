@@ -23,11 +23,11 @@ def artifacts : List Artifact := [
   { Spec.Hmac.md5I.initApi with
     target := X86.target
     doc := Spec.Hmac.md5I.initApi.doc
-    code := md5H.init
+    code := Proof.Pbkdf2.Md.X86.md5M.hmacInit
     contract := Spec.Hmac.md5I.initContract X86.abi 48
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
     stack := 48
-    verified := Instances.md5_init
+    verified := Proof.Pbkdf2.Md.X86.Instances.md5_init
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Hmac.md5I.finalizeApi with
     target := X86.target

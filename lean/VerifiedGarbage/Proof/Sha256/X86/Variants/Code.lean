@@ -41,7 +41,7 @@ def fns (suffix cmpN : String) (cmpC updC finC : Prog isa) : Impl.Pbkdf2.Whole.X
   H := hmacHash suffix updC finC
   W := Spec.Hmac.sha256I.scratch
   hiN := Spec.Hmac.sha256I.initApi.name ++ suffix
-  hiC := (hmacHash suffix updC finC).init
+  hiC := (mdHash suffix cmpN cmpC updC finC).hmacInit
   hfN := Spec.Hmac.sha256I.finalizeApi.name ++ suffix
   hfC := (mdHash suffix cmpN cmpC updC finC).hmacFin
   itN := Spec.Hmac.sha256I.iterateApi.name ++ suffix

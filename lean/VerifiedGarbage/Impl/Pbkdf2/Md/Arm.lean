@@ -140,10 +140,62 @@ def compressBlock : Prog isa := .seq (.block [.mov .r1 (.reg .r6)]) (compressAt 
 /-- `r0` at the hash value and `r6` at the block. -/
 def atHv : List Instr := scrAt .r0 H.hvO ++ scrAt .r6 H.blkO
 
-/-! ## HMAC's `init` and `finalize` -/
+/-! ## HMAC's `init`
 
-/-- HMAC's `init`. -/
-def hmacInit : Prog isa := H.st.init
+Registers: `r4` = `inner`, `r5` = `outer`, `r11` = `scratch`; in the key
+loop, `r6` = the next key byte, `r8` + `N` = where it goes, `r7` = the bytes
+left; for each compression, `r0` = the state, `r6` = its buffer and `r3` =
+`scratch`. -/
+
+/-- Saving our caller's registers and our return address, and setting up
+ours. -/
+def initPrologue : List Instr :=
+  [.ldrSp .r12 0] ++ H.st.save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
+    .mov .r7 (.reg .r3), .mov .r11 (.reg .r12)]
+
+/-- `ipad` in every byte of the inner state's buffer, a word at a time; then
+the flags of `key_len = 0`, which skip the key loop for an empty key. -/
+def fillIpad : List Instr :=
+  [.movw .r1 0x3636, .movt .r1 0x3636] ++ (List.range (H.B / 4)).map (fun k => .str .r1 .r4 (H.N + 4 * k)) ++
+    [.mov .r8 (.reg .r4), .cmp .r7 (.imm 0)]
+
+/-- The key bytes, XORed with `ipad`, over the start of the buffer. -/
+def keyLoop : Prog isa :=
+  .loop (.block [.ldrb .r12 .r6 0, .dp .eor .r12 .r12 (.imm 0x36), .strb .r12 .r8 H.N,
+    .dp .add .r6 .r6 (.imm 1), .dp .add .r8 .r8 (.imm 1), .subs .r7 .r7 (.imm 1)]) .ne
+
+/-- Word `k` of the outer state's buffer, from the inner one's (`r1` =
+`0x6a6a6a6a`): `K₀ ⊕ opad = (K₀ ⊕ ipad) ⊕ (ipad ⊕ opad)`. -/
+def opadW (k : Nat) : List Instr :=
+  [.ldr .r12 .r4 (H.N + 4 * k), .dp .eor .r12 .r12 (.reg .r1), .str .r12 .r5 (H.N + 4 * k)]
+
+/-- The outer state's buffer, and the inner state's compression set up. -/
+def fillOpad : List Instr :=
+  [.movw .r1 0x6a6a, .movt .r1 0x6a6a] ++ (List.range (H.B / 4)).flatMap H.opadW ++
+    [.mov .r0 (.reg .r4), .dp .add .r6 .r4 (.imm (BitVec.ofNat 32 H.N)), .mov .r3 (.reg .r11)]
+
+/-- The two blocks: `K₀ ⊕ ipad` in the inner state's buffer and `K₀ ⊕ opad`
+in the outer one's, the part of `init` between the calls of the streaming
+`init` and the compressions. -/
+def blocks : Prog isa :=
+  .seq (.block H.fillIpad) (.seq (.ite .eq (.block []) H.keyLoop) (.block H.fillOpad))
+
+/-- The outer state's compression set up (`r3` is still `scratch`). -/
+def toOuter : List Instr := [.mov .r0 (.reg .r5), .dp .add .r6 .r5 (.imm (BitVec.ofNat 32 H.N))]
+
+/-- HMAC's `init`: the streaming `init` of both states, then each state's
+block compressed into its hash value. -/
+def hmacInit : Prog isa :=
+  .seq (.block H.initPrologue)
+  (.seq (H.st.callInit .r4)
+  (.seq (H.st.callInit .r5)
+  (.seq H.blocks
+  (.seq H.compressBlock
+  (.seq (.block H.toOuter)
+  (.seq H.compressBlock
+    (.block H.st.restore)))))))
+
+/-! ## HMAC's `finalize` -/
 
 /-- Saving our caller's registers, with `outer` in `r5`, `out` in `r7` and
 `scratch` in `r11`. -/

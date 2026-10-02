@@ -1,7 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Lit
 import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.CT
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Instances
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Instances
 
 /-!
@@ -46,7 +45,7 @@ def sha1OKF : FnsOK sha1F where
   Wi := 56
   Wf := 56
   Wt := 56
-  hi := .of_verified Proof.Hmac.Generic.X86.Instances.sha1_init
+  hi := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha1_init
   hf := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha1_finalize
   it := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha1_iterate
   hiSp := nosp_of (by lit_decide)
@@ -99,7 +98,7 @@ def md5OKF : FnsOK md5F where
   Wi := 48
   Wf := 48
   Wt := 48
-  hi := .of_verified Proof.Hmac.Generic.X86.Instances.md5_init
+  hi := .of_verified Proof.Pbkdf2.Md.X86.Instances.md5_init
   hf := .of_verified Proof.Pbkdf2.Md.X86.Instances.md5_finalize
   it := .of_verified Proof.Pbkdf2.Md.X86.Instances.md5_iterate
   hiSp := nosp_of (by lit_decide)
@@ -152,7 +151,7 @@ def sha384OKF : FnsOK sha384F where
   Wi := 234
   Wf := 234
   Wt := 234
-  hi := .of_verified Proof.Hmac.Generic.X86.Instances.sha384_init
+  hi := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha384_init
   hf := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha384_finalize
   it := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha384_iterate
   hiSp := nosp_of (by lit_decide)
@@ -205,7 +204,7 @@ def sha512OKF : FnsOK sha512F where
   Wi := 234
   Wf := 234
   Wt := 234
-  hi := .of_verified Proof.Hmac.Generic.X86.Instances.sha512_init
+  hi := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha512_init
   hf := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha512_finalize
   it := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha512_iterate
   hiSp := nosp_of (by lit_decide)
@@ -258,7 +257,7 @@ def sha512_224OKF : FnsOK sha512_224F where
   Wi := 234
   Wf := 234
   Wt := 234
-  hi := .of_verified Proof.Hmac.Generic.X86.Instances.sha512_224_init
+  hi := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha512_224_init
   hf := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha512_224_finalize
   it := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha512_224_iterate
   hiSp := nosp_of (by lit_decide)
@@ -311,7 +310,7 @@ def sha512_256OKF : FnsOK sha512_256F where
   Wi := 234
   Wf := 234
   Wt := 234
-  hi := .of_verified Proof.Hmac.Generic.X86.Instances.sha512_256_init
+  hi := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha512_256_init
   hf := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha512_256_finalize
   it := .of_verified Proof.Pbkdf2.Md.X86.Instances.sha512_256_iterate
   hiSp := nosp_of (by lit_decide)

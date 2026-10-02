@@ -25,7 +25,7 @@ def sha256OKF : FnsOK sha256F where
   Wi := 104
   Wf := 104
   Wt := 104
-  hi := .of_verified Proof.Hmac.Generic.Arm.Instances.sha256_init
+  hi := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha256_init
   hf := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha256_finalize
   it := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha256_iterate
   hiSt := by decide +kernel

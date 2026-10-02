@@ -523,7 +523,9 @@ theorem digest_ok {H : Hash} (hz : Sizes H) {md : Md H.B H.N H.L} (hout : OutOk 
 /-- A hash function's x86 functions, verified: its streaming functions, as
 HMAC's `init` and `finalize` call them (`HashOK`), and its `Md`, from the
 initial hash value `iv`, which is the hash function of the specification
-(`link`), whose stored hash value depends only on its bytes (`reloc`), whose
+(`link`, and `back`: a state represents a message as the specification has
+it if it does as `md` has it), whose stored hash value depends only on its
+bytes (`reloc`), whose
 padding of a `B + D`-byte message is the code's (`tail`), whose digest the
 code's `out` writes, and whose compression function is verified (`comp`). -/
 structure MdOk (H : Hash) where
@@ -531,6 +533,7 @@ structure MdOk (H : Hash) where
   md : Md H.B H.N H.L
   iv : md.HV
   link : md.Link hH.SH iv H.D
+  back : ∀ m p x, md.Repr iv m p x → hH.SH.Repr m p x
   reloc : md.Reloc
   tail : md.tailPad H.D = H.tailB
   out : OutOk md H.out

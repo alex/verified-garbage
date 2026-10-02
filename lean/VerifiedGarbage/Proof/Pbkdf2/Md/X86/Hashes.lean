@@ -185,6 +185,7 @@ def md5Ok : MdOk md5M where
     show Spec.Md5.hash m = _
     rw [Proof.Md5.hash_eq]
     exact (List.take_of_length_le (Nat.le_of_eq (Proof.Md5.md.digest_length _))).symm, by decide, by decide⟩
+  back _ _ _ h := h
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj
@@ -203,6 +204,7 @@ def sha1Ok : MdOk sha1M where
     show Spec.Sha1.hash m = _
     rw [Proof.Sha1.hash_eq]
     exact (List.take_of_length_le (Nat.le_of_eq (Proof.Sha1.md.digest_length _))).symm, by decide, by decide⟩
+  back _ _ _ h := h
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj
@@ -225,6 +227,7 @@ def sha512Ok {D : Nat} {initN : String} {iv : Spec.Sha512.HashValue}
   md := Proof.Sha512.md
   iv := iv
   link := ⟨hB, hS, hD, fun _ _ _ h => by rw [hR] at h; exact h, hh, hD64, by have := sizes.DL; omega⟩
+  back _ _ _ h := by rw [hR]; exact h
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj

@@ -25,7 +25,7 @@ def sha224OKF : FnsOK sha224F where
   Wi := 104
   Wf := 104
   Wt := 104
-  hi := .of_verified Proof.Hmac.Generic.Arm.Instances.sha224_init
+  hi := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha224_init
   hf := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha224_finalize
   it := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha224_iterate
   hiSt := by decide +kernel

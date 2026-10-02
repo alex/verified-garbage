@@ -12,7 +12,9 @@ Merkle–Damgård hash function `md` (`Md`) whose digest code does what it shoul
 words the code stores (`len`), with a verified compression function
 (`CompOk`); its streaming functions are verified against the contracts HMAC's
 generic proofs call them with (`stream`); its specification is `md` from the
-initial hash value `iv`, with the digest the first `D` bytes of `md`'s; and
+initial hash value `iv` (a state represents a message as the specification
+has it exactly when it does as `md` has it: `repr`, `back`), with the digest
+the first `D` bytes of `md`'s; and
 its sizes fit (`Sizes`).
 -/
 
@@ -60,6 +62,7 @@ structure HashOK (H : Hash) where
   /-- The specification is `md` from `iv`, with a `D`-byte digest. -/
   iv : md.HV
   repr : ∀ mem p m, stream.SH.Repr mem p m → md.Repr iv mem p m
+  back : ∀ mem p m, md.Repr iv mem p m → stream.SH.Repr mem p m
   hash : ∀ m, stream.SH.H.hash m = (md.hash iv m).take H.D
   sizes : Sizes H
 

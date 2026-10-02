@@ -164,6 +164,59 @@ def iterate : Prog isa :=
   (.seq (.ite .e (.block []) (.loop H.body .ne))
     (.block H.st.restore))
 
+/-! ## HMAC's `init`
+
+Registers: `ebp` = `scratch`, `ebx` = `inner` (the hash value being
+compressed: then `outer`), `esi` = `outer`; in the key loop, `edi` = the next
+key byte, `edx` = where it goes, `ecx` = the bytes left. -/
+
+/-- Saving our caller's registers, and `scratch`, `inner` and `outer` into
+`ebp`, `ebx` and `esi`. -/
+def initPrologue : List Instr :=
+  [.mov .eax (.mem (at_ .esp 20))] ++ H.st.save ++
+    [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)), .mov .esi (.mem (at_ .esp 8))]
+
+/-- `ipad` in every byte of the inner state's buffer, a word at a time;
+then the key and its length (whose flags skip the key loop for an empty
+key), and the start of the buffer. -/
+def fillIpad : List Instr :=
+  .mov .ecx (.imm 0x36363636) :: (List.range (H.B / 4)).map (fun k => .store (at_ .ebx (H.N + 4 * k)) .ecx) ++
+    [.mov .edi (.mem (at_ .esp 12)), .mov .ecx (.mem (at_ .esp 16)), .mov .edx (.reg .ebx),
+      .alu .add .edx (.imm (BitVec.ofNat 32 H.N)), .alu .test .ecx (.reg .ecx)]
+
+/-- The key bytes, XORed with `ipad`, over the start of the buffer. -/
+def keyLoop : Prog isa :=
+  .loop (.block [.movzx8 .eax (at_ .edi 0), .alu .xor .eax (.imm 0x36), .store8 (at_ .edx 0) .al,
+    .alu .add .edi (.imm 1), .alu .add .edx (.imm 1), .alu .sub .ecx (.imm 1)]) .ne
+
+/-- Word `k` of the outer state's buffer, from the inner one's:
+`K₀ ⊕ opad = (K₀ ⊕ ipad) ⊕ (ipad ⊕ opad)`. -/
+def opadW (k : Nat) : List Instr :=
+  [.mov .eax (.mem (at_ .ebx (H.N + 4 * k))), .alu .xor .eax (.imm 0x6a6a6a6a),
+    .store (at_ .esi (H.N + 4 * k)) .eax]
+
+/-- The outer state's buffer, and `eax` at the inner one. -/
+def fillOpad : List Instr := (List.range (H.B / 4)).flatMap H.opadW ++ H.atBlk
+
+/-- The two blocks: `K₀ ⊕ ipad` in the inner state's buffer and `K₀ ⊕ opad`
+in the outer one's, the part of `init` between the calls of the streaming
+`init` and the compressions. -/
+def blocks : Prog isa :=
+  .seq (.block H.fillIpad) (.seq (.ite .e (.block []) keyLoop) (.block H.fillOpad))
+
+/-- `ebx` at the outer state, and `eax` at its buffer. -/
+def toOuter : List Instr := .mov .ebx (.reg .esi) :: H.atBlk
+
+def hmacInit : Prog isa :=
+  .seq (.block H.initPrologue)
+  (.seq (H.st.callInit .ebx)
+  (.seq (H.st.callInit .esi)
+  (.seq H.blocks
+  (.seq H.cmp
+  (.seq (.block H.toOuter)
+  (.seq H.cmp
+    (.block H.st.restore)))))))
+
 /-! ## HMAC's `finalize`
 
 Registers as in the streaming-level design (`Impl.Hmac.Generic.X86.Hash.finPrologue`):

@@ -23,11 +23,11 @@ def artifacts : List Artifact := [
   { Spec.Hmac.sha512_256I.initApi with
     target := X86.target
     doc := Spec.Hmac.sha512_256I.initApi.doc
-    code := sha512_256H.init
+    code := Proof.Pbkdf2.Md.X86.sha512_256M.hmacInit
     contract := Spec.Hmac.sha512_256I.initContract X86.abi 48
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
     stack := 48
-    verified := Instances.sha512_256_init
+    verified := Proof.Pbkdf2.Md.X86.Instances.sha512_256_init
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Hmac.sha512_256I.finalizeApi with
     target := X86.target

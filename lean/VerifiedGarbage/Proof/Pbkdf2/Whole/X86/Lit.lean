@@ -1,4 +1,3 @@
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Lit
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Lit
 import VerifiedGarbage.Impl.Pbkdf2.Whole.X86
 
@@ -6,9 +5,8 @@ import VerifiedGarbage.Impl.Pbkdf2.Whole.X86
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: the functions it calls, and its code as literals
 
 For each hash function of `Proof/Pbkdf2/Md/X86/Hashes.lean`, the functions
-`pbkdf2` calls (`Fns`): its streaming functions, HMAC's `init`
-(`Impl/Hmac/Generic/X86.lean`) and `finalize` and PBKDF2's `iterate`
-(`Impl/Pbkdf2/Md/X86.lean`) for it, by the names they are registered with; and
+`pbkdf2` calls (`Fns`): its streaming functions, HMAC's `init` and
+`finalize` and PBKDF2's `iterate` (`Impl/Pbkdf2/Md/X86.lean`) for it, by the names they are registered with; and
 `pbkdf2` as a literal (`materialize_code`, `Proof/Framework/Lit.lean`), which
 the registration files' `spSafe` checks evaluate.
 -/
@@ -24,7 +22,7 @@ def fnsOf (I : Spec.Hmac.Instance) (M : Impl.Pbkdf2.Md.X86.Hash) : Fns where
   H := M.st
   W := I.scratch
   hiN := I.initApi.name
-  hiC := M.st.init
+  hiC := M.hmacInit
   hfN := I.finalizeApi.name
   hfC := M.hmacFin
   itN := I.iterateApi.name

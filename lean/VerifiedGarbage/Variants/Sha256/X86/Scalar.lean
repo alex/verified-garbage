@@ -11,7 +11,7 @@ which HMAC's and PBKDF2's functions call (`Generic/Sha256/X86/`).
 namespace VG.Variants.Sha256.X86.Scalar
 
 open VG.X86
-open VG.Proof.Hmac.Generic.X86 (Sha256Stream sha256H)
+open VG.Proof.Hmac.Generic.X86 (Sha256Stream)
 open VG.Proof.Pbkdf2.Md.X86 (sha256M)
 open VG.Proof.Sha256.X86.Variants (pbkdf2Fns)
 
@@ -27,7 +27,7 @@ def stream : Sha256Stream where
   updSU := by lit_decide
   finSU := by lit_decide
 
-materialize_code sha256HInit := (sha256H stream).init
+materialize_code sha256HInit := (sha256M stream "vg_sha256_compress" Impl.Sha256.X86.compress).hmacInit
 materialize_code sha256HFinalize := (sha256M stream "vg_sha256_compress" Impl.Sha256.X86.compress).hmacFin
 materialize_code sha256HIterate := (sha256M stream "vg_sha256_compress" Impl.Sha256.X86.compress).iterate
 materialize_code sha256HPbkdf2 := (pbkdf2Fns stream "vg_sha256_compress" Impl.Sha256.X86.compress).pbkdf2
