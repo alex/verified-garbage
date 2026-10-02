@@ -4,6 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.NttInv
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Mul
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.AddSub
 import VerifiedGarbage.Proof.MlKem.X86_64.ArithOk
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.Bits
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.MakeHint
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.NormLt
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.Rej4Verified
 
 /-!
@@ -40,6 +43,10 @@ structure Rej4Ok (c : Prog isa) : Prop where
   depth : c.depth ≤ 3
   ctl : ctlOk c = true
   sp : c.all (fun i => !isa.writesSp i) = true
+  /-- Its result is whether each seed has 256 coefficients in its first 1008 bytes of output, as
+  both implementations', which signing branches on. -/
+  ret : ∀ s t s', (Spec.MlDsa.rejNTT4Contract X86_64.abi 24).pre s → Exec isa c s t s' →
+    (s'.gpr .rax).setWidth 32 = Rej4.rej4Res s.mem (s.gpr .rdi)
 
 /-- Each function of the backend `B` meets its contract, and is safe to call. -/
 structure BackendOk (B : Backend) : Prop where
@@ -49,6 +56,10 @@ structure BackendOk (B : Backend) : Prop where
   mulAdd : FnOk (fun S => Spec.MlDsa.mulAddContract X86_64.abi S) B.mulAdd
   add : FnOk (fun S => Spec.MlDsa.addContract X86_64.abi S) B.add
   sub : FnOk (fun S => Spec.MlDsa.subContract X86_64.abi S) B.sub
+  highBits : FnOk (fun S => Spec.MlDsa.highBitsContract X86_64.abi S) B.highBits
+  lowBits : FnOk (fun S => Spec.MlDsa.lowBitsContract X86_64.abi S) B.lowBits
+  normLt : FnOk (fun S => Spec.MlDsa.normLtContract X86_64.abi S) B.normLt
+  makeHint : FnOk (fun S => Spec.MlDsa.makeHintContract X86_64.abi S) B.makeHint
   rej4 : Rej4Ok B.rej4
 
 /-- An implementation of the polynomial arithmetic on x86-64. -/
@@ -80,8 +91,16 @@ def ArithImpl.sse2 : ArithImpl where
         (by decide +kernel)
       sub := FnOk.of Arith.sub_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
+      highBits := FnOk.of Round.highBits_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      lowBits := FnOk.of Round.lowBits_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      normLt := FnOk.of Round.normLt_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      makeHint := FnOk.of Round.makeHint_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
       rej4 := ⟨Rej4.rejNTT4_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
-        by decide +kernel, Code.all_of_allInstrs (by decide +kernel)⟩ }
+        by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4_ret⟩ }
   features := []
 
 end VG.Proof.MlDsa.X86_64
