@@ -14,7 +14,7 @@ import VerifiedGarbage.Impl.Scrypt.X86.Salsa
 
 Untrusted: everything here is checked by Lean. The contracts the proofs of
 this directory are written against, and the proof of `vg_salsa20_8`: as on
-32-bit ARM (`Proof/Scrypt/Arm/Salsa.lean`), the sixteen words live in
+32-bit ARM (`Proof/Scrypt/Arm/BlockMixVerified.lean`), the sixteen words live in
 `scratch`, word `k` at `4k`, and `b` keeps the input until the final
 addition. Each line of the rounds is proved once, for any indices
 (`line_ok`), and the lines are composed by induction. The proof is written

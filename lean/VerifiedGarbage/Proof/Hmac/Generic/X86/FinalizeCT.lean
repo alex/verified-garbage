@@ -12,7 +12,7 @@ Untrusted: everything here is checked by Lean. `init`, then `finalize`.
 ## `init`
 
 As on the other targets
-(`Proof/Hmac/Generic/Arm/InitCT.lean`): the pieces between the calls are
+(`Proof/Hmac/Generic/Arm/Instances.lean`): the pieces between the calls are
 checked by the taint analysis, from the registers that hold our variables
 and, where they read them, the arguments on the stack (`argTaint`); the
 calls are related by `init_rel` and `upd_rel`.
