@@ -1,4 +1,3 @@
-import VerifiedGarbage.Impl.Ed25519.AArch64.PointAccumulate
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointAccumulate
 
 /-! Untrusted: the counter of the descending-bit loops. -/
@@ -20,15 +19,5 @@ theorem accumulateDec_ok (s : State) (n : Nat)
 
 theorem CounterKeep.refl (base : Addr) (s : State) : CounterKeep base s s :=
   ⟨fun _ _ _ => rfl, rfl, rfl, rfl, Outside.refl _ _ _ _⟩
-
-theorem accumulateInit_ok (s : State) :
-    WP isa (.block [.movz .w .x19 16 0]) s fun t => t.gpr .x19 = 16 ∧ Keeps [.x19] s t := by
-  apply WP.of_runBlock
-  simp only [runBlock_cons, runStep_some, runBlock_nil, exec,
-    show 16 * 0 < Size.w.bits from by decide, ite_true, Option.some.injEq, exists_eq_left']
-  refine ⟨?_, ⟨fun r hr => ?_, rfl, rfl, rfl, rfl⟩⟩
-  · rw [RegUpd.gpr_write_self]; rfl
-  · exact RegUpd.gpr_write_of_ne _ _ _ (by simpa only [List.mem_singleton] using hr)
-
 
 end VG.Proof.Ed25519.AArch64

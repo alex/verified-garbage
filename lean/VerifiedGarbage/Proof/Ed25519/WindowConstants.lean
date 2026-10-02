@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.Ed25519.X86_64.BaseMultiples
+import VerifiedGarbage.Impl.Ed25519.BaseMultiples
 import VerifiedGarbage.Proof.Ed25519.BaseTable
 import VerifiedGarbage.Proof.Ed25519.Group.Decode
 
@@ -11,9 +11,9 @@ projectively, so the kernel evaluates fourteen additions. The cached
 negations are checked entry by entry.
 -/
 
-namespace VG.Proof.Ed25519.X86_64
+namespace VG.Proof.Ed25519
 
-open VG.Spec.Ed25519 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519 Edwards
+open VG.Spec.Ed25519 VG.Impl.Ed25519 Edwards
 open Spec.X25519 (Fe)
 
 /-- The extended point `(x, y, 1, xy)`. -/
@@ -67,4 +67,4 @@ theorem negBaseCached_ok (i : Nat) (hi : i < 15) :
     rfl
   · rw [smul_neg]; exact (baseMultiple_rep i hi).neg
 
-end VG.Proof.Ed25519.X86_64
+end VG.Proof.Ed25519

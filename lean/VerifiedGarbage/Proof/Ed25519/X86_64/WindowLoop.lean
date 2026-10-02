@@ -24,11 +24,6 @@ structure WinLoop (s₀ : State) (base kp sp : Addr) (A : EPoint dZ) (K S c : Na
   value : Rep (point (env s.mem base) 0 1 2 3) ((K / 256 ^ c) • A + (S / 256 ^ c) • (-baseAff))
   keep : ByteKeep base s₀ s
 
-theorem decodeLE_lt32 (m : Mem) (p : Addr) :
-    Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt m p 32) < 256 ^ 32 := by
-  have h := decodeLE_lt (Spec.Ed25519.bytesAt m p 32)
-  rwa [show (Spec.Ed25519.bytesAt m p 32).length = 32 by simp [Spec.Ed25519.bytesAt]] at h
-
 /-- A byte of `k` alone, from `32 + j + 1` bytes left to `32 + j`. -/
 theorem stepA_ok {s₀ t : State} {base kp sp : Addr} {A : EPoint dZ} {K S j : Nat} (hj : j < 32)
     (ht : WinLoop s₀ base kp sp A K S (32 + (j + 1)) t) :

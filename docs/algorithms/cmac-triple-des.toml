@@ -1,0 +1,5 @@
+name = "3DES-CMAC (two- and three-key TDEA)"
+family = "MACs"
+specs = ["TripleDes", "Cmac"]
+modules = ["src/cmac/triple_des.rs"]
+asm = ["cmac_triple_des"]

@@ -29,7 +29,7 @@ fn check(key: &[u8], iv: &[u8], bits: usize, plaintext: &[u8], ciphertext: &[u8]
         (Direction::Decrypt, ciphertext, plaintext),
     ] {
         for split in 0..=input.len() {
-            let mut ctx = Rc2Cbc::init_with_effective_bits(key, iv, direction, bits).unwrap();
+            let mut ctx = Rc2Cbc::new_with_effective_bits(key, iv, direction, bits).unwrap();
             assert!(ctx.update(&[]).is_empty());
             let mut output = ctx.update(&input[..split]);
             assert_eq!(output.len(), split / 8 * 8);
@@ -38,7 +38,7 @@ fn check(key: &[u8], iv: &[u8], bits: usize, plaintext: &[u8], ciphertext: &[u8]
             output.extend(ctx.finalize().unwrap());
             assert_eq!(output, expected);
         }
-        let mut ctx = Rc2Cbc::init_with_effective_bits(key, iv, direction, bits).unwrap();
+        let mut ctx = Rc2Cbc::new_with_effective_bits(key, iv, direction, bits).unwrap();
         let output: Vec<_> = input.chunks(1).flat_map(|byte| ctx.update(byte)).collect();
         assert_eq!(output, expected);
         assert!(ctx.finalize().unwrap().is_empty());
@@ -133,7 +133,7 @@ fn cryptography_cbc_and_default_bits() {
         (Direction::Encrypt, &plaintext, &ciphertext),
         (Direction::Decrypt, &ciphertext, &plaintext),
     ] {
-        let mut ctx = Rc2Cbc::init(&key, &iv, direction).unwrap();
+        let mut ctx = Rc2Cbc::new(&key, &iv, direction).unwrap();
         assert_eq!(ctx.update(input), *expected);
         assert!(ctx.finalize().unwrap().is_empty());
     }
@@ -145,19 +145,19 @@ fn invalid_parameters() {
     let iv = [0; 8];
     for key in [&[][..], &[0; 129][..]] {
         assert_eq!(
-            Rc2Cbc::init(key, &iv, Direction::Encrypt).err(),
+            Rc2Cbc::new(key, &iv, Direction::Encrypt).err(),
             Some(Error::InvalidKeyLength)
         );
     }
     for bits in [0, 1025, usize::MAX] {
         assert_eq!(
-            Rc2Cbc::init_with_effective_bits(&key, &iv, Direction::Encrypt, bits).err(),
+            Rc2Cbc::new_with_effective_bits(&key, &iv, Direction::Encrypt, bits).err(),
             Some(Error::InvalidEffectiveBits)
         );
     }
     for iv in [&[][..], &[0; 7][..], &[0; 9][..]] {
         assert_eq!(
-            Rc2Cbc::init(&key, iv, Direction::Encrypt).err(),
+            Rc2Cbc::new(&key, iv, Direction::Encrypt).err(),
             Some(Error::InvalidIvLength)
         );
     }
@@ -166,14 +166,14 @@ fn invalid_parameters() {
 #[test]
 fn empty_and_incomplete() {
     for direction in [Direction::Encrypt, Direction::Decrypt] {
-        let mut ctx = Rc2Cbc::init(&[0; 16], &[0; 8], direction).unwrap();
+        let mut ctx = Rc2Cbc::new(&[0; 16], &[0; 8], direction).unwrap();
         assert!(ctx.update(&[]).is_empty());
         assert!(ctx.finalize().unwrap().is_empty());
         for length in 1..16 {
             if length == 8 {
                 continue;
             }
-            let mut ctx = Rc2Cbc::init(&[0; 16], &[0; 8], direction).unwrap();
+            let mut ctx = Rc2Cbc::new(&[0; 16], &[0; 8], direction).unwrap();
             assert_eq!(ctx.update(&vec![0; length]).len(), length / 8 * 8);
             assert_eq!(ctx.finalize(), Err(Error::IncompleteBlock));
         }
@@ -188,11 +188,11 @@ fn boundary_key_sizes_roundtrip() {
         let key: Vec<u8> = (0..len).map(|i| i as u8).collect();
         for bits in [1, 7, 8, 9, 63, 64, 65, 1023, 1024] {
             let mut enc =
-                Rc2Cbc::init_with_effective_bits(&key, &[1; 8], Direction::Encrypt, bits).unwrap();
+                Rc2Cbc::new_with_effective_bits(&key, &[1; 8], Direction::Encrypt, bits).unwrap();
             let ciphertext = enc.update(&input);
             assert!(enc.finalize().unwrap().is_empty());
             let mut dec =
-                Rc2Cbc::init_with_effective_bits(&key, &[1; 8], Direction::Decrypt, bits).unwrap();
+                Rc2Cbc::new_with_effective_bits(&key, &[1; 8], Direction::Decrypt, bits).unwrap();
             assert_eq!(dec.update(&ciphertext), input);
             assert!(dec.finalize().unwrap().is_empty());
         }
