@@ -51,7 +51,8 @@ theorem mul_pre (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) (ha : MulArgs L
     by simpa using hL.stk_scr (d := 16) (n := 32) (e := 0) (k := 8192) (by omega) (by omega),
     (hL.ko.sub_left (Offset.sub_base L.B (d := 8) (n := 8) (by decide))).sub_right
       (Offset.sub_base L.out (d := 32) (n := 32) (by decide)),
-    by simpa using hL.stk_scr (d := 8) (n := 8) (e := 0) (k := 8192) (by omega) (by omega), hL.nc⟩
+    by simpa using hL.stk_scr (d := 8) (n := 8) (e := 0) (k := 8192) (by omega) (by omega), hL.nc,
+    hL.oc.sub_left (Offset.sub_base L.out (d := 32) (n := 32) (by decide))⟩
 
 theorem mul_call (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) (ha : MulArgs L t) :
     WP isa (.call "vg_ed25519_scalar_mul_add" scalarMulAdd) t fun t' => Ctx L g mx m₀ t' ∧

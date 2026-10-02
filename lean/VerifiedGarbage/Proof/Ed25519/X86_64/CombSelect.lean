@@ -72,10 +72,10 @@ theorem combMaskPrefix_ok {s : State} {base : Addr} (hs : Scratch s base) {d : N
 theorem combMaskAll_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat} (hd : d < 16)
     (hax : s.gpr .rax = BitVec.ofNat 64 d) :
     WP isa (.block combMaskAll) s fun t =>
-      (∀ k < 16, t.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) ∧
+      (∀ k < 9, t.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) ∧
       (∀ r, r ≠ .rdx → t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr ∧
       Outside base combMasks 128 s.mem t.mem :=
-  combMaskPrefix_ok hs hd hax 16 (Nat.le_refl _)
+  combMaskPrefix_ok hs hd hax 9 (by decide)
 
 /-! ## Selection -/
 
@@ -131,8 +131,8 @@ theorem sel_step (d n : Nat) (x y : BitVec 64) (hy : d = n → y = x) :
 
 /-- The candidates `k < n`, from cleared registers. -/
 theorem selectCands_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat}
-    (hm : ∀ k < 16, s.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k)
-    (vs : List Spec.X25519.Fe) (n : Nat) (hn : n ≤ 16) :
+    (hm : ∀ k < 9, s.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k)
+    (vs : List Spec.X25519.Fe) (n : Nat) (hn : n ≤ 9) :
     WP isa (.block ((List.range n).flatMap fun k => (List.range 4).flatMap fun w =>
       selectWord (vs.getD k 0) k w)) s fun t =>
       t.gpr .r8 = s.gpr .r8 ||| (if d < n then feWord (vs.getD d 0) 0 else 0) ∧
@@ -178,8 +178,8 @@ theorem feWord_val (v : Spec.X25519.Fe) :
   simp only [feWord, Nat.mul_zero, pow_zero, Nat.div_one, Nat.reduceMul]
   exact limbs_nat _ (by have := v.isLt; simp only [Spec.X25519.P] at this; omega)
 
-theorem selectField_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat} (hd : d < 16)
-    (hm : ∀ k < 16, s.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k)
+theorem selectField_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat} (hd : d < 9)
+    (hm : ∀ k < 9, s.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k)
     (vs : List Spec.X25519.Fe) {o : Nat} (ho : o + 32 ≤ 8192) :
     WP isa (.block (selectField vs o)) s fun t =>
       Proof.X25519.X86_64.F t.mem base o = vs.getD d 0 ∧
@@ -189,7 +189,7 @@ theorem selectField_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat}
   refine WP.mono (Proof.X25519.X86_64.zero4_ok s) fun a ⟨a8, a9, a10, a11, ka⟩ => ?_
   have ha : Scratch a base := ⟨(ka.1 _ (by decide)).trans hs.rdi, ka.2.2.2 ▸ hs.wr, hs.nowrap⟩
   rw [WP.block_append_iff]
-  refine WP.mono (selectCands_ok (d := d) ha (by rw [ka.2.1]; exact hm) vs 16 (Nat.le_refl _))
+  refine WP.mono (selectCands_ok (d := d) ha (by rw [ka.2.1]; exact hm) vs 9 (Nat.le_refl _))
     fun b ⟨b8, b9, b10, b11, kb⟩ => ?_
   have hb : Scratch b base := ⟨(kb.1 _ (by decide)).trans ha.rdi, kb.2.2.2 ▸ ha.wr, hs.nowrap⟩
   refine WP.mono (store4W_ok hb ho) fun t ⟨tm, tg, tr, tw⟩ => ?_
@@ -205,19 +205,19 @@ theorem selectField_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat}
   · rw [tm, kb.2.1, ka.2.1]
     exact Proof.X25519.X86_64.st4_outside _ _ (by omega) _ _ _ _
 
-private theorem entries_getD (j d : Nat) (hd : d < 16) (f : Spec.Ed25519.Point → Spec.X25519.Fe) :
-    (((List.range 16).map (combCached j)).map f).getD d 0 = f (combCached j d) := by
+private theorem entries_getD (j d : Nat) (hd : d < 9) (f : Spec.Ed25519.Point → Spec.X25519.Fe) :
+    (((List.range 9).map (combCached j)).map f).getD d 0 = f (combCached j d) := by
   simp only [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hd, Option.map_some,
     Option.getD_some]
 
 /-- A field selected to slot `i` (4 to 7), keeping the masks and the slots below. -/
-private theorem selectSlot_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat} (hd : d < 16)
-    (hm : ∀ k < 16, s.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k)
+private theorem selectSlot_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat} (hd : d < 9)
+    (hm : ∀ k < 9, s.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k)
     (vs : List Spec.X25519.Fe) (i : Slot) (hi : 4 ≤ i.val) (hi' : i.val < 8) :
     WP isa (.block (selectField vs (offset i))) s fun t =>
       env t.mem base i = vs.getD d 0 ∧
       (∀ i' : Slot, i' ≠ i → env t.mem base i' = env s.mem base i') ∧ Keep base s t ∧
-      (∀ k < 16, t.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) := by
+      (∀ k < 9, t.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) := by
   refine WP.mono (selectField_ok hs hd hm vs (by simp only [offset]; omega))
     fun t ⟨tv, tg, tr, tw, tm⟩ => ⟨tv, fun i' hi' => ?_, ⟨fun r hr => tg r (fun h => hr (by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at h
@@ -228,11 +228,11 @@ private theorem selectSlot_ok {s : State} {base : Addr} (hs : Scratch s base) {d
   have hne : i'.val ≠ i.val := fun h => hi' (Fin.ext h)
   exact Outside_F tm (by simp only [offset]; omega) (by simp only [offset]; omega)
 
-theorem combSelect_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat} (hd : d < 16)
-    (hm : ∀ k < 16, s.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) (j : Nat) :
+theorem combSelect_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat} (hd : d < 9)
+    (hm : ∀ k < 9, s.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) (j : Nat) :
     WP isa (.block (combSelect j)) s fun t =>
       point (env t.mem base) 4 5 6 7 = combCached j d ∧ Keep base s t ∧
-      (∀ k < 16, t.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) ∧
+      (∀ k < 9, t.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) ∧
       (∀ i : Slot, (i.val < 4 ∨ 8 ≤ i.val) → env t.mem base i = env s.mem base i) := by
   rw [combSelect]
   simp only [List.append_assoc]
@@ -292,12 +292,12 @@ theorem combSelectFrom_ok (ks : List Nat) (hks : ∀ k ∈ ks, k < 32) {s : Stat
       exact ih (fun k hk => hks k (List.mem_cons_of_mem _ hk)) hj' (by rw [tg]; exact hc)
         (fun s' g m r w => hq s' (g.trans tg) (m.trans tm) (r.trans tr) (w.trans tw))
 
-theorem combSelectAll_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat} (hd : d < 16)
-    (hm : ∀ k < 16, s.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) {j : Nat}
+theorem combSelectAll_ok {s : State} {base : Addr} (hs : Scratch s base) {d : Nat} (hd : d < 9)
+    (hm : ∀ k < 9, s.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) {j : Nat}
     (hj : j < 32) (hc : s.gpr .rdx = BitVec.ofNat 64 j) :
     WP isa (combSelectFrom (List.range 32)) s fun t =>
       point (env t.mem base) 4 5 6 7 = combCached j d ∧ Keep base s t ∧
-      (∀ k < 16, t.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) ∧
+      (∀ k < 9, t.mem.readW (off base (combMasks + 8 * k)) 64 = maskVal d k) ∧
       (∀ i : Slot, (i.val < 4 ∨ 8 ≤ i.val) → env t.mem base i = env s.mem base i) := by
   refine combSelectFrom_ok _ (fun k hk => List.mem_range.mp hk) (List.mem_range.mpr hj) hj hc ?_
   intro t tg tm tr tw

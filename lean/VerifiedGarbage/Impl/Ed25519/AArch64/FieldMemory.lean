@@ -12,17 +12,11 @@ def constPointOps (p : Spec.Ed25519.Point) : List FieldOp :=
 
 def constPoint (p : Spec.Ed25519.Point) : List Instr := fieldCode (constPointOps p)
 
-/-- Save the accumulator while a batch of powers is prepared. -/
+/-- Save slots 0–3 in slots 17–20. -/
 def savePointOps : List FieldOp := [.copy 17 0, .copy 18 1, .copy 19 2, .copy 20 3]
 
 def restorePointOps : List FieldOp := [.copy 0 17, .copy 1 18, .copy 2 19, .copy 3 20]
 
-def copyPointToQOps : List FieldOp := [.copy 4 0, .copy 5 1, .copy 6 2, .copy 7 3]
-
-def savePoint : List Instr := fieldCode savePointOps
-
 def restorePoint : List Instr := fieldCode restorePointOps
-
-def copyPointToQ : List Instr := fieldCode copyPointToQOps
 
 end VG.Impl.Ed25519.AArch64

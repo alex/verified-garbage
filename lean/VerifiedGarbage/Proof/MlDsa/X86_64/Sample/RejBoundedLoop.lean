@@ -152,7 +152,7 @@ theorem hbTry_length_le {η : Nat} {L : List Zq} (hL : L.length < 256) (b : Nat)
 
 /-- The second try, if `j < 256`. -/
 theorem rbMid2_ok {η : Nat} (hη : η = 2 ∨ η = 4) (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
-    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : pR aP ∈ s.wr)
+    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : CoeffsWr s.wr aP)
     (hst : Stored s.mem aP L) (hcf : s.cf = some (decide ((s.gpr .rdi).toNat < 256))) {b : Nat} (hb : b < 16)
     (hdx : (s.gpr .rdx).setWidth 32 = BitVec.ofNat 32 b) :
     WP isa (.ite .b (rbTry η) (.block [])) s fun s' =>
@@ -169,7 +169,7 @@ theorem rbMid2_ok {η : Nat} (hη : η = 2 ∨ η = 4) (s : State) {aP : Addr} {
 
 /-- The two tries, if `j < 256`. -/
 theorem rbMid_ok {η : Nat} (hη : η = 2 ∨ η = 4) (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
-    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : pR aP ∈ s.wr)
+    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : CoeffsWr s.wr aP)
     (hst : Stored s.mem aP L) (hcf : s.cf = some (decide ((s.gpr .rdi).toNat < 256))) {z : Byte}
     (hax : s.gpr .rax = BitVec.setWidth 64 z) (hdx : (s.gpr .rdx).setWidth 32 = BitVec.ofNat 32 (z.toNat % 16)) :
     WP isa (.ite .b (.seq (rbTry η) (.seq (.block rbHi) (.ite .b (rbTry η) (.block [])))) (.block [])) s
@@ -196,7 +196,7 @@ theorem sx1' : BitVec.signExtend 64 (1 : BitVec 32) = BitVec.ofNat 64 1 := by de
 
 /-- An iteration: what `rbStep` does to the coefficients `L`. -/
 theorem rbBody_ok {η : Nat} (hη : η = 2 ∨ η = 4) (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
-    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : pR aP ∈ s.wr)
+    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : CoeffsWr s.wr aP)
     (hst : Stored s.mem aP L) (h0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi) 1) :
     WP isa (rbBody η) s fun s' =>
       s'.gpr .rdi = BitVec.ofNat 64 (rbStep η L (s.mem (s.gpr .rsi))).length ∧

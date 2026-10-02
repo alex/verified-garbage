@@ -110,7 +110,4 @@ theorem scalarBase_ct_of_engine (engine : Prog isa) (engine_ok : BaseEngineCorre
       (finish_ct (x.gpr .rdx) (x.gpr .rdi)))
   exact hc _ _ _ _ _ _ ⟨⟨hx, rfl, rfl, rfl⟩, ⟨hy, ho.symm, hk.symm, hb.symm⟩⟩ ex ey
 
-theorem scalarBase_ct : ConstantTime isa scalarBaseLocal.pre scalarBaseLocal.pub (scalarBase fld) :=
-  scalarBase_ct_of_engine (scalarBaseEngine fld) scalarBaseEngine_ok scalarBaseEngine_ct
-
 end VG.Proof.Ed25519.X86_64

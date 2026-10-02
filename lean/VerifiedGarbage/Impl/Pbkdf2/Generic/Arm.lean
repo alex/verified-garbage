@@ -6,7 +6,7 @@ import VerifiedGarbage.Impl.Hmac.Generic.Arm
 `iterate(key = r0, u = r1, n = r2, t = r3, scratch = [sp])` runs `n` steps
 `U ← HMAC (K₀, U)`, `T ← T ⊕ U` (`VG.Spec.Pbkdf2.iterate`), for the key
 whose inner and outer streaming states are at `key` and `key + S`: the same
-design as on AArch64 (`VG.Impl.Pbkdf2.Generic.AArch64`). Each step
+design as on x86 (`VG.Impl.Pbkdf2.Generic.X86`). Each step
 copies the inner state into `scratch`, absorbs `U` into it with `update` and
 finalizes it; then does the same with the outer state and that digest, which
 gives the next `U`.

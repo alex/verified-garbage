@@ -333,9 +333,10 @@ macro "narrow" loc:(Lean.Parser.Tactic.location)? : tactic =>
     compressWide, updateWide, finalizeWide, VG.X86.arg_withRegions, VG.X86.argAddr_withRegions, State.withRegions_gpr,
     State.withRegions_mem, State.withRegions_rd, State.withRegions_wr] $(loc)?)
 
-theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
-    Verified X86.target Impl.Sha256.X86.compress compressWide :=
-  Verified.widen Proof.Sha256.X86.compress_verified
+theorem compressWide_of {code : Prog isa} (hv : Verified X86.target code Proof.Sha256.compressX86)
+    (hsat : ∃ s, compressWide.pre s) :
+    Verified X86.target code compressWide :=
+  Verified.widen hv
     (fun s => [⟨(arg s 0).setWidth 64, 32⟩, ⟨(arg s 3).setWidth 64, 112⟩])
     (fun _ h => by
       obtain ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃⟩ := h
@@ -347,6 +348,10 @@ theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
       rw [h₂]; exact .cons (pfx rfl) (.cons (pfx rfl) .nil))
     (fun _ _ _ h => by narrow at h ⊢; exact h)
     (fun _ _ _ _ h => by narrow; exact h) hsat
+
+theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
+    Verified X86.target Impl.Sha256.X86.compress compressWide :=
+  compressWide_of Proof.Sha256.X86.compress_verified hsat
 
 /-- `update` only reads its arguments. -/
 theorem updateWide_of {code : Prog isa} (hv : Verified X86.target code Proof.Sha256.updateX86)

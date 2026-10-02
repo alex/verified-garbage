@@ -11,10 +11,9 @@ def artifacts : List Artifact := [
     doc := Spec.Ed25519.verifyEquationApi.doc (notes := ["Uses baseline integer instructions. \
       Checks canonical point encodings and S < L, then evaluates the uncofactored equation \
       using all 512 challenge bits. No additional subgroup or small-order policy is imposed. \
-      [S]B adds the precomputed powers [2^i]B of the base point, and both scalar \
-      multiplications add only for the set bits of their public scalars. [k]A doubles \
-      through only the low 256 bits of a challenge whose upper 32 bytes are zero, as a \
-      challenge reduced modulo L is."])
+      Computes [k]A - [S]B with one chain of doublings and 4-bit windows of the public \
+      scalars, from a table of [1]A to [15]A and constant -[1]B to -[15]B, skipping the \
+      leading zero bytes of k above its low 32, and compares it with -R projectively."])
     code := Impl.Ed25519.AArch64.verifyEquation
     contract := Spec.Ed25519.verifyEquationContract AArch64.abi
     verified := Proof.Ed25519.AArch64.verify_verified

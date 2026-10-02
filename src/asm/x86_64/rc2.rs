@@ -2,6 +2,250 @@
 //! Verified `rc2` functions for `x86_64`.
 #![allow(dead_code)]
 
+/// Starts RC2-CBC without padding (RFC 2268, NIST SP 800-38A §6.2), in either direction: checks that `key_len` is in 1..=128, then that `effective_bits` is in 1..=1024, then that `iv_len` is 8, and returns 1, 2 or 3 respectively for the first that is not (`VG.Spec.Rc2.Error.code`). Otherwise writes to `*ctx` the context with the key schedule of the `key_len` bytes at `key` with `effective_bits` effective key bits (as `vg_rc2_expand_key`), the `iv_len` bytes at `iv` as the chaining value, and no pending input (`VG.Spec.Rc2.contextAt`), and returns 0. Continue with `vg_rc2_cbc_encrypt_update` or `vg_rc2_cbc_decrypt_update` from 0 pending bytes. Effective bits are independent of the supplied key length.
+///
+/// Contract: `VG.Spec.Rc2.cbcInitContract`. Constant time: only the pointers, `key_len`, `effective_bits` and `iv_len` may affect timing, not the key or the IV.
+///
+/// Baseline x86-64: checks the lengths, copies the IV and calls the verified RC2 key expansion.
+///
+/// # Safety
+///
+/// * `key` must be valid for reads of `key_len` bytes.
+/// * `iv` must be valid for reads of `iv_len` bytes.
+/// * `ctx` must be valid for reads and writes of 144 bytes.
+/// * `scratch` must be valid for reads and writes of 576 bytes.
+/// * If the function returns nonzero, the contents of `ctx` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
+/// * `ctx` and `scratch` must not overlap each other, `key`, `iv` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `key`, `iv`, `ctx` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_rc2_cbc_init(key: *const u8, key_len: usize, effective_bits: usize, iv: *const u8, iv_len: usize, ctx: *mut [u8; 144], scratch: *mut [u64; 72]) -> u32 {
+    core::arch::naked_asm!(
+        "mov eax, 1",
+        "mov r10, rsi",
+        "sub r10, 1",
+        "cmp r10, 128",
+        "jae 20f",
+        "mov eax, 2",
+        "mov r10, rdx",
+        "sub r10, 1",
+        "cmp r10, 1024",
+        "jae 22f",
+        "mov eax, 3",
+        "cmp r8, 8",
+        "jne 24f",
+        "mov eax, 0",
+        "jmp 25f",
+        "24:",
+        "25:",
+        "jmp 23f",
+        "22:",
+        "23:",
+        "jmp 21f",
+        "20:",
+        "21:",
+        "test rax, rax",
+        "jne 26f",
+        "mov rax, QWORD PTR [rcx]",
+        "mov QWORD PTR [r9+128], rax",
+        "mov rcx, r9",
+        "mov r8, QWORD PTR [rsp+8]",
+        "call {vg_rc2_expand_key}",
+        "mov eax, 0",
+        "jmp 27f",
+        "26:",
+        "27:",
+        "ret",
+        vg_rc2_expand_key = sym super::rc2::vg_rc2_expand_key,
+    )
+}
+
+/// Continues RC2-CBC encryption without padding: if `*ctx` is a context with `pending_len` pending bytes (`VG.Spec.Rc2.contextAt`, written by `vg_rc2_cbc_init` and updated by this function), encrypts the complete 8-byte blocks of the pending bytes followed by the `len` bytes at `data`, `C[i] = RC2(schedule, P[i] XOR C[i-1])` from the context's chaining value, writes them to `out` (`out_len` bytes), and leaves in `*ctx` the last ciphertext block as the chaining value and the remaining `(pending_len + len) % 8` bytes as the pending input. The caller keeps the number of pending bytes; when the input ends, it is an incomplete block unless it is 0.
+///
+/// Contract: `VG.Spec.Rc2.cbcEncryptUpdateContract`. Constant time: only the pointers, `pending_len`, `len` and `out_len` may affect timing, not the context or the data.
+///
+/// Baseline x86-64: copies the pending and new bytes a byte at a time, then calls the verified RC2-CBC encryption on the complete blocks.
+///
+/// # Safety
+///
+/// * `ctx` must be valid for reads and writes of 144 bytes.
+/// * `data` must be valid for reads of `len` bytes.
+/// * `out` must be valid for reads and writes of `out_len` bytes.
+/// * `scratch` must be valid for reads and writes of 576 bytes.
+/// * `pending_len` must be less than 8.
+/// * `out_len` must be `(pending_len + len) / 8 * 8`.
+/// * The contents of `scratch` on return are unspecified.
+/// * `ctx`, `out` and `scratch` must not overlap each other, `data` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `ctx`, `data`, `out` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_rc2_cbc_encrypt_update(ctx: *mut [u8; 144], pending_len: usize, data: *const u8, len: usize, out: *mut u8, out_len: usize, scratch: *mut [u64; 72]) {
+    core::arch::naked_asm!(
+        "test r9, r9",
+        "je 20f",
+        "mov r10d, 0",
+        "test rsi, rsi",
+        "je 22f",
+        "24:",
+        "movzx r11d, BYTE PTR [rdi+r10*1+136]",
+        "mov BYTE PTR [r8+r10*1], r11b",
+        "add r10, 1",
+        "cmp r10, rsi",
+        "jne 24b",
+        "jmp 23f",
+        "22:",
+        "23:",
+        "sub r9, rsi",
+        "add r8, rsi",
+        "mov r10d, 0",
+        "test r9, r9",
+        "je 25f",
+        "27:",
+        "movzx r11d, BYTE PTR [rdx+r10*1]",
+        "mov BYTE PTR [r8+r10*1], r11b",
+        "add r10, 1",
+        "cmp r10, r9",
+        "jne 27b",
+        "jmp 26f",
+        "25:",
+        "26:",
+        "add rdx, r9",
+        "sub rcx, r9",
+        "mov r10d, 0",
+        "test rcx, rcx",
+        "je 28f",
+        "210:",
+        "movzx r11d, BYTE PTR [rdx+r10*1]",
+        "mov BYTE PTR [rdi+r10*1+136], r11b",
+        "add r10, 1",
+        "cmp r10, rcx",
+        "jne 210b",
+        "jmp 29f",
+        "28:",
+        "29:",
+        "sub r8, rsi",
+        "add r9, rsi",
+        "shr r9, 3",
+        "mov rdx, r8",
+        "mov rcx, r9",
+        "mov rsi, rdi",
+        "add rsi, 128",
+        "mov r8, QWORD PTR [rsp+8]",
+        "call {vg_rc2_cbc_encrypt}",
+        "jmp 21f",
+        "20:",
+        "mov rax, rdi",
+        "add rax, rsi",
+        "mov r10d, 0",
+        "test rcx, rcx",
+        "je 211f",
+        "213:",
+        "movzx r11d, BYTE PTR [rdx+r10*1]",
+        "mov BYTE PTR [rax+r10*1+136], r11b",
+        "add r10, 1",
+        "cmp r10, rcx",
+        "jne 213b",
+        "jmp 212f",
+        "211:",
+        "212:",
+        "21:",
+        "ret",
+        vg_rc2_cbc_encrypt = sym super::rc2::vg_rc2_cbc_encrypt,
+    )
+}
+
+/// Continues RC2-CBC decryption without padding: if `*ctx` is a context with `pending_len` pending bytes (`VG.Spec.Rc2.contextAt`, written by `vg_rc2_cbc_init` and updated by this function), decrypts the complete 8-byte blocks of the pending bytes followed by the `len` bytes at `data`, `P[i] = RC2_inverse(schedule, C[i]) XOR C[i-1]` from the context's chaining value, writes them to `out` (`out_len` bytes), and leaves in `*ctx` the last input ciphertext block as the chaining value and the remaining `(pending_len + len) % 8` bytes as the pending input. The caller keeps the number of pending bytes; when the input ends, it is an incomplete block unless it is 0.
+///
+/// Contract: `VG.Spec.Rc2.cbcDecryptUpdateContract`. Constant time: only the pointers, `pending_len`, `len` and `out_len` may affect timing, not the context or the data.
+///
+/// Baseline x86-64: copies the pending and new bytes a byte at a time, then calls the verified RC2-CBC decryption on the complete blocks.
+///
+/// # Safety
+///
+/// * `ctx` must be valid for reads and writes of 144 bytes.
+/// * `data` must be valid for reads of `len` bytes.
+/// * `out` must be valid for reads and writes of `out_len` bytes.
+/// * `scratch` must be valid for reads and writes of 576 bytes.
+/// * `pending_len` must be less than 8.
+/// * `out_len` must be `(pending_len + len) / 8 * 8`.
+/// * The contents of `scratch` on return are unspecified.
+/// * `ctx`, `out` and `scratch` must not overlap each other, `data` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `ctx`, `data`, `out` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_rc2_cbc_decrypt_update(ctx: *mut [u8; 144], pending_len: usize, data: *const u8, len: usize, out: *mut u8, out_len: usize, scratch: *mut [u64; 72]) {
+    core::arch::naked_asm!(
+        "test r9, r9",
+        "je 20f",
+        "mov r10d, 0",
+        "test rsi, rsi",
+        "je 22f",
+        "24:",
+        "movzx r11d, BYTE PTR [rdi+r10*1+136]",
+        "mov BYTE PTR [r8+r10*1], r11b",
+        "add r10, 1",
+        "cmp r10, rsi",
+        "jne 24b",
+        "jmp 23f",
+        "22:",
+        "23:",
+        "sub r9, rsi",
+        "add r8, rsi",
+        "mov r10d, 0",
+        "test r9, r9",
+        "je 25f",
+        "27:",
+        "movzx r11d, BYTE PTR [rdx+r10*1]",
+        "mov BYTE PTR [r8+r10*1], r11b",
+        "add r10, 1",
+        "cmp r10, r9",
+        "jne 27b",
+        "jmp 26f",
+        "25:",
+        "26:",
+        "add rdx, r9",
+        "sub rcx, r9",
+        "mov r10d, 0",
+        "test rcx, rcx",
+        "je 28f",
+        "210:",
+        "movzx r11d, BYTE PTR [rdx+r10*1]",
+        "mov BYTE PTR [rdi+r10*1+136], r11b",
+        "add r10, 1",
+        "cmp r10, rcx",
+        "jne 210b",
+        "jmp 29f",
+        "28:",
+        "29:",
+        "sub r8, rsi",
+        "add r9, rsi",
+        "shr r9, 3",
+        "mov rdx, r8",
+        "mov rcx, r9",
+        "mov rsi, rdi",
+        "add rsi, 128",
+        "mov r8, QWORD PTR [rsp+8]",
+        "call {vg_rc2_cbc_decrypt}",
+        "jmp 21f",
+        "20:",
+        "mov rax, rdi",
+        "add rax, rsi",
+        "mov r10d, 0",
+        "test rcx, rcx",
+        "je 211f",
+        "213:",
+        "movzx r11d, BYTE PTR [rdx+r10*1]",
+        "mov BYTE PTR [rax+r10*1+136], r11b",
+        "add r10, 1",
+        "cmp r10, rcx",
+        "jne 213b",
+        "jmp 212f",
+        "211:",
+        "212:",
+        "21:",
+        "ret",
+        vg_rc2_cbc_decrypt = sym super::rc2::vg_rc2_cbc_decrypt,
+    )
+}
+
 /// RC2-CBC encryption on `n` complete 8-byte blocks at `data`, in place: `C[i] = RC2(schedule, P[i] XOR C[i-1])`, starting with `C[0] = *iv`. Writes the last ciphertext block to `*iv`; for `n = 0`, leaves `*iv` unchanged. The schedule is the 64 little-endian 16-bit words written by `vg_rc2_expand_key`. No padding is added.
 ///
 /// Contract: `VG.Spec.Rc2.cbcEncryptContract`. Constant time: only pointers and `n` may affect timing, not the key schedule, IV contents or data.
