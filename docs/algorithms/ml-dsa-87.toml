@@ -3,4 +3,4 @@ family = "Signatures"
 specs = ["MlDsa"]
 modules = ["src/mldsa87.rs"]
 asm = ["mldsa87", "mldsa"]
-optimized = { x86_64 = "SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once in key generation and verification" }
+optimized = { x86_64 = "SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once" }

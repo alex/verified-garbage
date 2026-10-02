@@ -6,7 +6,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.Glue
 Untrusted: everything here is checked by Lean. What the proofs need of the
 implementations of the primitives (`PrimsOk`): each is verified against its
 shared contract (`Spec/MlDsa/Poly.lean`) for a stack that fits in the `D`
-bytes the function gives its calls (`Callee`); and, of the two samplers
+bytes the function gives its calls (`Callee`); and, of the samplers
 whose result the function branches on, that the result is public in their
 own runs (`RetPub`) and that they succeed only when the algorithm finishes
 within `maxBounds`, the bounds the leakage of signing is stated for.
@@ -43,11 +43,17 @@ structure PrimsOk (P : Prims) (D : Nat) where
   bitPack : Callee (fun S => bitPackContract X86_64.abi S) D P.bitPack
   bitUnpack : Callee (fun S => bitUnpackContract X86_64.abi S) D P.bitUnpack
   hintBitPack : Callee (fun S => hintBitPackContract X86_64.abi S) D P.hintBitPack
+  rej4 : Callee (fun S => rejNTT4Contract X86_64.abi S) D P.rej4
   /-- `vg_mldsa_rej_ntt_poly`'s result depends only on its public data (its seed). -/
   rejRet : RetPub (rejNTTContract X86_64.abi rejNTT.S) P.rejNTT
   /-- `vg_mldsa_rej_ntt_poly` succeeds only if `RejNTTPoly` finishes within `maxBounds`. -/
   rejMax : ∀ s t s', (rejNTTContract X86_64.abi rejNTT.S).pre s → Exec isa P.rejNTT s t s' →
     (s'.gpr .rax).setWidth 32 = 1 → (rejNTTPoly maxBounds.rejNTT (bytesAt s.mem (s.gpr .rdi) 34)).isSome
+  /-- `vg_mldsa_rej_ntt_poly4`'s result depends only on its public data (its seeds). -/
+  rej4Ret : RetPub (rejNTT4Contract X86_64.abi rej4.S) P.rej4
+  /-- `vg_mldsa_rej_ntt_poly4` succeeds only if `RejNTTPoly` finishes within `maxBounds` on each seed. -/
+  rej4Max : ∀ s t s', (rejNTT4Contract X86_64.abi rej4.S).pre s → Exec isa P.rej4 s t s' →
+    (s'.gpr .rax).setWidth 32 = 1 → ∀ k < 4, (rejNTTPoly maxBounds.rejNTT (seed4 s.mem (s.gpr .rdi) k)).isSome
   /-- `vg_mldsa_sample_in_ball`'s result depends only on its public data (`c̃`). -/
   ballRet : RetPub (sampleInBallContract X86_64.abi ball.S) P.ball
   /-- `vg_mldsa_sample_in_ball` succeeds only if `SampleInBall` finishes within `maxBounds`. -/

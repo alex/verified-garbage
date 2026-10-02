@@ -924,7 +924,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once in key generation and verification</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
@@ -940,7 +940,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once in key generation and verification</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
@@ -956,7 +956,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once in key generation and verification</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
