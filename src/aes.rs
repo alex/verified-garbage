@@ -17,7 +17,7 @@
 
 #[cfg(target_arch = "aarch64")]
 use crate::arch::aes::{VG_AES_CTR32_AES_FEATURES, VG_AES_EXPAND_KEY_AES_FEATURES};
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::aes::{VG_AES_CTR32_AESNI_FEATURES, VG_AES_EXPAND_KEY_AESNI_FEATURES};
 use crate::cpu::Features;
 
@@ -27,7 +27,7 @@ pub(crate) enum Backend {
     /// Constant-time scalar code, for the target's baseline ISA.
     Scalar,
     /// AES-NI: the `_aesni` functions.
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     AesNi,
     /// The AES extension: the `_aes` functions.
     #[cfg(target_arch = "aarch64")]
@@ -39,7 +39,7 @@ impl Backend {
     /// caller whose own functions for AES-NI need the features in `aesni`
     /// (besides those of `vg_aes_expand_key_aesni` and `vg_aes_ctr32_aesni`,
     /// which this checks).
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     pub(crate) fn select_for(f: Features, aesni: &[&[&str]]) -> Backend {
         let own = Features::all(&[
             VG_AES_EXPAND_KEY_AESNI_FEATURES,
@@ -68,7 +68,7 @@ impl Backend {
 
     /// The best implementation a CPU with the features `f` can run: there
     /// is only one here.
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
     pub(crate) fn select(_: Features) -> Backend {
         Backend::Scalar
     }
@@ -103,6 +103,25 @@ mod tests {
         assert_eq!(Backend::select_for(all, &[&["pclmulqdq"]]), Backend::AesNi);
     }
 
+    /// x86 AES-NI needs AES, while each caller adds its own requirements.
+    #[cfg(target_arch = "x86")]
+    #[test]
+    fn select() {
+        let aes = Features::of(&["aes"]);
+        assert_eq!(Backend::select_for(aes, &[]), Backend::AesNi);
+        assert_eq!(Backend::select_for(aes, &[&["aes"]]), Backend::AesNi);
+        for f in [Features::of(&[]), Features::of(&["ssse3"])] {
+            assert_eq!(Backend::select_for(f, &[]), Backend::Scalar);
+        }
+        assert_eq!(Backend::select_for(aes, &[&["ssse3"]]), Backend::Scalar);
+        assert_eq!(Backend::select_for(aes, &[&["pclmulqdq"]]), Backend::Scalar);
+        let all = Features::of(&["aes", "pclmulqdq", "ssse3"]);
+        assert_eq!(
+            Backend::select_for(all, &[&["pclmulqdq", "ssse3"]]),
+            Backend::AesNi
+        );
+    }
+
     /// The implementation chosen for each set of features.
     #[cfg(target_arch = "aarch64")]
     #[test]
@@ -115,7 +134,7 @@ mod tests {
     }
 
     /// The scalar implementation is the only one.
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
     #[test]
     fn select() {
         assert_eq!(Backend::select(Features(0)), Backend::Scalar);

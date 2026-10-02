@@ -12,7 +12,11 @@ appended to the bytes held back (`repr_fill`); otherwise `repr_chain`.
 
 namespace VG.Proof.CmacAes.Stream.X86
 
-open VG VG.X86 VG.Impl.CmacAes.Stream.X86 VG.WriteBytes
+open VG VG.X86 VG.Impl.CmacAes.Stream.X86
+
+open VG.WriteBytes
+
+variable (v : Proof.Aes.X86.Ctr32Impl)
 open VG.Proof.Cmac.Stream (held held_le)
 
 theorem frame_at {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr} {n : Nat}
@@ -30,7 +34,7 @@ where k0 : p + BitVec.ofNat 64 0 = p := BitVec.add_zero p
 theorem bytesAt_zero (m : Mem) (p : Addr) : Spec.Aes.bytesAt m p 0 = [] := rfl
 
 theorem absorb_wp {s₀ : State} (h0 : absorbX86.pre s₀) :
-    WP isa absorb s₀ fun s' => abiPreserved s₀ s' ∧ absorbX86.post s₀ s' := by
+    WP isa (absorb v.callee v.suffix) s₀ fun s' => abiPreserved s₀ s' ∧ absorbX86.post s₀ s' := by
   have hp := APre.of h0
   have hL := hp.lt
   have fSt : (aSt s₀).toNat + 304 ≤ 2 ^ 32 := hp.fSt
@@ -43,10 +47,10 @@ theorem absorb_wp {s₀ : State} (h0 : absorbX86.pre s₀) :
   have hh := held_le (aC s₀)
   unfold absorb
   refine WP.seq (WP.mono (absorbPre_wp hp) fun s₅ h₅ => ?_)
-  refine WP.seq (WP.mono (upd_call h₅.args) fun s₆ h₆ => ?_)
+  refine WP.seq (WP.mono ((upd_call v) h₅.args) fun s₆ h₆ => ?_)
   have a₆ := upd_aft hp (h₅.mem ▸ m4_big hp) h₅.ctx h₅.ebp h₆
   refine WP.seq (WP.mono (chain2_mid hp a₆) fun s₇ ⟨h₇, m₇⟩ => ?_)
-  refine WP.seq (WP.mono (upd_call h₇.args) fun s₈ h₈ => ?_)
+  refine WP.seq (WP.mono ((upd_call v) h₇.args) fun s₈ h₈ => ?_)
   have a₈ := upd_aft hp h₇.aft.frame h₇.aft.ctx h₇.aft.ebp h₈
   unfold absorbPost
   refine WP.seq (WP.mono (rest_wp hp a₈.ctx a₈.ebp) fun s₉ h₉ => ?_)

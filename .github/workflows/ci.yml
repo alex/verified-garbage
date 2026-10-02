@@ -315,9 +315,17 @@ jobs:
           cargo clippy --all-targets --locked --features cpu-features-env
       - run: rustc -vV
       - run: cargo test --locked
+      - name: Test baseline x86 implementations
+        if: ${{ matrix.platform.install-amd64-libc }}
+        env:
+          VG_CPU_FEATURES: none
+        run: cargo test --locked --features cpu-features-env
       - name: Export coverage
         shell: bash
         run: $(command -v python3 || command -v python) ci/export_rust_coverage.py .rust-cov
+      - name: Export baseline x86 coverage
+        if: ${{ matrix.platform.install-amd64-libc }}
+        run: python3 ci/export_rust_coverage.py .rust-cov --features cpu-features-env
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-data-${{ strategy.job-index }}

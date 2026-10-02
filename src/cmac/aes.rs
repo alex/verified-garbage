@@ -18,7 +18,8 @@
 //! extension run the `_aes` functions, calling `vg_aes_expand_key_aes` and
 //! `vg_aes_ctr32_aes`. Updates longer than 32 bytes use `_aes_cbc`, whose
 //! whole-block chaining keeps the round keys and chaining value in vector
-//! registers. ARMv7 and x86 have only the scalar implementation.
+//! registers. On x86, CPUs with AES-NI run the `_aesni` functions; SSSE3
+//! is not required. ARMv7 has only the scalar implementation.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -35,7 +36,7 @@ use crate::arch::cmac_aes::{
     VG_CMAC_AES_FINISH_AES_FEATURES, VG_CMAC_AES_INIT_AES_FEATURES, vg_cmac_aes_absorb_aes,
     vg_cmac_aes_absorb_aes_cbc, vg_cmac_aes_finish_aes, vg_cmac_aes_init_aes,
 };
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::cmac_aes::{
     VG_CMAC_AES_ABSORB_AESNI_FEATURES, VG_CMAC_AES_FINISH_AESNI_FEATURES,
     VG_CMAC_AES_INIT_AESNI_FEATURES, vg_cmac_aes_absorb_aesni, vg_cmac_aes_finish_aesni,
@@ -54,7 +55,7 @@ const SCRATCH: usize = 288;
 
 /// The best implementation of AES a CPU with the features `f` can run, with
 /// the CMAC functions for it.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 fn select(f: Features) -> Backend {
     Backend::select_for(
         f,
@@ -83,7 +84,7 @@ fn select(f: Features) -> Backend {
 
 /// The best implementation a CPU with the features `f` can run: there is
 /// only one here.
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
 fn select(f: Features) -> Backend {
     Backend::select(f)
 }
@@ -133,7 +134,7 @@ impl AesCmac {
         let mut scratch = MaybeUninit::<[u64; SCRATCH]>::uninit();
         let f = match c.backend {
             Backend::Scalar => vg_cmac_aes_init,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_cmac_aes_init_aesni,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => vg_cmac_aes_init_aes,
@@ -165,7 +166,7 @@ impl AesCmac {
         let mut scratch = MaybeUninit::<[u64; SCRATCH]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_cmac_aes_absorb,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_cmac_aes_absorb_aesni,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => {
@@ -207,7 +208,7 @@ impl AesCmac {
         let mut scratch = MaybeUninit::<[u64; SCRATCH]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_cmac_aes_finish,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_cmac_aes_finish_aesni,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => vg_cmac_aes_finish_aes,
@@ -352,6 +353,11 @@ mod tests {
         {
             assert_eq!(select(Features::of(&["aes", "ssse3"])), Backend::AesNi);
             assert_eq!(select(Features::of(&["aes"])), Backend::Scalar);
+        }
+        #[cfg(target_arch = "x86")]
+        {
+            assert_eq!(select(Features::of(&["aes"])), Backend::AesNi);
+            assert_eq!(select(Features::of(&["ssse3"])), Backend::Scalar);
         }
         #[cfg(target_arch = "aarch64")]
         assert_eq!(select(Features::of(&["aes"])), Backend::Aes);

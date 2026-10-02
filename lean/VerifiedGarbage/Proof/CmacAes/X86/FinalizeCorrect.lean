@@ -11,6 +11,9 @@ the call leaves `CIPH_K(C ⊕ Mₙ)` there, the MAC (`Cmac.macFull_split`).
 namespace VG.Proof.CmacAes.X86
 
 open VG VG.X86 VG.Impl.CmacAes.X86
+open VG.Proof.Aes.X86 (Ctr32Impl)
+
+variable (v : Ctr32Impl)
 open VG.Proof.MdStream.X86 (Upd wp_mov wp_movi wp_addi eval_e)
 
 /-! ## Up to the call -/
@@ -149,7 +152,7 @@ theorem finPre_wp {s₀ : State} (hp : FPre s₀) : WP isa finPre s₀ (FMid s�
 /-! ## The whole function -/
 
 theorem finalize_wp {s₀ : State} (h0 : finalizeX86.pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ finalizeX86.post s₀ s' := by
+    WP isa (finalize v.callee) s₀ fun s' => abiPreserved s₀ s' ∧ finalizeX86.post s₀ s' := by
   have hp := FPre.of h0
   have hR := hp.rounds
   have hRb : 16 * (R s₀ + 1) ≤ 240 := by rcases hR with h | h | h <;> omega
@@ -157,7 +160,7 @@ theorem finalize_wp {s₀ : State} (h0 : finalizeX86.pre s₀) :
   have cA := hp.cA
   unfold finalize
   refine WP.seq (WP.mono (finPre_wp hp) fun s₁ h₁ => ?_)
-  refine WP.seq (WP.mono (ctr_call h₁.pre) fun s₂ h₂ => ?_)
+  refine WP.seq (WP.mono (ctr_call v h₁.pre) fun s₂ h₂ => ?_)
   have hb : below (s₁.gpr .esp) 28 = stkR s₀ := by rw [h₁.esp]; exact hp.below_eq
   have f₁ : Frame [stR s₀, ⟨(S s₀).setWidth 64, 2064⟩, stkR s₀] (savedMem s₀) s₁.mem :=
     h₁.frame.sub fun r hr => by
