@@ -11,7 +11,7 @@
 ))]
 
 use verified_garbage::chacha20::ChaCha20;
-use verified_garbage::chacha20poly1305::{ChaCha20Poly1305, InvalidTag};
+use verified_garbage::chacha20poly1305::{ChaCha20Poly1305, Error};
 use verified_garbage::poly1305::Poly1305;
 
 use super::vectors;
@@ -68,7 +68,10 @@ fn rfc8439_chacha20poly1305() {
     for v in &aead_vectors() {
         let aead = ChaCha20Poly1305::new(&v.key);
         let mut data = v.pt.clone();
-        assert_eq!(aead.encrypt_in_place(&v.nonce, &v.aad, &mut data), v.tag);
+        assert_eq!(
+            aead.encrypt_in_place(&v.nonce, &v.aad, &mut data),
+            Ok(v.tag)
+        );
         assert_eq!(data, v.ct);
         let res = aead.decrypt_in_place(&v.nonce, &v.aad, &mut data, &v.tag);
         assert_eq!(res, Ok(()));
@@ -96,7 +99,7 @@ fn rfc8439_chacha20poly1305_forgery() {
         for (aad, ct, tag) in forgeries {
             let mut data = ct.clone();
             let res = aead.decrypt_in_place(&v.nonce, aad, &mut data, tag);
-            assert_eq!(res, Err(InvalidTag));
+            assert_eq!(res, Err(Error::TagMismatch));
             assert_eq!(data, vec![0; ct.len()]);
         }
     }
