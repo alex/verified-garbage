@@ -32,7 +32,7 @@ use crate::arch::pbkdf2_sha384::{
 };
 #[cfg(target_arch = "aarch64")]
 use crate::arch::pbkdf2_sha384::{VG_PBKDF2_HMAC_SHA384_SHA3_FEATURES, vg_pbkdf2_hmac_sha384_sha3};
-use crate::hashes::sha512::{Sha384, Sha384Backend};
+use crate::hashes::sha384::{Sha384, Sha384Backend};
 
 #[cfg(any(target_arch = "arm", target_arch = "x86"))]
 super::streaming_pbkdf2!(

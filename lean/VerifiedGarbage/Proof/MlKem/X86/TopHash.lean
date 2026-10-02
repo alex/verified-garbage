@@ -8,7 +8,7 @@ Untrusted: everything here is checked by Lean. The Keccak state set to zero
 (`zeroTop_piece`), the Keccak calls with their arguments (`absorbC_piece`,
 `padC_piece`, `squeezeC_piece`), and a SHA-3 or SHAKE function of one or two
 buffers (`hash1_piece`, `hash2_piece`): the output is `squeezeFrom` of the
-padded state (`Proof/MlKem/Hash.lean`).
+padded state (`Proof/MlKem/KPke.lean`).
 -/
 
 namespace VG.Proof.MlKem.X86.Top

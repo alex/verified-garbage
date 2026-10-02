@@ -8,7 +8,7 @@ import VerifiedGarbage.Proof.Framework.Contract
 Untrusted: everything here is checked by Lean. A call of verified code,
 with the moves of its arguments before it (`callAt_ok`), leaves the
 permissions and the callee-saved registers as they were, and changes memory
-only within the buffers it writes and the 24 bytes of stack below `rsp`
+only within the buffers it writes and the 32 bytes of stack below `rsp`
 (`Post`); two runs whose arguments agree and whose callee's public data
 agree leak the same (`callAt_tr`). A callee may be verified against its
 contract with any stack up to 16 bytes: its precondition follows from the
@@ -61,7 +61,7 @@ abbrev Args (as : List (Reg × Arg)) (s s1 : State) : Prop :=
 
 theorem callAt_ok {n : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
-    (hsp : NoSp c) (hd : c.depth ≤ 2) {as : List (Reg × Arg)} (hok : ∀ a ∈ as, a.2.Ok ∧ a.1 ∈ argRegs)
+    (hsp : NoSp c) (hd : c.depth ≤ 3) {as : List (Reg × Arg)} (hok : ∀ a ∈ as, a.2.Ok ∧ a.1 ∈ argRegs)
     (hnd : (as.map (·.1)).Nodup) {s : State} {rd wr : List Region}
     (hpre : ∀ s1, Args as s s1 → k.pre (s1.callEntry.withRegions rd wr))
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) :

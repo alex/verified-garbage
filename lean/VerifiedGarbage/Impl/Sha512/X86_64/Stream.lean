@@ -21,7 +21,7 @@ The streaming state (192 bytes at `state`) is the hash value followed by a
 `update` and `finalize` are the generic streaming code of
 `Impl/MdStream/X86_64.lean`. They take the compression function they call (a
 `Callee`, e.g. `vg_sha512_compress` or `vg_sha512_compress_avx2`), and are emitted once for each
-implementation (`Generic/Sha512Compress/X86_64/Sha512.lean`). It is called
+implementation (`Generic/MdHash/X86_64/Stream.lean`). It is called
 with `scratch[0..1328)` as its scratch space (as much as the shared
 contract gives the compression function, which the AVX2 implementation
 uses); our caller's callee-saved registers are saved in `scratch[1328..1376)`. The

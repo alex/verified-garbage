@@ -6,7 +6,12 @@
 //! streaming states. `init` and `finalize` are the one HMAC implementation for
 //! every streaming hash function, calling SHA-384's verified functions.
 //!
-//! On AArch64, the `_sha3` variants follow SHA-512 hardware dispatch.
+//! On x86-64, they follow the implementation of SHA-512's streaming
+//! functions that `Sha384` runs on this CPU: e.g. `vg_hmac_sha384_init_shani`
+//! and `vg_hmac_sha384_finalize_shani`, the same verified code calling
+//! `vg_sha512_update_shani` and `vg_sha512_finalize_shani`, or the `_avx2`
+//! ones. On AArch64, the `_sha3` variants use the SHA-512 instructions
+//! through the same generic code.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -28,7 +33,7 @@ use crate::arch::hmac_sha384::{
     vg_hmac_sha384_finalize_sha3, vg_hmac_sha384_init_sha3,
 };
 use crate::arch::hmac_sha384::{vg_hmac_sha384_finalize, vg_hmac_sha384_init};
-use crate::hashes::sha512::{Sha384, Sha384Backend};
+use crate::hashes::sha384::{Sha384, Sha384Backend};
 
 super::streaming_hmac!(
     Sha384 (Sha384Backend) {

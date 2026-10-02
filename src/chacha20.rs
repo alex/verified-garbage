@@ -21,8 +21,13 @@
 //! On x86-64, CPUs with AVX-512F run `vg_chacha20_xor_avx512` instead, which
 //! has the same contract and XORs sixteen blocks at a time, and other CPUs
 //! with AVX2 run `vg_chacha20_xor_avx2`, which XORs eight.
-//! On AArch64, the NEON backend computes four quarter rounds in parallel
-//! within each block, including buffered partial blocks.
+//! On AArch64, CPUs with AdvSIMD (the baseline) run `vg_chacha20_xor_neon`
+//! instead, which has the same contract and XORs five independent blocks at a
+//! time, four in AdvSIMD lanes and one in the integer registers, then two to
+//! four more in AdvSIMD lanes if at least two remain, and calls the block
+//! function for the rest (at most two blocks).
+//! On every target, the keystream of a partial block, which this module
+//! buffers, comes from the scalar `vg_chacha20_block`.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -77,7 +82,8 @@ fn words<const N: usize>(bytes: &[u8]) -> [u32; N] {
 pub(crate) enum Backend {
     /// Constant-time scalar code, for the target's baseline ISA.
     Scalar,
-    /// Four independent blocks in baseline AArch64 AdvSIMD lanes.
+    /// Five independent blocks at a time, four in baseline AArch64 AdvSIMD
+    /// lanes and one in the integer registers.
     #[cfg(target_arch = "aarch64")]
     Neon,
     /// AVX2, eight blocks at a time.
