@@ -28,7 +28,7 @@ def artifacts : List Artifact := [
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.ChaCha20.xorApi with
     target := Arm.target
-    doc := Spec.ChaCha20.xorApi.doc
+    doc := Spec.ChaCha20.xorApi.doc (notes := ["Calls `vg_chacha20_block` for each 64 bytes."])
     code := Impl.ChaCha20.Arm.Xor.xor
     contract := Spec.ChaCha20.xorContract Arm.abi
     verified := Proof.ChaCha20.Arm.Xor.xor_verified
