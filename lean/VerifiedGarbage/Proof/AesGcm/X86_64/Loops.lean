@@ -15,6 +15,8 @@ at `rdi`, a byte at a time with the index in `r10` (`copyLoop_ok`,
 `xorLoop_ok`); the buffers do not overlap.
 -/
 
+set_option linter.unusedSimpArgs false
+
 namespace VG.Proof.AesGcm.X86_64
 
 open VG VG.X86_64 VG.X86_64.RegUpd VG.Impl.AesGcm.X86_64 VG.WriteBytes

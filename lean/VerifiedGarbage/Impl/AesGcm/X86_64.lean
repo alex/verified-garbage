@@ -134,6 +134,12 @@ def minLen : Prog isa :=
   .seq (.block [.mov32 .rcx (imm 16), .alu .sub .rcx (.reg .rbx), .alu .cmp .rbp (.reg .rcx)])
     (.ite .b (.block [.mov .rcx (.reg .rbp)]) (.block []))
 
+/-- The `rbp` bytes at `r12` split into whole blocks and the rest: `p := r12`,
+`k :=` the number of whole blocks, and `r12`, `rbp` the rest. -/
+def splitWhole (p k : Reg) : List Instr :=
+  [.mov p (.reg .r12), .mov k (.reg .rbp), .shift .shr k 4, .mov .rax (.reg .rbp),
+    .alu .and .rbp (imm 15), .alu .sub .rax (.reg .rbp), .alu .add .r12 (.reg .rax)]
+
 variable (c : Callees)
 
 /-! ## GHASH -/
@@ -156,9 +162,7 @@ def absorbHead (yo : Nat) : Prog isa :=
 
 /-- The whole blocks at `r12` absorbed. -/
 def absorbWhole (yo : Nat) : Prog isa :=
-  .seq (.block [.mov .rdx (.reg .r12), .mov .rcx (.reg .rbp), .shift .shr .rcx 4, .mov .rax (.reg .rbp),
-    .alu .and .rax (imm 0xFFFFFFF0), .alu .add .r12 (.reg .rax), .alu .and .rbp (imm 15),
-    .alu .test .rcx (.reg .rcx)])
+  .seq (.block (splitWhole .rdx .rcx ++ [.alu .test .rcx (.reg .rcx)]))
     (.ite .e (.block [])
       (.seq (.block (ptr .rdi .r13 240 ++ ptr .rsi .r14 yo ++ ptr .r8 .r15 scrO))
         (.call c.gh.name c.gh.code)))
@@ -203,9 +207,7 @@ def cryptHead : Prog isa :=
 
 /-- Whole blocks at `r12`, by `vg_aes_ctr32`. -/
 def cryptWhole : Prog isa :=
-  .seq (.block [.mov .rcx (.reg .r12), .mov .r8 (.reg .rbp), .shift .shr .r8 4, .mov .rax (.reg .rbp),
-    .alu .and .rax (imm 0xFFFFFFF0), .alu .add .r12 (.reg .rax), .alu .and .rbp (imm 15),
-    .alu .test .r8 (.reg .r8)])
+  .seq (.block (splitWhole .rcx .r8 ++ [.alu .test .r8 (.reg .r8)]))
     (.ite .e (.block [])
       (.seq (.block ([.mov .rdi (.reg .r13), .mov .rsi (.mem (at_ .r15 roundsO))] ++ ptr .rdx .r14 48 ++
           ptr .r9 .r15 scrO))

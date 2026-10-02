@@ -18,6 +18,8 @@ what it leaves (`GhPost`, `CtrPost`, `KeyPost`); and that it is constant time
 (`gh_rel`, `ctr_rel`, `key_rel`).
 -/
 
+set_option linter.unusedSimpArgs false
+
 namespace VG.Proof.AesGcm.X86_64
 
 open VG VG.X86_64 VG.Impl.AesGcm.X86_64
