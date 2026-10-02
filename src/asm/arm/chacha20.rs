@@ -1293,6 +1293,8 @@ pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: 
 ///
 /// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
 ///
+/// Calls `vg_chacha20_block` for each 64 bytes.
+///
 /// # Safety
 ///
 /// * `state` must be valid for reads and writes of 64 bytes.

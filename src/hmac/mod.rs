@@ -19,6 +19,7 @@ use crate::hashes::HashFunction;
 
 mod md5;
 mod sha1;
+mod sha224;
 mod sha256;
 mod sha384;
 mod sha512;

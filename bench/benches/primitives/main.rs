@@ -26,6 +26,7 @@ mod cmac_triple_des;
 mod ed25519;
 mod hmac_md5;
 mod hmac_sha1;
+mod hmac_sha224;
 mod hmac_sha256;
 mod hmac_sha384;
 mod hmac_sha512;
@@ -39,6 +40,7 @@ mod mlkem1024;
 mod mlkem768;
 mod pbkdf2_md5;
 mod pbkdf2_sha1;
+mod pbkdf2_sha224;
 mod pbkdf2_sha256;
 mod pbkdf2_sha384;
 mod pbkdf2_sha512;
@@ -209,6 +211,7 @@ const BENCHES: &[Bench] = &[
     (cmac_triple_des::USES, cmac_triple_des::bench),
     (hmac_md5::USES, hmac_md5::bench),
     (hmac_sha1::USES, hmac_sha1::bench),
+    (hmac_sha224::USES, hmac_sha224::bench),
     (hmac_sha256::USES, hmac_sha256::bench),
     (hmac_sha384::USES, hmac_sha384::bench),
     (hmac_sha512::USES, hmac_sha512::bench),
@@ -222,6 +225,7 @@ const BENCHES: &[Bench] = &[
     (mlkem768::USES, mlkem768::bench),
     (pbkdf2_md5::USES, pbkdf2_md5::bench),
     (pbkdf2_sha1::USES, pbkdf2_sha1::bench),
+    (pbkdf2_sha224::USES, pbkdf2_sha224::bench),
     (pbkdf2_sha256::USES, pbkdf2_sha256::bench),
     (pbkdf2_sha384::USES, pbkdf2_sha384::bench),
     (pbkdf2_sha512::USES, pbkdf2_sha512::bench),
