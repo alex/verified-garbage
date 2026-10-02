@@ -2335,7 +2335,7 @@ pub(crate) const VG_MLDSA44_SIGN_MESSAGE_AVX2_FEATURES: &[&str] = &["avx", "avx2
 ///
 /// Contract: `VG.Spec.MlDsa.signMessageContract`. Constant time but for `ρ` and the rejection sampling: timing may depend on the pointers, on `msg_len` and `ctx_len`, on `ρ` (the first 32 bytes of `*sk`), on the number of iterations of the signing loop and the commitment hash of each, and on the hint of the signature (`signMessageLeak`), but not on anything else of the key, the message, the context string or the randomness.
 ///
-/// The function keeps its arguments in a frame of 72 bytes on the stack, and its calls use the 32 bytes of stack below the frame. It computes the message representative with the SHAKE256 sponge (`vg_keccak_absorb`, `vg_keccak_pad`, `vg_keccak_squeeze`) in the last 1 KiB of `scratch`, and calls the signing function on it, which uses the rest of `scratch`.
+/// The function keeps its arguments in a frame of 72 bytes on the stack, and its calls use the 40 bytes of stack below the frame. It computes the message representative with the SHAKE256 sponge (`vg_keccak_absorb`, `vg_keccak_pad`, `vg_keccak_squeeze`) in the last 1 KiB of `scratch`, and calls the signing function on it, which uses the rest of `scratch`.
 ///
 /// # Safety
 ///
@@ -2349,7 +2349,7 @@ pub(crate) const VG_MLDSA44_SIGN_MESSAGE_AVX2_FEATURES: &[&str] = &["avx", "avx2
 /// * `rnd` must be fresh random bytes (FIPS 204 §3.6.1), or 32 zero bytes for deterministic signing.
 /// * `scratch` is working space: on return it holds intermediate values, which the caller must destroy (FIPS 204 §3.6.3).
 /// * `sig` and `scratch` must not overlap each other, `sk`, `msg`, `ctx`, `rnd` or the arguments on the stack (distinct Rust objects never do).
-/// * None of `sk`, `msg`, `ctx`, `rnd`, `sig` and `scratch` may overlap the return address on the stack or the 104 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * None of `sk`, `msg`, `ctx`, `rnd`, `sig` and `scratch` may overlap the return address on the stack or the 112 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `avx` and `avx2` target features.
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_mldsa44_sign_message_avx2(sk: *const [u8; 2560], msg: *const u8, msg_len: usize, ctx: *const u8, ctx_len: usize, rnd: *const [u8; 32], sig: *mut [u8; 2420], scratch: *mut [u64; 9856]) -> u32 {
@@ -3231,7 +3231,7 @@ pub(crate) const VG_MLDSA44_VERIFY_MESSAGE_AVX2_FEATURES: &[&str] = &["avx", "av
 ///
 /// Contract: `VG.Spec.MlDsa.verifyMessageContract`. Not constant time: timing may depend on the public key, the message, the context string and the signature.
 ///
-/// The function keeps its arguments in a frame of 72 bytes on the stack, and its calls use the 32 bytes of stack below the frame. It computes `tr = H(pk, 64)` and then the message representative with the SHAKE256 sponge (`vg_keccak_absorb`, `vg_keccak_pad`, `vg_keccak_squeeze`) in the last 1 KiB of `scratch`, and calls the verification function on it, which uses the rest of `scratch`.
+/// The function keeps its arguments in a frame of 72 bytes on the stack, and its calls use the 40 bytes of stack below the frame. It computes `tr = H(pk, 64)` and then the message representative with the SHAKE256 sponge (`vg_keccak_absorb`, `vg_keccak_pad`, `vg_keccak_squeeze`) in the last 1 KiB of `scratch`, and calls the verification function on it, which uses the rest of `scratch`.
 ///
 /// # Safety
 ///
@@ -3242,7 +3242,7 @@ pub(crate) const VG_MLDSA44_VERIFY_MESSAGE_AVX2_FEATURES: &[&str] = &["avx", "av
 /// * `scratch` must be valid for reads and writes of 78848 bytes.
 /// * `scratch` is working space: on return it holds intermediate values, which the caller must destroy (FIPS 204 §3.6.3).
 /// * `scratch` must not overlap `pk`, `msg`, `ctx`, `sig` or the arguments on the stack (distinct Rust objects never do).
-/// * None of `pk`, `msg`, `ctx`, `sig` and `scratch` may overlap the return address on the stack or the 104 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * None of `pk`, `msg`, `ctx`, `sig` and `scratch` may overlap the return address on the stack or the 112 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `avx` and `avx2` target features.
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_mldsa44_verify_message_avx2(pk: *const [u8; 1312], msg: *const u8, msg_len: usize, ctx: *const u8, ctx_len: usize, sig: *const [u8; 2420], scratch: *mut [u64; 9856]) -> u32 {
@@ -5748,7 +5748,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa44_sign(sk: *const [u8; 2560], mu: 
 ///
 /// Contract: `VG.Spec.MlDsa.signMessageContract`. Constant time but for `ρ` and the rejection sampling: timing may depend on the pointers, on `msg_len` and `ctx_len`, on `ρ` (the first 32 bytes of `*sk`), on the number of iterations of the signing loop and the commitment hash of each, and on the hint of the signature (`signMessageLeak`), but not on anything else of the key, the message, the context string or the randomness.
 ///
-/// The function keeps its arguments in a frame of 72 bytes on the stack, and its calls use the 32 bytes of stack below the frame. It computes the message representative with the SHAKE256 sponge (`vg_keccak_absorb`, `vg_keccak_pad`, `vg_keccak_squeeze`) in the last 1 KiB of `scratch`, and calls the signing function on it, which uses the rest of `scratch`.
+/// The function keeps its arguments in a frame of 72 bytes on the stack, and its calls use the 40 bytes of stack below the frame. It computes the message representative with the SHAKE256 sponge (`vg_keccak_absorb`, `vg_keccak_pad`, `vg_keccak_squeeze`) in the last 1 KiB of `scratch`, and calls the signing function on it, which uses the rest of `scratch`.
 ///
 /// # Safety
 ///
@@ -5762,7 +5762,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa44_sign(sk: *const [u8; 2560], mu: 
 /// * `rnd` must be fresh random bytes (FIPS 204 §3.6.1), or 32 zero bytes for deterministic signing.
 /// * `scratch` is working space: on return it holds intermediate values, which the caller must destroy (FIPS 204 §3.6.3).
 /// * `sig` and `scratch` must not overlap each other, `sk`, `msg`, `ctx`, `rnd` or the arguments on the stack (distinct Rust objects never do).
-/// * None of `sk`, `msg`, `ctx`, `rnd`, `sig` and `scratch` may overlap the return address on the stack or the 104 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * None of `sk`, `msg`, `ctx`, `rnd`, `sig` and `scratch` may overlap the return address on the stack or the 112 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_mldsa44_sign_message(sk: *const [u8; 2560], msg: *const u8, msg_len: usize, ctx: *const u8, ctx_len: usize, rnd: *const [u8; 32], sig: *mut [u8; 2420], scratch: *mut [u64; 9856]) -> u32 {
     core::arch::naked_asm!(
@@ -6636,7 +6636,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa44_verify(pk: *const [u8; 1312], mu
 ///
 /// Contract: `VG.Spec.MlDsa.verifyMessageContract`. Not constant time: timing may depend on the public key, the message, the context string and the signature.
 ///
-/// The function keeps its arguments in a frame of 72 bytes on the stack, and its calls use the 32 bytes of stack below the frame. It computes `tr = H(pk, 64)` and then the message representative with the SHAKE256 sponge (`vg_keccak_absorb`, `vg_keccak_pad`, `vg_keccak_squeeze`) in the last 1 KiB of `scratch`, and calls the verification function on it, which uses the rest of `scratch`.
+/// The function keeps its arguments in a frame of 72 bytes on the stack, and its calls use the 40 bytes of stack below the frame. It computes `tr = H(pk, 64)` and then the message representative with the SHAKE256 sponge (`vg_keccak_absorb`, `vg_keccak_pad`, `vg_keccak_squeeze`) in the last 1 KiB of `scratch`, and calls the verification function on it, which uses the rest of `scratch`.
 ///
 /// # Safety
 ///
@@ -6647,7 +6647,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa44_verify(pk: *const [u8; 1312], mu
 /// * `scratch` must be valid for reads and writes of 78848 bytes.
 /// * `scratch` is working space: on return it holds intermediate values, which the caller must destroy (FIPS 204 §3.6.3).
 /// * `scratch` must not overlap `pk`, `msg`, `ctx`, `sig` or the arguments on the stack (distinct Rust objects never do).
-/// * None of `pk`, `msg`, `ctx`, `sig` and `scratch` may overlap the return address on the stack or the 104 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * None of `pk`, `msg`, `ctx`, `sig` and `scratch` may overlap the return address on the stack or the 112 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_mldsa44_verify_message(pk: *const [u8; 1312], msg: *const u8, msg_len: usize, ctx: *const u8, ctx_len: usize, sig: *const [u8; 2420], scratch: *mut [u64; 9856]) -> u32 {
     core::arch::naked_asm!(
