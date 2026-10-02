@@ -4,17 +4,12 @@ without building. Exits non-zero on violations.
 
   * No option changes a resource limit (`maxHeartbeats`, `maxRecDepth`,
     `synthInstance.maxHeartbeats`, `synthInstance.maxSize`), in a source file
-    or in the lakefile. Lean's default `maxHeartbeats` (200000) bounds both
-    elaboration and the kernel's check of every declaration, so a proof that
-    got slow fails the build instead of quietly slowing it down.
+    or in the lakefile.
   * No import of all of Mathlib or of `Mathlib.Tactic`.
-  * No `simp` unfolds `runBlock` or `runStep`: step blocks with
-    `runBlock_cons`, `runStep_some` and `runBlock_nil`. `Proof/Framework/`,
-    which proves those lemmas and the generic rules about blocks, is exempt.
+  * No `simp` unfolds `runBlock` or `runStep` (outside `Proof/Framework/`,
+    which proves the lemmas that step blocks).
   * In the statement of a theorem in `Proof/`, an instruction-list literal
-    (`[.op …]`) next to `++` has a type ascription (`([.op …] : List Instr)`):
-    `++` elaborates its operands without an expected type, so each `.op`
-    fails and is elaborated again, which cost up to seconds per statement.
+    (`[.op …]`) next to `++` has a type ascription (`([.op …] : List Instr)`).
 """
 
 import pathlib

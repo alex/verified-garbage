@@ -24,10 +24,8 @@ their arguments passed in memory, where the calling convention allows it
 
 These contracts are SHA-256's alone, for its implementations on the 32-bit
 targets: `VG.Spec.Hmac.sha256I`'s generic ones (`Spec/Hmac/Generic.lean`),
-as every hash function's, give the functions more working space. The 64-bit
-targets implement SHA-256 through `sha256I` already; these are removed once
-the 32-bit ones do too, whose `init` then takes a key of any length
-(`VG.Spec.Hmac.Instance.initAnyKeyContract`).
+as every hash function's, give the functions more working space (see
+`Spec/Hmac/Generic.lean` for when these are removed).
 
 `init` and `finalize` take the number of bytes of stack below the stack pointer that
 an implementation's calls use (`stack`, see `Sig.contract`), 0 for one that
