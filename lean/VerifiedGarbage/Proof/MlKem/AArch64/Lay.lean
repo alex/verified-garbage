@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.MlKem.AArch64.PrimCall
 import VerifiedGarbage.Proof.Framework.Omega
 import VerifiedGarbage.Impl.MlKem.AArch64.Kem
+import Lean.Meta.Tactic.Delta
 
 /-!
 # ML-KEM on AArch64: the parameter sets of the top-level functions
@@ -41,18 +42,40 @@ namespace VG.Proof.MlKem.AArch64
 
 open VG VG.AArch64 VG.Impl.MlKem.AArch64
 
+/-- The offsets of `KG` and `KEM` and the lengths of a `KemLay`. -/
+def offsetNames : Array Lean.Name :=
+  #[``KG.ST, ``KG.WK, ``KG.SB, ``KG.SG, ``KG.BK, ``KG.PB, ``KG.SS, ``KG.NS, ``KG.AH, ``KG.SH,
+    ``KG.EP, ``KG.TP, ``KG.PP, ``KG.SV, ``KG.aOff, ``KG.sOff, ``KEM.ST, ``KEM.WK, ``KEM.SB,
+    ``KEM.HB, ``KEM.MB, ``KEM.RB, ``KEM.KP, ``KEM.JB, ``KEM.PB, ``KEM.SS, ``KEM.NS, ``KEM.AH,
+    ``KEM.YH, ``KEM.EP, ``KEM.TP, ``KEM.PP, ``KEM.TH, ``KEM.CB, ``KEM.SV, ``KEM.aOff,
+    ``KEM.yOff, ``KemLay.ctLen, ``KemLay.ekLen, ``KemLay.dkLen]
+
+open Lean Meta Elab Tactic in
+/-- Unfolds the offsets (`offsetNames`) in the goal and every hypothesis.
+Like `delta` (and unlike `simp only [KG.ST, …]`, which builds its lemmas
+from the definitions at every call) it only replaces each constant by its
+value. -/
+elab "lom_unfold" : tactic => withMainContext do
+  let p := (offsetNames.contains ·)
+  let mut g ← getMainGoal
+  for fv in (← getLCtx).getFVarIds do
+    let d ← fv.getDecl
+    if d.isImplementationDetail then continue
+    let t ← instantiateMVars d.type
+    let t' ← deltaExpand t p
+    if t' != t then g ← g.replaceLocalDeclDefEq fv t'
+  let t ← instantiateMVars (← g.getType)
+  let t' ← deltaExpand t p
+  if t' != t then g ← g.replaceTargetDefEq t'
+  replaceMainGoal [g]
+
 /-- Arithmetic on the offsets of a well-formed parameter set (`‹KemLay.Wf _›`
 in the context) and the facts `hs`. -/
 syntax "lom" ("[" term,* "]")? : tactic
 
 macro_rules
   | `(tactic| lom) => `(tactic| (
-      (try have := (‹KemLay.Wf _›).facts); clear_non_arith;
-      simp -failIfUnchanged only [KG.ST, KG.WK, KG.SB, KG.SG, KG.BK, KG.PB, KG.SS, KG.NS, KG.AH, KG.SH,
-        KG.EP, KG.TP, KG.PP, KG.SV, KG.aOff, KG.sOff, KEM.ST, KEM.WK, KEM.SB, KEM.HB, KEM.MB, KEM.RB,
-        KEM.KP, KEM.JB, KEM.PB, KEM.SS, KEM.NS, KEM.AH, KEM.YH, KEM.EP, KEM.TP, KEM.PP, KEM.TH, KEM.CB,
-        KEM.SV, KEM.aOff, KEM.yOff, KemLay.ctLen, KemLay.ekLen, KemLay.dkLen] at *;
-      omega))
+      (try have := (‹KemLay.Wf _›).facts); clear_non_arith; lom_unfold; omega))
   | `(tactic| lom []) => `(tactic| lom)
   | `(tactic| lom [$h:term, $hs:term,*]) => `(tactic| (have := $h; lom [$hs,*]))
   | `(tactic| lom [$h:term]) => `(tactic| (have := $h; lom))
