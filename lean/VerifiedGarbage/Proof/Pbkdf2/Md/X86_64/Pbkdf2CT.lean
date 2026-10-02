@@ -18,7 +18,7 @@ open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Pbkdf2.Md.X86_64 (HashOK pbkG pbkImp)
 open VG.Proof.Pbkdf2.X86_64 (iterK)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG rel_taint rel_wp)
+open VG.Proof.Pbkdf2.Md.X86_64.Calls (initG finG rel_taint rel_wp)
 open Spec.Sha256 (bytesAt)
 
 variable {H : Hash}
@@ -30,31 +30,31 @@ structure Checks (H : Hash) : Prop where
   entry : ∃ hc, (Taint.check taint (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx, .r8, .r9, .rsp])
     (.block H.entry) hc).isSome = true
   hk1 : ∃ hc, (Taint.check taint (Taint.ofRegs eregs)
-    (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.stWO)) hc).isSome = true
+    (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.stWO)) hc).isSome = true
   hk3 : ∃ hc, (Taint.check taint (Taint.ofRegs eregs)
-    (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.stWO ++ ([.mov32 .rsi (.imm 0), .mov .rdx (.reg .rbx),
+    (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.stWO ++ ([.mov32 .rsi (.imm 0), .mov .rdx (.reg .rbx),
       .mov .rcx (.reg .rbp), .mov .r8 (.reg .r15)] : List Instr))) hc).isSome = true
   hk5 : ∃ hc, (Taint.check taint (Taint.ofRegs eregs)
-    (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.stWO ++ ([.mov .rsi (.reg .rbp)] : List Instr) ++
-      VG.Impl.Hmac.Generic.X86_64.scr .rdx H.hkO ++ ([.mov .rcx (.reg .r15)] : List Instr))) hc).isSome = true
+    (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.stWO ++ ([.mov .rsi (.reg .rbp)] : List Instr) ++
+      VG.Impl.Pbkdf2.Md.X86_64.scr .rdx H.hkO ++ ([.mov .rcx (.reg .r15)] : List Instr))) hc).isSome = true
   hk7 : ∃ hc, (Taint.check taint (Taint.ofRegs eregs)
-    (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdx H.hkO ++
+    (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdx H.hkO ++
       ([.mov32 .rcx (.imm (BitVec.ofNat 32 H.D))] : List Instr))) hc).isSome = true
   short : ∃ hc, (Taint.check taint (Taint.ofRegs eregs)
     (.block [.mov .rdx (.reg .rbx), .mov .rcx (.reg .rbp)]) hc).isSome = true
   su1 : ∃ hc, (Taint.check taint (Taint.ofRegs eregs)
-    (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.st0O ++ VG.Impl.Hmac.Generic.X86_64.scr .rsi H.st1O ++
+    (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.st0O ++ VG.Impl.Pbkdf2.Md.X86_64.scr .rsi H.st1O ++
       ([.mov .r8 (.reg .r15)] : List Instr))) hc).isSome = true
   su3 : ∃ hc, (Taint.check taint (Taint.ofRegs eregs)
-    (.seq (VG.Impl.Hmac.Generic.X86_64.copy .r15 H.st0O .r15 H.stSO H.S)
-      (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi H.stSO ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 H.P.B)),
+    (.seq (VG.Impl.Pbkdf2.Md.X86_64.copy .r15 H.st0O .r15 H.stSO H.S)
+      (.block (VG.Impl.Pbkdf2.Md.X86_64.scr .rdi H.stSO ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 H.P.B)),
         .mov .rdx (.reg .r12), .mov .rcx (.reg .r13), .mov .r8 (.reg .r15)] : List Instr)))) hc).isSome = true
   loopRegs : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block H.loopRegs) hc).isSome = true
   pieceA : ∃ hc, (Taint.check taint (Taint.ofRegs mregs)
-    (.seq (VG.Impl.Hmac.Generic.X86_64.copy .r15 H.stSO .r15 H.stWO H.S) (.block H.intArgs)) hc).isSome = true
+    (.seq (VG.Impl.Pbkdf2.Md.X86_64.copy .r15 H.stSO .r15 H.stWO H.S) (.block H.intArgs)) hc).isSome = true
   finArgs : ∃ hc, (Taint.check taint (Taint.ofRegs mregs) (.block H.finArgs) hc).isSome = true
   pieceC : ∃ hc, (Taint.check taint (Taint.ofRegs mregs)
-    (.seq (VG.Impl.Hmac.Generic.X86_64.copy .r15 H.uO .r15 H.tO H.D) (.block H.iterArgs)) hc).isSome = true
+    (.seq (VG.Impl.Pbkdf2.Md.X86_64.copy .r15 H.uO .r15 H.tO H.D) (.block H.iterArgs)) hc).isSome = true
   tail : ∃ hc, (Taint.check taint (Taint.ofRegs mregs)
     (.seq H.outLen (.seq H.outLoop (.block Hash.advance))) hc).isSome = true
   exit : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block H.exit) hc).isSome = true
@@ -179,7 +179,7 @@ theorem hashKey_rel : RelCT isa (fun s s' => KE (H := H) s₀ s ∧ KE (H := H) 
     fun hp h => ⟨Covers.of_sub fun r hr => by
         simp only [List.mem_singleton] at hr; subst hr; exact cov_part hp h.kr (by omega),
       stk_sc hp h.kr (by omega) (part_sub (by omega))⟩
-  have c₂ := rel_wp (VG.Proof.Hmac.Generic.X86_64.init_rel hH.stream (st := A s₀ H.stWO)
+  have c₂ := rel_wp (VG.Proof.Pbkdf2.Md.X86_64.Calls.init_rel hH.stream (st := A s₀ H.stWO)
       (P := fun s s' => (KE (H := H) s₀ s ∧ s.gpr .rdi = A s₀ H.stWO) ∧
         (KE (H := H) s₀' s' ∧ s'.gpr .rdi = A s₀' H.stWO))
       fun s s' h => by
@@ -203,12 +203,12 @@ theorem hashKey_rel : RelCT isa (fun s s' => KE (H := H) s₀ s ∧ KE (H := H) 
     eregs (fun s s' h h' => ag s s' h.1 h'.1) hc.hk7
     (fun _ h => WP.mono (hk7_ok hz h.1) fun _ _ => trivial) (fun _ h => WP.mono (hk7_ok hz h.1) fun _ _ => trivial)
   refine (r₁.seq (c₂.seq (r₃.seq (RelCT.seq ?_ (r₅.seq (RelCT.seq ?_ r₇)))))).mono (fun _ _ h => h) fun _ _ _ => trivial
-  · exact rel_wp (VG.Proof.Hmac.Generic.X86_64.upd_rel hH.stream fun s s' h => by
+  · exact rel_wp (VG.Proof.Pbkdf2.Md.X86_64.Calls.upd_rel hH.stream fun s s' h => by
           obtain ⟨⟨k, a, i, -⟩, ⟨k', a', i', -⟩⟩ := h
           rw [A_eq hq, pw_eq hq, scr_eq hq, pwl_eq hq] at a'
           exact ⟨a, a', by rw [i, i'], ke_rsp hq k k'⟩)
         (fun _ h => hk4_ok hp hz hH h.1 h.2.1 h.2.2.1 h.2.2.2) (fun _ h => hk4_ok hp' hz hH h.1 h.2.1 h.2.2.1 h.2.2.2)
-  · exact rel_wp (VG.Proof.Hmac.Generic.X86_64.fin_rel hH.stream fun s s' h => by
+  · exact rel_wp (VG.Proof.Pbkdf2.Md.X86_64.Calls.fin_rel hH.stream fun s s' h => by
           obtain ⟨⟨k, a, i, -⟩, ⟨k', a', i', -⟩⟩ := h
           rw [A_eq hq, A_eq hq, scr_eq hq] at a'
           exact ⟨a, a', by rw [i, i', hq.rsi], ke_rsp hq k k'⟩)
@@ -269,7 +269,7 @@ theorem setup_rel (hIn : Verified X86_64.target H.hmacInit (initG hH.SH H.W)) (h
         exact ⟨a, a', ke_rsp hq k k'⟩)
       (fun _ h => su2_ok hp hz hH hIn hInsp hInd h.1 h.2.1 h.2.2)
       (fun _ h => su2_ok hp' hz hH hIn hInsp hInd h.1 h.2.1 h.2.2)
-  · exact rel_wp (VG.Proof.Hmac.Generic.X86_64.upd_rel hH.stream fun s s' h => by
+  · exact rel_wp (VG.Proof.Pbkdf2.Md.X86_64.Calls.upd_rel hH.stream fun s s' h => by
         obtain ⟨⟨k, a, i, -⟩, ⟨k', a', i', -⟩⟩ := h
         rw [A_eq hq, salt_eq hq, scr_eq hq, sl_eq hq] at a'
         exact ⟨a, a', by rw [i, i'], ke_rsp hq k k'⟩)
@@ -328,7 +328,7 @@ theorem block_mid_rel {k : Nat} (hk : k < nb H s₀) (hg : (G hH s₀ k).length 
     (fun _ h => WP.mono (tail_ok hp' hz hH hk' hg' h.1 h.2) fun _ _ => trivial)
   refine (RelCT.assoc (pA.seq (RelCT.seq ?_ (fA.seq (RelCT.seq ?_ (RelCT.assoc (pC.seq (RelCT.seq ?_ tl)))))))).mono
     (fun _ _ h => h) fun _ _ _ => trivial
-  · exact rel_wp (VG.Proof.Hmac.Generic.X86_64.upd_rel hH.stream fun s s' h => by
+  · exact rel_wp (VG.Proof.Pbkdf2.Md.X86_64.Calls.upd_rel hH.stream fun s s' h => by
         obtain ⟨a, a'⟩ := h
         have x := a'.args
         rw [A_eq hq, A_eq hq, scr_eq hq] at x

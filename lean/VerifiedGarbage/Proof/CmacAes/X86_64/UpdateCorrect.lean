@@ -39,59 +39,6 @@ theorem readW_writeW_other (m : Mem) (b : Addr) {d e : Nat} (v : BitVec 64) (h :
     (m.writeW (b + BitVec.ofNat 64 e) v).readW (b + BitVec.ofNat 64 d) 64 = m.readW (b + BitVec.ofNat 64 d) 64 :=
   Mem.readW_writeW_sep (Offset.sep b h hd he) (by decide)
 
-theorem savedMem_rbx (s : State) : (savedMem s).readW (s.gpr .r9 + BitVec.ofNat 64 2064) 64 = s.gpr .rbx := by
-  simp only [savedMem, saved, List.foldl]
-  rw [readW_writeW_other _ _ _ (by decide) (by decide) (by decide),
-    readW_writeW_other _ _ _ (by decide) (by decide) (by decide),
-    readW_writeW_other _ _ _ (by decide) (by decide) (by decide),
-    readW_writeW_other _ _ _ (by decide) (by decide) (by decide),
-    readW_writeW_other _ _ _ (by decide) (by decide) (by decide), Mem.readW_writeW_self64]
-
-theorem savedMem_rbp (s : State) : (savedMem s).readW (s.gpr .r9 + BitVec.ofNat 64 2072) 64 = s.gpr .rbp := by
-  simp only [savedMem, saved, List.foldl]
-  rw [readW_writeW_other _ _ _ (by decide) (by decide) (by decide),
-    readW_writeW_other _ _ _ (by decide) (by decide) (by decide),
-    readW_writeW_other _ _ _ (by decide) (by decide) (by decide),
-    readW_writeW_other _ _ _ (by decide) (by decide) (by decide), Mem.readW_writeW_self64]
-
-theorem savedMem_r12 (s : State) : (savedMem s).readW (s.gpr .r9 + BitVec.ofNat 64 2080) 64 = s.gpr .r12 := by
-  simp only [savedMem, saved, List.foldl]
-  rw [readW_writeW_other _ _ _ (by decide) (by decide) (by decide),
-    readW_writeW_other _ _ _ (by decide) (by decide) (by decide),
-    readW_writeW_other _ _ _ (by decide) (by decide) (by decide), Mem.readW_writeW_self64]
-
-theorem savedMem_r13 (s : State) : (savedMem s).readW (s.gpr .r9 + BitVec.ofNat 64 2088) 64 = s.gpr .r13 := by
-  simp only [savedMem, saved, List.foldl]
-  rw [readW_writeW_other _ _ _ (by decide) (by decide) (by decide),
-    readW_writeW_other _ _ _ (by decide) (by decide) (by decide), Mem.readW_writeW_self64]
-
-theorem savedMem_r14 (s : State) : (savedMem s).readW (s.gpr .r9 + BitVec.ofNat 64 2096) 64 = s.gpr .r14 := by
-  simp only [savedMem, saved, List.foldl]
-  rw [readW_writeW_other _ _ _ (by decide) (by decide) (by decide), Mem.readW_writeW_self64]
-
-theorem savedMem_r15 (s : State) : (savedMem s).readW (s.gpr .r9 + BitVec.ofNat 64 2104) 64 = s.gpr .r15 := by
-  simp only [savedMem, saved, List.foldl]
-  rw [Mem.readW_writeW_self64]
-
-theorem restore_ok (s : State) {B : Addr} (hb : s.gpr .r15 = B)
-    (hr : ∀ d, 2064 ≤ d → d + 8 ≤ 2112 → InRegions (s.rd ++ s.wr) (B + BitVec.ofNat 64 d) 8) :
-    ∃ s', runBlock isa restore s = some s' ∧
-      s'.gpr .rbx = s.mem.readW (B + BitVec.ofNat 64 2064) 64 ∧
-      s'.gpr .rbp = s.mem.readW (B + BitVec.ofNat 64 2072) 64 ∧
-      s'.gpr .r12 = s.mem.readW (B + BitVec.ofNat 64 2080) 64 ∧
-      s'.gpr .r13 = s.mem.readW (B + BitVec.ofNat 64 2088) 64 ∧
-      s'.gpr .r14 = s.mem.readW (B + BitVec.ofNat 64 2096) 64 ∧
-      s'.gpr .r15 = s.mem.readW (B + BitVec.ofNat 64 2104) 64 ∧
-      s'.gpr .rsp = s.gpr .rsp ∧ s'.mem = s.mem := by
-  refine ⟨_, by
-    simp (config := {decide := true}) only [restore, saved, List.map, runBlock_cons, runStep_some,
-      runBlock_nil, at_, exec, readSrc, State.load64, State.ea, offset_nat, gpr_setReg, mem_setReg,
-      rd_setReg, wr_setReg, ite_true, ite_false, Option.map_some, hb,
-      hr 2064 (by decide) (by decide), hr 2072 (by decide) (by decide), hr 2080 (by decide) (by decide),
-      hr 2088 (by decide) (by decide), hr 2096 (by decide) (by decide), hr 2104 (by decide) (by decide)]
-    rfl, ?_⟩
-  simp (config := {decide := true}) only [gpr_setReg, mem_setReg, ite_true, ite_false]
-
 /-! ## The whole function -/
 
 theorem r8_ofNat (s₀ : State) : s₀.gpr .r8 = BitVec.ofNat 64 (N s₀) := by
@@ -143,22 +90,15 @@ theorem mid_wp (v : Ctr32Impl) {s₀ : State} (hp : UPre s₀) {s₁ : State} (h
 theorem epilogue_wp {s₀ : State} (hp : UPre s₀) {s₂ : State} (h₂ : LInv s₀ (N s₀) s₂) :
     WP isa (.block restore) s₂ fun s' => gprPreserved s₀ s' ∧ updateX86_64.post s₀ s' := by
   have rdwr : s₂.rd ++ s₂.wr = s₀.rd ++ s₀.wr := by rw [h₂.rd, h₂.wr]
-  obtain ⟨s₃, run₃, rbx₃, rbp₃, r12₃, r13₃, r14₃, r15₃, rsp₃, mem₃⟩ :=
-    restore_ok s₂ h₂.r15 fun d _ h₂' => by
-      rw [rdwr, hp.rd, hp.wr]
-      exact in_rw (r := scrR s₀) (by simp) (Offset.contains_base _ (by omega) (by have := hp.scr_wrap; omega))
-  refine WP.of_runBlock ⟨s₃, run₃, ?_⟩
-  have rd' (d : Nat) (h₁ : 2064 ≤ d) (h₂' : d + 8 ≤ 2112) := slot_read hp h₂.frame h₁ h₂'
-  refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · rw [rbx₃, rd' 2064 (by decide) (by decide), savedMem_rbx]
-    · rw [rbp₃, rd' 2072 (by decide) (by decide), savedMem_rbp]
-    · rw [rsp₃, h₂.rsp]
-    · rw [r12₃, rd' 2080 (by decide) (by decide), savedMem_r12]
-    · rw [r13₃, rd' 2088 (by decide) (by decide), savedMem_r13]
-    · rw [r14₃, rd' 2096 (by decide) (by decide), savedMem_r14]
-    · rw [r15₃, rd' 2104 (by decide) (by decide), savedMem_r15]
+  have hsv : Spill.Saved s₂.mem (s₂.gpr .r15) s₀.gpr saved := fun p hp' => by
+    have := saved_bound p hp'
+    rw [h₂.r15, slot_read hp h₂.frame this.1 this.2]
+    exact Spill.saveMem_saved _ _ _ _ (by decide) p hp'
+  refine WP.mono (Spill.restore_ok .r15 saved s₀.gpr s₂ (by decide) (fun p hp' => ?_) hsv)
+    fun s₃ ⟨g₁, g₂, mem₃, _⟩ => ⟨⟨Spill.calleeSaved_ok g₁ g₂ (by decide) h₂.rsp, ?_⟩, ?_⟩
+  · have := saved_bound p hp'
+    rw [rdwr, hp.rd, hp.wr, h₂.r15]
+    exact in_rw (r := scrR s₀) (by simp) (Offset.contains_base _ (by omega) (by have := hp.scr_wrap; omega))
   · rw [mem₃]
     refine (UPre.big_of h₂.frame).readW (r := ⟨s₀.gpr .rsp, 8⟩) (Region.contains_self _ _)
       (fun r hr => ?_) (by decide)

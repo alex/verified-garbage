@@ -129,7 +129,7 @@ theorem restore_eq : restore = [.mov .eax (.reg .edi), .mov .ebx (.mem (at_ .eax
     .mov .ebp (.mem (at_ .eax 12)), .mov .edi (.mem (at_ .eax 8))] := rfl
 
 /-- The saved registers restored. -/
-theorem restore_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
+theorem restore_ok {x : BitVec 32} {s : State} (hc : Ctx 4096 x s) :
     WP isa (.block restore) s fun s' => s'.mem = s.mem ∧ s'.gpr .esp = s.gpr .esp ∧
       s'.gpr .ebx = wd s.mem x 0 ∧ s'.gpr .esi = wd s.mem x 4 ∧ s'.gpr .ebp = wd s.mem x 12 ∧
       s'.gpr .edi = wd s.mem x 8 := by

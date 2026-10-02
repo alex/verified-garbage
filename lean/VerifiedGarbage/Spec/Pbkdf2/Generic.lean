@@ -4,14 +4,13 @@ import VerifiedGarbage.Spec.Hmac.Generic
 /-!
 # PBKDF2-HMAC over any streaming hash function: the contracts, on every target
 
-**Trusted** (as every file in `Spec/`). The contract of
-`VG.Spec.Pbkdf2.iterateSha256Contract` (`Spec/Pbkdf2/Contract.lean`) with the
-hash function a parameter (`VG.Spec.Hmac.StreamingHash`):
-`vg_pbkdf2_hmac_<hash>_iterate` computes step 3's chain
-`Uⱼ₊₁ = PRF (P, Uⱼ)`, exclusive-or'ed into `T` (`VG.Spec.Pbkdf2.iterate`),
-with the password's HMAC key given as the two streaming states that
-`vg_hmac_<hash>_init` sets up (`VG.Spec.Hmac.initContract`), one after the
-other in `key`. `U` and `T` are as long as the digest.
+**Trusted** (as every file in `Spec/`). With the hash function a parameter
+(`VG.Spec.Hmac.StreamingHash`), `vg_pbkdf2_hmac_<hash>_iterate` computes step
+3's chain `Uⱼ₊₁ = PRF (P, Uⱼ)`, exclusive-or'ed into `T`
+(`VG.Spec.Pbkdf2.iterate`), with the password's HMAC key given as the two
+streaming states that `vg_hmac_<hash>_init` sets up
+(`VG.Spec.Hmac.initContract`), one after the other in `key`. `U` and `T` are
+as long as the digest.
 
 `A` is the target's calling convention. The signatures fix where the
 arguments are, the memory each function may access, disjointness, and that

@@ -14,8 +14,8 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 
 open VG.Arm
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
-open VG.Impl.Hmac.Generic.Arm (Hash scrAt copy)
-open VG.Proof.Hmac.Generic.Arm (HashOK cclob count)
+open VG.Impl.Pbkdf2.Stream.Arm (Hash scrAt copy)
+open VG.Proof.Pbkdf2.Stream.Arm (HashOK cclob count)
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_sub wp_cmp wp_rev wp_str op2_imm op2_reg)
 open VG.Proof.Hmac.Generic.Common (bytes_keep)
 open VG.Proof.Hmac.Common (bytesAt_length xorPad_length)

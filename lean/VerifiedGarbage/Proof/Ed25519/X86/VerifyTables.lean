@@ -18,7 +18,7 @@ theorem pointTableWrite_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (o : Nat)
       tablePoint t.mem x o = point (env s.mem x) 0 1 2 3 := by
   refine WP.block_append (WP.mono (tablePointer_ok hc o) fun a ⟨ka, ma, pa⟩ => ?_)
   refine WP.mono (pointToTable_ok (ka.ctx hc) pa ho hn) fun t ⟨kt, vt⟩ => ?_
-  exact ⟨ka.scalar.trans ⟨kt.gpr _ (by decide), kt.gpr _ (by decide), kt.rd, kt.wr⟩,
+  exact ⟨(Keep.scalar ka).trans ⟨kt.gpr _ (by decide), kt.gpr _ (by decide), kt.rd, kt.wr⟩,
     by rw [← ma]; exact kt.frame, by rw [ma] at vt; exact vt⟩
 
 theorem pointTableRead_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (o : Nat)

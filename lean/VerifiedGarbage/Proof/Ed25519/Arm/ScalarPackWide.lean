@@ -6,12 +6,12 @@ namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 
 theorem scalarPackWide_ok {b : BitVec 32} {s : State} (hc : Ctx b s)
-    (la : ∀ k < 32, accw s.mem (State.addr b) k < 65536) :
+    (la : ∀ k < 32, accw ACC s.mem (State.addr b) k < 65536) :
     WP isa (.block scalarPackWide) s fun t =>
       Rest [.r3, .r12] s t ∧ Frame [⟨State.addr b + BitVec.ofNat 64 512, 64⟩] s.mem t.mem ∧
       t.gpr .r12 = b + BitVec.ofNat 32 512 ∧
       Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt t.mem (State.addr b + BitVec.ofNat 64 512) 64) =
-        val16 (accw s.mem (State.addr b)) 32 := by
+        val16 (accw ACC s.mem (State.addr b)) 32 := by
   have hA : ACC = 1472 := rfl
   have ll : Lim s.mem (State.addr b) ACC := fun k hk => la k (by omega)
   have lh : Lim s.mem (State.addr b) (ACC + 64) := by

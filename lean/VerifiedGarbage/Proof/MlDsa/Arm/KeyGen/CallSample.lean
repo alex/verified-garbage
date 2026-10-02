@@ -51,8 +51,8 @@ theorem rnG {s : State} (hs : Site L Wb STK s) (m : RnOk L Wb sd a w) (rd wr : L
 
 theorem rn_cov {s : State} (hs : Site L Wb STK s) (m : RnOk L Wb sd a w) :
     Covers (rnRd L sd ++ rnWr L a w) (s.rd ++ s.wr) ∧ Covers (rnWr L a w) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.ps) covers_nil')
-    (covers_wr (covers_cons' (hs.cwE m.pa m.wa) (covers_cons' (hs.cwE m.pw m.ww) covers_nil'))),
+  ⟨Covers.append_left (covers_cons' (hs.crE m.ps) covers_nil')
+    (Covers.right (covers_cons' (hs.cwE m.pa m.wa) (covers_cons' (hs.cwE m.pw m.ww) covers_nil'))),
     covers_cons' (hs.cwE m.pa m.wa) (covers_cons' (hs.cwE m.pw m.ww) covers_nil')⟩
 
 theorem rn_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : stk ≤ STK) (m : RnOk L Wb sd a w) :
@@ -145,8 +145,8 @@ theorem rbG {s : State} (hs : Site L Wb STK s) (m : RbOk L Wb sd a w) (rd wr : L
 
 theorem rb_cov {s : State} (hs : Site L Wb STK s) (m : RbOk L Wb sd a w) :
     Covers (rbRd L sd ++ rnWr L a w) (s.rd ++ s.wr) ∧ Covers (rnWr L a w) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.ps) covers_nil')
-    (covers_wr (covers_cons' (hs.cwE m.pa m.wa) (covers_cons' (hs.cwE m.pw m.ww) covers_nil'))),
+  ⟨Covers.append_left (covers_cons' (hs.crE m.ps) covers_nil')
+    (Covers.right (covers_cons' (hs.cwE m.pa m.wa) (covers_cons' (hs.cwE m.pw m.ww) covers_nil'))),
     covers_cons' (hs.cwE m.pa m.wa) (covers_cons' (hs.cwE m.pw m.ww) covers_nil')⟩
 
 theorem rb_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : stk ≤ STK) (m : RbOk L Wb sd a w)

@@ -166,7 +166,7 @@ theorem finalize_wp {s₀ : State} (h0 : finalizeArm.pre s₀) :
       exact ⟨r, List.mem_append_right _ hr, hc⟩
   rw [show ([.ldr .r4 .r5 2064, .ldr .lr .r5 2072, .ldr .r5 .r5 2068] : List Instr) =
     [(.r4, 2064), (.lr, 2072)].map (fun (p : Reg × Nat) => Instr.ldr p.1 .r5 p.2) ++ [.ldr .r5 .r5 2068] from rfl]
-  refine restoreB_ok [(.r4, 2064), (.lr, 2072)] s₂ _ (by decide) (fun p hp' => ?_)
+  refine Spill.restoreList_ok [(.r4, 2064), (.lr, 2072)] s₂ _ (by decide) (fun p hp' => ?_)
     fun s₃ ld₃ ho₃ m₃ rd₃ wr₃ sp₃ => ?_
   · have hb : 2064 ≤ p.2 ∧ p.2 + 4 ≤ 2076 ∧ p.1 ≠ .r5 := by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hp'

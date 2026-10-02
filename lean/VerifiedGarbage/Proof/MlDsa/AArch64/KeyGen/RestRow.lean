@@ -12,6 +12,7 @@ Row `i` of `t`: the sum of the products `Â[i, j] ŝ₁[j]` in `t` (`mul_ok`,
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Spec.MlDsa (Params Poly IPoly toRq ntt nttInv add multiplyNTT polyAt natPolyAt coeffAt Reduced PolyIs
   NatPolyIs bitPack simpleBitPack power2Round ofInt)
 open VG.Proof.MlDsa.KeyGen (dotK tK t1K t0K ifp ifn)
@@ -115,7 +116,7 @@ theorem mul_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State
   have hS := h.polyS (j := 0) (by omega)
   refine WP.mono (mulAt_ok hP.s64 hP.mul L hc hA.1 hS.1) fun s' ⟨hP', x', hb⟩ => ?_
   refine ⟨h.keep hF hp hP' x' (by krchk hF), ?_⟩
-  rw [tIs, hP'.pa (show Reg.x28 ∈ bases by decide), Proof.MlDsa.KeyGen.dotK_one, ← hA.2, ← hS.2]
+  rw [tIs, hP'.pa (show Reg.x28 ∈ keptRegs by decide), Proof.MlDsa.KeyGen.dotK_one, ← hA.2, ← hS.2]
   exact hb
 
 /-- `t = t + Â[i, j] ŝ₁[j]`. -/
@@ -129,7 +130,7 @@ theorem mulAdd_ok {j : Nat} (hj : j < p.ℓ) {A : Nat → Poly} {S : Nat → IPo
   have hS := h.polyS hj
   refine WP.mono (mulAddAt_ok hP.s64 hP.mulAdd L (mul_chk hF hi hj) ht.1 hA.1 hS.1) fun s' ⟨hP', x', hb⟩ => ?_
   refine ⟨h.keep hF hp hP' x' (by krchk hF), ?_⟩
-  rw [tIs, hP'.pa (show Reg.x28 ∈ bases by decide), Proof.MlDsa.KeyGen.dotK_succ, ← hA.2, ← hS.2, ← ht.2]
+  rw [tIs, hP'.pa (show Reg.x28 ∈ keptRegs by decide), Proof.MlDsa.KeyGen.dotK_succ, ← hA.2, ← hS.2, ← ht.2]
   exact hb
 
 /-- `t = NTT⁻¹(t)`. -/
@@ -142,7 +143,7 @@ theorem inv_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State
   unfold invNttAt
   refine WP.mono (ipAt_ok (t := nttInv) hP.s64 hP.invNtt L (inv_chk hF hi) ht.1) fun s' ⟨hP', x', hb⟩ => ?_
   refine ⟨h.keep hF hp hP' x' (by krchk hF), ?_⟩
-  rw [tIs, hP'.pa (show Reg.x28 ∈ bases by decide), ← ht.2]
+  rw [tIs, hP'.pa (show Reg.x28 ∈ keptRegs by decide), ← ht.2]
   exact hb
 
 /-- `t = t + s₂[i]`. -/
@@ -156,7 +157,7 @@ theorem addS2_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : Sta
   unfold addAt
   refine WP.mono (accAt_ok (op := add) hP.s64 hP.add L (add_chk hF hi) ht.1 hS.1) fun s' ⟨hP', x', hb⟩ => ?_
   refine ⟨h.keep hF hp hP' x' (by krchk hF), ?_⟩
-  rw [tIs, hP'.pa (show Reg.x28 ∈ bases by decide), Proof.MlDsa.KeyGen.tK, ← hS.2, ← ht.2]
+  rw [tIs, hP'.pa (show Reg.x28 ∈ keptRegs by decide), Proof.MlDsa.KeyGen.tK, ← hS.2, ← ht.2]
   exact hb
 
 /-- `Power2Round` of `t`. -/
@@ -169,8 +170,8 @@ theorem p2r_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State
   have L := h.kc.lay hF hp
   refine WP.mono (p2rAt_ok hP.s64 hP.power2Round L (p2r_chk hF hi) ht.1) fun s' ⟨hP', x', h1, h0⟩ => ?_
   refine ⟨h.keep hF hp hP' x' (by krchk hF), ?_, ?_⟩
-  · rw [hP'.pa (p := t1P p) (show Reg.x28 ∈ bases by decide), Proof.MlDsa.KeyGen.t1K, ← ht.2]; exact h1
-  · rw [hP'.pa (p := t0P p) (show Reg.x28 ∈ bases by decide), ← ht.2]; exact h0
+  · rw [hP'.pa (p := t1P p) (show Reg.x28 ∈ keptRegs by decide), Proof.MlDsa.KeyGen.t1K, ← ht.2]; exact h1
+  · rw [hP'.pa (p := t0P p) (show Reg.x28 ∈ keptRegs by decide), ← ht.2]; exact h0
 
 /-- `t₁[i]` to `pk`. -/
 theorem sbp_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State}
@@ -185,7 +186,7 @@ theorem sbp_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State
   refine WP.mono (sbpAt_ok hP.s64 hP.simpleBitPack L (sbp_chk hF hi) sbpOk_t1 (t1_bound h1))
     fun s' ⟨hP', x', hb⟩ => ?_
   refine ⟨h.keep hF hp hP' x' (by krchk hF), L.keepPoly hP' (by lay [hF.pk]) h0, ?_⟩
-  rw [hP'.pa (show Reg.x26 ∈ bases by decide), hb, h1]
+  rw [hP'.pa (show Reg.x26 ∈ keptRegs by decide), hb, h1]
 
 /-- `t₀[i]` to `sk`. -/
 theorem bp_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State}
@@ -206,7 +207,7 @@ theorem bp_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State}
   · refine ⟨by
       rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;>
       · rw [L.keepBytes hP' (by lay [hF.pk, hF.sk, hlen])]; exact h1, ?_⟩
-    rw [hP'.pa (show Reg.x27 ∈ bases by decide), hb, h0.2, modPm_t0]
+    rw [hP'.pa (show Reg.x27 ∈ keptRegs by decide), hb, h0.2, modPm_t0]
     rfl
 
 end

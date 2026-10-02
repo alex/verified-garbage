@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Ed25519.X86.Ops
+import VerifiedGarbage.Proof.Ed25519.X86.Workspace
 import VerifiedGarbage.Impl.Ed25519.X86.Field
 
 /-! Full-width constants and field-slot copies. -/
@@ -6,7 +6,7 @@ namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.X25519.X86 VG.Impl.Ed25519.X86 VG.Spec.X25519
 open VG.Proof.X25519
 
-theorem slot_valid (o : Slot) : isSlot (offset o) = true := (by decide : ∀ i : Slot, isSlot (offset i) = true) o
+theorem slot_valid (o : Slot) : isSlot 64 (offset o) = true := (by decide : ∀ i : Slot, isSlot 64 (offset i) = true) o
 
 theorem fill_step {x : BitVec 32} {s₀ s : State} (hc : Ctx x s) {o n : Nat} (ho : Below o) (hn : n < 8)
     (f : Nat → BitVec 32) (hk : Keep s₀ s) (hf : Frame [sub x o (4 * n)] s₀.mem s.mem)

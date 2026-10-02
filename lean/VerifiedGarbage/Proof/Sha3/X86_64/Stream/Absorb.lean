@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Sha3.Contract
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 
 /-!
 # The SHA-3 sponge on x86-64: `absorb`
@@ -43,8 +44,7 @@ abbrev stkR : Region := below (s₀.gpr .rsp) 8
 abbrev D (c : Nat) : List Byte := bytesAt s₀.mem (dp s₀) c
 
 /-- The caller's callee-saved registers are saved in the scratch space. -/
-def Saved (m : Mem) : Prop :=
-  ∀ k < 6, m.readW (scr s₀ + BitVec.ofNat 64 (512 + 8 * k)) 64 = s₀.gpr (saved.getD k (.rax, 0)).1
+abbrev Saved (m : Mem) : Prop := Spill.Saved m (scr s₀) s₀.gpr saved
 
 /-- The messages the initial state and position represent. -/
 def Msg (msg : List Byte) : Prop :=
@@ -82,19 +82,19 @@ theorem len_lt (s₀ : State) : len s₀ < 2 ^ 64 := (s₀.gpr .r8).isLt
 
 theorem rsi_eq (s₀ : State) : s₀.gpr .rsi = BitVec.ofNat 64 (rt s₀) := by simp [rt]
 
+theorem saved_bound : ∀ p ∈ saved, 512 ≤ p.2 ∧ p.2 + 8 ≤ 560 := by decide
+
 /-- Writes to the state, the first 512 bytes of scratch and below the stack
 keep the saved registers. -/
 theorem Saved.frame {s₀ : State} (hp : Pre s₀) {m m' : Mem} (h : Saved s₀ m)
-    (hf : Frame [stR s₀, ⟨scr s₀, 512⟩, stkR s₀] m m') : Saved s₀ m' := by
-  intro k hk
-  rw [← h k hk]
-  refine hf.readW (Region.contains_self _ _) ?_ (by decide)
-  intro r hr
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl
-  · exact hp.st_scr.symm.sub_left (sub_offset (by omega) (by omega))
-  · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
-  · exact hp.stk_scr.symm.sub_left (sub_offset (by omega) (by omega))
+    (hf : Frame [stR s₀, ⟨scr s₀, 512⟩, stkR s₀] m m') : Saved s₀ m' :=
+  Spill.Saved.frame h hf fun p hp' r hr => by
+    have := saved_bound p hp'
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl
+    · exact hp.st_scr.symm.sub_left (sub_offset (by omega) (by omega))
+    · exact Offset.disjoint_base _ (by omega) (by omega)
+    · exact hp.stk_scr.symm.sub_left (sub_offset (by omega) (by omega))
 
 /-! ## Invariants -/
 
@@ -161,57 +161,29 @@ theorem Common.data {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Co
 
 /-! ## The prologue -/
 
-theorem save_eq : save .r9 = (List.range 6).flatMap fun k =>
-    [.store (at_ .r9 (512 + 8 * k)) ((saved.getD k (.rax, 0)).1)] := by decide
-
-/-- During the saves. -/
-def SaveInv (s₀ : State) (k : Nat) (s : State) : Prop :=
-  s.gpr = s₀.gpr ∧ s.rd = s₀.rd ∧ s.wr = s₀.wr ∧
-    Frame [⟨scr s₀ + BitVec.ofNat 64 512, 48⟩] s₀.mem s.mem ∧
-    ∀ j < k, s.mem.readW (scr s₀ + BitVec.ofNat 64 (512 + 8 * j)) 64 = s₀.gpr ((saved.getD j (.rax, 0)).1)
-
-theorem saves_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block ((List.range 6).flatMap fun k =>
-      [.store (at_ .r9 (512 + 8 * k)) ((saved.getD k (.rax, 0)).1)])) s₀ (SaveInv s₀ 6) := by
-  refine wp_range_flatMap (M := isa) (SaveInv s₀) (fun k s hk ⟨hg, hrd, hwr, hf, hv⟩ => ?_) 6 (Nat.le_refl _) s₀
-    ⟨rfl, rfl, rfl, Frame.refl _ _, fun _ h => absurd h (by omega)⟩
-  refine wp_store (a := scr s₀ + BitVec.ofNat 64 (512 + 8 * k)) (by rw [ea_at, hg])
-    ⟨scR s₀, by simp [hwr, hp.wr], contains_offset (by omega) (by omega)⟩ fun s' g' m' r' w' => wp_nil ?_
-  refine ⟨g'.trans hg, r'.trans hrd, w'.trans hwr, ?_, fun j hj => ?_⟩
-  · rw [m']
-    refine hf.writeW (List.mem_singleton_self _) _ ?_
-    rw [BitVec.ofNat_add, ← BitVec.add_assoc]
-    exact contains_offset (by omega) (by omega)
-  · rw [m', hg]
-    by_cases e : j = k
-    · subst e; rw [Mem.readW_writeW_self64]
-    · rw [Mem.readW_writeW_sep ?_ (by decide)]
-      · exact hv j (by omega)
-      · have := off_disjoint (scr s₀) (a := 512 + 8 * j) (n := 8) (b := 512 + 8 * k) (k := 8)
-          (by omega) (by omega) (by omega)
-        exact this.sep (Region.contains_self _ _) (Region.contains_self _ _)
-
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .r9 ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
       .mov .r13 (.reg .rcx), .mov .r14 (.reg .r8), .mov .r15 (.reg .r9), .alu .test .r14 (.reg .r14)] : List Instr)))
       s₀ fun s => Inv s₀ 0 s ∧ s.zf = some (decide (len s₀ = 0)) := by
-  rw [save_eq, WP.block_append_iff]
-  refine WP.mono (saves_ok hp) fun s₁ ⟨g₁, rd₁, wr₁, f₁, v₁⟩ => ?_
+  rw [WP.block_append_iff]
+  refine WP.mono (Spill.save_ok .r9 saved s₀ fun p hp' => ?_) fun s₁ ⟨g₁, rd₁, wr₁, m₁⟩ => ?_
+  · have := saved_bound p hp'
+    exact ⟨scR s₀, by simp [hp.wr], contains_offset (by omega) (by omega)⟩
+  have f₁ : Frame [scR s₀] s₀.mem s₁.mem := m₁ ▸ Spill.saveMem_frame_base _ _ _ _
+    (fun p hp => by have := saved_bound p hp; omega) (by decide)
+  have v₁ : Saved s₀ s₁.mem := m₁ ▸ Spill.saveMem_saved _ _ _ _ (by decide)
   refine wp_mov fun s₂ u₂ => wp_mov fun s₃ u₃ => wp_mov fun s₄ u₄ => wp_mov fun s₅ u₅ =>
     wp_mov fun s₆ u₆ => wp_mov fun s₇ u₇ => wp_test fun s₈ g₈ m₈ rd₈ wr₈ z₈ => wp_nil ?_
   have hm : s₈.mem = s₁.mem := by rw [m₈, u₇.mem, u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₂.mem]
   have hrd : s₈.rd = s₀.rd := by rw [rd₈, u₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd, u₂.rd, rd₁]
   have hwr : s₈.wr = s₀.wr := by rw [wr₈, u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, wr₁]
-  have hf : Frame [stR s₀, scR s₀, stkR s₀] s₀.mem s₁.mem :=
-    f₁.sub fun r hr => by
-      simp only [List.mem_singleton] at hr; subst hr
-      exact ⟨scR s₀, by simp, sub_offset (by omega) (by omega)⟩
+  have hf : Frame [stR s₀, scR s₀, stkR s₀] s₀.mem s₁.mem := f₁.mono (by simp)
   have h14 : s₈.gpr .r14 = s₀.gpr .r8 := by
     rw [g₈, u₇.other _ (by decide), u₆.gpr, u₅.other _ (by decide), u₄.other _ (by decide),
       u₃.other _ (by decide), u₂.other _ (by decide), g₁]
   have hl := len_lt s₀
   refine ⟨⟨⟨Nat.zero_le _, hrd, hwr, ?_, ?_, ?_, ?_, ?_, ?_, by rw [hm]; exact hf,
-    fun k hk => by rw [hm]; exact v₁ k hk⟩, ?_, fun msg ⟨hs, _⟩ => ?_⟩, ?_⟩
+    by rw [hm]; exact v₁⟩, ?_, fun msg ⟨hs, _⟩ => ?_⟩, ?_⟩
   · rw [g₈, u₇.other _ (by decide), u₆.other _ (by decide), u₅.other _ (by decide),
       u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, g₁]
   · rw [g₈, u₇.gpr, u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide),
@@ -229,7 +201,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     simp [pos]
   · rw [hm, show D s₀ 0 = [] by simp [bytesAt], List.append_nil, ← hs]
     exact Proof.Sha3.stateAt_congr fun i hi =>
-      f₁.bytes (R := stR s₀) (by simpa using hp.st_scr.sub_right (sub_offset (by omega) (by omega)))
+      f₁.bytes (R := stR s₀) (by simpa using hp.st_scr)
         (by simp) hi
   · rw [z₈, ← congrFun g₈ .r14, h14, BitVec.and_self]
     rw [show s₀.gpr .r8 = BitVec.ofNat 64 (len s₀) by simp [len], ofNat_beq_zero hl]
@@ -491,51 +463,20 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) {s 
 
 /-! ## The epilogue -/
 
-theorem restore_eq : restore = (List.range 6).flatMap fun k =>
-    [.mov ((saved.getD k (.rax, 0)).1) (.mem (at_ .r15 (512 + 8 * k)))] := by decide
-
-theorem saved_ne : ∀ j < 6, ∀ k < 6, j ≠ k → (saved.getD j (.rax, 0)).1 ≠ (saved.getD k (.rax, 0)).1 := by
-  decide
-
-theorem saved_ne' : ∀ k < 6, (saved.getD k (.rax, 0)).1 ≠ .rax ∧ (saved.getD k (.rax, 0)).1 ≠ .rsp ∧
-    (k < 5 → (saved.getD k (.rax, 0)).1 ≠ .r15) := by
-  decide
-
-/-- During the restores. -/
-def ResInv (s₀ s₁ : State) (k : Nat) (s : State) : Prop :=
-  (k < 6 → s.gpr .r15 = scr s₀) ∧ s.gpr .rax = s₁.gpr .rax ∧ s.gpr .rsp = s₀.gpr .rsp ∧
-    s.mem = s₁.mem ∧ s.rd = s₁.rd ∧ s.wr = s₁.wr ∧
-    ∀ j < k, s.gpr ((saved.getD j (.rax, 0)).1) = s₀.gpr ((saved.getD j (.rax, 0)).1)
-
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block (.mov .rax (.reg .r12) :: restore)) s fun s' =>
       gprPreserved s₀ s' ∧ Proof.Sha3.absorbX86_64.post s₀ s' := by
   have ⟨hr₀, hr₁⟩ := hp.rt_pos
   refine wp_mov fun s₁ u₁ => ?_
-  rw [restore_eq]
-  refine WP.mono (wp_range_flatMap (M := isa) (ResInv s₀ s₁) (fun k s' hk ⟨r15, ax, sp, m, rd, wr, v⟩ => ?_)
-    6 (Nat.le_refl _) s₁ ⟨fun _ => by rw [u₁.other _ (by decide), hI.r15], rfl, by rw [u₁.other _ (by decide), hI.rsp],
-      rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩) fun s' ⟨_, ax, sp, m, _, _, v⟩ => ?_
-  · refine wp_movm (a := scr s₀ + BitVec.ofNat 64 (512 + 8 * k)) (by rw [ea_at, r15 hk])
-      ⟨scR s₀, by simp [rd, wr, u₁.rd, u₁.wr, hI.wr, hp.wr], contains_offset (by omega) (by omega)⟩
-      fun s'' h => wp_nil ?_
-    have ne := saved_ne' k hk
-    refine ⟨fun hk' => by rw [h.other _ (Ne.symm (ne.2.2 (by omega))), r15 hk], by rw [h.other _ (Ne.symm ne.1), ax],
-      by rw [h.other _ (Ne.symm ne.2.1), sp], by rw [h.mem, m], by rw [h.rd, rd], by rw [h.wr, wr],
-      fun j hj => ?_⟩
-    by_cases e : j = k
-    · subst e; rw [h.gpr, m, u₁.mem]; exact hI.saved j hk
-    · rw [h.other _ (saved_ne j (by omega) k hk e), v j (by omega)]
-  · refine ⟨⟨fun r hr => ?_, ?_⟩, fun msg hm hpm => ?_, ?_⟩
-    · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
-      · exact v 0 (by omega)
-      · exact v 1 (by omega)
-      · exact sp
-      · exact v 2 (by omega)
-      · exact v 3 (by omega)
-      · exact v 4 (by omega)
-      · exact v 5 (by omega)
+  have r15 : s₁.gpr .r15 = scr s₀ := by rw [u₁.other _ (by decide), hI.r15]
+  refine WP.mono (Spill.restore_ok .r15 saved s₀.gpr s₁ (by decide) (fun p hp' => ?_)
+    (by rw [r15, u₁.mem]; exact hI.saved)) fun s' ⟨h₁, h₂, m, _⟩ => ?_
+  · have := saved_bound p hp'
+    rw [r15]
+    exact ⟨scR s₀, by simp [u₁.rd, u₁.wr, hI.wr, hp.wr], contains_offset (by omega) (by omega)⟩
+  · have ax : s'.gpr .rax = s₁.gpr .rax := h₂ _ (by decide)
+    refine ⟨⟨Spill.calleeSaved_ok h₁ h₂ (by decide) (by rw [u₁.other _ (by decide), hI.rsp]), ?_⟩,
+      fun msg hm hpm => ?_, ?_⟩
     · rw [m, u₁.mem]
       exact hI.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr, ret_stk s₀⟩)
         (by decide)

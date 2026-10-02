@@ -78,7 +78,7 @@ theorem bitsAt_ok {Q : Nat → Poly → Mem → Addr → Prop} {n : String} {c :
   have hD : 8 ≤ D := by have := C.hS; omega
   refine WP.mono (callP_ok C.ver.1 C.nosp C.depth L.dsm (bitsArgs_ok hγ hc)
     (fun s1 hA hm k => bitsPre C.hS (At.of L hm k) hγ hc hA hr)
-    (covers_append (L.cR i1) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (L.cR i1) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3⟩ := argsIn3 hA
@@ -95,9 +95,9 @@ theorem bitsAt_tr {Q : Nat → Poly → Mem → Addr → Prop} {n : String} {c :
   refine callP_tr C.ver.1 C.ver.2.1 (bitsArgs_ok hγ hc)
     fun x y x1 y1 ⟨R, rx, ry⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, bitsPre C.hS (At.of R.lx hmx kx) hγ hc hAx rx, bitsPre C.hS (At.of R.ly hmy ky) hγ hc hAy ry, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (R.ly.cW w1)),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (R.ly.cW w1)),
         by rw [ky.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx
@@ -169,7 +169,7 @@ theorem normCall_ok {nm : String} {P : Prims} (hP : PrimsOk P D) {s : State} (L 
   have hD : 8 ≤ D := by have := hP.normLt.hS; omega
   refine WP.mono (callP_ok hP.normLt.ver.1 hP.normLt.nosp hP.normLt.depth L.dsm (normArgs_ok hB hc)
     (fun s1 hA hm k => normPre hP.normLt.hS (At.of L hm k) hc hA hr)
-    (covers_append (L.cR i1) covers_nil) covers_nil)
+    (Covers.append_left (L.cR i1) Covers.nil) Covers.nil)
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, hg₂, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2⟩ := argsIn2 hA
@@ -188,8 +188,8 @@ theorem normCall_tr {nm : String} {P : Prims} (hP : PrimsOk P D) {f : Ptr} {B : 
     fun x y x1 y1 ⟨R, rx, ry⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, normPre hP.normLt.hS (At.of R.lx hmx kx) hc hAx rx,
         normPre hP.normLt.hS (At.of R.ly hmy ky) hc hAy ry, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) covers_nil, covers_nil,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) covers_nil, covers_nil,
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) Covers.nil, Covers.nil,
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) Covers.nil, Covers.nil,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2⟩ := argsIn2 hAx
   obtain ⟨hy1, hy2⟩ := argsIn2 hAy
@@ -249,7 +249,7 @@ theorem hintCall_ok {nm : String} {P : Prims} (hP : PrimsOk P D) {s : State} (L 
   have hD : 8 ≤ D := by have := hP.makeHint.hS; omega
   refine WP.mono (callP_ok hP.makeHint.ver.1 hP.makeHint.nosp hP.makeHint.depth L.dsm (hintArgs_ok hγ hc)
     (fun s1 hA hm k => hintPre hP.makeHint.hS (At.of L hm k) hγ hc hA rz rr)
-    (covers_append (covers_cons (L.cR i1) (L.cR i2)) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (Covers.cons (L.cR i1) (L.cR i2)) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, hg₂, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3, e4⟩ := argsIn4 hA
@@ -268,9 +268,9 @@ theorem hintCall_tr {nm : String} {P : Prims} (hP : PrimsOk P D) {z r h : Ptr} {
     fun x y x1 y1 ⟨R, ⟨rzx, rrx⟩, ⟨rzy, rry⟩⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, hintPre hP.makeHint.hS (At.of R.lx hmx kx) hγ hc hAx rzx rrx,
         hintPre hP.makeHint.hS (At.of R.ly hmy ky) hγ hc hAy rzy rry, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (covers_cons (R.lx.cR i1) (R.lx.cR i2)) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (Covers.cons (R.lx.cR i1) (R.lx.cR i2)) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (covers_cons (R.ly.cR i1) (R.ly.cR i2)) (covers_wr (R.ly.cW w1)),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (Covers.cons (R.ly.cR i1) (R.ly.cR i2)) (Covers.right (R.ly.cW w1)),
         by rw [ky.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3, hx4⟩ := argsIn4 hAx

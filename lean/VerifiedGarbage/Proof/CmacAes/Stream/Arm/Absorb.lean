@@ -98,11 +98,6 @@ theorem APre.inD {d n : Nat} (h : d + n ≤ L) :
     simp only [List.mem_singleton] at hr; subst hr
     exact ⟨⟨State.addr D, L⟩, by simp, d, rfl, h⟩
 
-omit hp in
-theorem covers_wr {rs : List Region} (h : Covers rs s₀.wr) : Covers rs (s₀.rd ++ s₀.wr) := fun a n hi => by
-  obtain ⟨r, hr, hc⟩ := h a n hi
-  exact ⟨r, List.mem_append_right _ hr, hc⟩
-
 /-- The arguments of a call of `vg_cmac_aes_update` on `n` blocks at `Dd`,
 from a state with the permissions and stack of `s₀`. -/
 theorem APre.uargs {s : State} {Dd : BitVec 32} {n : Nat} (hr0 : s.gpr .r0 = St) (hr1 : s.gpr .r1 = s₀.gpr .r1)
@@ -142,7 +137,7 @@ theorem APre.uargs {s : State} {Dd : BitVec 32} {n : Nat} (hr0 : s.gpr .r0 = St)
       obtain ⟨r, hr, hc⟩ := hi
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
-      · exact covers_wr (hp.inSt (d := 0) (n := 240) (by decide)) a k
+      · exact Covers.right (hp.inSt (d := 0) (n := 240) (by decide)) a k
           ⟨_, List.mem_singleton_self _, by rw [BitVec.add_zero]; exact hc⟩
       · exact hcov a k ⟨_, List.mem_singleton_self _, hc⟩
     writes := by
@@ -169,16 +164,14 @@ theorem save_eq : save = .ldrSp .r12 8 :: (saved.map (fun p => Instr.str p.1 .r1
 /-- The memory after saving the registers. -/
 def aMem (s₀ : State) (S : BitVec 32) : Mem := saveMem s₀.mem (State.addr S) s₀.gpr saved
 
-set_option simprocs false in
+theorem saved_slots : Spill.Slots 2176 2208 saved := by decide
+
 theorem aMem_slot (s₀ : State) (S : BitVec 32) {r : Reg} {d : Nat} (h : (r, d) ∈ saved) :
-    (aMem s₀ S).readW (State.addr S + BitVec.ofNat 64 d) 32 = s₀.gpr r := by
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at h
-  rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ |
-    ⟨rfl, rfl⟩ <;>
-  simp (disch := decide) only [aMem, saved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+    (aMem s₀ S).readW (State.addr S + BitVec.ofNat 64 d) 32 = s₀.gpr r :=
+  Spill.saveMem_saved (State.addr S) s₀.gpr s₀.mem saved saved_slots (r, d) h
 
 theorem aMem_frame (s₀ : State) (S : BitVec 32) : Frame [⟨State.addr S, 2304⟩] s₀.mem (aMem s₀ S) :=
-  saveMem_frame _ _ _ (by decide) saved fun p hp => by have := saved_bound p hp; omega
+  Spill.saveMem_frame _ _ _ (by decide) saved (by decide)
 
 /-- What the saves leave. -/
 structure ASave (s₀ : State) (St D S : BitVec 32) (L : Nat) (s : State) : Prop where
@@ -320,7 +313,7 @@ theorem absorbPre_wp {s₀ : State} {St D S : BitVec 32} {L R : Nat} (hp : APre 
       (by rw [a288]; exact Offset.disjoint _ (by omega) (by omega) (by omega))
       ((hp.st_s.sub_left c288))
       (hp.b_st.sub_right c288) (by rw [toNat_add_ofNat (by omega)]; omega)
-      (covers_wr (by rw [a288]; exact hp.inSt (by omega))), ?_, ?_, ?_, ?_, ?_, hsp, ?_, ?_, hrd, hwr⟩
+      (Covers.right (by rw [a288]; exact hp.inSt (by omega))), ?_, ?_, ?_, ?_, ?_, hsp, ?_, ?_, hrd, hwr⟩
   · rw [k _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), h₁.r4]
   · rw [k _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), h₁.r5]
   · rw [g₅ _ (by decide) (by decide) (by decide) (by decide) (by decide), h₄.r6]

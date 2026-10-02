@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.ScalarPass
-import VerifiedGarbage.Proof.Ed25519.Arm.Cswap
+import VerifiedGarbage.Proof.Ed25519.Arm.Field
+import VerifiedGarbage.Proof.X25519.Arm.Cswap
 
 /-! One fixed binary-reduction step modulo L. -/
 namespace VG.Proof.Ed25519.Arm

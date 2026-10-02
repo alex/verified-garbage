@@ -54,6 +54,14 @@ def padFrom (a b : Nat) : List Instr :=
   [.mov32 .rax (.imm 0x80), .store32 (at_ .rbp a) .rax, .mov32 .rax (.imm 0)] ++
     (List.range ((b - a) / 4 - 1)).map fun k => .store32 (at_ .rbp (a + 4 + 4 * k)) .rax
 
+/-- The rest of the block after its first `D` bytes, the end of a
+`B + D`-byte message: `0x80`, zeros and the length field, which `P.len`
+stores from `r12` at `rbx + N + B - L`, the end of the block at
+`rbp = rbx + N`. HMAC's `finalize` (`Impl/Pbkdf2/Md/X86_64.lean`) pads its
+outer block the same way. -/
+def padLen : List Instr :=
+  padFrom D (P.B - P.L) ++ [.mov32 .r12 (.imm (BitVec.ofNat 32 (P.B + D)))] ++ P.len
+
 /-- The digest of the hash value into the block, and the padding it
 overwrote written back. -/
 def digest : List Instr := P.out ++ (if D < P.N then padFrom D P.N else [])
@@ -76,16 +84,13 @@ def body (name : String) (code : Prog isa) : Prog isa :=
     (.block (digest P D ++ (List.range (D / 4)).flatMap xorW ++ [.alu .sub .r14 (.imm 1)])))))
 
 /-- Saving our caller's registers, setting up ours, and writing `U` and the
-padding into the block: `0x80`, zeros, and the length field of a
-`B + D`-byte message, which `P.len` stores from `r12` at `rbx + N + B - L`,
-the end of the block. -/
+padding into the block (`padLen`). -/
 def prologue : List Instr :=
   save P .r8 ++
     [.mov .r15 (.reg .r8), .mov .r12 (.reg .rdi), .mov .r13 (.reg .rcx), .mov32 .r14 (.reg .rdx),
       .mov .rbx (.reg .r8), .alu .add .rbx (.imm (BitVec.ofNat 32 (hvO P))),
       .mov .rbp (.reg .r8), .alu .add .rbp (.imm (BitVec.ofNat 32 (blkO P)))] ++
-    (List.range (D / 4)).flatMap (cp32 .rsi .rbp 0 0) ++ padFrom D (P.B - P.L) ++
-    [.mov32 .r12 (.imm (BitVec.ofNat 32 (P.B + D)))] ++ P.len ++
+    (List.range (D / 4)).flatMap (cp32 .rsi .rbp 0 0) ++ padLen P D ++
     [.mov .r12 (.reg .rdi), .alu .test .r14 (.reg .r14)]
 
 def iterate (name : String) (code : Prog isa) : Prog isa :=

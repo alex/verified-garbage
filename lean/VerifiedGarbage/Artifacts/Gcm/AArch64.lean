@@ -2,7 +2,15 @@ import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Gcm.AArch64.Ghash
 import VerifiedGarbage.Proof.Gcm.AArch64.Pmull.Ghash
 
-/-! # GHASH on AArch64 -/
+/-!
+# GHASH on AArch64
+
+The PMULL implementation's suffix is `_aes`, like the AES instructions' (e.g.
+`vg_aes_ctr32_aes`), since both need the one feature `aes` (FEAT_AES and
+FEAT_PMULL; the Arm ARM's `ID_AA64ISAR0_EL1.AES` has no value for PMULL
+without AES). With one suffix, a function calling both, such as AES-GCM, has
+one variant for that feature, not one for each suffix and their combination.
+-/
 
 namespace VG.Artifacts.Gcm.AArch64
 
@@ -17,7 +25,7 @@ def artifacts : List Artifact := [
     verified := Proof.Gcm.AArch64.ghash_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Gcm.ghashApi with
-    name := "vg_ghash_pmull"
+    name := "vg_ghash_aes"
     target := AArch64.target
     doc := Spec.Gcm.ghashApi.doc
       (notes := ["Uses PMULL: eight blocks at a time, with `H²` to `H⁸` computed on each call \

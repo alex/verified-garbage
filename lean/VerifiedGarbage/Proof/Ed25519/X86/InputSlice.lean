@@ -7,7 +7,7 @@ open VG VG.X86 VG.Impl.X25519.X86 VG.Impl.Ed25519.X86
 structure SlicePre (s₀ : State) (scidx : Nat) (p : BitVec 32) (bytes : Nat) : Prop where
   rd : ∀ k len, 0 < len → k + len ≤ bytes → InRegions (s₀.rd ++ s₀.wr) (addr p k) len
   fit : p.toNat + bytes ≤ 2 ^ 32
-  sep : (sub p 0 bytes).Disjoint (scR (arg s₀ scidx))
+  sep : (sub p 0 bytes).Disjoint (scR 8192 (arg s₀ scidx))
 
 theorem slice_contains {s₀ : State} {scidx n k len : Nat} {p : BitVec 32}
     (h : SlicePre s₀ scidx p n) (hk : k + len ≤ n) (hlen : 0 < len) :
@@ -66,7 +66,7 @@ theorem inputSliceWords_ok {s₀ s : State} {scidx argc i skip n dst : Nat}
     refine (hi.sep.sub_left (slice_sub hi (by omega_using [hk]) (by decide))).sub_right ?_
     rw [scR_eq]; exact sub_sub hp.fit (Nat.zero_le _) hd hd'
   refine WP.mono (copyWords_ok cu eu hd hr hsep n (Nat.le_refl _)) fun t ht => ?_
-  refine ⟨hu.of_offset hp.fit ht.keep.scalar ht.frame hd0 hd hd', ?_, by rw [← mu]; exact ht.frame⟩
+  refine ⟨hu.of_offset hp.fit (Keep.scalar ht.keep) ht.frame hd0 hd hd', ?_, by rw [← mu]; exact ht.frame⟩
   intro k hk
   rw [ht.words k hk]
   exact hu.frame.readW (slice_contains hi (by omega_using [hk]) (by decide))
@@ -90,7 +90,7 @@ theorem inputSliceBits_ok {s₀ s : State} {scidx argc i skip bytes : Nat}
     refine (hi.sep.sub_left (slice_sub hi (by omega_using [hk]) (by decide))).sub_right ?_
     rw [scR_eq]; exact sub_sub hp.fit (by decide) (by omega_using [hn]) (by decide)
   refine WP.mono (expandScalarBits_ok cu eu hn hi.fit hr hsep) fun t ⟨kt, ft, bt⟩ => ?_
-  refine ⟨hu.of_offset hp.fit kt.scalar ft (by decide) (by omega_using [hn]) (by decide), ?_, by rw [← mu]; exact ft⟩
+  refine ⟨hu.of_offset hp.fit (Keep.scalar kt) ft (by decide) (by omega_using [hn]) (by decide), ?_, by rw [← mu]; exact ft⟩
   intro k hk
   rw [bt k hk, sliceBytes_same hi hu]
 

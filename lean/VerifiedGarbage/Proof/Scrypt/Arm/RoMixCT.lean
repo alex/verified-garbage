@@ -335,7 +335,6 @@ open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil)
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_and wp_subs wp_cmp wp_ldr wp_str op2_reg
   op2_imm op2_lsr eval_ne ofNat_beq_zero sub_beq)
-open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.Memory (sub_off bytesAt_add bytesAt_length bytesAt_writeBytes_sep
   xorBytes_length)
 
@@ -748,14 +747,9 @@ theorem prologue_eq : rmPrologue =
        .mov .r7 (.shifted .r1 .lsl 7), .mov .r0 (.reg .r1), .mov .r1 (.imm 1),
        .dp .add .r2 .r3 (.reg .r3)] : List Instr)) := rfl
 
-set_option simprocs false in
 theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
-    ∀ p ∈ rmSaved, (saveMem m B g rmSaved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 := by
-  intro p hp
-  simp only [rmSaved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (config := {decide := true}) only [rmSaved, saveMem, Mem.readW_writeW_self32,
-    readW_writeW_save]
+    ∀ p ∈ rmSaved, (saveMem m B g rmSaved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 :=
+  Spill.saveMem_saved (lo := 128) (hi := 156) B g m rmSaved (by decide)
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s₁, (∀ r, r ≠ .r12 → s₁.gpr r = s₀.gpr r) → s₁.gpr .r12 = sc s₀ → s₁.rd = s₀.rd →
@@ -1545,13 +1539,9 @@ namespace VG.Proof.Scrypt.Arm.RoMix
 open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (bytesAt blockMix)
 open VG.Proof.MdStream.Arm (Upd wp_mov wp_add op2_reg op2_imm op2_lsr eval_ne)
-open VG.Proof.Scrypt.Arm.BlockMix (covers_of_in)
 open VG.Proof.Scrypt.Memory (InRegions.right)
 
 /-! ## The call of `vg_scrypt_blockmix` -/
-
-theorem covers_of_all {rs rs' : List Region} (h : ∀ R ∈ rs, Covers [R] rs') : Covers rs rs' :=
-  fun x n ⟨r, hr, hc⟩ => h r hr x n ⟨_, List.mem_singleton_self _, hc⟩
 
 theorem stackArg_entry (s : State) (rd wr : List Region) :
     stackArg (s.callEntry.withRegions rd wr) 0 = stackArg s 0 := rfl
@@ -1581,7 +1571,7 @@ theorem bm_pre {s : State} {src dst scr : BitVec 32} {r : Nat} (h0 : s.gpr .r0 =
   have tr : (BitVec.ofNat 32 r).toNat = r := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
   have c128 : r * 128 = 128 * r := Nat.mul_comm _ _
-  refine ⟨?_, covers_of_all fun R hR => ?_, covers_of_all fun R hR => ?_⟩
+  refine ⟨?_, Covers.of_forall fun R hR => ?_, Covers.of_forall fun R hR => ?_⟩
   · simp only [Proof.Scrypt.blockMixArm, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.withRegions_sp, State.callEntry_sp, stackArg_entry,
       stackArgAddr_entry,
@@ -1593,18 +1583,18 @@ theorem bm_pre {s : State} {src dst scr : BitVec 32} {r : Nat} (h0 : s.gpr .r0 =
   · simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
       or_false] at hR
     rcases hR with rfl | rfl | rfl | rfl
-    · exact covers_of_in isrc
-    · exact covers_of_in iarg
+    · exact Covers.one isrc
+    · exact Covers.one iarg
     · intro a n h
-      obtain ⟨R', hR', hc'⟩ := covers_of_in idst a n h
+      obtain ⟨R', hR', hc'⟩ := Covers.one idst a n h
       exact ⟨R', List.mem_append_right _ hR', hc'⟩
     · intro a n h
-      obtain ⟨R', hR', hc'⟩ := covers_of_in iscr a n h
+      obtain ⟨R', hR', hc'⟩ := Covers.one iscr a n h
       exact ⟨R', List.mem_append_right _ hR', hc'⟩
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hR
     rcases hR with rfl | rfl
-    · exact covers_of_in idst
-    · exact covers_of_in iscr
+    · exact Covers.one idst
+    · exact Covers.one iscr
 
 theorem blockMixSpec : BlockMixSpec Impl.Scrypt.Arm.blockMix := by
   intro s src dst scr r h0 h1 h2 h3 h4 hr hlt hds hsd hss had has nsrc ndst nscr nsp isrc iarg
