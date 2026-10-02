@@ -319,6 +319,39 @@ theorem muHash_ok (hL : L.Ok) (hE : oE p = L.E) {t : State} (hc : Ctx L g mx m�
     exact a1.trans (a2.trans (a3.trans (a4.trans (a5.trans (a6.trans a7)))))
   · rw [hm7, hS6, Spec.MlDsa.H, Proof.MlKem.shake256_eq]
 
+/-! ## `tr = H(pk, 64)` -/
+
+theorem trHash_ok (hL : L.Ok) (hE : oE p = L.E) (hk : L.keyLen = p.pkLen) {t : State} (hc : Ctx L g mx m₀ t) :
+    WP isa (trHash p) t fun t' => Ctx L g mx m₀ t' ∧ Frame [L.XS, ⟨L.B, 32⟩] t.mem t'.mem ∧
+      bytesAt t'.mem L.MU 64 = Spec.MlDsa.H (bytesAt m₀ L.key L.keyLen) 64 := by
+  have hkl := hL.hKey
+  refine WP.seq (WP.mono (zeroSt_ok hL hE hc) fun t1 ⟨hc1, hf1, hz⟩ => ?_)
+  have hR1 : Repr t1.mem L.ST 136 [] := Proof.MlKem.repr_nil hz
+  have wk : ∃ R ∈ L.rd ++ L.FR :: L.wr, Within ⟨L.key, L.keyLen⟩ R :=
+    ⟨L.KEY, List.mem_append_left _ hL.inKey, within_self _⟩
+  refine WP.seq (WP.mono (kabs_ok hL hE hc1 (absOk hL hE (by decide) (by simp [Arg.ok]; omega) rfl)
+    (by rw [hc1.slot, fKey, hc1.pKey]) (by rw [hk]; rfl) rfl (by decide) (by omega) wk
+    (by have := hL.x_r hL.xKey (e := 0) (k := 200) (by omega); simpa only [x0] using this.symm)
+    (hL.x_r hL.xKey (e := 200) (k := 640) (by omega)).symm
+    (by have := hL.stk_r hL.kKey (d := 0) (n := 32) (by omega); simpa only [BitVec.add_zero] using this))
+    fun t2 ⟨hc2, hf2, hR2, _⟩ => ?_)
+  have hR2 := hR2 [] hR1 rfl
+  rw [List.nil_append, hc1.bytesAt_eq hL.xKey hL.kKey (by have := hL.nKey; omega)] at hR2
+  refine WP.seq (WP.mono (kpad_ok hL hE hc2 (q := p.pkLen % 136) (by
+      have := hL.hE
+      simp only [padArgs, Impl.MlDsa.X86_64.Message.aSt, Impl.MlDsa.X86_64.Message.aKs, List.all_cons,
+        List.all_nil, Arg.ok, fScr, Bool.and_true, Bool.and_eq_true, decide_eq_true_eq, hE]
+      omega) rfl (Nat.mod_lt _ (by decide)))
+    fun t3 ⟨hc3, hf3, hS3⟩ => ?_)
+  have hS3 := hS3 _ hR2 (by rw [Proof.MlKem.bytesAt_length, hk])
+  refine WP.mono (ksqz_ok hL hE hc3) fun t4 ⟨hc4, hf4, hm4⟩ => ⟨hc4, ?_, ?_⟩
+  · have a1 := frameX (L := L) hf1 (by simp [w_st])
+    have a2 := frameX (L := L) hf2 (by simp [w_st, w_ks])
+    have a3 := frameX (L := L) hf3 (by simp [w_st, w_ks])
+    have a4 := frameX (L := L) hf4 (by simp [w_st, w_ks, w_mu])
+    exact a1.trans (a2.trans (a3.trans a4))
+  · rw [hm4, hS3, Spec.MlDsa.H, Proof.MlKem.shake256_eq]
+
 end
 
 end VG.Proof.MlDsa.X86_64.Message

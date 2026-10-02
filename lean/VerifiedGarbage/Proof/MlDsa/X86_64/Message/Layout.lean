@@ -137,7 +137,7 @@ structure Ok : Prop where
   ctxLt : L.ctxLen.toNat < 256
   hE : L.E + 1024 < 2 ^ 31
   hKey : L.keyLen < 2 ^ 31
-  nB : L.B.toNat + 104 ≤ 2 ^ 64
+  nB : L.B.toNat + 104 < 2 ^ 64
   inX : ∃ R ∈ L.wr, Within L.XS R
   inKey : L.KEY ∈ L.rd
   inMsg : L.MSG ∈ L.rd
