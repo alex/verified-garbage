@@ -18,66 +18,6 @@ open VG VG.Arm VG.Arm.Straight VG.Impl.CmacTripleDes.Arm VG.Proof.CmacTripleDes 
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd op2_imm op2_reg op2_lsr op2_lsl wp_mov wp_add wp_sub wp_and wp_orr
   wp_subs wp_cmp wp_ldr wp_str wp_rev saveMem saveList_ok sub_beq)
 
-/-! ## Words -/
-
-/-- A round key's words: the high one's upper half is zero. -/
-theorem append_of_hi (hi lo : BitVec 32) (h : hi >>> 16 = 0) :
-    hi ++ lo = (hi.setWidth 16 ++ lo).setWidth 64 := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro q hq
-  rw [BitVec.getLsbD_append, BitVec.getLsbD_setWidth, decide_eq_true hq, Bool.true_and, BitVec.getLsbD_append]
-  by_cases h32 : q < 32
-  · rw [ite_eq_left h32, ite_eq_left h32]
-  · rw [ite_eq_right h32, ite_eq_right h32, BitVec.getLsbD_setWidth]
-    by_cases h48 : q - 32 < 16
-    · rw [decide_eq_true h48, Bool.true_and]
-    · rw [decide_eq_false h48, Bool.false_and]
-      have := congrArg (fun x => x.getLsbD (q - 48)) h
-      simp only [BitVec.getLsbD_ushiftRight] at this
-      rw [show 16 + (q - 48) = q - 32 by omega] at this
-      exact this.trans (by simp)
-
-/-- Shifting the 64-bit integer `hi:lo` left by one, a word at a time. -/
-theorem shl_append (hi lo : BitVec 32) : (hi <<< 1 ||| lo >>> 31) ++ lo <<< 1 = (hi ++ lo) <<< 1 := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi'
-  have h64 : i < 64 := by omega
-  simp only [BitVec.getLsbD_append, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_or, BitVec.getLsbD_ushiftRight]
-  by_cases h0 : i = 0
-  · subst h0; simp
-  by_cases h32 : i < 32
-  · simp [h32, h0, h64, show i - 1 < 32 by omega]
-  by_cases h32' : i = 32
-  · subst h32'; simp
-  · have h1 : ¬ (i - 1 < 32) := by omega
-    have h2 : ¬ (31 + (i - 32) < 32) := by omega
-    simp [h32, h1, h0, h64, show i - 32 < 32 by omega, show i - 1 - 32 = i - 32 - 1 by omega,
-      show ¬ (i - 32 < 1) by omega, BitVec.getLsbD_of_ge lo (31 + (i - 32)) (by omega)]
-
-theorem shr31 (x : BitVec 32) : x >>> 31 = if x.msb then 1 else 0 := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  rw [BitVec.getLsbD_ushiftRight, BitVec.msb_eq_getLsbD_last]
-  by_cases h0 : i = 0
-  · subst h0; split <;> simp_all
-  · rw [BitVec.getLsbD_of_ge x _ (by omega)]
-    split <;> simp [BitVec.getLsbD_one, BitVec.getLsbD_zero, h0]
-
-/-- `dbl` doubles `hi:lo` (`dbl64`). -/
-theorem dbl_append (hi lo : BitVec 32) :
-    (hi <<< 1 ||| lo >>> 31) ++ (lo <<< 1 ^^^ (((0 : BitVec 32) - (hi >>> 31)) &&& (0x1b : BitVec 32))) =
-      dbl64 (hi ++ lo) := by
-  have hm : (hi ++ lo).msb = hi.msb := by
-    rw [BitVec.msb_eq_getLsbD_last, BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_append]; simp
-  have hc : ((0 : BitVec 32) - (if hi.msb then (1 : BitVec 32) else 0)) &&& (0x1b : BitVec 32) =
-      if hi.msb then 0x1b else 0 := by split <;> rfl
-  rw [dbl64, hm, ← shl_append, shr31 hi, hc]
-  split
-  · rw [show (0x1b : BitVec 64) = (0 : BitVec 32) ++ (0x1b : BitVec 32) from rfl, BitVec.xor_append]
-    simp
-  · rw [show (0 : BitVec 64) = (0 : BitVec 32) ++ (0 : BitVec 32) from rfl, BitVec.xor_append]
-    simp
-
 /-! ## The precondition -/
 
 section
