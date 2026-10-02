@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Rel
 /-!
 # ML-DSA signing on AArch64: `ExpandA` leaks only `ρ`
 
-Untrusted: everything here is checked by Lean. Two runs of `ExpandA` with
-the same `ρ` compute the same results of `vg_mldsa_rej_ntt_poly`, so they
-agree on `x24` (`RA`), and leak the same (`expandA_tr`).
+Two runs of `ExpandA` with the same `ρ` compute the same results of
+`vg_mldsa_rej_ntt_poly`, so they agree on `x24` (`RA`), and leak the same
+(`expandA_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign

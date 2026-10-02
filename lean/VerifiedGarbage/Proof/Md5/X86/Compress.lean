@@ -13,10 +13,9 @@ import Mathlib.Tactic.SplitIfs
 /-!
 # MD5 compression function on x86 (32-bit): the 64 operations
 
-Untrusted: everything here is checked by Lean. Each operation is the
-auxiliary function of its round, symbolically executed once per round
-(`fn_ok`), followed by the additions and the rotation, symbolically executed
-once for all operations (`tail_ok`).
+Each operation is the auxiliary function of its round, symbolically executed
+once per round (`fn_ok`), followed by the additions and the rotation,
+symbolically executed once for all operations (`tail_ok`).
 -/
 
 namespace VG.Proof.Md5.X86
@@ -181,8 +180,6 @@ end VG.Proof.Md5.X86
 
 /-!
 # MD5 compression function on x86 (32-bit): the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Md5.X86

@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Framework.X86.Call
 /-!
 # Streaming RC2-CBC on x86 (32-bit): the contracts the proofs use
 
-Untrusted: everything here is checked by Lean. `Spec.Rc2.cbcInitContract`
-and `Spec.Rc2.cbcUpdateContract` spelled out for x86, with the arguments
-only read (the taint analysis follows them in memory only while nothing that
-may alias them is written): `Verified.lean` moves the proofs to the shared
-contracts, which let the code write them.
+`Spec.Rc2.cbcInitContract` and `Spec.Rc2.cbcUpdateContract` spelled out for
+x86, with the arguments only read (the taint analysis follows them in memory
+only while nothing that may alias them is written): `Verified.lean` moves the
+proofs to the shared contracts, which let the code write them.
 -/
 
 namespace VG.Proof.Rc2.X86.Stream

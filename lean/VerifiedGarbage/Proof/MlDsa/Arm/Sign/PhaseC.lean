@@ -5,12 +5,12 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Iter
 /-!
 # ML-DSA signing on ARMv7: the commitment of an iteration
 
-Untrusted: everything here is checked by Lean. At the head of iteration
-`t` of the loop (`IL`): what decoding left, `κ = ℓt` at `KAP`, `814 - t` at
-`CNT`, and the `t` iterations before rejected (within `maxBounds`). Then
-`y[r]` from `ExpandMask(ρ″, κ + r)` and `ŷ[r] = NTT(y[r])` (`maskR_ok`),
-`w[i] = NTT⁻¹(∑_j Â[i, j] ŷ[j])` (`rowW_ok`), `w1Encode(HighBits(w[i]))` at
-`W1` (`w1R_ok`), and `c̃ = H(μ ‖ w1Encode(w₁), λ/4)` at `CT` (`commit_ok`).
+At the head of iteration `t` of the loop (`IL`): what decoding left, `κ = ℓt`
+at `KAP`, `814 - t` at `CNT`, and the `t` iterations before rejected (within
+`maxBounds`). Then `y[r]` from `ExpandMask(ρ″, κ + r)` and `ŷ[r] = NTT(y[r])`
+(`maskR_ok`), `w[i] = NTT⁻¹(∑_j Â[i, j] ŷ[j])` (`rowW_ok`),
+`w1Encode(HighBits(w[i]))` at `W1` (`w1R_ok`), and `c̃ = H(μ ‖ w1Encode(w₁),
+λ/4)` at `CT` (`commit_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

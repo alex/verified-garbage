@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.VLay
 /-!
 # ML-DSA on x86-64: the layers of the NTT and its inverse with `len ≥ 4`
 
-Untrusted: everything here is checked by Lean. For any butterfly code `bf`
-that does what `op` does to the doublewords of two registers (`VBflyOk`),
-and any block of the specification whose butterflies do `op` (`BlkOk`):
-four butterflies of a block (`vstep`), the `len / 4` of them of a block
-(`vblock_ok`), and the `128 / len` blocks of a layer (`vlay_ok`), on the
-polynomial at `fP`, with the zetas from the table at `sP`.
+For any butterfly code `bf` that does what `op` does to the doublewords of two
+registers (`VBflyOk`), and any block of the specification whose butterflies do
+`op` (`BlkOk`): four butterflies of a block (`vstep`), the `len / 4` of them
+of a block (`vblock_ok`), and the `128 / len` blocks of a layer (`vlay_ok`),
+on the polynomial at `fP`, with the zetas from the table at `sP`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

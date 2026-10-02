@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.RecoverCTRoot
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointDecode
 
-/-! Untrusted: canonical point decoding leaks only its public bytes. -/
+/-! Canonical point decoding leaks only its public bytes. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

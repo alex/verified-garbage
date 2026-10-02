@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Gpr
 /-!
 # Poly1305 on x86-64 with AVX-512: the integer instructions
 
-Untrusted: everything here is checked by Lean. The short blocks of integer
-instructions between the vector ones that differ from
-`vg_poly1305_blocks_avx2`'s, or after which the upper halves of the `zmm`
-registers matter: they leave the whole vector registers as they were
-(`VKeep`, unlike `Avx2.VKeep`, includes bits 511:256).
+The short blocks of integer instructions between the vector ones that differ
+from `vg_poly1305_blocks_avx2`'s, or after which the upper halves of the `zmm`
+registers matter: they leave the whole vector registers as they were (`VKeep`,
+unlike `Avx2.VKeep`, includes bits 511:256).
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx512

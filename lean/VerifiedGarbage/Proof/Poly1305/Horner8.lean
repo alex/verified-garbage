@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.Poly1305.Horner
 /-!
 # Poly1305: Horner's rule in eight lanes
 
-Untrusted: everything here is checked by Lean. As `Horner.lean`, with eight
-lanes: lane `j` holds `V_j`, a group of blocks `m₀ … m₇` makes it
-`(V_j + m_j) r⁸`, and the last group `(V_j + m_j) r^(8-j)`, after which the
-lanes are summed. With `S = r⁸ V₀ + r⁷ V₁ + … + r V₇`, the invariant is
-`S ≡ r⁸ a` for the accumulator `a` of the blocks so far.
+As `Horner.lean`, with eight lanes: lane `j` holds `V_j`, a group of blocks
+`m₀ … m₇` makes it `(V_j + m_j) r⁸`, and the last group `(V_j + m_j) r^(8-j)`,
+after which the lanes are summed. With `S = r⁸ V₀ + r⁷ V₁ + … + r V₇`, the
+invariant is `S ≡ r⁸ a` for the accumulator `a` of the blocks so far.
 -/
 
 namespace VG.Proof.Poly1305

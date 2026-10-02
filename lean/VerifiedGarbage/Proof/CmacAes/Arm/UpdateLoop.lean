@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.CmacAes.Arm.Update
 /-!
 # AES-CMAC on ARMv7: the loop of `vg_cmac_aes_update`
 
-Untrusted: everything here is checked by Lean. One block keeps the loop
-invariant (`body_ok`): the counter block is `C ⊕ Mᵢ` and the state is
-zeroed (`Cmac.chainMem4`), and the call of `vg_aes_ctr32` leaves
-`CIPH_K(C ⊕ Mᵢ)` in the state.
+One block keeps the loop invariant (`body_ok`): the counter block is `C ⊕ Mᵢ`
+and the state is zeroed (`Cmac.chainMem4`), and the call of `vg_aes_ctr32`
+leaves `CIPH_K(C ⊕ Mᵢ)` in the state.
 -/
 
 namespace VG.Proof.CmacAes.Arm

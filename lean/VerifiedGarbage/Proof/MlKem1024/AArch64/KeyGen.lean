@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlKem1024.AArch64.KgEnd
 /-!
 # ML-KEM-1024 on AArch64: `vg_mlkem1024_keygen`
 
-Untrusted: everything here is checked by Lean. Correctness is the prologue
-and `G` (`a_ok`), the matrix (`b_ok`), then `ŝ`, `ê`, `t̂` and the end
-(`c_ok`); the result is 1 exactly when every `SampleNTT` finishes within 280
-iterations (`post_of`).
+Correctness is the prologue and `G` (`a_ok`), the matrix (`b_ok`), then `ŝ`,
+`ê`, `t̂` and the end (`c_ok`); the result is 1 exactly when every `SampleNTT`
+finishes within 280 iterations (`post_of`).
 
 Constant time up to `ρ`, relating two runs (`RelCT`) from states that agree
 on the pointers and on `ρ`: the prologue and `G`, and everything after the

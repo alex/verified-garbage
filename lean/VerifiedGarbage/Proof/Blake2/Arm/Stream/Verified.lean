@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # Streaming BLAKE2 on ARMv7: `Verified`
 
-Untrusted: everything here is checked by Lean. The streaming functions are
-`Verified` against any contract their ARMv7 contracts (`initArm`,
-`updateArm`, `finalizeArm`) imply, for any parameter set `P` with `Ok P`
-and, for `update` and `finalize`, any compression function verified against
-`compressArm P` (`CalleeOk`). `init`'s code holds the initial hash value as
-immediates, so its taint check is made for each parameter set:
+The streaming functions are `Verified` against any contract their ARMv7
+contracts (`initArm`, `updateArm`, `finalizeArm`) imply, for any parameter set
+`P` with `Ok P` and, for `update` and `finalize`, any compression function
+verified against `compressArm P` (`CalleeOk`). `init`'s code holds the initial
+hash value as immediates, so its taint check is made for each parameter set:
 `init_check_s` and `init_check_b`. The implications of the shared contracts
 are in `Implies.lean` (`updateS_implies`, …).
 -/

@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.MlDsa.Pack.Mem
 /-!
 # ML-DSA on 32-bit ARM: the loops over the groups
 
-Untrusted: everything here is checked by Lean. `packLoop_ok`: the loop of
-`packBody` writes the packing of the values of the 256 coefficients at
-`f`; `unpackLoop_ok`: the loop of `unpackBody` writes, for each field of
-the bytes at `v`, `fin`'s coefficient of it. Both for any width and any
-`ld` or `fin`, from the group lemmas of `Stream.lean`, and for any state
-that permits the accesses: they change only the output, the registers of
+`packLoop_ok`: the loop of `packBody` writes the packing of the values of the
+256 coefficients at `f`; `unpackLoop_ok`: the loop of `unpackBody` writes, for
+each field of the bytes at `v`, `fin`'s coefficient of it. Both for any width
+and any `ld` or `fin`, from the group lemmas of `Stream.lean`, and for any
+state that permits the accesses: they change only the output, the registers of
 `packRegs` or `unpackRegs` and the flags.
 -/
 

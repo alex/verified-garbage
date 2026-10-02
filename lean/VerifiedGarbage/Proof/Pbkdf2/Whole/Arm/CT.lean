@@ -4,16 +4,15 @@ import VerifiedGarbage.Proof.Framework.Arm.ArgTaint
 /-!
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: constant time
 
-Untrusted: everything here is checked by Lean. As on x86
-(`Proof/Pbkdf2/Whole/X86/CT.lean`): the pieces of code between the calls are
-checked by the taint analysis (`Checks`, which the kernel evaluates for each
-hash function), with the stack arguments and the registers holding pointers,
-lengths and, in the loop over the blocks, the bytes written public
+As on x86 (`Proof/Pbkdf2/Whole/X86/CT.lean`): the pieces of code between the
+calls are checked by the taint analysis (`Checks`, which the kernel evaluates
+for each hash function), with the stack arguments and the registers holding
+pointers, lengths and, in the loop over the blocks, the bytes written public
 (`piece`); the calls are related by their contracts (`init_rel`, `upd_rel`,
-`fin_rel`, `hi_rel`, `hf_rel`, `it_rel`), whose public arguments are the
-same in two runs with the same public arguments (`PubEq`). The branches
-(whether the password is hashed, and the loop over the blocks) depend only
-on the lengths.
+`fin_rel`, `hi_rel`, `hf_rel`, `it_rel`), whose public arguments are the same
+in two runs with the same public arguments (`PubEq`). The branches (whether
+the password is hashed, and the loop over the blocks) depend only on the
+lengths.
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.Arm

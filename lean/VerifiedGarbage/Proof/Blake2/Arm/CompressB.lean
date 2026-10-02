@@ -9,11 +9,11 @@ import VerifiedGarbage.Spec.Blake2.Contract
 /-!
 # BLAKE2b compression function on ARMv7: the whole function
 
-Untrusted: everything here is checked by Lean. The loop is proven against
-`Proof.Blake2.compressArm Spec.Blake2.b` (`compress_verified'`), which the
-streaming functions use for their calls; `compress_verified` moves it to the
-shared contract of `Spec/Blake2/Contract.lean`. Constant time is the taint
-analysis on the literal code (`LitB.lean`).
+The loop is proven against `Proof.Blake2.compressArm Spec.Blake2.b`
+(`compress_verified'`), which the streaming functions use for their calls;
+`compress_verified` moves it to the shared contract of
+`Spec/Blake2/Contract.lean`. Constant time is the taint analysis on the
+literal code (`LitB.lean`).
 -/
 
 namespace VG.Proof.Blake2.ArmB

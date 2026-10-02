@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.X86.Env
 /-!
 # X448 on x86 (32-bit): memory frames
 
-Untrusted: everything here is checked by Lean. Scratch-only writes preserve
-the cdecl arguments, which remain on the unchanged stack.
+Scratch-only writes preserve the cdecl arguments, which remain on the
+unchanged stack.
 -/
 
 namespace VG.Proof.X448.X86

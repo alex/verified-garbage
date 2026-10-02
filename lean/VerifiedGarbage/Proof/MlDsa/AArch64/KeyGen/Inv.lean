@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.Framework.RelCTAssoc
 /-!
 # ML-DSA key generation on AArch64: what holds throughout, and pieces
 
-Untrusted: everything here is checked by Lean. What holds of the state
-throughout (`KC`: `Top`, and the seed `ξ` at `seed`), two runs in the
-layout (`Two`), and a piece of code (`Piece p S I J c`): it takes each run
-from `I` to `J` (`ok`), and two runs related by `I` leak the same (`tr`).
-Pieces compose (`Piece.seq`, `Piece.seqR`), which proves correctness and
-constant time together.
+What holds of the state throughout (`KC`: `Top`, and the seed `ξ` at `seed`),
+two runs in the layout (`Two`), and a piece of code (`Piece p S I J c`): it
+takes each run from `I` to `J` (`ok`), and two runs related by `I` leak the
+same (`tr`). Pieces compose (`Piece.seq`, `Piece.seqR`), which proves
+correctness and constant time together.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

@@ -6,16 +6,15 @@ import VerifiedGarbage.Spec.Pbkdf2.Contract
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on x86 (32-bit)
 
-Untrusted: everything here is checked by Lean. The compressor-dependent
-correctness proof is generic in `Proof/Pbkdf2/Sha256/X86.lean`; this module keeps
-the shared prologue, epilogue, contract and scalar constant-time facts.
-Constant time is proven by the taint analysis: the argument
-words holding `t` and `scratch` are the bases of the two writable regions,
-and the code keeps them in `ebx` and `ebp` across the calls, so the
-registers `vg_sha256_compress` saves in its scratch space and restores are
-known to keep their public values. The proof is written against a contract
-under which the code only reads its arguments (which it does), and moved to
-the shared contract with `Verified.narrowTo`.
+The compressor-dependent correctness proof is generic in
+`Proof/Pbkdf2/Sha256/X86.lean`; this module keeps the shared prologue, epilogue,
+contract and scalar constant-time facts. Constant time is proven by the taint
+analysis: the argument words holding `t` and `scratch` are the bases of the two
+writable regions, and the code keeps them in `ebx` and `ebp` across the calls,
+so the registers `vg_sha256_compress` saves in its scratch space and restores
+are known to keep their public values. The proof is written against a contract
+under which the code only reads its arguments (which it does), and moved to the
+shared contract with `Verified.narrowTo`.
 -/
 
 namespace VG.Proof.Pbkdf2.X86

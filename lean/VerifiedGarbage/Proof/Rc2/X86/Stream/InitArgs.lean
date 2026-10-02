@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Rc2.X86.Stream.InitPre
 /-!
 # Streaming RC2-CBC on x86 (32-bit): the IV and the key expansion's arguments
 
-Untrusted: everything here is checked by Lean. With valid lengths, `init`
-copies the IV to `ctx + 128`, saves our caller's `ebx` and `esi` in
-`scratch[512..520)`, and loads the arguments of `vg_rc2_expand_key`
-(`initArgs_ok`).
+With valid lengths, `init` copies the IV to `ctx + 128`, saves our caller's
+`ebx` and `esi` in `scratch[512..520)`, and loads the arguments of
+`vg_rc2_expand_key` (`initArgs_ok`).
 -/
 
 namespace VG.Proof.Rc2.X86.Stream.Init

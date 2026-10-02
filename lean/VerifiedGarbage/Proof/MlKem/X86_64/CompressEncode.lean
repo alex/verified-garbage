@@ -7,8 +7,8 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86-64: `vg_mlkem_compress_encode`
 
-Untrusted: everything here is checked by Lean. The loop is proven once for
-every width (`CE.loop_ok`), and the function by its three cases.
+The loop is proven once for every width (`CE.loop_ok`), and the function by
+its three cases.
 -/
 
 namespace VG.Proof.MlKem.X86_64

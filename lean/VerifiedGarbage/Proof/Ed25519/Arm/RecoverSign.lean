@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.RecoverAdjust
 
-/-! Untrusted: reject negative zero and otherwise return the selected sign. -/
+/-! Reject negative zero and otherwise return the selected sign. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.YLay
 /-!
 # ML-DSA on x86-64: the layers of the NTT and its inverse with `len` = 2 and 1 on AVX2 registers
 
-Untrusted: everything here is checked by Lean. Each iteration of these
-layers loads sixteen coefficients, from `j`, into `ymm0` and `ymm1` (or
-`ymm2`), and in each lane `l` runs `vlay2`'s or `vlay1`'s gathering,
-butterflies and interleaving back (`Ntt.lean`) on the four coefficients
-from `j + 4l` and the four from `j + 8 + 4l` (`core2_ok`, `core1_ok`), with
-the zetas of their blocks in lane `l` of `ymm13` (`yzetaS_ok`, `yzeta8_ok`,
-`yzeta8R_ok`); `ystep21` is an iteration for any such code, and `ylay2_ok`
-and `ylay1_ok` the layers.
+Each iteration of these layers loads sixteen coefficients, from `j`, into
+`ymm0` and `ymm1` (or `ymm2`), and in each lane `l` runs `vlay2`'s or
+`vlay1`'s gathering, butterflies and interleaving back (`Ntt.lean`) on the
+four coefficients from `j + 4l` and the four from `j + 8 + 4l` (`core2_ok`,
+`core1_ok`), with the zetas of their blocks in lane `l` of `ymm13`
+(`yzetaS_ok`, `yzeta8_ok`, `yzeta8R_ok`); `ystep21` is an iteration for any
+such code, and `ylay2_ok` and `ylay1_ok` the layers.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

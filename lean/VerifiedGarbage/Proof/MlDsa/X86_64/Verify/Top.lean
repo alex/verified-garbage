@@ -5,13 +5,12 @@ import VerifiedGarbage.Spec.MlDsa.Contract
 /-!
 # ML-DSA verification on x86-64: the contract, the layout and the invariant
 
-Untrusted: everything here is checked by Lean. The precondition of the
-shared contract `verifyContract p X86_64.abi 32`, spelled out (`VPre`); the
-layout of the function's buffers (`pk`, `mu`, `sig` read in `rbp`, `r12`,
-`r13`; `scratch` written, in `rbx`: `vR p`, `vW p`); what holds throughout
-(`T`: the permissions and stack pointer of entry, the pointers, the caller's
-callee-saved registers saved in `scratch`, the return address and the
-inputs); the prologue and the epilogue.
+The precondition of the shared contract `verifyContract p X86_64.abi 32`,
+spelled out (`VPre`); the layout of the function's buffers (`pk`, `mu`, `sig`
+read in `rbp`, `r12`, `r13`; `scratch` written, in `rbx`: `vR p`, `vW p`);
+what holds throughout (`T`: the permissions and stack pointer of entry, the
+pointers, the caller's callee-saved registers saved in `scratch`, the return
+address and the inputs); the prologue and the epilogue.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

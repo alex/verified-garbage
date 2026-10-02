@@ -5,9 +5,9 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Sample4
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, the layout
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (`sample4K`), what holds between the pieces of the
-function (`Env`, relative to the entry state `σ`), and the prologue.
+The contract the proof is written against (`sample4K`), what holds between the
+pieces of the function (`Env`, relative to the entry state `σ`), and the
+prologue.
 -/
 
 namespace VG.Proof.MlKem.X86_64

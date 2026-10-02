@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Atoms
 /-!
 # Bitsliced AES: the layout and the round transformations
 
-Untrusted: everything here is checked by Lean.
-
 Four AES states in eight 64-bit words, as in BearSSL's `aes_ct64` (Thomas
 Pornin, MIT licence): bit `j` of byte `i = r + 4c` of block `b` is bit
 `pos b i = 16r + 4c + b` of word `j`. `BsRel Q S` says the words `Q`
@@ -194,8 +192,6 @@ section
 
 /-!
 # The linear layers of bitsliced AES, as atoms
-
-Untrusted: everything here is checked by Lean.
 
 What each linear layer of the bitsliced AES computes, bit by bit, on input
 words given as atoms (`Framework/Bitslice/Atoms.lean`; bit `t` of input

@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_decode_decompress`
 
-Untrusted: everything here is checked by Lean. A loop for each width `d`,
-whose body is symbolically executed once for any pointers (`body4_ok`,
-`body10_ok`; for `d = 1`, each of the eight bits once for any bit,
-`bit_ok`). The invariant says which coefficients are written (`Inv`); their
-values are `decompress_val` of the fields of `decodeDecompress1`,
-`decodeDecompress4_even`, … .
+A loop for each width `d`, whose body is symbolically executed once for any
+pointers (`body4_ok`, `body10_ok`; for `d = 1`, each of the eight bits once
+for any bit, `bit_ok`). The invariant says which coefficients are written
+(`Inv`); their values are `decompress_val` of the fields of
+`decodeDecompress1`, `decodeDecompress4_even`, … .
 -/
 
 namespace VG.Proof.MlKem.Arm.Decompress

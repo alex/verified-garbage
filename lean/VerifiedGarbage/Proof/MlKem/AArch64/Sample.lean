@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.MlKem.AArch64.MemTaint
 /-!
 # ML-KEM on AArch64: `vg_mlkem_sample_ntt`
 
-Untrusted: everything here is checked by Lean. `sampleFull`, from any state
-satisfying the precondition, is `phaseA_ok` (the SHAKE128 output, `a` zero)
-followed by `loop_ok` (`full_ok`). `sampleFast` is the same with 504 bytes
-and 168 iterations (`fast_ok`); if they leave 256 coefficients, they are
-`SampleNTT`'s (`sampleNTT_of_full`), and otherwise `sampleFull` runs from
-the original arguments, which `sampleRetry` restores (`retry_ok`).
+`sampleFull`, from any state satisfying the precondition, is `phaseA_ok` (the
+SHAKE128 output, `a` zero) followed by `loop_ok` (`full_ok`). `sampleFast` is
+the same with 504 bytes and 168 iterations (`fast_ok`); if they leave 256
+coefficients, they are `SampleNTT`'s (`sampleNTT_of_full`), and otherwise
+`sampleFull` runs from the original arguments, which `sampleRetry` restores
+(`retry_ok`).
 
 Constant time up to the seed, relating two runs (`RelCT`) from states that
 agree on the pointers and on the seed: up to each loop, the taint analysis

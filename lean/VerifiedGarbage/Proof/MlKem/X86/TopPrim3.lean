@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.MlKem.X86.DecodeDecompress
 /-!
 # ML-KEM on x86 (32-bit): calls of `vg_mlkem_sample_ntt`, `vg_mlkem_compress_encode` and `vg_mlkem_decode_decompress`
 
-Untrusted: everything here is checked by Lean. As `TopPrim.lean`.
-`vg_mlkem_sample_ntt` returns a value, so its arguments are popped into
-`ecx` (`callRet`), and its public data includes its seed: two runs agree on
-it when the caller's seeds agree (`hseed`).
+As `TopPrim.lean`. `vg_mlkem_sample_ntt` returns a value, so its arguments are
+popped into `ecx` (`callRet`), and its public data includes its seed: two runs
+agree on it when the caller's seeds agree (`hseed`).
 -/
 
 namespace VG.Proof.MlKem.X86.Top

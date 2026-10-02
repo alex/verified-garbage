@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.AArch64.Power
 import VerifiedGarbage.Proof.Ed25519.AArch64.Field
 import VerifiedGarbage.Proof.X25519.Invert
 
-/-! Untrusted: compositional field exponentiation and fixed-count squaring loops. -/
+/-! Compositional field exponentiation and fixed-count squaring loops. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 open VG.Proof.X25519 (sqn)

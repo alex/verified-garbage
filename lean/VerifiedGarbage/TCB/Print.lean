@@ -22,7 +22,7 @@ binary literal in Intel syntax.
 
 Together with each ISA's instruction printer this is part of the trusted
 base; it is small enough to check by inspection and is covered by the golden
-tests in `Proof/Framework/PrintTest.lean`.
+tests in `VerifiedGarbageTest/Print.lean`.
 -/
 
 namespace VG

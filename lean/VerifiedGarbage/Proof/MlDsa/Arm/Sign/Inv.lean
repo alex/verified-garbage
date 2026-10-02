@@ -3,12 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.Blocks
 /-!
 # ML-DSA signing on ARMv7: what holds of the state between the pieces
 
-Untrusted: everything here is checked by Lean. The inputs of the function
-entered in `σ` (`skOf`, `muOf`, `rndOf`); what holds of every state of it
-(`St`: `Top`, the layout, and the inputs where they were), kept by each
-piece that writes only where `stChk` allows (`St.step`); and polynomials in
-slots of the working space (`Pl`), in families of consecutive slots
-(`Fam`), kept by pieces that write apart from them (`Fam.keep`).
+The inputs of the function entered in `σ` (`skOf`, `muOf`, `rndOf`); what
+holds of every state of it (`St`: `Top`, the layout, and the inputs where they
+were), kept by each piece that writes only where `stChk` allows (`St.step`);
+and polynomials in slots of the working space (`Pl`), in families of
+consecutive slots (`Fam`), kept by pieces that write apart from them
+(`Fam.keep`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

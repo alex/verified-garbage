@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.Mem
 /-!
 # Taint tracking over memory both runs agree on (AArch64)
 
-Untrusted: everything here is checked by Lean.
-
 The taint analysis (`Proof/Framework/AArch64/Taint.lean`) treats memory as
 secret. `memTaint` is one for code that runs with permissions only on
 memory whose bytes two runs agree on (`MemEq`): every load it can make is

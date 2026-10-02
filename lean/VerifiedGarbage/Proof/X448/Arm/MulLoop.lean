@@ -4,8 +4,7 @@ import VerifiedGarbage.Proof.X448.Arm.Row
 /-!
 # X448 on ARMv7: the multiplication loop
 
-Untrusted: everything here is checked by Lean. All 28 rows terminate at a
-public counter, producing 56 bounded product limbs.
+All 28 rows terminate at a public counter, producing 56 bounded product limbs.
 -/
 
 namespace VG.Proof.X448.Arm

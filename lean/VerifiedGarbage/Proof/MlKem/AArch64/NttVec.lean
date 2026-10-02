@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.MlKem.AArch64.Common
 /-!
 # ML-KEM on AArch64: polynomials in vectors
 
-Untrusted: everything here is checked by Lean. Four coefficients of a
-polynomial loaded into a vector (`lanes_load`) and two vectors stored into it
-(`polyIs_write16x2`). The butterflies of a block of the NTT and its inverse
-some at a time are in `Proof/MlKem/Ntt.lean` (`nttBlockN_add`,
-`nttBlockN_get'`).
+Four coefficients of a polynomial loaded into a vector (`lanes_load`) and two
+vectors stored into it (`polyIs_write16x2`). The butterflies of a block of the
+NTT and its inverse some at a time are in `Proof/MlKem/Ntt.lean`
+(`nttBlockN_add`, `nttBlockN_get'`).
 -/
 
 namespace VG.Proof.MlKem.AArch64

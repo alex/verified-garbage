@@ -5,11 +5,10 @@ import VerifiedGarbage.Impl.MlDsa.X86.Arith.Ntt
 /-!
 # ML-DSA on x86 (32-bit): the butterflies
 
-Untrusted: everything here is checked by Lean. With `esi` at coefficient `j`
-and `edi` at coefficient `j + len` of a polynomial `G` stored at `p` and
-`ebp` at the zeta `z` in Montgomery form (`z · 2³² mod q`, `BIn`),
-`bflyBody` leaves `bfly G j len z` there and `ibflyBody` leaves
-`bflyInv G j len z` (`BOut`), both advancing `esi` and `edi` by 4 and
+With `esi` at coefficient `j` and `edi` at coefficient `j + len` of a
+polynomial `G` stored at `p` and `ebp` at the zeta `z` in Montgomery form (`z
+· 2³² mod q`, `BIn`), `bflyBody` leaves `bfly G j len z` there and `ibflyBody`
+leaves `bflyInv G j len z` (`BOut`), both advancing `esi` and `edi` by 4 and
 counting `ecx` down.
 -/
 

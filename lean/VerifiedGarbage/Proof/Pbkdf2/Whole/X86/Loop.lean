@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Block
 /-!
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: the rest of a block, the loop, and `pbkdf2`
 
-Untrusted: everything here is checked by Lean. A step copies `U₁` into
-`T`, runs `iterate` for the rest of the chain, copies as much of `T` as the
-output still needs (`copyR_ok`, a byte copy of a length in a register), and
-moves on to the next block; after the last one, `out` holds the derived key.
+A step copies `U₁` into `T`, runs `iterate` for the rest of the chain, copies
+as much of `T` as the output still needs (`copyR_ok`, a byte copy of a length
+in a register), and moves on to the next block; after the last one, `out`
+holds the derived key.
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.X86

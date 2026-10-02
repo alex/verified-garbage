@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.KernelRfl
 /-!
 # ML-DSA key generation on x86 (32-bit): the setting
 
-Untrusted: everything here is checked by Lean. Key generation is proven for
-any implementations of the primitives it calls that are verified against
-their contracts (`PrimsOk`), as ML-KEM's top-level functions on x86
-(`Proof/MlKem/X86/`): the contract's precondition gives the layout of the
-arguments (`pre_of`), and its public data the pointers and what key
-generation may leak, as bytes (`lkK`, `pub_of`). `ξ` gives `(ρ, ρ′, K)`
+Key generation is proven for any implementations of the primitives it calls
+that are verified against their contracts (`PrimsOk`), as ML-KEM's top-level
+functions on x86 (`Proof/MlKem/X86/`): the contract's precondition gives the
+layout of the arguments (`pre_of`), and its public data the pointers and what
+key generation may leak, as bytes (`lkK`, `pub_of`). `ξ` gives `(ρ, ρ′, K)`
 (`hxOf`), which the body keeps in `scratch` (`KB`).
 -/
 

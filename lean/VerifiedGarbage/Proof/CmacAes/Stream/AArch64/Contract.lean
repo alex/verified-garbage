@@ -5,10 +5,9 @@ import VerifiedGarbage.Impl.CmacAes.Stream.AArch64
 /-!
 # Streaming AES-CMAC on AArch64: the contracts the proofs are written against
 
-Untrusted: everything here is checked by Lean. The artifacts' contracts are
-the shared ones of `Spec/Cmac/Contract.lean`, which imply these
-(`Verified.lean`). A call (`bl`) stores nothing in memory, so no stack is
-used.
+The artifacts' contracts are the shared ones of `Spec/Cmac/Contract.lean`,
+which imply these (`Verified.lean`). A call (`bl`) stores nothing in memory,
+so no stack is used.
 -/
 
 namespace VG.Proof.CmacAes.Stream.AArch64

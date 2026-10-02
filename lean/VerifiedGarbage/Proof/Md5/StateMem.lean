@@ -4,9 +4,8 @@ import VerifiedGarbage.Spec.Md5
 /-!
 # MD5: the hash value in memory
 
-Untrusted: everything here is checked by Lean. The hash value as consecutive
-32-bit words at an address (`stateAt`, `writeState`), and offsets into a
-region, independently of any target.
+The hash value as consecutive 32-bit words at an address (`stateAt`,
+`writeState`), and offsets into a region, independently of any target.
 -/
 
 namespace VG.Proof.Md5.StateMem

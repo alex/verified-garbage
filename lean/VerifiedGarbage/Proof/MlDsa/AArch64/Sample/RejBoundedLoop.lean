@@ -5,13 +5,12 @@ import VerifiedGarbage.Impl.MlDsa.AArch64.Sample.RejBounded
 /-!
 # ML-DSA on AArch64: the loop of `vg_mldsa_rej_bounded_poly`
 
-Untrusted: everything here is checked by Lean. The coefficient of a
-half-byte, computed without a branch (`rbVal`), is the one of
-`CoeffFromHalfByte`, modulo `q`, for every half-byte it accepts (`rbF_eq`,
-by evaluation); so a try does what `hbTry` does (`try_ok`), storing a
-coefficient either way and counting it only if it is accepted, and an
-iteration what `rbStep` does (`step_ok`). The loop reads only the output,
-and writes only `a`.
+The coefficient of a half-byte, computed without a branch (`rbVal`), is the
+one of `CoeffFromHalfByte`, modulo `q`, for every half-byte it accepts
+(`rbF_eq`, by evaluation); so a try does what `hbTry` does (`try_ok`), storing
+a coefficient either way and counting it only if it is accepted, and an
+iteration what `rbStep` does (`step_ok`). The loop reads only the output, and
+writes only `a`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sample.RejBounded

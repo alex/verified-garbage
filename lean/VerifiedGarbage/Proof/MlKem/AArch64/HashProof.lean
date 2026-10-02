@@ -6,14 +6,13 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Top
 /-!
 # ML-KEM-768 on AArch64: the hash routine
 
-Untrusted: everything here is checked by Lean. `hash` (`Impl/MlKem/AArch64/Top.lean`)
-computes the sponge of the concatenation of its input pieces, and writes
-consecutive output to its output pieces (`hash_ok`): from the all-zero state
-(`repr_nil`), each `absorb` continues the message from the position the
-previous one returned, the padding, and each `squeeze` continues the output.
-It changes only the Keccak state and working space, the outputs, the 16
-bytes below the stack pointer, and registers that are not callee-saved (or
-`x30`).
+`hash` (`Impl/MlKem/AArch64/Top.lean`) computes the sponge of the
+concatenation of its input pieces, and writes consecutive output to its output
+pieces (`hash_ok`): from the all-zero state (`repr_nil`), each `absorb`
+continues the message from the position the previous one returned, the
+padding, and each `squeeze` continues the output. It changes only the Keccak
+state and working space, the outputs, the 16 bytes below the stack pointer,
+and registers that are not callee-saved (or `x30`).
 -/
 
 namespace VG.Proof.MlKem.AArch64

@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Cmac.Mem
 /-!
 # CMAC: blocks in memory under frames
 
-Untrusted: everything here is checked by Lean.
-
 What the implementations' stores of 64-bit words leave in memory, on any
 target: the bytes outside a frame are unchanged (`bytesAt_frame`), and the
 memory after forming a counter block `C = P ⊕ Q` and zeroing `P`

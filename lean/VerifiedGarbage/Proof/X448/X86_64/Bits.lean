@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.X448.Bytes
 /-!
 # X448 on x86-64: the bits of the scalar
 
-Untrusted: everything here is checked by Lean. `bits` stores bit `j` of
-byte `i` of the scalar at byte `8i + j` of `BITS`, then the clamped bits;
-so byte `t` of `BITS` is bit `t` of the decoded scalar (`scalar_bit`).
+`bits` stores bit `j` of byte `i` of the scalar at byte `8i + j` of `BITS`,
+then the clamped bits; so byte `t` of `BITS` is bit `t` of the decoded scalar
+(`scalar_bit`).
 -/
 
 namespace VG.Proof.X448.X86_64

@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # ML-DSA verification on x86-64: the sponge leaks only addresses
 
-Untrusted: everything here is checked by Lean. Two runs in the same layout
-(`LRel`: layouts whose registers and stack pointer agree) stay in it across
-code that keeps the layout (`LRel.step`), and `hash2` leaks the same in both
-(`hash2_tr`).
+Two runs in the same layout (`LRel`: layouts whose registers and stack pointer
+agree) stay in it across code that keeps the layout (`LRel.step`), and `hash2`
+leaks the same in both (`hash2_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

@@ -8,10 +8,10 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function: lemmas shared by every target
 
-Untrusted: everything here is checked by Lean. Addresses and regions, the
-bytes `init`'s loops write, and the streaming states of SHA-1, MD5 and the
-SHA-512 family moved between addresses, about memory alone: every target's
-proof uses them, so they import no target's ISA or proofs.
+Addresses and regions, the bytes `init`'s loops write, and the streaming
+states of SHA-1, MD5 and the SHA-512 family moved between addresses, about
+memory alone: every target's proof uses them, so they import no target's ISA
+or proofs.
 -/
 
 namespace VG.Proof.Hmac.Generic.Common

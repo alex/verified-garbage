@@ -12,8 +12,6 @@ section
 
 /-!
 # ChaCha20 block function on x86 (32-bit): the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20.X86
@@ -182,8 +180,6 @@ end
 
 /-!
 # ChaCha20 block function on x86 (32-bit): the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20
@@ -191,11 +187,9 @@ namespace VG.Proof.ChaCha20
 open Spec.ChaCha20
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86 (32-bit) contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`,
-whose arguments are on the stack (cdecl): writes `block` of the state at
-`state` to the first 16 words of `buf`.
+/-- X86 (32-bit) contract for `vg_chacha20_block(state: *const [u32; 16], buf:
+*mut [u32; 64])`, whose arguments are on the stack (cdecl): writes `block` of
+the state at `state` to the first 16 words of `buf`.
 
 The same function and Rust signature on every target: the code may
 read the two arguments (8 bytes above the return address) and `state` (64

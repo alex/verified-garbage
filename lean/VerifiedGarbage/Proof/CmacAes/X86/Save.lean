@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.CmacAes.X86.Call
 /-!
 # AES-CMAC on x86: saving registers and reading the stack arguments
 
-Untrusted: everything here is checked by Lean. Weakest preconditions of
-the stores that save registers in the scratch buffer (`saveList_ok`), of
-the loads that restore them (`restoreList_ok`), and of instructions with a
-stack argument as their source (`wp_arg`, `wp_addArg`).
+Weakest preconditions of the stores that save registers in the scratch buffer
+(`saveList_ok`), of the loads that restore them (`restoreList_ok`), and of
+instructions with a stack argument as their source (`wp_arg`, `wp_addArg`).
 -/
 
 namespace VG.Proof.CmacAes.X86

@@ -3,18 +3,17 @@ import VerifiedGarbage.Proof.Sha256.Stream
 /-!
 # Streaming Merkle–Damgård hash functions: facts about the specification
 
-Untrusted: everything here is checked by Lean. MD5, SHA-1, SHA-256 and the
-SHA-512 family share one streaming design: the state is the hash value
-followed by a one-block buffer, and `finalize` appends `0x80`, zeros and the
-message length. `Md B N L` is what their streaming proofs need of one of
-them: its block size `B`, the size `N` of its stored hash value (where the
-buffer starts in the state), the size `L` of its length field, and its
-compression function, padding and digest. The hash functions' own `Repr`,
-`pad` and `hash` (in `Spec/`) are these definitions for their instance, by
-unfolding. How `Repr` evolves as bytes are buffered and blocks compressed, and
-how the padded message decomposes, is proven here once for all of them.
-(Memory written byte by byte is `Proof.Sha256.Stream.writeBytes`, which does
-not depend on the hash function.)
+MD5, SHA-1, SHA-256 and the SHA-512 family share one streaming design: the
+state is the hash value followed by a one-block buffer, and `finalize` appends
+`0x80`, zeros and the message length. `Md B N L` is what their streaming
+proofs need of one of them: its block size `B`, the size `N` of its stored
+hash value (where the buffer starts in the state), the size `L` of its length
+field, and its compression function, padding and digest. The hash functions'
+own `Repr`, `pad` and `hash` (in `Spec/`) are these definitions for their
+instance, by unfolding. How `Repr` evolves as bytes are buffered and blocks
+compressed, and how the padded message decomposes, is proven here once for all
+of them. (Memory written byte by byte is `Proof.Sha256.Stream.writeBytes`,
+which does not depend on the hash function.)
 -/
 
 namespace VG.Proof.MdStream

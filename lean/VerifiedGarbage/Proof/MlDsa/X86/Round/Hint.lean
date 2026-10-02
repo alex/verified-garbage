@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.X86.Round.HintCore
 /-!
 # ML-DSA on x86 (32-bit): the loops of `vg_mldsa_make_hint` and `vg_mldsa_use_hint`
 
-Untrusted: everything here is checked by Lean. Both store the end of their
-output, `out + 1024`, in the argument slot of `γ₂`, compare `γ₂` with
-`(q - 1)/32` (`hintInit`), and run, for the value they found, a loop of a
-core (`Core2`, `HintCore.lean`) and `endTail`, which stores `eax` to the
-output at `ebp` and compares the advanced `ebp` with the end (`hint_step`).
-The loop is proven once for both (`hint_piece`); `makeHint` also counts the
-values in `ecx` (`cnt`).
+Both store the end of their output, `out + 1024`, in the argument slot of
+`γ₂`, compare `γ₂` with `(q - 1)/32` (`hintInit`), and run, for the value they
+found, a loop of a core (`Core2`, `HintCore.lean`) and `endTail`, which stores
+`eax` to the output at `ebp` and compares the advanced `ebp` with the end
+(`hint_step`). The loop is proven once for both (`hint_piece`); `makeHint`
+also counts the values in `ecx` (`cnt`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Round

@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.CmacAes.Arm.Finalize
 /-!
 # AES-CMAC on ARMv7: `vg_cmac_aes_finalize` is correct
 
-Untrusted: everything here is checked by Lean. Before the call, the
-counter block holds `Mₙ ⊕ C`, for the last block `Mₙ` of §6.2 step 4 and the
-chaining value `C` at `state`, and the state is zeroed; the call leaves
-`CIPH_K(C ⊕ Mₙ)` there, the MAC (`Cmac.macFull_split`).
+Before the call, the counter block holds `Mₙ ⊕ C`, for the last block `Mₙ` of
+§6.2 step 4 and the chaining value `C` at `state`, and the state is zeroed;
+the call leaves `CIPH_K(C ⊕ Mₙ)` there, the MAC (`Cmac.macFull_split`).
 -/
 
 namespace VG.Proof.CmacAes.Arm

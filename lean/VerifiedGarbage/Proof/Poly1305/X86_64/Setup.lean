@@ -18,11 +18,11 @@ section
 /-!
 # Poly1305 on x86-64: the arithmetic of a block
 
-Untrusted: everything here is checked by Lean. The numbers the code computes
-while absorbing a block (see `Impl/Poly1305/X86_64.lean`), as natural
-numbers: the accumulator `h = h0 + 2⁶⁴ h1 + 2¹²⁸ h2`, the clamped
-`r = r0 + 2⁶⁴ r1` with `r1 = 4 q`, and `s1 = 5 q`. The products are named
-(`h0 * r0`, …) so that `omega` treats them as atoms.
+The numbers the code computes while absorbing a block (see
+`Impl/Poly1305/X86_64.lean`), as natural numbers: the accumulator `h = h0 +
+2⁶⁴ h1 + 2¹²⁸ h2`, the clamped `r = r0 + 2⁶⁴ r1` with `r1 = 4 q`, and `s1 = 5
+q`. The products are named (`h0 * r0`, …) so that `omega` treats them as
+atoms.
 -/
 
 open VG.PowLit
@@ -42,9 +42,8 @@ end
 /-!
 # Poly1305 on x86-64: the steps of a block
 
-Untrusted: everything here is checked by Lean. Each lemma runs a few
-instructions symbolically and states their effect on the numbers in the
-registers.
+Each lemma runs a few instructions symbolically and states their effect on the
+numbers in the registers.
 -/
 
 open VG.PowLit
@@ -216,8 +215,6 @@ section
 
 /-!
 # Poly1305 on x86-64: absorbing a block
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -394,8 +391,6 @@ section
 
 /-!
 # Poly1305 on x86-64: the final reduction
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -522,8 +517,6 @@ section
 
 /-!
 # Poly1305 on x86-64: the state in memory, and loading the key
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -668,8 +661,6 @@ end
 
 /-!
 # Poly1305 on x86-64: saving registers, loading the key and the accumulator
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -679,9 +670,7 @@ namespace VG.Proof.Poly1305
 open Spec.Poly1305
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
+/-- `vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
 def initX86_64 : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 128⟩
@@ -692,9 +681,8 @@ def initX86_64 : Contract X86_64.isa where
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n: usize)`. -/
+/-- `vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n:
+usize)`. -/
 def blocksX86_64 : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 128⟩
@@ -707,12 +695,10 @@ def blocksX86_64 : Contract X86_64.isa where
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], …)`:
-only `count mod 16`, the number of bytes buffered, matters, and it returns
-with `rcx = out`. The state and `out` must be writable, and it may be
-permitted to write other regions (which it does not). -/
+/-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16],
+…)`: only `count mod 16`, the number of bytes buffered, matters, and it returns
+with `rcx = out`. The state and `out` must be writable, and it may be permitted
+to write other regions (which it does not). -/
 def finalizeX86_64 : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 128⟩

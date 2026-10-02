@@ -5,14 +5,13 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.BallLoop
 /-!
 # ML-DSA on AArch64: `vg_mldsa_rej_bounded_poly`, correctness
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue, the sponge (544 bytes of SHAKE256 of the seed), the branch on
-`η` to its loop, and the end. Iteration `t` of the loop starts from `LAt t`,
-with the coefficients `rbFold` samples from the first `t` bytes of output
-stored; it loads byte `t` (`LB`), tries its low half-byte if `j < 256`
-(`LM`), and then its high half-byte if still `j < 256`. The pieces are
-separate lemmas, which the proof of constant time (`RejBoundedCT.lean`)
-uses too.
+The function runs in pieces: the prologue, the sponge (544 bytes of SHAKE256
+of the seed), the branch on `η` to its loop, and the end. Iteration `t` of the
+loop starts from `LAt t`, with the coefficients `rbFold` samples from the
+first `t` bytes of output stored; it loads byte `t` (`LB`), tries its low
+half-byte if `j < 256` (`LM`), and then its high half-byte if still `j < 256`.
+The pieces are separate lemmas, which the proof of constant time
+(`RejBoundedCT.lean`) uses too.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sample

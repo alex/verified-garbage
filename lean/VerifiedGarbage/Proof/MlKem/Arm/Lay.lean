@@ -4,13 +4,13 @@ import VerifiedGarbage.Impl.MlKem.Arm.Top
 /-!
 # ML-KEM-768 on 32-bit ARM: the buffers of the top-level functions
 
-Untrusted: everything here is checked by Lean. The top-level functions
-work on a few buffers (`Lay`): `scratch` (buffer 0), the 8 bytes below the
-stack pointer (buffer 1), and their arguments; the contracts make them
-pairwise disjoint (`Lay.Ok`). A region is `l` bytes at offset `o` of buffer
-`i` (`Lay.R`), and two regions are disjoint when a computation on the
-offsets says so (`sepB`, decided by the kernel), so what a call writes and
-what the proofs keep track of are lists of triples `(i, o, l)`.
+The top-level functions work on a few buffers (`Lay`): `scratch` (buffer 0),
+the 8 bytes below the stack pointer (buffer 1), and their arguments; the
+contracts make them pairwise disjoint (`Lay.Ok`). A region is `l` bytes at
+offset `o` of buffer `i` (`Lay.R`), and two regions are disjoint when a
+computation on the offsets says so (`sepB`, decided by the kernel), so what a
+call writes and what the proofs keep track of are lists of triples `(i, o,
+l)`.
 
 A state `s` in which the functions run their parts is `Ctx`: `r7` points to
 `scratch`, and the stack pointer is the one of buffer 1. `Kept rs s s'`

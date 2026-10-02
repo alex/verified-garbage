@@ -4,9 +4,8 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # HMAC and PBKDF2-HMAC over any streaming hash function: the x86 contracts
 
-**Untrusted**: the contracts the proofs are written against, as on the other
-targets (`Proof/Hmac/Generic/Arm/Hash.lean`). Every argument is on the
-stack (cdecl).
+The contracts the proofs are written against, as on the other targets
+(`Proof/Hmac/Generic/Arm/Hash.lean`). Every argument is on the stack (cdecl).
 
 * `initK`, `updK` and `finK` are the x86 contracts of a hash function's
   streaming `init`, `update` and `finalize` (`Proof.Sha512.initX86` and the

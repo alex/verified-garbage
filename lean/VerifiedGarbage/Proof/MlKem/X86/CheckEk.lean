@@ -9,10 +9,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM-768 on x86 (32-bit): `vg_mlkem768_check_ek`
 
-Untrusted: everything here is checked by Lean. After `t` groups, `ebx` is
-all ones if both fields of every group so far are less than `q`, and 0
-otherwise (`mask`); the modulus check is that for all 384 groups
-(`ekCheck768`).
+After `t` groups, `ebx` is all ones if both fields of every group so far are
+less than `q`, and 0 otherwise (`mask`); the modulus check is that for all 384
+groups (`ekCheck768`).
 -/
 
 namespace VG.Proof.MlKem.X86.CheckEk

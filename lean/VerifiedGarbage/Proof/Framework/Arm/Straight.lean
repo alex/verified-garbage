@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Dom
 /-!
 # ARMv7: straight-line bitwise code, by evaluation
 
-Untrusted: everything here is checked by Lean.
-
 As `Framework/AArch64/Straight.lean`, for ARMv7: a block of `and`, `orr`,
 `eor` (with a register, an immediate, or a register rotated or shifted
 right as the second operand), `mov`, `add`/`sub` of known constants,

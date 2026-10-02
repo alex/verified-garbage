@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.CmacAes.Stream.AArch64.Common
 /-!
 # Streaming AES-CMAC on AArch64: `vg_cmac_aes_init`
 
-Untrusted: everything here is checked by Lean. The code saves `x19`, `x20`,
-`x21` and `x30` in the scratch buffer, expands the key into the state,
-derives the subkeys after the schedule, zeroes the chaining value and
-restores the registers: the state then represents the empty message. The
-code between the calls is constant time by the taint analysis, and the
-calls by their own proofs (`ek_rel`, `sub_rel`), their arguments pinned by
-`IMid₁` and `IMid₂`.
+The code saves `x19`, `x20`, `x21` and `x30` in the scratch buffer, expands
+the key into the state, derives the subkeys after the schedule, zeroes the
+chaining value and restores the registers: the state then represents the empty
+message. The code between the calls is constant time by the taint analysis,
+and the calls by their own proofs (`ek_rel`, `sub_rel`), their arguments
+pinned by `IMid₁` and `IMid₂`.
 -/
 
 namespace VG.Proof.CmacAes.Stream.AArch64

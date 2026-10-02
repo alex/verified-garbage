@@ -4,10 +4,9 @@ import VerifiedGarbage.Impl.MlKem.X86.Basic
 /-!
 # ML-KEM on x86 (32-bit): calls that return a value
 
-Untrusted: everything here is checked by Lean. `callWith` pops the frame of
-a call's arguments into `eax`, where the callee returns its value;
-`callRet` pops it into `ecx` instead, and `WP.callRet` also gives the value
-in `eax` of the state the callee's postcondition holds of.
+`callWith` pops the frame of a call's arguments into `eax`, where the callee
+returns its value; `callRet` pops it into `ecx` instead, and `WP.callRet` also
+gives the value in `eax` of the state the callee's postcondition holds of.
 -/
 
 namespace VG.X86

@@ -4,15 +4,14 @@ import VerifiedGarbage.Proof.MlKem1024.Arm.RowCT
 /-!
 # ML-KEM-1024 on 32-bit ARM: `vg_mlkem1024_keygen`, constant time and `Verified`
 
-Untrusted: everything here is checked by Lean. Two runs from states that
-agree on the public data (the pointers, the stack pointer and `ρ`, which the
-contract lets the function leak) leak the same trace (`all_ct`), phase by
-phase: the blocks by the taint analysis, from the pointers, or because they
-access no memory (`relct_noMem`); the hashes by `hash_ct`; the `PRF`s by
-`prfLoop_ct`; the rows of `t̂` by `rowSum_ct`, whose `SampleNTT`s take the
-same seeds `ρ ‖ j ‖ i` in both runs; and the calls of the primitives on the
-same pointers (`RelCT.callT`). What each run is at each point comes from its
-correctness (`KeyGen.lean`).
+Two runs from states that agree on the public data (the pointers, the stack
+pointer and `ρ`, which the contract lets the function leak) leak the same
+trace (`all_ct`), phase by phase: the blocks by the taint analysis, from the
+pointers, or because they access no memory (`relct_noMem`); the hashes by
+`hash_ct`; the `PRF`s by `prfLoop_ct`; the rows of `t̂` by `rowSum_ct`, whose
+`SampleNTT`s take the same seeds `ρ ‖ j ‖ i` in both runs; and the calls of
+the primitives on the same pointers (`RelCT.callT`). What each run is at each
+point comes from its correctness (`KeyGen.lean`).
 -/
 
 namespace VG.Proof.MlKem1024.Arm.KeyGen

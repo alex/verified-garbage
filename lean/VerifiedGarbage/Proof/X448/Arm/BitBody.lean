@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.Arm.BitWrite
 /-!
 # X448 on ARMv7: one scalar byte
 
-Untrusted: everything here is checked by Lean. The public byte counter
-selects a scalar byte, expands it, and advances the loop.
+The public byte counter selects a scalar byte, expands it, and advances the
+loop.
 -/
 
 namespace VG.Proof.X448.Arm

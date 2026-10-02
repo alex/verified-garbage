@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.X25519.AArch64.Ops
 /-!
 # X25519 on AArch64: the operations limb by limb
 
-Untrusted: everything here is checked by Lean. `add`, `sub`, `copy`,
-`cswap` and `mulSmall`: the first four compute each limb of their result
-from the same limb of their operands, loading them before storing it, so
-their result may be one of their operands.
+`add`, `sub`, `copy`, `cswap` and `mulSmall`: the first four compute each limb
+of their result from the same limb of their operands, loading them before
+storing it, so their result may be one of their operands.
 -/
 
 namespace VG.Proof.X25519.AArch64

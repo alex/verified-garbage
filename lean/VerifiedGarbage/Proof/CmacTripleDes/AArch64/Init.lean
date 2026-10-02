@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.CmacTripleDes.AArch64.Keys
 /-!
 # TDEA-CMAC on AArch64: `vg_cmac_triple_des_init`
 
-Untrusted: everything here is checked by Lean. `initPre` stores the three
-DES keys, as big-endian integers, in slots 6–8; each iteration of the loop
-then writes one DES key's sixteen round keys (`KInv`); the zero block is
-encrypted with them and doubled twice into the subkeys.
+`initPre` stores the three DES keys, as big-endian integers, in slots 6–8;
+each iteration of the loop then writes one DES key's sixteen round keys
+(`KInv`); the zero block is encrypted with them and doubled twice into the
+subkeys.
 -/
 
 namespace VG.Proof.CmacTripleDes.AArch64

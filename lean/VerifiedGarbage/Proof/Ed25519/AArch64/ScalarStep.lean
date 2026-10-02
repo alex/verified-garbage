@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.Scalar
 import VerifiedGarbage.Proof.Ed25519.AArch64.Step
 import VerifiedGarbage.Proof.Ed25519.Canonical64
 
-/-! Untrusted: the conditional subtraction of the Ed25519 order from a four-word value. -/
+/-! The conditional subtraction of the Ed25519 order from a four-word value. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 open VG.Spec.Ed25519 (L)

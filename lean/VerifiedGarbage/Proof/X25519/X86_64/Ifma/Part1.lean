@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.X25519.X86_64.Iter
 /-!
 # X25519 on x86-64 with AVX512_IFMA: stage 1 of an iteration
 
-Untrusted: everything here is checked by Lean. From `(x₂, z₂, x₃, z₃)` in
-the lanes of `ymm0–ymm4`, stage 1 and its product leave `(AA, BB, DA, CB)`
-there.
+From `(x₂, z₂, x₃, z₃)` in the lanes of `ymm0–ymm4`, stage 1 and its product
+leave `(AA, BB, DA, CB)` there.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

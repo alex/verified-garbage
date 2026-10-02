@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Mem
 
-/-! Untrusted: one row of a four-by-four word multiplication. -/
+/-! One row of a four-by-four word multiplication. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 

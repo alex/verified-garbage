@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.X448.Ladder
 /-!
 # X448 on AArch64: reading a scalar bit
 
-Untrusted: everything here is checked by Lean. The public counter selects a
-byte of the scalar-bit array. Only the XOR mask, never control flow, depends
-on that bit and the previous swap bit.
+The public counter selects a byte of the scalar-bit array. Only the XOR mask,
+never control flow, depends on that bit and the previous swap bit.
 -/
 
 namespace VG.Proof.X448.AArch64

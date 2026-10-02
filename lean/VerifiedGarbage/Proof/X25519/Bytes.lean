@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.X25519.Ladder
 /-!
 # X25519: byte strings, numbers and words
 
-Untrusted: everything here is checked by Lean. The encodings of RFC 7748 §5
-as little-endian numbers of byte strings (`leNum`) and byte strings of
-numbers (`leBytes`), and in memory as 64-bit or 32-bit words: the decoded
-u-coordinate is the number of its bytes modulo `2²⁵⁵`, each bit of the
-decoded scalar a bit of one of its bytes (or fixed by the clamping), and the
-encoded result the bytes of its value.
+The encodings of RFC 7748 §5 as little-endian numbers of byte strings
+(`leNum`) and byte strings of numbers (`leBytes`), and in memory as 64-bit or
+32-bit words: the decoded u-coordinate is the number of its bytes modulo
+`2²⁵⁵`, each bit of the decoded scalar a bit of one of its bytes (or fixed by
+the clamping), and the encoded result the bytes of its value.
 -/
 
 namespace VG.Proof.X25519

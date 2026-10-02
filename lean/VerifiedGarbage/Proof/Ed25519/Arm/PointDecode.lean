@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.DecodeLoad
 import VerifiedGarbage.Proof.Ed25519.Decode
 
-/-! Untrusted: the public byte decoder matches the reviewed strict specification. -/
+/-! The public byte decoder matches the reviewed strict specification. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm
 

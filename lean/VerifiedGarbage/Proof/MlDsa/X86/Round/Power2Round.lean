@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.X86.Round.Bits
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_power2round`
 
-Untrusted: everything here is checked by Lean. One loop over the
-coefficients (`p2r_step`): `x = a + 4095`, `t1 = x >> 13` and
-`t0 = (x mod 2¹³) - 4095`, plus `q` if negative (`power2Round_eq`,
+One loop over the coefficients (`p2r_step`): `x = a + 4095`, `t1 = x >> 13`
+and `t0 = (x mod 2¹³) - 4095`, plus `q` if negative (`power2Round_eq`,
 `power2Round_t0`).
 -/
 

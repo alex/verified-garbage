@@ -6,13 +6,12 @@ import VerifiedGarbage.Impl.MlKem1024.Arm.Top
 /-!
 # ML-KEM-1024 on 32-bit ARM: calling the compression to 5 and 11 bits
 
-Untrusted: everything here is checked by Lean. As `Proof/MlKem/Arm/Calls.lean`
-and `CallsCT.lean` for the other primitives: a contract written with the
-precondition of the proof of `vg_mlkem1024_compress_encode` (and of
-`vg_mlkem1024_decode_decompress`) and what it shows, the call of it with
-its arguments at offsets in the buffers of a layout (`compressL4`,
-`decompressL4`), and that it is constant time from any state whose argument
-registers are public (`compress4T`, `decompress4T`).
+As `Proof/MlKem/Arm/Calls.lean` and `CallsCT.lean` for the other primitives: a
+contract written with the precondition of the proof of
+`vg_mlkem1024_compress_encode` (and of `vg_mlkem1024_decode_decompress`) and
+what it shows, the call of it with its arguments at offsets in the buffers of
+a layout (`compressL4`, `decompressL4`), and that it is constant time from any
+state whose argument registers are public (`compress4T`, `decompress4T`).
 -/
 
 namespace VG.Proof.MlKem1024.Arm

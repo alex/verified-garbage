@@ -8,12 +8,11 @@ import VerifiedGarbage.Spec.Sha3.Contract
 /-!
 # SHA-3 on ARMv7: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha3/Arm/Permute.lean`); these theorems move
-them to the shared contracts of `Spec/Sha3/Contract.lean`, which the
-artifacts are emitted with. The functions use no stack: `bl` leaves the
-return address in `lr`, which each streaming function saves in its scratch
-space.
+The proofs are written against per-target contracts
+(`Proof/Sha3/Arm/Permute.lean`); these theorems move them to the shared
+contracts of `Spec/Sha3/Contract.lean`, which the artifacts are emitted with.
+The functions use no stack: `bl` leaves the return address in `lr`, which each
+streaming function saves in its scratch space.
 -/
 
 namespace VG.Proof.Sha3.Arm.Shared

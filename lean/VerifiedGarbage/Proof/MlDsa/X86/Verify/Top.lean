@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.NoSp
 /-!
 # ML-DSA verification on x86 (32-bit): the body
 
-Untrusted: everything here is checked by Lean. The body, piece by piece
-(`body_piece`), for any parameter set of Table 1 and any verified
-implementations of the primitives: `HintBitUnpack`, a branch on its result
-(which depends only on the signature), `z` and its norms, a branch on them
-(which depend only on the signature), the samplers and the rest; it returns
-the result, as the contract says (`VFin`).
+The body, piece by piece (`body_piece`), for any parameter set of Table 1 and
+any verified implementations of the primitives: `HintBitUnpack`, a branch on
+its result (which depends only on the signature), `z` and its norms, a branch
+on them (which depend only on the signature), the samplers and the rest; it
+returns the result, as the contract says (`VFin`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

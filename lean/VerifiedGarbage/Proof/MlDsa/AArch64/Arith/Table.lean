@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-DSA on AArch64: tables of constants in the working space
 
-Untrusted: everything here is checked by Lean. `storeTab t n b` leaves the
-`u32`s `t 0, …, t (n - 1)` at `b` (`Tab`), and writes nothing else
-(`storeTab_ok`).
+`storeTab t n b` leaves the `u32`s `t 0, …, t (n - 1)` at `b` (`Tab`), and
+writes nothing else (`storeTab_ok`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Arith

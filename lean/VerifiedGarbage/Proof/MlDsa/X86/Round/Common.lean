@@ -7,11 +7,10 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on x86 (32-bit): what the rounding functions share
 
-Untrusted: everything here is checked by Lean. The arguments of a leaf
-(`Impl.MlKem.X86.leaf`) after its push (`arg_P0`), the coefficients of the
-polynomials at pointers advanced by 4 per iteration (`ea_cf`), and the
-coefficients of input polynomials, which the functions never write
-(`in_keep`).
+The arguments of a leaf (`Impl.MlKem.X86.leaf`) after its push (`arg_P0`), the
+coefficients of the polynomials at pointers advanced by 4 per iteration
+(`ea_cf`), and the coefficients of input polynomials, which the functions
+never write (`in_keep`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Round

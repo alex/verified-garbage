@@ -4,8 +4,6 @@ import VerifiedGarbage.TCB.Artifact
 /-!
 # Proving code against a contract built with `Sig.contract`
 
-Untrusted: everything here is checked by Lean.
-
 The contracts of `Spec/` are built with `Sig.contract` from a signature and a
 calling convention. For a concrete signature and calling convention, the
 tactics here evaluate the parts of such a contract into the plain facts a

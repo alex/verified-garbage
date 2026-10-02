@@ -3,14 +3,12 @@ import VerifiedGarbage.Proof.MlKem.X86.SampleLoop
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_sample_ntt`
 
-Untrusted: everything here is checked by Lean. The body is the SHAKE128
-output of the seed at `scratch` (`SampleSetup.lean`, `SampleCalls.lean`),
-then the 280 iterations of the loop (`SampleLoop.lean`), which leave
-`sampleAfter [] (xofByte B) 280` at `a` and return whether it has 256
-coefficients; `sampleNTT_of_full`, `sampleNTT_none` and `outcome_of_min`
-(`Proof/MlKem/KPke.lean`) give the contract. Two runs with the same
-pointers and seed leak the same (`Pub`): the contract lets the function
-leak the seed.
+The body is the SHAKE128 output of the seed at `scratch` (`SampleSetup.lean`,
+`SampleCalls.lean`), then the 280 iterations of the loop (`SampleLoop.lean`),
+which leave `sampleAfter [] (xofByte B) 280` at `a` and return whether it has
+256 coefficients; `sampleNTT_of_full`, `sampleNTT_none` and `outcome_of_min`
+(`Proof/MlKem/KPke.lean`) give the contract. Two runs with the same pointers
+and seed leak the same (`Pub`): the contract lets the function leak the seed.
 -/
 
 namespace VG.Proof.MlKem.X86.Sample

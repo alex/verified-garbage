@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # SHA-256: lemmas about the specification
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha256

@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlKem.Arith
 /-!
 # ML-KEM: the NTT as butterflies, for every target
 
-Untrusted: everything here is checked by Lean. `NTT` (Algorithm 9) and
-`NTT⁻¹` (Algorithm 10) restated as the loops an implementation runs, so
-that its proof is only about its instructions:
+`NTT` (Algorithm 9) and `NTT⁻¹` (Algorithm 10) restated as the loops an
+implementation runs, so that its proof is only about its instructions:
 
 * the tables `zetas` (`ζ^BitRev7(k) mod q`, FIPS 203 Appendix A) and
   `gammas` (`ζ^(2BitRev7(i)+1) mod q`, for `MultiplyNTTs`), as numbers;

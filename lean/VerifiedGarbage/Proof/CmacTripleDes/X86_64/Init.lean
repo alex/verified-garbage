@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.CmacTripleDes.X86_64.Keys
 /-!
 # TDEA-CMAC on x86-64: `vg_cmac_triple_des_init`, the key schedule
 
-Untrusted: everything here is checked by Lean. `initPre` saves the
-registers and stores the three DES keys, as big-endian integers, in slots
-12–14; each iteration of the loop then writes one DES key's sixteen round
-keys (`KInv`).
+`initPre` saves the registers and stores the three DES keys, as big-endian
+integers, in slots 12–14; each iteration of the loop then writes one DES key's
+sixteen round keys (`KInv`).
 -/
 
 namespace VG.Proof.CmacTripleDes.X86_64

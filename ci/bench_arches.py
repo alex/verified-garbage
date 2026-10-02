@@ -9,20 +9,18 @@ workflow's matrix: an architecture is benchmarked when its own assembly
 rest of `src/`, the benchmarks, the dependencies, the comparison). Changes
 to other files (e.g. Lean that leaves `src/asm/` as it was) need none.
 
-Each platform's `modules` narrows its benchmarks to those of the modules
-whose own files changed: `src/asm/<arch>/<module>.rs`, or the Rust API's
-`src/<module>.rs` or `src/hashes/<module>.rs` (for every architecture), or
-`src/<family>/<hash>.rs`, whose module is `<family>_<hash>` (e.g.
-`src/hmac/sha256.rs` is `hmac_sha256`, as in `src/asm/`), or the
-modules a changed benchmark `bench/benches/primitives/<name>.rs` lists in
-its `USES` (on every architecture), whose benchmarks include it. The
-benchmarks decide which of them run (each lists the modules it `USES`, see
-bench/benches/primitives/main.rs), and run everything for a module none of
-them uses (e.g. `cpu`, `lib`, or `hashes/mod.rs`'s `mod`). Any other change
-it benchmarks (e.g. the benchmarks' `main.rs`, or a benchmark whose `USES`
-it cannot read) runs every benchmark, and `modules` is empty. The generated
-`src/asm/<arch>/mod.rs` only declares the modules, so it narrows nothing
-either way.
+Each platform's `modules` narrows its benchmarks to the modules whose own
+files changed:
+
+  * `src/asm/<arch>/<module>.rs`: `<module>`, on that architecture;
+  * `src/<module>.rs` or `src/hashes/<module>.rs`: `<module>`;
+  * `src/<family>/<hash>.rs`: `<family>_<hash>` (as in `src/asm/`);
+  * `bench/benches/primitives/<name>.rs`: the modules in its `USES`.
+
+The benchmarks run those that use any of them, and all of them for a module
+none uses (e.g. `cpu`, `lib`, or the generated `src/asm/<arch>/mod.rs`). Any
+other shared change (e.g. the benchmarks' `main.rs`, or a benchmark whose
+`USES` cannot be read) leaves `modules` empty, which runs every benchmark.
 
 An architecture with primitives that choose among implementations by CPU
 feature is benchmarked once with every feature the runner has, and once
@@ -54,14 +52,10 @@ PLATFORMS = {
     },
 }
 
-# The other `VG_CPU_FEATURES` each architecture is benchmarked with. On
-# x86-64 they choose Ed25519's `_avx2_adx` (AVX2's SHA-512 and ADX's field
-# multiplications), `_avx2`, `_adx`, `_ifma` (AVX512_IFMA's field, in
-# verification; `_adx` otherwise) and its baseline in turn, and with every
-# feature `_avx2_ifma` in verification. A runner without AVX512_IFMA
-# chooses `_adx` and `_avx2_adx` instead of those two, and no runner has
-# the SHA512 extension, so `_shani`, `_shani_adx` and `_shani_ifma` are
-# only tested (under SDE, in ci.yml).
+# The other `VG_CPU_FEATURES` each architecture is benchmarked with, so that
+# each implementation a runner can run is measured (on x86-64, each of
+# Ed25519's combinations of SHA-512 and field multiplication; no runner has
+# the SHA512 extension, whose variants only ci.yml tests, under SDE).
 CPU_FEATURES = {
     "x86_64": [
         "avx,avx2,bmi1,bmi2,adx",

@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Framework.Mem
 /-!
 # ML-DSA: fields of a little-endian word, and subtraction modulo `q`
 
-Untrusted: everything here is checked by Lean. For implementations that
-read a field of `c` bits of a byte string `X` as the 32-bit little-endian
-word at its first byte, shifted right and masked: the bits of the word from
-bit `sh` on are those of `leNat X` from bit `8o + sh` on, if its first
-three bytes are those of `X` from byte `o` (`wordBits`). And `(g - x) mod
-q`, computed as `g - x` in 32 bits plus `q` masked by the borrow of the
-subtraction (`subMask_eq`).
+For implementations that read a field of `c` bits of a byte string `X` as the
+32-bit little-endian word at its first byte, shifted right and masked: the
+bits of the word from bit `sh` on are those of `leNat X` from bit `8o + sh`
+on, if its first three bytes are those of `X` from byte `o` (`wordBits`). And
+`(g - x) mod q`, computed as `g - x` in 32 bits plus `q` masked by the borrow
+of the subtraction (`subMask_eq`).
 -/
 
 namespace VG.Proof.MlDsa.Sample

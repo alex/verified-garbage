@@ -7,8 +7,6 @@ import VerifiedGarbage.TCB.Code
 /-!
 # Code as literals, for the kernel
 
-Untrusted: everything here is checked by Lean.
-
 The kernel evaluates code (the constant-time analysis, `Artifact.spSafe`, and
 checks of every instruction), and most of that time can go into building the
 instruction lists, which the code builds with functions (`List.append`,

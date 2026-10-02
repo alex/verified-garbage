@@ -5,14 +5,13 @@ import VerifiedGarbage.Proof.MlKem.X86_64.S4CT
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_ntt_poly4_avx2`, constant time but for the seeds
 
-Untrusted: everything here is checked by Lean. Two runs whose seeds (the
-declared leak) and pointers agree leak the same. The code but for the loops
-of the halves is proven by the taint analysis, from the pointers (the
-prologue, the absorption and the first squeeze as in
+Two runs whose seeds (the declared leak) and pointers agree leak the same. The
+code but for the loops of the halves is proven by the taint analysis, from the
+pointers (the prologue, the absorption and the first squeeze as in
 `vg_mlkem_sample_ntt4_avx2`, `S4.start_ct`). Both runs read the same XOF
 output, so in each half's loop they are at the same iteration with the same
-coefficients sampled, and each iteration runs as in
-`vg_mldsa_rej_ntt_poly` (`RejNttCT.body_ct`).
+coefficients sampled, and each iteration runs as in `vg_mldsa_rej_ntt_poly`
+(`RejNttCT.body_ct`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Rej4

@@ -8,13 +8,12 @@ import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Common
 /-!
 # Streaming SHA-256 on x86-64: `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/X86_64.lean`), so they are
-verified by the generic proofs (`Proof/MdStream/X86_64/`) for SHA-256's
-instance (`Proof/Sha256/Md.lean`), for any implementation `f` of the
-compression function (`Callee.Ok`), given what SHA-256's own pieces do: its
-length field and digest (`shape`) and that the taint analysis accepts its
-code between the calls (`taints`).
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/X86_64.lean`), so they are verified by the generic proofs
+(`Proof/MdStream/X86_64/`) for SHA-256's instance (`Proof/Sha256/Md.lean`),
+for any implementation `f` of the compression function (`Callee.Ok`), given
+what SHA-256's own pieces do: its length field and digest (`shape`) and that
+the taint analysis accepts its code between the calls (`taints`).
 -/
 
 namespace VG.Proof.Sha256.X86_64.Stream

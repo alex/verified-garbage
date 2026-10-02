@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.PointDecode
 import VerifiedGarbage.Proof.Ed25519.Arm.DecodeKeep
 
-/-! Untrusted: separate bit 255 while retaining all bounded field limbs. -/
+/-! Separate bit 255 while retaining all bounded field limbs. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

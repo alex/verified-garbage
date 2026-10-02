@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PointMulBatch
 
-/-! Untrusted: complete point multiplication preserves API pointers and scalar bits. -/
+/-! Complete point multiplication preserves API pointers and scalar bits. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

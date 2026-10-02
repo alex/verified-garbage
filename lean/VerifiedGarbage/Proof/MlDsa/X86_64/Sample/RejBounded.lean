@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNtt
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_bounded_poly`, correctness
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `H(ρ, 544)` (`J6`), the
-branch on `η`, and the loop for `η`, iteration `t` of which starts from
-`LAt σ t` with the coefficients `rbFold` samples from the first `t` bytes of
-output stored.
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`H(ρ, 544)` (`J6`), the branch on `η`, and the loop for `η`, iteration `t` of
+which starts from `LAt σ t` with the coefficients `rbFold` samples from the
+first `t` bytes of output stored.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

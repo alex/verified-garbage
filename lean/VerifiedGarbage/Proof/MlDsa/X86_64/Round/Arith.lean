@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.Round.Decompose
 /-!
 # ML-DSA on x86-64: what the rounding code computes
 
-Untrusted: everything here is checked by Lean. The values the code of
-`Impl/MlDsa/X86_64/Round/Round.lean` leaves in its registers, as the
-symbolic execution of a block writes them (`condAddV`, `hbRawV`, `hbV`),
-and what they are as natural numbers (`condAddV_toNat`, `hbRawV_toNat`,
-`hbV_toNat`), from the target-independent lemmas of
+The values the code of `Impl/MlDsa/X86_64/Round/Round.lean` leaves in its
+registers, as the symbolic execution of a block writes them (`condAddV`,
+`hbRawV`, `hbV`), and what they are as natural numbers (`condAddV_toNat`,
+`hbRawV_toNat`, `hbV_toNat`), from the target-independent lemmas of
 `Proof/MlDsa/Round/Decompose.lean`.
 -/
 

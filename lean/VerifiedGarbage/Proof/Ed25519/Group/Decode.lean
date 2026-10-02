@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.Ed25519.Group.Extended
 /-!
 # Decoded points are on the curve
 
-Untrusted. `recoverX` only returns an `x` with `v x² = u`, which is the
-curve's equation; so a decoded point represents a point of the group.
+`recoverX` only returns an `x` with `v x² = u`, which is the curve's equation;
+so a decoded point represents a point of the group.
 -/
 
 namespace VG.Proof.Ed25519

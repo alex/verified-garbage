@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.CmacAes.Stream.X86.AbsorbBlocks
 /-!
 # Streaming AES-CMAC on x86: `vg_cmac_aes_absorb` around the calls
 
-Untrusted: everything here is checked by Lean. The code saves the
-registers, computes the bytes held back `h`, copies `f = min(len, 16 - h)`
-bytes after them, and sets up the first call of `vg_cmac_aes_update`, which
-chains the block held back if data is left (`AMid₁`); after each call, what
-the code that follows needs (`AAft₁`, `AAft₂`), and what `chain2` leaves for
-the second call (`AMid₂`).
+The code saves the registers, computes the bytes held back `h`, copies `f =
+min(len, 16 - h)` bytes after them, and sets up the first call of
+`vg_cmac_aes_update`, which chains the block held back if data is left
+(`AMid₁`); after each call, what the code that follows needs (`AAft₁`,
+`AAft₂`), and what `chain2` leaves for the second call (`AMid₂`).
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86

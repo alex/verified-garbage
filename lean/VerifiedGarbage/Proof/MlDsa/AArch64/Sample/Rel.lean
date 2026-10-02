@@ -4,15 +4,14 @@ import VerifiedGarbage.Proof.MlKem.AArch64.MemTaint
 /-!
 # ML-DSA on AArch64: constant time of the sampling functions, piece by piece
 
-Untrusted: everything here is checked by Lean. Two runs of a sampling
-function, from entry states `σ₁` and `σ₂` that satisfy the precondition and
-agree on what is public, are related at each point by what correctness
-proves of each (`Rel2 Pre Pub J`: `J σᵢ sᵢ`). A piece of code leaks the same
-in both runs, and takes them from `J` to `J'`, if the taint analysis proves
-it constant time from registers that `J` makes equal (`relTaint`), or if it
-only touches memory on which both runs agree, where `memTaint` does
-(`relMem`); by determinism, the runs then end in states that correctness
-describes (`relStep`).
+Two runs of a sampling function, from entry states `σ₁` and `σ₂` that satisfy
+the precondition and agree on what is public, are related at each point by
+what correctness proves of each (`Rel2 Pre Pub J`: `J σᵢ sᵢ`). A piece of code
+leaks the same in both runs, and takes them from `J` to `J'`, if the taint
+analysis proves it constant time from registers that `J` makes equal
+(`relTaint`), or if it only touches memory on which both runs agree, where
+`memTaint` does (`relMem`); by determinism, the runs then end in states that
+correctness describes (`relStep`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sample

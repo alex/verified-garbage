@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem1024.X86_64.EncBase
 /-!
 # ML-KEM-1024 on x86-64: K-PKE.Encrypt, the ciphertext
 
-Untrusted: everything here is checked by Lean. When every entry of `Â` was
-sampled: `ŷ` (`y_ok`), `u` to the ciphertext (`u_ok`), `t̂` (`t_ok`) and `v`
-to the ciphertext (`v_ok`). Between the steps, `ER ny nu nt`: the first
-`ny` of `ŷ`, `nu` of `u` and `nt` of `t̂` are done. Each with its constant
-time, for a given `ρ`.
+When every entry of `Â` was sampled: `ŷ` (`y_ok`), `u` to the ciphertext
+(`u_ok`), `t̂` (`t_ok`) and `v` to the ciphertext (`v_ok`). Between the steps,
+`ER ny nu nt`: the first `ny` of `ŷ`, `nu` of `u` and `nt` of `t̂` are done.
+Each with its constant time, for a given `ρ`.
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

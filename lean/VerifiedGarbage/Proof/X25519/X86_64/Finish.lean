@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.X25519.X86_64.Bits
 
 /-!
 # X25519 on x86-64: the last swap and the result
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X25519.X86_64

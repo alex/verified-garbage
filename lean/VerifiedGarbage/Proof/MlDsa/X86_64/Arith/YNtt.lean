@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.NttInv
 /-!
 # ML-DSA on x86-64: `vg_mldsa_ntt_avx2` and `vg_mldsa_inv_ntt_avx2`
 
-Untrusted: everything here is checked by Lean. As `vg_mldsa_ntt` and
-`vg_mldsa_inv_ntt` (`Ntt.lean`, `NttInv.lean`): ML-KEM's `withMxcsr` runs
-the code from any MXCSR and keeps what it does (`ymx_correct`); the
-prologue leaves the table of zetas in `scratch` and the constants in both
-lanes (`ypro_ok`); each layer is `nttLayer` or `nttInvLayer` (`ylay_ok`,
-`ylay4_ok`, `ylay2_ok`, `ylay1_ok`), `NTT⁻¹` then multiplies every
-coefficient by `8347681 = 256⁻¹ mod q` (`yscale_ok`), and `vzeroupper`
-keeps the memory (`LIY.epi`).
+As `vg_mldsa_ntt` and `vg_mldsa_inv_ntt` (`Ntt.lean`, `NttInv.lean`): ML-KEM's
+`withMxcsr` runs the code from any MXCSR and keeps what it does
+(`ymx_correct`); the prologue leaves the table of zetas in `scratch` and the
+constants in both lanes (`ypro_ok`); each layer is `nttLayer` or `nttInvLayer`
+(`ylay_ok`, `ylay4_ok`, `ylay2_ok`, `ylay1_ok`), `NTT⁻¹` then multiplies every
+coefficient by `8347681 = 256⁻¹ mod q` (`yscale_ok`), and `vzeroupper` keeps
+the memory (`LIY.epi`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

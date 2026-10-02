@@ -7,11 +7,10 @@ import VerifiedGarbage.Proof.Pbkdf2.Generic.X86.Instances
 /-!
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: the instances
 
-Untrusted: everything here is checked by Lean. The generic proof
-(`CT.lean`) at each hash function of `Proof/Hmac/Generic/X86/Hashes.lean`:
-the functions it calls are verified by their own registration files, the
-taint checks are evaluated by the kernel, and a state satisfies the shared
-contract (`pbkSat`).
+The generic proof (`CT.lean`) at each hash function of
+`Proof/Hmac/Generic/X86/Hashes.lean`: the functions it calls are verified by
+their own registration files, the taint checks are evaluated by the kernel,
+and a state satisfies the shared contract (`pbkSat`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.X86

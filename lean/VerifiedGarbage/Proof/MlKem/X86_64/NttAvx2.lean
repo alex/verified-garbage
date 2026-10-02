@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.NttInv
 /-!
 # ML-KEM on x86-64: `vg_mlkem_ntt_avx2` and `vg_mlkem_inv_ntt_avx2`
 
-Untrusted: everything here is checked by Lean. As `vg_mlkem_ntt` and
-`vg_mlkem_inv_ntt` (`Ntt.lean`, `NttInv.lean`), on sixteen words at a time:
-the prologue leaves the table of zetas (in the order the layers read it) and
-`f` as words in `scratch` (`ypro_ok`), each layer is `nttLayer` or
-`nttInvLayer` (`ylay_ok`, `ylay8_ok`, `ylay4_ok`, `ylay2_ok`), and the
-epilogue unpacks `S` into `f` (`yepi_ok`).
+As `vg_mlkem_ntt` and `vg_mlkem_inv_ntt` (`Ntt.lean`, `NttInv.lean`), on
+sixteen words at a time: the prologue leaves the table of zetas (in the order
+the layers read it) and `f` as words in `scratch` (`ypro_ok`), each layer is
+`nttLayer` or `nttInvLayer` (`ylay_ok`, `ylay8_ok`, `ylay4_ok`, `ylay2_ok`),
+and the epilogue unpacks `S` into `f` (`yepi_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

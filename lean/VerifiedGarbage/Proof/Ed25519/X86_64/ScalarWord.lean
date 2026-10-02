@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarStep
 /-!
 # Ed25519 scalar reduction: one word on x86-64
 
-Untrusted. `wordFold` turns the remainder `r < L` and the next word `w` into
-`l + L - h c` for `2^64 r + w = h 2^252 + l`, with `L = 2^252 + c`: below `2L`
-and congruent to `2^64 r + w` modulo `L` (`fold_nat`). Each of its blocks is
+`wordFold` turns the remainder `r < L` and the next word `w` into `l + L - h
+c` for `2^64 r + w = h 2^252 + l`, with `L = 2^252 + c`: below `2L` and
+congruent to `2^64 r + w` modulo `L` (`fold_nat`). Each of its blocks is
 checked against the numbers it computes.
 -/
 

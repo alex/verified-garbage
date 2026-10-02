@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Verify.Ball
 /-!
 # ML-DSA verification on x86 (32-bit): what holds while computing `w′₁`
 
-Untrusted: everything here is checked by Lean. From the hint `h`, `Â` (`A`)
-and `c` (`C`) the samplers gave, `CX` says what `scratch` holds while
-computing: `ẑ[i]` for `i < j` (and `z[i]` for the others), `ĉ` once `cd`,
-and the packed rows `w₁[r]` for `r < nr`; and the result (`GC`). It is kept
-by pieces that write only buffers apart from those (`SafeC`, `CX.keep`).
-The NTTs of `z` and `c` (`nttZ_piece`, `nttC_piece`).
+From the hint `h`, `Â` (`A`) and `c` (`C`) the samplers gave, `CX` says what
+`scratch` holds while computing: `ẑ[i]` for `i < j` (and `z[i]` for the
+others), `ĉ` once `cd`, and the packed rows `w₁[r]` for `r < nr`; and the
+result (`GC`). It is kept by pieces that write only buffers apart from those
+(`SafeC`, `CX.keep`). The NTTs of `z` and `c` (`nttZ_piece`, `nttC_piece`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

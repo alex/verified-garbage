@@ -5,10 +5,9 @@ import VerifiedGarbage.TCB.Arm.Target
 /-!
 # BLAKE2 compression function on ARMv7: the contract
 
-Untrusted: everything here is checked by Lean. The contract the compression
-functions' proofs are written against, and the streaming functions use for
-their calls of them; the artifacts' contract is the shared one of
-`Spec/Blake2/Contract.lean`, which implies it.
+The contract the compression functions' proofs are written against, and the
+streaming functions use for their calls of them; the artifacts' contract is
+the shared one of `Spec/Blake2/Contract.lean`, which implies it.
 -/
 
 namespace VG.Proof.Blake2

@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Gcm.X86_64.Bits
 /-!
 # AES-CMAC on x86-64: doubling a block in two 64-bit words
 
-Untrusted: everything here is checked by Lean. `subkeys` loads a block as
-two byte-reversed words, the high and low halves of the block as a
-big-endian integer (`Proof.Gcm.X86_64.blockAt_bswap`), doubles the integer a
-word at a time (`dbl_words`), and stores the halves byte-reversed again
-(`le8_bswap`).
+`subkeys` loads a block as two byte-reversed words, the high and low halves of
+the block as a big-endian integer (`Proof.Gcm.X86_64.blockAt_bswap`), doubles
+the integer a word at a time (`dbl_words`), and stores the halves
+byte-reversed again (`le8_bswap`).
 -/
 
 namespace VG.Proof.CmacAes.X86_64

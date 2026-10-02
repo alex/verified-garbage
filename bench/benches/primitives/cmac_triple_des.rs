@@ -2,8 +2,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`): this one.
 pub const USES: &[&str] = &["cmac_triple_des"];
 
 /// The MAC of a message with a 24-byte (three-key) key (setup included),

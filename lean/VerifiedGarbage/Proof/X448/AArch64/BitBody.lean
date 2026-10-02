@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.AArch64.BitWrite
 /-!
 # X448 on AArch64: one scalar byte
 
-Untrusted: everything here is checked by Lean. The public byte counter
-selects a scalar byte, expands it, and advances the loop.
+The public byte counter selects a scalar byte, expands it, and advances the
+loop.
 -/
 
 namespace VG.Proof.X448.AArch64

@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Block
 /-!
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: the rest of a block, the loop, and `pbkdf2`
 
-Untrusted: everything here is checked by Lean. As on x86
-(`Proof/Pbkdf2/Whole/X86/Loop.lean`): a step copies `U₁` into `T`, runs
-`iterate` for the rest of the chain, copies as much of `T` as the output
-still needs (`copyLoop_ok`, `copy`'s loop for a length in `r9`), and moves
-on to the next block; after the last one, `out` holds the derived key, and
-the caller's registers are restored (`restore_ok`, HMAC's for any working
-space an immediate offset reaches).
+As on x86 (`Proof/Pbkdf2/Whole/X86/Loop.lean`): a step copies `U₁` into `T`,
+runs `iterate` for the rest of the chain, copies as much of `T` as the output
+still needs (`copyLoop_ok`, `copy`'s loop for a length in `r9`), and moves on
+to the next block; after the last one, `out` holds the derived key, and the
+caller's registers are restored (`restore_ok`, HMAC's for any working space an
+immediate offset reaches).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.Arm

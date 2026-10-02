@@ -3,10 +3,9 @@ import VerifiedGarbage.Spec.MlKem
 /-!
 # ML-KEM: arithmetic modulo `q`, for every target
 
-Untrusted: everything here is checked by Lean. Facts about `ℤ_q` (`Fin q`)
-as the natural numbers that represent its elements, and recipes that
-implementations reduce modulo `q = 3329` with, each proven for every input
-in its range:
+Facts about `ℤ_q` (`Fin q`) as the natural numbers that represent its
+elements, and recipes that implementations reduce modulo `q = 3329` with, each
+proven for every input in its range:
 
 * addition and subtraction of reduced values, with one conditional
   subtraction of `q` (`val_add`, `val_sub`, `condSub`);

@@ -5,12 +5,12 @@ import VerifiedGarbage.Spec.MlDsa.Contract
 /-!
 # ML-DSA key generation on x86-64: the primitives, and calling them
 
-Untrusted: everything here is checked by Lean. Key generation is proven for
-any implementations of the primitives it calls (`Prims`) that are verified
-against their contracts, with at most 16 bytes of stack, and that change the
-stack pointer only by calls nested at most twice (`Callee`, `PrimsOk`): as
-ML-KEM's top-level functions on x86-64 (`Proof/MlKem/X86_64/`), whose
-framework (layouts of buffers, calls, the sponge) the proofs use.
+Key generation is proven for any implementations of the primitives it calls
+(`Prims`) that are verified against their contracts, with at most 16 bytes of
+stack, and that change the stack pointer only by calls nested at most twice
+(`Callee`, `PrimsOk`): as ML-KEM's top-level functions on x86-64
+(`Proof/MlKem/X86_64/`), whose framework (layouts of buffers, calls, the
+sponge) the proofs use.
 
 A primitive may load MXCSR (as the MXCSR prologue of Intel's MCDT does), so
 MXCSR's control bits (`MX`) are carried from its `abiPreserved`

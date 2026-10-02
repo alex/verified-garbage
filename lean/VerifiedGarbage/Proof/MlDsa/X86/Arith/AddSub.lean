@@ -7,9 +7,8 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_add` and `vg_mldsa_sub`
 
-Untrusted: everything here is checked by Lean. Both are
-`Impl.MlKem.X86.mapLoop` around an arithmetic step; the loop is proven once
-for any step that computes a function `F` of the two coefficients
+Both are `Impl.MlKem.X86.mapLoop` around an arithmetic step; the loop is
+proven once for any step that computes a function `F` of the two coefficients
 (`OpSpec`), as for ML-KEM on x86.
 -/
 

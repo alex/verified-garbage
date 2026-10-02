@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyHeaders
 import VerifiedGarbage.Proof.Ed25519.Arm.ScalarABI
 
-/-! Untrusted: preserve the three input pointers beyond the verification workspace. -/
+/-! Preserve the three input pointers beyond the verification workspace. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

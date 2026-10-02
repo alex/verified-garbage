@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.CopyTr
 /-!
 # ML-DSA signing on ARMv7: `ExpandA` leaks only `ρ`
 
-Untrusted: everything here is checked by Lean. Two runs of `ExpandA` with
-the same `ρ` compute the same results of `vg_mldsa_rej_ntt_poly`, so they
-agree on `r11` (`RA`), and leak the same (`expandA_tr`).
+Two runs of `ExpandA` with the same `ρ` compute the same results of
+`vg_mldsa_rej_ntt_poly`, so they agree on `r11` (`RA`), and leak the same
+(`expandA_tr`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

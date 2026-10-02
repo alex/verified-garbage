@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.CmacAes.Stream.AArch64.AbsorbCorrect
 /-!
 # Streaming AES-CMAC on AArch64: `vg_cmac_aes_absorb` is constant time
 
-Untrusted: everything here is checked by Lean. Two runs from states that
-agree on the public arguments are related piece by piece (`RelCT`): the
-taint analysis covers the code between the calls, from the registers the
-correctness proof pins to values of the public arguments (`AMid₁`,
-`AAfter₁`, `AMid₂`, `AAfter₂`), and each call of `vg_cmac_aes_update` is
-constant time by its own proof (`upd_rel`).
+Two runs from states that agree on the public arguments are related piece by
+piece (`RelCT`): the taint analysis covers the code between the calls, from
+the registers the correctness proof pins to values of the public arguments
+(`AMid₁`, `AAfter₁`, `AMid₂`, `AAfter₂`), and each call of
+`vg_cmac_aes_update` is constant time by its own proof (`upd_rel`).
 -/
 
 namespace VG.Proof.CmacAes.Stream.AArch64

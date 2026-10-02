@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Framework.Semantics
 /-!
 # Running straight-line blocks symbolically
 
-Untrusted: everything here is checked by Lean. `runBlock` is the state part
-of `execBlock`; `WP.of_runBlock` reduces a weakest precondition of a block to
-`∃ s', runBlock M is s = some s' ∧ Q s'`, which `simp` can evaluate one
-instruction at a time.
+`runBlock` is the state part of `execBlock`; `WP.of_runBlock` reduces a
+weakest precondition of a block to `∃ s', runBlock M is s = some s' ∧ Q s'`,
+which `simp` can evaluate one instruction at a time.
 -/
 
 namespace VG

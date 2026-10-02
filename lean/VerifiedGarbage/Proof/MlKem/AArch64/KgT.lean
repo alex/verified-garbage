@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlKem.AArch64.KgC2
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_keygen`, `t̂`
 
-Untrusted: everything here is checked by Lean. `ê[i]`, `t̂[i]` and its
-encodings (`t_step`), keeping the facts established before (`TL`), which
-every buffer the step writes is apart from (`Apart`).
+`ê[i]`, `t̂[i]` and its encodings (`t_step`), keeping the facts established
+before (`TL`), which every buffer the step writes is apart from (`Apart`).
 -/
 
 namespace VG.Proof.MlKem.AArch64.KeyGen

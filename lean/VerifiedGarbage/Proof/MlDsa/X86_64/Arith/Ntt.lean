@@ -7,12 +7,11 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-DSA on x86-64: `vg_mldsa_ntt`
 
-Untrusted: everything here is checked by Lean. ML-KEM's `withMxcsr` runs
-its code from any MXCSR and keeps what it does (`withMxcsr_ok`); the
-prologue leaves the table of zetas in `scratch` and the constants
-(`vpro_ok`), each layer is `nttLayer` (`vlay_ok`, `vlay2_ok`, `vlay1_ok`),
-and the eight layers are `NTT` (`ntt_eq_layers`). `LI`, `vpro_ok` and
-`inPlaceSat` serve `NTT⁻¹` too.
+ML-KEM's `withMxcsr` runs its code from any MXCSR and keeps what it does
+(`withMxcsr_ok`); the prologue leaves the table of zetas in `scratch` and the
+constants (`vpro_ok`), each layer is `nttLayer` (`vlay_ok`, `vlay2_ok`,
+`vlay1_ok`), and the eight layers are `NTT` (`ntt_eq_layers`). `LI`, `vpro_ok`
+and `inPlaceSat` serve `NTT⁻¹` too.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

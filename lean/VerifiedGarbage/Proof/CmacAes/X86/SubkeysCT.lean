@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.CmacAes.X86.UpdateCT
 /-!
 # AES-CMAC on x86: `vg_cmac_aes_subkeys` is constant time
 
-Untrusted: everything here is checked by Lean. The code before the call is
-checked by the taint analysis from `esp` and the stack arguments (which
-nothing writes, `argTaint`), the call of `vg_aes_ctr32`, in its frame, is
-constant time by its own proof (`ctr_rel`), and the code after it by the
-taint analysis again, from `esp`, the stack arguments and `ebx` (the
-subkeys, which the correctness proof pins).
+The code before the call is checked by the taint analysis from `esp` and the
+stack arguments (which nothing writes, `argTaint`), the call of
+`vg_aes_ctr32`, in its frame, is constant time by its own proof (`ctr_rel`),
+and the code after it by the taint analysis again, from `esp`, the stack
+arguments and `ebx` (the subkeys, which the correctness proof pins).
 -/
 
 namespace VG.Proof.CmacAes.X86

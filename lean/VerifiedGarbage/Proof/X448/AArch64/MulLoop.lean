@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.X448.AArch64.Row
 /-!
 # X448 on AArch64: multiplication loop
 
-Untrusted: everything here is checked by Lean. The invariant relates the
-32 coefficients to the rows already accumulated, retaining the two input
-field elements throughout the loop.
+The invariant relates the 32 coefficients to the rows already accumulated,
+retaining the two input field elements throughout the loop.
 -/
 
 namespace VG.Proof.X448.AArch64
