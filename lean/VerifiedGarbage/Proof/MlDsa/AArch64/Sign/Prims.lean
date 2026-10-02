@@ -13,7 +13,7 @@ runs (`RetPub`) and that they succeed only when the algorithm finishes within
 
 For each call of a primitive, as the proof of signing uses it: what it does
 (`…_ok`), and that two runs in the same layout leak the same (`…_tr`), from
-the calls of `CallArith.lean` to `CallMore.lean`.
+the calls of `Proof/MlDsa/AArch64/Call/` and `CallMore.lean`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
