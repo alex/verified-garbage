@@ -30,6 +30,8 @@ structure FinEntry (s₀ : State) (Ctx St W SP : Addr) (s : State) : Prop where
   tlen : s.mem.readW (W + BitVec.ofNat 64 192) 64 = s₀.gpr .r8
   saved : SavedAt s.mem W s₀
   frame : Frame [savedR W, slotsR W] s₀.mem s.mem
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
 
 theorem finEntry_ok {s : State} {Ctx St W SP : Addr} (hCtx : s.gpr .rdi = Ctx) (hSt : s.gpr .rdx = St)
     (hW : s.gpr .r9 = W) (hSP : s.gpr .rsp = SP) (hperm : Perm Ctx St W s) (_hww : W.toNat + 2560 ≤ 2 ^ 64)
@@ -68,7 +70,7 @@ theorem finEntry_ok {s : State} {Ctx St W SP : Addr} (hCtx : s.gpr .rdi = Ctx) (
       (List.mem_singleton_self _) _ (c 184 (by decide) (by decide))).writeW
       (List.mem_singleton_self _) _ (c 192 (by decide) (by decide))
   refine WP.block_append (WP.of_runBlock ⟨s₁, run₁, WP.of_runBlock ⟨s₂, run₂, ?_⟩⟩)
-  refine ⟨⟨h13, h14, h15, hsp, hperm.of_eq (hrd₂.trans hrd₁) (hwr₂.trans hwr₁)⟩, ⟨?_, hR⟩, ?_, ?_, ?_, ?_⟩
+  refine ⟨⟨h13, h14, h15, hsp, hperm.of_eq (hrd₂.trans hrd₁) (hwr₂.trans hwr₁)⟩, ⟨?_, hR⟩, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [hm₂]
     simp (disch := first | decide | assumption) only [Mem.readW_writeW_self64, Mem.readW_writeW_sep]
     exact BitVec.eq_of_toNat_eq (by simp)
@@ -80,6 +82,8 @@ theorem finEntry_ok {s : State} {Ctx St W SP : Addr} (hCtx : s.gpr .rdi = Ctx) (
     simp only [List.mem_singleton] at hr; subst hr
     exact Offset.disjoint _ (.inl (by decide)) (by omega) (by omega)
   · exact (f₁.mono fun r hr => by simp at hr; subst hr; simp).trans (f₂.mono fun r hr => by simp at hr; subst hr; simp)
+  · exact hrd₂.trans hrd₁
+  · exact hwr₂.trans hwr₁
 
 end VG.Proof.AesGcm.X86_64
 
