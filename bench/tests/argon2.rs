@@ -1,6 +1,9 @@
 //! Differential complete derivations against OpenSSL, including H′ boundaries.
 
-#![cfg(all(target_arch = "x86_64", feature = "openssl-argon2"))]
+#![cfg(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "openssl-argon2"
+))]
 
 use verified_garbage::argon2::{Params, Variant, derive_keyed};
 
