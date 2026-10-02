@@ -16,7 +16,4 @@ pub mod aes;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InvalidKeyLength;
 
-/// The MAC did not match: the message or the key is not what was
-/// authenticated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InvalidMac;
+pub use crate::hmac::InvalidMac;

@@ -1282,7 +1282,7 @@ section
 # Poly1305 on 32-bit ARM: the columns of `h r`
 
 Untrusted: everything here is checked by Lean. `multiply` computes the
-columns `col h r` (`Arith.lean`) into `r3`–`r12`, row by row: row `j` loads
+columns `col h r` (above) into `r3`–`r12`, row by row: row `j` loads
 `h j` (two limbs are packed in each word at `[0, 20)`) and adds its products
 with the limbs of `r` (at `rOff i`) to the columns (`mac_step`).
 -/
