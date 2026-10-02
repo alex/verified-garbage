@@ -4,12 +4,12 @@
 //!
 //! On x86-64 and AArch64, `init` and `finalize` (contracts
 //! `VG.Spec.Hmac.Instance.initContract` and `finalizeContract` of
-//! `VG.Spec.Hmac.sha256I`) are the one HMAC implementation for every
-//! streaming hash function, calling SHA-256's verified functions. On x86-64,
-//! they follow the implementation of SHA-256 that `Sha256` runs on this CPU:
-//! e.g. `vg_hmac_sha256_init_shani` and `vg_hmac_sha256_finalize_shani`, the
-//! same verified code calling `vg_sha256_update_shani` and
-//! `vg_sha256_finalize_shani`, or the `_avx2` ones. On AArch64, the `_sha2`
+//! `VG.Spec.Hmac.sha256I`) are the one HMAC implementation for every streaming
+//! hash function, calling SHA-256's verified functions. On x86-64, they follow
+//! the implementation of SHA-256 that `Sha256` runs on this CPU: e.g.
+//! `vg_hmac_sha256_init_shani` and `vg_hmac_sha256_finalize_shani`, the same
+//! verified code calling `vg_sha256_update_shani`, `vg_sha256_finalize_shani`
+//! and `vg_sha256_compress_shani`, or the `_avx2` ones. On AArch64, the `_sha2`
 //! variants use the SHA-256 instructions through the same generic code.
 //!
 //! On ARMv7 and x86, their contracts are `VG.Spec.Hmac.initSha256Contract`

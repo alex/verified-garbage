@@ -14,10 +14,12 @@ their names), and the names of the functions emitted for it.
 
 * HMAC's `init` is the code of `Impl/Hmac/Generic/AArch64.lean` for the
   hash function's streaming `init`, `update` and `finalize` (`Hash.stream`).
-  Its `finalize` finalizes the inner state into `scratch`, writes the outer
-  hash value and that digest over the inner state (the state that absorbed
-  the outer block and the digest), finalizes it, and copies the MAC to
-  `out`, all in 32-bit words.
+  Its `finalize` finalizes the inner state into `scratch`, then computes
+  the outer hash, of the outer block and that digest, with one compression,
+  as `iterate` does: it writes the outer hash value over the inner state's
+  and, into its buffer, the digest followed by the padding of a
+  `B + D`-byte message, at fixed offsets in 32-bit words, compresses that
+  block, and writes the MAC to `out`.
 * `iterate(key = x0, u = x1, n = w2, t = x3, scratch = x4)` is PBKDF2's
   iteration over any Merkle–Damgård hash function
   (`Impl/Pbkdf2/AArch64.lean`), for the hash function's `Params`, digest and
@@ -41,7 +43,7 @@ and the iteration counts.
 namespace VG.Impl.Pbkdf2.Md.AArch64
 
 open VG.AArch64
-open VG.Impl.MdStream.AArch64 (mov)
+open VG.Impl.MdStream.AArch64 (mov compressAt)
 open VG.Impl.Pbkdf2.AArch64 (Params cp32)
 
 /-- A Merkle–Damgård hash function's AArch64 functions, as HMAC and PBKDF2
@@ -94,25 +96,36 @@ def hmacInit : Prog isa := H.stream.init
 /-! ## HMAC's `finalize`
 
 Registers and buffers as in `Impl/Hmac/Generic/AArch64.lean`'s `finalize`
-(`H.stream`): `x19` = `inner`, `x20` = `outer`, `x21` = `out`, `x23` =
-`scratch`, and the digests are written to `scratch + buf`. The outer state
-has absorbed one block, so the state that absorbed it and the inner digest
-is its hash value followed by a buffer holding the digest: `finMid` writes
-it over the inner state, word by word. -/
+(`H.stream`) up to the inner digest, which the streaming `finalize` writes
+to `scratch + buf`: `x19` = `inner`, `x20` = `outer`, `x21` = `out`, `x23` =
+`scratch`. The outer state has absorbed one block, so the outer hash, of
+that block and the `D`-byte digest, is one compression of the outer hash
+value with the block of the digest and the padding of a `B + D`-byte
+message, as in `iterate` (`Impl/Pbkdf2/AArch64.lean`). The inner state is no
+longer needed, so it holds them: its hash value at `x19` and the block in
+its buffer, at `x21 = x19 + N`. For the compression function and the
+digest, `x20` becomes `scratch` and `x24` keeps `out`. -/
 
-/-- The outer hash value, then the inner digest after it, over the inner
-state. -/
+/-- The outer hash value over the inner state's, the inner digest into its
+buffer, then the padding after it (`padLen`), and the block's address for
+the compression function. -/
 def finMid : List Instr :=
-  copy32 .x20 0 .x19 0 (H.P.N / 4) ++ copy32 .x23 H.stream.buf .x19 H.P.N (H.D / 4)
+  copy32 .x20 0 .x19 0 (H.P.N / 4) ++ copy32 .x23 H.stream.buf .x19 H.P.N (H.D / 4) ++
+    [mov .x24 .x21, .addImm .x .x21 .x19 H.P.N, mov .x20 .x23] ++ Impl.Pbkdf2.AArch64.padLen H.P H.D ++
+    [mov .x1 .x21]
 
-/-- The MAC to `out`, and our caller's registers back. -/
-def finOut : List Instr := copy32 .x23 H.stream.buf .x21 0 (H.D / 4) ++ H.stream.restore
+/-- The MAC to `out`: the digest of the hash value, written there directly,
+or for a digest shorter than the hash value (`P.out` writes `N` bytes) into
+the block and its first `D` bytes copied; and our caller's registers back. -/
+def finOut : List Instr :=
+  (if H.D < H.P.N then H.P.out ++ copy32 .x21 0 .x24 0 (H.D / 4) else mov .x21 .x24 :: H.P.out) ++
+    H.stream.restore
 
 def hmacFin : Prog isa :=
   .seq (.block H.stream.finPrologue)
   (.seq (H.stream.callFin [] [mov .x1 .x2] H.stream.buf)
   (.seq (.block H.finMid)
-  (.seq (H.stream.callFin [mov .x0 .x19] [.movz .x .x1 (BitVec.ofNat 16 (H.P.B + H.D)) 0] H.stream.buf)
+  (.seq (compressAt H.compN H.compC)
     (.block H.finOut))))
 
 /-! ## `iterate`

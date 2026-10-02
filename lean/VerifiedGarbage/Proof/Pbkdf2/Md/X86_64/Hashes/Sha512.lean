@@ -73,8 +73,7 @@ theorem coreOK (D : Nat) (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) : CoreOK
         argU₁ := ⟨_, by taint_decide⟩
         argU₂ := ⟨_, by taint_decide⟩
         restore := ⟨_, by taint_decide⟩ }
-      hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
-        ⟨_, by taint_decide⟩⟩
+      hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
       pbkMx := by decide +kernel
       pbkSp := by decide +kernel
       hinitMx := by decide +kernel

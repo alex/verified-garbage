@@ -48,8 +48,10 @@ theorem hmacInit_fdepth (hi : H.initC.aarch64Depth ≤ 1) (hu : H.updC.aarch64De
     Impl.Hmac.Generic.AArch64.Hash.callUpd, Code.aarch64Depth]
   omega
 
-theorem hmacFin_fdepth (hf : H.finC.aarch64Depth ≤ 1) : H.hmacFin.aarch64Depth ≤ 1 := by
-  simp only [Hash.hmacFin, Hash.stream, Impl.Hmac.Generic.AArch64.Hash.callFin, Code.aarch64Depth]
+theorem hmacFin_fdepth (hf : H.finC.aarch64Depth ≤ 1) (hc : H.compC.noFrames = true) :
+    H.hmacFin.aarch64Depth ≤ 1 := by
+  simp only [Hash.hmacFin, Hash.stream, Impl.Hmac.Generic.AArch64.Hash.callFin, Impl.MdStream.AArch64.compressAt,
+    Impl.MdStream.AArch64.compressWith, Code.aarch64Depth, fdepth_of_noFrames hc]
   omega
 
 theorem iterate_fdepth (hc : H.compC.noFrames = true) : H.iterate.aarch64Depth ≤ 1 := by
@@ -63,7 +65,7 @@ end
 /-! ## The taint checks, which look only at the own code -/
 
 theorem HmacFin.Checks.of_core {H : Hash} (h : HmacFin.Checks (core H)) : HmacFin.Checks H :=
-  ⟨h.pro, h.fin1, h.mid, h.fin2, h.out⟩
+  ⟨h.pro, h.fin1, h.mid, h.out⟩
 
 theorem Pbk.Checks.of_core {H : Hash} (h : Pbk.Checks (core H)) : Pbk.Checks H :=
   ⟨h.entry, h.hk1, h.hk3, h.hk5, h.hk7, h.keyShr, h.keySub, h.short, h.su1, h.su3, h.loopRegs,
@@ -137,7 +139,7 @@ theorem pbkdf2_verified
     Verified AArch64.target H.pbkdf2 (Spec.Pbkdf2.pbkdf2Contract hH.SH (H.W + H.S) AArch64.abi 16) :=
   (Pbk.verified hH (Pbk.Checks.of_core C.pbk)
     (hmacInit_ok hH C hsI) (hmacInit_fdepth hH.stream.initDepth hH.stream.updDepth)
-    (hmacFin_ok hH C hsF) (hmacFin_fdepth hH.stream.finDepth)
+    (hmacFin_ok hH C hsF) (hmacFin_fdepth hH.stream.finDepth hH.comp.noFrames)
     (iterate_ok hH C hsT) (iterate_fdepth hH.comp.noFrames)
     (pbkImp _ _ hsat).sat_left).of_implies (pbkImp _ _ hsat)
 

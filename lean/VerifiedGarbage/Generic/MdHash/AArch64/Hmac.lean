@@ -7,7 +7,8 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Variant
 A generic file (see `TCB/Emit.lean`): HMAC's `init` and `finalize`, the one
 implementation for every Merkle–Damgård hash function
 (`Impl/Hmac/Generic/AArch64.lean`, `Impl/Pbkdf2/Md/AArch64.lean`), calling
-the hash function's streaming functions, are emitted once for each variant
+the hash function's streaming functions, and `finalize` its compression
+function itself, are emitted once for each variant
 (`Variants/MdHash/AArch64/`), named with its suffix. **Review note**: `sig`
 and `doc` are trusted, as they tie the Rust caller to the contract; check
 them against the contract's `pre`/`post`. An artifact made from a function's

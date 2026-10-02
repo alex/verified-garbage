@@ -142,7 +142,7 @@ end
 /-! ## The taint checks, which look only at the own code -/
 
 theorem HmacFin.Checks.of_core {H : Hash} (h : HmacFin.Checks (core H)) : HmacFin.Checks H :=
-  ⟨h.pro, h.fin1, h.mid, h.fin2, h.out⟩
+  ⟨h.pro, h.fin1, h.mid, h.out⟩
 
 theorem Pbk.Checks.of_core {H : Hash} (h : Pbk.Checks (core H)) : Pbk.Checks H :=
   ⟨h.load, h.entry, h.hk1, h.hk3, h.hk5, h.hk7, h.short, h.su1, h.su3, h.loopRegs, h.pieceA, h.finArgs,
