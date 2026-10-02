@@ -14,9 +14,22 @@ pub fn bench(c: &mut Criterion) {
     use openssl::hash::MessageDigest;
     use verified_garbage::hashes::blake2s::Blake2s256;
 
-    use crate::hash_group;
+    use crate::{hash_group, hash_verify_group};
     let md = MessageDigest::from_name("BLAKE2S256").unwrap();
     hash_group(c, "blake2s-256", Blake2s256::digest, md);
+    // Unkeyed, as rust-openssl has no keyed BLAKE2 (`EVP_MAC`): `verify`
+    // takes the same time keyed, after one more block.
+    hash_verify_group(
+        c,
+        "blake2s-256-verify",
+        Blake2s256::digest,
+        |data, expected| {
+            let mut h = Blake2s256::new();
+            h.update(data);
+            h.verify(expected).is_ok()
+        },
+        md,
+    );
 }
 
 #[cfg(not(any(

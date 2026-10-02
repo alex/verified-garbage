@@ -25,6 +25,25 @@ theorem entered_wr (s : State) : (entered s).wr = ⟨base s, 320⟩ :: ⟨s.sp -
   change ⟨(entered s).sp, 320⟩ :: ⟨s.sp - 16, 16⟩ :: s.wr = _
   rw [entered_sp]
 
+/-- The frame of a callee of the body is in the 352 bytes below the stack pointer. -/
+theorem ck_sub (s : State) : Region.Sub (CK (base s)) (below s.sp 352) := by
+  intro x hx
+  simp only [Region.Contains] at hx ⊢
+  have e : s.sp - BitVec.ofNat 64 336 - BitVec.ofNat 64 16 = s.sp - BitVec.ofNat 64 352 :=
+    Offset.sub_sub_ofNat _ _ _
+  change (x - (s.sp - BitVec.ofNat 64 336 - BitVec.ofNat 64 16)).toNat + 1 ≤ 16 at hx
+  rw [e] at hx
+  omega
+
+theorem stk_sub (s : State) : Region.Sub ⟨base s, 336⟩ (below s.sp 352) :=
+  below_sub (by decide) (by decide)
+
+theorem base_16 {s : State} (h : 352 ≤ s.sp.toNat) : 16 ≤ (base s).toNat := by
+  change 16 ≤ (s.sp - 336#64).toNat
+  rw [BitVec.toNat_sub_of_le (by change 336 ≤ s.sp.toNat; omega)]
+  change 16 ≤ s.sp.toNat - 336
+  omega
+
 theorem saved_ctx {s p : State} (hs : Saved (entered s) 6 p) :
     Ctx (base s) s.gpr s.v p.mem (bodyRd s) s.wr (p.withRegions (bodyRd s) (bodyWr s)) := by
   refine ⟨rfl, rfl, hs.step.sp.trans (entered_sp s), ?_, ?_, Frame.refl _ _⟩
@@ -51,10 +70,11 @@ theorem saved_words {s p : State} (hs : Saved (entered s) 6 p) {j : Nat} (hj : j
   exact h
 
 /-- The complete operations share one LR save and a 320-byte allocation.
-Their body sees writable locals and readonly saved arguments. -/
-theorem wrap_ok {body : Prog isa} (hn : body.noFrames = true) {s : State}
-    (hsp : 336 ≤ s.sp.toNat)
-    (hw : ∀ r ∈ s.wr, (below s.sp 336).Disjoint r)
+Their body sees writable locals and readonly saved arguments, and its
+callees' frames take 16 more bytes below them. -/
+theorem wrap_ok {body : Prog isa} (hn : body.aarch64Depth ≤ 1) {s : State}
+    (hsp : 352 ≤ s.sp.toNat)
+    (hw : ∀ r ∈ s.wr, (below s.sp 352).Disjoint r)
     {P : Mem → Mem → BitVec 64 → Prop}
     (hb : ∀ p, Saved (entered s) 6 p →
       WP isa body (p.withRegions (bodyRd s) (bodyWr s)) fun u =>
@@ -67,7 +87,7 @@ theorem wrap_ok {body : Prog isa} (hn : body.noFrames = true) {s : State}
     change 320 ≤ s.sp.toNat - 16
     omega
   · refine WP.seq (WP.mono (saveArgs_ok (s := entered s) (by simp [entered_wr, entered_sp])) fun p hp => ?_)
-    refine WP.narrow (hb p hp) ?_ ?_ ?_ hn
+    refine WP.narrowF (hb p hp) ?_ ?_ ?_ (by omega)
     · refine Covers.of_sub fun r hr => ?_
       simp only [bodyRd, bodyWr, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr
       rw [hp.step.rd, hp.step.wr, entered_wr]
@@ -84,13 +104,17 @@ theorem wrap_ok {body : Prog isa} (hn : body.noFrames = true) {s : State}
       · exact ⟨r, List.mem_cons_of_mem _ (List.mem_cons_of_mem _ hr), 0, by simp⟩
     · intro u _ _ hsu hf ⟨hc, ho⟩
       have usp : u.sp = base s := hc.sp
-      have lr_sep : ∀ r ∈ bodyWr s, (⟨s.sp - 16, 16⟩ : Region).Disjoint r := by
+      have lr_sep : ∀ r ∈ bodyWr s ++ [below p.sp (16 * body.aarch64Depth)],
+          (⟨s.sp - 16, 16⟩ : Region).Disjoint r := by
         intro r hr
-        simp only [bodyWr, List.mem_cons] at hr
-        rcases hr with rfl | hr
+        simp only [bodyWr, List.cons_append, List.mem_cons, List.mem_append, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | hr | rfl
         · rw [← base_lr]
           exact Offset.disjoint_base _ (by decide) (by decide)
-        · exact (hw r hr).sub_left (below_sub (by decide : 16 ≤ 336) (by decide))
+        · exact (hw r hr).sub_left (below_sub (by decide : 16 ≤ 352) (by decide))
+        · rw [hp.step.sp, entered_sp, ← base_lr]
+          exact (Offset.below_disjoint (base s) (m := 16 * body.aarch64Depth) (l := 336) (by omega)).symm.sub_left
+            (Offset.sub_base _ (by decide : 320 + 16 ≤ 336))
       have lr : u.mem.read (base s + 320) 8 = s.gpr .x30 := by
         rw [base_lr, hf.read (r := ⟨s.sp - 16, 16⟩) (by simp [Region.Contains]) lr_sep (by decide)]
         rw [hp.frame.read (r := ⟨s.sp - 16, 16⟩) (by simp [Region.Contains]) ?_ (by decide)]

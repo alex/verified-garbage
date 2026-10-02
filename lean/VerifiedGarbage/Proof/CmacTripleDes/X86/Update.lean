@@ -199,7 +199,7 @@ theorem bswap_xor_append (a₀ a₁ b₀ b₁ : BitVec 32) :
 theorem readW_writeW_far (m : Mem) (B : Addr) (v : BitVec 32) {d e : Nat} (hd : d < 2 ^ 32)
     (he : e < 2 ^ 32) (h : d + 4 ≤ e ∨ e + 4 ≤ d) :
     (m.writeW (B + BitVec.ofNat 64 e) v).readW (B + BitVec.ofNat 64 d) 32 = m.readW (B + BitVec.ofNat 64 d) 32 :=
-  readW_writeW_save m B v hd he h
+  Mem.readW_writeW_sep (Offset.sep _ h (by omega) (by omega)) (by decide)
 
 theorem readW_lo_of_hi (m : Mem) (a : Addr) (v w : BitVec 32) :
     ((m.writeW a v).writeW (a + BitVec.ofNat 64 4) w).readW a 32 = v := by
@@ -396,8 +396,6 @@ theorem loop_ok {s₀ : State} (hp : UPre s₀) {k : Nat} (hk : k < N s₀) {s :
 
 /-! ## The whole function -/
 
-theorem saved_ne_eax : ∀ p ∈ saved, p.1 ≠ .eax := by decide
-
 /-- The arguments of the entry state, unchanged by saving the registers. -/
 theorem UPre.arg_saved {s₀ : State} (hp : UPre s₀) {i : Nat} (hi : i < 5) :
     (savedMem s₀ (S s₀)).readW (argAddr s₀ i) 32 = arg s₀ i :=
@@ -407,30 +405,31 @@ theorem prologue_wp {s₀ : State} (hp : UPre s₀) :
     WP isa (.block updPre) s₀ fun s => LInv s₀ 0 s ∧ s.zf = some (decide (N s₀ = 0)) := by
   have hsc := hp.scr_fit
   have hN : N s₀ < 2 ^ 32 := (arg s₀ 3).isLt
-  rw [show updPre = .mov .eax (stk 20) :: (saved.map (fun p => Instr.store (at_ .eax p.2) p.1) ++
+  rw [show updPre = .mov .eax (stk 20) :: (Spill.saveCode .eax saved ++
     ([.mov .ebp (.reg .eax), .mov .esi (stk 4), .mov .eax (stk 12), .store (at_ .ebp 128) .eax,
       .mov .eax (stk 16), .store (at_ .ebp 132) .eax, .alu .cmp .eax (.imm 0)] : List Instr)) from rfl]
   simp only [stk]
   refine wp_arg (s₀ := s₀) 4 rfl rfl (hp.argIn rfl rfl (by decide)) rfl fun s₁ u₁ => ?_
-  refine saveList_ok saved s₁ _ (fun p hp' => ?_) fun s₂ g₂ rd₂ wr₂ m₂ => ?_
+  refine Spill.save_ofNat_ok saved saved_fits (by rw [u₁.gpr]; exact fits_of hp.scr_fit (by decide))
+    (fun p hp' => ?_) fun s₂ u₂ => ?_
   · have hb := saved_bound p hp'
     have hsc' : (arg s₀ 4).toNat + 640 ≤ 2 ^ 32 := hp.scr_fit
     rw [u₁.gpr, u₁.wr]
-    exact ⟨by omega, hp.inScr (by omega) (by decide)⟩
+    exact hp.inScr (by omega) (by decide)
   have hm₂ : s₂.mem = savedMem s₀ (S s₀) := by
-    rw [m₂, u₁.mem, u₁.gpr, savedMem]
-    exact saveMem_congr _ _ _ fun p hp' => u₁.other _ (saved_ne_eax p hp')
+    rw [u₂.mem, u₁.mem, u₁.gpr, savedMem]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p hp' => u₁.other _ (saved_ne_eax p hp')
   have fr : ∀ m, m = savedMem s₀ (S s₀) → Frame (chg s₀) (savedMem s₀ (S s₀)) m := fun m h => h ▸ Frame.refl _ _
   refine wp_mov fun s₃ u₃ => ?_
-  have rd₃ : s₃.rd = s₀.rd := by rw [u₃.rd, rd₂, u₁.rd]
-  have wr₃ : s₃.wr = s₀.wr := by rw [u₃.wr, wr₂, u₁.wr]
-  have esp₃ : s₃.gpr .esp = s₀.gpr .esp := by rw [u₃.other _ (by decide), g₂, u₁.other _ (by decide)]
+  have rd₃ : s₃.rd = s₀.rd := by rw [u₃.rd, u₂.rd, u₁.rd]
+  have wr₃ : s₃.wr = s₀.wr := by rw [u₃.wr, u₂.wr, u₁.wr]
+  have esp₃ : s₃.gpr .esp = s₀.gpr .esp := by rw [u₃.other _ (by decide), u₂.gpr, u₁.other _ (by decide)]
   refine wp_arg (s₀ := s₀) 0 rfl esp₃ (hp.argIn rd₃ wr₃ (by decide))
     (by rw [u₃.mem, hm₂]; exact hp.arg_saved (by decide)) fun s₄ u₄ => ?_
   refine wp_arg (s₀ := s₀) 2 rfl (by rw [u₄.other _ (by decide), esp₃])
     (hp.argIn (by rw [u₄.rd, rd₃]) (by rw [u₄.wr, wr₃]) (by decide))
     (by rw [u₄.mem, u₃.mem, hm₂]; exact hp.arg_saved (by decide)) fun s₅ u₅ => ?_
-  have ebp₅ : s₅.gpr .ebp = S s₀ := by rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, g₂, u₁.gpr]
+  have ebp₅ : s₅.gpr .ebp = S s₀ := by rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.gpr, u₁.gpr]
   refine wp_store (hp.scrEa ebp₅ (by decide)) (by rw [u₅.wr, u₄.wr, wr₃]; exact hp.inScr (by decide) (by decide))
     fun s₆ w₆ => ?_
   have m₆ : s₆.mem = (savedMem s₀ (S s₀)).writeW ((S s₀).setWidth 64 + BitVec.ofNat 64 128) (Dp s₀) := by
@@ -452,7 +451,7 @@ theorem prologue_wp {s₀ : State} (hp : UPre s₀) :
   have m₉ : s₉.mem = s₆.mem.writeW ((S s₀).setWidth 64 + BitVec.ofNat 64 132) (arg s₀ 3) := by
     rw [f₉.mem, w₈.mem, u₇.gpr, u₇.mem]
   have g₉ : ∀ r, r ≠ .eax → r ≠ .esi → r ≠ .ebp → s₉.gpr r = s₀.gpr r := fun r ha hs hb => by
-    rw [f₉.gpr, w₈.gpr, u₇.other _ ha, w₆.gpr, u₅.other _ ha, u₄.other _ hs, u₃.other _ hb, g₂, u₁.other _ ha]
+    rw [f₉.gpr, w₈.gpr, u₇.other _ ha, w₆.gpr, u₅.other _ ha, u₄.other _ hs, u₃.other _ hb, u₂.gpr, u₁.other _ ha]
   refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
   · rw [f₉.gpr, w₈.gpr, u₇.other _ (by decide), w₆.gpr, u₅.other _ (by decide), u₄.gpr]
   · rw [f₉.gpr, w₈.gpr, u₇.other _ (by decide), w₆.gpr, ebp₅]
@@ -503,12 +502,11 @@ theorem UPre.ret_kept {s₀ : State} (hp : UPre s₀) {m : Mem} (hf : Frame (chg
 theorem epilogue_wp {s₀ : State} (hp : UPre s₀) {s₂ : State} (h₂ : LInv s₀ (N s₀) s₂) :
     WP isa (.block restore) s₂ fun s' => abiPreserved s₀ s' ∧ updateX86.post s₀ s' := by
   have hsc := hp.scr_fit
-  refine WP.mono (restore_ok h₂.ebp (by omega) fun d h₁ h₂' => ?_) fun s' ⟨hl, ho, m', _, _⟩ => ⟨?_, ?_⟩
+  refine WP.mono (restore_ok h₂.ebp (by omega) (fun d h₁ h₂' => ?_) (saved_of fun d h₁ h₂' => ?_))
+    fun s' r' => ⟨restored r' h₂.esp (by rw [r'.mem]; exact hp.ret_kept h₂.frame), ?_⟩
   · rw [h₂.rd, h₂.wr, hp.rd, hp.wr]
     exact in_rw (r := scrR s₀) (by simp) (Offset.contains_base _ (by omega) (by omega))
-  · refine restored (S := S s₀) (fun d h₁ h₂' => ?_) hl (by rw [ho _ (by decide), h₂.esp])
-      (by rw [m']; exact hp.ret_kept h₂.frame)
-    refine h₂.frame.readW (r := ⟨(S s₀).setWidth 64 + BitVec.ofNat 64 d, 4⟩) (Region.contains_self _ _)
+  · refine h₂.frame.readW (r := ⟨(S s₀).setWidth 64 + BitVec.ofNat 64 d, 4⟩) (Region.contains_self _ _)
       (fun r hr => ?_) (by decide)
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
@@ -516,7 +514,7 @@ theorem epilogue_wp {s₀ : State} (hp : UPre s₀) {s₂ : State} (h₂ : LInv 
     · exact Offset.disjoint_base _ (by omega) (by omega)
     · exact Offset.disjoint _ (d := d) (e := 128) (by omega) (by omega) (by omega)
   · show Spec.Aes.bytesAt s'.mem ((St s₀).setWidth 64) 8 = Spec.Cmac.chain (ciph s₀) _ (blks s₀)
-    rw [m', h₂.state, List.take_of_length_le (by simp [Spec.Cmac.blocksAt])]
+    rw [r'.mem, h₂.state, List.take_of_length_le (by simp [Spec.Cmac.blocksAt])]
 
 theorem update_wp {s₀ : State} (h0 : updateX86.pre s₀) :
     WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ updateX86.post s₀ s' := by

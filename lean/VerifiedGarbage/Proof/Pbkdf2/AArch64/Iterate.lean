@@ -80,17 +80,10 @@ structure Shape {P : Params} (H : Md P.B P.N P.L) : Prop where
       s'.wr = s.wr ∧ s'.sp = s.sp ∧
       s'.mem = writeBytes s.mem (s.gpr .x21) (H.digest (H.stateAt s.mem (s.gpr .x19)))
 
-/-- The streaming proofs' `Shape`, for a hash function with 64-byte blocks
-and an 8-byte length field. -/
-theorem Shape.ofMd {P : VG.Impl.MdStream.AArch64.Params} {H : Md 64 P.N 8} (h : MdStream.AArch64.Shape H) :
-    Shape (P := Impl.Pbkdf2.AArch64.ofMd P) H where
-  lenKeepsV := h.lenKeepsV
-  outKeepsV := h.outKeepsV
-  len s hs := by
-    have e : P.N + 64 - 8 = P.N + 56 := by omega
-    have := h.len s (by rw [← e]; exact hs)
-    simpa only [Impl.Pbkdf2.AArch64.ofMd, e] using this
-  out := h.out
+/-- The streaming proofs' `Shape`. -/
+theorem Shape.ofMd {P : VG.Impl.MdStream.AArch64.Params} {H : Md P.B P.N P.L} (h : MdStream.AArch64.Shape H) :
+    Shape (P := Impl.Pbkdf2.AArch64.ofMd P) H :=
+  ⟨h.lenKeepsV, h.outKeepsV, h.len, h.out⟩
 
 /-- The sizes the proof supports, checked for each hash function by `decide`:
 words of 4 bytes, a digest of at most the hash value, room for the padding
@@ -152,8 +145,8 @@ section
 variable {P : Params} {D W : Nat} (hz : Sizes P D W)
 include hz
 
-theorem so_le : P.so ≤ 256 := hz.dims.so.2
-theorem so8 : P.so % 8 = 0 ∧ P.so ≤ 256 := hz.dims.so
+theorem so_le : P.so ≤ 1024 := hz.dims.so.2
+theorem so8 : P.so % 8 = 0 ∧ P.so ≤ 1024 := hz.dims.so
 theorem saved_off {q : Reg × Nat} (hq : q ∈ saved P.md) : P.so ≤ q.2 ∧ q.2 + 8 ≤ P.so + 48 :=
   saved_offset hz.dims hq
 theorem N_le : P.N ≤ 64 := hz.dims.N.2

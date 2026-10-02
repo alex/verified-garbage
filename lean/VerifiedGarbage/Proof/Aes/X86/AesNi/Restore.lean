@@ -16,50 +16,24 @@ theorem restoreCore_ok {s₀ s : State} (hp : CPre s₀) (saved : Saved s₀ s.m
   have hc : InRegions s.wr (addr (ctrP s₀) 12) 4 := by
     refine ⟨ctrR s₀, ?_, ctr_contains hp (by decide)⟩
     simp only [wr, hp.wr, List.mem_cons, true_or]
-  have hs (d : Nat) (hd : d + 4 ≤ 2048) :
-      InRegions (s.rd ++ s.wr) (addr (scrP s₀) d) 4 := by
-    apply inRegions_wr
-    rw [wr]; exact scratch_in hp hd
-  have hs0 := hs 0 (by decide)
-  have hs4 := hs 4 (by decide)
-  have hs8 := hs 8 (by decide)
-  have hs12 := hs 12 (by decide)
-  let m := s.mem.writeW (addr (ctrP s₀) 12) (bswap (s.gpr .ebx))
-  have saved' : Saved s₀ m := by
-    constructor
-    · dsimp only [m]
-      rw [Mem.readW_writeW_sep
-        (hp.dCB.symm.sep (scratch_contains hp (by decide)) (ctr_contains hp (by decide))) (by decide)]
-      exact saved.ebx
-    · dsimp only [m]
-      rw [Mem.readW_writeW_sep
-        (hp.dCB.symm.sep (scratch_contains hp (by decide)) (ctr_contains hp (by decide))) (by decide)]
-      exact saved.esi
-    · dsimp only [m]
-      rw [Mem.readW_writeW_sep
-        (hp.dCB.symm.sep (scratch_contains hp (by decide)) (ctr_contains hp (by decide))) (by decide)]
-      exact saved.edi
-    · dsimp only [m]
-      rw [Mem.readW_writeW_sep
-        (hp.dCB.symm.sep (scratch_contains hp (by decide)) (ctr_contains hp (by decide))) (by decide)]
-      exact saved.ebp
-  have b0 := saved'.ebx
-  have b4 := saved'.esi
-  have b8 := saved'.edi
-  have b12 := saved'.ebp
-  dsimp only [addr, m] at hc hs0 hs4 hs8 hs12 b0 b4 b8 b12
-  apply WP.of_runBlock
-  simp (config := {decide := true}) only [Impl.Aes.X86.AesNi.restore, runBlock_cons,
-    runStep_some, runBlock_nil, exec, readSrc, State.load32, State.store32,
-    State.ea, at_, gpr_setReg, mem_setReg, rd_setReg, wr_setReg,
-    edx, ebp, hc, hs0, hs4, hs8, hs12, b0, b4, b8, b12,
-    ite_true, ite_false, Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨?_, ?_⟩
-  · trivial
-  · intro r hr
-    simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl <;>
-      simp (config := {decide := true}) only [ite_true, ite_false, esp]
+  rw [show Impl.Aes.X86.AesNi.restore = .mov .eax (.reg .ebx) :: .bswap .eax :: .store (at_ .edx 12) .eax ::
+    (Spill.restoreCode .ebp ([(.ebx, 0), (.esi, 4), (.edi, 8)] ++ [(.ebp, 12)]) ++ []) from rfl]
+  refine Wp.wp_mov fun s₁ u₁ => Wp.wp_bswap fun s₂ u₂ => ?_
+  refine Wp.wp_stm (by rw [u₂.other _ (by decide), u₁.other _ (by decide), edx])
+    (by rw [u₂.wr, u₁.wr]; exact hc) fun s₃ u₃ => ?_
+  have hm : s₃.mem = s.mem.writeW (addr (ctrP s₀) 12) (bswap (s.gpr .ebx)) := by
+    rw [u₃.mem, u₂.gpr, u₂.mem, u₁.gpr, u₁.mem]
+  have e : s₃.gpr .ebp = scrP s₀ := by rw [u₃.gpr, u₂.other _ (by decide), u₁.other _ (by decide), ebp]
+  have sv : Saved s₀ s₃.mem := by
+    rw [hm]
+    exact saved.of_readW fun p h => Mem.readW_writeW_sep (hp.dCB.symm.sep
+      (scratch_contains hp (by have := savedRegs_bound p h; omega)) (ctr_contains hp (by decide))) (by decide)
+  refine Spill.restoreBase_ok _ (by decide) (fun p h => by
+      have := savedRegs_bound p (by revert p h; decide)
+      rw [e, u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]
+      exact inRegions_wr (by rw [wr]; exact scratch_in hp (by omega)))
+    (by rw [e]; exact sv.sub (by decide)) fun s' r' => WP.block_nil ⟨by rw [r'.mem, hm],
+        r'.abi (by decide) (by decide) (by rw [u₃.gpr, u₂.other _ (by decide), u₁.other _ (by decide), esp])⟩
 
 /-- The complete restore preserves the encrypted data and the return slot,
 and advances only the low 32 counter bits. -/

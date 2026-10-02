@@ -23,6 +23,7 @@ abbrev MSG : Region := ⟨L.msg, L.len.toNat⟩
 abbrev SCR : Region := ⟨L.scr, 8192⟩
 abbrev ARGS : Region := ⟨L.E + BitVec.ofNat 64 256, 48⟩
 abbrev FR : Region := Whole.FR L.E
+abbrev CK : Region := Whole.CK L.E
 def inputs : List Region := [L.SEED, L.PK, L.MSG, L.ARGS]
 def outputs : List Region := [L.OUT, L.SCR]
 def value (j : Nat) : BitVec 64 :=
@@ -41,6 +42,10 @@ structure Ok : Prop where
   nm : L.msg.toNat + L.len.toNat ≤ 2 ^ 64
   ns : L.seed.toNat + 32 ≤ 2 ^ 64
   nc : L.scr.toNat + 8192 ≤ 2 ^ 64
+  e16 : 16 ≤ L.E.toNat
+  ck : ∀ r ∈ L.inputs, L.CK.Disjoint r
+  co : L.CK.Disjoint L.OUT
+  cc : L.CK.Disjoint L.SCR
 end Lay
 
 /-- The disjoint scratch allocation leaves room for the hash's 64-byte prefix. -/
@@ -80,10 +85,11 @@ theorem input_bytes (hc : Ctx L g v m₀ t) (hL : L.Ok)
   intro R hR
   simp only [Lay.outputs, List.cons_append, List.nil_append, List.mem_cons,
     List.not_mem_nil, or_false] at hR
-  rcases hR with rfl | rfl | rfl
+  rcases hR with rfl | rfl | rfl | rfl
   · exact (hL.os r hr).symm
   · exact hL.sc r hr
   · exact (hL.ks r hr).symm
+  · exact (hL.ck r hr).symm
 
 theorem arg_word (hc : Ctx L g v m₀ t) (hL : L.Ok) {j : Nat} (hj : j < 6) :
     t.mem.readW (L.E + BitVec.ofNat 64 (256 + 8 * j)) 64 =
@@ -94,10 +100,11 @@ theorem arg_word (hc : Ctx L g v m₀ t) (hL : L.Ok) {j : Nat} (hj : j < 6) :
     simp only [Lay.outputs, List.cons_append, List.nil_append, List.mem_cons,
       List.not_mem_nil, or_false] at hR
     have ha : L.ARGS ∈ L.inputs := by simp [Lay.inputs]
-    rcases hR with rfl | rfl | rfl
+    rcases hR with rfl | rfl | rfl | rfl
     · exact (hL.os _ ha).symm
     · exact hL.sc _ ha
     · exact (hL.ks _ ha).symm
+    · exact (hL.ck _ ha).symm
 
 end Ctx
 end VG.Proof.Ed25519.AArch64.SignCached

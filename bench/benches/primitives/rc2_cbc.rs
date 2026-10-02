@@ -16,7 +16,7 @@ pub fn bench(c: &mut Criterion) {
     use criterion::{BenchmarkId, Throughput};
     use openssl::provider::Provider;
     use openssl::symm::{Cipher, Crypter, Mode};
-    use verified_garbage::rc2_cbc::{Direction, Rc2Cbc};
+    use verified_garbage::rc2_cbc::{Rc2CbcDecryptor, Rc2CbcEncryptor};
 
     use crate::{OPENSSL, SIZES, VG};
 
@@ -25,34 +25,36 @@ pub fn bench(c: &mut Criterion) {
     let _legacy = Provider::try_load(None, "legacy", true).unwrap();
     let key = [0x42; 16];
     let iv = [0x24; 8];
-    for (name, direction, mode) in [
-        ("rc2-cbc-encrypt", Direction::Encrypt, Mode::Encrypt),
-        ("rc2-cbc-decrypt", Direction::Decrypt, Mode::Decrypt),
+    for (name, mode) in [
+        ("rc2-cbc-encrypt", Mode::Encrypt),
+        ("rc2-cbc-decrypt", Mode::Decrypt),
     ] {
         let mut g = c.benchmark_group(name);
         for size in SIZES {
             g.throughput(Throughput::Bytes(size as u64));
             let data = vec![0x5a; size];
-            g.bench_function(BenchmarkId::new(VG, size), |b| {
-                b.iter(|| {
-                    let mut ctx = match direction {
-                        Direction::Encrypt => {
-                            Rc2Cbc::new(black_box(&key), black_box(&iv), direction)
-                        }
-                        Direction::Decrypt => Rc2Cbc::new_with_effective_bits(
-                            black_box(&key),
-                            black_box(&iv),
-                            direction,
-                            128,
-                        ),
-                    }
-                    .unwrap();
-                    let output = ctx.update(black_box(&data));
-                    black_box(ctx.finalize().unwrap());
-                    black_box(output)
-                })
-            });
+            // Both libraries write into a buffer allocated once, outside the
+            // timed code.
             let mut output = vec![0; size + 8];
+            g.bench_function(BenchmarkId::new(VG, size), |b| match mode {
+                Mode::Encrypt => b.iter(|| {
+                    let mut ctx = Rc2CbcEncryptor::new(black_box(&key), black_box(&iv)).unwrap();
+                    let n = ctx.update(black_box(&data), &mut output).unwrap();
+                    ctx.finalize().unwrap();
+                    black_box(&output[..n]);
+                }),
+                Mode::Decrypt => b.iter(|| {
+                    let mut ctx = Rc2CbcDecryptor::new_with_effective_bits(
+                        black_box(&key),
+                        black_box(&iv),
+                        128,
+                    )
+                    .unwrap();
+                    let n = ctx.update(black_box(&data), &mut output).unwrap();
+                    ctx.finalize().unwrap();
+                    black_box(&output[..n]);
+                }),
+            });
             g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
                 b.iter(|| {
                     let mut ctx = Crypter::new(

@@ -238,6 +238,19 @@ macro_rules! blake2 {
                 digest
             }
 
+            /// Checks that `mac` is the digest of the data (its MAC, if the
+            /// computation is keyed), in constant time: the time taken does
+            /// not depend on where, or whether, `mac` differs from it (its
+            /// length is public). `mac` must be the whole digest, of `N`
+            /// bytes; a truncated one is rejected.
+            pub fn verify(self, mac: &[u8]) -> Result<(), $crate::hmac::InvalidMac> {
+                if $crate::ct::eq(&self.finalize(), mac) {
+                    Ok(())
+                } else {
+                    Err($crate::hmac::InvalidMac)
+                }
+            }
+
             /// The (unkeyed) digest of `data`.
             pub fn digest(data: &[u8]) -> [u8; N] {
                 let mut h = Self::new();
@@ -278,3 +291,49 @@ macro_rules! blake2 {
 }
 
 pub(super) use blake2;
+
+#[cfg(test)]
+mod tests {
+    use super::super::blake2b::Blake2b;
+    use super::super::blake2s::Blake2s;
+    use crate::hmac::InvalidMac;
+
+    /// `verify`, run by a computation of `mac`, accepts `mac` and rejects
+    /// any other: one with a bit flipped in its first, a middle or its last
+    /// byte, a truncated MAC, an empty one and a longer one.
+    fn check<const N: usize>(mac: [u8; N], verify: impl Fn(&[u8]) -> Result<(), InvalidMac>) {
+        assert_eq!(verify(&mac), Ok(()));
+        for i in [0, N / 2, N - 1] {
+            let mut bad = mac;
+            bad[i] ^= 1;
+            assert_eq!(verify(&bad), Err(InvalidMac));
+        }
+        assert_eq!(verify(&mac[..N - 1]), Err(InvalidMac));
+        assert_eq!(verify(&[]), Err(InvalidMac));
+        let mut longer = [0u8; 65];
+        longer[..N].copy_from_slice(&mac);
+        assert_eq!(verify(&longer[..N + 1]), Err(InvalidMac));
+    }
+
+    /// `verify`, keyed and unkeyed, for the largest digest and a smaller
+    /// one.
+    #[test]
+    fn verify() {
+        let (key, data) = (b"key", b"data");
+        macro_rules! sizes {
+            ($($hash:ident<$n:literal>),*) => {$(
+                check($hash::<$n>::digest_keyed(key, data), |m| {
+                    let mut h = $hash::<$n>::new_keyed(key);
+                    h.update(data);
+                    h.verify(m)
+                });
+                check($hash::<$n>::digest(data), |m| {
+                    let mut h = $hash::<$n>::new();
+                    h.update(data);
+                    h.verify(m)
+                });
+            )*};
+        }
+        sizes!(Blake2b<64>, Blake2b<20>, Blake2s<32>, Blake2s<16>);
+    }
+}

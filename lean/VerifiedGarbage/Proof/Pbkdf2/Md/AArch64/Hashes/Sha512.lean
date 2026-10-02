@@ -1,6 +1,5 @@
 import VerifiedGarbage.Proof.Sha512.AArch64.Variant
 import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Variant
-import VerifiedGarbage.Proof.Pbkdf2.AArch64.Sha512
 import VerifiedGarbage.Proof.Sha512.AArch64.Shared
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.Spec.Sha512.Contract
@@ -11,13 +10,12 @@ import VerifiedGarbage.TCB.AArch64.Target
 
 SHA-384, SHA-512, SHA-512/224 and SHA-512/256, with their compression
 function, as variants of `MdHash` (`sha384`, …), from which HMAC and PBKDF2
-are emitted (`Generic/MdHash/AArch64/`). They share their streaming `update`
-and `finalize` (`Impl/Sha512/AArch64/Stream.lean`) and differ in their initial
-hash value `iv` and the size `D` of their digest, the first `D` bytes of the
-final hash value. PBKDF2's iteration writes their length field and digest with
-`Impl.Pbkdf2.AArch64.sha512` (`Proof/Pbkdf2/AArch64/Sha512.lean`). The facts
-about the code HMAC and PBKDF2 add, which do not depend on the functions they
-call, are checked once for each member (`coreOK`).
+are emitted (`Generic/MdHash/AArch64/`). Their streaming code is the generic
+Merkle–Damgård code (`Stream.params`), shared by the four, which differ in
+their initial hash value `iv` and the size `D` of their digest, the first `D`
+bytes of the final hash value. The facts about the code HMAC and PBKDF2 add,
+which do not depend on the functions they call, are checked once for each
+member (`coreOK`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64.Sha512
@@ -25,13 +23,12 @@ namespace VG.Proof.Pbkdf2.Md.AArch64.Sha512
 open VG.AArch64
 open VG.Proof.Sha512.AArch64 (Compress)
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
-open VG.Proof.Pbkdf2.Md.AArch64.Calls (updK finK)
 open Spec.Sha512 (H0_384 H0_512 H0_512_224 H0_512_256)
 
 /-- The member of the SHA-512 family of instance `I`, with a `D`-byte digest,
 initial hash value `iv` and streaming `init` named `initN`. -/
 def hash (v : Compress) (I : Spec.Hmac.Instance) (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue) : Hash where
-  P := Impl.Pbkdf2.AArch64.sha512
+  P := Impl.Pbkdf2.AArch64.ofMd Impl.Sha512.AArch64.Stream.params
   D := D
   W := I.scratch
   compN := v.name
@@ -48,7 +45,7 @@ def hash (v : Compress) (I : Spec.Hmac.Instance) (D : Nat) (initN : String) (iv 
 
 /-- A member of the family without the functions it calls. -/
 def coreH (D : Nat) : Hash :=
-  ⟨Impl.Pbkdf2.AArch64.sha512, D, 234, "", .block [], "", .block [], "", .block [], "", .block [], "", "", ""⟩
+  ⟨Impl.Pbkdf2.AArch64.ofMd Impl.Sha512.AArch64.Stream.params, D, 234, "", .block [], "", .block [], "", .block [], "", .block [], "", "", ""⟩
 
 theorem coreOK (D : Nat) (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) : CoreOK (coreH D) := by
   rcases hD with rfl | rfl | rfl | rfl <;> exact {
@@ -74,35 +71,6 @@ theorem coreOK (D : Nat) (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) : CoreOK
 /-- The initial hash values of the family. -/
 abbrev IVs (iv : Spec.Sha512.HashValue) : Prop := iv = H0_384 ∨ iv = H0_512 ∨ iv = H0_512_224 ∨ iv = H0_512_256
 
-/-- A state satisfying `updK`'s precondition at the family's sizes. -/
-def updSat : State where
-  gpr r := match r with
-    | .x0 => 0x10000 | .x2 => 0x30000 | .x4 => 0x40000
-    | _ => 0
-  sp := 0x90000
-  mem _ := 0
-  rd := [⟨0x30000, 0⟩]
-  wr := [⟨0x10000, 192⟩, ⟨0x40000, 224⟩]
-
-/-- A state satisfying `finK`'s precondition at the family's sizes. -/
-def finKSat : State where
-  gpr r := match r with
-    | .x0 => 0x10000 | .x2 => 0x20000 | .x3 => 0x40000
-    | _ => 0
-  sp := 0x90000
-  mem _ := 0
-  rd := []
-  wr := [⟨0x10000, 192⟩, ⟨0x20000, 64⟩, ⟨0x40000, 224⟩]
-
-theorem upd_sat (R : Mem → Addr → List Byte → Prop) : ∃ s, (updK 192 224 R).pre s := by
-  refine ⟨updSat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
-
-theorem fin_sat (R : Mem → Addr → List Byte → Prop) (hash : List Byte → List Byte) (D : Nat) :
-    ∃ s, (finK 192 224 64 D R hash).pre s := by
-  refine ⟨finKSat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
-
 section
 variable (v : Compress)
 variable {I : Spec.Hmac.Instance} {D : Nat} {initN : String} {iv : Spec.Sha512.HashValue}
@@ -115,7 +83,7 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
     (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) (hiv : IVs iv) :
     Calls.StreamOK (hash v I D initN iv).stream where
   SH := I.S
-  Wb := 224
+  Wb := Impl.Sha512.AArch64.scratchBytes + 48
   hS := hS
   hD := hDs
   hB := hB
@@ -126,27 +94,27 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
   hSB := show 192 ≤ 256 by decide
   hB0 := show 0 < 128 by decide
   hBB := Nat.le_refl 128
-  hWb := by show 224 ≤ 8 * ((Impl.Pbkdf2.AArch64.sha512.so + 48) / 8); decide
-  hW := by show (Impl.Pbkdf2.AArch64.sha512.so + 48) / 8 ≤ 64; decide
+  hWb := by show Impl.Sha512.AArch64.scratchBytes + 48 ≤ 8 * ((Impl.Sha512.AArch64.Stream.params.so + 48) / 8); decide
+  hW := by show (Impl.Sha512.AArch64.Stream.params.so + 48) / 8 ≤ 134; decide
   repr := hR ▸ Hmac.Generic.Common.sha512_repr iv
   init := hR ▸ Proof.Sha512.AArch64.Stream.init_verified iv
   upd := hR ▸ v.update_verified.of_implies
-    { pre := fun _ ⟨a, b, c, d, e, _⟩ => ⟨a, b, c, d, e⟩
+    { pre := fun _ h => h
       post := fun _ _ _ h m hr hc => h iv m hr hc
       pub := fun _ _ _ _ h => h
-      sat := upd_sat _ }
+      sat := v.update_verified.2.2 }
   fin := v.finalize_verified.of_implies
-    { pre := fun _ ⟨a, b, c, d, e, _⟩ => ⟨a, b, c, d, e⟩
+    { pre := fun _ h => h
       post := fun s s' _ h m hr hl hc => by
         show List.take D (Spec.Sha512.bytesAt s'.mem _ 64) = _
         rw [hh, h iv m (hR ▸ hr) hl hc]
       pub := fun _ _ _ _ h => h
-      sat := fin_sat _ _ _ }
+      sat := v.finalize_verified.2.2 }
   initDepth := by
     show (Impl.Sha512.AArch64.Stream.init iv).aarch64Depth ≤ 1
     rcases hiv with rfl | rfl | rfl | rfl <;> decide +kernel
-  updDepth := by show v.update.aarch64Depth ≤ 1; rw [show v.update.aarch64Depth = 0 from v.updateDepth]; decide
-  finDepth := by show v.finalize.aarch64Depth ≤ 1; rw [show v.finalize.aarch64Depth = 0 from v.finalizeDepth]; decide
+  updDepth := by show v.update.aarch64Depth ≤ 1; rw [v.update_depth]
+  finDepth := by show v.finalize.aarch64Depth ≤ 1; rw [v.finalize_depth]
 
 /-- `HashOK` for the member of instance `I`, whose specification is the
 family's from `iv`, with its digest the first `D` bytes. -/
@@ -156,10 +124,10 @@ def ok (hR : I.S.Repr = Spec.Sha512.Repr iv)
     (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) (hW : I.scratch = 234) (hiv : IVs iv) :
     HashOK (hash v I D initN iv) where
   initKeepsV := by rfl
-  updKeepsV := v.updateKeepsV
-  finKeepsV := v.finalizeKeepsV
+  updKeepsV := v.update_keepsV
+  finKeepsV := v.finalize_keepsV
   md := Proof.Sha512.md
-  shape := Pbkdf2.AArch64.sha512_shape
+  shape := Pbkdf2.AArch64.Shape.ofMd Proof.Sha512.AArch64.Stream.shape
   comp := ⟨v.verified.1, v.verified.2.1, v.noFrames, v.keepsV⟩
   reloc m m' p q h := by
     apply Vector.ext
@@ -172,12 +140,12 @@ def ok (hR : I.S.Repr = Spec.Sha512.Repr iv)
   repr _ _ _ := by show I.S.Repr _ _ _ ↔ _; rw [hR]; exact Proof.Sha512.repr_iff
   hash := hh
   sizes := by
-    show Pbkdf2.AArch64.Sizes Impl.Pbkdf2.AArch64.sha512 D I.scratch
+    show Pbkdf2.AArch64.Sizes (Impl.Pbkdf2.AArch64.ofMd Impl.Sha512.AArch64.Stream.params) D I.scratch
     rw [hW]
     rcases hD with rfl | rfl | rfl | rfl <;>
-    exact ⟨⟨by decide, by decide⟩, by decide, by decide, by decide, by decide, by decide, by decide,
+    exact ⟨⟨by decide, by decide, by decide, by decide⟩, by decide, by decide, by decide, by decide, by decide, by decide,
       by decide, by decide, by decide, by decide⟩
-  L := by show 0 < Impl.Pbkdf2.AArch64.sha512.L ∧ Impl.Pbkdf2.AArch64.sha512.L ≤ 16; decide
+  L := by show 0 < Impl.Sha512.AArch64.Stream.params.L ∧ Impl.Sha512.AArch64.Stream.params.L ≤ 16; decide
   W := by show I.scratch ≤ 256; omega
 
 end
@@ -187,12 +155,14 @@ emits them once per backend through `MdHash`; the other members call them. -/
 def stream (v : Compress) : List StreamFn := [
   { api := Spec.Sha512.updateApi
     code := v.update
-    contract := Spec.Sha512.updateContract AArch64.abi
+    contract := Spec.Sha512.updateContract AArch64.abi 16
+    stack := 16
     verified := Proof.Sha512.AArch64.Shared.update_of v.update_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { api := Spec.Sha512.finalizeApi
     code := v.finalize
-    contract := Spec.Sha512.finalizeContract AArch64.abi
+    contract := Spec.Sha512.finalizeContract AArch64.abi 16
+    stack := 16
     verified := Proof.Sha512.AArch64.Shared.finalize_of v.finalize_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 

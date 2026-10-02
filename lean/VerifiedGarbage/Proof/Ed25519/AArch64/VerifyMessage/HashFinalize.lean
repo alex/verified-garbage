@@ -13,7 +13,7 @@ theorem finalize_writes : ∀ r ∈ Whole.finalizeWr L.scr (L.E+192),
   rcases hr with rfl | rfl | rfl
   · exact .inr ⟨L.SCR, by simp [Lay.outputs], 0, (BitVec.add_zero _).symm, by change 0+192≤8192; decide⟩
   · exact .inl ⟨192, rfl, by change 192+64≤256; decide⟩
-  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192+224≤8192; decide⟩
+  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192+688≤8192; decide⟩
 
 theorem finalize_ok (backend : Whole.Backend) (hc : Ctx L g v m₀ s) (hL : L.Ok)
     (ha : Arguments L m₀) {msg : List Byte}
@@ -41,7 +41,8 @@ theorem finalize_ok (backend : Whole.Backend) (hc : Ctx L g v m₀ s) (hL : L.Ok
   have hd : Region.Disjoint ⟨L.E+192,64⟩ L.SCR :=
     hL.kc.sub_left (Offset.sub_base _ (by decide))
   have hr' : Spec.Sha512.Repr Spec.Sha512.H0_512 t.mem L.scr msg := htmem ▸ hr
-  refine WP.mono (Whole.finalize_call backend ht (Whole.finalize_pre a0 a2 a3 hd)
+  refine WP.mono (Whole.finalize_call backend ht (Whole.finalize_pre a0 a2 a3 hd (by rw [ht.sp]; exact hL.e16)
+    (by rw [ht.sp]; exact hL.cc) (by rw [ht.sp]; exact Whole.ck_frame (by decide : 192 + 64 ≤ 304)))
     (Whole.covers_writes finalize_writes) finalize_writes a0 a2 a1 hr'
     (by rw [hm]; exact hL.message_bound)) fun u ⟨hu,_,hp⟩ => ⟨hu,hp⟩
 

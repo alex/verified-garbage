@@ -125,11 +125,9 @@ theorem XPre.of (s₀ : State) (h : Proof.ChaCha20.xorX86.pre s₀) : XPre s₀ 
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19⟩
 
 /-- Our caller's `ebx, esi, edi, ebp`, saved in `buf[256, 272)`. -/
-def Saved (s₀ : State) (m : Mem) : Prop :=
-  m.readW (bp s₀ + BitVec.ofNat 64 256) 32 = s₀.gpr .ebx ∧
-  m.readW (bp s₀ + BitVec.ofNat 64 260) 32 = s₀.gpr .esi ∧
-  m.readW (bp s₀ + BitVec.ofNat 64 264) 32 = s₀.gpr .edi ∧
-  m.readW (bp s₀ + BitVec.ofNat 64 268) 32 = s₀.gpr .ebp
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (bp s₀ + BitVec.ofNat 64 ·) s₀.gpr saved
+
+theorem saved_fits : Spill.Fits 272 saved := by decide
 
 /-- The regions the code writes: its buffers and the 12 bytes of stack of its calls. -/
 abbrev frameR (s₀ : State) : List Region := [stR s₀, dR s₀, bR s₀, stackR s₀]
@@ -198,15 +196,11 @@ theorem savR_sub (s₀ : State) : Region.Sub (savR s₀) (bR s₀) := Offset.sub
 
 /-- The saved registers survive a frame that does not touch them. -/
 theorem Saved.frame {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved s₀ m)
-    (hf : Frame rs m m') (hd : ∀ r ∈ rs, (savR s₀).Disjoint r) : Saved s₀ m' := by
-  have c : ∀ d, 256 ≤ d → d + 4 ≤ 272 → (savR s₀).Contains (bp s₀ + BitVec.ofNat 64 d) (32 / 8) := by
-    intro d h₁ h₂
-    exact Offset.contains _ h₁ (by lit_omega) (by lit_omega)
-  obtain ⟨h1, h2, h3, h4⟩ := h
-  exact ⟨by rw [hf.readW (c 256 (Nat.le_refl _) (by lit_omega)) hd (by decide), h1],
-    by rw [hf.readW (c 260 (by lit_omega) (by lit_omega)) hd (by decide), h2],
-    by rw [hf.readW (c 264 (by lit_omega) (by lit_omega)) hd (by decide), h3],
-    by rw [hf.readW (c 268 (by lit_omega) (by lit_omega)) hd (by decide), h4]⟩
+    (hf : Frame rs m m') (hd : ∀ r ∈ rs, (savR s₀).Disjoint r) : Saved s₀ m' :=
+  Spill.Saved.of_frame h hf (fun p hp => by
+    have := saved_fits.1 p hp
+    have : 256 ≤ p.2 := by revert p hp; decide
+    exact Offset.contains _ this (by lit_omega) (by lit_omega)) hd
 
 /-! ## The prologue -/
 
@@ -220,29 +214,15 @@ theorem load_buf_ok {s₀ : State} (hp : XPre s₀) :
     i₃, v₃, ite_true, Option.map_some, Option.some.injEq, exists_eq_left']
 
 /-- The memory after the prologue's stores. -/
-def saveMem (s₀ : State) : Mem :=
-  (((s₀.mem.writeW (bp s₀ + BitVec.ofNat 64 256) (s₀.gpr .ebx)).writeW (bp s₀ + BitVec.ofNat 64 260)
-    (s₀.gpr .esi)).writeW (bp s₀ + BitVec.ofNat 64 264) (s₀.gpr .edi)).writeW
-    (bp s₀ + BitVec.ofNat 64 268) (s₀.gpr .ebp)
+abbrev saveMem (s₀ : State) : Mem := Spill.saveMem s₀.mem (bp s₀ + BitVec.ofNat 64 ·) s₀.gpr saved
 
-theorem saveMem_frame {s₀ : State} (hp : XPre s₀) : Frame [bR s₀] s₀.mem (saveMem s₀) := by
-  have c : ∀ d : Nat, d + 4 ≤ 320 → (bR s₀).Contains (bp s₀ + BitVec.ofNat 64 d) (32 / 8) :=
-    fun d hd => contains_off hd (by lit_omega)
+theorem saveMem_frame {s₀ : State} (hp : XPre s₀) : Frame [bR s₀] s₀.mem (saveMem s₀) :=
   have _ := hp
-  exact ((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 256 (by lit_omega))).writeW
-    (List.mem_singleton_self _) _ (c 260 (by lit_omega))).writeW (List.mem_singleton_self _) _
-    (c 264 (by lit_omega))).writeW (List.mem_singleton_self _) _ (c 268 (by lit_omega))
+  Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p h =>
+    have := saved_fits.1 p h; contains_off (by lit_omega) (by lit_omega)
 
-theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) := by
-  simp only [Saved, saveMem]
-  refine ⟨?_, ?_, ?_, ?_⟩
-  · rw [readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega),
-      readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega),
-      readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self32]
-  · rw [readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega),
-      readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self32]
-  · rw [readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self32]
-  · rw [Mem.readW_writeW_self32]
+theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) :=
+  Spill.saveMem_saved_ofNat _ _ _ saved_fits (by decide)
 
 theorem saveMem_arg {s₀ : State} (hp : XPre s₀) {i : Nat} (hi : i < 4) :
     (saveMem s₀).readW (argAddr s₀ i) 32 = arg s₀ i :=
@@ -252,19 +232,15 @@ theorem save_ok {s₀ : State} (hp : XPre s₀) :
     WP isa (.block save) (s₀.setReg .eax (BP s₀)) fun s₁ =>
       s₁.gpr = (s₀.setReg .eax (BP s₀)).gpr ∧ s₁.mem = saveMem s₀ ∧ s₁.rd = s₀.rd ∧
         s₁.wr = s₀.wr := by
-  have e : ∀ d, d < 320 → (BP s₀ + BitVec.ofNat 32 d).setWidth 64 = bp s₀ + BitVec.ofNat 64 d :=
-    fun d hd => hp.eaB hd
-  have e0 := e 256 (by lit_omega); have e1 := e 260 (by lit_omega); have e2 := e 264 (by lit_omega)
-  have e3 := e 268 (by lit_omega)
-  have o0 := hp.out_b (d := 256) (n := 4) (by lit_omega)
-  have o1 := hp.out_b (d := 260) (n := 4) (by lit_omega)
-  have o2 := hp.out_b (d := 264) (n := 4) (by lit_omega)
-  have o3 := hp.out_b (d := 268) (n := 4) (by lit_omega)
-  apply WP.of_runBlock
-  simp (config := {decide := true}) only [save, saved, List.map, runBlock_cons, runStep_some,
-    runBlock_nil, exec, State.ea, at_, State.store32, State.setReg, e0, e1, e2, e3, o0, o1, o2, o3,
-    ite_true, ite_false, Option.some.injEq, exists_eq_left']
-  exact ⟨trivial, rfl, trivial⟩
+  have e : ∀ p ∈ saved, addr (BP s₀) p.2 = bp s₀ + BitVec.ofNat 64 p.2 :=
+    fun p h => hp.eaB (by have := saved_fits.1 p h; lit_omega)
+  have geax : (s₀.setReg .eax (BP s₀)).gpr .eax = BP s₀ := RegUpd.gpr_setReg_self _ _ _
+  rw [show save = Spill.saveCode .eax saved ++ [] from rfl]
+  refine Spill.save_ok saved (fun p h => by
+      rw [geax, e p h]; exact hp.out_b (by have := saved_fits.1 p h; lit_omega))
+    fun s₁ u => WP.block_nil ⟨u.gpr, ?_, u.rd, u.wr⟩
+  rw [u.mem, geax]
+  exact Spill.saveMem_congr _ _ e fun p h => RegUpd.gpr_setReg_of_ne _ _ (by revert p h; decide)
 
 set_option simprocs false in
 theorem load_ok {s₀ : State} (hp : XPre s₀) {s₁ : State}
@@ -898,9 +874,7 @@ theorem body_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j < L s�
 
 /-! ## The epilogue -/
 
-theorem restore_eq : restore =
-    [.mov .ebx (.mem (at_ .eax 256)), .mov .esi (.mem (at_ .eax 260)), .mov .edi (.mem (at_ .eax 264)),
-     .mov .ebp (.mem (at_ .eax 268))] := rfl
+theorem restore_eq : restore = Spill.restoreCode .eax saved ++ [] := rfl
 
 theorem ret_stack (s₀ : State) : (retR s₀).Disjoint (stackR s₀) := by
   have := Offset.disjoint_base (Es s₀ - BitVec.ofNat 64 12) (d := 12) (n := 4) (k := 12) (by decide) (by decide)
@@ -911,32 +885,29 @@ theorem epilogue_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j = L
     (h : OInv s₀ j s) :
     WP isa (.block (.mov .eax (.reg .edi) :: restore)) s fun s' =>
       (abiPreserved s₀ s' ∧ Proof.ChaCha20.xorX86.post s₀ s') ∧ s'.gpr .eax = BP s₀ := by
-  have e : ∀ d, d < 320 → (BP s₀ + BitVec.ofNat 32 d).setWidth 64 = bp s₀ + BitVec.ofNat 64 d :=
-    fun d hd => hp.eaB hd
-  have e0 := e 256 (by lit_omega); have e1 := e 260 (by lit_omega); have e2 := e 264 (by lit_omega)
-  have e3 := e 268 (by lit_omega)
-  have i : ∀ d, d + 4 ≤ 320 → InRegions (s.rd ++ s.wr) (bp s₀ + BitVec.ofNat 64 d) 4 :=
-    fun d hd => ⟨bR s₀, by simp [h.rd, h.wr, hp.rd, hp.wr], contains_off hd (by lit_omega)⟩
-  have i0 := i 256 (by lit_omega); have i1 := i 260 (by lit_omega); have i2 := i 264 (by lit_omega)
-  have i3 := i 268 (by lit_omega)
-  obtain ⟨sv1, sv2, sv3, sv4⟩ := h.saved
-  apply WP.of_runBlock
+  have e : ∀ p ∈ saved, addr (BP s₀) p.2 = bp s₀ + BitVec.ofNat 64 p.2 :=
+    fun p h => hp.eaB (by have := saved_fits.1 p h; lit_omega)
   rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, at_,
-    State.ea, readSrc, State.load32, State.setReg, h.edi, e0, e1, e2, e3, i0, i1, i2, i3, sv1, sv2,
-    sv3, sv4, ite_true, ite_false, Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨⟨⟨fun r hr => ?_, ?_⟩, ?_⟩, by simp⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) only [ite_true, ite_false]
-    exact h.esp
-  · refine h.frame.readW (Region.contains_self _ _) ?_ (by decide)
+  refine Wp.wp_mov fun s₁ u₁ => ?_
+  have hB : s₁.gpr .eax = BP s₀ := by rw [u₁.gpr, h.edi]
+  refine Spill.restore_ok saved (by decide) (fun p hp' => ?_)
+    (by rw [hB, u₁.mem]; exact h.saved.congr (fun p h => (e p h).symm) fun _ _ => rfl)
+    fun s' r' => WP.block_nil ⟨⟨⟨r'.abi (by decide) (by decide) (by rw [u₁.other _ (by decide), h.esp]), ?_⟩, ?_⟩,
+      by rw [r'.other _ (by decide), hB]⟩
+  · have := saved_fits.1 p hp'
+    rw [hB, u₁.rd, u₁.wr, e p hp']
+    exact ⟨bR s₀, by simp [h.rd, h.wr, hp.rd, hp.wr], contains_off (by lit_omega) (by lit_omega)⟩
+  · rw [r'.mem, u₁.mem]
+    refine h.frame.readW (Region.contains_self _ _) ?_ (by decide)
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl | rfl)
     · exact hp.ret_st
     · exact hp.ret_d
     · exact hp.ret_b
     · exact ret_stack s₀
-  · refine bytesAt_xor (length_keystream _ _) fun k hk => ?_
+  · show bytesAt s'.mem _ _ = _
+    rw [r'.mem, u₁.mem]
+    refine bytesAt_xor (length_keystream _ _) fun k hk => ?_
     have hk' : k < L s₀ := hk
     rw [h.data k hk']
     simp only [show k < P s₀ j by omega, ite_true]

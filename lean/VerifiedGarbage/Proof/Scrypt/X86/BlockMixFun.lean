@@ -29,16 +29,13 @@ theorem prologue_eq : bmPrologue =
     .mov .eax (.mem (at_ .esp 20)) :: (bmSaved.map (fun p => Instr.store (at_ .eax p.2) p.1) ++ bmSetup) :=
   rfl
 
-set_option simprocs false in
-theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
-    ∀ p ∈ bmSaved, (saveMem m B g bmSaved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 := by
-  intro p hp
-  simp only [bmSaved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl <;>
-  simp (config := {decide := true}) only [bmSaved, saveMem, Mem.readW_writeW_self32,
-    readW_writeW_save]
-
 theorem bmSaved_bound : ∀ p ∈ bmSaved, p.2 + 4 ≤ 128 ∧ 64 ≤ p.2 ∧ p.1 ≠ .eax := by decide
+
+theorem bmSaved_fits : Spill.Fits 128 bmSaved := by decide
+
+theorem bmSaved_addr (s₀ : State) (hp : Pre s₀) :
+    ∀ p ∈ bmSaved, addr (sc s₀) p.2 = scA s₀ + BitVec.ofNat 64 p.2 :=
+  Spill.addr_eq_of_fits hp.s_nw bmSaved_fits
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s₁, (∀ r, r ≠ .eax → s₁.gpr r = s₀.gpr r) → s₁.gpr .eax = sc s₀ → s₁.rd = s₀.rd →
@@ -48,16 +45,18 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State �
   have hs := hp.s_nw
   refine wp_movm (a := addr (esp₀ s₀) 20) rfl (arg_in hp (by omega) (by omega)) fun s₁ u₁ => ?_
   have e : s₁.gpr .eax = sc s₀ := u₁.gpr
-  refine saveList_ok bmSaved s₁ Q (fun p hp' => ?_) fun s₂ g rd wr m => ?_
-  · obtain ⟨h1, -, -⟩ := bmSaved_bound p hp'
-    rw [e, u₁.wr, hp.wr]
-    exact ⟨by omega, InRegions.of_mem (by simp) (in_s s₀ h1)⟩
-  refine k s₂ (fun r hr => by rw [g, u₁.other r hr]) (by rw [g, e]) (by rw [rd, u₁.rd])
-    (by rw [wr, u₁.wr]) ?_ ?_
-  · rw [m, e, u₁.mem]
-    exact saveMem_frame _ _ _ fun p hp' => in_s s₀ (bmSaved_bound p hp').1
-  · intro p hp'
-    rw [m, e, saveMem_saved _ _ _ p hp', u₁.other _ (bmSaved_bound p hp').2.2]
+  have ha := bmSaved_addr s₀ hp
+  refine Spill.save_ok bmSaved (fun p hp' => ?_) fun s₂ u₂ => ?_
+  · rw [e, u₁.wr, hp.wr, ha p hp']
+    exact InRegions.of_mem (by simp) (in_s s₀ (bmSaved_fits.1 p hp'))
+  refine k s₂ (fun r hr => by rw [u₂.gpr, u₁.other r hr]) (by rw [u₂.gpr, e]) (by rw [u₂.rd, u₁.rd])
+    (by rw [u₂.wr, u₁.wr]) ?_ ?_
+  · rw [u₂.mem, e, u₁.mem]
+    exact Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p hp' => by
+      rw [ha p hp']; exact in_s s₀ (bmSaved_fits.1 p hp')
+  · rw [u₂.mem, e, u₁.mem]
+    exact (Spill.saveMem_saved_addr _ _ bmSaved_fits hs).congr ha
+      fun p hp' => u₁.other _ (bmSaved_bound p hp').2.2
 
 /-- The registers the loop starts with. -/
 theorem setup_ok {s₀ : State} (hp : Pre s₀) {s₁ : State} (g : ∀ r, r ≠ .eax → s₁.gpr r = s₀.gpr r)
@@ -133,20 +132,13 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Inv s₀ (rr 
   refine wp_movm (a := addr (esp₀ s₀) 20) (by rw [ea_at, h.esp])
     (by rw [h.rd, h.wr]; exact arg_in hp (by omega) (by omega)) fun s₁ u₁ => ?_
   have e : s₁.gpr .eax = sc s₀ := by rw [u₁.gpr, arg_keep hp h.frame (by omega) (by omega)]; rfl
-  refine restoreList_ok _ s₁ _ (by decide) (fun p hp' => ?_) fun s₂ hl ho hm hrd hwr => WP.block_nil ?_
-  · have hb := bmSaved_bound p hp'
-    rw [e, u₁.rd, u₁.wr, h.rd, h.wr, hp.rd, hp.wr]
-    exact ⟨hb.2.2, by omega, InRegions.of_mem (by simp) (in_s s₀ hb.1)⟩
-  refine ⟨by rw [hm, u₁.mem], fun r hr => ?_⟩
-  have sv : ∀ p ∈ bmSaved, s₁.mem.readW (scA s₀ + BitVec.ofNat 64 p.2) 32 = s₀.gpr p.1 := by
-    rw [u₁.mem]; exact h.saved
-  simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl
-  · rw [hl (.ebx, 64) (by decide), e]; exact sv (.ebx, 64) (by decide)
-  · rw [hl (.esi, 68) (by decide), e]; exact sv (.esi, 68) (by decide)
-  · rw [hl (.edi, 72) (by decide), e]; exact sv (.edi, 72) (by decide)
-  · rw [hl (.ebp, 76) (by decide), e]; exact sv (.ebp, 76) (by decide)
-  · rw [ho _ (by decide), u₁.other _ (by decide), h.esp]
+  have ha := bmSaved_addr s₀ hp
+  refine Spill.restore_ok bmSaved (by decide) (fun p hp' => ?_)
+    (by rw [e, u₁.mem]; exact h.saved.congr (fun p hp' => (ha p hp').symm) fun _ _ => rfl)
+    fun s₂ u => WP.block_nil ⟨by rw [u.mem, u₁.mem],
+      u.abi (by decide) (by decide) (by rw [u₁.other _ (by decide), h.esp])⟩
+  rw [e, u₁.rd, u₁.wr, h.rd, h.wr, hp.rd, hp.wr, ha p hp']
+  exact InRegions.of_mem (by simp) (in_s s₀ (bmSaved_fits.1 p hp'))
 
 /-! ## The whole function -/
 

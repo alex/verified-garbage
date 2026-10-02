@@ -11,6 +11,8 @@
 
 use crate::arch::blake2s::{vg_blake2s_finalize, vg_blake2s_init, vg_blake2s_update};
 
+pub use crate::hmac::InvalidMac;
+
 super::blake2::blake2!(
     /// An incremental BLAKE2s computation of an `N`-byte digest.
     Blake2s {

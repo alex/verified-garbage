@@ -13,16 +13,9 @@ theorem regs_shape (rs : List XReg) (h : rs = regs6 ∨ rs = [.xmm0]) :
   rcases h with rfl | rfl <;> decide
 
 theorem Saved.of_data_frame {s₀ : State} (hp : CPre s₀) {m m' : Mem}
-    (hs : Saved s₀ m) (hf : Frame [datR s₀] m m') : Saved s₀ m' := by
-  have he : ∀ d, d + 4 ≤ 2048 → m'.readW (addr (scrP s₀) d) 32 =
-      m.readW (addr (scrP s₀) d) 32 := fun d hd =>
-    hf.readW (scratch_contains hp hd) (by
-      intro r hr
-      simp only [List.mem_singleton] at hr
-      subst hr
-      exact hp.dDB.symm) (by decide)
-  exact ⟨(he 0 (by decide)).trans hs.ebx, (he 4 (by decide)).trans hs.esi,
-    (he 8 (by decide)).trans hs.edi, (he 12 (by decide)).trans hs.ebp⟩
+    (hs : Saved s₀ m) (hf : Frame [datR s₀] m m') : Saved s₀ m' :=
+  hs.of_frame hf (fun p h => scratch_contains hp (by have := savedRegs_bound p h; omega))
+    (by simp only [List.mem_singleton, forall_eq]; exact hp.dDB.symm)
 
 structure Ready (s₀ s : State) (c : Nat) (rs : List XReg) (s' : State) : Prop where
   ks : ∀ k (h : k < rs.length), XBinOp.eval .pshufb (s'.xmm rs[k]) revMask =

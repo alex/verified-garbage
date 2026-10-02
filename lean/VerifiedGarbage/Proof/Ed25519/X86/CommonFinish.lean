@@ -29,23 +29,18 @@ theorem finishWords_ok {s₀ s : State} {scidx argc src : Nat}
     rw [sub, addr_zero]; exact ho.sep.symm
   refine WP.block_append (WP.mono (outputWords_ok cu eu hsrc ho.fit hwr hsep 8 (by decide)) fun v hv => ?_)
   have cv := hv.keep.ctx cu
-  refine WP.mono (abiRestore_ok cv) fun t ⟨mt, st, bt, it, pt, dt⟩ => ?_
-  have saved : ∀ j < 4, wd v.mem (arg s₀ scidx) (4 * j) = s₀.gpr (savedReg j) := by
-    intro j hj
-    rw [wd_frame hv.frame fun r hr => ?_]
-    exact hu.saved j hj
+  have saved : Spill.Saved v.mem (addr (arg s₀ scidx)) s₀.gpr savedSlots := hu.saved.of_readW fun p hp' => by
+    have := savedSlots_bound p hp'
+    refine wd_frame hv.frame fun r hr => ?_
     rw [List.mem_singleton.mp hr]
     refine hsep.sub_left ?_
     rw [scR_eq]
-    exact sub_sub hp.fit (Nat.zero_le _) (by omega_using [hj]) (by omega_using [hj])
+    exact sub_sub hp.fit (Nat.zero_le _) (by omega_using [this]) (by omega_using [this])
+  refine WP.mono (abiRestore_ok cv saved) fun t ⟨gt, st, _, mt⟩ => ?_
   refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl
-    · rw [bt]; exact saved 0 (by decide)
-    · rw [it]; exact saved 1 (by decide)
-    · rw [dt]; exact saved 2 (by decide)
-    · rw [pt]; exact saved 3 (by decide)
-    · exact st.trans (hv.keep.esp.trans hu.esp)
+  · by_cases h : r = .esp
+    · subst h; exact st.trans (hv.keep.esp.trans hu.esp)
+    · exact gt r hr h
   · rw [mt]
     have hvret : v.mem.readW ((s₀.gpr .esp).setWidth 64) 32 = u.mem.readW ((s₀.gpr .esp).setWidth 64) 32 :=
       hv.frame.readW (Region.contains_self _ _) (by
