@@ -14,8 +14,8 @@ The streaming state (192 bytes at `state`) is the hash value followed by a
   function with the suffix `suffix` (`vg_sha512_compress` or
   `vg_sha512_compress_sha3`, `compressName`), and are emitted once for each
   implementation (`Generic/MdHash/AArch64/Stream.lean`). It is called with
-  `scratch[0..176)` as its scratch space; our caller's callee-saved registers
-  are saved in `scratch[176..224)`. The length field is the length in bits as
+  `scratch[0..scratchBytes)` as its scratch space; our caller's callee-saved
+  registers are saved in the 48 bytes after it. The length field is the length in bits as
   a 128-bit big-endian integer: `count >> 61`, then `count << 3` (modulo
   2⁶⁴); the words of the final hash value are big-endian.
 -/
@@ -23,7 +23,7 @@ The streaming state (192 bytes at `state`) is the hash value followed by a
 namespace VG.Impl.Sha512.AArch64.Stream
 
 open VG.AArch64
-open VG.Impl.Sha512.AArch64 (movImm64)
+open VG.Impl.Sha512.AArch64 (movImm64 scratchBytes)
 open VG.Impl.MdStream.AArch64 (Params len128 out64)
 
 def init (iv : Spec.Sha512.HashValue) : Prog isa :=
@@ -34,7 +34,8 @@ def params : Params where
   N := 64
   B := 128
   L := 16
-  so := 176
+  so := scratchBytes
+  -- The length field, at `N + B - L`.
   len := len128 176
   out := out64 8
 

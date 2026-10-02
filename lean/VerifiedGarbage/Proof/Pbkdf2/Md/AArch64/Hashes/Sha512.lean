@@ -83,7 +83,7 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
     (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) (hiv : IVs iv) :
     Calls.StreamOK (hash v I D initN iv).stream where
   SH := I.S
-  Wb := 224
+  Wb := Impl.Sha512.AArch64.scratchBytes + 48
   hS := hS
   hD := hDs
   hB := hB
@@ -94,7 +94,7 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
   hSB := show 192 ≤ 256 by decide
   hB0 := show 0 < 128 by decide
   hBB := Nat.le_refl 128
-  hWb := by show 224 ≤ 8 * ((Impl.Sha512.AArch64.Stream.params.so + 48) / 8); decide
+  hWb := by show Impl.Sha512.AArch64.scratchBytes + 48 ≤ 8 * ((Impl.Sha512.AArch64.Stream.params.so + 48) / 8); decide
   hW := by show (Impl.Sha512.AArch64.Stream.params.so + 48) / 8 ≤ 64; decide
   repr := hR ▸ Hmac.Generic.Common.sha512_repr iv
   init := hR ▸ Proof.Sha512.AArch64.Stream.init_verified iv
