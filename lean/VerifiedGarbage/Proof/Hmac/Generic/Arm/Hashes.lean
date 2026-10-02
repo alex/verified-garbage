@@ -2,13 +2,14 @@ import VerifiedGarbage.Proof.Hmac.Generic.Arm.Hash
 import VerifiedGarbage.Proof.Sha1.Arm.Shared
 import VerifiedGarbage.Proof.Md5.Arm.Shared
 import VerifiedGarbage.Proof.Sha512.Arm.Shared
+import VerifiedGarbage.Proof.Sha256.Arm.Shared
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: the hash functions
 
-Untrusted: everything here is checked by Lean. `HashOK` for SHA-1, MD5 and
-the SHA-512 family, from their own proofs, as on AArch64
+Untrusted: everything here is checked by Lean. `HashOK` for SHA-1, MD5,
+SHA-256 and the SHA-512 family, from their own proofs, as on AArch64
 (`Proof/Hmac/Generic/AArch64/Hashes.lean`). Their contracts are `initK`,
 `updK` and `finK` at their sizes, but for the length bound of SHA-1's and
 MD5's `finK`, and for the SHA-512 family's, which hold from any initial hash
@@ -19,7 +20,7 @@ namespace VG.Proof.Hmac.Generic.Arm
 
 open VG.Arm
 open VG.Impl.Hmac.Generic.Arm (Hash)
-open VG.Proof.Hmac.Generic.Common (sha1_repr md5_repr sha512_repr finalHash_length)
+open VG.Proof.Hmac.Generic.Common (sha1_repr md5_repr sha256_repr sha512_repr finalHash_length)
 
 /-! ## SHA-1 -/
 
@@ -87,6 +88,45 @@ def md5OK : HashOK md5H where
         exact h m hr hc
       pub := fun _ _ _ _ h => h
       sat := Proof.Md5.Arm.Stream.Finalize.finalize_verified.2.2 }
+  initNF := by decide +kernel
+  updNF := by decide +kernel
+  finNF := by decide +kernel
+
+/-! ## SHA-256 -/
+
+def sha256H : Hash := ⟨64, 96, 32, 32, 20, "vg_sha256_init", Impl.Sha256.Arm.Stream.init,
+  "vg_sha256_update", Impl.Sha256.Arm.Stream.update, "vg_sha256_finalize", Impl.Sha256.Arm.Stream.finalize⟩
+
+def sha256OK : HashOK sha256H where
+  SH := Spec.Hmac.sha256S
+  Wb := 160
+  hS := rfl
+  hD := rfl
+  hB := rfl
+  hDF := by decide
+  hF := by decide
+  hD0 := by decide
+  hS0 := by decide
+  hSB := by decide
+  hB0 := by decide
+  hBB := by decide
+  hWb := by decide
+  hW := by decide
+  repr := sha256_repr
+  init := Proof.Sha256.Arm.Stream.init_verified
+  upd := Proof.Sha256.Arm.Stream.Update.update_verified.of_implies
+    { pre := fun _ h => h
+      post := fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr hc
+      pub := fun _ _ _ _ h => h
+      sat := Proof.Sha256.Arm.Stream.Update.update_verified.2.2 }
+  fin := Proof.Sha256.Arm.Stream.Finalize.finalize_verified.of_implies
+    { pre := fun _ h => h
+      post := fun s s' _ h m hr _ hc => by
+        show List.take 32 (Spec.Sha256.bytesAt s'.mem _ 32) = _
+        rw [List.take_of_length_le (by simp [Spec.Sha256.bytesAt])]
+        exact h Spec.Sha256.H0 m hr hc
+      pub := fun _ _ _ _ h => h
+      sat := Proof.Sha256.Arm.Stream.Finalize.finalize_verified.2.2 }
   initNF := by decide +kernel
   updNF := by decide +kernel
   finNF := by decide +kernel

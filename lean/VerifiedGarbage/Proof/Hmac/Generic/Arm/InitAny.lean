@@ -1226,4 +1226,25 @@ theorem sha512_256_initAny : Verified Arm.target sha512_256H.initAny (Spec.Hmac.
   (InitAny.verifiedAny sha512_256OK sha512_256_initChecks sha512_256_initAnyChecks ⟨by decide, by decide, by decide⟩ (by decide)
     (by decide) sha512_256_initAnyImp.sat_left).of_implies sha512_256_initAnyImp
 
+/-! ## sha256 -/
+
+theorem sha256_initAnyChecks : InitAny.Checks sha256H where
+  shr := ⟨_, by taint_decide⟩
+  sub := ⟨_, by taint_decide⟩
+  pro := ⟨_, by taint_decide⟩
+  argU := ⟨_, by taint_decide⟩
+  argF := ⟨_, by taint_decide⟩
+  epi := ⟨_, by taint_decide⟩
+
+theorem sha256_initAnyImp :
+    (initAnyG Spec.Hmac.sha256S 200).Implies (Spec.Hmac.sha256I.initAnyKeyContract Arm.abi 16) :=
+  initAnyImp Spec.Hmac.sha256S 200 (by
+    inst_sat [Spec.Hmac.Instance.initAnyKeyContract, Spec.Hmac.Instance.initAnyKeyScratch, Spec.Hmac.sha256I,
+      Spec.Hmac.initAnyKeyContract, Spec.Hmac.initSig, Spec.Hmac.sha256S, Spec.Hmac.sha256, initAnyG, below,
+      count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using initSat 96 200)
+
+theorem sha256_initAny : Verified Arm.target sha256H.initAny (Spec.Hmac.sha256I.initAnyKeyContract Arm.abi 16) :=
+  (InitAny.verifiedAny sha256OK sha256_initChecks sha256_initAnyChecks ⟨by decide, by decide, by decide⟩ (by decide)
+    (by decide) sha256_initAnyImp.sat_left).of_implies sha256_initAnyImp
+
 end VG.Proof.Hmac.Generic.Arm.Instances

@@ -239,6 +239,18 @@ theorem sha1_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
   · rw [← hr.2]
     exact bytesAt_reloc h (o := 20) (k := msg.length % 64) (by omega_nat)
 
+theorem sha256_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
+    (h : ∀ i < 96, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))
+    (hr : Spec.Sha256.Repr m p msg) : Spec.Sha256.Repr m' q msg := by
+  refine ⟨?_, ?_⟩
+  · rw [← hr.1]
+    apply Vector.ext
+    intro j hj
+    simp only [Spec.Sha256.stateAt, Vector.getElem_ofFn]
+    exact readW_reloc h (by omega_nat)
+  · rw [← hr.2]
+    exact bytesAt_reloc h (o := 32) (k := msg.length % 64) (by omega_nat)
+
 theorem md5_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
     (h : ∀ i < 80, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))
     (hr : Spec.Md5.Repr m p msg) : Spec.Md5.Repr m' q msg := by

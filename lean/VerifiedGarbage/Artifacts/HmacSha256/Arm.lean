@@ -1,6 +1,5 @@
 import VerifiedGarbage.TCB.Arm.Target
-import VerifiedGarbage.Proof.Hmac.Arm.Finalize
-import VerifiedGarbage.Proof.Hmac.Arm.Init
+import VerifiedGarbage.Proof.Hmac.Generic.Arm.InitAny
 
 /-!
 # HMAC-SHA-256 (RFC 2104) on ARMv7
@@ -12,25 +11,38 @@ artifact made from a function's `Api` (in `Spec/`, reviewed with the
 contract) takes them from there, and this file adds only notes on the
 implementation. The emitter adds the `# Safety` items that depend on the
 target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract.
+against the contract (after unfolding the `Instance`'s contract to the
+generic one, which is a `Sig.contract`).
+
+The code is the one HMAC implementation for every streaming hash function
+(`Impl/Hmac/Generic/Arm.lean`), calling SHA-256's verified `init`, `update`
+and `finalize`.
 -/
 
 namespace VG.Artifacts.HmacSha256.Arm
 
+open VG.Proof.Hmac.Generic.Arm
+
 def artifacts : List Artifact := [
-  { Spec.Hmac.initSha256Api with
+  { Spec.Hmac.sha256I.initAnyKeyApi with
     target := Arm.target
-    doc := Spec.Hmac.initSha256Api.doc
-    code := Impl.Hmac.Arm.init
-    contract := Spec.Hmac.initSha256Contract Arm.abi
-    verified := Proof.Hmac.Arm.Init.init_verified
+    doc := Spec.Hmac.sha256I.initAnyKeyApi.doc
+    code := sha256H.initAny
+    contract := Spec.Hmac.sha256I.initAnyKeyContract Arm.abi 16
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initAnyKeyContract; rfl⟩
+    writeArgs := true
+    stack := 16
+    verified := Instances.sha256_initAny
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.Hmac.finalizeSha256OutApi with
+  { Spec.Hmac.sha256I.finalizeApi with
     target := Arm.target
-    doc := Spec.Hmac.finalizeSha256OutApi.doc
-    code := Impl.Hmac.Arm.finalize
-    contract := Spec.Hmac.finalizeSha256OutContract Arm.abi
-    verified := Proof.Hmac.Arm.Finalize.finalize_verified
+    doc := Spec.Hmac.sha256I.finalizeApi.doc
+    code := sha256H.finalize
+    contract := Spec.Hmac.sha256I.finalizeContract Arm.abi 16
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
+    writeArgs := true
+    stack := 16
+    verified := Instances.sha256_finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.HmacSha256.Arm

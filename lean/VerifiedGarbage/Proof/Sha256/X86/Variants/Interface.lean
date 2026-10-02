@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Hmac.Sha256.X86.Init
 import VerifiedGarbage.Proof.Hmac.Sha256.X86.Finalize
 import VerifiedGarbage.Proof.Pbkdf2.Sha256.X86
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Variant
+import VerifiedGarbage.Proof.Hmac.Generic.X86.Sha256
 import VerifiedGarbage.TCB.Artifact
 
 /-!
@@ -46,5 +47,10 @@ structure Backend where
   initSp : (Impl.Hmac.Sha256.X86.init cmpN cmpC).all (fun i => !isa.writesSp i) = true
   finSp : (Impl.Hmac.Sha256.X86.finalize cmpN cmpC).all (fun i => !isa.writesSp i) = true
   iterSp : (Impl.Pbkdf2.Sha256.X86.iterate cmpN cmpC).all (fun i => !isa.writesSp i) = true
+  /-- What HMAC's proofs need of the streaming code built with `cmpC`
+  (`Proof/Hmac/Generic/X86/Sha256.lean`). -/
+  hmac : Proof.Hmac.Generic.X86.Sha256Facts cmpN cmpC
+  hmacInitSp : (Proof.Hmac.Generic.X86.sha256H cmpN cmpC suffix).initAny.all (fun i => !isa.writesSp i) = true
+  hmacFinSp : (Proof.Hmac.Generic.X86.sha256H cmpN cmpC suffix).finalize.all (fun i => !isa.writesSp i) = true
 
 end VG.Proof.Sha256.X86.Variants

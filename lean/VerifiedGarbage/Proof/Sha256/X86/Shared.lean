@@ -213,12 +213,17 @@ theorem callee : CalleeOk (P := params) md Impl.Sha256.X86.compress :=
 
 namespace Update
 
+/-- `update` is constant time (the taint analysis, with the compression
+function's code). -/
+theorem update_ct : ConstantTime isa (updK (P := params) md 160).pre (updK (P := params) md 160).pub
+    (Impl.MdStream.X86.update params "vg_sha256_compress" Impl.Sha256.X86.compress) := by
+  rw [← update_eq]
+  exact VG.Taint.constantTime (A := taint) (MdStream.X86.Update.τ₀ params 160)
+    (fun _ _ h₁ h₂ hp => MdStream.X86.Update.agree₀ dims h₁ h₂ hp) (by taint_decide)
+
 theorem update_verified : Verified X86.target Impl.Sha256.X86.Stream.update Proof.Sha256.updateX86 := by
-  have ct : ConstantTime isa (updK (P := params) md 160).pre (updK (P := params) md 160).pub
-      Impl.Sha256.X86.Stream.update :=
-    VG.Taint.constantTime (A := taint) (MdStream.X86.Update.τ₀ params 160)
-      (fun _ _ h₁ h₂ hp => MdStream.X86.Update.agree₀ dims h₁ h₂ hp) (by taint_decide)
-  rw [update_eq] at ct ⊢
+  have ct := update_ct
+  rw [update_eq]
   have h := MdStream.X86.Update.verified (name := "vg_sha256_compress") dims callee ct
   exact Verified.of_implies h
     ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr hc, fun _ _ _ _ h => h, h.2.2⟩
@@ -230,12 +235,17 @@ end Update
 
 namespace Finalize
 
+/-- `finalize` is constant time (the taint analysis, with the compression
+function's code). -/
+theorem finalize_ct : ConstantTime isa (finK (P := params) md 160).pre (finK (P := params) md 160).pub
+    (Impl.MdStream.X86.finalize params "vg_sha256_compress" Impl.Sha256.X86.compress) := by
+  rw [← finalize_eq]
+  exact VG.Taint.constantTime (A := taint) (MdStream.X86.Finalize.τ₀ params 160)
+    (fun _ _ h₁ h₂ hp => MdStream.X86.Finalize.agree₀ dims h₁ h₂ hp) (by taint_decide)
+
 theorem finalize_verified : Verified X86.target Impl.Sha256.X86.Stream.finalize Proof.Sha256.finalizeX86 := by
-  have ct : ConstantTime isa (finK (P := params) md 160).pre (finK (P := params) md 160).pub
-      Impl.Sha256.X86.Stream.finalize :=
-    VG.Taint.constantTime (A := taint) (MdStream.X86.Finalize.τ₀ params 160)
-      (fun _ _ h₁ h₂ hp => MdStream.X86.Finalize.agree₀ dims h₁ h₂ hp) (by taint_decide)
-  rw [finalize_eq] at ct ⊢
+  have ct := finalize_ct
+  rw [finalize_eq]
   have h := MdStream.X86.Finalize.verified (name := "vg_sha256_compress") dims shape callee ct
   exact Verified.of_implies h
     ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
