@@ -46,8 +46,8 @@ theorem legacyEval_ok {s : State} {base : Addr} (hs : Scr s base) {o i : Nat}
   · simp only [RegUpd.gpr_write, show r ≠ .x4 from fun h => hr (by subst r; decide),
       show r ≠ .x5 from fun h => hr (by subst r; decide), ite_false]
 
-theorem toLegacy_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat}
-    (ho : Slot o) (ho8 : o % 8 = 0) (hb : Bounded s.mem base o) :
+theorem toLegacy_ok' {s : State} {base : Addr} (hs : Scr s base) {o : Nat}
+    (ho : Slot o) (ho8 : o % 8 = 0) (cap : ∀ i < 8, limbs s.mem base o i < 2 ^ 118) :
     WP isa (.block (Impl.Curve448.AArch64.toLegacy o)) s fun t =>
       Op base o s t ∧ VG.Proof.X448.AArch64.Bounded t.mem base o ∧
       VG.Proof.X448.AArch64.F t.mem base o = F s.mem base o := by
@@ -57,9 +57,7 @@ theorem toLegacy_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat}
   · intro i hi t ts tm
     refine WP.mono (legacyEval_ok ts ho ho8 hi) fun v ⟨vf, vm, vk⟩ => ⟨?_, vm, vk⟩
     rw [input_limb tm ho hi] at vf; exact vf
-  · have cap : ∀ i < 8, limbs s.mem base o i < 2 ^ 118 :=
-      fun i hi => Nat.lt_trans (hb i hi) (by decide)
-    refine WP.mono (tailNormalize_ok (hs.of_keeps uk (by decide)) ho ho8 uf cap) fun t ⟨tf, tm, tk⟩ => ?_
+  · refine WP.mono (tailNormalize_ok (hs.of_keeps uk (by decide)) ho ho8 uf cap) fun t ⟨tf, tm, tk⟩ => ?_
     have out := encoded_limbs tf
     refine ⟨⟨uk.trans (tk.mono (by decide)), (FieldMem.work um (by decide) (by decide)).trans tm⟩, ?_, ?_⟩
     · intro i hi; rw [out i hi]
@@ -68,4 +66,11 @@ theorem toLegacy_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat}
       rw [show VG.Proof.X448.AArch64.fe t.mem base o = VG.Proof.X448.valN
         (unpacked (normalized (limbs s.mem base o))) 16 from VG.Proof.X448.valN_congr out,
         unpacked_val, normalized_mod cap]
+
+theorem toLegacy_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat}
+    (ho : Slot o) (ho8 : o % 8 = 0) (hb : Bounded s.mem base o) :
+    WP isa (.block (Impl.Curve448.AArch64.toLegacy o)) s fun t =>
+      Op base o s t ∧ VG.Proof.X448.AArch64.Bounded t.mem base o ∧
+      VG.Proof.X448.AArch64.F t.mem base o = F s.mem base o :=
+  toLegacy_ok' hs ho ho8 fun i hi => Nat.lt_trans (hb i hi) (by decide)
 end VG.Proof.Curve448.AArch64
