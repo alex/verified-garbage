@@ -92,4 +92,12 @@ theorem readW64_toNat (m : Mem) (a : Addr) :
   rw [readW64_split, BitVec.toNat_append, ← Nat.shiftLeft_add_eq_or_of_lt (m.readW a 32).isLt, Nat.shiftLeft_eq]
   omega
 
+/-- The bytes of memory from its 128-bit words. -/
+theorem byte_of_words128 {m : Mem} {p : Addr} {W : Nat → BitVec 128} {a b : Nat}
+    (h : ∀ k, a ≤ k → k < b → m.readW (p + BitVec.ofNat 64 (16 * k)) 128 = W k) {i : Nat}
+    (h₁ : 16 * a ≤ i) (h₂ : i < 16 * b) :
+    m (p + BitVec.ofNat 64 i) = (W (i / 16)).extractLsb' (8 * (i % 16)) 8 := by
+  rw [← h (i / 16) (by omega) (by omega), readW128_byte _ _ (Nat.mod_lt _ (by decide)), Offset.add_add,
+    show 16 * (i / 16) + i % 16 = i by omega]
+
 end VG.Proof.ChaCha20
