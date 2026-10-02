@@ -1,7 +1,7 @@
 //! TDEA-CMAC: every vector of the CMAC generation and verification files,
 //! for two- and three-key TDEA (the MAC truncated to `Tlen` bytes).
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use verified_garbage::cmac::triple_des::TripleDesCmac;
 
