@@ -7,8 +7,26 @@
 //! `vg_aes_gcm_stream_init`, `_aad`, `_encrypt`, `_decrypt`, `_finish` and
 //! `_verify` keep a streaming state (`VG.Spec.Gcm.StreamRepr`). `open` and
 //! `verify` check the tag, in constant time, and `open` decrypts only if it
-//! matches. This module checks the lengths of §5.2.1.1 and §5.2.1.2, which
-//! the assembly does not, and holds the key context and the state.
+//! matches. This module checks the lengths of §5.2.1.1, which the assembly
+//! does not, and holds the key context and the state.
+//!
+//! # Tags
+//!
+//! Encryption returns the full 16-byte tag; a protocol that sends a shorter
+//! one sends its first bytes. Decryption takes a `&[u8; 16]`
+//! ([`AesGcm::decrypt_in_place`], [`AesGcmStream::set_tag`]), or, for a
+//! protocol that truncates the tag, a `&[u8; N]` whose length `N` is a type
+//! parameter ([`AesGcm::decrypt_in_place_truncated`],
+//! [`AesGcmStream::set_tag_truncated`]): one of the lengths SP 800-38D
+//! §5.2.1.2 allows, 4, 8, 12, 13, 14, 15 or 16 bytes, checked at compile
+//! time. The length is never taken from a slice, because a slice's length
+//! often comes from the message: a protocol that splits a message with
+//! `msg.split_at(msg.len().saturating_sub(16))` would, given a 4-byte
+//! message, check an empty ciphertext against a 4-byte tag, which an
+//! attacker forges with probability 2⁻³² instead of 2⁻¹²⁸. Tags of 4 and 8
+//! bytes are only for the applications of SP 800-38D Appendix C, which
+//! bounds the lengths of the messages and the number of decryptions under
+//! one key.
 //!
 //! The functions are emitted once for each implementation of AES
 //! (`vg_aes_expand_key` and `vg_aes_ctr32`) and of `vg_ghash` they call,
@@ -68,9 +86,6 @@ const MAX_TEXT: u64 = (1 << 36) - 32;
 /// The largest additional data, in bytes: `2^64 − 1` bits, rounded down to
 /// whole bytes (SP 800-38D §5.2.1.1).
 const MAX_AAD: u64 = (1 << 61) - 1;
-
-/// The tag lengths SP 800-38D §5.2.1.2 allows, in bytes.
-const TAG_LENGTHS: [usize; 7] = [4, 8, 12, 13, 14, 15, 16];
 
 /// The implementations of AES and GHASH the functions called call: each
 /// combination is an instance of every `vg_aes_gcm_*` function. (A product
@@ -160,8 +175,6 @@ pub enum Error {
     InvalidTextLength,
     /// The additional data is longer than `2^61 − 1` bytes.
     InvalidAadLength,
-    /// The tag is not 4, 8, 12, 13, 14, 15 or 16 bytes long.
-    InvalidTagLength,
     /// The tag does not match: the ciphertext, the additional data or the
     /// nonce is not what was authenticated under this key.
     TagMismatch,
@@ -169,10 +182,12 @@ pub enum Error {
     /// [`AesGcmStream::update`]: GCM authenticates all of the additional
     /// data before the text.
     AadAfterText,
-    /// [`AesGcmStream::set_tag`] was called when encrypting.
+    /// [`AesGcmStream::set_tag`] or [`AesGcmStream::set_tag_truncated`] was
+    /// called when encrypting.
     TagWhenEncrypting,
     /// [`AesGcmStream::finalize`] was called when decrypting, without a tag
-    /// from [`AesGcmStream::set_tag`] to check.
+    /// from [`AesGcmStream::set_tag`] or [`AesGcmStream::set_tag_truncated`]
+    /// to check.
     MissingTag,
 }
 
@@ -193,16 +208,21 @@ fn check_nonce(nonce: &[u8]) -> Result<(), Error> {
     Ok(())
 }
 
-/// Checks that a tag has a length §5.2.1.2 allows.
-fn check_tag(tag: &[u8]) -> Result<(), Error> {
-    if !TAG_LENGTHS.contains(&tag.len()) {
-        return Err(Error::InvalidTagLength);
-    }
-    Ok(())
+/// Fails to compile unless `N` is a tag length §5.2.1.2 allows: 4, 8, 12,
+/// 13, 14, 15 or 16 bytes.
+macro_rules! assert_tag_length {
+    ($n:expr) => {
+        const {
+            assert!(
+                matches!($n, 4 | 8 | 12 | 13 | 14 | 15 | 16),
+                "an AES-GCM tag is 4, 8, 12, 13, 14, 15 or 16 bytes long"
+            )
+        }
+    };
 }
 
-/// Writes `tag` to the first bytes of `work`, where `open` and
-/// `stream_verify` take the received tag.
+/// Writes `tag` (at most 16 bytes) to the first bytes of `work`, where
+/// `open` and `stream_verify` take the received tag.
 fn put_tag(work: &mut MaybeUninit<[u64; 320]>, tag: &[u8]) {
     let mut t = [0u8; 16];
     t[..tag.len()].copy_from_slice(tag);
@@ -234,8 +254,9 @@ unsafe fn tag_of(work: &MaybeUninit<[u64; 320]>) -> Block {
 
 /// An AES-GCM key: its key context (the AES key schedule and the hash
 /// subkey `H`). Its [`encrypt_in_place`](Self::encrypt_in_place) and
-/// [`decrypt_in_place`](Self::decrypt_in_place) are the one-shot AEAD;
-/// [`AesGcmStream`] encrypts or decrypts incrementally.
+/// [`decrypt_in_place`](Self::decrypt_in_place) (or
+/// [`decrypt_in_place_truncated`](Self::decrypt_in_place_truncated)) are the
+/// one-shot AEAD; [`AesGcmStream`] encrypts or decrypts incrementally.
 #[derive(Clone)]
 pub struct AesGcm {
     /// The key context `vg_aes_gcm_init` writes (`VG.Spec.Gcm.KeyRepr`).
@@ -285,7 +306,8 @@ impl AesGcm {
 
     /// GCM-AE (§7.1): encrypts `data` in place under `nonce`, and returns
     /// the 16-byte tag authenticating the ciphertext and `aad`. A caller that
-    /// wants a shorter tag truncates it (keeping its first bytes).
+    /// wants a shorter tag truncates it (keeping its first bytes), and
+    /// decrypts with [`decrypt_in_place_truncated`](Self::decrypt_in_place_truncated).
     ///
     /// The nonce may have any nonzero length; 12 bytes is the recommended
     /// (and fastest) one. A nonce must never be used twice with the same key.
@@ -330,22 +352,50 @@ impl AesGcm {
         Ok(unsafe { tag_of(&work) })
     }
 
-    /// GCM-AD (§7.2): if `tag` authenticates the ciphertext in `data` and
-    /// `aad` under `nonce`, decrypts `data` in place. Otherwise returns an
-    /// error and leaves `data` unchanged. `tag` may be truncated to 4, 8,
-    /// 12, 13, 14 or 15 bytes (§5.2.1.2); callers must fix the length they
-    /// accept rather than take it from the message.
+    /// GCM-AD (§7.2): if the 16-byte `tag` authenticates the ciphertext in
+    /// `data` and `aad` under `nonce`, decrypts `data` in place. Otherwise
+    /// returns an error and leaves `data` unchanged.
+    ///
+    /// A protocol that truncates the tag uses
+    /// [`decrypt_in_place_truncated`](Self::decrypt_in_place_truncated).
     pub fn decrypt_in_place(
         &self,
         nonce: &[u8],
         aad: &[u8],
         data: &mut [u8],
-        tag: &[u8],
+        tag: &[u8; 16],
     ) -> Result<(), Error> {
+        self.decrypt_in_place_truncated(nonce, aad, data, tag)
+    }
+
+    /// GCM-AD (§7.2) with a tag truncated to `N` bytes: if `tag` is the
+    /// first `N` bytes of the tag of the ciphertext in `data` and `aad` under
+    /// `nonce`, decrypts `data` in place. Otherwise returns an error and
+    /// leaves `data` unchanged.
+    ///
+    /// `N` must be 4, 8, 12, 13, 14, 15 or 16 (SP 800-38D §5.2.1.2); any
+    /// other length is an error when the call is compiled. It is a type parameter, fixed
+    /// in the caller's code, so that it cannot come from the message: see
+    /// the [module documentation](self#tags). SP 800-38D Appendix C
+    /// restricts 4- and 8-byte tags to applications that bound the length of
+    /// the messages and the number of decryptions under one key.
+    pub fn decrypt_in_place_truncated<const N: usize>(
+        &self,
+        nonce: &[u8],
+        aad: &[u8],
+        data: &mut [u8],
+        tag: &[u8; N],
+    ) -> Result<(), Error> {
+        assert_tag_length!(N);
+        self.open(nonce, aad, data, tag)
+    }
+
+    /// GCM-AD (§7.2) with `tag`, of a length §5.2.1.2 allows (which the
+    /// callers check at compile time; `vg_aes_gcm_open` rejects any other).
+    fn open(&self, nonce: &[u8], aad: &[u8], data: &mut [u8], tag: &[u8]) -> Result<(), Error> {
         check_nonce(nonce)?;
         add_len(0, data.len(), MAX_TEXT).map_err(|()| Error::InvalidTextLength)?;
         add_len(0, aad.len(), MAX_AAD).map_err(|()| Error::InvalidAadLength)?;
-        check_tag(tag)?;
         let open = instance!(self.backend, vg_aes_gcm_open,
             x86_64: [vg_aes_gcm_open_aesni, vg_aes_gcm_open_pclmul, vg_aes_gcm_open_aesni_pclmul],
             aarch64: [vg_aes_gcm_open_aes]);
@@ -395,6 +445,10 @@ pub enum Direction {
 /// [`finalize`](Self::finalize) has succeeded. When the whole message fits
 /// in memory, [`AesGcm::decrypt_in_place`] checks the tag before it
 /// decrypts.
+///
+/// The tag to check when decrypting is given to [`set_tag`](Self::set_tag)
+/// (16 bytes) or [`set_tag_truncated`](Self::set_tag_truncated) (a length
+/// fixed at compile time: see the [module documentation](self#tags)).
 #[derive(Clone)]
 pub struct AesGcmStream {
     key: AesGcm,
@@ -406,7 +460,8 @@ pub struct AesGcmStream {
     text_len: u64,
     /// Whether [`update`](Self::update) has been called.
     in_text: bool,
-    /// The tag from [`set_tag`](Self::set_tag).
+    /// The tag from [`set_tag_truncated`](Self::set_tag_truncated), padded
+    /// to 16 bytes, and its length.
     tag: Option<(Block, usize)>,
 }
 
@@ -423,7 +478,8 @@ impl AesGcmStream {
     /// recommended one). A nonce must never be used twice with the same key.
     ///
     /// When encrypting, [`finalize`](Self::finalize) returns the tag; when
-    /// decrypting, it checks the tag given to [`set_tag`](Self::set_tag).
+    /// decrypting, it checks the tag given to [`set_tag`](Self::set_tag) or
+    /// [`set_tag_truncated`](Self::set_tag_truncated).
     pub fn new(key: &[u8], nonce: &[u8], direction: Direction) -> Result<Self, Error> {
         let key = AesGcm::new(key)?;
         check_nonce(nonce)?;
@@ -527,24 +583,41 @@ impl AesGcmStream {
         Ok(())
     }
 
-    /// Sets the tag that decryption must end with: 16 bytes, or truncated to
-    /// 4, 8, 12, 13, 14 or 15 (§5.2.1.2). Callers must fix the length they
-    /// accept rather than take it from the message.
-    pub fn set_tag(&mut self, tag: &[u8]) -> Result<(), Error> {
+    /// Sets the 16-byte tag that decryption must end with, which
+    /// [`finalize`](Self::finalize) checks. Fails when encrypting.
+    ///
+    /// A protocol that truncates the tag uses
+    /// [`set_tag_truncated`](Self::set_tag_truncated).
+    pub fn set_tag(&mut self, tag: &[u8; 16]) -> Result<(), Error> {
+        self.set_tag_truncated(tag)
+    }
+
+    /// Sets the tag that decryption must end with, truncated to `N` bytes:
+    /// [`finalize`](Self::finalize) checks that it is the first `N` bytes of
+    /// the message's tag. Fails when encrypting.
+    ///
+    /// `N` must be 4, 8, 12, 13, 14, 15 or 16 (SP 800-38D §5.2.1.2); any
+    /// other length is an error when the call is compiled. It is a type parameter, fixed
+    /// in the caller's code, so that it cannot come from the message: see
+    /// the [module documentation](self#tags). SP 800-38D Appendix C
+    /// restricts 4- and 8-byte tags to applications that bound the length of
+    /// the messages and the number of decryptions under one key.
+    pub fn set_tag_truncated<const N: usize>(&mut self, tag: &[u8; N]) -> Result<(), Error> {
+        assert_tag_length!(N);
         if self.direction == Direction::Encrypt {
             return Err(Error::TagWhenEncrypting);
         }
-        check_tag(tag)?;
         let mut t = [0u8; 16];
-        t[..tag.len()].copy_from_slice(tag);
-        self.tag = Some((t, tag.len()));
+        t[..N].copy_from_slice(tag);
+        self.tag = Some((t, N));
         Ok(())
     }
 
     /// Finishes the message and returns its full 16-byte tag. When
     /// decrypting, this first checks it against the tag given to
-    /// [`set_tag`](Self::set_tag), and fails if they differ. GCM leaves no
-    /// buffered text to return.
+    /// [`set_tag`](Self::set_tag) or
+    /// [`set_tag_truncated`](Self::set_tag_truncated), and fails if they
+    /// differ. GCM leaves no buffered text to return.
     pub fn finalize(mut self) -> Result<Block, Error> {
         let mut work = MaybeUninit::<[u64; 320]>::uninit();
         match self.direction {
@@ -751,7 +824,7 @@ mod tests {
 
     /// Encryption and decryption are inverse, for every key size, 12-byte
     /// and other nonces, and texts and additional data of whole and partial
-    /// blocks; a truncated tag is accepted and a modified one is not.
+    /// blocks; a modified tag is rejected.
     #[test]
     fn round_trip() {
         let key: [u8; 32] = core::array::from_fn(|i| i as u8);
@@ -773,7 +846,7 @@ mod tests {
                         k.decrypt_in_place(nonce, aad, buf, &bad),
                         Err(Error::TagMismatch)
                     );
-                    k.decrypt_in_place(nonce, aad, buf, &tag[..12]).unwrap();
+                    k.decrypt_in_place(nonce, aad, buf, &tag).unwrap();
                     assert_eq!(buf, msg);
                 }
             }
@@ -814,7 +887,7 @@ mod tests {
             d.update(x).unwrap();
             d.update(y).unwrap();
             assert_eq!(buf, msg);
-            d.set_tag(&tag[..8]).unwrap();
+            d.set_tag(&tag).unwrap();
             assert_eq!(d.finalize(), Ok(tag));
         }
         // A byte at a time.
@@ -839,6 +912,56 @@ mod tests {
         assert_eq!(e.finalize(), Ok(tag));
     }
 
+    /// A tag truncated to `N` bytes: its first `N` bytes are accepted, one
+    /// at a time and streaming, and any other `N` bytes (a bit flipped in
+    /// each byte) are rejected, leaving the ciphertext unchanged.
+    fn truncated<const N: usize>() {
+        let key = [3u8; 16];
+        let nonce = [4u8; 12];
+        let aad = [5u8; 20];
+        let msg: [u8; 37] = core::array::from_fn(|i| i as u8);
+        let k = AesGcm::new(&key).unwrap();
+        let mut ct = msg;
+        let full = k.encrypt_in_place(&nonce, &aad, &mut ct).unwrap();
+        let tag: [u8; N] = full[..N].try_into().unwrap();
+        let mut buf = ct;
+        k.decrypt_in_place_truncated(&nonce, &aad, &mut buf, &tag)
+            .unwrap();
+        assert_eq!(buf, msg);
+        let stream = |tag: &[u8; N]| {
+            let mut d = AesGcmStream::new(&key, &nonce, Direction::Decrypt).unwrap();
+            d.update_aad(&aad).unwrap();
+            let mut buf = ct;
+            d.update(&mut buf).unwrap();
+            d.set_tag_truncated(tag).unwrap();
+            d.finalize()
+        };
+        assert_eq!(stream(&tag), Ok(full));
+        for i in 0..N {
+            let mut bad = tag;
+            bad[i] ^= 0x80;
+            let mut buf = ct;
+            assert_eq!(
+                k.decrypt_in_place_truncated(&nonce, &aad, &mut buf, &bad),
+                Err(Error::TagMismatch)
+            );
+            assert_eq!(buf, ct);
+            assert_eq!(stream(&bad), Err(Error::TagMismatch));
+        }
+    }
+
+    /// Every tag length §5.2.1.2 allows.
+    #[test]
+    fn truncated_tags() {
+        truncated::<4>();
+        truncated::<8>();
+        truncated::<12>();
+        truncated::<13>();
+        truncated::<14>();
+        truncated::<15>();
+        truncated::<16>();
+    }
+
     #[test]
     fn errors() {
         assert_eq!(AesGcm::new(&[0; 15]).err(), Some(Error::InvalidKeyLength));
@@ -851,10 +974,6 @@ mod tests {
         assert_eq!(
             k.decrypt_in_place(&[], &[], &mut buf, &[0; 16]),
             Err(Error::InvalidNonceLength)
-        );
-        assert_eq!(
-            k.decrypt_in_place(&[0; 12], &[], &mut buf, &[0; 5]),
-            Err(Error::InvalidTagLength)
         );
         assert_eq!(
             k.decrypt_in_place(&[0; 12], &[], &mut buf, &[0; 16]),
@@ -875,8 +994,8 @@ mod tests {
         e.update(&mut buf).unwrap();
         assert_eq!(e.update_aad(&[1]), Err(Error::AadAfterText));
         assert_eq!(e.set_tag(&[0; 16]), Err(Error::TagWhenEncrypting));
+        assert_eq!(e.set_tag_truncated(&[0; 4]), Err(Error::TagWhenEncrypting));
         let mut d = new(Direction::Decrypt);
-        assert_eq!(d.set_tag(&[0; 3]), Err(Error::InvalidTagLength));
         assert_eq!(d.clone().finalize(), Err(Error::MissingTag));
         d.set_tag(&[0; 16]).unwrap();
         assert_eq!(d.finalize(), Err(Error::TagMismatch));
