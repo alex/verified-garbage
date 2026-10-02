@@ -196,7 +196,7 @@ macro_rules! streaming_hmac {
                     outer: [0; $state],
                 };
                 let (inner, _) = state.inner.state_mut();
-                let mut scratch = [0u64; $scratch];
+                let mut scratch = core::mem::MaybeUninit::<[u64; $scratch]>::uninit();
                 // SAFETY: `key.len()` is at most a block; `inner` and
                 // `state.outer` are valid for reads and writes of a streaming
                 // state, `key` for reads of `key.len()` bytes and `scratch`
@@ -204,14 +204,16 @@ macro_rules! streaming_hmac {
                 // or fields, so they do not overlap each other or the call's
                 // stack frame, nor wrap around the address space. `init`
                 // needs no CPU feature that `backend` was not selected for
-                // (`tests::backend_features`).
+                // (`tests::backend_features`). `scratch` is uninitialized: it
+                // is only working space, and the contract's result does not
+                // depend on what it holds.
                 unsafe {
                     init(
                         inner,
                         &mut state.outer,
                         key.as_ptr(),
                         key.len(),
-                        &mut scratch,
+                        scratch.as_mut_ptr(),
                     )
                 };
                 state
@@ -230,7 +232,7 @@ macro_rules! streaming_hmac {
                 // computation.
                 let (inner, count) = state.inner.state_mut();
                 let mut mac = [0; $output];
-                let mut scratch = [0u64; $scratch];
+                let mut scratch = core::mem::MaybeUninit::<[u64; $scratch]>::uninit();
                 // SAFETY: `inner` is valid for reads and writes of a streaming
                 // state, `state.outer` for reads of one, `mac` for writes of
                 // a digest and `scratch` for reads and writes of its size;
@@ -241,8 +243,10 @@ macro_rules! streaming_hmac {
                 // so the text is shorter than 2⁶⁴ − B bytes), and
                 // `state.outer` represents `K₀ ⊕ opad`. `finalize` needs no
                 // CPU feature that the hash's implementation was not selected
-                // for (`tests::backend_features`).
-                unsafe { finalize(inner, &state.outer, count, &mut mac, &mut scratch) };
+                // for (`tests::backend_features`). `scratch` is
+                // uninitialized: it is only working space, and the contract's
+                // result does not depend on what it holds.
+                unsafe { finalize(inner, &state.outer, count, &mut mac, scratch.as_mut_ptr()) };
                 mac
             }
         }
