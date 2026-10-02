@@ -10,8 +10,9 @@
 //! masks and pads the last block and encrypts it. This module only keeps the
 //! last (possibly whole) block of what it has absorbed back for `finalize`.
 //!
-//! On x86-64, CPUs with AES-NI and SSSE3 run `vg_aes_expand_key_aesni` and
-//! the `_aesni` CMAC functions instead, which have the same contracts: the
+//! It follows the implementation of AES (`crate::aes::Backend`): on x86-64,
+//! CPUs with AES-NI and SSSE3 run `vg_aes_expand_key_aesni` and the
+//! `_aesni` CMAC functions instead, which have the same contracts: the
 //! same verified CMAC code, calling `vg_aes_ctr32_aesni` rather than
 //! `vg_aes_ctr32` to encrypt each block. On AArch64, CPUs with the AES
 //! extension run `vg_aes_expand_key_aes` and the `_aes` CMAC functions,
@@ -26,11 +27,12 @@
 ))]
 
 use super::{InvalidKeyLength, InvalidMac};
+use crate::aes::Backend;
 use crate::arch::aes::vg_aes_expand_key;
 #[cfg(target_arch = "aarch64")]
-use crate::arch::aes::{VG_AES_EXPAND_KEY_AES_FEATURES, vg_aes_expand_key_aes};
+use crate::arch::aes::vg_aes_expand_key_aes;
 #[cfg(target_arch = "x86_64")]
-use crate::arch::aes::{VG_AES_EXPAND_KEY_AESNI_FEATURES, vg_aes_expand_key_aesni};
+use crate::arch::aes::vg_aes_expand_key_aesni;
 #[cfg(target_arch = "aarch64")]
 use crate::arch::cmac_aes::{
     VG_CMAC_AES_FINALIZE_AES_FEATURES, VG_CMAC_AES_SUBKEYS_AES_FEATURES,
@@ -54,55 +56,39 @@ type Block = [u8; 16];
 /// The working space of the CMAC functions, in 64-bit words.
 const SCRATCH: usize = 272;
 
-/// The implementations of the primitives.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Backend {
-    /// Constant-time scalar code, for the target's baseline ISA.
-    Scalar,
-    /// AES-NI.
-    #[cfg(target_arch = "x86_64")]
-    AesNi,
-    /// The AES extension.
-    #[cfg(target_arch = "aarch64")]
-    ArmCrypto,
-}
-
-impl Backend {
-    /// The best implementation a CPU with the features `f` can run.
-    #[cfg(target_arch = "x86_64")]
-    fn select(f: Features) -> Backend {
-        if f.contains(Features::all(&[
-            VG_AES_EXPAND_KEY_AESNI_FEATURES,
+/// The best implementation of AES a CPU with the features `f` can run, with
+/// the CMAC functions for it.
+#[cfg(target_arch = "x86_64")]
+fn select(f: Features) -> Backend {
+    Backend::select_for(
+        f,
+        &[
             VG_CMAC_AES_SUBKEYS_AESNI_FEATURES,
             VG_CMAC_AES_UPDATE_AESNI_FEATURES,
             VG_CMAC_AES_FINALIZE_AESNI_FEATURES,
-        ])) {
-            Backend::AesNi
-        } else {
-            Backend::Scalar
-        }
-    }
+        ],
+    )
+}
 
-    /// The best implementation a CPU with the features `f` can run.
-    #[cfg(target_arch = "aarch64")]
-    fn select(f: Features) -> Backend {
-        if f.contains(Features::all(&[
-            VG_AES_EXPAND_KEY_AES_FEATURES,
+/// The best implementation of AES a CPU with the features `f` can run, with
+/// the CMAC functions for it.
+#[cfg(target_arch = "aarch64")]
+fn select(f: Features) -> Backend {
+    Backend::select_for(
+        f,
+        &[
             VG_CMAC_AES_SUBKEYS_AES_FEATURES,
             VG_CMAC_AES_UPDATE_AES_FEATURES,
             VG_CMAC_AES_FINALIZE_AES_FEATURES,
-        ])) {
-            Backend::ArmCrypto
-        } else {
-            Backend::Scalar
-        }
-    }
+        ],
+    )
+}
 
-    /// The only implementation there is.
-    #[cfg(any(target_arch = "arm", target_arch = "x86"))]
-    fn select(_: Features) -> Backend {
-        Backend::Scalar
-    }
+/// The best implementation a CPU with the features `f` can run: there is
+/// only one here.
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+fn select(f: Features) -> Backend {
+    Backend::select(f)
 }
 
 /// An incremental AES-CMAC computation.
@@ -148,7 +134,7 @@ impl AesCmac {
         let mut c = AesCmac {
             key: [0; 272],
             rounds: key.len() / 4 + 6,
-            backend: Backend::select(detected()),
+            backend: select(detected()),
             state: [0; 16],
             buf: [0; 16],
             buf_len: 0,
@@ -163,10 +149,13 @@ impl AesCmac {
         // 24 or 32; `schedule` for reads and writes of 240 bytes, `subkeys`
         // of 32, `expand_scratch` of 512 and `scratch` of 2176. `schedule`
         // and `subkeys` are disjoint parts of `c.key`, and the scratch
-        // buffers locals, so no two overlap each other, `key` or the return
-        // address. Key expansion leaves the schedule for `rounds` (10, 12 or
-        // 14) rounds in `schedule`, which the subkey derivation reads. The
-        // CPU has the features of the implementation selected. The scratch
+        // buffers locals, so no two overlap each other, `key`, the return
+        // address (on x86-64 and x86), the arguments on the stack (on x86)
+        // or the stack below them that the calls use, and none wraps around
+        // the end of the address space. Key expansion leaves the schedule
+        // for `rounds` (10, 12 or 14) rounds in `schedule`, which the subkey
+        // derivation reads. The CPU has the features of the implementation
+        // selected. The scratch
         // buffers are uninitialized: they are only working space, and
         // neither contract's result depends on what they hold.
         unsafe {
@@ -181,7 +170,7 @@ impl AesCmac {
                     vg_cmac_aes_subkeys_aesni(schedule, rounds, subkeys, s);
                 }
                 #[cfg(target_arch = "aarch64")]
-                Backend::ArmCrypto => {
+                Backend::Aes => {
                     vg_aes_expand_key_aes(k, key.len(), schedule, e);
                     vg_cmac_aes_subkeys_aes(schedule, rounds, subkeys, s);
                 }
@@ -201,7 +190,7 @@ impl AesCmac {
             #[cfg(target_arch = "x86_64")]
             Backend::AesNi => vg_cmac_aes_update_aesni,
             #[cfg(target_arch = "aarch64")]
-            Backend::ArmCrypto => vg_cmac_aes_update_aes,
+            Backend::Aes => vg_cmac_aes_update_aes,
         };
         let schedule = self.key.first_chunk::<240>().unwrap();
         // SAFETY: `schedule` holds the key schedule for `self.rounds` (10,
@@ -210,9 +199,11 @@ impl AesCmac {
         // `self.state` for reads and writes of 16, `blocks` for reads of
         // `16 * blocks.len()` and `scratch` (uninitialized working space, as
         // in `new`) for reads and writes of 2176. `self.state` is a mutable
-        // borrow and `scratch` a local, so neither overlaps another argument
-        // or the return address. The CPU has the features of the
-        // implementation selected.
+        // borrow and `scratch` a local, so neither overlaps another argument,
+        // the return address (on x86-64 and x86), the arguments on the stack
+        // (on 32-bit ARM and x86) or the stack below them that the call
+        // uses, and no argument wraps around the end of the address space.
+        // The CPU has the features of the implementation selected.
         unsafe {
             f(
                 schedule,
@@ -258,7 +249,7 @@ impl AesCmac {
             #[cfg(target_arch = "x86_64")]
             Backend::AesNi => vg_cmac_aes_finalize_aesni,
             #[cfg(target_arch = "aarch64")]
-            Backend::ArmCrypto => vg_cmac_aes_finalize_aes,
+            Backend::Aes => vg_cmac_aes_finalize_aes,
         };
         // SAFETY: `self.key` holds the key schedule for `self.rounds` (10, 12
         // or 14) rounds and then its subkeys, written by `new`; it is valid
@@ -266,11 +257,14 @@ impl AesCmac {
         // `self.buf` for reads of `self.buf_len` (at most 16) and `scratch`
         // (uninitialized working space, as in `new`) for reads and writes of
         // 2176. `self.state` is a mutable borrow and `scratch` a local, so
-        // neither overlaps another argument or the return address. The state
-        // is the chaining of the blocks before the buffered ones, and the
-        // buffer holds at least a byte if any were chained, as the contract's
-        // postcondition requires to give the MAC. The CPU has the features
-        // of the implementation selected.
+        // neither overlaps another argument, the return address (on x86-64
+        // and x86), the arguments on the stack (on 32-bit ARM and x86) or the
+        // stack below them that the call uses, and no argument wraps around
+        // the end of the address space. The state is the chaining of the
+        // blocks before the buffered ones, and the buffer holds at least a
+        // byte if any were chained, as the contract's postcondition requires
+        // to give the MAC. The CPU has the features of the implementation
+        // selected.
         unsafe {
             f(
                 &self.key,
@@ -306,9 +300,9 @@ impl AesCmac {
 
 #[cfg(test)]
 mod tests {
-    use super::{AesCmac, Backend};
+    use super::{AesCmac, Backend, select};
     use crate::cmac::InvalidKeyLength;
-    use crate::cpu::Features;
+    use crate::cpu::{Features, detected};
 
     /// Keys of other lengths are rejected.
     #[test]
@@ -340,32 +334,19 @@ mod tests {
         }
     }
 
-    /// Each implementation is selected exactly when the CPU has its
-    /// features.
-    #[cfg(target_arch = "x86_64")]
+    /// The implementation chosen for each set of features: AES's, with the
+    /// CMAC functions for it.
     #[test]
-    fn select() {
-        assert_eq!(Backend::select(Features::of(&[])), Backend::Scalar);
-        assert_eq!(
-            Backend::select(Features::of(&["aes", "ssse3"])),
-            Backend::AesNi
-        );
-        assert_eq!(Backend::select(Features::of(&["aes"])), Backend::Scalar);
-    }
-
-    /// Each implementation is selected exactly when the CPU has its
-    /// features.
-    #[cfg(target_arch = "aarch64")]
-    #[test]
-    fn select() {
-        assert_eq!(Backend::select(Features::of(&[])), Backend::Scalar);
-        assert_eq!(Backend::select(Features::of(&["aes"])), Backend::ArmCrypto);
-    }
-
-    /// The scalar implementation is the only one.
-    #[cfg(any(target_arch = "arm", target_arch = "x86"))]
-    #[test]
-    fn select() {
-        assert_eq!(Backend::select(Features::of(&[])), Backend::Scalar);
+    fn backend() {
+        #[cfg(target_arch = "x86_64")]
+        {
+            assert_eq!(select(Features::of(&["aes", "ssse3"])), Backend::AesNi);
+            assert_eq!(select(Features::of(&["aes"])), Backend::Scalar);
+        }
+        #[cfg(target_arch = "aarch64")]
+        assert_eq!(select(Features::of(&["aes"])), Backend::Aes);
+        assert_eq!(select(Features(0)), Backend::Scalar);
+        let best = AesCmac::new(&[0; 16]).unwrap().backend;
+        assert_eq!(best, select(detected()));
     }
 }

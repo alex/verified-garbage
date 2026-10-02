@@ -117,7 +117,7 @@ theorem lat_step {t : Nat} {s : State} (ht : t < 544) (h : LAt σ t s) :
     WP isa (rbBody (etaOf σ)) s fun s' => LAt σ (t + 1) s' ∧ s'.zf = some (BitVec.ofNat 64 (544 - t) - 1 == 0) := by
   have hw : pR (σ.gpr .rdx) ∈ s.wr := by rw [h.env.wr, hp.2.1]; simp
   have hp' := spOk hp
-  refine WP.mono (rbBody_ok (eta hp) s (aP := σ.gpr .rdx) h.env.rbp h.rdi (Lt_length_le t) hw h.stored
+  refine WP.mono (rbBody_ok (eta hp) s (aP := σ.gpr .rdx) h.env.rbp h.rdi (Lt_length_le t) (.of_mem hw) h.stored
     (by rw [h.rsi, at_add]; exact inScrRd hp' h.env (by omega))) fun s' ⟨hdi, hst, hf, hsi, hcx, hz, hk⟩ => ?_
   have ht1 : Lt σ (t + 1) = rbStep (etaOf σ) (Lt σ t) ((X σ).getD t 0) := by
     simp only [Lt]

@@ -16,8 +16,11 @@ in `scratch`.
    returns 0 at once if the hint is malformed.
 2. `z[i] = BitUnpack` of the `i`-th piece of `σ` (polynomial `8 + i`), and
    `r15 ← r15 ∧ (‖z[i]‖∞ < γ₁ - β)`; it returns 0 if one of them is not.
-3. `ρ` (`pk[0 : 32]`) to `SB`, and `Â[r, s] = RejNTTPoly(ρ ‖ s ‖ r)`
-   (polynomial `20 + 8r + s`); `c = SampleInBall(c̃)` (polynomial 15). Each
+3. `ρ` (`pk[0 : 32]`) to `SB` and to each seed of `SB4`, and
+   `Â[r, s] = RejNTTPoly(ρ ‖ s ‖ r)` (polynomial `20 + 8r + s`), four
+   entries of a row at a time (`vg_mldsa_rej_ntt_poly4`): those from 0, then
+   for `ℓ = 7` those from 3 (sampling entry 3 again), or for `ℓ = 5` entry 4
+   alone; `c = SampleInBall(c̃)` (polynomial 15). Each
    sampler's result is ANDed into `r15`, and its output masked with it
    (`sampled`): a sampler that fails leaves its output unspecified, and
    masking makes it reduced (zero) without a branch on the result, which
@@ -73,12 +76,29 @@ def aOne (e : Nat) : Prog isa :=
   .seq (.block (setB (sc (oSB + 32)) (e % 8) ++ setB (sc (oSB + 33)) (e / 8)))
     (sampled (rejNttAt P (pS (20 + e))) (pS (20 + e)))
 
-/-- The entries `8r + s` of row `r` of `Â`. -/
-def aRow (r : Nat) : Prog isa := seqR (aOne P) (8 * r) p.ℓ
+/-- Where `vg_mldsa_rej_ntt_poly4` works: after the last row of `Â`. -/
+def oR4 : Nat := oP (20 + 8 * p.k)
 
-/-- `ρ` to `SB`, `Â`, and `c`. -/
+/-- The bytes `s ‖ r` of seed `k` of `SB4`. -/
+def setSR (r s k : Nat) : List Instr := setB (sc (oSB4 + 34 * k + 32)) (s + k) ++ setB (sc (oSB4 + 34 * k + 33)) r
+
+/-- `Â[r, s], …, Â[r, s + 3]`. -/
+def aGrp (r s : Nat) : Prog isa :=
+  .seq (.block (setSR r s 0)) (.seq (.block (setSR r s 1)) (.seq (.block (setSR r s 2)) (.seq (.block (setSR r s 3))
+    (sampled4 (rej4At P (pA r s) (sc (oR4 p))) (pA r s)))))
+
+/-- The entries of row `r` of `Â`: four from 0, then the last four if `ℓ = 7`, or the last one if `ℓ = 5`. -/
+def aRow (r : Nat) : Prog isa :=
+  .seq (aGrp P p r 0) (if p.ℓ = 7 then aGrp P p r 3 else seqR (aOne P) (8 * r + 4) (p.ℓ - 4))
+
+/-- `ρ` to `SB` and to the four seeds of `SB4`. -/
+def rhos : Prog isa :=
+  .seq (copy (sc oSB) (.rbp, 0) 32) (.seq (copy (sc oSB4) (.rbp, 0) 32) (.seq (copy (sc (oSB4 + 34)) (.rbp, 0) 32)
+    (.seq (copy (sc (oSB4 + 68)) (.rbp, 0) 32) (copy (sc (oSB4 + 102)) (.rbp, 0) 32))))
+
+/-- `ρ` to `SB` and `SB4`, `Â`, and `c`. -/
 def samples : Prog isa :=
-  .seq (copy (sc oSB) (.rbp, 0) 32) (.seq (seqR (aRow P p) 0 p.k)
+  .seq rhos (.seq (seqR (aRow P p) 0 p.k)
     (sampled (ballAt P (.r13, 0) p.ctildeLen p.τ pC) pC))
 
 /-- `Σₛ Â[r, s] ẑ[s]` to `W`. -/

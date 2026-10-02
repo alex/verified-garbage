@@ -24,7 +24,10 @@ pub mod sha1;
 pub mod sha224;
 pub mod sha256;
 pub mod sha3;
+pub mod sha384;
 pub mod sha512;
+pub mod sha512_224;
+pub mod sha512_256;
 
 /// A hash function with an incremental interface, as used by the
 /// constructions that are generic over it (HMAC).
