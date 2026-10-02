@@ -24,13 +24,14 @@ open VG VG.Arm VG.Proof.MdStream VG.Proof.MdStream.Arm
 
 abbrev params := Impl.Sha1.Arm.Stream.params
 
-theorem dims : Dims params := ⟨by decide, by decide, by decide⟩
+theorem dims : Dims params := ⟨.inl rfl, by decide, by decide, by decide, by decide, by decide⟩
 
 theorem shape : Shape (P := params) md where
-  len _ hfit hout := len64_ok (d := params.N + 56) (be := true) (by decide) (by omega) hout
+  len _ hfit hout := len64_ok (d := params.N + (params.B - params.L)) (be := true) (by decide)
+    (by have : params.B = 64 := rfl; have : params.L = 8 := rfl; omega) hout
   out _ f₀ f₆ hin hout hd := by
     refine (out32_ok (n := 5) true (by decide) f₀ f₆ hin hout hd).mono fun s' ⟨g, rd, wr, sp, m⟩ =>
-      ⟨g, rd, wr, sp, ?_⟩
+      ⟨fun r h _ => g r h, rd, wr, sp, ?_⟩
     rw [m, digest_eq]
 
 theorem callee : CalleeOk (P := params) md Impl.Sha1.Arm.compress :=

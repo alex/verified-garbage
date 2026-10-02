@@ -25,7 +25,7 @@ open VG.Spec.Sha512 (K)
 `Proof.Sha512.compressAArch64`, and that of each other implementation). The
 streaming code gives it `scratch[0..scratchBytes)` and keeps its own data
 after it. -/
-abbrev scratchBytes : Nat := 176
+abbrev scratchBytes : Nat := 640
 
 /-- The registers holding the working variables. -/
 def work : List Reg := [.x4, .x5, .x6, .x7, .x8, .x9, .x10, .x11]

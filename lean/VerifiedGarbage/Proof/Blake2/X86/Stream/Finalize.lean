@@ -145,29 +145,21 @@ theorem prologue_ok {s₀ : State} (hp : Pre w s₀) : WP isa (.block finalizeSt
   have argSave : ∀ e, 4 ≤ e → e + 4 ≤ 24 →
       (saveMem (scr s₀) s₀).readW (addr (esp₀ s₀) e) 32 = s₀.mem.readW (addr (esp₀ s₀) e) 32 := by
     intro e h₁ h₂
-    simp only [saveMem]
-    rw [Mem.readW_writeW_sep (sepA 524 e (by omega) (by omega) h₁ h₂) (by decide),
-      Mem.readW_writeW_sep (sepA 520 e (by omega) (by omega) h₁ h₂) (by decide),
-      Mem.readW_writeW_sep (sepA 516 e (by omega) (by omega) h₁ h₂) (by decide),
-      Mem.readW_writeW_sep (sepA 512 e (by omega) (by omega) h₁ h₂) (by decide)]
-  unfold finalizeStart save
-  simp only [saved, List.map, List.cons_append, List.nil_append]
+    exact Spill.saveMem_readW_of_sep _ _ (by decide) _ _ fun p h =>
+      have := saved_bound p h; sepA _ e this.1 (by omega) h₁ h₂
+  rw [show finalizeStart = .mov .eax (.mem (at_ .esp 20)) :: (Spill.saveCode .eax saved ++
+    ([.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)), .mov .eax (.mem (at_ .esp 8)),
+      .mov .ecx (.mem (at_ .esp 12))] : List Instr)) from rfl]
   refine wp_ldm (B := esp₀ s₀) rfl (rin (d := 20) (by omega) (by omega)) fun s₁ u₁ => ?_
   have e₁ : s₁.gpr .eax = scr s₀ := u₁.gpr
-  refine wp_stm e₁ (by rw [u₁.wr]; exact sin (d := 512) (by omega)) fun s₂ u₂ => ?_
-  refine wp_stm (by rw [u₂.gpr, e₁]) (by rw [u₂.wr, u₁.wr]; exact sin (d := 516) (by omega))
-    fun s₃ u₃ => ?_
-  refine wp_stm (by rw [u₃.gpr, u₂.gpr, e₁]) (by rw [u₃.wr, u₂.wr, u₁.wr]; exact sin (d := 520) (by omega))
-    fun s₄ u₄ => ?_
-  refine wp_stm (by rw [u₄.gpr, u₃.gpr, u₂.gpr, e₁])
-    (by rw [u₄.wr, u₃.wr, u₂.wr, u₁.wr]; exact sin (d := 524) (by omega)) fun s₅ u₅ => ?_
-  have g₅ : s₅.gpr = s₁.gpr := by rw [u₅.gpr, u₄.gpr, u₃.gpr, u₂.gpr]
+  refine Spill.save_ok saved (fun p h => by
+    rw [e₁, u₁.wr]; exact sin (by have := saved_bound p h; omega)) fun s₅ u₅ => ?_
+  have g₅ : s₅.gpr = s₁.gpr := u₅.gpr
   have m₅ : s₅.mem = saveMem (scr s₀) s₀ := by
-    rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₄.gpr, u₃.gpr, u₂.gpr, u₁.mem,
-      u₁.other .ebx (by decide), u₁.other .esi (by decide), u₁.other .edi (by decide), u₁.other .ebp (by decide)]
-    rfl
-  have rd₅ : s₅.rd = s₀.rd := by rw [u₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd]
-  have wr₅ : s₅.wr = s₀.wr := by rw [u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr]
+    rw [u₅.mem, e₁, u₁.mem]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p h => u₁.other _ (by revert p h; decide)
+  have rd₅ : s₅.rd = s₀.rd := by rw [u₅.rd, u₁.rd]
+  have wr₅ : s₅.wr = s₀.wr := by rw [u₅.wr, u₁.wr]
   have sp₅ : s₅.gpr .esp = esp₀ s₀ := by rw [g₅, u₁.other _ (by decide)]
   refine wp_mov fun s₆ u₆ => ?_
   have sp₆ : s₆.gpr .esp = esp₀ s₀ := by rw [u₆.other _ (by decide), sp₅]
@@ -393,36 +385,8 @@ theorem output_ok {σ : State} (hN4 : bufOff w % 4 = 0)
 theorem restore_ok {s₀ : State} (hp : Pre w s₀) {s : State} (hbp : s.gpr .ebp = scr s₀)
     (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) (hsv : Saved (scr s₀) s₀ s.mem) :
     WP isa (.block restore) s fun s' =>
-      (∀ r ∈ calleeSaved, r ≠ .esp → s'.gpr r = s₀.gpr r) ∧ s'.gpr .esp = s.gpr .esp ∧ s'.mem = s.mem := by
-  have rin : ∀ d, d + 4 ≤ 576 → InRegions (s.rd ++ s.wr) (addr (scr s₀) d) 4 :=
-    fun d hd => hp.sinr hrd hwr hd
-  unfold restore
-  simp only [saved, List.map]
-  refine wp_mov fun s₁ u₁ => ?_
-  have e₁ : s₁.gpr .eax = scr s₀ := by rw [u₁.gpr, hbp]
-  refine wp_ldm e₁ (by rw [u₁.rd, u₁.wr]; exact rin 512 (by omega)) fun s₂ u₂ => ?_
-  refine wp_ldm (by rw [u₂.other _ (by decide), e₁]) (by rw [u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact rin 516 (by omega))
-    fun s₃ u₃ => ?_
-  have i520 := rin 520 (by omega)
-  refine wp_ldm (by rw [u₃.other _ (by decide), u₂.other _ (by decide), e₁])
-    (by rw [u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact i520) fun s₄ u₄ => ?_
-  have i524 := rin 524 (by omega)
-  refine wp_ldm (by rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), e₁])
-    (by rw [u₄.rd, u₄.wr, u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact i524) fun s₅ u₅ => WP.block_nil ?_
-  refine ⟨fun r hr hsp => ?_, ?_, by rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem]⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl
-    · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, u₁.mem]
-      exact hsv (.ebx, 512) (by simp [saved])
-    · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.mem, u₁.mem]
-      exact hsv (.esi, 516) (by simp [saved])
-    · rw [u₅.other _ (by decide), u₄.gpr, u₃.mem, u₂.mem, u₁.mem]
-      exact hsv (.edi, 520) (by simp [saved])
-    · rw [u₅.gpr, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
-      exact hsv (.ebp, 524) (by simp [saved])
-    · exact absurd rfl hsp
-  · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide),
-      u₁.other _ (by decide)]
+      (∀ r ∈ calleeSaved, r ≠ .esp → s'.gpr r = s₀.gpr r) ∧ s'.gpr .esp = s.gpr .esp ∧ s'.mem = s.mem :=
+  restore_saved hbp (fun d _ hd => hp.sinr hrd hwr (by omega)) hsv
 
 /-! ## The whole function -/
 

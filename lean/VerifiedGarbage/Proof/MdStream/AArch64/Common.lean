@@ -333,7 +333,7 @@ theorem write_frame_bytes {m : Mem} {sp : Addr} {v : BitVec (8 * 8)} {R : Region
 `decide`. -/
 structure Dims (P : Params) : Prop where
   N : 0 < P.N ∧ P.N ≤ 64
-  so : P.so % 8 = 0 ∧ P.so ≤ 256
+  so : P.so % 8 = 0 ∧ P.so ≤ 1024
   B : P.B = 64 ∨ P.B = 128
   L : 0 < P.L ∧ P.L ≤ 16
 
@@ -384,13 +384,13 @@ theorem readW_writeW_save (m : Mem) (b : Addr) (v : BitVec 64) {d e : Nat} (hd :
 
 /-! Saves at `so + d`, with the conditions on the literal offsets `d`, `e`
 alone, which `decide` discharges. -/
-theorem readW_writeW_save_so {so : Nat} (hso : so ≤ 256) (m : Mem) (b : Addr) (v : BitVec 64)
+theorem readW_writeW_save_so {so : Nat} (hso : so ≤ 1024) (m : Mem) (b : Addr) (v : BitVec 64)
     {d e : Nat} (hd : d ≤ 64) (he : e ≤ 64) (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
     (m.writeW (b + BitVec.ofNat 64 (so + e)) v).readW (b + BitVec.ofNat 64 (so + d)) 64 =
       m.readW (b + BitVec.ofNat 64 (so + d)) 64 :=
   readW_writeW_save m b v (by omega) (by omega) (by omega)
 
-theorem readW_writeW_save_so_l {so : Nat} (hso : so ≤ 256) (m : Mem) (b : Addr) (v : BitVec 64)
+theorem readW_writeW_save_so_l {so : Nat} (hso : so ≤ 1024) (m : Mem) (b : Addr) (v : BitVec 64)
     {e : Nat} (he : e ≤ 64) (h : 8 ≤ e) :
     (m.writeW (b + BitVec.ofNat 64 (so + e)) v).readW (b + BitVec.ofNat 64 so) 64 =
       m.readW (b + BitVec.ofNat 64 so) 64 :=

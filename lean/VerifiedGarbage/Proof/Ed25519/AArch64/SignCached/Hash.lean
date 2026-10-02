@@ -48,7 +48,7 @@ theorem final_writes (L : Lay) :
   rintro r (rfl | rfl | rfl)
   · exact .inr ⟨L.SCR, by simp [Lay.outputs], 0, by simp, by change 0+192≤8192; decide⟩
   · exact .inl (digestWithin L)
-  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192+224≤8192; decide⟩
+  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192+688≤8192; decide⟩
 
 variable {L : Lay} {g : Reg → BitVec 64} {vec : VReg → BitVec 128} {m₀ : Mem} {s : State}
 
@@ -91,6 +91,6 @@ theorem update_covers {p n : Addr} (hi : Input L p n) :
   rintro r (rfl | rfl | rfl)
   · exact hi.cover
   · exact .inr ⟨L.SCR, by simp [Lay.outputs], 0, by simp, by change 0+192≤8192; decide⟩
-  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192+224≤8192; decide⟩
+  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192+688≤8192; decide⟩
 
 end VG.Proof.Ed25519.AArch64.SignCached

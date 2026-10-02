@@ -204,19 +204,13 @@ theorem finalize_wp {s₀ : State} (h0 : finalizeX86.pre s₀) :
   rw [restore_eq]
   refine wp_arg (s₀ := s₀) esp₂ (by rw [hrw₂]; exact hp.arg_in (by decide)) (hp.arg_keep big₂ (by decide))
     fun s₃ u₃ => ?_
-  refine restoreList_ok saved s₃ _ saved_nodup (fun p hp' => ?_) fun s₄ ld₄ ho₄ m₄ rd₄ wr₄ => WP.block_nil ?_
+  refine Spill.restore_ofNat_ok saved saved_fits (by rw [u₃.gpr]; omega) saved_ne_eax (fun p hp' => ?_)
+    (fun p hp' => by rw [u₃.gpr, u₃.mem]; exact sl p.1 p.2 hp') fun s₄ r₄ => WP.block_nil ?_
   · have hb := saved_bound p hp'
     rw [u₃.gpr, u₃.rd, u₃.wr, rdwr₂]
-    exact ⟨saved_ne_eax p hp', by omega, ⟨scrR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩⟩
-  refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl
-    · rw [ld₄ (.ebx, 2064) (by decide), u₃.gpr, u₃.mem, sl .ebx 2064 (by decide)]
-    · rw [ld₄ (.esi, 2068) (by decide), u₃.gpr, u₃.mem, sl .esi 2068 (by decide)]
-    · rw [ld₄ (.edi, 2072) (by decide), u₃.gpr, u₃.mem, sl .edi 2072 (by decide)]
-    · rw [ld₄ (.ebp, 2076) (by decide), u₃.gpr, u₃.mem, sl .ebp 2076 (by decide)]
-    · rw [ho₄ _ (by decide), u₃.other _ (by decide), esp₂]
-  · rw [m₄, u₃.mem]
+    exact ⟨scrR s₀, by simp, Offset.contains_base _ (by omega) (by omega)⟩
+  refine ⟨⟨r₄.abi (by decide) (by decide) (by rw [u₃.other _ (by decide), esp₂]), ?_⟩, ?_⟩
+  · rw [r₄.mem, u₃.mem]
     have rs : (retR s₀).Disjoint (stkR s₀) := by
       have := Offset.disjoint_below_above ((E s₀).setWidth 64) (m := 28) (a := 0) (l := 4) (by decide)
       rw [add0] at this
@@ -232,7 +226,7 @@ theorem finalize_wp {s₀ : State} (h0 : finalizeX86.pre s₀) :
         (Spec.Cmac.subkeys (ciph s₀) 16).1 ++ (Spec.Cmac.subkeys (ciph s₀) 16).2 := hk
     obtain ⟨e1, e2⟩ := Proof.Cmac.k1k2 (Proof.Cmac.subkeys_aes_length _ _) hk'
     show Spec.Aes.bytesAt s₄.mem ((St s₀).setWidth 64) 16 = _
-    rw [m₄, u₃.mem, h₂.out, sch, cA, h₁.blk, mn, e1, e2, hst,
+    rw [r₄.mem, u₃.mem, h₂.out, sch, cA, h₁.blk, mn, e1, e2, hst,
       Proof.Cmac.macFull_split _ hm (by rw [Proof.Cmac.bytesAt_length]; exact hp.len)
         (by rw [Proof.Cmac.bytesAt_length]; exact hne), Proof.Cmac.xor_comm]
 

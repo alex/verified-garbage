@@ -848,16 +848,6 @@ abbrev dkH (dk : List Byte) : List Byte := KPke.dkH mlKem768 dk
 abbrev dkZ (dk : List Byte) : List Byte := KPke.dkZ mlKem768 dk
 abbrev decM (dk c : List Byte) : List Byte := KPke.decM mlKem768 dk c
 
-theorem ekPKE768_eq (a : Nat → Nat → Poly) (d : List Byte) :
-    ekPKE768 a d = encode12 (kgT a d 0) ++ encode12 (kgT a d 1) ++ encode12 (kgT a d 2) ++ kgRho d := rfl
-
-theorem ct768_eq (a : Nat → Nat → Poly) (ek m r : List Byte) :
-    ct768 a ek m r = compressEncode 10 (encU a r 0) ++ compressEncode 10 (encU a r 1) ++
-      compressEncode 10 (encU a r 2) ++ compressEncode 4 (encV ek m r) := rfl
-
-theorem dkPKE768_eq (d : List Byte) : dkPKE768 d = encode12 (kgS d 0) ++ encode12 (kgS d 1) ++ encode12 (kgS d 2) :=
-  rfl
-
 theorem kpkeKeyGen768_some {iters : Nat} {d : List Byte} {a : Nat → Nat → Poly}
     (h : ∀ i < 3, ∀ j < 3, sampleNTT iters (matSeed (kgRho d) i j) = some (a i j)) :
     kpkeKeyGen mlKem768 iters d = some (ekPKE768 a d, dkPKE768 d) :=

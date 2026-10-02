@@ -10,7 +10,7 @@ import VerifiedGarbage.Spec.Ed25519.CachedSign
 /-! Complete cached-key signing. SHA-512 is generic over its compression
 implementation. The local frame holds scalar32, prefix64, nonce96,
 challenge128 and digest192; the original six arguments are saved at256.
-SHA-512 state and working memory use scratch[0..416). All secret local
+SHA-512 state and working memory use scratch[0..880). All secret local
 buffers are wiped before returning. -/
 namespace VG.Impl.Ed25519.AArch64.SignCached
 open VG.AArch64 VG.Impl.Ed25519.AArch64.Whole

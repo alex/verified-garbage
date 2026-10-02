@@ -4,7 +4,7 @@ namespace VG.Proof.Ed25519.AArch64.Whole
 open VG VG.AArch64
 
 abbrev SHA (scr : Addr) : Region := ⟨scr, 192⟩
-abbrev WORK (scr : Addr) : Region := ⟨scr + 192, 224⟩
+abbrev WORK (scr : Addr) : Region := ⟨scr + 192, 688⟩
 def initWr (scr : Addr) : List Region := [SHA scr]
 def updateRd (p len : Addr) : List Region := [⟨p, len.toNat⟩]
 def hashWr (scr : Addr) : List Region := [SHA scr, WORK scr]
@@ -60,7 +60,7 @@ theorem hash_writes {E scr : Addr} {wr : List Region} (hs : (⟨scr,8192⟩ : Re
   simp only [hashWr, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl
   · exact .inr ⟨_, hs, 0, (BitVec.add_zero scr).symm, by change 0+192≤8192; decide⟩
-  · exact .inr ⟨_, hs, 192, rfl, by change 192+224≤8192; decide⟩
+  · exact .inr ⟨_, hs, 192, rfl, by change 192+688≤8192; decide⟩
 
 theorem init_writes {E scr : Addr} {wr : List Region} (hs : (⟨scr,8192⟩ : Region) ∈ wr) :
     ∀ r ∈ initWr scr, Within r (FR E) ∨ ∃ R ∈ wr, Within r R := by

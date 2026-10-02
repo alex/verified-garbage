@@ -18,7 +18,7 @@ open VG.WriteBytes
 
 variable (v : Proof.Aes.X86.Ctr32Impl)
 open VG.Impl.CmacAes.X86 (at_ argOp)
-open VG.Proof.CmacAes.X86 (wp_arg saveMem_congr)
+open VG.Proof.CmacAes.X86 (wp_arg)
 open VG.Proof.Cmac.Stream (held held_le)
 
 /-- The memory after the saves and the first copy. -/
@@ -50,7 +50,7 @@ theorem absSave_wp {s₀ : State} (hp : APre s₀) :
     fun s₂ g₂ rd₂ wr₂ m₂ => WP.block_nil ?_
   have hm₂ : s₂.mem = savedMem s₀ (aSc s₀) := by
     rw [m₂, u₁.mem, savedMem]
-    exact saveMem_congr _ _ _ fun p hp' => u₁.other _ (saved_ne_eax p hp')
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p hp' => u₁.other _ (saved_ne_eax p hp')
   exact ⟨ACtx.of_frame hp (by rw [g₂, u₁.other _ (by decide)]) (by rw [rd₂, u₁.rd]) (by rw [wr₂, u₁.wr])
     (hm₂ ▸ hp.savedMem_big), hm₂⟩
 

@@ -13,7 +13,7 @@ theorem finalize_writes : ∀ r ∈ Whole.finalizeWr L.scr (L.E+192),
   rcases hr with rfl | rfl | rfl
   · exact .inr ⟨L.SCR, by simp [Lay.outputs], 0, (BitVec.add_zero _).symm, by change 0+192≤8192; decide⟩
   · exact .inl ⟨192, rfl, by change 192+64≤256; decide⟩
-  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192+224≤8192; decide⟩
+  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192+688≤8192; decide⟩
 
 theorem finalize_ok (backend : Whole.Backend) (hc : Ctx L g v m₀ s) (hL : L.Ok)
     (ha : Arguments L m₀) {msg : List Byte}
