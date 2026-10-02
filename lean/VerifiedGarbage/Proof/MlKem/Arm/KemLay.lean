@@ -68,6 +68,11 @@ open VG VG.Arm VG.Impl.MlKem.Arm
 
 theorem kl768_wf : kl768.WF := .of (by decide)
 
+/-- The parameter set of ML-KEM-768 with `k` changed: what a fact that depends
+on a parameter set only through `k` says of any of them is what it says of
+`kOf k`, which `decide` checks for every `k ≤ 4` at once (`KemLay.WF.k4`). -/
+def kOf (k : Nat) : KemLay := { kl768 with p := { kl768.p with k := k } }
+
 /-- The polynomials of `scratch` have encodable offsets. -/
 theorem enc_poly : ∀ j < 21, encodable (BitVec.ofNat 32 (oPoly j)) = true := by decide
 

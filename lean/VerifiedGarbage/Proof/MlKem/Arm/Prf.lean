@@ -83,6 +83,21 @@ theorem Ctx.sub0 {L : Lay} {s : State} (hc : Ctx L s) {a l b l' : Nat} (h₁ : b
   simp only [Region.Contains] at hx ⊢
   bv_omega
 
+/-- A separation decided with a `scratch` of 32 KiB holds for a bigger one. -/
+theorem sepB_scr {r : List Nat} {s : Nat} {a b : Nat × Nat × Nat} (h : sepB (32768 :: r) a b = true)
+    (hs : 32768 ≤ s) : sepB (s :: r) a b = true := by
+  obtain ⟨i, o, l⟩ := a
+  obtain ⟨j, o', l'⟩ := b
+  simp only [sepB, List.length_cons, Bool.and_eq_true, decide_eq_true_eq] at h ⊢
+  obtain ⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩ := h
+  refine ⟨⟨⟨⟨h1, h2⟩, ?_⟩, ?_⟩, h5⟩
+  · cases i <;> simp only [List.getD_cons_zero, List.getD_cons_succ] at h3 ⊢ <;> omega
+  · cases j <;> simp only [List.getD_cons_zero, List.getD_cons_succ] at h4 ⊢ <;> omega
+
+theorem sepAll_scr {r : List Nat} {s : Nat} {a : Nat × Nat × Nat} {W : List (Nat × Nat × Nat)}
+    (h : sepAll (32768 :: r) a W = true) (hs : 32768 ≤ s) : sepAll (s :: r) a W = true :=
+  List.all_eq_true.mpr fun w hw => sepB_scr (List.all_eq_true.mp h w hw) hs
+
 /-- `w` inside `w'`, a region of `scratch` or of the stack. -/
 def subB0 (w w' : Nat × Nat × Nat) : Bool :=
   w.1 == w'.1 && decide (w'.2.1 ≤ w.2.1) && decide (w.2.1 + w.2.2 ≤ w'.2.1 + w'.2.2) &&

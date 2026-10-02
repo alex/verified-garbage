@@ -149,8 +149,27 @@ structure RowInv (K : KemLay) (L : Lay) (transpose : Bool) (ρ : List Byte) (v :
   r11 : s.gpr .r11 = if fl && okRow transpose ρ i j then 1 else 0
   acc : PolyIs s.mem (L.A 0 K.oAcc) (rowAcc (fun j => effA transpose ρ i j (v j)) v j)
 
-theorem rowW_vec {K : KemLay} (hK : K.WF) : ∀ j < K.k, (rowW K).all (sep0 (oPoly (K.k + j)) 1024) = true := by
-  intro j hj; kdecide
+/-- The polynomials of `v̂` apart from what a row changes. -/
+abbrev RowWVec (K : KemLay) : Prop := ∀ j < K.k, (rowW K).all (sep0 (oPoly (K.k + j)) 1024) = true
+
+/-- The facts on the offsets of `scratch` that a row's steps use. -/
+abbrev RowLF (K : KemLay) : Prop :=
+  (rowW K).all (sep0 oSeed 32) = true ∧ [((0 : Nat), (1248 : Nat), (2 : Nat))].all (fun w => (rowW K).any (subB0 w)) = true ∧
+  K.oAcc + 1024 ≤ 32768 ∧ [((0 : Nat), (1248 : Nat), (2 : Nat))].all (sep0 K.oAcc 1024) = true ∧
+  K.oAhat + 1024 ≤ 32768 ∧ (oSeed + 34 ≤ K.oAhat ∨ K.oAhat + 1024 ≤ oSeed) ∧
+  K.oSample + 2048 ≤ 32768 ∧ (oSeed + 34 ≤ K.oSample ∨ K.oSample + 2048 ≤ oSeed) ∧
+  (K.oAhat + 1024 ≤ K.oSample ∨ K.oSample + 2048 ≤ K.oAhat) ∧
+  [((0 : Nat), K.oAhat, (1024 : Nat)), (0, K.oSample, 2048), (1, 0, 8)].all (fun w => (rowW K).any (subB0 w)) = true ∧
+  [((0 : Nat), K.oAhat, (1024 : Nat)), (0, K.oSample, 2048), (1, 0, 8)].all (sep0 K.oAcc 1024) = true ∧
+  [((0 : Nat), K.oTmp, (1024 : Nat)), (0, K.oNtt, 1024)].all (fun w => (rowW K).any (subB0 w)) = true ∧
+  [((0 : Nat), K.oTmp, (1024 : Nat)), (0, K.oNtt, 1024)].all (sep0 K.oAcc 1024) = true ∧
+  K.oTmp + 1024 ≤ 32768 ∧ (K.oAcc + 1024 ≤ K.oTmp ∨ K.oTmp + 1024 ≤ K.oAcc) ∧
+  [((0 : Nat), K.oAcc, (1024 : Nat))].all (fun w => (rowW K).any (subB0 w)) = true
+
+theorem row_lf {K : KemLay} (hK : K.WF) : RowLF K :=
+  (by decide : ∀ k < 5, RowLF (kOf k)) K.k (by have := hK.k4; omega)
+
+theorem rowW_vec {K : KemLay} (hK : K.WF) : RowWVec K := (by decide : ∀ k < 5, RowWVec (kOf k)) K.k (by have := hK.k4; omega)
 
 theorem bytes_two (m : Mem) (p : Addr) : bytesAt m p 2 = [m p, m (p + BitVec.ofNat 64 1)] := by
   simp only [bytesAt, show List.range 2 = [0, 1] from rfl, List.map_cons, List.map_nil, add_ofNat_zero]
@@ -269,7 +288,7 @@ theorem rowA_ok (hp : RowPre K L ρ v i fl s₀) (hj : j < K.k) {s : State} (h :
   have hc := h.kx.ctx (by kdecide) hp.ctx
   have g9 : s.gpr .r9 = BitVec.ofNat 32 i := by rw [h.kx.cs .r9 (by kdecide) (by kdecide) (by kdecide), hp.r9]
   have ρs : bytesAt s.mem (L.A 0 oSeed) 32 = ρ := by
-    rw [← hp.rho]; exact Lay.bytes_keep hL h.kx.frame (hp.ctx.sepAll0 (by kdecide) (by kdecide)) (by kdecide)
+    rw [← hp.rho]; exact Lay.bytes_keep hL h.kx.frame (hp.ctx.sepAll0 (by kdecide) (row_lf hK).1) (by kdecide)
   have e912 := hc.addr (o := oSeed + 32) (by kdecide)
   have e913 := hc.addr (o := oSeed + 33) (by kdecide)
   have w912 : InRegions s.wr (State.addr (L.ptr 0 + BitVec.ofNat 32 (oSeed + 32))) 1 := by
@@ -297,9 +316,9 @@ theorem rowA_ok (hp : RowPre K L ρ v i fl s₀) (hj : j < K.k) {s : State} (h :
     rw [m₁', writeW8_apply, writeW8_apply, ite_eq_right ne, ite_eq_left rfl]
   have b913 : s₁.mem (L.A 0 1249) = BitVec.ofNat 8 (if transpose then j else i) := by
     rw [m₁', writeW8_apply, ite_eq_left rfl]
-  refine ⟨⟨h.kx.trans ((k₁.weaken (by simp)).subL hp.ctx (by kdecide)),
+  refine ⟨⟨h.kx.trans ((k₁.weaken (by simp)).subL hp.ctx (row_lf hK).2.1),
     by rw [k₁.cs .r10 (by kdecide) (by kdecide) (by kdecide), h.r10],
-    Lay.polyIs_keep hL k₁.frame (hc.sepAll0 (by kdecide) (by kdecide)) h.acc⟩,
+    Lay.polyIs_keep hL k₁.frame (hc.sepAll0 (row_lf hK).2.2.1 (row_lf hK).2.2.2.1) h.acc⟩,
     by rw [k₁.cs .r11 (by kdecide) (by kdecide) (by kdecide), h.r11], g0, g1, g2, ?_⟩
   rw [rowSeed_eq]
   show bytesAt s₁.mem (State.addr (L.ptr 0) + BitVec.ofNat 64 1216) (32 + 2) = _
@@ -313,12 +332,12 @@ theorem rowB_ok (hp : RowPre K L ρ v i fl s₀) {s : State} (h : RA K L transpo
     WP isa callSample s (RB K L transpose ρ v i fl s₀ j) := by
   have hK := hp.wf
   have hc := h.rs.ctx hp
-  refine sampleL hc h.r0 h.r1 h.r2 (hc.sep00 (by kdecide) (by kdecide) (by kdecide))
-    (hc.sep00 (by kdecide) (by kdecide) (by kdecide)) (hc.sep00 (by kdecide) (by kdecide) (by kdecide))
-    (hc.sep01 (by kdecide) (by kdecide)) (hc.sep01 (by kdecide) (by kdecide)) (hc.sep01 (by kdecide) (by kdecide))
+  refine sampleL hc h.r0 h.r1 h.r2 (hc.sep00 (by kdecide) (row_lf hK).2.2.2.2.1 (row_lf hK).2.2.2.2.2.1)
+    (hc.sep00 (by kdecide) (row_lf hK).2.2.2.2.2.2.1 (row_lf hK).2.2.2.2.2.2.2.1) (hc.sep00 (row_lf hK).2.2.2.2.1 (row_lf hK).2.2.2.2.2.2.1 (row_lf hK).2.2.2.2.2.2.2.2.1)
+    (hc.sep01 (by kdecide) (by kdecide)) (hc.sep01 (row_lf hK).2.2.2.2.1 (by kdecide)) (hc.sep01 (row_lf hK).2.2.2.2.2.2.1 (by kdecide))
     (mem_rd_wr hc.buf0) hc.buf0 hc.buf0 fun s' k' r0' a' => ?_
   rw [h.seed] at r0' a'
-  exact ⟨h.rs.step hp (k'.x []) (by simp) (by simp) (by kdecide) (hc.sepAll0 (by kdecide) (by kdecide)),
+  exact ⟨h.rs.step hp (k'.x []) (by simp) (by simp) (row_lf hK).2.2.2.2.2.2.2.2.2.1 (hc.sepAll0 (row_lf hK).2.2.1 (row_lf hK).2.2.2.2.2.2.2.2.2.2.1),
     by rw [k'.cs .r11 (by kdecide) (by kdecide), h.r11], r0', a'⟩
 
 theorem rowC_ok {s : State} (h : RB K L transpose ρ v i fl s₀ j s) :
@@ -384,7 +403,7 @@ theorem rowF_ok (hp : RowPre K L ρ v i fl s₀) (hj : j < K.k) {s : State} (h :
   refine mulL hc.ok h.r0 h.rd.r1 h.r2 h.r3 (hc.sep00 (by offs) s1 s2) (hc.sep00 (by offs) (by offs) (by offs))
     (hc.sep00 (by offs) (by offs) (by offs)) (hc.sep00 s1 (by offs) s3) (hc.sep00 (by offs) (by offs) (by offs))
     hc.buf0 (mem_rd_wr hc.buf0) (mem_rd_wr hc.buf0) hc.buf0 h.rd.sel (h.rd.rs.vec hp hj) fun s' k' p' => ?_
-  exact ⟨h.rd.rs.step hp (k'.x []) (by simp) (by simp) (by kdecide) (hc.sepAll0 (by kdecide) (by kdecide)),
+  exact ⟨h.rd.rs.step hp (k'.x []) (by simp) (by simp) (row_lf hK).2.2.2.2.2.2.2.2.2.2.2.1 (hc.sepAll0 (row_lf hK).2.2.1 (row_lf hK).2.2.2.2.2.2.2.2.2.2.2.2.1),
     by rw [k'.cs .r11 (by kdecide) (by kdecide), h.rd.r11], p'⟩
 
 theorem rowG_ok (hp : RowPre K L ρ v i fl s₀) {s : State} (h : RF K L transpose ρ v i fl s₀ j s) :
@@ -399,9 +418,9 @@ theorem rowH_ok (hp : RowPre K L ρ v i fl s₀) {s : State} (h : RG K L transpo
     WP isa callAdd s (RH K L transpose ρ v i fl s₀ j) := by
   have hK := hp.wf
   have hc := h.rf.rs.ctx hp
-  refine addL hc.ok h.r0 h.r1 (hc.sep00 (by kdecide) (by kdecide) (by kdecide)) hc.buf0 (mem_rd_wr hc.buf0)
+  refine addL hc.ok h.r0 h.r1 (hc.sep00 (row_lf hK).2.2.1 (row_lf hK).2.2.2.2.2.2.2.2.2.2.2.2.2.1 (row_lf hK).2.2.2.2.2.2.2.2.2.2.2.2.2.2.1) hc.buf0 (mem_rd_wr hc.buf0)
     h.rf.rs.acc h.rf.tmp fun s' k' p' => ?_
-  exact ⟨h.rf.rs.kx.trans ((k'.x _).subL hp.ctx (by kdecide)),
+  exact ⟨h.rf.rs.kx.trans ((k'.x _).subL hp.ctx (row_lf hK).2.2.2.2.2.2.2.2.2.2.2.2.2.2.2),
     by rw [k'.cs .r10 (by kdecide) (by kdecide), h.rf.rs.r10], by rw [k'.cs .r11 (by kdecide) (by kdecide), h.rf.r11],
     p'⟩
 
@@ -447,11 +466,11 @@ theorem rowSum_ok {K : KemLay} {L : Lay} {transpose : Bool} {ρ : List Byte} {v 
     {fl : Bool} {s₀ : State} (hp : RowPre K L ρ v i fl s₀) :
     WP isa (K.rowSum transpose) s₀ (RowInv K L transpose ρ v i fl s₀ K.k) := by
   have hK := hp.wf
-  refine WP.seq (WP.mono (zeroPoly_ok hp.ctx (by kdecide) (by kenc)) fun s₁ ⟨k₁, z₁⟩ => ?_)
+  refine WP.seq (WP.mono (zeroPoly_ok hp.ctx (row_lf hK).2.2.1 (by kenc)) fun s₁ ⟨k₁, z₁⟩ => ?_)
   refine WP.seq (WP.mono (movc_ok .r10 (N := 0) (by decide)) fun s₂ ⟨k₂, g₂, m₂⟩ => ?_)
   refine wp_loop_ne (RowInv K L transpose ρ v i fl s₀) (N := K.k) (by kdecide) (fun j hj s h => rowBody_ok hp hj h)
     (fun _ h => h) ⟨?_, g₂, ?_, by rw [m₂]; exact z₁⟩
-  · exact ((k₁.x _).subL hp.ctx (by kdecide)).trans ((k₂.weaken (by simp)).mono (fun _ h => absurd h List.not_mem_nil))
+  · exact ((k₁.x _).subL hp.ctx (row_lf hK).2.2.2.2.2.2.2.2.2.2.2.2.2.2.2).trans ((k₂.weaken (by simp)).mono (fun _ h => absurd h List.not_mem_nil))
   · rw [k₂.cs .r11 (by decide) (by decide) (by decide), k₁.cs .r11 (by decide) (by decide), hp.r11]
     simp [okRow]
 
@@ -483,8 +502,10 @@ structure DotInv (K : KemLay) (L : Lay) (a v : Nat → Poly) (s₀ : State) (j :
   r10 : s.gpr .r10 = BitVec.ofNat 32 j
   acc : PolyIs s.mem (L.A 0 K.oAcc) (rowAcc a v j)
 
-theorem dotW_vec {K : KemLay} (hK : K.WF) : ∀ j < 2 * K.k, (dotW K).all (sep0 (oPoly j) 1024) = true := by
-  intro j hj; kdecide
+/-- The polynomials of the operands apart from what `dot` changes. -/
+abbrev DotWVec (K : KemLay) : Prop := ∀ j < 2 * K.k, (dotW K).all (sep0 (oPoly j) 1024) = true
+
+theorem dotW_vec {K : KemLay} (hK : K.WF) : DotWVec K := (by decide : ∀ k < 5, DotWVec (kOf k)) K.k (by have := hK.k4; omega)
 
 /-- In `dotBody`, after the product. -/
 structure DB (K : KemLay) (L : Lay) (a v : Nat → Poly) (s₀ : State) (j : Nat) (s : State) : Prop where

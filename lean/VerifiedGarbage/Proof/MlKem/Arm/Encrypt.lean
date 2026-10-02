@@ -101,14 +101,16 @@ structure DecInv (K : KemLay) (L : Lay) (i o : Nat) (s₀ : State) (j : Nat) (s 
   r9 : s.gpr .r9 = BitVec.ofNat 32 j
   t : ∀ k < j, PolyIs s.mem (L.A 0 (oPoly k)) (decode12 (bytesAt s₀.mem (L.A i (o + 384 * k)) 384))
 
+/-- Polynomial `k < K.k` of `t̂` is in what the decoding writes, apart from the others. -/
+abbrev DecTSlots (K : KemLay) : Prop :=
+  ∀ k < K.k, [((0 : Nat), oPoly k, (1024 : Nat))].all (fun w => [(0, 2048, 1024 * K.k)].any (subB0 w)) = true ∧
+    (∀ k' < K.k, k' ≠ k → [((0 : Nat), oPoly k, (1024 : Nat))].all (sep0 (oPoly k') 1024) = true)
+
 section
 variable {K : KemLay} (hK : K.WF)
 include hK
 
-theorem decT_slots : ∀ k < K.k, [((0 : Nat), oPoly k, (1024 : Nat))].all (fun w => [(0, 2048, 1024 * K.k)].any (subB0 w)) = true ∧
-    (∀ k' < K.k, k' ≠ k → [((0 : Nat), oPoly k, (1024 : Nat))].all (sep0 (oPoly k') 1024) = true) := by
-  intro k hk
-  exact ⟨by kdecide, fun k' _ _ => by kdecide⟩
+theorem decT_slots : DecTSlots K := (by decide : ∀ k < 5, DecTSlots (kOf k)) K.k (by have := hK.k4; omega)
 
 theorem decT_step {L : Lay} {i o : Nat} {s₀ : State} (hc : Ctx L s₀) (h4 : s₀.gpr .r4 = L.ptr i + BitVec.ofNat 32 o)
     (hs : sepAll L.sizes (i, o, 384 * K.k) [(0, 2048, 1024 * K.k)] = true) (hr : L.buf i ∈ s₀.rd ++ s₀.wr)
@@ -282,14 +284,17 @@ theorem enc2_ok {s₁ : State} (h₁ : EA K L s₀ s₁) (hρ : bytesAt s₁.mem
 
 /-! ## The `PRF`s -/
 
-omit hp in
-theorem prf_ek (hK : K.WF) : (prfLW K 0 K.k).all (fun w => (encW0 K).any (subB0 w)) = true ∧
+/-- How the regions of the `PRF`s lie among those of `encrypt`. -/
+abbrev PrfEk (K : KemLay) : Prop := (prfLW K 0 K.k).all (fun w => (encW0 K).any (subB0 w)) = true ∧
     (prfLW K K.k (2 * K.k + 1)).all (fun w => (encW0 K).any (subB0 w)) = true ∧
     (prfLW K 0 K.k).all (sep0 oSeed 32) = true ∧ (prfLW K K.k (2 * K.k + 1)).all (sep0 oSeed 32) = true ∧
     (∀ k < K.k, (prfLW K 0 K.k).all (sep0 (oPoly k) 1024) = true) ∧
     (∀ k < 2 * K.k, (prfLW K K.k (2 * K.k + 1)).all (sep0 (oPoly k) 1024) = true) ∧
-    (encW0 K).all (sep0 oSigma 32) = true := by
-  refine ⟨by kdecide, by kdecide, by kdecide, by kdecide, fun k hk => by kdecide, fun k hk => by kdecide, by kdecide⟩
+    (encW0 K).all (sep0 oSigma 32) = true
+
+omit hp in
+theorem prf_ek (hK : K.WF) : PrfEk K :=
+  (by decide : ∀ k < 5, PrfEk (kOf k)) K.k (by have := hK.k4; omega)
 
 theorem enc3_ok {s₂ : State} (h₂ : EA K L s₀ s₂) (hρ : bytesAt s₂.mem (L.A 0 oSeed) 32 = ρE K L b s₀)
     (ht : ∀ k < K.k, PolyIs s₂.mem (L.A 0 (oPoly k)) (VG.Proof.MlKem.ekT (ekB K L b s₀) k)) :
@@ -417,13 +422,15 @@ structure RC (K : KemLay) (L : Lay) (b : EB) (s₀ : State) (i : Nat) (s : State
   cb : bytesAt s'.mem (L.A b.iC (b.oC + K.uLen * i)) K.uLen =
     compressEncode K.du (VG.Proof.MlKem.KPke.encU K.p (aE K L b s₀) (rB L s₀) i)
 
-theorem row_facts {K : KemLay} (hK : K.WF) : (rowW K).all (fun w => (encW0 K).any (subB0 w)) = true ∧
+/-- How the regions of a row lie among those of `encrypt`. -/
+abbrev RowFacts (K : KemLay) : Prop := (rowW K).all (fun w => (encW0 K).any (subB0 w)) = true ∧
     (rowW K).all (fun w => (encW0 K).any (inB w)) = true ∧
     (rowW K).all (sep0 1216 32) = true ∧ (rowW K).all (sep0 2048 (1024 * (3 * K.k + 2))) = true ∧
     [((0 : Nat), K.oAcc, (1024 : Nat)), (0, K.oNtt, 1024)].all (fun w => (rowW K).any (subB0 w)) = true ∧
     [((0 : Nat), K.oAcc, (1024 : Nat))].all (fun w => (rowW K).any (subB0 w)) = true ∧
-    (∀ i < K.k, (rowW K).all (sep0 (oPoly (K.k + (K.k + i))) 1024) = true) := by
-  refine ⟨by kdecide, by kdecide, by kdecide, by kdecide, by kdecide, by kdecide, fun i hi => by kdecide⟩
+    (∀ i < K.k, (rowW K).all (sep0 (oPoly (K.k + (K.k + i))) 1024) = true)
+
+theorem row_facts {K : KemLay} (hK : K.WF) : RowFacts K := (by decide : ∀ k < 5, RowFacts (kOf k)) K.k (by have := hK.k4; omega)
 
 /-- A `u[i]` within `c`. -/
 theorem uSlot {K : KemLay} {i : Nat} (hi : i < K.k) : K.uLen * i + K.uLen ≤ K.ctLen := by
@@ -644,10 +651,12 @@ structure VEnv (K : KemLay) (L : Lay) (b : EB) (s₀ s : State) : Prop where
 def vOK (K : KemLay) (w : Nat × Nat × Nat) : Bool :=
   (encW0 K).any (subB0 w) && (encW0 K).any (inB w) && sep0 1216 32 w && sep0 2048 (1024 * (3 * K.k + 2)) w
 
-theorem vOK_facts {K : KemLay} (hK : K.WF) : (dotW K).all (vOK K) = true ∧
+/-- What `v` writes keeps `VEnv`. -/
+abbrev VOKFacts (K : KemLay) : Prop := (dotW K).all (vOK K) = true ∧
     [((0 : Nat), K.oAcc, (1024 : Nat)), (0, K.oNtt, 1024)].all (vOK K) = true ∧
-    [((0 : Nat), K.oAcc, (1024 : Nat))].all (vOK K) = true := by
-  refine ⟨?_, ?_, ?_⟩ <;> (simp only [List.all_cons, List.all_nil, vOK, Bool.and_true]; kdecide)
+    [((0 : Nat), K.oAcc, (1024 : Nat))].all (vOK K) = true
+
+theorem vOK_facts {K : KemLay} (hK : K.WF) : VOKFacts K := (by decide : ∀ k < 5, VOKFacts (kOf k)) K.k (by have := hK.k4; omega)
 
 section
 variable {K : KemLay} {L : Lay} {b : EB} {s₀ : State} (hp : EncPre K L b s₀)
@@ -807,10 +816,12 @@ end
 
 /-! ## The whole of K-PKE.Encrypt -/
 
-theorem mu_sep {K : KemLay} (hK : K.WF) :
-    (∀ k < 2 * K.k, [((0 : Nat), oPoly (3 * K.k + 1), (1024 : Nat))].all (sep0 (oPoly k) 1024) = true) ∧
-    (∀ N < 2 * K.k + 1, [((0 : Nat), oPoly (3 * K.k + 1), (1024 : Nat))].all (sep0 (oPoly (K.k + N)) 1024) = true) :=
-  ⟨fun k hk => by kdecide, fun N hN => by kdecide⟩
+/-- `μ` apart from the polynomials of the `PRF`s. -/
+abbrev MuSep (K : KemLay) : Prop :=
+  (∀ k < 2 * K.k, [((0 : Nat), oPoly (3 * K.k + 1), (1024 : Nat))].all (sep0 (oPoly k) 1024) = true) ∧
+    (∀ N < 2 * K.k + 1, [((0 : Nat), oPoly (3 * K.k + 1), (1024 : Nat))].all (sep0 (oPoly (K.k + N)) 1024) = true)
+
+theorem mu_sep {K : KemLay} (hK : K.WF) : MuSep K := (by decide : ∀ k < 5, MuSep (kOf k)) K.k (by have := hK.k4; omega)
 
 section
 variable {K : KemLay} {L : Lay} {b : EB} {s₀ : State} (hp : EncPre K L b s₀)

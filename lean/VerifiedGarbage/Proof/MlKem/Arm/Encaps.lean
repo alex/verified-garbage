@@ -158,7 +158,7 @@ def eidx : Reg → Nat
 
 /-- Decides a fact about the offsets in the buffers. -/
 macro "edecide" : tactic => `(tactic| first
-  | kdecide
+  | decide
   | ((try simp only [lay_sizes, layM_sizes, eSz, okW, eidx, kRegs, List.all_cons, List.all_nil, List.all_append,
         List.map_cons, List.map_nil, trip, Bool.and_true])
      (try have := (‹KemLay.WF _›).scr)
