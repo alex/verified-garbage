@@ -21,7 +21,7 @@ theorem abiSave_ok {s₀ : State} {scidx argc : Nat} (hp : ScratchPre s₀ scidx
   have g₅ : s₅.gpr = s₁.gpr := by rw [u₅.gpr, u₄.gpr, u₃.gpr, u₂.gpr]
   have hr : ∀ r, r ≠ .eax → s₁.gpr r = s₀.gpr r := fun r h => u₁.other r h
   have w : ∀ {m : Mem} {d : Nat} (v : BitVec 32), d + 4 ≤ 8192 →
-      Frame [scR (arg s₀ scidx)] s₀.mem m → Frame [scR (arg s₀ scidx)] s₀.mem (m.writeW (addr (arg s₀ scidx) d) v) :=
+      Frame [scR 8192 (arg s₀ scidx)] s₀.mem m → Frame [scR 8192 (arg s₀ scidx)] s₀.mem (m.writeW (addr (arg s₀ scidx) d) v) :=
     fun v hd hf => hf.writeW (List.mem_singleton_self _) _ (scR_contains hfit hd (by decide))
   refine ⟨by rw [u₆.gpr, g₅, ea], by rw [u₆.other _ (by decide), g₅, hr _ (by decide)],
     by rw [u₆.rd, u₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd], by rw [u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr],

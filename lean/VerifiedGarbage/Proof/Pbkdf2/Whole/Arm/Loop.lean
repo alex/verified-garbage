@@ -15,8 +15,8 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 
 open VG.Arm
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
-open VG.Impl.Hmac.Generic.Arm (Hash scrAt copy)
-open VG.Proof.Hmac.Generic.Arm (HashOK cclob count count_loop nm addr3 ofNat_succ32 left_val left_z CopyInv
+open VG.Impl.Pbkdf2.Stream.Arm (Hash scrAt copy)
+open VG.Proof.Pbkdf2.Stream.Arm (HashOK cclob count count_loop nm addr3 ofNat_succ32 left_val left_z CopyInv
   SavedRegs savedRegs saved8 saved8_fst saved8_sub saved_mem restoreList_ok restore_eq)
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_sub wp_subs wp_cmp wp_rev wp_ldr wp_str wp_ldrb wp_strb
   op2_imm op2_reg sub_beq sub_ofNat contains_offset eval_eq)
@@ -81,7 +81,7 @@ theorem copyLoop_ok {src dst : Reg} (hs : src ∉ cclob) (hd : dst ∉ cclob)
 
 /-! ## Restoring our caller's registers -/
 
-/-- `VG.Proof.Hmac.Generic.Arm.restore_ok`, for any working space before
+/-- `VG.Proof.Pbkdf2.Stream.Arm.restore_ok`, for any working space before
 the save area that an immediate offset reaches. -/
 theorem restore_ok (H : Hash) {s : State} {scr : BitVec 32} {L : Nat} (h11 : s.gpr .r11 = scr)
     (hW : 8 * H.W + 36 ≤ 4096) {s₀ : State} (hs : SavedRegs H scr s₀ s.mem) (hsc : ⟨State.addr scr, L⟩ ∈ s.wr)
@@ -283,11 +283,11 @@ theorem outLen_ok {k : Nat} (hk : k * F.H.D < ol s₀) {s : State} (h : Inv hF s
     rw [z₃, e₂, toNat_ofNat32 (by omega), toNat_ofNat32 (by omega)]
   refine WP.ite (decide (ol s₀ - k * F.H.D < F.H.D)) (by show eval .eq s₃ = _; rw [eval_eq, z])
     (fun hT => WP.block_nil ?_)
-    fun hF' => Hmac.Generic.Arm.wp_movw fun s₄ u₄ => WP.block_nil ⟨i₃.upd hp hz (by decide) u₄, ?_, by rw [u₄.mem, m₃']⟩
+    fun hF' => Pbkdf2.Stream.Arm.wp_movw fun s₄ u₄ => WP.block_nil ⟨i₃.upd hp hz (by decide) u₄, ?_, by rw [u₄.mem, m₃']⟩
   · have : ol s₀ - k * F.H.D < F.H.D := of_decide_eq_true hT
     exact ⟨i₃, by rw [e₃, Nat.min_eq_left (Nat.le_of_lt this)], m₃'⟩
   · have : ¬ ol s₀ - k * F.H.D < F.H.D := of_decide_eq_false hF'
-    rw [u₄.gpr, Hmac.Generic.Arm.movw_ofNat (by omega), Nat.min_eq_right (by omega)]
+    rw [u₄.gpr, Pbkdf2.Stream.Arm.movw_ofNat (by omega), Nat.min_eq_right (by omega)]
 
 /-- Copying `n` bytes of `T` to `out` after the `k D` written. -/
 theorem outLoop_ok {k n : Nat} (hn : 0 < n) (hkn : k * F.H.D + n ≤ ol s₀) (hnD : n ≤ F.H.D) {s : State}
@@ -475,7 +475,7 @@ theorem correct : WP isa F.pbkdf2 s₀ fun s' => abiPreserved s₀ s' ∧
   have hr := hz.reach; have := end_le hz; have := layout (F := F)
   refine WP.mono (restore_ok F.L k₅.r11 (by simp only [Fns.L]; omega) k₅.saved (by rw [k₅.wr]; exact sc_mem hp)
     (show 8 * F.W + 36 ≤ F.L8 by omega) hp.nsc)
-    fun s' ⟨hm, _, _, hsp, hg⟩ => ⟨⟨fun r hr => hg r (Hmac.Generic.Arm.preserved_saved r hr), by rw [hsp, k₅.sp]⟩, ?_⟩
+    fun s' ⟨hm, _, _, hsp, hg⟩ => ⟨⟨fun r hr => hg r (Pbkdf2.Stream.Arm.preserved_saved r hr), by rw [hsp, k₅.sp]⟩, ?_⟩
   have ob := h₅.outB
   have e : dn F s₀ (nbk F s₀) = ol s₀ := Whole.done_nb hD.1
   rw [e] at ob

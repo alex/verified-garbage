@@ -12,6 +12,8 @@ namespace VG.Proof.X25519.X86
 
 open VG VG.X86 VG.Impl.X25519.X86 VG.Spec.X25519
 
+variable {W lo : Nat}
+
 theorem shr31_toNat (w : BitVec 32) : (w >>> 31).toNat = w.toNat / 2 ^ 31 := by
   rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]
 
@@ -19,24 +21,24 @@ theorem low31_toNat (w : BitVec 32) : (w &&& low31).toNat = w.toNat % 2 ^ 31 := 
   rw [BitVec.toNat_and, show low31.toNat = 2 ^ 31 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod]
 
 /-- Bit 255 of the element at `o` into the accumulator as `19 b`, and cleared. -/
-theorem top_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o : Nat} (ho : o + 32 ≤ 4096) :
+theorem top_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o : Nat} (ho : o + 32 ≤ 4096) :
     WP isa (.block [.mov .eax (.mem (sc (o + 28))), .shift .shr .eax 31, .mov .edx (.imm 19), .mul .edx,
       .mov .ebx (.reg .eax), .mov .ecx (.imm 0), .mov .ebp (.imm 0),
       .mov .eax (.mem (sc (o + 28))), .alu .and .eax (.imm low31), .store (sc (o + 28)) .eax]) s fun s' =>
       Keep s s' ∧ Frame [sub x (o + 28) 4] s.mem s'.mem ∧ acc s' = 19 * (wv s.mem x (o + 28) / 2 ^ 31) ∧
         wv s'.mem x (o + 28) = wv s.mem x (o + 28) % 2 ^ 31 := by
-  have hfit := hc.fit
-  refine Wp.wp_ldm hc.edi (hc.inRW (by omega_using [ho]) (by decide)) fun s₁ u₁ => ?_
+  have hfit := hc.fit4
+  refine Wp.wp_ldm hc.edi (hc.inRW4 (by omega_using [ho]) (by decide)) fun s₁ u₁ => ?_
   refine Wp.wp_shr (by decide) fun s₂ u₂ _ => Wp.wp_movi fun s₃ u₃ => wp_mul fun s₄ u₄ => ?_
   refine Wp.wp_mov fun s₅ u₅ => Wp.wp_movi fun s₆ u₆ => Wp.wp_movi fun s₇ u₇ => ?_
   have k₇ : Keep s s₇ := (updKeep u₁).trans ((updKeep u₂).trans ((updKeep u₃).trans (u₄.keep.trans
     ((updKeep u₅).trans ((updKeep u₆).trans (updKeep u₇))))))
   have m₇ : s₇.mem = s.mem := by rw [u₇.mem, u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
   have c₇ := k₇.ctx hc
-  refine Wp.wp_ldm c₇.edi (c₇.inRW (by omega_using [ho]) (by decide)) fun s₈ u₈ => ?_
+  refine Wp.wp_ldm c₇.edi (c₇.inRW4 (by omega_using [ho]) (by decide)) fun s₈ u₈ => ?_
   refine Wp.wp_andi fun s₉ u₉ => ?_
   have c₉ := (updKeep u₉).ctx ((updKeep u₈).ctx c₇)
-  refine Wp.wp_stm c₉.edi (c₉.inW (by omega_using [ho]) (by decide)) fun s₁₀ u₁₀ => WP.block_nil ?_
+  refine Wp.wp_stm c₉.edi (c₉.inW4 (by omega_using [ho]) (by decide)) fun s₁₀ u₁₀ => WP.block_nil ?_
   have hb : v s₄ .eax = wv s.mem x (o + 28) / 2 ^ 31 * 19 := by
     rw [u₄.eax, v, u₃.other _ (by decide), u₂.gpr, v, u₃.gpr, shr31_toNat, u₁.gpr]
     have := wv_lt s.mem x (o + 28)
@@ -62,23 +64,23 @@ theorem setAcc_ok {s : State} (c : BitVec 32) :
     u₂.other .ebx (by decide), u₁.gpr, toNat_zero32, Nat.mul_zero, Nat.add_zero]
 
 /-- The mask of bit 255 of `W` in `T` into `ecx`, and the bit cleared. -/
-theorem mask_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
+theorem mask_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) :
     WP isa (.block [.mov .eax (.mem (sc (T + 28))), .shift .shr .eax 31, .mov .ecx (.imm 0),
       .alu .sub .ecx (.reg .eax), .mov .eax (.mem (sc (T + 28))), .alu .and .eax (.imm low31),
       .store (sc (T + 28)) .eax]) s fun s' =>
       Keep s s' ∧ Frame [sub x (T + 28) 4] s.mem s'.mem ∧
         s'.gpr .ecx = mask (wv s.mem x (T + 28) / 2 ^ 31) ∧
         wv s'.mem x (T + 28) = wv s.mem x (T + 28) % 2 ^ 31 := by
-  have hfit := hc.fit
-  refine Wp.wp_ldm hc.edi (hc.inRW (by simp only [T]; decide) (by decide)) fun s₁ u₁ => ?_
+  have hfit := hc.fit4
+  refine Wp.wp_ldm hc.edi (hc.inRW4 (by simp only [T]; decide) (by decide)) fun s₁ u₁ => ?_
   refine Wp.wp_shr (by decide) fun s₂ u₂ _ => Wp.wp_movi fun s₃ u₃ => Wp.wp_sub fun s₄ u₄ _ => ?_
   have k₄ : Keep s s₄ := (updKeep u₁).trans ((updKeep u₂).trans ((updKeep u₃).trans (updKeep u₄)))
   have m₄ : s₄.mem = s.mem := by rw [u₄.mem, u₃.mem, u₂.mem, u₁.mem]
   have c₄ := k₄.ctx hc
-  refine Wp.wp_ldm c₄.edi (c₄.inRW (by simp only [T]; decide) (by decide)) fun s₅ u₅ => ?_
+  refine Wp.wp_ldm c₄.edi (c₄.inRW4 (by simp only [T]; decide) (by decide)) fun s₅ u₅ => ?_
   refine Wp.wp_andi fun s₆ u₆ => ?_
   have c₆ := (updKeep u₆).ctx ((updKeep u₅).ctx c₄)
-  refine Wp.wp_stm c₆.edi (c₆.inW (by simp only [T]; decide) (by decide)) fun s₇ u₇ => WP.block_nil ?_
+  refine Wp.wp_stm c₆.edi (c₆.inW4 (by simp only [T]; decide) (by decide)) fun s₇ u₇ => WP.block_nil ?_
   refine ⟨k₄.trans ((updKeep u₅).trans ((updKeep u₆).trans ⟨by rw [u₇.gpr], by rw [u₇.gpr],
     by rw [u₇.gpr], u₇.rd, u₇.wr⟩)), ?_, ?_, ?_⟩
   · rw [u₇.mem, u₆.mem, u₅.mem, m₄]
@@ -100,21 +102,21 @@ structure SelInv (x : BitVec 32) (s₀ : State) (o g n : Nat) (s : State) : Prop
   frame : Frame [sub x o (4 * n)] s₀.mem s.mem
   done : ∀ j < n, wd s.mem x (o + 4 * j) = if g = 1 then wd s₀.mem x (T + 4 * j) else wd s₀.mem x (o + 4 * j)
 
-theorem select_step {x : BitVec 32} {s₀ s : State} (hc : Ctx x s) {o g n : Nat} (ho : Below o)
+theorem select_step {x : BitVec 32} {s₀ s : State} (hc : Ctx W x s) {o g n : Nat} (ho : Below o)
     (hg : g ≤ 1) (hm : s₀.gpr .ecx = mask g) (hn : n < 8) (h : SelInv x s₀ o g n s) :
     WP isa (.block [.mov .eax (.mem (sc (o + 4 * n))), .mov .edx (.mem (sc (T + 4 * n))),
       .alu .xor .edx (.reg .eax), .alu .and .edx (.reg .ecx), .alu .xor .eax (.reg .edx),
       .store (sc (o + 4 * n)) .eax]) s (SelInv x s₀ o g (n + 1)) := by
   simp only [Below, T] at ho
-  have hfit := hc.fit
-  refine Wp.wp_ldm hc.edi (hc.inRW (by omega_using [ho, hn]) (by decide)) fun s₁ u₁ => ?_
+  have hfit := hc.fit4
+  refine Wp.wp_ldm hc.edi (hc.inRW4 (by omega_using [ho, hn]) (by decide)) fun s₁ u₁ => ?_
   have c₁ := (updKeep u₁).ctx hc
-  refine Wp.wp_ldm c₁.edi (c₁.inRW (by simp only [T]; omega_using [hn]) (by decide)) fun s₂ u₂ => ?_
+  refine Wp.wp_ldm c₁.edi (c₁.inRW4 (by simp only [T]; omega_using [hn]) (by decide)) fun s₂ u₂ => ?_
   refine Wp.wp_xor fun s₃ u₃ => Wp.wp_and fun s₄ u₄ => Wp.wp_xor fun s₅ u₅ => ?_
   have k₅ : Keep s s₅ := (updKeep u₁).trans ((updKeep u₂).trans ((updKeep u₃).trans ((updKeep u₄).trans
     (updKeep u₅))))
   have c₅ := k₅.ctx hc
-  refine Wp.wp_stm c₅.edi (c₅.inW (by omega_using [ho, hn]) (by decide)) fun s₆ u₆ => WP.block_nil ?_
+  refine Wp.wp_stm c₅.edi (c₅.inW4 (by omega_using [ho, hn]) (by decide)) fun s₆ u₆ => WP.block_nil ?_
   have m₅ : s₅.mem = s.mem := by rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
   have eo : s₁.gpr .eax = wd s₀.mem x (o + 4 * n) := by
     rw [u₁.gpr]; exact wd_frame1 h.frame hfit (by omega_using [ho, hn]) (by omega_using [ho, hn])
@@ -140,7 +142,7 @@ theorem select_step {x : BitVec 32} {s₀ s : State} (hc : Ctx x s) {o g n : Nat
         (by omega_using [hj, e])]
       exact h.done j (by omega_using [hj, e])
 
-theorem selects_ok {x : BitVec 32} {s₀ : State} (hc₀ : Ctx x s₀) {o g : Nat} (ho : Below o)
+theorem selects_ok {x : BitVec 32} {s₀ : State} (hc₀ : Ctx W x s₀) {o g : Nat} (ho : Below o)
     (hg : g ≤ 1) (hm : s₀.gpr .ecx = mask g) : ∀ n ≤ 8, ∀ s, SelInv x s₀ o g 0 s →
     WP isa (.block ((List.range n).flatMap fun k =>
       [.mov .eax (.mem (sc (o + 4 * k))), .mov .edx (.mem (sc (T + 4 * k))), .alu .xor .edx (.reg .eax),
@@ -189,11 +191,11 @@ theorem colv_addM (m : Mem) (x : BitVec 32) (d : Nat) : colv m x [.addM d] = wv 
   simp only [colv, tval, List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, Nat.add_zero]
 
 /-- The element at `o` reduced fully, in place. -/
-theorem freeze_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o : Nat} (ho : isSlot o = true) :
-    WP isa (.block (freeze o)) s fun s' => Keep s s' ∧ Frame [sub x 288 640] s.mem s'.mem ∧
+theorem freeze_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o : Nat} (ho : isSlot lo o = true) :
+    WP isa (.block (freeze o)) s fun s' => Keep s s' ∧ Frame [sub x o 32, sub x T 32] s.mem s'.mem ∧
       fe s'.mem x o = fe s.mem x o % P := by
-  have hfit := hc.fit
-  have hob := slot_below ho; have ho' := slot_ge ho
+  have hfit := hc.fit4
+  have hob := slot_below ho
   simp only [Below, T] at hob
   rw [freeze_eq]
   -- The words of the element on entry.
@@ -281,15 +283,18 @@ theorem freeze_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o : Nat} (ho : isS
     (Nat.le_refl _) s₅ ⟨Keep.refl _, rfl, Frame.refl _ _, fun j hj => absurd hj (Nat.not_lt_zero _)⟩)
     fun s₆ h₆ => ⟨k₁.trans (k₂.trans (k₃.trans (k₄.trans (k₅.trans h₆.keep)))), ?_, ?_⟩
   · -- Everything written is in the element and `T`.
-    have w1 : ∀ {m m' : Mem} {a n : Nat}, Frame [sub x a n] m m' → 288 ≤ a → a + n ≤ 928 → a < 4096 →
-        Frame [sub x 288 640] m m' := fun hf h1 h2 h3 =>
-      frameWiden hf hfit h1 (by omega_using [h2]) h3
+    have w1 : ∀ {m m' : Mem} {a n : Nat}, Frame [sub x a n] m m' →
+        o ≤ a → a + n ≤ o + 32 → a < 4096 → Frame [sub x o 32, sub x T 32] m m' := fun hf h1 h2 h3 =>
+      (frameWiden hf hfit h1 h2 h3).mono (fun r hr => List.mem_cons.mpr (Or.inl (List.mem_singleton.mp hr)))
+    have w2 : ∀ {m m' : Mem} {a n : Nat}, Frame [sub x a n] m m' →
+        T ≤ a → a + n ≤ T + 32 → a < 4096 → Frame [sub x o 32, sub x T 32] m m' := fun hf h1 h2 h3 =>
+      (frameWiden hf hfit h1 h2 h3).mono (fun r hr => List.mem_cons_of_mem _ hr)
     rw [m₃] at f₄
-    exact (w1 f₁ (by omega_using [ho']) (by omega_using [hob]) (by omega_using [hob])).trans
-      ((w1 f₂ ho' (by omega_using [hob]) (by omega_using [hob])).trans
-      ((w1 f₄ (by simp only [T]; decide) (by simp only [T]; decide) (by simp only [T]; decide)).trans
-      ((w1 f₅ (by simp only [T]; decide) (by simp only [T]; decide) (by simp only [T]; decide)).trans
-      (w1 h₆.frame ho' (by omega_using [hob]) (by omega_using [hob])))))
+    exact (w1 f₁ (by omega_using []) (by omega_using []) (by omega_using [hob])).trans
+      ((w1 f₂ (by omega_using []) (by omega_using []) (by omega_using [hob])).trans
+      ((w2 f₄ (by decide) (by decide) (by decide)).trans
+      ((w2 f₅ (by simp only [T]; decide) (by simp only [T]; decide) (by simp only [T]; decide)).trans
+      (w1 h₆.frame (by omega_using []) (by omega_using []) (by omega_using [hob])))))
   · -- The selection is the value modulo `p`.
     have e₆ : fe s₆.mem x o = if wv s₄.mem x (T + 28) / 2 ^ 31 = 1 then (fe s₂.mem x o + 19) % 2 ^ 255
         else fe s₂.mem x o := by

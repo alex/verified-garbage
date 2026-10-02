@@ -43,7 +43,9 @@ def ArithImpl.avx2 : ArithImpl where
       useHint := FnOk.of Round.useHintY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       rej4 := ⟨Rej4.rejNTT4Avx2_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
-        by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4Avx2_ret⟩ }
+        by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4Avx2_ret⟩
+      expandMask4 := ⟨Mask4.expandMask4Avx2_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel),
+        by decide +kernel, by decide +kernel, Code.all_of_allInstrs (by decide +kernel)⟩ }
   features := ["avx", "avx2"]
 
 end VG.Proof.MlDsa.X86_64

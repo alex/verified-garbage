@@ -12,8 +12,7 @@ import VerifiedGarbage.TCB.Artifact
 function `H` is two streaming states of `H`: the inner one, which absorbs
 `(K₀ ⊕ ipad) ‖ text`, and the outer one, which holds `K₀ ⊕ opad`. `init`
 sets them up from the key, the text is absorbed into the inner state with
-`H`'s own `update`, and `finalize` computes the MAC. These are the contracts
-of HMAC-SHA-256 (`Spec/Hmac/Contract.lean`) with the hash function a
+`H`'s own `update`, and `finalize` computes the MAC. The hash function is a
 parameter (`StreamingHash`), so that one implementation, calling the
 verified streaming functions of `H`, serves every hash function.
 
@@ -26,11 +25,6 @@ its functions `vg_hmac_<hash>_init` and `vg_hmac_<hash>_finalize` (and
 (`Instance.initApi`, `Instance.finalizeApi`). Every hash function, SHA-256
 included, is an `Instance`, and a new one needs nothing else.
 
-SHA-256's functions also have contracts of their own
-(`Spec/Hmac/Contract.lean`), which its implementations on the 32-bit targets
-are proven against: they have less working space than `sha256I`'s. They are
-removed once `sha256I` is implemented on every target.
-
 `init` has two contracts. `initContract` (`Instance.initApi`), which every
 target implements, takes a key of at most a block, and leaves FIPS 198-1
 §4's step 2 (hashing a longer key) to its caller. `initAnyKeyContract`
@@ -39,9 +33,8 @@ any length, and does all of steps 1–3 (`blockKey`): with the same signature
 but for more working space (`Instance.initAnyKeyScratch`), in which an
 implementation hashes a long key with the verified streaming functions of
 `H`. A target registers an implementation of `vg_hmac_<hash>_init` against
-one of them (or `initSha256Contract`), never two; `initContract` and
-`initSha256Contract` are removed once every target implements
-`initAnyKeyContract`.
+one of them, never two; `initContract` is removed once every target
+implements `initAnyKeyContract`.
 
 `A` is the target's calling convention. The signatures fix where the
 arguments are, the memory each function may access, disjointness, and that
@@ -170,9 +163,8 @@ structure Instance where
   update : String
   scratch : Nat
 
-/-- SHA-256: `vg_sha256_update` needs 76 words of working space. (104 words
-are also the working space of the existing `vg_pbkdf2_hmac_sha256_iterate`,
-whose contract is `sha256I`'s.) -/
+/-- SHA-256: `vg_sha256_update` needs 76 words of working space, of the 104
+given. -/
 def sha256I : Instance :=
   ⟨sha256S, "SHA-256", "sha256", "sha256I", "vg_sha256_update", 104⟩
 

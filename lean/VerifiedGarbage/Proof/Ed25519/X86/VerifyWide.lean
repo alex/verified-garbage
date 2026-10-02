@@ -11,7 +11,7 @@ def verifyWide : Contract isa :=
     let pk := sub (arg s 0) 0 32
     let sig := sub (arg s 1) 0 64
     let challenge := sub (arg s 2) 0 64
-    let scratch := scR (arg s 3)
+    let scratch := scR 8192 (arg s 3)
     let args : Region := ⟨argAddr s 0, 16⟩
     let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
     s.rd = [pk, sig, challenge] ∧ s.wr = [scratch, args] ∧
@@ -23,7 +23,7 @@ def verifyWide : Contract isa :=
 
 def verifyRd (s : State) : List Region :=
   [sub (arg s 0) 0 32, sub (arg s 1) 0 64, sub (arg s 2) 0 64, ⟨argAddr s 0, 16⟩]
-def verifyWr (s : State) : List Region := [sub (arg s 3) 0 0, scR (arg s 3)]
+def verifyWr (s : State) : List Region := [sub (arg s 3) 0 0, scR 8192 (arg s 3)]
 
 theorem verifyWide_pre (s : State) (h : verifyWide.pre s) :
     verifyLocal.pre (s.withRegions (verifyRd s) (verifyWr s)) := by

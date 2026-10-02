@@ -82,6 +82,6 @@ theorem loadScalarBits_ok {x p : BitVec 32} {s : State} (hc : Ctx x s)
   refine WP.mono (expandScalarBits_ok (ku.ctx hc) (hu.gpr.trans hp) hb hfit
     (by intro i hi; rw [hu.rd, hu.wr]; exact hr i hi) hs) fun t ⟨kt, ft, bt⟩ => ?_
   rw [hu.mem] at ft bt
-  exact ⟨ku.trans kt.scalar, ft, bt⟩
+  exact ⟨ku.trans (Keep.scalar kt), ft, bt⟩
 
 end VG.Proof.Ed25519.X86

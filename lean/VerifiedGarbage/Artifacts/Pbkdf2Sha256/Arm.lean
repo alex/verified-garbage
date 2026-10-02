@@ -1,29 +1,34 @@
 import VerifiedGarbage.TCB.Arm.Target
-import VerifiedGarbage.Impl.Pbkdf2.Arm
-import VerifiedGarbage.Proof.Pbkdf2.Arm.Iterate
-import VerifiedGarbage.Proof.Pbkdf2.Arm.Lit
 import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Sha256
 
 /-!
-# PBKDF2-HMAC-SHA-256 (RFC 8018) on 32-bit ARM: the iteration and the whole derivation
+# PBKDF2-HMAC-SHA-256 (RFC 8018) on ARMv7: the iteration and the whole derivation
+
+The iteration is the one for every Merkle–Damgård hash function
+(`Impl/Pbkdf2/Md/Arm.lean`): each step is two calls of SHA-256's verified
+compression function (`vg_sha256_compress`), on blocks laid out once at fixed
+offsets in `scratch`. It uses no stack; `stack` is that of the shared
+contract, 16 bytes.
 
 The whole derivation, `pbkdf2`, is the one for every streaming hash function
-(`Impl/Pbkdf2/Whole/Arm.lean`), calling SHA-256's streaming functions,
-HMAC-SHA-256's `init` and `finalize` and the iteration above, which use no
-stack. Its `stack` is that of the shared contract: 24 bytes (it pushes up to
-16).
+(`Impl/Pbkdf2/Whole/Arm.lean`), calling the hash function's streaming
+functions, HMAC's `init` and `finalize` and the iteration above. `stack` is
+that of the shared contract, 24 bytes: `pbkdf2` pushes `update`'s 16 bytes of
+stack arguments, or 8 bytes around a call of a function that uses 16.
 -/
 
 namespace VG.Artifacts.Pbkdf2Sha256.Arm
 
 def artifacts : List Artifact := [
-  { Spec.Pbkdf2.iterateSha256Api with
+  { Spec.Hmac.sha256I.iterateApi with
     target := Arm.target
-    doc := Spec.Pbkdf2.iterateSha256Api.doc
-      (notes := ["The function uses no stack: it saves its return address in `scratch`."])
-    code := Impl.Pbkdf2.Arm.iterate
-    contract := Spec.Pbkdf2.iterateSha256Contract Arm.abi
-    verified := Proof.Pbkdf2.Arm.iterate_verified
+    doc := Spec.Hmac.sha256I.iterateApi.doc
+    code := Proof.Pbkdf2.Md.Arm.sha256Md.iterate
+    contract := Spec.Hmac.sha256I.iterateContract Arm.abi 16
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
+    writeArgs := true
+    stack := 16
+    verified := Proof.Pbkdf2.Md.Arm.Instances.sha256_iterate
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Hmac.sha256I.pbkdf2Api with
     target := Arm.target
