@@ -56,11 +56,20 @@ PLATFORMS = {
 
 # The other `VG_CPU_FEATURES` each architecture is benchmarked with. On
 # x86-64 they choose Ed25519's `_avx2_adx` (AVX2's SHA-512 and ADX's field
-# multiplications), `_avx2`, `_adx` and its baseline in turn. No runner has
-# the SHA512 extension, so `_shani` and `_shani_adx` are only tested (under
-# SDE, in ci.yml).
+# multiplications), `_avx2`, `_adx`, `_ifma` (AVX512_IFMA's field, in
+# verification; `_adx` otherwise) and its baseline in turn, and with every
+# feature `_avx2_ifma` in verification. A runner without AVX512_IFMA
+# chooses `_adx` and `_avx2_adx` instead of those two, and no runner has
+# the SHA512 extension, so `_shani`, `_shani_adx` and `_shani_ifma` are
+# only tested (under SDE, in ci.yml).
 CPU_FEATURES = {
-    "x86_64": ["avx,avx2,bmi1,bmi2,adx", "avx,avx2,bmi1,bmi2", "bmi2,adx", "none"],
+    "x86_64": [
+        "avx,avx2,bmi1,bmi2,adx",
+        "avx,avx2,bmi1,bmi2",
+        "bmi2,adx",
+        "avx,avx2,bmi2,adx,avx512ifma,avx512vl",
+        "none",
+    ],
     "aarch64": ["sha3", "none"],
 }
 

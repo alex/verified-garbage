@@ -400,7 +400,16 @@ jobs:
   # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
   #   runner has, and Ed25519 with it and ADX's field (`_shani_adx`). It
   #   also has the SHA extensions, so only SHA-512's and Ed25519's tests
-  #   (and detection's) run there.
+  #   (and detection's) run there;
+  # * `icx` (Ice Lake server): AVX512_IFMA and AVX512VL, so X25519 with them
+  #   (`vg_x25519_ifma`), and Ed25519 with AVX2's SHA-512 and, in
+  #   verification, IFMA's field (`_avx2_ifma`; `_avx2_adx` otherwise). It
+  #   also has the SHA extensions, so only X25519's and Ed25519's tests (and
+  #   detection's) run there;
+  # * `dmr` (Diamond Rapids): the SHA512 extension and AVX512_IFMA, so
+  #   Ed25519 with both (`_shani_ifma` in verification, `_shani_adx`
+  #   otherwise), which no other chip has. It also has the SHA extensions,
+  #   so only Ed25519's tests (and detection's) run there.
   # And natively on an ARM64 runner, whose AES and PMULL extensions
   # `cpu-features-env` detects at run time (without it, AArch64 detection is
   # at compile time, which the `rust` job tests).
@@ -408,8 +417,10 @@ jobs:
   # `VG_CPU_FEATURES` (`cpu-features`, empty for none), so that each of
   # Ed25519's combinations of SHA-512 and field multiplications is chosen:
   # `skx` with only BMI2 and ADX for scalar SHA-512 and ADX's field
-  # (`_adx`), and `arl` without BMI2 or ADX for the SHA512 extension and the
-  # baseline field (`_shani`); `p4p` chooses neither (the baselines).
+  # (`_adx`), `icx` without BMI1 for scalar SHA-512 and IFMA's field
+  # (`_ifma` in verification, `_adx` otherwise), and `arl` without BMI2 or
+  # ADX for the SHA512 extension and the baseline field (`_shani`); `p4p`
+  # chooses both baselines. This runner's choice depends on its CPU.
   # The coverage is merged with the rest, which checks that every
   # implementation was chosen on one of them.
   rust-cpu-features:
@@ -428,9 +439,17 @@ jobs:
           - chip: skx
             cpu-features: bmi2,adx
             tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
-          # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma.
+          # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma
+          # and Ed25519's IFMA variants.
           - chip: icx
-            tests: x25519 cpu
+            tests: x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          - chip: icx
+            cpu-features: avx,avx2,bmi2,adx,avx512ifma,avx512vl
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          # Diamond Rapids: the SHA512 extension and AVX512_IFMA, for
+          # Ed25519's verification with both (vg_ed25519_verify_shani_ifma).
+          - chip: dmr
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           - chip: native
             os: ubuntu-24.04-arm
             tests: aes_gcm cmac sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu

@@ -10,6 +10,7 @@ open VG.Proof.X25519.X86_64 (off ofs Outside Saved)
 open VG.Spec.Ed25519 (bytesAt)
 
 variable {fld : Arith} [EdArith fld]
+variable {dbl : Prog isa} [EdDouble dbl]
 
 def verifyLocal : Contract isa where
   pre s := s.rd = [⟨s.gpr .rdi, 32⟩, ⟨s.gpr .rsi, 64⟩, ⟨s.gpr .rdx, 64⟩] ∧
@@ -90,7 +91,7 @@ theorem verifySetup_state_ok {s : State} (hs : verifyLocal.pre s) :
   exact ⟨hc, sv, fm, by rw [gc _ (by decide), gb, ka.1 _ (by decide)]⟩
 
 theorem verify_correct {s : State} (hs : verifyLocal.pre s) :
-    WP isa (verifyEquation fld) s fun t => gprPreserved s t ∧ verifyLocal.post s t := by
+    WP isa (verifyEquation fld dbl) s fun t => gprPreserved s t ∧ verifyLocal.post s t := by
   have hpk := hs.2.2.1
   have hsig := hs.2.2.2.1
   have hchallenge := hs.2.2.2.2.1

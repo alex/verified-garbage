@@ -22,18 +22,22 @@ materialize_code pointEqualFirst := (.block (fieldCode pointEqualOps ++ fieldEqu
 materialize_code pointEqualSecond := (.block (fieldEqual 10 11) : Prog isa)
 materialize_code verifyWriteA := (.block (pointTableWrite 7424) : Prog isa)
 materialize_code verifyWriteR := (.block (pointTableWrite 7552) : Prog isa)
-materialize_code verifyWriteLhs := (.block (pointTableWrite 7680) : Prog isa)
-materialize_code verifyReadA := (.block (pointTableRead 7424) : Prog isa)
-materialize_code verifyCombineBlock := (.block verifyCombine : Prog isa)
 materialize_code verifySetupBlock := (.block verifySetup : Prog isa)
 materialize_code verifyScalarTail := (.block (loadScalarWords ++ scalarSubtract ++ ([.sbcs .x .x8 .x10 .x10] : List Instr)) : Prog isa)
 materialize_code verifyFinishBlock :=
   (.block (([mov .x2 .x0, mov .x0 .x8] : List Instr) ++ scalarRestore) : Prog isa)
-materialize_code pointMultiplyInit32 := pointMultiplyInit 32
-materialize_code pointMultiplyInit16 := pointMultiplyInit 16
-materialize_code scalarPrepare16 :=
-  (.seq (scalarBits 32) (.block (constField 16 Spec.Ed25519.d)) : Prog isa)
-materialize_code scalarPrepare32 :=
-  (.seq (scalarBits 64) (.block (constField 16 Spec.Ed25519.d)) : Prog isa)
+materialize_code windowPrepLit :=
+  (.seq (.seq (.seq (.block windowSetup) aTable) (.block bTable)) (.block windowInit) : Prog isa)
+materialize_code doubleWindow
+materialize_code addDigitA :=
+  (.block (([.subImm .x .x19 .x19 1] : List Instr) ++ tableAddr 5376 ++ pointFromTableQ ++
+    pointAddCachedP) : Prog isa)
+materialize_code addDigitAT :=
+  (.block (([.subImm .x .x19 .x19 1] : List Instr) ++ tableAddr 5376 ++ pointFromTableQ ++
+    pointAddCached) : Prog isa)
+materialize_code addDigitB :=
+  (.block (([.subImm .x .x19 .x19 1] : List Instr) ++ tableAddr 2048 ++ pointFromTableQ ++
+    pointAddCachedP) : Prog isa)
+materialize_code negRBlock := (.block negR : Prog isa)
 
 end VG.Proof.Ed25519.AArch64
