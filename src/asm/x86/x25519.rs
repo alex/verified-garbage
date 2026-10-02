@@ -23126,5 +23126,6 @@ pub(crate) unsafe extern "C" fn vg_x25519(out: *mut [u8; 32], scalar: *const [u8
         "mov ebp, DWORD PTR [eax+12]",
         "mov edi, DWORD PTR [eax+8]",
         "ret",
+        ".p2align 6",
     )
 }

@@ -1390,6 +1390,7 @@ pub(crate) unsafe extern "C" fn vg_sha1_compress(state: *mut [u32; 5], blocks: *
         "mov edi, DWORD PTR [ebp+72]",
         "mov ebp, DWORD PTR [ebp+76]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1417,6 +1418,7 @@ pub(crate) unsafe extern "C" fn vg_sha1_init(state: *mut [u8; 84]) {
         "mov ecx, -1009589776",
         "mov DWORD PTR [eax+16], ecx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -1557,6 +1559,7 @@ pub(crate) unsafe extern "C" fn vg_sha1_update(state: *mut [u8; 84], count: u64,
         "mov edi, DWORD PTR [eax+120]",
         "mov ebp, DWORD PTR [eax+124]",
         "ret",
+        ".p2align 6",
         vg_sha1_compress = sym super::sha1::vg_sha1_compress,
     )
 }
@@ -1683,6 +1686,7 @@ pub(crate) unsafe extern "C" fn vg_sha1_finalize(state: *mut [u8; 84], count: u6
         "mov edi, DWORD PTR [ebp+120]",
         "mov ebp, DWORD PTR [ebp+124]",
         "ret",
+        ".p2align 6",
         vg_sha1_compress = sym super::sha1::vg_sha1_compress,
     )
 }

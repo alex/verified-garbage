@@ -199,6 +199,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha224_iterate(key: *const [
         "mov r14, QWORD PTR [r15+592]",
         "mov r15, QWORD PTR [r15+600]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
 }
@@ -364,6 +365,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha224(password: *const u8, 
         "mov r14, QWORD PTR [r15+864]",
         "mov r15, QWORD PTR [r15+872]",
         "ret",
+        ".p2align 6",
         vg_sha224_init = sym super::sha256::vg_sha224_init,
         vg_sha256_update = sym super::sha256::vg_sha256_update,
         vg_sha256_finalize = sym super::sha256::vg_sha256_finalize,
@@ -574,6 +576,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha224_iterate_avx2(key: *co
         "mov r14, QWORD PTR [r15+592]",
         "mov r15, QWORD PTR [r15+600]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress_avx2 = sym super::sha256::vg_sha256_compress_avx2,
     )
 }
@@ -743,6 +746,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha224_avx2(password: *const
         "mov r14, QWORD PTR [r15+864]",
         "mov r15, QWORD PTR [r15+872]",
         "ret",
+        ".p2align 6",
         vg_sha224_init = sym super::sha256::vg_sha224_init,
         vg_sha256_update_avx2 = sym super::sha256::vg_sha256_update_avx2,
         vg_sha256_finalize_avx2 = sym super::sha256::vg_sha256_finalize_avx2,
@@ -953,6 +957,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha224_iterate_shani(key: *c
         "mov r14, QWORD PTR [r15+592]",
         "mov r15, QWORD PTR [r15+600]",
         "ret",
+        ".p2align 6",
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )
 }
@@ -1122,6 +1127,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha224_shani(password: *cons
         "mov r14, QWORD PTR [r15+864]",
         "mov r15, QWORD PTR [r15+872]",
         "ret",
+        ".p2align 6",
         vg_sha224_init = sym super::sha256::vg_sha224_init,
         vg_sha256_update_shani = sym super::sha256::vg_sha256_update_shani,
         vg_sha256_finalize_shani = sym super::sha256::vg_sha256_finalize_shani,

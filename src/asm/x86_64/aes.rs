@@ -1464,6 +1464,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_expand_key(key: *const u8, key_len: 
         "mov r14, QWORD PTR [r9+416]",
         "mov r15, QWORD PTR [r9+424]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3190,6 +3191,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32(schedule: *const [u8; 240], ro
         "mov r14, QWORD PTR [r9+416]",
         "mov r15, QWORD PTR [r9+424]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3621,6 +3623,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_expand_key_aesni(key: *const u8, key
         "movdqu XMMWORD PTR [rdx+192], xmm1",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3923,5 +3926,6 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32_aesni(schedule: *const [u8; 24
         "pshufb xmm9, xmm10",
         "movdqu XMMWORD PTR [rdx], xmm9",
         "ret",
+        ".p2align 6",
     )
 }

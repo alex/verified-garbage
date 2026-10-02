@@ -200,6 +200,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_224_init(inner: *mut [u8; 19
         "mov r14, QWORD PTR [r15+1408]",
         "mov r15, QWORD PTR [r15+1416]",
         "ret",
+        ".p2align 6",
         vg_sha512_224_init = sym super::sha512::vg_sha512_224_init,
         vg_sha512_compress = sym super::sha512::vg_sha512_compress,
     )
@@ -371,6 +372,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_224_finalize(inner: *mut [u8
         "mov r14, QWORD PTR [r15+1408]",
         "mov r15, QWORD PTR [r15+1416]",
         "ret",
+        ".p2align 6",
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
         vg_sha512_compress = sym super::sha512::vg_sha512_compress,
     )
@@ -578,6 +580,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_224_init_avx2(inner: *mut [u
         "mov r14, QWORD PTR [r15+1408]",
         "mov r15, QWORD PTR [r15+1416]",
         "ret",
+        ".p2align 6",
         vg_sha512_224_init = sym super::sha512::vg_sha512_224_init,
         vg_sha512_compress_avx2 = sym super::sha512::vg_sha512_compress_avx2,
     )
@@ -753,6 +756,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_224_finalize_avx2(inner: *mu
         "mov r14, QWORD PTR [r15+1408]",
         "mov r15, QWORD PTR [r15+1416]",
         "ret",
+        ".p2align 6",
         vg_sha512_finalize_avx2 = sym super::sha512::vg_sha512_finalize_avx2,
         vg_sha512_compress_avx2 = sym super::sha512::vg_sha512_compress_avx2,
     )
@@ -960,6 +964,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_224_init_shani(inner: *mut [
         "mov r14, QWORD PTR [r15+1408]",
         "mov r15, QWORD PTR [r15+1416]",
         "ret",
+        ".p2align 6",
         vg_sha512_224_init = sym super::sha512::vg_sha512_224_init,
         vg_sha512_compress_shani = sym super::sha512::vg_sha512_compress_shani,
     )
@@ -1135,6 +1140,7 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_224_finalize_shani(inner: *m
         "mov r14, QWORD PTR [r15+1408]",
         "mov r15, QWORD PTR [r15+1416]",
         "ret",
+        ".p2align 6",
         vg_sha512_finalize_shani = sym super::sha512::vg_sha512_finalize_shani,
         vg_sha512_compress_shani = sym super::sha512::vg_sha512_compress_shani,
     )

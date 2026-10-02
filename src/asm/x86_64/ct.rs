@@ -38,5 +38,6 @@ pub(crate) unsafe extern "sysv64" fn vg_ct_eq(a: *const u8, a_len: usize, b: *co
         "shr rax, 63",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }

@@ -355,6 +355,7 @@ pub(crate) unsafe extern "C" fn vg_pbkdf2_hmac_sha512_224_iterate(key: *const [u
         "mov edi, DWORD PTR [eax+280]",
         "mov ebp, DWORD PTR [eax+284]",
         "ret",
+        ".p2align 6",
         vg_sha512_compress = sym super::sha512::vg_sha512_compress,
     )
 }
@@ -608,6 +609,7 @@ pub(crate) unsafe extern "C" fn vg_pbkdf2_hmac_sha512_224(password: *const u8, p
         "mov edi, DWORD PTR [eax+1880]",
         "mov ebp, DWORD PTR [eax+1884]",
         "ret",
+        ".p2align 6",
         vg_sha512_224_init = sym super::sha512::vg_sha512_224_init,
         vg_sha512_update = sym super::sha512::vg_sha512_update,
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,

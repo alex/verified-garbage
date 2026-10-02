@@ -1,6 +1,9 @@
 //! Published RFC 9106 vectors, read from the unmodified RFC, and API boundaries.
 
-#![cfg(all(target_arch = "x86_64", feature = "alloc"))]
+#![cfg(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "alloc"
+))]
 
 use verified_garbage::argon2::{
     Error, Params, Variant, derive, derive_keyed, verify, verify_keyed,

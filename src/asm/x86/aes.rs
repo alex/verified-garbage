@@ -1181,6 +1181,7 @@ pub(crate) unsafe extern "C" fn vg_aes_expand_key(key: *const u8, key_len: usize
         "mov ebp, DWORD PTR [edi+268]",
         "mov edi, DWORD PTR [edi+264]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -2775,6 +2776,7 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32(schedule: *const [u8; 240], rounds:
         "mov ebp, DWORD PTR [edi+268]",
         "mov edi, DWORD PTR [edi+264]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3085,6 +3087,7 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32_aesni(schedule: *const [u8; 240], r
         "mov edi, DWORD PTR [ebp+8]",
         "mov ebp, DWORD PTR [ebp+12]",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -3519,5 +3522,6 @@ pub(crate) unsafe extern "C" fn vg_aes_expand_key_aesni(key: *const u8, key_len:
         "movdqu XMMWORD PTR [edx+192], xmm1",
         "21:",
         "ret",
+        ".p2align 6",
     )
 }

@@ -55,5 +55,6 @@ pub(crate) unsafe extern "sysv64" fn vg_zeroize(p: *mut u8, len: usize) {
         "26:",
         "27:",
         "ret",
+        ".p2align 6",
     )
 }

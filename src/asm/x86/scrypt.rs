@@ -741,6 +741,7 @@ pub(crate) unsafe extern "C" fn vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u3
         "add edx, DWORD PTR [eax+60]",
         "mov DWORD PTR [eax+60], edx",
         "ret",
+        ".p2align 6",
     )
 }
 
@@ -905,6 +906,7 @@ pub(crate) unsafe extern "C" fn vg_scrypt_blockmix(b: *const [u8; 128], r: usize
         "mov edi, DWORD PTR [eax+72]",
         "mov ebp, DWORD PTR [eax+76]",
         "ret",
+        ".p2align 6",
         vg_salsa20_8 = sym super::scrypt::vg_salsa20_8,
     )
 }
@@ -1032,6 +1034,7 @@ pub(crate) unsafe extern "C" fn vg_scrypt_romix(b: *mut [u8; 128], r: usize, v: 
         "mov edi, DWORD PTR [eax+136]",
         "mov ebp, DWORD PTR [eax+140]",
         "ret",
+        ".p2align 6",
         vg_scrypt_blockmix = sym super::scrypt::vg_scrypt_blockmix,
     )
 }
@@ -1141,6 +1144,7 @@ pub(crate) unsafe extern "C" fn vg_scrypt(password: *const u8, password_len: usi
         "pop eax",
         "pop eax",
         "ret",
+        ".p2align 6",
         vg_pbkdf2_hmac_sha256 = sym super::pbkdf2_sha256::vg_pbkdf2_hmac_sha256,
         vg_scrypt_romix = sym super::scrypt::vg_scrypt_romix,
     )
@@ -1255,6 +1259,7 @@ pub(crate) unsafe extern "C" fn vg_scrypt_shani(password: *const u8, password_le
         "pop eax",
         "pop eax",
         "ret",
+        ".p2align 6",
         vg_pbkdf2_hmac_sha256_shani = sym super::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_shani,
         vg_scrypt_romix = sym super::scrypt::vg_scrypt_romix,
     )

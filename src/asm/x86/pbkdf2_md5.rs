@@ -150,6 +150,7 @@ pub(crate) unsafe extern "C" fn vg_pbkdf2_hmac_md5_iterate(key: *const [u8; 160]
         "mov edi, DWORD PTR [eax+120]",
         "mov ebp, DWORD PTR [eax+124]",
         "ret",
+        ".p2align 6",
         vg_md5_compress = sym super::md5::vg_md5_compress,
     )
 }
@@ -403,6 +404,7 @@ pub(crate) unsafe extern "C" fn vg_pbkdf2_hmac_md5(password: *const u8, password
         "mov edi, DWORD PTR [eax+392]",
         "mov ebp, DWORD PTR [eax+396]",
         "ret",
+        ".p2align 6",
         vg_md5_init = sym super::md5::vg_md5_init,
         vg_md5_update = sym super::md5::vg_md5_update,
         vg_md5_finalize = sym super::md5::vg_md5_finalize,
