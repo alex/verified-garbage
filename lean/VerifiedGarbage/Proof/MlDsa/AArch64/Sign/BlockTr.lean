@@ -12,6 +12,7 @@ the choice of instructions (`copy_taint`), each of which leaves them public.
 namespace VG.Proof.MlDsa.AArch64.Sign
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 
 /-- The hint of a copy: its pointers and its counter are public in its loop. -/
 abbrev copyHint : VG.Taint.Hint AArch64.Taint.T :=

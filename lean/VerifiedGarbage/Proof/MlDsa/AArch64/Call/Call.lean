@@ -1,17 +1,18 @@
-import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Base
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Base
 import VerifiedGarbage.Proof.Framework.AArch64.RelCT
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.Sig
+import VerifiedGarbage.Proof.Framework.RelCTAssoc
 
 /-!
 # ML-DSA on AArch64: calls
 
 A call of verified code, with the moves of its arguments before it
-(`callAtK_ok`), leaves the permissions, the stack pointer, the low halves of
+(`callAt_ok`), leaves the permissions, the stack pointer, the low halves of
 v8–v15 and the callee-saved GPRs but `x30` as they were, and changes memory only
 within the buffers it writes and the `S` bytes of stack below the stack pointer
 (`Post`); two runs whose callee's preconditions hold and whose public data agree
-leak the same (`callAtK_tr`).
+leak the same (`callAt_tr`).
 
 A callee (`CalleeOk S`) is correct and constant time under its contract
 with a stack of `S` bytes, and its frames use at most those `S` bytes; one
@@ -19,9 +20,10 @@ verified against its contract with any stack up to `S` is
 (`CalleeOk.of_verified`, from `pre_stack`).
 -/
 
-namespace VG.Proof.MlDsa.AArch64.Sign
+namespace VG.Proof.MlDsa.AArch64
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep)
 
 /-! ## Blocks that access no memory -/
@@ -139,9 +141,18 @@ theorem CalleeOk.of_verified {S : Nat} (hS : S < 2 ^ 64) {c : Prog isa} {sig : S
     fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hp e₁ e₂ =>
       h.2.1 s₁ s₂ t₁ t₂ s₁' s₂' (pre_stack hn hS h₁) (pre_stack hn hS h₂) hp e₁ e₂, hfd⟩
 
+/-- `k` with the fact `X` of each run added to its postcondition. -/
+def withPost (k : Contract isa) (X : State → State → Prop) : Contract isa :=
+  { k with post := fun s s' => k.post s s' ∧ X s s' }
+
+theorem CalleeOk.withPost {S : Nat} {c : Prog isa} {k : Contract isa} (C : CalleeOk S c k)
+    {X : State → State → Prop} (hx : ∀ s t s', k.pre s → Exec isa c s t s' → X s s') :
+    CalleeOk S c (withPost k X) :=
+  ⟨fun s hs => let ⟨t, s', e, a, p⟩ := C.correct s hs; ⟨t, s', e, a, p, hx s t s' hs e⟩, C.ct, C.fd⟩
+
 /-! ## Calls -/
 
-theorem callAtK_ok {S : Nat} (hS : S < 2 ^ 64) {n : String} {c : Prog isa} {k : Contract isa}
+theorem callAt_ok {S : Nat} (hS : S < 2 ^ 64) {n : String} {c : Prog isa} {k : Contract isa}
     (C : CalleeOk S c k) {as : List (Reg × Arg)} (hok : ∀ a ∈ as, a.2.Ok ∧ a.1 ∈ argRegs)
     (hnd : (as.map (·.1)).Nodup) {s : State} {rd wr : List Region}
     (hpre : ∀ s1, Args as s s1 → k.pre (s1.callEntry.withRegions rd wr))
@@ -159,7 +170,7 @@ theorem callAtK_ok {S : Nat} (hS : S < 2 ^ 64) {n : String} {c : Prog isa} {k : 
 
 /-- The trace of the moves then a call, from two runs whose callee's
 preconditions hold and whose callee's public data agree. -/
-theorem callAtK_tr {S : Nat} {n : String} {c : Prog isa} {k : Contract isa} (C : CalleeOk S c k)
+theorem callAt_tr {S : Nat} {n : String} {c : Prog isa} {k : Contract isa} (C : CalleeOk S c k)
     {as : List (Reg × Arg)} (hok : ∀ a ∈ as, a.2.Ok ∧ a.1 ∈ argRegs) (hnd : (as.map (·.1)).Nodup)
     {P : State → State → Prop}
     (hP : ∀ x y x1 y1, P x y → Args as x x1 → Args as y y1 → ∃ rd wr : List Region,
@@ -183,4 +194,26 @@ theorem callAtK_tr {S : Nat} {n : String} {c : Prog isa} {k : Contract isa} (C :
           by rw [h2.2.rd, h2.2.wr]; exact c₂, by rw [h2.2.wr]; exact w₂⟩)
       fun _ _ h => h)
 
-end VG.Proof.MlDsa.AArch64.Sign
+/-! ## Sequences -/
+
+theorem nil_tr {P : State → State → Prop} : RelCT isa P (.block []) P := RelCT.block_nil fun _ _ h => h
+
+theorem seqR_ok {f : Nat → Prog isa} {I : Nat → State → Prop} :
+    ∀ (n a : Nat), (∀ k, a ≤ k → k < a + n → ∀ s, I k s → WP isa (f k) s (I (k + 1))) →
+      ∀ s, I a s → WP isa (seqR f a n) s (I (a + n))
+  | 0, a, _, s, h => by simp only [seqR, Nat.add_zero]; exact WP.block_nil h
+  | n + 1, a, hf, s, h => by
+    refine WP.seq (WP.mono (hf a (Nat.le_refl _) (by omega) s h) fun s' h' => ?_)
+    have := seqR_ok n (a + 1) (fun k h₁ h₂ => hf k (by omega) (by omega)) s' h'
+    rwa [show a + 1 + n = a + (n + 1) by omega] at this
+
+theorem seqR_tr {f : Nat → Prog isa} {Q : Nat → State → State → Prop} :
+    ∀ (n a : Nat), (∀ k, a ≤ k → k < a + n → RelCT isa (Q k) (f k) (Q (k + 1))) →
+      RelCT isa (Q a) (seqR f a n) (Q (a + n))
+  | 0, a, _ => by simp only [seqR, Nat.add_zero]; exact RelCT.block_nil (fun _ _ h => h)
+  | n + 1, a, hf => by
+    have := seqR_tr n (a + 1) (fun k h₁ h₂ => hf k (by omega) (by omega))
+    rw [show a + 1 + n = a + (n + 1) by omega] at this
+    exact RelCT.seq (hf a (Nat.le_refl _) (by omega)) this
+
+end VG.Proof.MlDsa.AArch64

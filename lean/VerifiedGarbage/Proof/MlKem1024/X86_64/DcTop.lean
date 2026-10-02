@@ -175,13 +175,8 @@ namespace Decaps4
 
 open VG.Impl.MlKem1024.X86_64.Decaps1024
 
-theorem ekRho_dkEk (dk : List Byte) : ekRho mlKem1024 (dkEk1024 dk) = dkRho mlKem1024 dk := by
-  show (((dk.drop 1536).take 1568).drop 1536).take 32 = (dk.drop 3072).take 32
-  rw [List.drop_take, List.drop_drop, List.take_take]
-  rfl
-
 theorem rho_pub {σ₁ σ₂ : State} (pub : decaps1024K.pub σ₁ σ₂) : Enc4.rhoE (dcEk σ₁) = Enc4.rhoE (dcEk σ₂) := by
-  rw [Enc4.rhoE, Enc4.rhoE, ekRho_dkEk, ekRho_dkEk]; exact pub.2.2.2.2.2
+  rw [Enc4.rhoE, Enc4.rhoE, KPke.ekRho_dkEk, KPke.ekRho_dkEk]; exact pub.2.2.2.2.2
 
 theorem decrypt_tr {A : Arith} (hA : ArithOk A) : RelCT isa (R fun σ s => DC σ s ∧ s.gpr .r15 = 1) (decrypt A) fun _ _ => True := by
   unfold decrypt

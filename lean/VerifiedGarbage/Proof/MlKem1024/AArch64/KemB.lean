@@ -24,7 +24,7 @@ open VG VG.AArch64 VG.Impl.MlKem1024.AArch64 VG.Impl.MlKem1024.AArch64.KEM VG.Pr
 open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32 slotReg argReg kemOwn)
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
-open VG.Proof.MlKem1024.AArch64.KeyGen (and_acc seed_eq)
+open VG.Proof.MlKem1024.AArch64.KeyGen (and_acc)
 
 variable {L : Layout}
 

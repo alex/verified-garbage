@@ -222,7 +222,7 @@ theorem fin_ok {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KRest 6 3 3 �
     have e0 := h.ek 0 (by decide); have e1 := h.ek 1 (by decide); have e2 := h.ek 2 (by decide)
     simp only [Nat.reduceMul] at e0 e1 e2
     rw [e0, e1, e2]
-    simp only [ekPKE768, List.append_assoc]
+    simp only [ekPKE768_eq, List.append_assoc]
   -- `ek` to `dk`.
   refine WP.seq (WP.mono (copy_okL L₁ (dst := (.r13, 1152)) (src := (.r12, 0)) (n := 1184) (by decide) (by decide))
     fun s₂ ⟨hP₂, hb₂⟩ => ?_)
@@ -261,7 +261,7 @@ theorem fin_ok {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KRest 6 3 3 �
       hP₂.pa (p := (.r13, 1152)) (by decide), hb₂,
       L₃.keepBytes hP₄.b (p := (.r13, 2336)) (by decide), hP₃.pa (p := (.r13, 2336)) (by decide), hb₃,
       hP₄.pa (p := (.r13, 2368)) (by decide), hb₄]
-    simp only [dkPKE768, List.append_assoc]
+    simp only [dkPKE768_eq, List.append_assoc]
 
 end KeyGen
 

@@ -105,7 +105,7 @@ theorem uS_piece (j : Nat) (hj : j < 3) {h₁ h₂ h₃ : Taint.Hint VG.X86.Tain
     fun s₀ s s' hp h h' fr post => ⟨⟨h.keep hp (by decide) (by decide) fr h',
       polyIs_congr (Top.keep hp (by decide) (b := bA) (by decide) fr) h.u⟩, ?_⟩) hc
   rw [dk_slice hp h.ctx (by omega) o₂] at post
-  rw [dS, dcS, dkPke, slice_take _ (show 384 * j + 384 ≤ 1152 by omega)]
+  rw [dS, dcS, dkPke, KPke.dkPke, slice_take _ (show 384 * j + 384 ≤ 384 * mlKem768.k by show _ ≤ 1152; omega)]
   exact post
 
 theorem ok_mul : (Y.okW bW && Y.ok bT && Y.ok bA && Y.okW bNS && Y.sep bW bT && Y.sep bW bA && Y.sep bW bNS &&
@@ -172,7 +172,7 @@ theorem decrypt_piece : Piece (TPre Y) (TPub Y lk) (Ctx Y) DM decrypt := by
       ⟨h', by rw [h.v.2, h.w.2] at post; exact post⟩) ?_
   refine ceC_piece (Y := Y) 1 (by decide) 3 eE 3 eM (by decide) (by decide) (by taint_decide)
     (fun _ _ _ h => ⟨h.ctx, h.v.1⟩) fun s₀ s s' hp h h' fr post => ⟨h', ?_⟩
-  rw [show Buf.addr s₀ bM = Buf.addr s₀ ⟨3, eM, 32 * 1⟩ from rfl, post, h.v.2, mD_eq, decM, kpkeDecrypt768]
+  rw [show Buf.addr s₀ bM = Buf.addr s₀ ⟨3, eM, 32 * 1⟩ from rfl, post, h.v.2, mD_eq, decM, KPke.decM, kpkeDecrypt768]
   rfl
 
 end VG.Proof.MlKem.X86.Decaps

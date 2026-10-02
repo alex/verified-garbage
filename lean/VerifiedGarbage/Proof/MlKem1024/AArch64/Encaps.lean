@@ -322,7 +322,7 @@ theorem Pub3.two {σ₁ σ₂ : State} (h : Pub3 σ₁ σ₂) : Two enL σ₁ σ
   ⟨pre_of h.1, pre_of h.2.1, h.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.1⟩
 
 theorem Pub3.rho {σ₁ σ₂ : State} (h : Pub3 σ₁ σ₂) : rhoE σ₁ = rhoE σ₂ :=
-  Sample.map_toNat_inj h.2.2.2.2.2.2.2.2
+  VG.Proof.MlKem.map_toNat_inj h.2.2.2.2.2.2.2.2
 
 theorem b_rct : RelCT isa (fun s₁ s₂ => True ∧ ∃ σ₁ σ₂, Pub3 σ₁ σ₂ ∧ AfterA σ₁ s₁ ∧ AfterA σ₂ s₂) (kemMatrixWith keccak.callee)
     fun s₁ s₂ => ∃ σ₁ σ₂ m₁ m₂, Pub3 σ₁ σ₂ ∧ BInv enL σ₁ m₁ (rhoE σ₁) 16 s₁ ∧ BInv enL σ₂ m₂ (rhoE σ₁) 16 s₂ := by

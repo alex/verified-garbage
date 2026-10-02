@@ -14,15 +14,16 @@ namespace VG.Proof.MlDsa.AArch64.KeyGen
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Keep pbytes)
 open VG.Spec.MlDsa (Params keyGenSeeds integerToBytes)
 open VG.Spec.Sha3 (bytesAt)
 
 theorem PPostB.app {S : Nat} {s s₁ s₂ : State} {ws₁ ws₂ : List (Ptr × Nat)} (h₁ : PPostB S s s₁ ws₁)
-    (h₂ : PPostB S s₁ s₂ ws₂) (hc : ∀ w ∈ ws₂, w.1.1 ∈ bases) : PPostB S s s₂ (ws₁ ++ ws₂) :=
+    (h₂ : PPostB S s₁ s₂ ws₂) (hc : ∀ w ∈ ws₂, w.1.1 ∈ keptRegs) : PPostB S s s₂ (ws₁ ++ ws₂) :=
   PPostB.trans h₁ h₂ hc (fun _ h => List.mem_append_left _ h) (fun _ h => List.mem_append_right _ h)
 
-theorem sc_bases (ws : List (Ptr × Nat)) (h : ∀ w ∈ ws, w.1.1 = .x28) : ∀ w ∈ ws, w.1.1 ∈ bases :=
+theorem sc_bases (ws : List (Ptr × Nat)) (h : ∀ w ∈ ws, w.1.1 = .x28) : ∀ w ∈ ws, w.1.1 ∈ keptRegs :=
   fun w hw => by rw [h w hw]; decide
 
 /-! ## The prologue -/
@@ -99,11 +100,11 @@ theorem setTwo_ok {p : Params} {S : Nat} {s : State} (L : Lay S kgR (kgW p) s) {
       PPostB S s s' [(sc o, 1), (sc (o + 1), 1)] ∧ Keep [.x9] s s' ∧
       bytesAt s'.mem (pa s (sc o)) 2 = [BitVec.ofNat 8 a, BitVec.ofNat 8 b] := by
   rw [WP.block_append_iff]
-  refine WP.mono (setB_ok L (p := sc o) (v := a) (by simp only; omega) h1 (show Reg.x28 ∈ bases by decide))
-    fun s₁ ⟨hP₁, k₁, m₁⟩ => WP.mono (setB_ok (L.post hP₁) (p := sc (o + 1)) (v := b) ho h2 (show Reg.x28 ∈ bases by decide))
+  refine WP.mono (setB_ok L (p := sc o) (v := a) (by simp only; omega) h1 (show Reg.x28 ∈ keptRegs by decide))
+    fun s₁ ⟨hP₁, k₁, m₁⟩ => WP.mono (setB_ok (L.post hP₁) (p := sc (o + 1)) (v := b) ho h2 (show Reg.x28 ∈ keptRegs by decide))
       fun s₂ ⟨hP₂, k₂, m₂⟩ => ⟨PPostB.app hP₁ hP₂ (sc_bases _ (by simp)), (k₁.trans k₂).mono (by simp), ?_⟩
   have e : pa s₁ (sc (o + 1)) = pa s (sc o) + BitVec.ofNat 64 1 := by
-    rw [hP₁.pa (show Reg.x28 ∈ bases by decide), pa, pa, BitVec.add_assoc, ← BitVec.ofNat_add]
+    rw [hP₁.pa (show Reg.x28 ∈ keptRegs by decide), pa, pa, BitVec.add_assoc, ← BitVec.ofNat_add]
   rw [m₂, m₁, e]
   exact bytesAt_two _ _ _ _
 
@@ -115,7 +116,7 @@ theorem bytes64 (m : Mem) (a : Addr) : bytesAt m a 64 = bytesAt m a 32 ++ bytesA
   Proof.MlKem.bytesAt_add m a 32 32
 
 theorem sc_pa {S : Nat} {s s' : State} {W : List Region} (hP : PostB S s s' W) (o : Nat) :
-    pa s' (sc o) = pa s (sc o) := hP.pa (show Reg.x28 ∈ bases by decide)
+    pa s' (sc o) = pa s (sc o) := hP.pa (show Reg.x28 ∈ keptRegs by decide)
 
 theorem seeds_ok {p : Params} (hF : PFacts p) {S : Nat} (h16 : 16 ≤ S) (hSl : S < 2 ^ 64) {σ : State}
     (hp : kgPre p S σ) {s : State} (h : KC p σ s) (h24 : s.gpr .x24 = 1) :
@@ -141,21 +142,21 @@ theorem seeds_ok {p : Params} (hF : PFacts p) {S : Nat} (h16 : 16 ≤ S) (hSl : 
   rw [hmsg, ← hx_eq] at ho₂
   have ho₂' : bytesAt s₂.mem (pa s₂ (sc oHX)) 128 = hxOf p σ := by rw [sc_pa hP₂]; exact ho₂
   rw [WP.block_append_iff, WP.block_append_iff, WP.block_append_iff]
-  refine WP.mono (copyP_ok L₂ (dst := sc oSA) (src := sc oHX) (by unfold copyChk; lay)) fun s₃ ⟨hP₃, k₃, b₃⟩ => ?_
+  refine WP.mono (copyP_ok L₂ (dst := sc oSA) (src := sc oHX) (by unfold copyPChk; lay)) fun s₃ ⟨hP₃, k₃, b₃⟩ => ?_
   have h₃ := h₂.step hF hp hP₃ (by unfold kcChk; lay)
   have L₃ := h₃.lay hF hp
   have hx3 : bytesAt s₃.mem (pa s₃ (sc oHX)) 128 = hxOf p σ := by rw [L₂.keepBytes hP₃ (by lay)]; exact ho₂'
   have sa3 : bytesAt s₃.mem (pa s₃ (sc oSA)) 32 = rhoOf p σ := by
     rw [sc_pa hP₃, b₃, rho_eq, ← ho₂', Proof.MlKem.bytesAt_take _ _ (by decide)]
-  refine WP.mono (copyP_ok L₃ (dst := sc oSB) (src := sc (oHX + 32)) (by unfold copyChk; lay))
+  refine WP.mono (copyP_ok L₃ (dst := sc oSB) (src := sc (oHX + 32)) (by unfold copyPChk; lay))
     fun s₄ ⟨hP₄, k₄, b₄⟩ => ?_
   have h₄ := h₃.step hF hp hP₄ (by unfold kcChk; lay)
   have L₄ := h₄.lay hF hp
-  refine WP.mono (copyP_ok L₄ (dst := sc (oSB + 32)) (src := sc (oHX + 64)) (by unfold copyChk; lay))
+  refine WP.mono (copyP_ok L₄ (dst := sc (oSB + 32)) (src := sc (oHX + 64)) (by unfold copyPChk; lay))
     fun s₅ ⟨hP₅, k₅, b₅⟩ => ?_
   have h₅ := h₄.step hF hp hP₅ (by unfold kcChk; lay)
   have L₅ := h₅.lay hF hp
-  refine WP.mono (setB_ok L₅ (p := sc (oSB + 65)) (v := 0) (by decide) (by lay) (show Reg.x28 ∈ bases by decide))
+  refine WP.mono (setB_ok L₅ (p := sc (oSB + 65)) (v := 0) (by decide) (by lay) (show Reg.x28 ∈ keptRegs by decide))
     fun s₆ ⟨hP₆, k₆, m₆⟩ => ⟨⟨h₅.step hF hp hP₆ (by unfold kcChk; lay), ?_, ?_, ?_, ?_⟩, ?_⟩
   · rw [L₅.keepBytes hP₆ (by lay), L₄.keepBytes hP₅ (by lay), L₃.keepBytes hP₄ (by lay)]; exact hx3
   · rw [L₅.keepBytes hP₆ (by lay), L₄.keepBytes hP₅ (by lay), L₃.keepBytes hP₄ (by lay)]; exact sa3

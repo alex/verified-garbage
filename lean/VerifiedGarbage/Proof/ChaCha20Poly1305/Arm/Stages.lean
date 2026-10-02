@@ -706,13 +706,9 @@ end
 
 /-! ## Saving the registers -/
 
-set_option simprocs false in
 theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
-    ∀ p ∈ saved, (saveMem m B g saved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 := by
-  intro p hp
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (config := {decide := true}) only [saved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+    ∀ p ∈ saved, (saveMem m B g saved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 :=
+  Spill.saveMem_saved (lo := 480) (hi := 516) B g m saved (by decide)
 
 theorem saveMem_frame (s₀ : State) (m : Mem) (g : Reg → BitVec 32) :
     ∀ (l : List (Reg × Nat)), (∀ p ∈ l, savOff ≤ p.2 ∧ p.2 + 4 ≤ savOff + 36) →

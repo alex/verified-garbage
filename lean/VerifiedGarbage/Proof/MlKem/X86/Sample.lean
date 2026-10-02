@@ -40,14 +40,6 @@ theorem piece : Piece Pre Pub (fun s₀ s => s = s₀) (fun s₀ s' => LeafPost 
     (fun _ hp => hp.hW) (fun _ _ _ _ hq => hq.1)
     (main_piece.mono (fun _ _ _ h => h) fun _ _ _ h => ⟨⟨h.frame, h.esp, h.rd, h.wr⟩, h⟩)
 
-theorem map_toNat_inj : ∀ {l₁ l₂ : List Byte}, l₁.map (·.toNat) = l₂.map (·.toNat) → l₁ = l₂
-  | [], [], _ => rfl
-  | a :: l₁, b :: l₂, h => by
-    simp only [List.map_cons, List.cons.injEq] at h
-    rw [BitVec.eq_of_toNat_eq h.1, map_toNat_inj h.2]
-  | [], _ :: _, h => by simp at h
-  | _ :: _, [], h => by simp at h
-
 /-- The coefficients at `a`, when there are 256. -/
 theorem poly_eq {s₀ s : State} (h : Loop s₀ 280 (LA (Bs s₀) 280) s) (hl : (LA (Bs s₀) 280).length = 256) :
     Reduced s.mem (aA s₀) ∧ polyAt s.mem (aA s₀) = toPoly (LA (Bs s₀) 280) := by
