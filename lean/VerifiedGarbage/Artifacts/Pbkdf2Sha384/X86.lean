@@ -1,13 +1,15 @@
 import VerifiedGarbage.TCB.X86.Target
-import VerifiedGarbage.Proof.Pbkdf2.Generic.X86.Instances
+import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Instances
 import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Instances
 
 /-!
 # PBKDF2-HMAC-SHA-384 (RFC 8018) on x86: the iteration and the whole derivation
 
-The code is the one PBKDF2 iteration for every streaming hash function
-(`Impl/Pbkdf2/Generic/X86.lean`), calling SHA-384's verified `update` and
-`finalize`.
+The iteration is the one for every Merkle–Damgård hash function
+(`Impl/Pbkdf2/Md/X86.lean`): each step is two calls of SHA-384's verified
+compression function, on a block laid out once, word by word, in `scratch`
+(`U`, its padding and length), starting from the key's inner and outer hash
+values.
 
 The whole derivation, `pbkdf2`, is the one for every streaming hash function
 (`Impl/Pbkdf2/Whole/X86.lean`), calling the hash function's streaming
@@ -25,11 +27,11 @@ def artifacts : List Artifact := [
   { Spec.Hmac.sha384I.iterateApi with
     target := X86.target
     doc := Spec.Hmac.sha384I.iterateApi.doc
-    code := Impl.Pbkdf2.Generic.X86.iterate sha384H
+    code := Proof.Pbkdf2.Md.X86.sha384M.iterate
     contract := Spec.Hmac.sha384I.iterateContract X86.abi 48
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
     stack := 48
-    verified := Proof.Pbkdf2.Generic.X86.Instances.sha384
+    verified := Proof.Pbkdf2.Md.X86.Instances.sha384_iterate
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Hmac.sha384I.pbkdf2Api with
     target := X86.target
