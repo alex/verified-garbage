@@ -17,17 +17,9 @@
 
 use alloc::vec::Vec;
 
+pub use crate::aes_gcm::Direction;
 use crate::arch::rc2::{vg_rc2_cbc_decrypt, vg_rc2_cbc_encrypt, vg_rc2_expand_key};
 use crate::zeroize::zeroize;
-
-/// Whether to encrypt plaintext or decrypt ciphertext.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Direction {
-    /// Encrypt plaintext.
-    Encrypt,
-    /// Decrypt ciphertext.
-    Decrypt,
-}
 
 /// Why RC2-CBC initialization or finalization failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -54,13 +46,13 @@ pub struct Rc2Cbc {
 impl Rc2Cbc {
     /// Initializes CBC, using the supplied key's bit length as the effective
     /// key size. Keys may contain 1..=128 bytes; the IV must contain eight.
-    pub fn init(key: &[u8], iv: &[u8], direction: Direction) -> Result<Self, Error> {
-        Self::init_with_effective_bits(key, iv, direction, key.len().saturating_mul(8))
+    pub fn new(key: &[u8], iv: &[u8], direction: Direction) -> Result<Self, Error> {
+        Self::new_with_effective_bits(key, iv, direction, key.len().saturating_mul(8))
     }
 
     /// Initializes CBC with an explicit effective key size of 1..=1024 bits,
     /// independently of the supplied key's length of 1..=128 bytes.
-    pub fn init_with_effective_bits(
+    pub fn new_with_effective_bits(
         key: &[u8],
         iv: &[u8],
         direction: Direction,

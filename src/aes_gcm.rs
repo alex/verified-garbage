@@ -387,14 +387,13 @@ impl AesGcm {
     }
 }
 
-/// Whether an [`AesGcmStream`] encrypts or decrypts.
+/// Whether a streaming cipher encrypts or decrypts: an [`AesGcmStream`], or
+/// an `rc2_cbc::Rc2Cbc` (`rc2_cbc` re-exports this type).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
-    /// Plaintext in, ciphertext out; [`AesGcmStream::finalize`] returns the
-    /// tag.
+    /// Plaintext in, ciphertext out.
     Encrypt,
-    /// Ciphertext in, plaintext out; [`AesGcmStream::finalize`] checks the
-    /// tag given to [`AesGcmStream::set_tag`].
+    /// Ciphertext in, plaintext out.
     Decrypt,
 }
 
@@ -444,6 +443,9 @@ impl AesGcmStream {
     /// Starts encrypting or decrypting a message under `key` (16, 24 or 32
     /// bytes long) and `nonce` (of any nonzero length; 12 bytes is the
     /// recommended one). A nonce must never be used twice with the same key.
+    ///
+    /// When encrypting, [`finalize`](Self::finalize) returns the tag; when
+    /// decrypting, it checks the tag given to [`set_tag`](Self::set_tag).
     pub fn new(key: &[u8], nonce: &[u8], direction: Direction) -> Result<Self, Error> {
         let key = AesGcm::new(key)?;
         let j0 = key.j0(nonce)?;
