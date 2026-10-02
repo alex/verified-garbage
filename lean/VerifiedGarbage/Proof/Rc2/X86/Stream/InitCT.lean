@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.RelCTAssoc
 /-!
 # Streaming RC2-CBC on x86 (32-bit): `init` is constant time
 
-Untrusted: everything here is checked by Lean. As for the updates
-(`UpdateCT.lean`): the taint analysis proves the checks and the copy of the
-IV, `RelCT.callWith` the call of the key expansion, and the restore of our
-caller's registers through `ebx`, public again by correctness.
+As for the updates (`UpdateCT.lean`): the taint analysis proves the checks and
+the copy of the IV, `RelCT.callWith` the call of the key expansion, and the
+restore of our caller's registers through `ebx`, public again by correctness.
 -/
 
 namespace VG.Proof.Rc2.X86.Stream.Init

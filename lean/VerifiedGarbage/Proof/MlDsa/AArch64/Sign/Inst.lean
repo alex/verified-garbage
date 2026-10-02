@@ -17,14 +17,13 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Ball
 /-!
 # ML-DSA signing on AArch64: the primitives it calls
 
-Untrusted: everything here is checked by Lean. The verified AArch64
-implementations of the primitives (`prims`), and what the proofs of signing
-need of them (`prims_ok`), with 16 bytes of stack for each call (the
-samplers' frames): their contracts (`CalleeOk.of_verified`), and, of the two
-samplers whose result signing branches on, that it depends only on their
-public data and that they succeed only if the algorithm finishes within
-`maxBounds` (from what their own proofs say they return, `RejNtt.correct`
-and `Ball.correct`).
+The verified AArch64 implementations of the primitives (`prims`), and what the
+proofs of signing need of them (`prims_ok`), with 16 bytes of stack for each
+call (the samplers' frames): their contracts (`CalleeOk.of_verified`), and, of
+the two samplers whose result signing branches on, that it depends only on
+their public data and that they succeed only if the algorithm finishes within
+`maxBounds` (from what their own proofs say they return, `RejNtt.correct` and
+`Ball.correct`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign

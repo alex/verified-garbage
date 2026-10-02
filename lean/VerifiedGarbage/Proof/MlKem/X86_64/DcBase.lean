@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.DcSel
 /-!
 # ML-KEM-768 on x86-64: `vg_mlkem768_decaps`, its contract, layout and entry
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (`decapsK`, which the shared contract implies), the layout
-of the function's buffers (`dk` and `c` in `rbp` and `r14`, which may
-overlap each other; `scratch` and `key` in `rbx` and `r12`), what holds
-throughout (`DC`: `Top`, and `dk` and `c` at their pointers), and the
-prologue.
+The contract the proof is written against (`decapsK`, which the shared
+contract implies), the layout of the function's buffers (`dk` and `c` in `rbp`
+and `r14`, which may overlap each other; `scratch` and `key` in `rbx` and
+`r12`), what holds throughout (`DC`: `Top`, and `dk` and `c` at their
+pointers), and the prologue.
 -/
 
 namespace VG.Proof.MlKem.X86_64

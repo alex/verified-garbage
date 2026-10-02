@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Framework.Arm.ArgTaint
 /-!
 # Streaming AES-CMAC on ARMv7: `vg_cmac_aes_init`
 
-Untrusted: everything here is checked by Lean. The code saves `r4`–`r6` and
-`lr` in the scratch buffer, expands the key into the state, derives the
-subkeys after the schedule, zeroes the chaining value and restores the
-registers: the state then represents the empty message. The code between
-the calls is constant time by the taint analysis, and the calls by their
-own proofs (`ek_rel`, `sub_rel`), their arguments pinned by `IMid₁` and
-`IMid₂`.
+The code saves `r4`–`r6` and `lr` in the scratch buffer, expands the key into
+the state, derives the subkeys after the schedule, zeroes the chaining value
+and restores the registers: the state then represents the empty message. The
+code between the calls is constant time by the taint analysis, and the calls
+by their own proofs (`ek_rel`, `sub_rel`), their arguments pinned by `IMid₁`
+and `IMid₂`.
 -/
 
 namespace VG.Proof.CmacAes.Stream.Arm

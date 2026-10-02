@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.CmacAes.X86.UpdateLoop
 
 /-!
 # AES-CMAC on x86: `vg_cmac_aes_update` is correct
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.CmacAes.X86

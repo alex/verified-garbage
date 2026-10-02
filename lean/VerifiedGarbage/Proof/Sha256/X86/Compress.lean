@@ -11,8 +11,6 @@ import VerifiedGarbage.Proof.Sha256.X86.Lit
 
 /-!
 # SHA-256 compression function on x86 (32-bit): the message schedule and the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha256.X86
@@ -273,8 +271,6 @@ end VG.Proof.Sha256.X86
 
 /-!
 # SHA-256 compression function on x86 (32-bit): the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha256.X86

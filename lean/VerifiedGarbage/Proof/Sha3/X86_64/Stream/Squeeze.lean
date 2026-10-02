@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # The SHA-3 sponge on x86-64: `squeeze`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha3.X86_64.Stream.Squeeze

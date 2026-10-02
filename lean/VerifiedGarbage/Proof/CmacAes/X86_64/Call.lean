@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 /-!
 # AES-CMAC on x86-64: calling `vg_aes_ctr32` on one block
 
-Untrusted: everything here is checked by Lean.
-
 `ctr_call`: a call of any implementation of `vg_aes_ctr32` with the counter
 block `C`, one data block `D` holding zeros, and working space `S`, from its
 contract (with `WP.call`): `D` then holds `CIPH_K(C)`, as bytes

@@ -9,8 +9,6 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ChaCha20 keystream XOR on x86 (32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 Correctness follows the x86-64 proof (`Proof/ChaCha20/X86_64/Xor.lean`): an
 invariant before each block (`OInv`), one after the call of the block
 function (`AInv`) and one before each byte (`IInv`). The call runs in a
@@ -27,12 +25,10 @@ namespace VG.Proof.ChaCha20
 
 open Spec.ChaCha20 VG.X86
 
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86 (32-bit) contract for
-`vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`,
-whose arguments are on the stack (cdecl): XORs the first `len` bytes of the
-keystream of the state at `state` into the `len` bytes at `data`.
+/-- X86 (32-bit) contract for `vg_chacha20_xor(state: *mut [u32; 16], data: *mut
+u8, len: usize, buf: *mut [u32; 80])`, whose arguments are on the stack (cdecl):
+XORs the first `len` bytes of the keystream of the state at `state` into the
+`len` bytes at `data`.
 
 The code may read and write the arguments (16 bytes above the return
 address), `state` (64 bytes; its contents on exit are unspecified), `data`

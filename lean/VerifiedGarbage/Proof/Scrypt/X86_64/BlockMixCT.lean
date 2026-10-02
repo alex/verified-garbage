@@ -9,9 +9,8 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 /-!
 # scryptBlockMix on x86-64: correctness
 
-Untrusted: everything here is checked by Lean. The calls of `vg_salsa20_8`
-are used through `SalsaSpec`, what its proof says about a call; the proof
-of this file holds for any code meeting it.
+The calls of `vg_salsa20_8` are used through `SalsaSpec`, what its proof says
+about a call; the proof of this file holds for any code meeting it.
 -/
 
 namespace VG.Proof.Scrypt.X86_64.BlockMix
@@ -527,8 +526,8 @@ end VG.Proof.Scrypt.X86_64.BlockMix
 /-!
 # Calls of `vg_salsa20_8` on x86-64
 
-Untrusted: everything here is checked by Lean. `SalsaSpec` of the verified
-Salsa20/8 Core, from its `Verified` proof by `WP.call`.
+`SalsaSpec` of the verified Salsa20/8 Core, from its `Verified` proof by
+`WP.call`.
 -/
 
 namespace VG.Proof.Scrypt.X86_64.BlockMix
@@ -590,9 +589,8 @@ end VG.Proof.Scrypt.X86_64.BlockMix
 /-!
 # scryptBlockMix on x86-64: the whole function
 
-Untrusted: everything here is checked by Lean. The prologue saves our
-caller's registers in `scratch` and sets up the loop's; the loop runs the
-`r` pairs; the epilogue restores the registers.
+The prologue saves our caller's registers in `scratch` and sets up the loop's;
+the loop runs the `r` pairs; the epilogue restores the registers.
 -/
 
 namespace VG.Proof.Scrypt.X86_64.BlockMix
@@ -861,8 +859,6 @@ end VG.Proof.Scrypt.X86_64.BlockMix
 
 /-!
 # scryptBlockMix on x86-64: constant time
-
-Untrusted: everything here is checked by Lean.
 
 The taint analysis alone cannot prove this: across a call of
 `vg_salsa20_8`, which saves and restores our registers in memory it also

@@ -9,12 +9,11 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # X448 on x86 (32-bit): the whole function
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (the facts of `Spec.X448.x448Contract` it uses, stated
-for x86 (32-bit)), and the correctness of `vg_x448` against it: every write is in
-the working space but the result's, so the arguments are read unchanged, the
-callee-saved registers restored from the working space, and the return
-address kept.
+The contract the proof is written against (the facts of `Spec.X448.x448Contract`
+it uses, stated for x86 (32-bit)), and the correctness of `vg_x448` against it:
+every write is in the working space but the result's, so the arguments are read
+unchanged, the callee-saved registers restored from the working space, and the
+return address kept.
 -/
 
 namespace VG.Proof.X448.X86

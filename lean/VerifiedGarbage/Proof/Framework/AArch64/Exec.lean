@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.Block
 
 /-!
 # AArch64: instruction-level rewrite lemmas for symbolic execution
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.AArch64

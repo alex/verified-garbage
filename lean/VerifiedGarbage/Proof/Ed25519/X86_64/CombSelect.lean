@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.WindowStep
 /-!
 # The comb's constant-time selection
 
-Untrusted. `combMask k` stores all ones exactly when the digit in `rax` is
-`k`, and zero otherwise; `selectField` then ORs every candidate's words,
-each ANDed with its mask, so only the digit's candidate survives.
+`combMask k` stores all ones exactly when the digit in `rax` is `k`, and zero
+otherwise; `selectField` then ORs every candidate's words, each ANDed with its
+mask, so only the digit's candidate survives.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.Framework.RelCT
 /-!
 # Constant time of code that leaks memory both runs agree on (ARMv7)
 
-Untrusted: everything here is checked by Lean. The ARMv7 counterpart of the
-x86-64 `memTaint` of ML-DSA (`Proof/MlDsa/X86_64/Pack/MemTaint.lean`), for
-`vg_mldsa_hint_bit_pack` and `vg_mldsa_hint_bit_unpack`, which branch and
-index memory on their input, which they load from memory.
+The ARMv7 counterpart of the x86-64 `memTaint` of ML-DSA
+(`Proof/MlDsa/X86_64/Pack/MemTaint.lean`), for `vg_mldsa_hint_bit_pack` and
+`vg_mldsa_hint_bit_unpack`, which branch and index memory on their input,
+which they load from memory.
 
 The taint analysis (`Proof/Framework/Arm/Taint.lean`) treats loaded memory as
 secret. `memTaint` is one for code that runs from states whose permitted

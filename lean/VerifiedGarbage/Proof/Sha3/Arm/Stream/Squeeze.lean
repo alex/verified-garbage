@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # The SHA-3 sponge on ARMv7: `squeeze`
 
-Untrusted: everything here is checked by Lean. The same structure as the
-AArch64 proof (`VG.Proof.Sha3.AArch64.Stream.Squeeze`), with the prologue
-and epilogue of `absorb` (`VG.Proof.Sha3.Arm.Stream.Absorb`).
+The same structure as the AArch64 proof
+(`VG.Proof.Sha3.AArch64.Stream.Squeeze`), with the prologue and epilogue of
+`absorb` (`VG.Proof.Sha3.Arm.Stream.Absorb`).
 -/
 
 namespace VG.Proof.Sha3.Arm.Stream.Squeeze

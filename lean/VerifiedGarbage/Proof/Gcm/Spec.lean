@@ -3,8 +3,6 @@ import VerifiedGarbage.Spec.Gcm
 
 /-!
 # GCM: lemmas about the specification
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Gcm

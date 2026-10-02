@@ -8,8 +8,6 @@ import VerifiedGarbage.Proof.Framework.X86_64.Call
 /-!
 # Implementations of `vg_aes_ctr32` on x86-64
 
-Untrusted: everything here is checked by Lean.
-
 A `Ctr32Impl` is what a function that calls `vg_aes_ctr32` needs of it, so
 that its proof holds for every implementation: each is a variant of the
 interface `AesCtr32` on x86-64 (`Variants/AesCtr32/X86_64/`), and each caller

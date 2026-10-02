@@ -4,13 +4,13 @@ import VerifiedGarbage.Proof.Framework.Arm.ArgTaint
 /-!
 # Streaming AES-CMAC on ARMv7: `vg_cmac_aes_absorb` is constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis does not
-analyse frames, so two runs from states that agree on the public arguments
-are related piece by piece (`RelCT`): the taint analysis covers the code
-between the calls, from the public arguments for `absorbPre` and from the
-registers the correctness proof pins to values of the public arguments
-afterwards (`AAfter₁`, `AAfter₂`), and each call of `vg_cmac_aes_update`, in
-its frame, is constant time by its own proof (`upd_rel`).
+The taint analysis does not analyse frames, so two runs from states that agree
+on the public arguments are related piece by piece (`RelCT`): the taint
+analysis covers the code between the calls, from the public arguments for
+`absorbPre` and from the registers the correctness proof pins to values of the
+public arguments afterwards (`AAfter₁`, `AAfter₂`), and each call of
+`vg_cmac_aes_update`, in its frame, is constant time by its own proof
+(`upd_rel`).
 -/
 
 namespace VG.Proof.CmacAes.Stream.Arm

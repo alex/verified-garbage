@@ -10,10 +10,10 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_multiply_ntts`
 
-Untrusted: everything here is checked by Lean. After storing the table of
-the `γᵢ` in `scratch` and `h + 1024` in the argument slot of `scratch`, the
-loop computes pair `t` of `h` (`multiplyNTTs_even`, `multiplyNTTs_odd`) with
-three reductions (`red_spec`) and compares `h + 8(t + 1)` with that end.
+After storing the table of the `γᵢ` in `scratch` and `h + 1024` in the
+argument slot of `scratch`, the loop computes pair `t` of `h`
+(`multiplyNTTs_even`, `multiplyNTTs_odd`) with three reductions (`red_spec`)
+and compares `h + 8(t + 1)` with that end.
 -/
 
 namespace VG.Proof.MlKem.X86.Mul

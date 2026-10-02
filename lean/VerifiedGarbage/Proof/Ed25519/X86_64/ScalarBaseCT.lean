@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseCTEngine
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseMain
 
-/-! Untrusted: public argument pointers survive the secret point arithmetic. -/
+/-! Public argument pointers survive the secret point arithmetic. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

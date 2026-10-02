@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.X25519.Ladder
 /-!
 # X25519 on x86 (32-bit): the ladder
 
-Untrusted: everything here is checked by Lean. What holds from the end of the
-setup on (`Base`: the working space, the saved registers, the scalar's bits,
-and that nothing outside the working space changes), and the ladder: each
-iteration takes the ladder's state after the bits `254, …, n + 1` in the
-slots `X2, Z2, X3, Z3` and the word `SWAP` (`LInv (n + 1)`) to that after
-the bit `n` (`LInv n`).
+What holds from the end of the setup on (`Base`: the working space, the saved
+registers, the scalar's bits, and that nothing outside the working space
+changes), and the ladder: each iteration takes the ladder's state after the
+bits `254, …, n + 1` in the slots `X2, Z2, X3, Z3` and the word `SWAP` (`LInv
+(n + 1)`) to that after the bit `n` (`LInv n`).
 -/
 
 namespace VG.Proof.X25519.X86

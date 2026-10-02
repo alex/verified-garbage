@@ -5,9 +5,8 @@ import VerifiedGarbage.Impl.Blake2.Arm.Stream
 /-!
 # BLAKE2b on ARMv7: the streaming functions
 
-Untrusted: everything here is checked by Lean. The generic ARMv7 streaming
-layer (`Proof/Blake2/Arm/Stream/`) instantiated with BLAKE2b's parameters and
-its compression function (`compress_verified'`).
+The generic ARMv7 streaming layer (`Proof/Blake2/Arm/Stream/`) instantiated
+with BLAKE2b's parameters and its compression function (`compress_verified'`).
 -/
 
 namespace VG.Proof.Blake2.ArmB

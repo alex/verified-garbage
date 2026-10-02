@@ -16,10 +16,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # MD5 compression function on x86-64: the 64 operations
 
-Untrusted: everything here is checked by Lean. Each operation is the
-auxiliary function of its round, symbolically executed once per round
-(`fn_ok`), followed by the additions and the rotation, symbolically executed
-once for all operations (`tail_ok`).
+Each operation is the auxiliary function of its round, symbolically executed
+once per round (`fn_ok`), followed by the additions and the rotation,
+symbolically executed once for all operations (`tail_ok`).
 -/
 
 namespace VG.Proof.Md5.X86_64
@@ -188,16 +187,15 @@ end VG.Proof.Md5.X86_64
 
 /-!
 # MD5 compression function on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!
 ## MD5: the x86-64 contract
 
-**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86-64
-implementations of the compression function and the streaming interface, in
-terms of `Spec/Md5.lean`.
+The contracts the proofs are written against; the artifacts are emitted with the
+shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the x86-64 implementations of the compression function and the
+streaming interface, in terms of `Spec/Md5.lean`.
 -/
 
 namespace VG.Proof.Md5

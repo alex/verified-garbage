@@ -5,9 +5,8 @@ import VerifiedGarbage.Proof.Rc2.Arm.Stream.Contract
 /-!
 # Streaming RC2-CBC on ARMv7: facts shared by the proofs
 
-Untrusted: everything here is checked by Lean. Sub-ranges of buffers,
-stack arguments, and the preconditions of `update` and `init` by name
-(`UPre`, `IPre`).
+Sub-ranges of buffers, stack arguments, and the preconditions of `update` and
+`init` by name (`UPre`, `IPre`).
 -/
 
 namespace VG.Proof.Rc2.Arm.Stream

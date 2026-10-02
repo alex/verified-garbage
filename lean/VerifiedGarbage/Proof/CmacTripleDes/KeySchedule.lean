@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.CmacTripleDes.Block
 /-!
 # DES's key schedule, bit by bit
 
-Untrusted: everything here is checked by Lean.
-
 `expandDesKey` only moves the key's bits: bit `q` of round key `j` is bit
 `rkSrc j q` of the key (`getLsbD_expandDesKey`), as the implementations
 compute it. The proof follows `C` and `D` through the specification's loop

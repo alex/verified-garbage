@@ -7,8 +7,6 @@ import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
 # ML-KEM on x86-64: `vg_mlkem_encode12`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.MlKem.X86_64

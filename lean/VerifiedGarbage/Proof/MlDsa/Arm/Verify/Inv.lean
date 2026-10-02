@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Verify.Lay
 /-!
 # ML-DSA verification on 32-bit ARM: what holds throughout, and the prologue
 
-Untrusted: everything here is checked by Lean. What holds of the state
-throughout (`VC`: the layout, the permissions and stack pointer of the
-entry state, our caller's registers saved in `scratch`, and the inputs),
-which a part keeps if it writes only `scratch` and the stack, apart from
-the saved registers (`vcChk`); the pieces of verification (`VPiece`); and
-the prologue (`vpro_piece`).
+What holds of the state throughout (`VC`: the layout, the permissions and
+stack pointer of the entry state, our caller's registers saved in `scratch`,
+and the inputs), which a part keeps if it writes only `scratch` and the stack,
+apart from the saved registers (`vcChk`); the pieces of verification
+(`VPiece`); and the prologue (`vpro_piece`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

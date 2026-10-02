@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.StepsCT
 /-!
 # ML-DSA key generation on 32-bit ARM: the seeds leak nothing
 
-Untrusted: everything here is checked by Lean. Two runs of the seeds in the
-same layout leak the same (`seeds_two`): the bytes `k` and `ℓ` are public,
-and every access is through the pointers of the layout; which gives the
-piece of the seeds (`seeds_piece`).
+Two runs of the seeds in the same layout leak the same (`seeds_two`): the
+bytes `k` and `ℓ` are public, and every access is through the pointers of the
+layout; which gives the piece of the seeds (`seeds_piece`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

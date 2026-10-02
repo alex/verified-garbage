@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem1024.X86.KeyGenRow
 /-!
 # ML-KEM-1024 on x86 (32-bit): the keys in `vg_mlkem1024_keygen`
 
-Untrusted: everything here is checked by Lean. After the rows (`B 16 4`),
-`ρ` is copied into `ek`, `ŝ` encoded into `dk`, `ek` copied into `dk`,
-`H(ek)` hashed into `dk` and `z` copied into it (`F n` after `n` of these),
-and `kg4ACC` returned (`fin_piece`). If `kg4ACC` is 1, `ek` is `ek_PKE` and `dk`
-is `dk_PKE ‖ ek ‖ H(ek) ‖ z` (`ek_full`, `dk_full`).
+After the rows (`B 16 4`), `ρ` is copied into `ek`, `ŝ` encoded into `dk`, `ek`
+copied into `dk`, `H(ek)` hashed into `dk` and `z` copied into it (`F n` after
+`n` of these), and `kg4ACC` returned (`fin_piece`). If `kg4ACC` is 1, `ek` is
+`ek_PKE` and `dk` is `dk_PKE ‖ ek ‖ H(ek) ‖ z` (`ek_full`, `dk_full`).
 -/
 
 namespace VG.Proof.MlKem1024.X86.KeyGen

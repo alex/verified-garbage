@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.Blake2.X86.Stream.Common
 /-!
 # Streaming BLAKE2 on x86 (32-bit): `update`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`update`, for either word size and any correct compression function
-(`CalleeOk`).
+The functional correctness of `update`, for either word size and any correct
+compression function (`CalleeOk`).
 -/
 
 namespace VG.Proof.Blake2.X86.Stream.Update

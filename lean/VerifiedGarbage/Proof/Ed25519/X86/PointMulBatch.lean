@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PointMulCounter
 
-/-! Untrusted: rebuild and consume one batch of sixteen exact powers. -/
+/-! Rebuild and consume one batch of sixteen exact powers. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Arith
 /-!
 # X25519 on x86-64 with AVX512_IFMA: carries
 
-Untrusted: everything here is checked by Lean. `carry r` leaves each limb's
-low 51 bits plus the bits from 51 up of the limb below (of the top limb,
-times 19, for the lowest): the same number modulo `p` (`carryNat_mod`), in
-limbs below `2⁵²` if they were below `2⁶³`.
+`carry r` leaves each limb's low 51 bits plus the bits from 51 up of the limb
+below (of the top limb, times 19, for the lowest): the same number modulo `p`
+(`carryNat_mod`), in limbs below `2⁵²` if they were below `2⁶³`.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

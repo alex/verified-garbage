@@ -5,10 +5,10 @@ import VerifiedGarbage.Impl.MlKem.X86.Compress
 /-!
 # ML-KEM on x86 (32-bit): unpacking and decompressing coefficients
 
-Untrusted: everything here is checked by Lean. `decompOp` computes the
-decompress formula of `Compress.lean` (`decomp_spec`); `unpackStep d j`
-writes coefficient `j` from field `j` of `ebx` (`unpackStep_spec`), and
-`unpackSteps d k` the first `k` of them (`unpackSteps_spec`).
+`decompOp` computes the decompress formula of `Compress.lean` (`decomp_spec`);
+`unpackStep d j` writes coefficient `j` from field `j` of `ebx`
+(`unpackStep_spec`), and `unpackSteps d k` the first `k` of them
+(`unpackSteps_spec`).
 -/
 
 namespace VG.Proof.MlKem.X86

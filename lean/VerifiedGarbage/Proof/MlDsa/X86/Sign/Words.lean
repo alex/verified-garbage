@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Inv
 /-!
 # ML-DSA signing on x86 (32-bit): words and bytes of `scratch`
 
-Untrusted: everything here is checked by Lean. The small blocks between
-calls, as what they leave in `scratch` and the frame of what they change:
-a word or a byte set (`wp_st32`, `wp_st8`), `OK ← OK ∧ eax` (`wp_andOK`)
-and `ONES ← ONES + eax` (`wp_addOnes`).
+The small blocks between calls, as what they leave in `scratch` and the frame
+of what they change: a word or a byte set (`wp_st32`, `wp_st8`), `OK ← OK ∧
+eax` (`wp_andOK`) and `ONES ← ONES + eax` (`wp_addOnes`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

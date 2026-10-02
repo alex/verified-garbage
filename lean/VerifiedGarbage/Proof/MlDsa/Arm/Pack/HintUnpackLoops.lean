@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Pack.HintUnpack
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_hint_bit_unpack`, the loops
 
-Untrusted: everything here is checked by Lean. The loops of
-`vg_mldsa_hint_bit_unpack`, as on x86-64: the coefficients of a polynomial
-(`coefs_ok`), the polynomials (`main_ok`), each an iteration of the fold
-`huPoly` of the spec, and the bytes after the last index (`trail_ok`), from
-any state that permits reading `y` and writing `h` (`MainPre`).
+The loops of `vg_mldsa_hint_bit_unpack`, as on x86-64: the coefficients of a
+polynomial (`coefs_ok`), the polynomials (`main_ok`), each an iteration of the
+fold `huPoly` of the spec, and the bytes after the last index (`trail_ok`),
+from any state that permits reading `y` and writing `h` (`MainPre`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Pack.Hint.Unpack

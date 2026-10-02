@@ -7,11 +7,10 @@ import VerifiedGarbage.Proof.Sha256.AArch64.Lit
 /-!
 # SHA-256 on AArch64: calling the compression function
 
-Untrusted: everything here is checked by Lean. The call of the compression
-function (`compressAt`) and saving and restoring the caller's registers
-(`save`, `restore`), as HMAC-SHA-256 and PBKDF2-HMAC-SHA-256 use them. The
-weakest-precondition rules they are proved with are the generic ones
-(`VG.Proof.MdStream.AArch64`).
+The call of the compression function (`compressAt`) and saving and restoring
+the caller's registers (`save`, `restore`), as HMAC-SHA-256 and
+PBKDF2-HMAC-SHA-256 use them. The weakest-precondition rules they are proved
+with are the generic ones (`VG.Proof.MdStream.AArch64`).
 -/
 
 namespace VG.Proof.Sha256.AArch64.Stream

@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.Prims
 /-!
 # ML-DSA signing on ARMv7: calls of the NTTs, products and two samplers
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_ntt`, `vg_mldsa_inv_ntt`, `vg_mldsa_multiply_ntt`,
-`vg_mldsa_multiply_add_ntt`, `vg_mldsa_rej_ntt_poly` and
-`vg_mldsa_expand_mask_poly`. `RejNTTPoly`'s result is public in two runs
+As `Prims.lean`, for `vg_mldsa_ntt`, `vg_mldsa_inv_ntt`,
+`vg_mldsa_multiply_ntt`, `vg_mldsa_multiply_add_ntt`, `vg_mldsa_rej_ntt_poly`
+and `vg_mldsa_expand_mask_poly`. `RejNTTPoly`'s result is public in two runs
 whose seeds agree (`rejCall_tr`), and it succeeds only if the algorithm
 finishes within `maxBounds` (`rejCall_ok`).
 -/

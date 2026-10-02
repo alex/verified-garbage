@@ -4,8 +4,6 @@ import VerifiedGarbage.TCB.X86_64.Isa
 /-!
 # DES on x86-64, in constant time: the round, the block and the key schedule
 
-Untrusted: the proofs check everything here.
-
 DES's permutations and S-boxes are computed without secret-dependent memory
 accesses or branches, on 64-bit words:
 

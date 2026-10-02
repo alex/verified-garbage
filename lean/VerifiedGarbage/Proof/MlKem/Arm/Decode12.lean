@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.Encode
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_decode12`
 
-Untrusted: everything here is checked by Lean. One symbolic execution of
-the loop body for any pointers (`body_ok`), which loads bytes after storing
-a coefficient: `hsep` says the store does not change them. The invariant
-says which coefficients are written (`Inv`); their values are
-`decode12_even` and `decode12_odd`, reduced by `fixq_subq`.
+One symbolic execution of the loop body for any pointers (`body_ok`), which
+loads bytes after storing a coefficient: `hsep` says the store does not change
+them. The invariant says which coefficients are written (`Inv`); their values
+are `decode12_even` and `decode12_odd`, reduced by `fixq_subq`.
 -/
 
 namespace VG.Proof.MlKem.Arm.Decode12

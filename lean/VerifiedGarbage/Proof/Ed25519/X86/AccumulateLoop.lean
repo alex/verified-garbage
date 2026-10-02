@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.AccumulateStep
 
-/-! Untrusted: consume one sixteen-bit batch from most significant bit to least. -/
+/-! Consume one sixteen-bit batch from most significant bit to least. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

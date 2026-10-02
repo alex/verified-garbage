@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.AArch64.PointEncode
 import VerifiedGarbage.Proof.Ed25519.AArch64.Power
 import VerifiedGarbage.Proof.Ed25519.AArch64.CounterKeep
 
-/-! Untrusted: normalize extended coordinates with the verified inversion chain. -/
+/-! Normalize extended coordinates with the verified inversion chain. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 

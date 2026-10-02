@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.X25519.Ladder
 /-!
 # X25519 on 32-bit ARM: the ladder
 
-Untrusted: everything here is checked by Lean. One iteration of the ladder
-(`step_ok`) takes the elements `x1, x2, z2, x3, z3, a24` from the state after
-the bits `254` down to `n` (`ladderAfter k x1 n`) to the state after `n - 1`,
-with the swap in `r10` and the counter in `r11`; the loop (`ladder_ok`) runs
-it for the bits 254 down to 0.
+One iteration of the ladder (`step_ok`) takes the elements `x1, x2, z2, x3,
+z3, a24` from the state after the bits `254` down to `n` (`ladderAfter k x1
+n`) to the state after `n - 1`, with the swap in `r10` and the counter in
+`r11`; the loop (`ladder_ok`) runs it for the bits 254 down to 0.
 -/
 
 namespace VG.Proof.X25519.Arm

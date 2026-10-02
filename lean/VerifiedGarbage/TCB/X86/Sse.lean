@@ -9,8 +9,8 @@ There are only eight XMM registers outside 64-bit mode. All operations
 below leave flags and memory unchanged. SSE2 is the target baseline;
 SSSE3, AES, PCLMULQDQ and SHA requirements are recorded in `Instr.requires`.
 No vector integer multiplication instructions with Intel's MCDT hazard
-are included. These are the same bit-value semantics as the reviewed
-x86-64 model, restricted to the instructions needed for AES-GCM and SHA-256.
+are included. These are the same bit-value semantics as the x86-64 model,
+restricted to the instructions the 32-bit implementations need.
 -/
 
 namespace VG.X86

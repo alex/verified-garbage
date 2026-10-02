@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.MlKem.Arm.EncryptCT
 /-!
 # ML-KEM-1024 on 32-bit ARM: K-PKE.Encrypt in constant time
 
-Untrusted: everything here is checked by Lean. Two runs of `encrypt` on the
-same buffers (`EncPre` of the same layout and `EB`) whose encapsulation keys
-have the same `ρ` leak the same trace (`encrypt_ct`): the blocks access no
-memory or only memory through the pointers, the calls take the same
-pointers in both runs, and the rows' `SampleNTT`s take the same seeds
-(`rowSum_ct`). What each run is at each point comes from its correctness
-(`Encrypt.lean`).
+Two runs of `encrypt` on the same buffers (`EncPre` of the same layout and
+`EB`) whose encapsulation keys have the same `ρ` leak the same trace
+(`encrypt_ct`): the blocks access no memory or only memory through the
+pointers, the calls take the same pointers in both runs, and the rows'
+`SampleNTT`s take the same seeds (`rowSum_ct`). What each run is at each point
+comes from its correctness (`Encrypt.lean`).
 -/
 
 namespace VG.Proof.MlKem1024.Arm.Enc

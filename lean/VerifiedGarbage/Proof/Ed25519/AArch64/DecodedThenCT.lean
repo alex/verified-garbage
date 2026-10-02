@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointDecodeCT
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyContext
 
-/-! Untrusted: a decoder's public success flag selects the continuation. -/
+/-! A decoder's public success flag selects the continuation. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 

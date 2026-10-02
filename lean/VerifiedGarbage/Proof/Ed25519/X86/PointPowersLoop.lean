@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PointPowers
 
-/-! Untrusted: checkpoint-loop termination and the exact contents of every entry. -/
+/-! Checkpoint-loop termination and the exact contents of every entry. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.CmacAes.X86.UpdateCorrect
 /-!
 # AES-CMAC on x86: `vg_cmac_aes_subkeys`
 
-Untrusted: everything here is checked by Lean. `L = CIPH_K(0)` is computed
-into the first block of the subkeys (a zero counter block and a zero data
-block), then doubled there (`K1`) and into the second block (`K2`). Only
-the subkeys, the scratch buffer and the 28 bytes below `esp` change, so the
-stack arguments, which are reloaded from the stack, and the return address
-are intact.
+`L = CIPH_K(0)` is computed into the first block of the subkeys (a zero
+counter block and a zero data block), then doubled there (`K1`) and into the
+second block (`K2`). Only the subkeys, the scratch buffer and the 28 bytes
+below `esp` change, so the stack arguments, which are reloaded from the stack,
+and the return address are intact.
 -/
 
 namespace VG.Proof.CmacAes.X86

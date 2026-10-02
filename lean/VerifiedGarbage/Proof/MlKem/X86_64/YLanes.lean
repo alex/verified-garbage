@@ -5,13 +5,12 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Avx
 /-!
 # ML-KEM on x86-64: coefficients in the lanes of AVX2 registers
 
-Untrusted: everything here is checked by Lean. The AVX2 code does to each
-128-bit lane what the SSE2 code does to a register (`toY`,
-`Impl/MlKem/X86_64/Avx.lean`), so the proofs of the SSE2 code hold of each
-lane (`ylanes`, from `WP.lanes`): what they say of `xmm r` in `s.proj l`
+The AVX2 code does to each 128-bit lane what the SSE2 code does to a register
+(`toY`, `Impl/MlKem/X86_64/Avx.lean`), so the proofs of the SSE2 code hold of
+each lane (`ylanes`, from `WP.lanes`): what they say of `xmm r` in `s.proj l`
 they say of lane `l` of `ymm r` in `s`. `YOnly rs` is `XOnly rs` for both
-lanes, and `YConsts` is `VConsts` for both lanes; `yld_ok` is a 256-bit
-load, `yconsts_ok` the constants.
+lanes, and `YConsts` is `VConsts` for both lanes; `yld_ok` is a 256-bit load,
+`yconsts_ok` the constants.
 -/
 
 namespace VG.Proof.MlKem.X86_64

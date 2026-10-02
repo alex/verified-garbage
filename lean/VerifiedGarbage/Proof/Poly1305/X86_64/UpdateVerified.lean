@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 /-!
 # Poly1305 on x86-64: `update`, constant time and `Verified`
 
-Untrusted: everything here is checked by Lean. `update` calls an
-implementation of `vg_poly1305_blocks` that the proof does not know, so the
-taint analysis cannot follow it into it. The code before the call
-(`updatePre`) and the code after it (`updatePost`) are checked by the taint
-analysis; the call is constant time by the implementation's own proof
+`update` calls an implementation of `vg_poly1305_blocks` that the proof does
+not know, so the taint analysis cannot follow it into it. The code before the
+call (`updatePre`) and the code after it (`updatePost`) are checked by the
+taint analysis; the call is constant time by the implementation's own proof
 (`RelCT.callEx`), since its arguments agree in two runs (the analysis of
 `updatePre` says so) and correctness says it may access the regions it is
 given; and after it, the registers the code after it needs are public again,

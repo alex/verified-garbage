@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.PointLoop
 /-!
 # Ed25519 doublings with AVX512_IFMA: four of them
 
-Untrusted: everything here is checked by Lean. `Ifma.double4` loads slots
-0–3 into the lanes, doubles them four times (`vdbl_wp`) and stores them
-back: the point in slots 0–3 then represents `16a` if it represented `a`.
+`Ifma.double4` loads slots 0–3 into the lanes, doubles them four times
+(`vdbl_wp`) and stores them back: the point in slots 0–3 then represents `16a`
+if it represented `a`.
 -/
 
 namespace VG.Proof.Ed25519.X86_64.Ifma

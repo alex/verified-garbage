@@ -10,13 +10,13 @@ import VerifiedGarbage.Impl.Sha1.X86_64.Stream
 /-!
 # Streaming SHA-1 on x86-64: `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/X86_64.lean`), so they are
-verified by the generic proofs (`Proof/MdStream/X86_64/`) for SHA-1's
-instance (`Proof/Sha1/Md.lean`), for any implementation `f` of the
-compression function (`CalleeOk`: `scalar_ok`, `shani_ok`), given what
-SHA-1's own pieces do: its length field and digest (`shape`) and that the
-taint analysis accepts its code between the calls (`taints`).
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/X86_64.lean`), so they are verified by the generic proofs
+(`Proof/MdStream/X86_64/`) for SHA-1's instance (`Proof/Sha1/Md.lean`), for
+any implementation `f` of the compression function (`CalleeOk`: `scalar_ok`,
+`shani_ok`), given what SHA-1's own pieces do: its length field and digest
+(`shape`) and that the taint analysis accepts its code between the calls
+(`taints`).
 -/
 
 namespace VG.Proof.Sha1.X86_64.Stream

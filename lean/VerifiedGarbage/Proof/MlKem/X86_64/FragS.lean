@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.MlKem.KPke
 /-!
 # ML-KEM-768 on x86-64: byte stores, copies, and the calls of `SampleNTT`
 
-Untrusted: everything here is checked by Lean. In a layout: a byte store
-(`setB_okL`), a copy (`copy_okL`), and the entry `Â[i, j]` of the matrix,
-`SampleNTT(ρ ‖ j ‖ i)` with `ρ` at `SB` (`sampleIJ_ok`, `sampleIJ_tr`),
-which changes `r15` (so what it leaves is `PostB`, not `Post`).
+In a layout: a byte store (`setB_okL`), a copy (`copy_okL`), and the entry
+`Â[i, j]` of the matrix, `SampleNTT(ρ ‖ j ‖ i)` with `ρ` at `SB`
+(`sampleIJ_ok`, `sampleIJ_tr`), which changes `r15` (so what it leaves is
+`PostB`, not `Post`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

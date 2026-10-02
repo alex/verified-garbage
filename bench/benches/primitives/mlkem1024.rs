@@ -8,8 +8,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`): this one and those it calls.
 pub const USES: &[&str] = &["mlkem1024", "mlkem", "sha3"];
 
 #[cfg(any(

@@ -7,15 +7,14 @@ import VerifiedGarbage.Proof.Framework.Arm.RegUpd
 /-!
 # ML-DSA on 32-bit ARM: the sampling functions' SHAKE
 
-Untrusted: everything here is checked by Lean. What the sampling functions
-share (`Impl/MlDsa/Arm/Sample/Common.lean`), for any of them: a call is
-described by `Sp` (the message, its length, the working space `scratch`,
-the output polynomial and the parameter), whose regions are laid out as
-`SpOk` says of the entry state. From the prologue on, `Env` holds: `r5` is
-the output polynomial and `r6` the working space, our caller's `r4`–`r11`
-and `lr` are saved at `scratch + 2012`, and the memory has changed only in
-the output polynomial, the working space and the 8 bytes below the stack
-pointer. `sponge` then leaves `outlen` bytes of SHAKE of the message at
+What the sampling functions share (`Impl/MlDsa/Arm/Sample/Common.lean`), for
+any of them: a call is described by `Sp` (the message, its length, the working
+space `scratch`, the output polynomial and the parameter), whose regions are
+laid out as `SpOk` says of the entry state. From the prologue on, `Env` holds:
+`r5` is the output polynomial and `r6` the working space, our caller's
+`r4`–`r11` and `lr` are saved at `scratch + 2012`, and the memory has changed
+only in the output polynomial, the working space and the 8 bytes below the
+stack pointer. `sponge` then leaves `outlen` bytes of SHAKE of the message at
 `scratch + 840` (`sponge_ok`, from `J0` to `J6`), and two runs of it from
 calls that agree leak the same (`sponge_ct`).
 -/

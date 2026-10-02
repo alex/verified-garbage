@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Rc2.X86.Stream.Contract
 /-!
 # Streaming RC2-CBC on x86 (32-bit): the update functions' precondition
 
-Untrusted: everything here is checked by Lean. Names for the arguments and
-regions of an update (`Pre`), and what holds from the saving of our caller's
-registers on (`Common`): the arguments are never written, so they can be
-read at any point (`wp_arg`).
+Names for the arguments and regions of an update (`Pre`), and what holds from
+the saving of our caller's registers on (`Common`): the arguments are never
+written, so they can be read at any point (`wp_arg`).
 -/
 
 namespace VG.Proof.Rc2.X86.Stream.Update

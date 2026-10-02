@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlKem.X86.TopSeq
 /-!
 # ML-KEM on x86 (32-bit): the calls of three and four arguments, with their arguments
 
-Untrusted: everything here is checked by Lean. As `TopSeq.lean`, for
-`vg_mlkem_multiply_ntts`, `vg_mlkem_sample_ntt`, `vg_mlkem_compress_encode`
-and `vg_mlkem_decode_decompress`.
+As `TopSeq.lean`, for `vg_mlkem_multiply_ntts`, `vg_mlkem_sample_ntt`,
+`vg_mlkem_compress_encode` and `vg_mlkem_decode_decompress`.
 -/
 
 namespace VG.Proof.MlKem.X86.Top

@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Md5.StateMem
 
 /-!
 # Streaming MD5 on ARMv7: `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Md5.Arm.Stream

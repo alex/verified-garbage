@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlKem.X86.NttSetup
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_ntt`
 
-Untrusted: everything here is checked by Lean. The seven layers of
-Algorithm 9 (`ntt_eq_layers`), each a `layer_piece` (`NttLoop.lean`) of the
-butterfly `bflyBody` (`bfly_spec`), with the zetas from `zetas[1]` up.
+The seven layers of Algorithm 9 (`ntt_eq_layers`), each a `layer_piece`
+(`NttLoop.lean`) of the butterfly `bflyBody` (`bfly_spec`), with the zetas
+from `zetas[1]` up.
 -/
 
 namespace VG.Proof.MlKem.X86.NttFwd

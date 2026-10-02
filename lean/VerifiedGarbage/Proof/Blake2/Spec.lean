@@ -2,8 +2,6 @@ import VerifiedGarbage.Spec.Blake2
 
 /-!
 # Facts about the BLAKE2 specification
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Blake2

@@ -6,10 +6,9 @@ import VerifiedGarbage.Impl.Rc2.X86.Stream
 /-!
 # Streaming RC2-CBC on x86 (32-bit): copying bytes
 
-Untrusted: everything here is checked by Lean. Addresses `[x + d]` within
-the 32-bit address space, the bytes a copy leaves, and the loop copying
-`ecx` bytes from `esi + sd` to `edx + dd` (`copy_ok`), which every copy of
-`init` and the updates uses.
+Addresses `[x + d]` within the 32-bit address space, the bytes a copy leaves,
+and the loop copying `ecx` bytes from `esi + sd` to `edx + dd` (`copy_ok`),
+which every copy of `init` and the updates uses.
 -/
 
 namespace VG.Proof.Rc2.X86.Stream

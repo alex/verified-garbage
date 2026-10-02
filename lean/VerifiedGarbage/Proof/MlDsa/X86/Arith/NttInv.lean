@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86.Arith.NttSetup
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_inv_ntt`
 
-Untrusted: everything here is checked by Lean. The eight layers of
-Algorithm 42 (`nttInv_eq_layers`), each a `layer_piece` (`NttLoop.lean`) of
-the butterfly `ibflyBody` (`ibfly_spec`), with the negated zetas from
-`zetas 255` down, then every coefficient times `8347681 = 256⁻¹ mod q`
-(`scale_step`), by a Montgomery reduction of its product with `8347681` in
+The eight layers of Algorithm 42 (`nttInv_eq_layers`), each a `layer_piece`
+(`NttLoop.lean`) of the butterfly `ibflyBody` (`ibfly_spec`), with the negated
+zetas from `zetas 255` down, then every coefficient times `8347681 = 256⁻¹ mod
+q` (`scale_step`), by a Montgomery reduction of its product with `8347681` in
 Montgomery form.
 -/
 

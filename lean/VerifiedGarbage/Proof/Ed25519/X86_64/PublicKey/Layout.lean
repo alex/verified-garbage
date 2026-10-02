@@ -7,15 +7,13 @@ import VerifiedGarbage.Spec.Ed25519.Contract
 /-!
 # Ed25519 public-key derivation on x86-64: where everything is
 
-Untrusted: everything here is checked by Lean. The function's buffers
-(`out`, `seed`, `scratch`) and the 72 bytes of stack below its return
-address, from `B` up (`Lay`): the frame (56 bytes, from `B + 16`: the
-pruned scalar, then the pointers to `scratch`, `seed` and `out`) and the 16
-bytes below it that the calls use. `Ctx` is what holds between the
-frame's push and pop: the permissions, `rsp`, the callee-saved registers,
-the pointers in the frame, and that memory changed only in `out`,
-`scratch` and the stack. `call_ok` runs a call of verified code in such a
-state.
+The function's buffers (`out`, `seed`, `scratch`) and the 72 bytes of stack
+below its return address, from `B` up (`Lay`): the frame (56 bytes, from `B +
+16`: the pruned scalar, then the pointers to `scratch`, `seed` and `out`) and
+the 16 bytes below it that the calls use. `Ctx` is what holds between the
+frame's push and pop: the permissions, `rsp`, the callee-saved registers, the
+pointers in the frame, and that memory changed only in `out`, `scratch` and
+the stack. `call_ok` runs a call of verified code in such a state.
 -/
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey

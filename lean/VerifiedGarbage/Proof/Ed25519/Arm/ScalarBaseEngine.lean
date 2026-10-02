@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.PointFromScalar
 import VerifiedGarbage.Proof.Ed25519.Arm.PointEncode
 import VerifiedGarbage.Proof.Ed25519.Arm.InitFields
 
-/-! Untrusted: all input scalar bits, exact point multiplication, and canonical encoding compose. -/
+/-! All input scalar bits, exact point multiplication, and canonical encoding compose. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

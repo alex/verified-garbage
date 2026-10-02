@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Ops
 import VerifiedGarbage.Proof.Ed25519.Canonical64
 
-/-! Untrusted: full reduction of four limbs to the canonical residue. -/
+/-! Full reduction of four limbs to the canonical residue. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 open VG.Spec.X25519 (P)

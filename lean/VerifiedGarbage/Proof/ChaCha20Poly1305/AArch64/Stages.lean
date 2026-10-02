@@ -18,11 +18,10 @@ section
 /-!
 # ChaCha20-Poly1305 on AArch64: the calls
 
-Untrusted: everything here is checked by Lean. Each call of a verified
-function, from its proof of `Verified` (with `WP.call`): what it needs of the
-state it is called from, and what holds when it returns. A call stores
-nothing in memory, so the callee changes memory only within the regions it
-may write.
+Each call of a verified function, from its proof of `Verified` (with
+`WP.call`): what it needs of the state it is called from, and what holds when
+it returns. A call stores nothing in memory, so the callee changes memory only
+within the regions it may write.
 -/
 
 open VG.PowLit
@@ -223,8 +222,6 @@ end
 
 /-!
 # ChaCha20-Poly1305 on AArch64: the entry state, regions and invariant
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -253,9 +250,7 @@ def pubAArch64 (s₁ s₂ : AArch64.State) : Prop :=
   s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
+/-- `vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
 def sealAArch64 : Contract AArch64.isa where
   pre := preAArch64
   post s s' :=
@@ -266,9 +261,7 @@ def sealAArch64 : Contract AArch64.isa where
   pub := pubAArch64
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
+/-- `vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
 def openAArch64 : Contract AArch64.isa where
   pre := preAArch64
   post s s' :=
@@ -539,8 +532,8 @@ section
 /-!
 # ChaCha20-Poly1305 on AArch64: the prologue
 
-Untrusted: everything here is checked by Lean. Saving the registers, the
-ChaCha20 state for counter 0, the one-time key and the Poly1305 state for it.
+Saving the registers, the ChaCha20 state for counter 0, the one-time key and
+the Poly1305 state for it.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.AArch64
@@ -910,9 +903,8 @@ end
 /-!
 # ChaCha20-Poly1305 on AArch64: absorbing padded data
 
-Untrusted: everything here is checked by Lean. `macPad p n` absorbs the `n`
-bytes at `p` into the Poly1305 state, and zeros to a multiple of 16:
-`msg ++ x ++ pad16 x`.
+`macPad p n` absorbs the `n` bytes at `p` into the Poly1305 state, and zeros
+to a multiple of 16: `msg ++ x ++ pad16 x`.
 -/
 
 open VG.PowLit
@@ -1349,9 +1341,8 @@ end VG.Proof.ChaCha20Poly1305.AArch64
 /-!
 # ChaCha20-Poly1305 on AArch64: the other parts
 
-Untrusted: everything here is checked by Lean. The lengths block, the
-encryption, absorbing the lengths, the tag, comparing tags, and restoring the
-registers.
+The lengths block, the encryption, absorbing the lengths, the tag, comparing
+tags, and restoring the registers.
 -/
 
 open VG.PowLit

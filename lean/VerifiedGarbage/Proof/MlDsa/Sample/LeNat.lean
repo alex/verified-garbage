@@ -3,12 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.Sample.ExpandMask
 /-!
 # ML-DSA: the fields of a group of bytes, for every target
 
-Untrusted: everything here is checked by Lean. The `c`-bit fields of a byte
-string `L` (`leNat L / 2^(ic) mod 2^c`) as an implementation reads them a
-group at a time: from byte `o` on, the string is `leNat (L.drop o)`
-(`leNat_drop`); the fields in its first 8 bytes are those of the `u64` of
-them (`field_low`); and a field that straddles the 8th byte is the top bits
-of the `u64` plus the next bytes above them (`field_top1`, `field_top2`).
+The `c`-bit fields of a byte string `L` (`leNat L / 2^(ic) mod 2^c`) as an
+implementation reads them a group at a time: from byte `o` on, the string is
+`leNat (L.drop o)` (`leNat_drop`); the fields in its first 8 bytes are those
+of the `u64` of them (`field_low`); and a field that straddles the 8th byte is
+the top bits of the `u64` plus the next bytes above them
+(`leNat_take_succ`, `split_div`).
 -/
 
 namespace VG.Proof.MlDsa.Sample

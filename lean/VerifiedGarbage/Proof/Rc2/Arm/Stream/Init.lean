@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Rc2.PairMem
 
 /-! # Streaming RC2-CBC on ARMv7: `vg_rc2_cbc_init`
 
-Untrusted: everything here is checked by Lean. The checks of the lengths
-(`checks_ok`), then, if they pass, the IV copied to `ctx + 128` and `lr`
-saved (`args_ok`), the call of `vg_rc2_expand_key` (`key_call`), and `lr`
-restored with 0 returned (`tail_ok`). -/
+The checks of the lengths (`checks_ok`), then, if they pass, the IV copied to
+`ctx + 128` and `lr` saved (`args_ok`), the call of `vg_rc2_expand_key`
+(`key_call`), and `lr` restored with 0 returned (`tail_ok`). -/
 
 namespace VG.Proof.Rc2.Arm.Stream
 

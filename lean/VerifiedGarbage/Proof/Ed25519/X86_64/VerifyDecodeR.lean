@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyContext
 
-/-! Untrusted: reject an invalid R encoding or evaluate the complete equation. -/
+/-! Reject an invalid R encoding or evaluate the complete equation. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

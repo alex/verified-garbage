@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Final
 /-!
 # ML-DSA signing on x86 (32-bit): the contract
 
-Untrusted: everything here is checked by Lean. The contract's precondition
-implies the layout `Y p` of the arguments (`pre_of`); its public data are
-the pointers and `signLeak`, which is `signLeakT` (`pub_of`).
+The contract's precondition implies the layout `Y p` of the arguments
+(`pre_of`); its public data are the pointers and `signLeak`, which is
+`signLeakT` (`pub_of`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

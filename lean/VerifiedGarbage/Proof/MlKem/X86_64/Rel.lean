@@ -5,15 +5,14 @@ import VerifiedGarbage.Proof.Framework.Semantics
 /-!
 # ML-KEM on x86-64: constant time by relating two runs
 
-Untrusted: everything here is checked by Lean. The functions that call
-`vg_mlkem_sample_ntt`, or run its loop, are proven constant time piece by
-piece (`RelCT`, see `Proof/Framework/RelCT.lean`): two runs from entry
-states `σ₁`, `σ₂` that satisfy the precondition and agree on the public
-data are related, between the pieces, by the invariant `I` of the
-correctness proof holding of each (`Rel2`). Each piece leaks the same in
-both runs (by the taint analysis from registers that `I` says hold the same
-public values, `taintRel`, or by a callee's proof, `RelCT.callEx`), and
-correctness gives the next invariant (`relInv`).
+The functions that call `vg_mlkem_sample_ntt`, or run its loop, are proven
+constant time piece by piece (`RelCT`, see `Proof/Framework/RelCT.lean`): two
+runs from entry states `σ₁`, `σ₂` that satisfy the precondition and agree on
+the public data are related, between the pieces, by the invariant `I` of the
+correctness proof holding of each (`Rel2`). Each piece leaks the same in both
+runs (by the taint analysis from registers that `I` says hold the same public
+values, `taintRel`, or by a callee's proof, `RelCT.callEx`), and correctness
+gives the next invariant (`relInv`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

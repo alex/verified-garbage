@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.AccumulateStep
 
-/-! Untrusted: the descending sixteen-bit loop follows the specification exactly. -/
+/-! The descending sixteen-bit loop follows the specification exactly. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

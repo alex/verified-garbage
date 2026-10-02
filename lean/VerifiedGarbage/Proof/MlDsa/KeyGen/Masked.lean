@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Leak
 /-!
 # ML-DSA key generation: the samplers' results, and masked polynomials
 
-Untrusted: everything here is checked by Lean. Key generation ANDs the
-results of the samplers (0 or 1) together (`and01`), and ANDs each sampled
-polynomial with the negated result: a polynomial whose sampler succeeded is
-kept (`masked_one`), and one whose sampler failed is zero (`masked_zero`),
-so reduced and small (`small_zero`). The seeds of the samplers as bytes
-(`seedA_eq`, `seedS_eq`).
+Key generation ANDs the results of the samplers (0 or 1) together (`and01`),
+and ANDs each sampled polynomial with the negated result: a polynomial whose
+sampler succeeded is kept (`masked_one`), and one whose sampler failed is zero
+(`masked_zero`), so reduced and small (`small_zero`). The seeds of the
+samplers as bytes (`seedA_eq`, `seedS_eq`).
 -/
 
 namespace VG.Proof.MlDsa.KeyGen

@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.DcBase
 /-!
 # ML-KEM-768 on x86-64: `vg_mlkem768_decaps`, K-PKE.Decrypt
 
-Untrusted: everything here is checked by Lean. `NTT(u'[i])` (`u_ok`),
-`ŝ[i]` (`s_ok`), and `m' = ByteEncode₁(Compress₁(v' - NTT⁻¹(ŝ ∘ û)))` to
-`M` (`tail_ok`): `m' = K-PKE.Decrypt(dk_PKE, c)`. Between the steps,
-`DR nu ns`: the first `nu` of `û` and `ns` of `ŝ` are done. Each with its
-constant time.
+`NTT(u'[i])` (`u_ok`), `ŝ[i]` (`s_ok`), and `m' = ByteEncode₁(Compress₁(v' -
+NTT⁻¹(ŝ ∘ û)))` to `M` (`tail_ok`): `m' = K-PKE.Decrypt(dk_PKE, c)`. Between
+the steps, `DR nu ns`: the first `nu` of `û` and `ns` of `ŝ` are done. Each
+with its constant time.
 -/
 
 namespace VG.Proof.MlKem.X86_64

@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.VLay
 /-!
 # ML-DSA on x86-64: the layers of the NTT and its inverse with `len` = 2 and 1
 
-Untrusted: everything here is checked by Lean. The layer with `len = 2` runs
-two blocks at a time (`vstep2`): the lower halves of their coefficients
-gathered into `xmm0` and the upper ones into `xmm1` by `punpcklqdq` and
-`punpckhqdq`, and back. The layer with `len = 1` runs four blocks at a time
-(`vstep1`): their coefficients gathered by `pshufd` and `punpck{l,h}qdq`,
-and interleaved back by `punpck{l,h}dq`.
+The layer with `len = 2` runs two blocks at a time (`vstep2`): the lower
+halves of their coefficients gathered into `xmm0` and the upper ones into
+`xmm1` by `punpcklqdq` and `punpckhqdq`, and back. The layer with `len = 1`
+runs four blocks at a time (`vstep1`): their coefficients gathered by `pshufd`
+and `punpck{l,h}qdq`, and interleaved back by `punpck{l,h}dq`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

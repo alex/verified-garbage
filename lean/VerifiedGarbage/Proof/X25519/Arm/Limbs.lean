@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.X25519.Field
 /-!
 # X25519 on 32-bit ARM: numbers of 16-bit limbs
 
-Untrusted: everything here is checked by Lean. The arithmetic of
-`Impl/X25519/Arm.lean` on natural numbers: a number of limbs (`val16`), the
-limbs of a number carried from sums (`chain`, `out`), a row of a product
-(Knuth's algorithm M), the fold of a product's top half (`2²⁵⁶ ≡ 38`), the
-carry out folded in again (`tail`), `4p` as limbs, and the final reduction.
+The arithmetic of `Impl/X25519/Arm.lean` on natural numbers: a number of limbs
+(`val16`), the limbs of a number carried from sums (`chain`, `out`), a row of
+a product (Knuth's algorithm M), the fold of a product's top half (`2²⁵⁶ ≡
+38`), the carry out folded in again (`tail`), `4p` as limbs, and the final
+reduction.
 -/
 
 namespace VG.Proof.X25519.Arm

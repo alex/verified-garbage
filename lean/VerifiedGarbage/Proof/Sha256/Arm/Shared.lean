@@ -8,10 +8,10 @@ import VerifiedGarbage.Spec.Sha256.Contract
 /-!
 # Sha256 on Arm: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha256/Arm/Contract.lean`); these theorems move
-them to the shared contracts of `Spec/Sha256/Contract.lean`, which the
-artifacts are emitted with.
+The proofs are written against per-target contracts
+(`Proof/Sha256/Arm/Contract.lean`); these theorems move them to the shared
+contracts of `Spec/Sha256/Contract.lean`, which the artifacts are emitted
+with.
 
 The shared contracts give the functions more scratch than these ones use (560
 bytes for `compress`, 608 for `update` and `finalize`, sized for the x86-64

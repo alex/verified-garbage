@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.Pbkdf2.X86.Common
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on x86 (32-bit): the loop
 
-Untrusted: everything here is checked by Lean. One step is HMAC-SHA-256 of
-`U` as two compressions (`VG.Proof.Pbkdf2.hmac_step`), then `T ← T ⊕ U`.
+One step is HMAC-SHA-256 of `U` as two compressions
+(`VG.Proof.Pbkdf2.hmac_step`), then `T ← T ⊕ U`.
 -/
 
 namespace VG.Proof.Pbkdf2.X86

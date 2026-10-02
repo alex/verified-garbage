@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem1024.X86.EncY
 /-!
 # ML-KEM-1024 on x86 (32-bit): `u` in K-PKE.Encrypt
 
-Untrusted: everything here is checked by Lean. Row `i` (`enc4Row i`): each
-entry `Â[j, i]` is sampled from `ρ ‖ i ‖ j`, masked by the value
-`vg_mlkem_sample_ntt` returned, which is ANDed into `e4ACC` (`sample_piece`),
-and multiplied by `ŷ[j]` into `u[i]` (`entry0_piece`, `entry_piece`); then
-`NTT⁻¹`, `e₁[i]` added, and `u[i]` compressed into the ciphertext
-(`row_piece`).
+Row `i` (`enc4Row i`): each entry `Â[j, i]` is sampled from `ρ ‖ i ‖ j`,
+masked by the value `vg_mlkem_sample_ntt` returned, which is ANDed into
+`e4ACC` (`sample_piece`), and multiplied by `ŷ[j]` into `u[i]`
+(`entry0_piece`, `entry_piece`); then `NTT⁻¹`, `e₁[i]` added, and `u[i]`
+compressed into the ciphertext (`row_piece`).
 
 `B k e` is what holds after `k` entries and `e` rows: `e4ACC` is 0 or 1; if 1,
 the first `k` samples succeeded, and the first `e` rows of the ciphertext

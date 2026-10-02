@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlDsa.Round.Ones
 /-!
 # ML-DSA on AArch64: `vg_mldsa_make_hint`
 
-Untrusted: everything here is checked by Lean. The hint is whether `r₁` of
-`r` and of `r + z mod q` differ: their xor, less than 64, is nonzero
-(`hbit_toNat`); `x8` counts the 1s (`J`, `onesTo`).
+The hint is whether `r₁` of `r` and of `r + z mod q` differ: their xor, less
+than 64, is nonzero (`hbit_toNat`); `x8` counts the 1s (`J`, `onesTo`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Round

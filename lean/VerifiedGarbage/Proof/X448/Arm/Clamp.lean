@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.Arm.BitWrite
 /-!
 # X448 on ARMv7: clamping the scalar bits
 
-Untrusted: everything here is checked by Lean. Clear bits zero and one,
-and set bit 447, as RFC 7748 requires.
+Clear bits zero and one, and set bit 447, as RFC 7748 requires.
 -/
 
 namespace VG.Proof.X448.Arm

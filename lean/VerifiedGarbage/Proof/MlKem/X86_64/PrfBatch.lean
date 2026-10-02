@@ -7,13 +7,12 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Rel
 /-!
 # ML-KEM on x86-64: four instances of `PRF₂` at once
 
-Untrusted: everything here is checked by Lean. `Prf4.batch N₀ m o wl`
-(`Impl/MlKem/X86_64/Frag.lean`) writes `PRF₂(σ, N₀ + k)` to
-`scratch + o + 128 k` for each `k < m`, with `σ` at `scratch + 1056` and
-`scratch` in `rbx` (`batch_ok`). The input `σ ‖ N` is one block, whose
-padded state (`P0`) the code writes into each of the four states, byte by
-byte as `vg_mlkem_sample_ntt4_avx2` does (`S4Absorb.lean`); the permutation
-is `permute4` (`permute4_ok`), and the output the first 128 bytes of each
+`Prf4.batch N₀ m o wl` (`Impl/MlKem/X86_64/Frag.lean`) writes `PRF₂(σ, N₀ +
+k)` to `scratch + o + 128 k` for each `k < m`, with `σ` at `scratch + 1056`
+and `scratch` in `rbx` (`batch_ok`). The input `σ ‖ N` is one block, whose
+padded state (`P0`) the code writes into each of the four states, byte by byte
+as `vg_mlkem_sample_ntt4_avx2` does (`S4Absorb.lean`); the permutation is
+`permute4` (`permute4_ok`), and the output the first 128 bytes of each
 permuted state (`prf_byte`).
 -/
 

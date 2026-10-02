@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.BatchCounter
 
-/-! Untrusted: the saved batch counter survives the table and bit operations. -/
+/-! The saved batch counter survives the table and bit operations. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

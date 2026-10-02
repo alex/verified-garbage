@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Same
 /-!
 # ML-DSA signing on x86-64: verified
 
-Untrusted: everything here is checked by Lean. `vg_mldsa{44,65,87}_sign`
-(`sign (primsWith v.code) p`, for an implementation `v` of the polynomial
-arithmetic) is verified against `signContractT`: `signContract` with
-`signLeakT` (`Proof/MlDsa/Sign/Leak.lean`) for `signLeak`, which tags what
-each iteration of the loop leaks after its `c̃` with whether it was
-rejected. The contract's `signLeak` tags the iterations the same way
+`vg_mldsa{44,65,87}_sign` (`sign (primsWith v.code) p`, for an implementation
+`v` of the polynomial arithmetic) is verified against `signContractT`:
+`signContract` with `signLeakT` (`Proof/MlDsa/Sign/Leak.lean`) for `signLeak`,
+which tags what each iteration of the loop leaks after its `c̃` with whether
+it was rejected. The contract's `signLeak` tags the iterations the same way
 (`signLeakT_eq_signLeak`), so `signContractT` is `signContract`
 (`signContractT_eq`), against which `sign*_verified'` state it.
 -/

@@ -8,9 +8,9 @@ import VerifiedGarbage.Proof.Gcm.Spec
 /-!
 # AES counter mode with the Armv8 Cryptographic Extension
 
-Untrusted: everything here is checked by Lean. `ctr32_verified` proves
-`Impl.Aes.AArch64.Aese.ctr32` against `Proof.Aes.ctr32AArch64` (the contract
-`vg_aes_ctr32` is proven against), and so against the shared contract.
+`ctr32_verified` proves `Impl.Aes.AArch64.Aese.ctr32` against
+`Proof.Aes.ctr32AArch64` (the contract `vg_aes_ctr32` is proven against), and
+so against the shared contract.
 
 `ctrs_ok`: `ctrs regs i` puts the counter blocks `inc₃₂^(c+i)(CB)`, … into
 the registers `regs`; `xorData_ok`: `xorData regs j` XORs them, encrypted,

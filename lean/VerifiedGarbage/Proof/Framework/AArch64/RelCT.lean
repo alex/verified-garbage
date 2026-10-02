@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.AArch64.Call
 /-!
 # Constant time of calls, by relating two runs (AArch64)
 
-Untrusted: everything here is checked by Lean.
-
 As on x86-64 (`Proof/Framework/X86_64/RelCT.lean`): a call of verified code
 leaks the same trace in two runs when the callee's contract holds in both
 (narrowed to the regions it is given, as `WP.call` does) and its public data

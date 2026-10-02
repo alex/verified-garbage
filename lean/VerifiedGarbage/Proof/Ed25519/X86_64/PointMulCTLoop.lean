@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulCTBatch
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulLoop
 
-/-! Untrusted: both executions descend through the same public checkpoint count. -/
+/-! Both executions descend through the same public checkpoint count. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

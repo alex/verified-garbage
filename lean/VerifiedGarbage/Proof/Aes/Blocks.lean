@@ -5,8 +5,6 @@ import Mathlib.Data.List.Induction
 /-!
 # Blocks as bytes, and the counter blocks of `inc₃₂`
 
-Untrusted: everything here is checked by Lean.
-
 `toBytes (ofBytes bs) = bs` for 16 bytes, the bytes of a XOR of blocks, and
 the bytes of `inc₃₂ⁱ(x)`: the first twelve are those of `x`, and the last
 four the big-endian `x mod 2³² + i`.

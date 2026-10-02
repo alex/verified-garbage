@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.PointSelect
 /-!
 # The comb's signed digits
 
-Untrusted. `combSign` turns the nibble `n` into the digit `n - 8`'s
-magnitude, in `rax`, and the mask of its sign, at byte `combSignMask`;
-`combNeg` negates the selected cached point in slots 4–7 under that mask.
+`combSign` turns the nibble `n` into the digit `n - 8`'s magnitude, in `rax`,
+and the mask of its sign, at byte `combSignMask`; `combNeg` negates the
+selected cached point in slots 4–7 under that mask.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

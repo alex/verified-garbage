@@ -5,9 +5,8 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # Poly1305: the streaming state, for every target
 
-Untrusted: everything here is checked by Lean. Counters, bytes written to
-memory, and a message with its last bytes buffered (`Buffered`) as its whole
-blocks and the rest.
+Counters, bytes written to memory, and a message with its last bytes buffered
+(`Buffered`) as its whole blocks and the rest.
 -/
 
 open VG.PowLit

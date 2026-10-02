@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlDsa.Pack.Arith
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_bit_pack`
 
-Untrusted: everything here is checked by Lean. The value of a coefficient
-`x` is `b - x`, plus `q` if that is negative (`bm`, as `bMinus` computes it),
-which is `b - (x mod± q)` for a reduced `x` (`Pack/Arith.lean`). The loop is
-proven once for every width (`packLoop_ok`), and the function by its five
-cases, in its frame, which saves `r4` in the 4 bytes below the stack pointer.
-Constant time: the frame leaks only addresses computed from the stack
-pointer, and the taint analysis proves its body constant time
-(`RelCT.frame`).
+The value of a coefficient `x` is `b - x`, plus `q` if that is negative (`bm`,
+as `bMinus` computes it), which is `b - (x mod± q)` for a reduced `x`
+(`Pack/Arith.lean`). The loop is proven once for every width (`packLoop_ok`),
+and the function by its five cases, in its frame, which saves `r4` in the 4
+bytes below the stack pointer. Constant time: the frame leaks only addresses
+computed from the stack pointer, and the taint analysis proves its body
+constant time (`RelCT.frame`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Pack

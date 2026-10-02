@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.FieldMemory
 import VerifiedGarbage.Proof.Ed25519.X86_64.FieldWide
 import VerifiedGarbage.Proof.Ed25519.ScalarMul
 
-/-! Untrusted: exact extended-coordinate operations and the slots they preserve. -/
+/-! Exact extended-coordinate operations and the slots they preserve. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.Arm.RowMem
 /-!
 # X448 on ARMv7: one row of multiplication
 
-Untrusted: everything here is checked by Lean. The carries keep each
-multiply-add within a 32-bit word.
+The carries keep each multiply-add within a 32-bit word.
 -/
 
 namespace VG.Proof.X448.Arm

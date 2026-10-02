@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlDsa.Verify.Final
 /-!
 # ML-DSA verification on 32-bit ARM: `vg_mldsa44_verify`, `vg_mldsa65_verify`, `vg_mldsa87_verify`
 
-Untrusted: everything here is checked by Lean. After the samplers, the NTTs,
-the rows, the hash and the comparison (`compute_piece`); what `r11` then
-says of `verifyMu` (`ke_out`); and the whole body, piece by piece, for any
-parameter set of Table 1 and any verified implementations of the
-primitives (`body_piece`): a malformed hint gives 0 at once, a `z` too
-large 0 after the norms, and otherwise `r11` is the samplers' result and
-the comparison of `c̃`.
+After the samplers, the NTTs, the rows, the hash and the comparison
+(`compute_piece`); what `r11` then says of `verifyMu` (`ke_out`); and the
+whole body, piece by piece, for any parameter set of Table 1 and any verified
+implementations of the primitives (`body_piece`): a malformed hint gives 0 at
+once, a `z` too large 0 after the norms, and otherwise `r11` is the samplers'
+result and the comparison of `c̃`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

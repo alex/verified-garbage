@@ -5,15 +5,14 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Masked
 /-!
 # ML-DSA key generation: the result of the samplers, for every target
 
-Untrusted: everything here is checked by Lean. Key generation samples every
-entry of `Â` and of `s₁ ‖ s₂`, and ANDs the results of the samplers
-(`RejNTTPoly`, `RejBoundedPoly`, which may stop at their bounds) without
-branching on them. `Good` says what the AND is after the first `e` entries
-of `Â` and `r` of `s₁ ‖ s₂`: 1, with the entries those of the standard for
-some bounds, or 0 if key generation fails within the least bounds. Each
-sampler's outcome, ANDed in, keeps it (`good_A`, `good_S`), with the entry
-stored masked by the result (`masked_one`, `masked_zero`); and at the end it
-is the outcome of key generation (`outcome_keyGen`).
+Key generation samples every entry of `Â` and of `s₁ ‖ s₂`, and ANDs the
+results of the samplers (`RejNTTPoly`, `RejBoundedPoly`, which may stop at
+their bounds) without branching on them. `Good` says what the AND is after the
+first `e` entries of `Â` and `r` of `s₁ ‖ s₂`: 1, with the entries those of
+the standard for some bounds, or 0 if key generation fails within the least
+bounds. Each sampler's outcome, ANDed in, keeps it (`good_A`, `good_S`), with
+the entry stored masked by the result (`masked_one`, `masked_zero`); and at
+the end it is the outcome of key generation (`outcome_keyGen`).
 -/
 
 namespace VG.Proof.MlDsa.KeyGen

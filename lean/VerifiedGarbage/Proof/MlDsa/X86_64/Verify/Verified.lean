@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CTCompute
 /-!
 # ML-DSA verification on x86-64: `vg_mldsa44_verify`, `vg_mldsa65_verify`, `vg_mldsa87_verify`
 
-Untrusted: everything here is checked by Lean. For primitives `P` that meet
-their contracts (`PrimsOk`), `verify P p` meets `verifyContract p`
-(`verify_verified`): it is correct (`verify_correct`) and leaks only its
-inputs, which the contract makes public (`verify_ct`).
+For primitives `P` that meet their contracts (`PrimsOk`), `verify P p` meets
+`verifyContract p` (`verify_verified`): it is correct (`verify_correct`) and
+leaks only its inputs, which the contract makes public (`verify_ct`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

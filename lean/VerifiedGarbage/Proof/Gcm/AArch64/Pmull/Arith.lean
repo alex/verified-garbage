@@ -7,9 +7,9 @@ import Mathlib.Tactic.Ring.RingNF
 /-!
 # GHASH with PMULL: the arithmetic
 
-Untrusted: everything here is checked by Lean. What the instructions of
-`Impl.Gcm.AArch64.Pmull` compute, in the ring `Q` of `Proof/Gcm/Poly.lean`
-(as `Proof/Gcm/X86_64/Pclmul/Ghash.lean` does for PCLMULQDQ):
+What the instructions of `Impl.Gcm.AArch64.Pmull` compute, in the ring `Q` of
+`Proof/Gcm/Poly.lean` (as `Proof/Gcm/X86_64/Pclmul/Ghash.lean` does for
+PCLMULQDQ):
 
 * `pmull` multiplies polynomials (`φ_polyMul`), so the four of `acc`
   compute `x · a · t` as a 256-bit value (`Prod.val_acc`), where `a` is a

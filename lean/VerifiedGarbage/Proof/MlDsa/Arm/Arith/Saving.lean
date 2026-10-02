@@ -5,15 +5,14 @@ import VerifiedGarbage.Impl.MlDsa.Arm.Arith.Common
 /-!
 # ML-DSA on 32-bit ARM: registers saved in frames
 
-Untrusted: everything here is checked by Lean. `saving rs body` pushes each
-register of `rs` in a frame of its own, runs `body`, and restores each with
-the pop of its frame. If `body` writes memory only in regions `W` that do
-not overlap the `4 · |rs|` bytes below the stack pointer, the frames hold
-the registers until they are popped (`wp_saving`): the registers `rs` are
-restored, the others are what `body` left, and so are memory and `rd`,
-while `sp` and `wr` are back as on entry. `body` runs from a state with the
-same registers and `rd`, more writable regions (the frames, at the head of
-`wr`), and memory changed only below the stack pointer (`Entry`).
+`saving rs body` pushes each register of `rs` in a frame of its own, runs
+`body`, and restores each with the pop of its frame. If `body` writes memory
+only in regions `W` that do not overlap the `4 · |rs|` bytes below the stack
+pointer, the frames hold the registers until they are popped (`wp_saving`):
+the registers `rs` are restored, the others are what `body` left, and so are
+memory and `rd`, while `sp` and `wr` are back as on entry. `body` runs from a
+state with the same registers and `rd`, more writable regions (the frames, at
+the head of `wr`), and memory changed only below the stack pointer (`Entry`).
 
 `ct_saving`: the push and pop of a frame leak only addresses computed from
 the stack pointer, so `saving rs body` is constant time if `body` is, by the

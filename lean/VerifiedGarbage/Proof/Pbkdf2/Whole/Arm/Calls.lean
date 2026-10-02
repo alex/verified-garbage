@@ -7,18 +7,17 @@ import VerifiedGarbage.Proof.Framework.Arm.CallF
 /-!
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: the calls of HMAC's functions and of `iterate`
 
-Untrusted: everything here is checked by Lean. As on x86
-(`Proof/Pbkdf2/Whole/X86/Calls.lean`): `pbkdf2` calls HMAC's `init` and
-`finalize` and PBKDF2's `iterate`, each verified against its shared contract
-with 16 bytes of stack; what a caller uses of such a proof is `Sound`. Each
-call is in a frame of two words, its stack arguments (`frame2_ok`, with
-`WP.callF`, as the callees have frames of their own): `hi_frame`, `hf_frame`
-and `it_frame` run one, from the state before its push, given the registers
-(`HiArgs`, `HfArgs`, `ItArgs`), which give the callee's precondition
-(evaluated with `sig_pre`); `hi_rel`, `hf_rel` and `it_rel` relate two runs
-of one. Such a call writes only the 24 bytes below the stack pointer (`stk`),
-which `After` lets change; so does a call of a streaming function, in its
-frame of 16 bytes (`After.of_hmac`).
+As on x86 (`Proof/Pbkdf2/Whole/X86/Calls.lean`): `pbkdf2` calls HMAC's `init`
+and `finalize` and PBKDF2's `iterate`, each verified against its shared
+contract with 16 bytes of stack; what a caller uses of such a proof is
+`Sound`. Each call is in a frame of two words, its stack arguments
+(`frame2_ok`, with `WP.callF`, as the callees have frames of their own):
+`hi_frame`, `hf_frame` and `it_frame` run one, from the state before its push,
+given the registers (`HiArgs`, `HfArgs`, `ItArgs`), which give the callee's
+precondition (evaluated with `sig_pre`); `hi_rel`, `hf_rel` and `it_rel`
+relate two runs of one. Such a call writes only the 24 bytes below the stack
+pointer (`stk`), which `After` lets change; so does a call of a streaming
+function, in its frame of 16 bytes (`After.of_hmac`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.Arm

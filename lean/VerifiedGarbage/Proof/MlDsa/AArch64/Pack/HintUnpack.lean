@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Pack.HintUnpackPoly
 /-!
 # ML-DSA on AArch64: `vg_mldsa_hint_bit_unpack`
 
-Untrusted: everything here is checked by Lean. The polynomials
-(`HintUnpackPoly.lean`), then the bytes from the index up to `ω`, which
-must be zero, and the return value: 1 if no check failed (the index is at
-most `ω`), 0 otherwise.
+The polynomials (`HintUnpackPoly.lean`), then the bytes from the index up to
+`ω`, which must be zero, and the return value: 1 if no check failed (the index
+is at most `ω`), 0 otherwise.
 
 Constant time but for its input: once `h` is zeroed, the two runs agree on
 all the memory the function may access (the input `y`, which the contract

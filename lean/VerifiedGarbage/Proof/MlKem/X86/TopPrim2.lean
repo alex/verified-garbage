@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.MlKem.X86.Decode12
 /-!
 # ML-KEM on x86 (32-bit): calls of the primitives of two arguments
 
-Untrusted: everything here is checked by Lean. As `TopPrim.lean`, for
-`vg_mlkem_add` and `vg_mlkem_sub` (`acc_call`), `vg_mlkem_cbd2`,
-`vg_mlkem_encode12` and `vg_mlkem_decode12`, with their first argument in
-`eax` and their second in `ecx`.
+As `TopPrim.lean`, for `vg_mlkem_add` and `vg_mlkem_sub` (`acc_call`),
+`vg_mlkem_cbd2`, `vg_mlkem_encode12` and `vg_mlkem_decode12`, with their first
+argument in `eax` and their second in `ecx`.
 -/
 
 namespace VG.Proof.MlKem.X86.Top

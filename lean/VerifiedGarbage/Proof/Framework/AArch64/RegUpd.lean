@@ -3,8 +3,6 @@ import VerifiedGarbage.TCB.AArch64.Isa
 /-!
 # AArch64: reading a state after a write, for symbolic execution
 
-Untrusted: everything here is checked by Lean.
-
 The registers of a state after a write, read one write at a time, with
 `State.write` kept folded, as in `VG.X86_64.RegUpd` (which explains why):
 `gpr_write` for registers that are literals, `gpr_write_self` and

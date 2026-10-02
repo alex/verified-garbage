@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.X448.Arm.Carry
 
 /-!
 # X448 on ARMv7: modular reduction
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X448.Arm

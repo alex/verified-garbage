@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.Arith.Zq
 /-!
 # ML-DSA: products modulo `q` with 32-bit multiplications, for every target
 
-Untrusted: everything here is checked by Lean. A target whose only
-multiplication keeps the low 32 bits of the product (32-bit ARM, see
-`TCB/Arm/Isa.lean`) cannot form the product of two reduced values, which
-has up to 46 bits. It multiplies `b < q` by `z < 2²³` by Horner's rule on
-the pieces `z₂ = ⌊z / 2¹⁴⌋ < 2⁹`, `z₁ = ⌊z / 2⁷⌋ mod 2⁷` and `z₀ = z mod 2⁷`
-of `z`, reducing after each step with `red23`, `x - ⌊x / 2²³⌋ · q`, which
-is congruent to `x` and, for `x < 2³²`, at most `2²³ - 1 + 511 · 8191`
-(`red23_le`) as `2²³ - q = 8191`:
+A target whose only multiplication keeps the low 32 bits of the product
+(32-bit ARM, see `TCB/Arm/Isa.lean`) cannot form the product of two reduced
+values, which has up to 46 bits. It multiplies `b < q` by `z < 2²³` by
+Horner's rule on the pieces `z₂ = ⌊z / 2¹⁴⌋ < 2⁹`, `z₁ = ⌊z / 2⁷⌋ mod 2⁷` and
+`z₀ = z mod 2⁷` of `z`, reducing after each step with `red23`, `x - ⌊x / 2²³⌋
+· q`, which is congruent to `x` and, for `x < 2³²`, at most `2²³ - 1 + 511 ·
+8191` (`red23_le`) as `2²³ - q = 8191`:
 
 `mulzN b z = red23 (b z₀ + 2⁷ · red23 (b z₁ + 2⁷ · red23 (b z₂)))`
 

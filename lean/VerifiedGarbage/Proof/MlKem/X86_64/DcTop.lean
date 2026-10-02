@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.DcDec
 /-!
 # ML-KEM-768 on x86-64: `vg_mlkem768_decaps`
 
-Untrusted: everything here is checked by Lean. After K-PKE.Decrypt
-(`DcDec.lean`): `G(m' ‖ h)` and `J(z ‖ c)` (`hashes_ok`), K-PKE.Encrypt in
-the context `dcX` (which keeps `K'` and `K̄`), and the choice of the key
-(`sel_ok`). The function returns 1 with `ML-KEM.Decaps_internal(dk, c)` in
-`key` if every `SampleNTT` succeeded within 280 iterations (`allOk`), and 0
-otherwise (`decaps_correct`); it leaks only the pointers and `ρ`
+After K-PKE.Decrypt (`DcDec.lean`): `G(m' ‖ h)` and `J(z ‖ c)` (`hashes_ok`),
+K-PKE.Encrypt in the context `dcX` (which keeps `K'` and `K̄`), and the choice
+of the key (`sel_ok`). The function returns 1 with `ML-KEM.Decaps_internal(dk,
+c)` in `key` if every `SampleNTT` succeeded within 280 iterations (`allOk`),
+and 0 otherwise (`decaps_correct`); it leaks only the pointers and `ρ`
 (`decaps_ct`); so it meets the shared contract (`decaps_verified`).
 -/
 

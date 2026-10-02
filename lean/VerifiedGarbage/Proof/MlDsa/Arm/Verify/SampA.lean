@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Verify.Z
 /-!
 # ML-DSA verification on 32-bit ARM: the entries of `Â`
 
-Untrusted: everything here is checked by Lean. Once the hint is well formed
-and `z` small (`VB`): `ρ` to the seed, and each entry `Â[r, s]`,
-`RejNTTPoly(ρ ‖ s ‖ r)`, masked by its result (`aOne_piece`): after the
-entries before `(r, c)` in row order (`VS`), each is reduced, and `r11` is
-1 if every sampler succeeded, with the entries those of the standard for
-some bound, and 0 if one of them fails within the least bound.
+Once the hint is well formed and `z` small (`VB`): `ρ` to the seed, and each
+entry `Â[r, s]`, `RejNTTPoly(ρ ‖ s ‖ r)`, masked by its result (`aOne_piece`):
+after the entries before `(r, c)` in row order (`VS`), each is reduced, and
+`r11` is 1 if every sampler succeeded, with the entries those of the standard
+for some bound, and 0 if one of them fails within the least bound.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

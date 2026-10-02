@@ -4,7 +4,7 @@ import Lean.Elab.Tactic.Location
 /-!
 # Evaluating a contract's signature by unfolding
 
-Untrusted: the result is checked by the kernel, as a definitional unfolding.
+The result is checked by the kernel, as a definitional unfolding.
 
 `sig_eval` (`Proof/Framework/Sig.lean`) first evaluates the data of a
 contract built with `Sig.contract`: the argument words of the signature, the

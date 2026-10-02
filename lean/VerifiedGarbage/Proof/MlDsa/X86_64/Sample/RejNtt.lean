@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNttLoop
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_ntt_poly`, correctness
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `G(ρ, 1008)` (`J6`), and
-the loop, iteration `t` of which starts from `LAt σ t` with the coefficients
-`rnFold` samples from the first `3t` bytes of output stored.
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`G(ρ, 1008)` (`J6`), and the loop, iteration `t` of which starts from `LAt σ
+t` with the coefficients `rnFold` samples from the first `3t` bytes of output
+stored.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

@@ -2,8 +2,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`).
 pub const USES: &[&str] = &["aes_gcm", "aes", "gcm"];
 
 /// One-shot AES-GCM encryption and decryption (setup included), and

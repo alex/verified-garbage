@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.X86.Round.Bits
 /-!
 # ML-DSA on x86 (32-bit): what `makeHint` and `useHint` compute per coefficient
 
-Untrusted: everything here is checked by Lean. The cores of the two loops
-(`Core2`), from the coefficients `a = [esi]` and `b = [edi]`:
+The cores of the two loops (`Core2`), from the coefficients `a = [esi]` and `b =
+[edi]`:
 
 * `mhCore g`: `MakeHint(a, b)` as 0 or 1 (`mhV`): whether the `r₁` of `b`
   and of `b + a mod q` differ, from their xor `x < 64` as `(x + 63) >> 6`;

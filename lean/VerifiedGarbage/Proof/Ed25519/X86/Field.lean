@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.X86.FieldMemory
 import Mathlib.Data.ZMod.Defs
 import Mathlib.Tactic.Ring
 
-/-! Untrusted: field programs and exact Edwards-coordinate formulas. -/
+/-! Field programs and exact Edwards-coordinate formulas. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.X25519.X86 VG.Impl.Ed25519.X86
 open Fin.CommRing

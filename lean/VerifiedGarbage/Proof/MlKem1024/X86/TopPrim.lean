@@ -6,8 +6,7 @@ import VerifiedGarbage.Impl.MlKem1024.X86.Top
 /-!
 # ML-KEM-1024 on x86 (32-bit): calls of `vg_mlkem1024_compress_encode` and `vg_mlkem1024_decode_decompress`
 
-Untrusted: everything here is checked by Lean. As the calls of
-`vg_mlkem_compress_encode` and `vg_mlkem_decode_decompress`
+As the calls of `vg_mlkem_compress_encode` and `vg_mlkem_decode_decompress`
 (`Proof/MlKem/X86/TopPrim3.lean` and `TopSeq2.lean`), for the functions of
 ML-KEM-1024 (`ce1024_call`, `dd1024_call`), with their arguments
 (`ceC1024_piece`, `ddC1024_piece`).

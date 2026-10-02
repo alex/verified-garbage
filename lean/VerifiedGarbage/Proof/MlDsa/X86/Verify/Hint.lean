@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Verify.Local
 /-!
 # ML-DSA verification on x86 (32-bit): the hint and `z`
 
-Untrusted: everything here is checked by Lean. The pieces of the signature
-and of the public key are the bytes of their arguments (`sig_slice`,
-`pk_slice`), which no piece writes. `HintBitUnpack` gives the result: 1 with
-the hint stored (`HOk`), or 0 if it is malformed (`hint_piece`); then each
-`z[i]` is unpacked and the result ANDed with `‖z[i]‖∞ < γ₁ - β`
-(`zOne_piece`, `ZI`).
+The pieces of the signature and of the public key are the bytes of their
+arguments (`sig_slice`, `pk_slice`), which no piece writes. `HintBitUnpack`
+gives the result: 1 with the hint stored (`HOk`), or 0 if it is malformed
+(`hint_piece`); then each `z[i]` is unpacked and the result ANDed with
+`‖z[i]‖∞ < γ₁ - β` (`zOne_piece`, `ZI`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

@@ -8,8 +8,8 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function on x86 (32-bit): `init`, correct
 
-Untrusted: everything here is checked by Lean. The byte loops, our caller's
-registers, then `init` (one module, as nothing else imports the first two).
+The byte loops, our caller's registers, then `init` (one module, as nothing
+else imports the first two).
 -/
 
 /-!

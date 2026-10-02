@@ -8,11 +8,10 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_ntt`
 
-Untrusted: everything here is checked by Lean. The table stored and `q`
-loaded (`pro_ok`); each layer is `nttLayer` (`lay_ok` with `bfly_spec`),
-and the eight layers are `NTT` (`ntt_eq_layers`), all in the frames that
-save `r4`–`r10` (`wp_saving`). `LI`, `pro_ok`, `PreE` and `pre_entry` serve
-`NTT⁻¹` too.
+The table stored and `q` loaded (`pro_ok`); each layer is `nttLayer` (`lay_ok`
+with `bfly_spec`), and the eight layers are `NTT` (`ntt_eq_layers`), all in
+the frames that save `r4`–`r10` (`wp_saving`). `LI`, `pro_ok`, `PreE` and
+`pre_entry` serve `NTT⁻¹` too.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Arith.Ntt

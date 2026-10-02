@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Verify.Hint
 /-!
 # ML-DSA verification on 32-bit ARM: `z`
 
-Untrusted: everything here is checked by Lean. Once the hint is well formed:
-each `z[i]`, unpacked from the signature to polynomial `8 + i`, and its norm
-checked, with `r11` 1 exactly when every `‖z[i]‖∞` so far is less than
-`γ₁ - β` (`V2`, `zOne_piece`).
+Once the hint is well formed: each `z[i]`, unpacked from the signature to
+polynomial `8 + i`, and its norm checked, with `r11` 1 exactly when every
+`‖z[i]‖∞` so far is less than `γ₁ - β` (`V2`, `zOne_piece`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

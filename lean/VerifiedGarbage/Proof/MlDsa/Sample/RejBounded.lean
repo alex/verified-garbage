@@ -4,17 +4,16 @@ import VerifiedGarbage.Proof.MlDsa.Sample.Mem
 /-!
 # ML-DSA: `RejBoundedPoly` a byte at a time
 
-Untrusted: everything here is checked by Lean. An implementation that runs
-the loop of `RejBoundedPoly` (Algorithm 31) over a fixed number of bytes of
-XOF output, doing nothing once it has 256 coefficients, samples
-`rbFold η [] out` (`rbStep` is one iteration, `hbTry` a half-byte), as
-elements of `ℤ_q`. It computes `RejBoundedPoly` if that has 256
+An implementation that runs the loop of `RejBoundedPoly` (Algorithm 31) over a
+fixed number of bytes of XOF output, doing nothing once it has 256
+coefficients, samples `rbFold η [] out` (`rbStep` is one iteration, `hbTry` a
+half-byte), as elements of `ℤ_q`. It computes `RejBoundedPoly` if that has 256
 coefficients (`rejBounded_some`), and otherwise so does no shorter output
 (`rejBounded_none`).
 
 How many coefficients it has sampled depends only on which half-bytes it
 accepted (`rbFold_length_congr`), which is what the contract lets it leak
-(`rejBoundedLeak`, `leak_getD`).
+(`rejBoundedLeak`, `leak_hbOks`).
 -/
 
 namespace VG.Proof.MlDsa.Sample
