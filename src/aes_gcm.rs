@@ -1,22 +1,24 @@
 //! AES-GCM (NIST SP 800-38D) with 128-, 192- and 256-bit AES keys.
 //!
-//! The block cipher and GHASH are the verified assembly primitives for the
-//! target architecture: `vg_aes_expand_key` (contract
-//! `VG.Spec.Aes.expandKeyContract`), `vg_aes_ctr32` (counter mode with
-//! `inc32` over whole blocks, `VG.Spec.Gcm.ctr32Contract`) and `vg_ghash`
-//! (GHASH over whole blocks, `VG.Spec.Gcm.ghashContract`). This module does
-//! the rest of GCM-AE and GCM-AD (§7): the pre-counter block `J0`, the final
-//! partial block, the zero padding and length block that GHASH absorbs, the
-//! tag, and the length limits of §5.2.1.1. Decryption checks the tag, in
-//! constant time, before it decrypts anything.
+//! The whole AEAD is verified assembly: `vg_aes_gcm_init` (contract
+//! `VG.Spec.Gcm.initContract`) writes the key context (the AES key schedule
+//! and the hash subkey `H`), `vg_aes_gcm_seal` and `vg_aes_gcm_open`
+//! (`sealContract`, `openContract`) are GCM-AE and GCM-AD (§7), and
+//! `vg_aes_gcm_stream_init`, `_aad`, `_encrypt`, `_decrypt`, `_finish` and
+//! `_verify` keep a streaming state (`VG.Spec.Gcm.StreamRepr`). `open` and
+//! `verify` check the tag, in constant time, and `open` decrypts only if it
+//! matches. This module checks the lengths of §5.2.1.1 and §5.2.1.2, which
+//! the assembly does not, and holds the key context and the state.
 //!
-//! It follows the implementation of AES (`crate::aes::Backend`), with
-//! GHASH's for the same CPUs: on x86 and x86-64, CPUs with AES-NI, PCLMULQDQ and
-//! SSSE3 run `vg_aes_expand_key_aesni`, `vg_aes_ctr32_aesni` and
-//! `vg_ghash_pclmul` instead, which have the same contracts; on AArch64,
-//! CPUs with the AES and PMULL extensions run `vg_aes_expand_key_aes`,
-//! `vg_aes_ctr32_aes` and `vg_ghash_pmull`. A CPU with the AES instructions
-//! but not those GHASH needs runs the scalar AES too.
+//! The functions are emitted once for each implementation of AES
+//! (`vg_aes_expand_key` and `vg_aes_ctr32`) and of `vg_ghash` they call,
+//! which have the same contracts: on x86-64, CPUs with AES-NI and SSSE3 run
+//! the `_aesni` instances (with `vg_aes_ctr32_aesni`), CPUs with PCLMULQDQ
+//! and SSSE3 the `_pclmul` ones (with `vg_ghash_pclmul`), and CPUs with all
+//! three the `_aesni_pclmul` ones; likewise on x86, where AES-NI needs no
+//! SSSE3; on AArch64, CPUs with the AES and PMULL extensions (which Rust's
+//! `aes` feature stands for together) run the `_aes` ones (with
+//! `vg_aes_ctr32_aes` and `vg_ghash_aes`).
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -25,17 +27,33 @@
     target_arch = "x86"
 ))]
 
-use crate::aes::Backend;
-use crate::arch::aes::{vg_aes_ctr32, vg_aes_expand_key};
 #[cfg(target_arch = "aarch64")]
-use crate::arch::aes::{vg_aes_ctr32_aes, vg_aes_expand_key_aes};
+use crate::arch::gcm::{
+    VG_AES_GCM_SEAL_AES_FEATURES, vg_aes_gcm_init_aes, vg_aes_gcm_open_aes, vg_aes_gcm_seal_aes,
+    vg_aes_gcm_stream_aad_aes, vg_aes_gcm_stream_decrypt_aes, vg_aes_gcm_stream_encrypt_aes,
+    vg_aes_gcm_stream_finish_aes, vg_aes_gcm_stream_init_aes, vg_aes_gcm_stream_verify_aes,
+};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use crate::arch::aes::{vg_aes_ctr32_aesni, vg_aes_expand_key_aesni};
-use crate::arch::gcm::vg_ghash;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
-#[cfg(target_arch = "aarch64")]
-use crate::arch::gcm::{VG_GHASH_PMULL_FEATURES, vg_ghash_pmull};
+use crate::arch::gcm::{
+    VG_AES_GCM_SEAL_AESNI_FEATURES, VG_AES_GCM_SEAL_AESNI_PCLMUL_FEATURES,
+    VG_AES_GCM_SEAL_PCLMUL_FEATURES, vg_aes_gcm_init_aesni, vg_aes_gcm_init_aesni_pclmul,
+    vg_aes_gcm_init_pclmul, vg_aes_gcm_open_aesni, vg_aes_gcm_open_aesni_pclmul,
+    vg_aes_gcm_open_pclmul, vg_aes_gcm_seal_aesni, vg_aes_gcm_seal_aesni_pclmul,
+    vg_aes_gcm_seal_pclmul, vg_aes_gcm_stream_aad_aesni, vg_aes_gcm_stream_aad_aesni_pclmul,
+    vg_aes_gcm_stream_aad_pclmul, vg_aes_gcm_stream_decrypt_aesni,
+    vg_aes_gcm_stream_decrypt_aesni_pclmul, vg_aes_gcm_stream_decrypt_pclmul,
+    vg_aes_gcm_stream_encrypt_aesni, vg_aes_gcm_stream_encrypt_aesni_pclmul,
+    vg_aes_gcm_stream_encrypt_pclmul, vg_aes_gcm_stream_finish_aesni,
+    vg_aes_gcm_stream_finish_aesni_pclmul, vg_aes_gcm_stream_finish_pclmul,
+    vg_aes_gcm_stream_init_aesni, vg_aes_gcm_stream_init_aesni_pclmul,
+    vg_aes_gcm_stream_init_pclmul, vg_aes_gcm_stream_verify_aesni,
+    vg_aes_gcm_stream_verify_aesni_pclmul, vg_aes_gcm_stream_verify_pclmul,
+};
+use crate::arch::gcm::{
+    vg_aes_gcm_init, vg_aes_gcm_open, vg_aes_gcm_seal, vg_aes_gcm_stream_aad,
+    vg_aes_gcm_stream_decrypt, vg_aes_gcm_stream_encrypt, vg_aes_gcm_stream_finish,
+    vg_aes_gcm_stream_init, vg_aes_gcm_stream_verify,
+};
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
 use core::mem::MaybeUninit;
@@ -53,6 +71,83 @@ const MAX_AAD: u64 = (1 << 61) - 1;
 
 /// The tag lengths SP 800-38D §5.2.1.2 allows, in bytes.
 const TAG_LENGTHS: [usize; 7] = [4, 8, 12, 13, 14, 15, 16];
+
+/// The implementations of AES and GHASH the functions called call: each
+/// combination is an instance of every `vg_aes_gcm_*` function. (A product
+/// of `crate::aes::Backend` and a GHASH backend would let a caller pair them
+/// any way; one enum of the instances keeps every `match` exhaustive over
+/// exactly the functions that exist.)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Backend {
+    /// The baseline ISA: `vg_aes_ctr32`, `vg_aes_expand_key` and `vg_ghash`.
+    Scalar,
+    /// AES-NI for AES: the `_aesni` instances.
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    AesNi,
+    /// PCLMULQDQ for GHASH: the `_pclmul` instances.
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    Pclmul,
+    /// Both: the `_aesni_pclmul` instances.
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    AesNiPclmul,
+    /// The AES instructions for AES and PMULL for GHASH (Rust's `aes`
+    /// feature stands for both): the `_aes` instances.
+    #[cfg(target_arch = "aarch64")]
+    Aes,
+}
+
+/// The instance of a function for `backend`: the baseline one, then those
+/// for x86-64 and x86 (AES-NI, PCLMULQDQ, both) and AArch64 (AES and PMULL).
+macro_rules! instance {
+    ($backend:expr, $scalar:ident,
+     x86_64: [$aesni:ident, $pclmul:ident, $aesni_pclmul:ident],
+     aarch64: [$aes:ident]) => {
+        match $backend {
+            Backend::Scalar => $scalar,
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            Backend::AesNi => $aesni,
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            Backend::Pclmul => $pclmul,
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            Backend::AesNiPclmul => $aesni_pclmul,
+            #[cfg(target_arch = "aarch64")]
+            Backend::Aes => $aes,
+        }
+    };
+}
+
+/// The features of the baseline ISA: none.
+const BASELINE: &[&str] = &[];
+
+impl Backend {
+    /// Every implementation, best first.
+    const ALL: &[Backend] = &[
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        Backend::AesNiPclmul,
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        Backend::AesNi,
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        Backend::Pclmul,
+        #[cfg(target_arch = "aarch64")]
+        Backend::Aes,
+        Backend::Scalar,
+    ];
+
+    /// The CPU features its instances need: `seal`'s, which include every
+    /// other function's (see the tests).
+    fn features(self) -> Features {
+        Features::of(instance!(self, BASELINE,
+            x86_64: [VG_AES_GCM_SEAL_AESNI_FEATURES, VG_AES_GCM_SEAL_PCLMUL_FEATURES,
+                VG_AES_GCM_SEAL_AESNI_PCLMUL_FEATURES],
+            aarch64: [VG_AES_GCM_SEAL_AES_FEATURES]))
+    }
+}
+
+/// The best implementation a CPU with the features `f` can run.
+fn select(f: Features) -> Backend {
+    let best = Backend::ALL.iter().find(|b| f.contains(b.features()));
+    *best.unwrap_or(&Backend::Scalar)
+}
 
 /// Why an AES-GCM operation failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,67 +184,72 @@ fn add_len(len: u64, n: usize, max: u64) -> Result<u64, ()> {
     }
 }
 
-/// Whether `tag` is an allowed truncation of `expected`. The comparison
-/// takes the same time wherever the tags differ.
-fn verify(expected: &Block, tag: &[u8]) -> Result<(), Error> {
-    if !TAG_LENGTHS.contains(&tag.len()) {
-        return Err(Error::InvalidTagLength);
-    }
-    if !crate::ct::eq(&expected[..tag.len()], tag) {
-        return Err(Error::TagMismatch);
+/// Checks that a nonce is not empty (§5.2.1.1; it is shorter than `2^61`
+/// bytes, as no buffer is that long).
+fn check_nonce(nonce: &[u8]) -> Result<(), Error> {
+    if nonce.is_empty() {
+        return Err(Error::InvalidNonceLength);
     }
     Ok(())
 }
 
-/// The length block `[len(A)]_64 || [len(C)]_64` (in bits) that GHASH
-/// absorbs last (§7.1 step 5).
-fn lengths(aad_len: u64, text_len: u64) -> Block {
-    let mut len = [0u8; 16];
-    len[..8].copy_from_slice(&(aad_len * 8).to_be_bytes());
-    len[8..].copy_from_slice(&(text_len * 8).to_be_bytes());
-    len
+/// Checks that a tag has a length §5.2.1.2 allows.
+fn check_tag(tag: &[u8]) -> Result<(), Error> {
+    if !TAG_LENGTHS.contains(&tag.len()) {
+        return Err(Error::InvalidTagLength);
+    }
+    Ok(())
 }
 
-/// An AES-GCM key: the AES key schedule and the hash subkey `H`. Its
-/// [`encrypt_in_place`](Self::encrypt_in_place) and
+/// Writes `tag` to the first bytes of `work`, where `open` and
+/// `stream_verify` take the received tag.
+fn put_tag(work: &mut MaybeUninit<[u64; 320]>, tag: &[u8]) {
+    let mut t = [0u8; 16];
+    t[..tag.len()].copy_from_slice(tag);
+    let w = work.as_mut_ptr().cast::<u64>();
+    // SAFETY: `work` is valid for writes of 320 words.
+    unsafe {
+        w.write(u64::from_le_bytes(t[..8].try_into().unwrap()));
+        w.add(1)
+            .write(u64::from_le_bytes(t[8..].try_into().unwrap()));
+    }
+}
+
+/// The first 16 bytes of `work`, where `seal`, `stream_finish` and
+/// `stream_verify` write the tag.
+///
+/// # Safety
+///
+/// They must have been written.
+unsafe fn tag_of(work: &MaybeUninit<[u64; 320]>) -> Block {
+    let w = work.as_ptr().cast::<u64>();
+    let mut tag = [0u8; 16];
+    // SAFETY: the first two words are initialized (the caller's guarantee).
+    unsafe {
+        tag[..8].copy_from_slice(&w.read().to_le_bytes());
+        tag[8..].copy_from_slice(&w.add(1).read().to_le_bytes());
+    }
+    tag
+}
+
+/// An AES-GCM key: its key context (the AES key schedule and the hash
+/// subkey `H`). Its [`encrypt_in_place`](Self::encrypt_in_place) and
 /// [`decrypt_in_place`](Self::decrypt_in_place) are the one-shot AEAD;
 /// [`AesGcmStream`] encrypts or decrypts incrementally.
 #[derive(Clone)]
 pub struct AesGcm {
-    schedule: [u8; 240],
+    /// The key context `vg_aes_gcm_init` writes (`VG.Spec.Gcm.KeyRepr`).
+    ctx: [u64; 32],
     rounds: usize,
-    h: Block,
-    /// The implementation of AES, and the GHASH run with it.
+    /// The implementations of AES and GHASH the functions called call.
     backend: Backend,
 }
 
 impl Drop for AesGcm {
-    /// Wipes the key schedule and the hash subkey.
+    /// Wipes the key context.
     fn drop(&mut self) {
-        zeroize(&mut self.schedule);
-        zeroize(&mut self.h);
+        zeroize(&mut self.ctx);
     }
-}
-
-/// The best implementation of AES a CPU with the features `f` can run
-/// together with GHASH's for the same CPUs.
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-fn select(f: Features) -> Backend {
-    Backend::select_for(f, &[VG_GHASH_PCLMUL_FEATURES])
-}
-
-/// The best implementation of AES a CPU with the features `f` can run
-/// together with GHASH's for the same CPUs.
-#[cfg(target_arch = "aarch64")]
-fn select(f: Features) -> Backend {
-    Backend::select_for(f, &[VG_GHASH_PMULL_FEATURES])
-}
-
-/// The best implementation a CPU with the features `f` can run: there is
-/// only one here.
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
-fn select(f: Features) -> Backend {
-    Backend::select(f)
 }
 
 impl AesGcm {
@@ -163,165 +263,24 @@ impl AesGcm {
             return Err(Error::InvalidKeyLength);
         }
         let mut k = AesGcm {
-            schedule: [0; 240],
+            ctx: [0; 32],
             rounds: key.len() / 4 + 6,
-            h: [0; 16],
             backend: select(detected()),
         };
-        let mut scratch = MaybeUninit::<[u64; 64]>::uninit();
-        let (key_ptr, schedule) = (key.as_ptr(), &mut k.schedule);
+        let init = instance!(k.backend, vg_aes_gcm_init,
+            x86_64: [vg_aes_gcm_init_aesni, vg_aes_gcm_init_pclmul, vg_aes_gcm_init_aesni_pclmul],
+            aarch64: [vg_aes_gcm_init_aes]);
+        let mut scratch = MaybeUninit::<[u64; 320]>::uninit();
         // SAFETY: `key` is valid for reads of `key.len()` bytes, which is 16,
-        // 24 or 32; `k.schedule` and `scratch` are valid for reads and writes
-        // of 240 and 512 bytes. They are distinct objects, so no two overlap,
-        // nor do they overlap the return address. The CPU has the features
-        // of the implementation selected. `scratch` is uninitialized: it is
-        // only working space, and the contract's result does not depend on
-        // what it holds.
-        unsafe {
-            match k.backend {
-                Backend::Scalar => {
-                    vg_aes_expand_key(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
-                }
-                #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-                Backend::AesNi => {
-                    vg_aes_expand_key_aesni(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
-                }
-                #[cfg(target_arch = "aarch64")]
-                Backend::Aes => {
-                    vg_aes_expand_key_aes(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
-                }
-            }
-        };
-        // H = CIPH_K(0^128): the keystream of a zero block.
-        let mut h = [[0u8; 16]];
-        k.ctr32(&mut [0; 16], &mut h);
-        k.h = h[0];
+        // 24 or 32; `k.ctx` and `scratch` are valid for reads and writes of
+        // 256 and 2560 bytes. They are distinct objects, so no two overlap,
+        // nor do they overlap anything on the stack, or wrap around the end
+        // of the address space. The CPU has the features of the
+        // implementation selected. `scratch` is uninitialized: it is only
+        // working space, and the contract's result does not depend on what
+        // it holds.
+        unsafe { init(key.as_ptr(), key.len(), &mut k.ctx, scratch.as_mut_ptr()) };
         Ok(k)
-    }
-
-    /// XORs the counter-mode keystream from `counter` into `blocks`, and
-    /// advances `counter` past them.
-    fn ctr32(&self, counter: &mut Block, blocks: &mut [Block]) {
-        if blocks.is_empty() {
-            return;
-        }
-        let mut scratch = MaybeUninit::<[u64; 256]>::uninit();
-        let f = match self.backend {
-            Backend::Scalar => vg_aes_ctr32,
-            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            Backend::AesNi => vg_aes_ctr32_aesni,
-            #[cfg(target_arch = "aarch64")]
-            Backend::Aes => vg_aes_ctr32_aes,
-        };
-        // SAFETY: `self.schedule` holds the key schedule for `self.rounds`
-        // (10, 12 or 14) rounds, written by key expansion (every
-        // implementation writes the same one); it is valid for reads of 240
-        // bytes, `counter` for reads and writes of 16, `blocks` of
-        // `16 * blocks.len()` and `scratch` (uninitialized working space,
-        // as in `new`) of 2048. `counter` and `blocks` are mutable borrows and
-        // `scratch` a local, so none overlaps another argument or the return
-        // address. The CPU has the features of the implementation selected.
-        unsafe {
-            f(
-                &self.schedule,
-                self.rounds,
-                counter,
-                blocks.as_mut_ptr(),
-                blocks.len(),
-                scratch.as_mut_ptr(),
-            )
-        };
-    }
-
-    /// Continues GHASH from `y` over `data`, padded with zeros to a whole
-    /// number of blocks.
-    fn ghash(&self, y: &mut Block, data: &[u8]) {
-        let (blocks, rest) = data.as_chunks::<16>();
-        let mut scratch = MaybeUninit::<[u64; 32]>::uninit();
-        let f = match self.backend {
-            Backend::Scalar => vg_ghash,
-            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            Backend::AesNi => vg_ghash_pclmul,
-            #[cfg(target_arch = "aarch64")]
-            Backend::Aes => vg_ghash_pmull,
-        };
-        if !blocks.is_empty() {
-            // SAFETY: `self.h` is valid for reads of 16 bytes, `y` for reads and
-            // writes of 16, `blocks` for reads of `16 * blocks.len()` and
-            // `scratch` (uninitialized working space, as in `new`) for reads and
-            // writes of 256. `y` is a mutable borrow and `scratch` a local, so
-            // they overlap nothing else. The CPU has the features of the
-            // implementation selected.
-            unsafe {
-                f(
-                    &self.h,
-                    y,
-                    blocks.as_ptr(),
-                    blocks.len(),
-                    scratch.as_mut_ptr(),
-                )
-            };
-        }
-        if !rest.is_empty() {
-            let mut last = [[0u8; 16]];
-            last[0][..rest.len()].copy_from_slice(rest);
-            // SAFETY: as above.
-            unsafe { f(&self.h, y, last.as_ptr(), 1, scratch.as_mut_ptr()) };
-        }
-    }
-
-    /// The pre-counter block `J0` for `nonce` (§7.1 step 2), after checking
-    /// that the nonce is not empty (§5.2.1.1).
-    fn j0(&self, nonce: &[u8]) -> Result<Block, Error> {
-        let mut j0 = [0u8; 16];
-        match nonce.len() {
-            0 => return Err(Error::InvalidNonceLength),
-            12 => {
-                j0[..12].copy_from_slice(nonce);
-                j0[15] = 1;
-            }
-            n => {
-                self.ghash(&mut j0, nonce);
-                self.ghash(&mut j0, &lengths(0, n as u64));
-            }
-        }
-        Ok(j0)
-    }
-
-    /// `S` (§7.1 steps 4–5, from the GHASH `y` of everything but the length
-    /// block) XORed with `CIPH_K(J0)`: the full tag (§7.1 step 6).
-    fn tag(&self, j0: &Block, mut y: Block, aad_len: u64, text_len: u64) -> Block {
-        self.ghash(&mut y, &lengths(aad_len, text_len));
-        let mut t = [y];
-        self.ctr32(&mut j0.clone(), &mut t);
-        t[0]
-    }
-
-    /// The tag of `aad` and `ciphertext`, after checking their lengths
-    /// (§5.2.1.1).
-    fn tag_of(&self, j0: &Block, aad: &[u8], ciphertext: &[u8]) -> Result<Block, Error> {
-        let aad_len = add_len(0, aad.len(), MAX_AAD).map_err(|()| Error::InvalidAadLength)?;
-        let text_len =
-            add_len(0, ciphertext.len(), MAX_TEXT).map_err(|()| Error::InvalidTextLength)?;
-        let mut y = [0u8; 16];
-        self.ghash(&mut y, aad);
-        self.ghash(&mut y, ciphertext);
-        Ok(self.tag(j0, y, aad_len, text_len))
-    }
-
-    /// GCTR from `inc32(J0)` (§7.1 step 3) over `data`, in place.
-    fn gctr(&self, j0: &Block, data: &mut [u8]) {
-        let mut counter = *j0;
-        let c = u32::from_be_bytes(counter[12..].try_into().unwrap()).wrapping_add(1);
-        counter[12..].copy_from_slice(&c.to_be_bytes());
-        let (blocks, rest) = data.as_chunks_mut::<16>();
-        self.ctr32(&mut counter, blocks);
-        if !rest.is_empty() {
-            let mut last = [[0u8; 16]];
-            last[0][..rest.len()].copy_from_slice(rest);
-            self.ctr32(&mut counter, &mut last);
-            rest.copy_from_slice(&last[0][..rest.len()]);
-        }
     }
 
     /// GCM-AE (§7.1): encrypts `data` in place under `nonce`, and returns
@@ -336,11 +295,39 @@ impl AesGcm {
         aad: &[u8],
         data: &mut [u8],
     ) -> Result<Block, Error> {
-        let j0 = self.j0(nonce)?;
         // Check the lengths before encrypting anything.
+        check_nonce(nonce)?;
         add_len(0, data.len(), MAX_TEXT).map_err(|()| Error::InvalidTextLength)?;
-        self.gctr(&j0, data);
-        self.tag_of(&j0, aad, data)
+        add_len(0, aad.len(), MAX_AAD).map_err(|()| Error::InvalidAadLength)?;
+        let seal = instance!(self.backend, vg_aes_gcm_seal,
+            x86_64: [vg_aes_gcm_seal_aesni, vg_aes_gcm_seal_pclmul, vg_aes_gcm_seal_aesni_pclmul],
+            aarch64: [vg_aes_gcm_seal_aes]);
+        let mut work = MaybeUninit::<[u64; 320]>::uninit();
+        // SAFETY: `self.ctx` is the key context `vg_aes_gcm_init` wrote for
+        // `self.rounds` (10, 12 or 14) rounds (every implementation writes
+        // the same one), valid for reads of 256 bytes; `nonce` and `aad` are
+        // valid for reads and `data` for reads and writes of their lengths,
+        // and `work` (a local: working space, but for the tag written to it)
+        // for reads and writes of 2560 bytes. They are distinct objects
+        // (`data` a unique borrow), so the writable ones overlap nothing
+        // else, nor anything on the stack, and none wraps around the end of
+        // the address space. The CPU has the features of the implementation
+        // selected.
+        unsafe {
+            seal(
+                &self.ctx,
+                self.rounds,
+                nonce.as_ptr(),
+                nonce.len(),
+                aad.as_ptr(),
+                aad.len(),
+                data.as_mut_ptr(),
+                data.len(),
+                work.as_mut_ptr(),
+            )
+        };
+        // SAFETY: `seal` wrote the tag to the first 16 bytes of `work`.
+        Ok(unsafe { tag_of(&work) })
     }
 
     /// GCM-AD (§7.2): if `tag` authenticates the ciphertext in `data` and
@@ -355,10 +342,37 @@ impl AesGcm {
         data: &mut [u8],
         tag: &[u8],
     ) -> Result<(), Error> {
-        let j0 = self.j0(nonce)?;
-        verify(&self.tag_of(&j0, aad, data)?, tag)?;
-        self.gctr(&j0, data);
-        Ok(())
+        check_nonce(nonce)?;
+        add_len(0, data.len(), MAX_TEXT).map_err(|()| Error::InvalidTextLength)?;
+        add_len(0, aad.len(), MAX_AAD).map_err(|()| Error::InvalidAadLength)?;
+        check_tag(tag)?;
+        let open = instance!(self.backend, vg_aes_gcm_open,
+            x86_64: [vg_aes_gcm_open_aesni, vg_aes_gcm_open_pclmul, vg_aes_gcm_open_aesni_pclmul],
+            aarch64: [vg_aes_gcm_open_aes]);
+        let mut work = MaybeUninit::<[u64; 320]>::uninit();
+        put_tag(&mut work, tag);
+        // SAFETY: as in `encrypt_in_place`, with the received tag in the
+        // first `tag.len()` bytes of `work`.
+        let ok = unsafe {
+            open(
+                &self.ctx,
+                self.rounds,
+                nonce.as_ptr(),
+                nonce.len(),
+                aad.as_ptr(),
+                aad.len(),
+                data.as_mut_ptr(),
+                data.len(),
+                work.as_mut_ptr(),
+                tag.len(),
+            )
+        };
+        // `open`'s contract leaves `data` as it was unless it returns 1.
+        if ok == 1 {
+            Ok(())
+        } else {
+            Err(Error::TagMismatch)
+        }
     }
 }
 
@@ -385,18 +399,9 @@ pub enum Direction {
 pub struct AesGcmStream {
     key: AesGcm,
     direction: Direction,
-    j0: Block,
-    /// The next counter block.
-    counter: Block,
-    /// The keystream of the last counter block…
-    keystream: Block,
-    /// …of which this many bytes have been used.
-    used: usize,
-    /// GHASH of the blocks absorbed so far.
-    y: Block,
-    /// The bytes of a partial block not yet absorbed into `y`.
-    pending: Block,
-    pending_len: usize,
+    /// The streaming state `vg_aes_gcm_stream_init` writes and the other
+    /// functions update (`VG.Spec.Gcm.StreamRepr`).
+    state: [u64; 10],
     aad_len: u64,
     text_len: u64,
     /// Whether [`update`](Self::update) has been called.
@@ -406,12 +411,9 @@ pub struct AesGcmStream {
 }
 
 impl Drop for AesGcmStream {
-    /// Wipes the keystream, the partial block of text and the GHASH state
-    /// (the key wipes itself).
+    /// Wipes the streaming state (the key wipes itself).
     fn drop(&mut self) {
-        zeroize(&mut self.keystream);
-        zeroize(&mut self.pending);
-        zeroize(&mut self.y);
+        zeroize(&mut self.state);
     }
 }
 
@@ -424,72 +426,39 @@ impl AesGcmStream {
     /// decrypting, it checks the tag given to [`set_tag`](Self::set_tag).
     pub fn new(key: &[u8], nonce: &[u8], direction: Direction) -> Result<Self, Error> {
         let key = AesGcm::new(key)?;
-        let j0 = key.j0(nonce)?;
-        let mut counter = j0;
-        let c = u32::from_be_bytes(counter[12..].try_into().unwrap()).wrapping_add(1);
-        counter[12..].copy_from_slice(&c.to_be_bytes());
-        Ok(AesGcmStream {
+        check_nonce(nonce)?;
+        let mut s = AesGcmStream {
             key,
             direction,
-            j0,
-            counter,
-            keystream: [0; 16],
-            used: 16,
-            y: [0; 16],
-            pending: [0; 16],
-            pending_len: 0,
+            state: [0; 10],
             aad_len: 0,
             text_len: 0,
             in_text: false,
             tag: None,
-        })
-    }
-
-    /// Absorbs `data` into GHASH, keeping a trailing partial block for later.
-    fn absorb(&mut self, mut data: &[u8]) {
-        if self.pending_len > 0 {
-            let n = data.len().min(16 - self.pending_len);
-            self.pending[self.pending_len..self.pending_len + n].copy_from_slice(&data[..n]);
-            self.pending_len += n;
-            data = &data[n..];
-            if self.pending_len < 16 {
-                return;
-            }
-            self.key.ghash(&mut self.y, &self.pending);
-            self.pending_len = 0;
-        }
-        let whole = data.len() / 16 * 16;
-        self.key.ghash(&mut self.y, &data[..whole]);
-        self.pending[..data.len() - whole].copy_from_slice(&data[whole..]);
-        self.pending_len = data.len() - whole;
-    }
-
-    /// Absorbs the partial block, padded with zeros.
-    fn flush(&mut self) {
-        self.key
-            .ghash(&mut self.y, &self.pending[..self.pending_len]);
-        self.pending_len = 0;
-    }
-
-    /// XORs the next `data.len()` bytes of keystream into `data`.
-    fn crypt(&mut self, data: &mut [u8]) {
-        let n = data.len().min(16 - self.used);
-        let (head, data) = data.split_at_mut(n);
-        for (d, k) in head.iter_mut().zip(&self.keystream[self.used..]) {
-            *d ^= k;
-        }
-        self.used += n;
-        let (blocks, rest) = data.as_chunks_mut::<16>();
-        self.key.ctr32(&mut self.counter, blocks);
-        if !rest.is_empty() {
-            let mut ks = [[0u8; 16]];
-            self.key.ctr32(&mut self.counter, &mut ks);
-            self.keystream = ks[0];
-            for (d, k) in rest.iter_mut().zip(&self.keystream) {
-                *d ^= k;
-            }
-            self.used = rest.len();
-        }
+        };
+        let init = instance!(s.key.backend, vg_aes_gcm_stream_init,
+            x86_64: [vg_aes_gcm_stream_init_aesni, vg_aes_gcm_stream_init_pclmul,
+                vg_aes_gcm_stream_init_aesni_pclmul],
+            aarch64: [vg_aes_gcm_stream_init_aes]);
+        let mut scratch = MaybeUninit::<[u64; 320]>::uninit();
+        // SAFETY: `s.key.ctx` is a key context (as in
+        // `AesGcm::encrypt_in_place`), valid for reads of 256 bytes, `nonce`
+        // for reads of `nonce.len()`, and `s.state` and `scratch`
+        // (uninitialized working space, as in `AesGcm::new`) for reads and
+        // writes of 80 and 2560. They are distinct objects, so the writable
+        // ones overlap nothing else, nor anything on the stack, and none
+        // wraps around. The CPU has the features of the implementation
+        // selected.
+        unsafe {
+            init(
+                &s.key.ctx,
+                nonce.as_ptr(),
+                nonce.len(),
+                &mut s.state,
+                scratch.as_mut_ptr(),
+            )
+        };
+        Ok(s)
     }
 
     /// Absorbs more additional data. All of it must come before the text.
@@ -497,9 +466,26 @@ impl AesGcmStream {
         if self.in_text {
             return Err(Error::AadAfterText);
         }
-        self.aad_len =
+        let aad_len =
             add_len(self.aad_len, aad.len(), MAX_AAD).map_err(|()| Error::InvalidAadLength)?;
-        self.absorb(aad);
+        let f = instance!(self.key.backend, vg_aes_gcm_stream_aad,
+            x86_64: [vg_aes_gcm_stream_aad_aesni, vg_aes_gcm_stream_aad_pclmul,
+                vg_aes_gcm_stream_aad_aesni_pclmul],
+            aarch64: [vg_aes_gcm_stream_aad_aes]);
+        let mut scratch = MaybeUninit::<[u64; 320]>::uninit();
+        // SAFETY: as in `new`; `self.state` represents a message with
+        // `self.aad_len` bytes of additional data and no text yet.
+        unsafe {
+            f(
+                &self.key.ctx,
+                &mut self.state,
+                self.aad_len,
+                aad.as_ptr(),
+                aad.len(),
+                scratch.as_mut_ptr(),
+            )
+        };
+        self.aad_len = aad_len;
         Ok(())
     }
 
@@ -507,22 +493,37 @@ impl AesGcmStream {
     /// When decrypting, the result is not authenticated until
     /// [`finalize`](Self::finalize) succeeds.
     pub fn update(&mut self, data: &mut [u8]) -> Result<(), Error> {
-        self.text_len =
+        let text_len =
             add_len(self.text_len, data.len(), MAX_TEXT).map_err(|()| Error::InvalidTextLength)?;
-        if !self.in_text {
-            self.flush();
-            self.in_text = true;
-        }
-        match self.direction {
-            Direction::Encrypt => {
-                self.crypt(data);
-                self.absorb(data);
-            }
-            Direction::Decrypt => {
-                self.absorb(data);
-                self.crypt(data);
-            }
-        }
+        self.in_text = true;
+        let f = match self.direction {
+            Direction::Encrypt => instance!(self.key.backend, vg_aes_gcm_stream_encrypt,
+                x86_64: [vg_aes_gcm_stream_encrypt_aesni, vg_aes_gcm_stream_encrypt_pclmul,
+                    vg_aes_gcm_stream_encrypt_aesni_pclmul],
+                aarch64: [vg_aes_gcm_stream_encrypt_aes]),
+            Direction::Decrypt => instance!(self.key.backend, vg_aes_gcm_stream_decrypt,
+                x86_64: [vg_aes_gcm_stream_decrypt_aesni, vg_aes_gcm_stream_decrypt_pclmul,
+                    vg_aes_gcm_stream_decrypt_aesni_pclmul],
+                aarch64: [vg_aes_gcm_stream_decrypt_aes]),
+        };
+        let mut scratch = MaybeUninit::<[u64; 320]>::uninit();
+        // SAFETY: as in `new`, with `data` valid for reads and writes of
+        // `data.len()` bytes (a unique borrow, so it overlaps nothing else);
+        // `self.state` represents a message with `self.aad_len` bytes of
+        // additional data and `self.text_len` of text.
+        unsafe {
+            f(
+                &self.key.ctx,
+                self.key.rounds,
+                &mut self.state,
+                self.aad_len,
+                self.text_len,
+                data.as_mut_ptr(),
+                data.len(),
+                scratch.as_mut_ptr(),
+            )
+        };
+        self.text_len = text_len;
         Ok(())
     }
 
@@ -533,9 +534,7 @@ impl AesGcmStream {
         if self.direction == Direction::Encrypt {
             return Err(Error::TagWhenEncrypting);
         }
-        if !TAG_LENGTHS.contains(&tag.len()) {
-            return Err(Error::InvalidTagLength);
-        }
+        check_tag(tag)?;
         let mut t = [0u8; 16];
         t[..tag.len()].copy_from_slice(tag);
         self.tag = Some((t, tag.len()));
@@ -547,13 +546,55 @@ impl AesGcmStream {
     /// [`set_tag`](Self::set_tag), and fails if they differ. GCM leaves no
     /// buffered text to return.
     pub fn finalize(mut self) -> Result<Block, Error> {
-        self.flush();
-        let tag = self.key.tag(&self.j0, self.y, self.aad_len, self.text_len);
-        if self.direction == Direction::Decrypt {
-            let (expected, len) = self.tag.ok_or(Error::MissingTag)?;
-            verify(&tag, &expected[..len])?;
+        let mut work = MaybeUninit::<[u64; 320]>::uninit();
+        match self.direction {
+            Direction::Encrypt => {
+                let f = instance!(self.key.backend, vg_aes_gcm_stream_finish,
+                    x86_64: [vg_aes_gcm_stream_finish_aesni, vg_aes_gcm_stream_finish_pclmul,
+                        vg_aes_gcm_stream_finish_aesni_pclmul],
+                    aarch64: [vg_aes_gcm_stream_finish_aes]);
+                // SAFETY: as in `update`, with `work` (a local: working space,
+                // but for the tag written to it) valid for reads and writes of
+                // 2560 bytes.
+                unsafe {
+                    f(
+                        &self.key.ctx,
+                        self.key.rounds,
+                        &mut self.state,
+                        self.aad_len,
+                        self.text_len,
+                        work.as_mut_ptr(),
+                    )
+                };
+            }
+            Direction::Decrypt => {
+                let (tag, len) = self.tag.ok_or(Error::MissingTag)?;
+                put_tag(&mut work, &tag[..len]);
+                let f = instance!(self.key.backend, vg_aes_gcm_stream_verify,
+                    x86_64: [vg_aes_gcm_stream_verify_aesni, vg_aes_gcm_stream_verify_pclmul,
+                        vg_aes_gcm_stream_verify_aesni_pclmul],
+                    aarch64: [vg_aes_gcm_stream_verify_aes]);
+                // SAFETY: as for `vg_aes_gcm_stream_finish`, with the
+                // received tag in the first `len` bytes of `work`.
+                let ok = unsafe {
+                    f(
+                        &self.key.ctx,
+                        self.key.rounds,
+                        &mut self.state,
+                        self.aad_len,
+                        self.text_len,
+                        work.as_mut_ptr(),
+                        len,
+                    )
+                };
+                if ok != 1 {
+                    return Err(Error::TagMismatch);
+                }
+            }
         }
-        Ok(tag)
+        // SAFETY: `stream_finish` and `stream_verify` (when it returns 1)
+        // write the tag to the first 16 bytes of `work`.
+        Ok(unsafe { tag_of(&work) })
     }
 }
 
@@ -564,27 +605,148 @@ mod tests {
     };
     use crate::cpu::{Features, detected};
 
-    /// The implementation chosen for each set of features: AES's, and
-    /// GHASH's for the same CPUs.
+    /// The implementation chosen for each set of features: AES's and
+    /// GHASH's, independently.
     #[test]
     fn backend() {
+        let f = |names: &[&str]| select(Features::of(names));
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            let all = Features::of(&["aes", "pclmulqdq", "ssse3"]);
-            assert_eq!(select(all), Backend::AesNi);
-            for f in [
-                Features::of(&["aes", "ssse3"]),
-                Features::of(&["pclmulqdq", "ssse3"]),
-                Features::of(&["aes", "pclmulqdq"]),
-            ] {
-                assert_eq!(select(f), Backend::Scalar);
+            assert_eq!(f(&["aes", "pclmulqdq", "ssse3"]), Backend::AesNiPclmul);
+            assert_eq!(f(&["aes", "ssse3"]), Backend::AesNi);
+            assert_eq!(f(&["pclmulqdq", "ssse3"]), Backend::Pclmul);
+        }
+        // AES-NI needs SSSE3 too on x86-64 (`vg_aes_ctr32_aesni`'s byte
+        // shuffles), not on x86.
+        #[cfg(target_arch = "x86_64")]
+        assert_eq!(f(&["aes", "pclmulqdq"]), Backend::Scalar);
+        #[cfg(target_arch = "x86")]
+        {
+            assert_eq!(f(&["aes"]), Backend::AesNi);
+            assert_eq!(f(&["aes", "pclmulqdq"]), Backend::AesNi);
+        }
+        #[cfg(target_arch = "aarch64")]
+        assert_eq!(f(&["aes"]), Backend::Aes);
+        assert_eq!(f(&[]), Backend::Scalar);
+        let best = AesGcm::new(&[0; 16]).unwrap().backend;
+        assert_eq!(best, select(detected()));
+    }
+
+    /// Every function's instances need at most the features `seal`'s do,
+    /// which `select` checks (`init` needs only AES's, `stream_init` and
+    /// `stream_aad` only GHASH's).
+    #[test]
+    fn features() {
+        #[cfg(target_arch = "x86")]
+        {
+            use crate::arch::gcm::*;
+            let groups: [(&[&str], &[&[&str]]); 3] = [
+                (
+                    VG_AES_GCM_SEAL_AESNI_FEATURES,
+                    &[
+                        VG_AES_GCM_INIT_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_ENCRYPT_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_DECRYPT_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_FINISH_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_VERIFY_AESNI_FEATURES,
+                        VG_AES_GCM_OPEN_AESNI_FEATURES,
+                    ][..],
+                ),
+                (
+                    VG_AES_GCM_SEAL_PCLMUL_FEATURES,
+                    &[
+                        VG_AES_GCM_STREAM_AAD_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_INIT_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_ENCRYPT_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_DECRYPT_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_FINISH_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_VERIFY_PCLMUL_FEATURES,
+                        VG_AES_GCM_OPEN_PCLMUL_FEATURES,
+                    ][..],
+                ),
+                (
+                    VG_AES_GCM_SEAL_AESNI_PCLMUL_FEATURES,
+                    &[
+                        VG_AES_GCM_INIT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_AAD_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_INIT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_ENCRYPT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_DECRYPT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_FINISH_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_VERIFY_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_OPEN_AESNI_PCLMUL_FEATURES,
+                    ][..],
+                ),
+            ];
+            for (seal, others) in groups {
+                for other in others {
+                    assert!(Features::of(seal).contains(Features::of(other)));
+                }
+            }
+        }
+        #[cfg(target_arch = "x86_64")]
+        {
+            use crate::arch::gcm::*;
+            let groups: [(&[&str], &[&[&str]]); 3] = [
+                (
+                    VG_AES_GCM_SEAL_AESNI_FEATURES,
+                    &[
+                        VG_AES_GCM_INIT_AESNI_FEATURES,
+                        VG_AES_GCM_OPEN_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_ENCRYPT_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_DECRYPT_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_FINISH_AESNI_FEATURES,
+                        VG_AES_GCM_STREAM_VERIFY_AESNI_FEATURES,
+                    ][..],
+                ),
+                (
+                    VG_AES_GCM_SEAL_PCLMUL_FEATURES,
+                    &[
+                        VG_AES_GCM_OPEN_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_INIT_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_AAD_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_ENCRYPT_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_DECRYPT_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_FINISH_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_VERIFY_PCLMUL_FEATURES,
+                    ][..],
+                ),
+                (
+                    VG_AES_GCM_SEAL_AESNI_PCLMUL_FEATURES,
+                    &[
+                        VG_AES_GCM_INIT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_OPEN_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_INIT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_AAD_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_ENCRYPT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_DECRYPT_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_FINISH_AESNI_PCLMUL_FEATURES,
+                        VG_AES_GCM_STREAM_VERIFY_AESNI_PCLMUL_FEATURES,
+                    ][..],
+                ),
+            ];
+            for (seal, others) in groups {
+                for other in others {
+                    assert!(Features::of(seal).contains(Features::of(other)));
+                }
             }
         }
         #[cfg(target_arch = "aarch64")]
-        assert_eq!(select(Features::of(&["aes"])), Backend::Aes);
-        assert_eq!(select(Features(0)), Backend::Scalar);
-        let best = AesGcm::new(&[0; 16]).unwrap().backend;
-        assert_eq!(best, select(detected()));
+        {
+            use crate::arch::gcm::*;
+            for other in [
+                VG_AES_GCM_INIT_AES_FEATURES,
+                VG_AES_GCM_OPEN_AES_FEATURES,
+                VG_AES_GCM_STREAM_INIT_AES_FEATURES,
+                VG_AES_GCM_STREAM_AAD_AES_FEATURES,
+                VG_AES_GCM_STREAM_ENCRYPT_AES_FEATURES,
+                VG_AES_GCM_STREAM_DECRYPT_AES_FEATURES,
+                VG_AES_GCM_STREAM_FINISH_AES_FEATURES,
+                VG_AES_GCM_STREAM_VERIFY_AES_FEATURES,
+            ] {
+                assert!(Features::of(VG_AES_GCM_SEAL_AES_FEATURES).contains(Features::of(other)));
+            }
+        }
     }
 
     /// Encryption and decryption are inverse, for every key size, 12-byte

@@ -13,8 +13,8 @@ namespace VG.Proof.Pbkdf2.Whole.X86
 
 open VG.X86
 open VG.Impl.Pbkdf2.Whole.X86 (Fns)
-open VG.Impl.Hmac.Generic.X86 (Hash at_ copy)
-open VG.Proof.Hmac.Generic.X86 (HashOK cclob count_loop nm ea_at addr3 ofNat_succ32)
+open VG.Impl.Pbkdf2.Stream.X86 (Hash at_ copy)
+open VG.Proof.Pbkdf2.Stream.X86 (HashOK cclob count_loop nm ea_at addr3 ofNat_succ32)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd Fupd wp_mov wp_movi wp_movm wp_add wp_addi wp_sub wp_subi wp_cmp wp_cmpi
   wp_store wp_bswap wp_movzx8 wp_store8 sub_beq sub_ofNat)
 open VG.Proof.Hmac.Generic.Common (bytes_keep writeBytes_snoc bytesAt_snoc' not_mem_of_disjoint)
@@ -127,7 +127,7 @@ theorem b7_ok {k : Nat} {s : State} (h : Inv hF s₀ k s) :
   have i₂ := i₁.upd hp hz (by decide) u₂
   refine wp_arg hp i₂.kr (by decide) fun s₃ u₃ => wp_subi fun s₄ u₄ _ => ?_
   have i₄ := (i₂.upd hp hz (by decide) u₃).upd hp hz (by decide) u₄
-  rw [← List.append_nil (VG.Impl.Hmac.Generic.X86.scr .edx F.tO)]
+  rw [← List.append_nil (VG.Impl.Pbkdf2.Stream.X86.scr .edx F.tO)]
   refine scr_ok i₄.kr fun s₅ u₅ => WP.block_nil ⟨i₄.upd hp hz (by decide) u₅, ?_, ?_, ?_, u₅.gpr, ?_⟩
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr]
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr]
@@ -248,9 +248,9 @@ theorem outLoop_ok {k n : Nat} (hn : 0 < n) (hkn : k * F.H.D + n ≤ ol s₀) (h
   have hdn : dn F s₀ k = k * F.H.D := by show min _ _ = _; omega
   have hno := hp.no
   have eO : (out s₀ + BitVec.ofNat 32 (k * F.H.D)).setWidth 64 = (out s₀).setWidth 64 + BitVec.ofNat 64 (k * F.H.D) :=
-    Hmac.Generic.X86.setWidth_add (by have : ol s₀ = (arg s₀ 6).toNat := rfl; omega)
+    Pbkdf2.Stream.X86.setWidth_add (by have : ol s₀ = (arg s₀ 6).toNat := rfl; omega)
   have tO' : (out s₀ + BitVec.ofNat 32 (k * F.H.D)).toNat = (out s₀).toNat + k * F.H.D :=
-    Hmac.Generic.X86.toNat_add_ofNat (by have : ol s₀ = (arg s₀ 6).toNat := rfl; omega)
+    Pbkdf2.Stream.X86.toNat_add_ofNat (by have : ol s₀ = (arg s₀ 6).toNat := rfl; omega)
   have osub : Region.Sub ⟨(out s₀).setWidth 64 + BitVec.ofNat 64 (k * F.H.D), n⟩ (outR s₀) :=
     Offset.sub_base _ hkn
   unfold Fns.outLoop
@@ -415,12 +415,12 @@ theorem correct : WP isa F.pbkdf2 s₀ fun s' => abiPreserved s₀ s' ∧ (pbkG 
   refine WP.seq (WP.mono (loop_ok hp hz i₄ z₄) fun s₅ h₅ => ?_)
   have k₅ := h₅.kr
   have hL := L8_le hz; have eL : F.L8 = (F.W + F.H.S) * 8 := rfl
-  refine WP.mono (Hmac.Generic.X86.restore_ok F.L k₅.ebp k₅.saved (by rw [k₅.wr]; exact sc_mem hp)
+  refine WP.mono (Pbkdf2.Stream.X86.restore_ok F.L k₅.ebp k₅.saved (by rw [k₅.wr]; exact sc_mem hp)
     (show 8 * F.W + 16 ≤ F.L8 by have := hz.fits; omega) hp.nsc)
     fun s' ⟨hm, _, _, hg, ho⟩ => ⟨⟨fun r hr => ?_, by rw [hm]; exact k₅.ret hp⟩, ?_⟩
   · by_cases he : r = .esp
     · subst he; rw [ho _ (by decide) (by decide), k₅.esp]
-    · exact hg r (Hmac.Generic.X86.callee_saved r hr he)
+    · exact hg r (Pbkdf2.Stream.X86.callee_saved r hr he)
   · have ob := h₅.outB
     have e : dn F s₀ (nbk F s₀) = ol s₀ := Whole.done_nb hD.1
     rw [e] at ob

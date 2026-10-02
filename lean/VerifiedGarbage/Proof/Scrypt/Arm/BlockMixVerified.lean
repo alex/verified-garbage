@@ -4,7 +4,8 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Proof.Scrypt.Memory
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Proof.Hmac.Arm.Init
+import VerifiedGarbage.Proof.MdStream.Arm.Common
+import VerifiedGarbage.Proof.Hmac.Common
 import VerifiedGarbage.Impl.Scrypt.Arm.Salsa
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.RelCT
@@ -105,8 +106,12 @@ open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (Word)
 open VG.Proof.Scrypt
 open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str wp_add op2_reg)
-open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.Memory (contains_off)
+
+theorem wp_eor {is : List Instr} {s : State} {Q : State → Prop} {d n : Reg} {o : Op2} {y : BitVec 32}
+    (ho : o.eval s = some y) (k : ∀ s', Upd s s' d (s.gpr n ^^^ y) → WP isa (.block is) s' Q) :
+    WP isa (.block (.dp .eor d n o :: is)) s Q :=
+  MdStream.Arm.WP.cons (s' := s.setReg d (s.gpr n ^^^ y)) (by simp [exec, ho]) (k _ (Upd.setReg _ _ _))
 
 /-! ## The precondition -/
 
@@ -463,7 +468,6 @@ open VG.Spec.Scrypt (bytesAt)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil writeBytes_frame)
 open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str op2_reg saveMem)
-open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.Memory (sub_off xorBytes_length bytesAt_length bytesAt_add
   bytesAt_writeBytes_sep)
 
