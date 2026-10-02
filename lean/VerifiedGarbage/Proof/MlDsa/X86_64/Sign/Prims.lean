@@ -44,6 +44,7 @@ structure PrimsOk (P : Prims) (D : Nat) where
   bitUnpack : Callee (fun S => bitUnpackContract X86_64.abi S) D P.bitUnpack
   hintBitPack : Callee (fun S => hintBitPackContract X86_64.abi S) D P.hintBitPack
   rej4 : Callee (fun S => rejNTT4Contract X86_64.abi S) D P.rej4
+  expandMask4 : Callee (fun S => expandMask4Contract X86_64.abi S) D P.expandMask4
   /-- `vg_mldsa_rej_ntt_poly`'s result depends only on its public data (its seed). -/
   rejRet : RetPub (rejNTTContract X86_64.abi rejNTT.S) P.rejNTT
   /-- `vg_mldsa_rej_ntt_poly` succeeds only if `RejNTTPoly` finishes within `maxBounds`. -/

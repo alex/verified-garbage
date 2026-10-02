@@ -1,23 +1,36 @@
 import VerifiedGarbage.Proof.Sha256.X86.Variants.Interface
 import VerifiedGarbage.Proof.Framework.X86.Lit
 
-/-! Scalar SHA-256 is one backend; its generic callers are emitted with it. -/
+/-!
+# SHA-256 on x86: the scalar compression function
+
+A variant of `Sha256` on x86 (see `TCB/Emit.lean`): `vg_sha256_compress`, in
+the baseline ISA, and the streaming `update` and `finalize` made with it,
+which HMAC's and PBKDF2's functions call (`Generic/Sha256/X86/`).
+-/
 namespace VG.Variants.Sha256.X86.Scalar
 
 open VG.X86
+open VG.Proof.Hmac.Generic.X86 (Sha256Stream sha256H)
+open VG.Proof.Pbkdf2.Md.X86 (sha256M)
+open VG.Proof.Sha256.X86.Variants (pbkdf2Fns)
 
-materialize_code sha256HInit := Impl.Hmac.Sha256.X86.init "vg_sha256_compress" Impl.Sha256.X86.compress
-materialize_code sha256HFinalize := Impl.Hmac.Sha256.X86.finalize "vg_sha256_compress" Impl.Sha256.X86.compress
-materialize_code sha256HIterate := Impl.Pbkdf2.Sha256.X86.iterate "vg_sha256_compress" Impl.Sha256.X86.compress
-materialize_code sha256HPbkdf2 := (Proof.Pbkdf2.Whole.X86.sha256Fns "" "vg_sha256_compress" Impl.Sha256.X86.compress
-  Impl.Sha256.X86.Stream.update Impl.Sha256.X86.Stream.finalize).pbkdf2
+/-- The streaming functions made with the scalar compression function. -/
+def stream : Sha256Stream where
+  suffix := ""
+  upd := Impl.Sha256.X86.Stream.update
+  fin := Impl.Sha256.X86.Stream.finalize
+  updOK := Proof.Sha256.X86.Stream.Update.update_verified
+  finOK := Proof.Sha256.X86.Stream.Finalize.finalize_verified
+  updSp := NoSp.of_all (by lit_decide)
+  finSp := NoSp.of_all (by lit_decide)
+  updSU := by lit_decide
+  finSU := by lit_decide
 
-/-- Generic registration preserves every scalar construction instruction. -/
-theorem scalar_code_unchanged :
-    Impl.Hmac.Sha256.X86.init "vg_sha256_compress" Impl.Sha256.X86.compress = Impl.Hmac.X86.init ∧
-    Impl.Hmac.Sha256.X86.finalize "vg_sha256_compress" Impl.Sha256.X86.compress = Impl.Hmac.X86.finalize ∧
-    Impl.Pbkdf2.Sha256.X86.iterate "vg_sha256_compress" Impl.Sha256.X86.compress = Impl.Pbkdf2.X86.iterate :=
-  ⟨rfl, rfl, rfl⟩
+materialize_code sha256HInit := (sha256H stream).init
+materialize_code sha256HFinalize := (sha256M stream "vg_sha256_compress" Impl.Sha256.X86.compress).hmacFin
+materialize_code sha256HIterate := (sha256M stream "vg_sha256_compress" Impl.Sha256.X86.compress).iterate
+materialize_code sha256HPbkdf2 := (pbkdf2Fns stream "vg_sha256_compress" Impl.Sha256.X86.compress).pbkdf2
 
 def variant : Proof.Sha256.X86.Variants.Backend where
   cmpN := "vg_sha256_compress"
@@ -25,12 +38,7 @@ def variant : Proof.Sha256.X86.Variants.Backend where
   cmp := Proof.Sha256.X86.compress_verified
   cmpSp := NoSp.of_all (by lit_decide)
   cmpStack := by lit_decide
-  initCt := Proof.Hmac.X86.Init.init_ct
-  finCt := Proof.Hmac.X86.Finalize.finalize_ct
-  finHashSp := Proof.Hmac.X86.Finalize.finalizeHash_nosp
-  finHashStack := Proof.Hmac.X86.Finalize.finalizeHash_stack
-  iterCt := Proof.Pbkdf2.X86.iterate_ct
-  suffix := ""
+  stream := stream
   features := []
   functions := [
     { api := Spec.Sha256.compressApi
@@ -59,20 +67,12 @@ def variant : Proof.Sha256.X86.Variants.Backend where
   initSp := Code.all_of_allInstrs (by lit_decide)
   finSp := Code.all_of_allInstrs (by lit_decide)
   iterSp := Code.all_of_allInstrs (by lit_decide)
-  updC := Impl.Sha256.X86.Stream.update
-  upd := Proof.Sha256.X86.Stream.Update.update_verified
-  updNoSp := NoSp.of_all (by lit_decide)
-  updStack := by lit_decide
-  finC := Impl.Sha256.X86.Stream.finalize
-  fin := Proof.Sha256.X86.Stream.Finalize.finalize_verified
-  finNoSp := NoSp.of_all (by lit_decide)
-  finStack := by lit_decide
+  pbkdf2Sp := Code.all_of_allInstrs (by lit_decide)
   initNoSp := NoSp.of_all (by lit_decide)
   initStack := by lit_decide
   finalizeNoSp := NoSp.of_all (by lit_decide)
   finalizeStack := by lit_decide
   iterNoSp := NoSp.of_all (by lit_decide)
   iterStack := by lit_decide
-  pbkdf2Sp := Code.all_of_allInstrs (by lit_decide)
 
 end VG.Variants.Sha256.X86.Scalar

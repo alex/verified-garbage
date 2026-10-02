@@ -16,9 +16,9 @@
 //! the `_aesni` instances (with `vg_aes_ctr32_aesni`), CPUs with PCLMULQDQ
 //! and SSSE3 the `_pclmul` ones (with `vg_ghash_pclmul`), and CPUs with all
 //! three the `_aesni_pclmul` ones; likewise on x86, where AES-NI needs no
-//! SSSE3; on AArch64, CPUs with the AES and PMULL
-//! extensions (which Rust's `aes` feature stands for together) run the
-//! `_aes_pmull` ones.
+//! SSSE3; on AArch64, CPUs with the AES and PMULL extensions (which Rust's
+//! `aes` feature stands for together) run the `_aes` ones (with
+//! `vg_aes_ctr32_aes` and `vg_ghash_aes`).
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -29,18 +29,9 @@
 
 #[cfg(target_arch = "aarch64")]
 use crate::arch::gcm::{
-    VG_AES_GCM_SEAL_AES_FEATURES, VG_AES_GCM_SEAL_AES_PMULL_FEATURES,
-    VG_AES_GCM_SEAL_PMULL_FEATURES, vg_aes_gcm_init_aes, vg_aes_gcm_init_aes_pmull,
-    vg_aes_gcm_init_pmull, vg_aes_gcm_open_aes, vg_aes_gcm_open_aes_pmull, vg_aes_gcm_open_pmull,
-    vg_aes_gcm_seal_aes, vg_aes_gcm_seal_aes_pmull, vg_aes_gcm_seal_pmull,
-    vg_aes_gcm_stream_aad_aes, vg_aes_gcm_stream_aad_aes_pmull, vg_aes_gcm_stream_aad_pmull,
-    vg_aes_gcm_stream_decrypt_aes, vg_aes_gcm_stream_decrypt_aes_pmull,
-    vg_aes_gcm_stream_decrypt_pmull, vg_aes_gcm_stream_encrypt_aes,
-    vg_aes_gcm_stream_encrypt_aes_pmull, vg_aes_gcm_stream_encrypt_pmull,
-    vg_aes_gcm_stream_finish_aes, vg_aes_gcm_stream_finish_aes_pmull,
-    vg_aes_gcm_stream_finish_pmull, vg_aes_gcm_stream_init_aes, vg_aes_gcm_stream_init_aes_pmull,
-    vg_aes_gcm_stream_init_pmull, vg_aes_gcm_stream_verify_aes, vg_aes_gcm_stream_verify_aes_pmull,
-    vg_aes_gcm_stream_verify_pmull,
+    VG_AES_GCM_SEAL_AES_FEATURES, vg_aes_gcm_init_aes, vg_aes_gcm_open_aes, vg_aes_gcm_seal_aes,
+    vg_aes_gcm_stream_aad_aes, vg_aes_gcm_stream_decrypt_aes, vg_aes_gcm_stream_encrypt_aes,
+    vg_aes_gcm_stream_finish_aes, vg_aes_gcm_stream_init_aes, vg_aes_gcm_stream_verify_aes,
 };
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::gcm::{
@@ -99,23 +90,18 @@ enum Backend {
     /// Both: the `_aesni_pclmul` instances.
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     AesNiPclmul,
-    /// The AES instructions for AES: the `_aes` instances.
+    /// The AES instructions for AES and PMULL for GHASH (Rust's `aes`
+    /// feature stands for both): the `_aes` instances.
     #[cfg(target_arch = "aarch64")]
     Aes,
-    /// PMULL for GHASH: the `_pmull` instances.
-    #[cfg(target_arch = "aarch64")]
-    Pmull,
-    /// Both: the `_aes_pmull` instances.
-    #[cfg(target_arch = "aarch64")]
-    AesPmull,
 }
 
 /// The instance of a function for `backend`: the baseline one, then those
-/// for x86-64 (AES-NI, PCLMULQDQ, both) and AArch64 (AES, PMULL, both).
+/// for x86-64 and x86 (AES-NI, PCLMULQDQ, both) and AArch64 (AES and PMULL).
 macro_rules! instance {
     ($backend:expr, $scalar:ident,
      x86_64: [$aesni:ident, $pclmul:ident, $aesni_pclmul:ident],
-     aarch64: [$aes:ident, $pmull:ident, $aes_pmull:ident]) => {
+     aarch64: [$aes:ident]) => {
         match $backend {
             Backend::Scalar => $scalar,
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -126,10 +112,6 @@ macro_rules! instance {
             Backend::AesNiPclmul => $aesni_pclmul,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => $aes,
-            #[cfg(target_arch = "aarch64")]
-            Backend::Pmull => $pmull,
-            #[cfg(target_arch = "aarch64")]
-            Backend::AesPmull => $aes_pmull,
         }
     };
 }
@@ -147,11 +129,7 @@ impl Backend {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         Backend::Pclmul,
         #[cfg(target_arch = "aarch64")]
-        Backend::AesPmull,
-        #[cfg(target_arch = "aarch64")]
         Backend::Aes,
-        #[cfg(target_arch = "aarch64")]
-        Backend::Pmull,
         Backend::Scalar,
     ];
 
@@ -161,16 +139,11 @@ impl Backend {
         Features::of(instance!(self, BASELINE,
             x86_64: [VG_AES_GCM_SEAL_AESNI_FEATURES, VG_AES_GCM_SEAL_PCLMUL_FEATURES,
                 VG_AES_GCM_SEAL_AESNI_PCLMUL_FEATURES],
-            aarch64: [VG_AES_GCM_SEAL_AES_FEATURES, VG_AES_GCM_SEAL_PMULL_FEATURES,
-                VG_AES_GCM_SEAL_AES_PMULL_FEATURES]))
+            aarch64: [VG_AES_GCM_SEAL_AES_FEATURES]))
     }
 }
 
-/// The best implementation a CPU with the features `f` can run. On AArch64,
-/// Rust's `aes` feature stands for both the AES and the PMULL extensions,
-/// so this never chooses `Aes` or `Pmull` there: they exist because every
-/// implementation of a function reaches the functions built on it (see
-/// CLAUDE.md), and the tests run them.
+/// The best implementation a CPU with the features `f` can run.
 fn select(f: Features) -> Backend {
     let best = Backend::ALL.iter().find(|b| f.contains(b.features()));
     *best.unwrap_or(&Backend::Scalar)
@@ -286,23 +259,17 @@ impl AesGcm {
     /// Prepares `key`, which must be 16, 24 or 32 bytes long (AES-128,
     /// AES-192 or AES-256).
     pub fn new(key: &[u8]) -> Result<Self, Error> {
-        Self::with_backend(key, select(detected()))
-    }
-
-    /// `new`, with the implementation `backend`, which the CPU must be able
-    /// to run.
-    fn with_backend(key: &[u8], backend: Backend) -> Result<Self, Error> {
         if !matches!(key.len(), 16 | 24 | 32) {
             return Err(Error::InvalidKeyLength);
         }
         let mut k = AesGcm {
             ctx: [0; 32],
             rounds: key.len() / 4 + 6,
-            backend,
+            backend: select(detected()),
         };
         let init = instance!(k.backend, vg_aes_gcm_init,
             x86_64: [vg_aes_gcm_init_aesni, vg_aes_gcm_init_pclmul, vg_aes_gcm_init_aesni_pclmul],
-            aarch64: [vg_aes_gcm_init_aes, vg_aes_gcm_init_pmull, vg_aes_gcm_init_aes_pmull]);
+            aarch64: [vg_aes_gcm_init_aes]);
         let mut scratch = MaybeUninit::<[u64; 320]>::uninit();
         // SAFETY: `key` is valid for reads of `key.len()` bytes, which is 16,
         // 24 or 32; `k.ctx` and `scratch` are valid for reads and writes of
@@ -334,7 +301,7 @@ impl AesGcm {
         add_len(0, aad.len(), MAX_AAD).map_err(|()| Error::InvalidAadLength)?;
         let seal = instance!(self.backend, vg_aes_gcm_seal,
             x86_64: [vg_aes_gcm_seal_aesni, vg_aes_gcm_seal_pclmul, vg_aes_gcm_seal_aesni_pclmul],
-            aarch64: [vg_aes_gcm_seal_aes, vg_aes_gcm_seal_pmull, vg_aes_gcm_seal_aes_pmull]);
+            aarch64: [vg_aes_gcm_seal_aes]);
         let mut work = MaybeUninit::<[u64; 320]>::uninit();
         // SAFETY: `self.ctx` is the key context `vg_aes_gcm_init` wrote for
         // `self.rounds` (10, 12 or 14) rounds (every implementation writes
@@ -381,7 +348,7 @@ impl AesGcm {
         check_tag(tag)?;
         let open = instance!(self.backend, vg_aes_gcm_open,
             x86_64: [vg_aes_gcm_open_aesni, vg_aes_gcm_open_pclmul, vg_aes_gcm_open_aesni_pclmul],
-            aarch64: [vg_aes_gcm_open_aes, vg_aes_gcm_open_pmull, vg_aes_gcm_open_aes_pmull]);
+            aarch64: [vg_aes_gcm_open_aes]);
         let mut work = MaybeUninit::<[u64; 320]>::uninit();
         put_tag(&mut work, tag);
         // SAFETY: as in `encrypt_in_place`, with the received tag in the
@@ -458,11 +425,7 @@ impl AesGcmStream {
     /// When encrypting, [`finalize`](Self::finalize) returns the tag; when
     /// decrypting, it checks the tag given to [`set_tag`](Self::set_tag).
     pub fn new(key: &[u8], nonce: &[u8], direction: Direction) -> Result<Self, Error> {
-        Self::with_key(AesGcm::new(key)?, nonce, direction)
-    }
-
-    /// `new`, with the key already prepared.
-    fn with_key(key: AesGcm, nonce: &[u8], direction: Direction) -> Result<Self, Error> {
+        let key = AesGcm::new(key)?;
         check_nonce(nonce)?;
         let mut s = AesGcmStream {
             key,
@@ -476,7 +439,7 @@ impl AesGcmStream {
         let init = instance!(s.key.backend, vg_aes_gcm_stream_init,
             x86_64: [vg_aes_gcm_stream_init_aesni, vg_aes_gcm_stream_init_pclmul,
                 vg_aes_gcm_stream_init_aesni_pclmul],
-            aarch64: [vg_aes_gcm_stream_init_aes, vg_aes_gcm_stream_init_pmull, vg_aes_gcm_stream_init_aes_pmull]);
+            aarch64: [vg_aes_gcm_stream_init_aes]);
         let mut scratch = MaybeUninit::<[u64; 320]>::uninit();
         // SAFETY: `s.key.ctx` is a key context (as in
         // `AesGcm::encrypt_in_place`), valid for reads of 256 bytes, `nonce`
@@ -508,7 +471,7 @@ impl AesGcmStream {
         let f = instance!(self.key.backend, vg_aes_gcm_stream_aad,
             x86_64: [vg_aes_gcm_stream_aad_aesni, vg_aes_gcm_stream_aad_pclmul,
                 vg_aes_gcm_stream_aad_aesni_pclmul],
-            aarch64: [vg_aes_gcm_stream_aad_aes, vg_aes_gcm_stream_aad_pmull, vg_aes_gcm_stream_aad_aes_pmull]);
+            aarch64: [vg_aes_gcm_stream_aad_aes]);
         let mut scratch = MaybeUninit::<[u64; 320]>::uninit();
         // SAFETY: as in `new`; `self.state` represents a message with
         // `self.aad_len` bytes of additional data and no text yet.
@@ -537,11 +500,11 @@ impl AesGcmStream {
             Direction::Encrypt => instance!(self.key.backend, vg_aes_gcm_stream_encrypt,
                 x86_64: [vg_aes_gcm_stream_encrypt_aesni, vg_aes_gcm_stream_encrypt_pclmul,
                     vg_aes_gcm_stream_encrypt_aesni_pclmul],
-                aarch64: [vg_aes_gcm_stream_encrypt_aes, vg_aes_gcm_stream_encrypt_pmull, vg_aes_gcm_stream_encrypt_aes_pmull]),
+                aarch64: [vg_aes_gcm_stream_encrypt_aes]),
             Direction::Decrypt => instance!(self.key.backend, vg_aes_gcm_stream_decrypt,
                 x86_64: [vg_aes_gcm_stream_decrypt_aesni, vg_aes_gcm_stream_decrypt_pclmul,
                     vg_aes_gcm_stream_decrypt_aesni_pclmul],
-                aarch64: [vg_aes_gcm_stream_decrypt_aes, vg_aes_gcm_stream_decrypt_pmull, vg_aes_gcm_stream_decrypt_aes_pmull]),
+                aarch64: [vg_aes_gcm_stream_decrypt_aes]),
         };
         let mut scratch = MaybeUninit::<[u64; 320]>::uninit();
         // SAFETY: as in `new`, with `data` valid for reads and writes of
@@ -589,7 +552,7 @@ impl AesGcmStream {
                 let f = instance!(self.key.backend, vg_aes_gcm_stream_finish,
                     x86_64: [vg_aes_gcm_stream_finish_aesni, vg_aes_gcm_stream_finish_pclmul,
                         vg_aes_gcm_stream_finish_aesni_pclmul],
-                    aarch64: [vg_aes_gcm_stream_finish_aes, vg_aes_gcm_stream_finish_pmull, vg_aes_gcm_stream_finish_aes_pmull]);
+                    aarch64: [vg_aes_gcm_stream_finish_aes]);
                 // SAFETY: as in `update`, with `work` (a local: working space,
                 // but for the tag written to it) valid for reads and writes of
                 // 2560 bytes.
@@ -610,7 +573,7 @@ impl AesGcmStream {
                 let f = instance!(self.key.backend, vg_aes_gcm_stream_verify,
                     x86_64: [vg_aes_gcm_stream_verify_aesni, vg_aes_gcm_stream_verify_pclmul,
                         vg_aes_gcm_stream_verify_aesni_pclmul],
-                    aarch64: [vg_aes_gcm_stream_verify_aes, vg_aes_gcm_stream_verify_pmull, vg_aes_gcm_stream_verify_aes_pmull]);
+                    aarch64: [vg_aes_gcm_stream_verify_aes]);
                 // SAFETY: as for `vg_aes_gcm_stream_finish`, with the
                 // received tag in the first `len` bytes of `work`.
                 let ok = unsafe {
@@ -663,55 +626,10 @@ mod tests {
             assert_eq!(f(&["aes", "pclmulqdq"]), Backend::AesNi);
         }
         #[cfg(target_arch = "aarch64")]
-        assert_eq!(f(&["aes"]), Backend::AesPmull);
+        assert_eq!(f(&["aes"]), Backend::Aes);
         assert_eq!(f(&[]), Backend::Scalar);
         let best = AesGcm::new(&[0; 16]).unwrap().backend;
         assert_eq!(best, select(detected()));
-    }
-
-    /// Every implementation this CPU can run, including those `select`
-    /// never chooses (AArch64's `Aes` and `Pmull`), agrees with the
-    /// baseline one, one-shot and streaming.
-    #[test]
-    fn instances() {
-        let key = [3u8; 24];
-        let nonce = [5u8; 13];
-        let aad: [u8; 21] = core::array::from_fn(|i| i as u8);
-        let msg: [u8; 37] = core::array::from_fn(|i| (i as u8).wrapping_mul(11));
-        let base = AesGcm::with_backend(&key, Backend::Scalar).unwrap();
-        let mut ct = msg;
-        let tag = base.encrypt_in_place(&nonce, &aad, &mut ct).unwrap();
-        for &b in Backend::ALL {
-            if !detected().contains(b.features()) {
-                continue;
-            }
-            let k = AesGcm::with_backend(&key, b).unwrap();
-            let mut buf = msg;
-            assert_eq!(k.encrypt_in_place(&nonce, &aad, &mut buf), Ok(tag));
-            assert_eq!(buf, ct);
-            assert_eq!(k.decrypt_in_place(&nonce, &aad, &mut buf, &tag), Ok(()));
-            assert_eq!(buf, msg);
-            for direction in [Direction::Encrypt, Direction::Decrypt] {
-                let mut s = AesGcmStream::with_key(k.clone(), &nonce, direction).unwrap();
-                s.update_aad(&aad[..7]).unwrap();
-                s.update_aad(&aad[7..]).unwrap();
-                let (x, y) = buf.split_at_mut(20);
-                s.update(x).unwrap();
-                s.update(y).unwrap();
-                if direction == Direction::Decrypt {
-                    s.set_tag(&tag).unwrap();
-                }
-                assert_eq!(s.finalize(), Ok(tag));
-                assert_eq!(
-                    buf,
-                    if direction == Direction::Encrypt {
-                        ct
-                    } else {
-                        msg
-                    }
-                );
-            }
-        }
     }
 
     /// Every function's instances need at most the features `seal`'s do,
@@ -816,48 +734,17 @@ mod tests {
         #[cfg(target_arch = "aarch64")]
         {
             use crate::arch::gcm::*;
-            let groups: [(&[&str], &[&[&str]]); 3] = [
-                (
-                    VG_AES_GCM_SEAL_AES_FEATURES,
-                    &[
-                        VG_AES_GCM_INIT_AES_FEATURES,
-                        VG_AES_GCM_OPEN_AES_FEATURES,
-                        VG_AES_GCM_STREAM_ENCRYPT_AES_FEATURES,
-                        VG_AES_GCM_STREAM_DECRYPT_AES_FEATURES,
-                        VG_AES_GCM_STREAM_FINISH_AES_FEATURES,
-                        VG_AES_GCM_STREAM_VERIFY_AES_FEATURES,
-                    ][..],
-                ),
-                (
-                    VG_AES_GCM_SEAL_PMULL_FEATURES,
-                    &[
-                        VG_AES_GCM_OPEN_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_INIT_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_AAD_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_ENCRYPT_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_DECRYPT_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_FINISH_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_VERIFY_PMULL_FEATURES,
-                    ][..],
-                ),
-                (
-                    VG_AES_GCM_SEAL_AES_PMULL_FEATURES,
-                    &[
-                        VG_AES_GCM_INIT_AES_PMULL_FEATURES,
-                        VG_AES_GCM_OPEN_AES_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_INIT_AES_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_AAD_AES_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_ENCRYPT_AES_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_DECRYPT_AES_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_FINISH_AES_PMULL_FEATURES,
-                        VG_AES_GCM_STREAM_VERIFY_AES_PMULL_FEATURES,
-                    ][..],
-                ),
-            ];
-            for (seal, others) in groups {
-                for other in others {
-                    assert!(Features::of(seal).contains(Features::of(other)));
-                }
+            for other in [
+                VG_AES_GCM_INIT_AES_FEATURES,
+                VG_AES_GCM_OPEN_AES_FEATURES,
+                VG_AES_GCM_STREAM_INIT_AES_FEATURES,
+                VG_AES_GCM_STREAM_AAD_AES_FEATURES,
+                VG_AES_GCM_STREAM_ENCRYPT_AES_FEATURES,
+                VG_AES_GCM_STREAM_DECRYPT_AES_FEATURES,
+                VG_AES_GCM_STREAM_FINISH_AES_FEATURES,
+                VG_AES_GCM_STREAM_VERIFY_AES_FEATURES,
+            ] {
+                assert!(Features::of(VG_AES_GCM_SEAL_AES_FEATURES).contains(Features::of(other)));
             }
         }
     }

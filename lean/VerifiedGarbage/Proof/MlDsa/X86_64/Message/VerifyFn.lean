@@ -18,7 +18,7 @@ namespace VG.Proof.MlDsa.X86_64.Message
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Message
 open VG.Proof.MlDsa.Message
 open VG.Proof.MlDsa.X86_64 (Comp Same Same.ok ArithImpl)
-open VG.Impl.MlDsa.X86_64.Verify (Prims callAt seqR ifOk sampled hint zOne aOne aGrp aRow samples dot row compute)
+open VG.Impl.MlDsa.X86_64.Verify (Prims callAt seqR ifOk sampled hint zOne aOne aGrp samples dot row compute)
 open VG.Proof.MlDsa.X86_64.Verify (P0 PrimsOk primsWith prims_okWith verify_correct verify_ct)
 open VG.Spec.MlDsa
 
@@ -58,7 +58,7 @@ variable {P : Prims} (hP : PrimsM mc P) (p : Params)
 include hP
 
 theorem verify_same : Same m (Impl.MlDsa.X86_64.Verify.verify P p) (Impl.MlDsa.X86_64.Verify.verify P0 p) := by
-  have aOne : ∀ e, Same m (aOne P e) (aOne P0 e) := fun e =>
+  have aOne : ∀ e, Same m (aOne P p e) (aOne P0 p e) := fun _ =>
     Same.seq hm rfl (Same.sampled hm (Same.callAt hm hP.rejNtt _ _ _) _)
   have dot : ∀ r, Same m (dot P p r) (dot P0 p r) := fun r =>
     Same.seq hm (Same.callAt hm hP.mul _ _ _) (Same.seqRV hm (fun _ => Same.callAt hm hP.mulAdd _ _ _) _ _)
@@ -67,17 +67,12 @@ theorem verify_same : Same m (Impl.MlDsa.X86_64.Verify.verify P p) (Impl.MlDsa.X
       (Same.seq hm (Same.callAt hm hP.mul _ _ _) (Same.seq hm (Same.callAt hm hP.sub _ _ _)
         (Same.seq hm (Same.callAt hm hP.invNtt _ _ _) (Same.seq hm (Same.callAt hm hP.useHint _ _ _)
           (Same.callAt hm hP.simpleBitPack _ _ _)))))))
-  have aGrp : ∀ r s, Same m (aGrp P p r s) (aGrp P0 p r s) := fun _ _ =>
+  have aGrp : ∀ g, Same m (aGrp P p g) (aGrp P0 p g) := fun _ =>
     Same.seq hm rfl (Same.seq hm rfl (Same.seq hm rfl (Same.seq hm rfl
       (Same.seq hm (Same.callAt hm hP.rej4 _ _ _) rfl))))
-  have aRow : ∀ r, Same m (aRow P p r) (aRow P0 p r) := fun r => by
-    unfold Impl.MlDsa.X86_64.Verify.aRow
-    split
-    · exact Same.seq hm (aGrp r 0) (aGrp r 3)
-    · exact Same.seq hm (aGrp r 0) (Same.seqRV hm aOne _ _)
   have samples : Same m (samples P p) (samples P0 p) :=
-    Same.seq hm rfl (Same.seq hm (Same.seqRV hm aRow _ _)
-      (Same.sampled hm (Same.callAt hm hP.ball _ _ _) _))
+    Same.seq hm rfl (Same.seq hm (Same.seqRV hm aGrp _ _) (Same.seq hm (Same.seqRV hm aOne _ _)
+      (Same.sampled hm (Same.callAt hm hP.ball _ _ _) _)))
   have compute : Same m (compute P p) (compute P0 p) :=
     Same.seq hm (Same.seqRV hm (fun _ => Same.callAt hm hP.ntt _ _ _) _ _) (Same.seq hm (Same.callAt hm hP.ntt _ _ _)
       (Same.seq hm (Same.seqRV hm row _ _) rfl))

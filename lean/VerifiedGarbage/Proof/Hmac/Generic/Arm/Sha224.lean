@@ -87,15 +87,6 @@ theorem sha224_initChecks : Init.Checks sha224H where
   argU₂ := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha224_finChecks : Finalize.Checks sha224H where
-  pro := ⟨_, by taint_decide⟩
-  fin1 := ⟨_, by taint_decide⟩
-  copy1 := ⟨_, by taint_decide⟩
-  upd := ⟨_, by taint_decide⟩
-  fin2 := ⟨_, by taint_decide⟩
-  copy2 := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
-
 theorem sha224_initImp : (initG Spec.Hmac.sha224S 104).Implies (Spec.Hmac.sha224I.initContract Arm.abi 16) :=
   initImp Spec.Hmac.sha224S 104 (by
     inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.sha224S, Spec.Hmac.sha224, initG, below,
@@ -108,8 +99,5 @@ theorem sha224_finImp : (finG Spec.Hmac.sha224S 104).Implies (Spec.Hmac.sha224I.
 
 theorem sha224_init : Verified Arm.target sha224H.init (Spec.Hmac.sha224I.initContract Arm.abi 16) :=
   (Init.verified sha224OK sha224_initChecks (by decide) sha224_initImp.sat_left).of_implies sha224_initImp
-
-theorem sha224_finalize : Verified Arm.target sha224H.finalize (Spec.Hmac.sha224I.finalizeContract Arm.abi 16) :=
-  (Finalize.verified sha224OK sha224_finChecks (by decide) sha224_finImp.sat_left).of_implies sha224_finImp
 
 end VG.Proof.Hmac.Generic.Arm.Instances

@@ -286,12 +286,12 @@ macro_rules! streaming_hash {
                 self.backend
             }
 
-            /// The streaming state and the length of the message it
-            /// represents.
+            /// The streaming state, in place, and the length of the message
+            /// it represents.
             #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm", target_arch = "x86"))]
             #[allow(dead_code)]
-            pub(crate) fn state(&self) -> ([u8; $state], u64) {
-                (self.state, self.length)
+            pub(crate) fn state_mut(&mut self) -> (&mut [u8; $state], u64) {
+                (&mut self.state, self.length)
             }
         }
 

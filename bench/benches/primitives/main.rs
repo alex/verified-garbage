@@ -17,6 +17,7 @@ use openssl::pkey::PKey;
 use openssl::sign::Signer;
 
 mod aes_gcm;
+mod argon2;
 mod blake2b;
 mod blake2s;
 mod chacha20;
@@ -36,6 +37,7 @@ mod md5;
 mod mldsa44;
 mod mldsa65;
 mod mldsa87;
+mod mlkem;
 mod mlkem1024;
 mod mlkem768;
 mod pbkdf2_md5;
@@ -236,6 +238,7 @@ const BENCHES: &[Bench] = &[
     (poly1305::USES, poly1305::bench),
     (rc2_cbc::USES, rc2_cbc::bench),
     (triple_des_ecb::USES, triple_des_ecb::bench),
+    (argon2::USES, argon2::bench),
     (scrypt::USES, scrypt::bench),
     (sha1::USES, sha1::bench),
     (sha224::USES, sha224::bench),
@@ -251,14 +254,18 @@ const BENCHES: &[Bench] = &[
 ];
 
 /// Runs the benchmarks that use any of the modules in `$VG_BENCH_MODULES`
-/// (space-separated), or every benchmark if it is unset, empty, or names a
-/// module no benchmark uses (e.g. shared code such as `cpu`), so that a
-/// change is never left unbenchmarked.
+/// (space-separated), or every benchmark if it is unset or empty. The CI
+/// selector requests all benchmarks for shared or unknown dependencies. An
+/// unknown explicit module is an error, rather than silently running everything.
 fn all(c: &mut Criterion) {
     let modules = std::env::var("VG_BENCH_MODULES").unwrap_or_default();
     let modules: Vec<&str> = modules.split_whitespace().collect();
     let used = |m: &&str| BENCHES.iter().any(|(uses, _)| uses.contains(m));
-    let every = modules.is_empty() || !modules.iter().all(used);
+    assert!(
+        modules.iter().all(used),
+        "VG_BENCH_MODULES names a module absent from the benchmark registry"
+    );
+    let every = modules.is_empty();
     for (uses, bench) in BENCHES {
         if every || uses.iter().any(|u| modules.contains(u)) {
             bench(c);

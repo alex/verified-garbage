@@ -59,14 +59,15 @@ def scalar : GhashImpl where
   suffix := ""
   features := []
 
-/-- `vg_ghash_pmull`. -/
-def pmull : GhashImpl where
-  fn := ⟨"vg_ghash_pmull", Impl.Gcm.AArch64.Pmull.ghash⟩
+/-- `vg_ghash_aes`, with PMULL (which Rust's `aes` feature stands for, with
+the AES instructions). -/
+def aes : GhashImpl where
+  fn := ⟨"vg_ghash_aes", Impl.Gcm.AArch64.Pmull.ghash⟩
   noFrames := by decide +kernel
   ok := Proof.Gcm.AArch64.Pmull.ghash_correct
   ct := Proof.Gcm.AArch64.Pmull.ghash_ct
   keepsV := by decide +kernel
-  suffix := "_pmull"
+  suffix := "_aes"
   features := ["aes"]
 
 end GhashImpl
@@ -325,8 +326,11 @@ variable (v : GcmImpl)
 
 def callees : Callees := ⟨⟨v.ctr.callee.name, v.ctr.callee.code⟩, v.key.fn, v.gh.fn⟩
 
-/-- What the names of the AES-GCM functions end with. -/
-def suffix : String := v.ctr.suffix ++ v.gh.suffix
+/-- What the names of the AES-GCM functions end with: once if both
+implementations have the same suffix (`_aes`, for the one feature they
+need). -/
+def suffix : String :=
+  if v.gh.suffix = v.ctr.suffix then v.ctr.suffix else v.ctr.suffix ++ v.gh.suffix
 
 /-- The CPU features of the AES-GCM functions. -/
 def features : List String := (v.ctr.features ++ v.gh.features).dedup

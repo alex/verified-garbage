@@ -286,7 +286,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -586,7 +586,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -602,7 +602,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -618,7 +618,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -924,7 +924,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix and masks sampled with four SHAKE128 or SHAKE256 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
@@ -940,7 +940,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix and masks sampled with four SHAKE128 or SHAKE256 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
@@ -956,7 +956,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix and masks sampled with four SHAKE128 or SHAKE256 instances at once</td>
 
 <td>✅ SHA extensions</td>
 

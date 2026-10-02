@@ -54,7 +54,7 @@ jobs:
             matrix=$(python3 ci/bench_arches.py --all)
           else
             git fetch -q --depth=1 origin "$BASE"
-            matrix=$(git diff --name-only "$BASE" HEAD | python3 ci/bench_arches.py)
+            matrix=$(git diff --name-only "$BASE" HEAD | python3 ci/bench_arches.py --base "$BASE")
           fi
           echo "$matrix"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"

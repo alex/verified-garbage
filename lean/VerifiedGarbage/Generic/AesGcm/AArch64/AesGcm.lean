@@ -7,7 +7,7 @@ import VerifiedGarbage.Proof.AesGcm.AArch64.Verified
 A generic file (see `TCB/Emit.lean`): the artifacts it lists, calling the
 implementations `v` of `vg_aes_expand_key`, `vg_aes_ctr32` and `vg_ghash`,
 are emitted once for each combination (`Variants/AesGcm/AArch64/`), named with
-its suffix (e.g. `vg_aes_gcm_seal_aes_pmull`), and need its CPU features.
+its suffix (e.g. `vg_aes_gcm_seal_aes`), and need its CPU features.
 **Review note**: `sig` and `doc` are trusted, as they tie the Rust caller to
 the contract; these artifacts are made from each function's `Api` (in
 `Spec/`, reviewed with the contract), and this file adds only notes on the
