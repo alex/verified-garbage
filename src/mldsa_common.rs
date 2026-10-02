@@ -409,6 +409,9 @@ mod tests {
         let vk = key.verifying_key();
         assert_eq!(vk.verify(b"msg", &[0; 255], &sig), Ok(()));
         assert_eq!(key.sign(b"msg", &[0; 256]), Err(Error::ContextTooLong));
-        assert_eq!(vk.verify(b"msg", &[0; 256], &sig), Err(Error::ContextTooLong));
+        assert_eq!(
+            vk.verify(b"msg", &[0; 256], &sig),
+            Err(Error::ContextTooLong)
+        );
     }
 }
