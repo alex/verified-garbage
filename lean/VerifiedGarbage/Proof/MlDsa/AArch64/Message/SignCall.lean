@@ -55,7 +55,7 @@ abbrev signArgs : List (Reg × Arg) := [(.x0, .slot fKey), (.x1, .off oMU), (.x2
 section
 variable {p : Params} {s : State}
 
-theorem gpr_ce (t : State) {r : Reg} (h : r ∉ linkRegs := by decide) :
+theorem gpr_ce (t : State) {r : Reg} {rd wr : List Region} (h : r ∉ linkRegs := by decide) :
     (t.callEntry.withRegions rd wr).gpr r = t.gpr r := by
   rw [State.withRegions_gpr, State.callEntry_gpr _ h]
 

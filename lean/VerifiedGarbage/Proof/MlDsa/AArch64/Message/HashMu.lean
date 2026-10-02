@@ -32,10 +32,10 @@ theorem ofNat_toNat_eq {x : BitVec 64} {n : Nat} (h : x.toNat = n) : x = BitVec.
 /-- The arguments of an absorb are fit, if its data and length are not `x0`. -/
 theorem absOk {src len pos : Arg} (h1 : src.ok = true) (h2 : len.ok = true) (h3 : pos.ok = true)
     (r1 : src.isRet = false) (r2 : len.isRet = false) : argsOk (absArgs src len pos) = true := by
-  simp (config := { decide := true }) [argsOk, absArgs, h1, h2, h3, r1, r2]
+  simp (config := { decide := true }) [argsOk, h1, h2, h3, r1, r2]
 
 theorem padOk {pos : Arg} (h : pos.ok = true) : argsOk (padArgs pos) = true := by
-  simp (config := { decide := true }) [argsOk, padArgs, h]
+  simp (config := { decide := true }) [argsOk, h]
 
 theorem Ctx.slotV {t : State} (hc : Ctx L g vv m₀ t) {f j : Nat} (hf : f = 920 + 8 * j) (hj : j < 8) :
     (Arg.slot f).val t = L.vals.getD j 0 := by

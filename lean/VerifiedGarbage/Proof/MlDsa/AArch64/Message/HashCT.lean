@@ -57,7 +57,7 @@ theorem AbsA.pre {s : State} {st dt sc : Addr} {pos len : Nat} (h : AbsA s st dt
     gpr_ce s (r := .x3), gpr_ce s (r := .x4), gpr_ce s (r := .x5), h.h0, h.h1, h.h2, h.h3, h.h4, h.h5]
   exact ⟨trivial, trivial, h.d₁, h.d₂, h.d₃, h.hsp, h.k₁, h.k₂, h.k₃, by decide, h.hp⟩
 
-theorem absA_of (hL : L.Ok) {g : Reg → BitVec 64} {v : VReg → BitVec 128} {m₀ : Mem} {t t1 : State}
+theorem absA_of {L : Lay} (hL : L.Ok) {g : Reg → BitVec 64} {v : VReg → BitVec 128} {m₀ : Mem} {t t1 : State}
     (hc : Ctx L g v m₀ t) {src len pos : Arg} (hm : Moved (absArgs src len pos) t t1) {dp : Addr} {n q : Nat}
     (hdp : src.val t = dp) (hn : len.val t = BitVec.ofNat 64 n) (hq : pos.val t = BitVec.ofNat 64 q)
     (hql : q < 136) (hnl : n < 2 ^ 64) (dS : Region.Disjoint ⟨dp, n⟩ ⟨L.ST, 200⟩)
