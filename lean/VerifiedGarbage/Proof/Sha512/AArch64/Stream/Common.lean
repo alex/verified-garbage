@@ -161,12 +161,12 @@ space at `x20`. -/
 theorem compressAt_ok_of {code : Prog isa}
     (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true) {s : State} {st scr src : Addr}
     (h19 : s.gpr .x19 = st) (h20 : s.gpr .x20 = scr) (h1 : s.gpr .x1 = src)
-    (d₁ : Region.Disjoint ⟨st, 64⟩ ⟨scr, 176⟩) (d₂ : Region.Disjoint ⟨src, 128⟩ ⟨st, 64⟩)
-    (d₃ : Region.Disjoint ⟨src, 128⟩ ⟨scr, 176⟩)
-    (hc : Covers [⟨src, 128⟩, ⟨st, 64⟩, ⟨scr, 176⟩] (s.rd ++ s.wr))
-    (hw : Covers [⟨st, 64⟩, ⟨scr, 176⟩] s.wr) {Q : State → Prop}
+    (d₁ : Region.Disjoint ⟨st, 64⟩ ⟨scr, 640⟩) (d₂ : Region.Disjoint ⟨src, 128⟩ ⟨st, 64⟩)
+    (d₃ : Region.Disjoint ⟨src, 128⟩ ⟨scr, 640⟩)
+    (hc : Covers [⟨src, 128⟩, ⟨st, 64⟩, ⟨scr, 640⟩] (s.rd ++ s.wr))
+    (hw : Covers [⟨st, 64⟩, ⟨scr, 640⟩] s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, s'.gpr r = s.gpr r) →
-      s'.sp = s.sp → Frame [⟨st, 64⟩, ⟨scr, 176⟩] s.mem s'.mem →
+      s'.sp = s.sp → Frame [⟨st, 64⟩, ⟨scr, 640⟩] s.mem s'.mem →
       stateAt s'.mem st = compress (stateAt s.mem st) (blockAt s.mem src) → Q s') :
     WP isa (compressAtWith code) s Q := by
   unfold compressAtWith
@@ -191,7 +191,7 @@ theorem compressAt_ok_of {code : Prog isa}
   have wr₃ : s₃.wr = s.wr := by rw [u₃.wr, u₂.wr, u₁.wr]
   have sp₃ : s₃.sp = s.sp := by rw [u₃.sp, u₂.sp, u₁.sp]
   refine WP.inline (k := Proof.Sha512.compressAArch64) (hn := hno) hcode.1
-    (rd := [⟨src, 128 * 1⟩]) (wr := [⟨st, 64⟩, ⟨scr, 176⟩]) ?_ ?_ ?_ ?_
+    (rd := [⟨src, 128 * 1⟩]) (wr := [⟨st, 64⟩, ⟨scr, 640⟩]) ?_ ?_ ?_ ?_
   · simp only [Proof.Sha512.compressAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, e0, e1, e2, e3, one_toNat]
     exact ⟨trivial, trivial, d₁, d₂, d₃⟩
@@ -257,11 +257,11 @@ theorem eval_nonzero (s : State) (r : Reg) : eval (.nonzero .x r) s = some (s.gp
 
 /-! ## Saving the caller's registers -/
 
-/-- The memory after saving `x19`–`x24` (values `g`) at `b + 176 … b + 216`. -/
+/-- The memory after saving `x19`–`x24` (values `g`) at `b + 640 … b + 680`. -/
 def saveMem (m : Mem) (b : Addr) (g : Reg → BitVec 64) : Mem :=
-  (((((m.writeW (b + BitVec.ofNat 64 176) (g .x19)).writeW (b + BitVec.ofNat 64 184) (g .x20)).writeW
-    (b + BitVec.ofNat 64 192) (g .x21)).writeW (b + BitVec.ofNat 64 200) (g .x22)).writeW
-    (b + BitVec.ofNat 64 208) (g .x23)).writeW (b + BitVec.ofNat 64 216) (g .x24)
+  (((((m.writeW (b + BitVec.ofNat 64 640) (g .x19)).writeW (b + BitVec.ofNat 64 648) (g .x20)).writeW
+    (b + BitVec.ofNat 64 656) (g .x21)).writeW (b + BitVec.ofNat 64 664) (g .x22)).writeW
+    (b + BitVec.ofNat 64 672) (g .x23)).writeW (b + BitVec.ofNat 64 680) (g .x24)
 
 theorem save_sep (b : Addr) {d e : Nat} (hd : d < 2 ^ 32) (he : e < 2 ^ 32)
     (h : d + 8 ≤ e ∨ e + 8 ≤ d) : Mem.Sep (b + BitVec.ofNat 64 d) 8 (b + BitVec.ofNat 64 e) 8 :=
@@ -281,38 +281,38 @@ theorem saveMem_saved (m : Mem) (b : Addr) (g : Reg → BitVec 64) :
   simp (config := {decide := true}) only [saveMem, Mem.readW_writeW_self64, readW_writeW_save]
 
 theorem saveMem_frame (m : Mem) (b : Addr) (g : Reg → BitVec 64) :
-    Frame [⟨b, 224⟩] m (saveMem m b g) := by
-  have c : ∀ d : Nat, d + 8 ≤ 224 → (⟨b, 224⟩ : Region).Contains (b + BitVec.ofNat 64 d) (64 / 8) :=
+    Frame [⟨b, 688⟩] m (saveMem m b g) := by
+  have c : ∀ d : Nat, d + 8 ≤ 688 → (⟨b, 688⟩ : Region).Contains (b + BitVec.ofNat 64 d) (64 / 8) :=
     fun d hd => Proof.Sha512.AArch64.contains_offset hd (by omega)
   simp only [saveMem]
-  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 176 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 184 (by omega))).writeW (List.mem_singleton_self _) _
-    (c 192 (by omega))).writeW (List.mem_singleton_self _) _ (c 200 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 208 (by omega)) |>.writeW (List.mem_singleton_self _) _
-    (c 216 (by omega))
+  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 640 (by omega))).writeW
+    (List.mem_singleton_self _) _ (c 648 (by omega))).writeW (List.mem_singleton_self _) _
+    (c 656 (by omega))).writeW (List.mem_singleton_self _) _ (c 664 (by omega))).writeW
+    (List.mem_singleton_self _) _ (c 672 (by omega)) |>.writeW (List.mem_singleton_self _) _
+    (c 680 (by omega))
 
-theorem save_eq (b : Reg) : save b = [.str .x .x19 b 176, .str .x .x20 b 184, .str .x .x21 b 192,
-    .str .x .x22 b 200, .str .x .x23 b 208, .str .x .x24 b 216] := rfl
+theorem save_eq (b : Reg) : save b = [.str .x .x19 b 640, .str .x .x20 b 648, .str .x .x21 b 656,
+    .str .x .x22 b 664, .str .x .x23 b 672, .str .x .x24 b 680] := rfl
 
 /-- Saving `x19`–`x24` with the scratch pointer in `b`. -/
 theorem save_ok {b : Reg} {rest : List Instr} {s : State} {Q : State → Prop}
-    (hin : ∀ d, 176 ≤ d → d + 8 ≤ 224 → InRegions s.wr (s.gpr b + BitVec.ofNat 64 d) 8)
+    (hin : ∀ d, 640 ≤ d → d + 8 ≤ 688 → InRegions s.wr (s.gpr b + BitVec.ofNat 64 d) 8)
     (k : ∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
       s'.mem = saveMem s.mem (s.gpr b) s.gpr → WP isa (.block rest) s' Q) :
     WP isa (.block (save b ++ rest)) s Q := by
   rw [save_eq]
   simp only [List.cons_append, List.nil_append]
-  refine wp_str (by decide) rfl (hin 176 (by omega) (by omega)) fun s₁ g₁ => ?_
-  refine wp_str (by decide) (by rw [g₁.gpr]) (by rw [g₁.wr]; exact hin 184 (by omega) (by omega))
+  refine wp_str (by decide) rfl (hin 640 (by omega) (by omega)) fun s₁ g₁ => ?_
+  refine wp_str (by decide) (by rw [g₁.gpr]) (by rw [g₁.wr]; exact hin 648 (by omega) (by omega))
     fun s₂ g₂ => ?_
   refine wp_str (by decide) (by rw [g₂.gpr, g₁.gpr])
-    (by rw [g₂.wr, g₁.wr]; exact hin 192 (by omega) (by omega)) fun s₃ g₃ => ?_
+    (by rw [g₂.wr, g₁.wr]; exact hin 656 (by omega) (by omega)) fun s₃ g₃ => ?_
   refine wp_str (by decide) (by rw [g₃.gpr, g₂.gpr, g₁.gpr])
-    (by rw [g₃.wr, g₂.wr, g₁.wr]; exact hin 200 (by omega) (by omega)) fun s₄ g₄ => ?_
+    (by rw [g₃.wr, g₂.wr, g₁.wr]; exact hin 664 (by omega) (by omega)) fun s₄ g₄ => ?_
   refine wp_str (by decide) (by rw [g₄.gpr, g₃.gpr, g₂.gpr, g₁.gpr])
-    (by rw [g₄.wr, g₃.wr, g₂.wr, g₁.wr]; exact hin 208 (by omega) (by omega)) fun s₅ g₅ => ?_
+    (by rw [g₄.wr, g₃.wr, g₂.wr, g₁.wr]; exact hin 672 (by omega) (by omega)) fun s₅ g₅ => ?_
   refine wp_str (by decide) (by rw [g₅.gpr, g₄.gpr, g₃.gpr, g₂.gpr, g₁.gpr])
-    (by rw [g₅.wr, g₄.wr, g₃.wr, g₂.wr, g₁.wr]; exact hin 216 (by omega) (by omega)) fun s₆ g₆ => ?_
+    (by rw [g₅.wr, g₄.wr, g₃.wr, g₂.wr, g₁.wr]; exact hin 680 (by omega) (by omega)) fun s₆ g₆ => ?_
   refine k s₆ (by rw [g₆.gpr, g₅.gpr, g₄.gpr, g₃.gpr, g₂.gpr, g₁.gpr])
     (by rw [g₆.rd, g₅.rd, g₄.rd, g₃.rd, g₂.rd, g₁.rd]) (by rw [g₆.wr, g₅.wr, g₄.wr, g₃.wr, g₂.wr, g₁.wr])
     (by rw [g₆.sp, g₅.sp, g₄.sp, g₃.sp, g₂.sp, g₁.sp]) ?_
@@ -338,12 +338,12 @@ theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s 
 /-- The callee-saved registers our code never touches. -/
 def untouched : List Reg := [.x25, .x26, .x27, .x28, .x30]
 
-theorem restore_eq : restore = [.ldr .x .x19 .x20 176, .ldr .x .x21 .x20 192, .ldr .x .x22 .x20 200,
-    .ldr .x .x23 .x20 208, .ldr .x .x24 .x20 216, .ldr .x .x20 .x20 184] := rfl
+theorem restore_eq : restore = [.ldr .x .x19 .x20 640, .ldr .x .x21 .x20 656, .ldr .x .x22 .x20 664,
+    .ldr .x .x23 .x20 672, .ldr .x .x24 .x20 680, .ldr .x .x20 .x20 648] := rfl
 
 /-- Restoring `x19`–`x24` from the save area at `scr`. -/
 theorem restore_ok {s : State} {scr : Addr} (h20 : s.gpr .x20 = scr)
-    (hin : ∀ d, 176 ≤ d → d + 8 ≤ 224 → InRegions (s.rd ++ s.wr) (scr + BitVec.ofNat 64 d) 8)
+    (hin : ∀ d, 640 ≤ d → d + 8 ≤ 688 → InRegions (s.rd ++ s.wr) (scr + BitVec.ofNat 64 d) 8)
     (g : Reg → BitVec 64) (hsv : ∀ p ∈ saved, s.mem.readW (scr + BitVec.ofNat 64 p.2) 64 = g p.1)
     {Q : State → Prop}
     (k : ∀ s', (∀ p ∈ saved, s'.gpr p.1 = g p.1) → (∀ r, r ∉ saved.map Prod.fst → s'.gpr r = s.gpr r) →
@@ -352,25 +352,25 @@ theorem restore_ok {s : State} {scr : Addr} (h20 : s.gpr .x20 = scr)
   have v : ∀ r d, (r, d) ∈ saved → s.mem.readW (scr + BitVec.ofNat 64 d) 64 = g r :=
     fun r d h => hsv (r, d) h
   rw [restore_eq]
-  refine wp_ldr (by decide) (by rw [h20]) (hin 176 (by omega) (by omega)) fun s₁ u₁ => ?_
+  refine wp_ldr (by decide) (by rw [h20]) (hin 640 (by omega) (by omega)) fun s₁ u₁ => ?_
   refine wp_ldr (by decide) (by rw [u₁.other _ (by decide), h20])
-    (by rw [u₁.rd, u₁.wr]; exact hin 192 (by omega) (by omega)) fun s₂ u₂ => ?_
+    (by rw [u₁.rd, u₁.wr]; exact hin 656 (by omega) (by omega)) fun s₂ u₂ => ?_
   refine wp_ldr (by decide) (by rw [u₂.other _ (by decide), u₁.other _ (by decide), h20])
-    (by rw [u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact hin 200 (by omega) (by omega)) fun s₃ u₃ => ?_
+    (by rw [u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact hin 664 (by omega) (by omega)) fun s₃ u₃ => ?_
   refine wp_ldr (by decide)
     (by rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), h20])
-    (by rw [u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact hin 208 (by omega) (by omega))
+    (by rw [u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact hin 672 (by omega) (by omega))
     fun s₄ u₄ => ?_
   refine wp_ldr (by decide)
     (by rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide),
       u₁.other _ (by decide), h20])
-    (by rw [u₄.rd, u₄.wr, u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact hin 216 (by omega) (by omega))
+    (by rw [u₄.rd, u₄.wr, u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact hin 680 (by omega) (by omega))
     fun s₅ u₅ => ?_
   refine wp_ldr (by decide)
     (by rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide),
       u₂.other _ (by decide), u₁.other _ (by decide), h20])
     (by rw [u₅.rd, u₅.wr, u₄.rd, u₄.wr, u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]
-        exact hin 184 (by omega) (by omega))
+        exact hin 648 (by omega) (by omega))
     fun s₆ u₆ => WP.block_nil ?_
   have m5 : s₅.mem = s.mem := by rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
   refine k s₆ (fun p hp => ?_) (fun r hr => ?_) (by rw [u₆.mem, m5]) (by rw [u₆.rd, u₅.rd, u₄.rd,
@@ -379,15 +379,15 @@ theorem restore_ok {s : State} {scr : Addr} (h20 : s.gpr .x20 = scr)
   · simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl | rfl | rfl | rfl | rfl
     · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide),
-        u₂.other _ (by decide), u₁.gpr, v .x19 176 (by simp [saved])]
-    · rw [u₆.gpr, m5, v .x20 184 (by simp [saved])]
+        u₂.other _ (by decide), u₁.gpr, v .x19 640 (by simp [saved])]
+    · rw [u₆.gpr, m5, v .x20 648 (by simp [saved])]
     · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide),
-        u₂.gpr, u₁.mem, v .x21 192 (by simp [saved])]
+        u₂.gpr, u₁.mem, v .x21 656 (by simp [saved])]
     · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.mem, u₁.mem,
-        v .x22 200 (by simp [saved])]
+        v .x22 664 (by simp [saved])]
     · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.gpr, u₃.mem, u₂.mem, u₁.mem,
-        v .x23 208 (by simp [saved])]
-    · rw [u₆.other _ (by decide), u₅.gpr, u₄.mem, u₃.mem, u₂.mem, u₁.mem, v .x24 216 (by simp [saved])]
+        v .x23 672 (by simp [saved])]
+    · rw [u₆.other _ (by decide), u₅.gpr, u₄.mem, u₃.mem, u₂.mem, u₁.mem, v .x24 680 (by simp [saved])]
   · simp only [saved, List.map_cons, List.map_nil, List.mem_cons, List.not_mem_nil, or_false,
       not_or] at hr
     obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hr

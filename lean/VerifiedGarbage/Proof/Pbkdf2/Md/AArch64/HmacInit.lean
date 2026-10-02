@@ -157,7 +157,7 @@ include hH hp
 
 /-- The sizes the proof needs. -/
 theorem sizes : H.P.N % 4 = 0 ∧ H.P.B % 4 = 0 ∧ H.P.N ≤ 64 ∧ 0 < H.P.B ∧ H.P.B ≤ 128 ∧
-    H.P.so + 48 = 8 * H.stream.W ∧ H.stream.buf = 8 * H.stream.W + 56 ∧ H.stream.W ≤ 64 ∧
+    H.P.so + 48 = 8 * H.stream.W ∧ H.stream.buf = 8 * H.stream.W + 56 ∧ H.stream.W ≤ 134 ∧
     8 * H.stream.W + 56 ≤ 8 * sc ∧ 8 * sc ≤ 2 ^ 64 := by
   have := hH.sizes.N4; have := hH.N_le; have := hH.B_le; have := hH.B_pos; have := hH.sizes.dims.so
   have := hp.nw; have := hp.fits

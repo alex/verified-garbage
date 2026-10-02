@@ -16,10 +16,10 @@ The streaming state (192 bytes at `state`) is the hash value followed by a
   hash value.
 
 The compression function's code (`Impl.Sha512.AArch64.compress`) is inlined
-with `scratch[0..176)` as its scratch space. It only uses `x0`–`x15`, and its
+with `scratch[0..640)` as its scratch space. It only uses `x0`–`x15`, and its
 `Verified` proof guarantees that it preserves `x19`–`x28`, so our own
 variables live there (`x19` = `state`, `x20` = `scratch`), and our caller's
-values of those registers are saved in `scratch[176..224)`.
+values of those registers are saved in `scratch[640..688)`.
 
 As in the SHA-256 implementation, byte `r` of the buffer is addressed as
 `[x12, #64]` with `x12 = state + r`, `data` is consumed through a pointer that
@@ -41,14 +41,14 @@ def init (iv : Spec.Sha512.HashValue) : Prog isa :=
 
 /-- The callee-saved registers we use, and where they are saved in `scratch`. -/
 def saved : List (Reg × Nat) :=
-  [(.x19, 176), (.x20, 184), (.x21, 192), (.x22, 200), (.x23, 208), (.x24, 216)]
+  [(.x19, 640), (.x20, 648), (.x21, 656), (.x22, 664), (.x23, 672), (.x24, 680)]
 
 /-- Save them, with `scratch` in `b`. -/
 def save (b : Reg) : List Instr := saved.map fun (r, d) => .str .x r b d
 
 /-- Restore them from `scratch` in `x20` (`x20`, the base, last). -/
 def restore : List Instr :=
-  (saved.filter (·.1 != .x20)).map (fun (r, d) => .ldr .x r .x20 d) ++ [.ldr .x .x20 .x20 184]
+  (saved.filter (·.1 != .x20)).map (fun (r, d) => .ldr .x r .x20 d) ++ [.ldr .x .x20 .x20 648]
 
 /-- Compress the block at `x1` into the hash value at `x19`, with scratch
 space `x20`. -/
