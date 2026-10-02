@@ -154,28 +154,43 @@ theorem hk1_ok {s : State} (hk : KK F s₀ s) (ho : F.stWO < 2 ^ 16) :
   exact scr_ok hk.kr ho fun s₁ u₁ => WP.block_nil ⟨⟨hk.kr.upd12 (by decide) u₁,
     by rw [u₁.other _ (by decide) (by decide), hk.r8], by rw [u₁.other _ (by decide) (by decide), hk.r9]⟩, u₁.gpr, u₁.mem⟩
 
+omit hp hz hH in
+/-- `r0 ← r4`, before `init`. -/
+theorem hk2a_ok {s : State} (hk : KK F s₀ s) (h4 : s.gpr .r4 = dO s₀ F.stWO) :
+    WP isa (.block [.mov .r0 (.reg .r4)]) s fun t => KK F s₀ t ∧ t.gpr .r4 = dO s₀ F.stWO ∧
+      t.gpr .r0 = dO s₀ F.stWO := by
+  refine wp_mov (op2_reg _ _) fun s₁ u₁ => WP.block_nil ⟨⟨hk.kr.upd (by decide) u₁, ?_, ?_⟩, ?_, ?_⟩
+  · rw [u₁.other _ (by decide), hk.r8]
+  · rw [u₁.other _ (by decide), hk.r9]
+  · rw [u₁.other _ (by decide), h4]
+  · rw [u₁.gpr, h4]
+
+/-- `init` on the working state. -/
+theorem hk2b_ok {s : State} (hk : KK F s₀ s) (h4 : s.gpr .r4 = dO s₀ F.stWO) (h0 : s.gpr .r0 = dO s₀ F.stWO) :
+    WP isa (.call F.H.initN F.H.initC) s fun t => KK F s₀ t ∧ hH.SH.Repr t.mem (A s₀ F.stWO) [] ∧
+      t.gpr .r4 = dO s₀ F.stWO := by
+  have hl := layout (F := F); have he := end_le hz; have := hz.S; have := hz.reach
+  have ea := dO_addr hp (o := F.stWO) (by omega)
+  have cw : Covers [⟨State.addr (dO s₀ F.stWO), F.H.S⟩] s.wr := by
+    rw [ea]
+    refine Covers.of_sub fun r hr => ?_
+    simp only [List.mem_singleton] at hr; subst hr; exact cov_part hp hk.kr (by omega)
+  refine init_call hH (st := dO s₀ F.stWO) h0 (by rw [dO_toNat hp (by omega)]; have := hp.nsc; omega)
+    cw fun s' a r => ?_
+  have a' := After.of_hmac a
+  refine ⟨⟨hk.kr.call hp hz a' fun r hr => ?_, ?_, ?_⟩, by rw [← ea]; exact r, ?_⟩
+  · simp only [List.mem_singleton] at hr; subst hr
+    exact .inr ⟨_, _, by rw [ea], by omega, by omega⟩
+  · rw [a.cs _ (by decide) (by decide), hk.r8]
+  · rw [a.cs _ (by decide) (by decide), hk.r9]
+  · rw [a.cs _ (by decide) (by decide), h4]
+
 /-- `init` on the working state. -/
 theorem hk2_ok {s : State} (hk : KK F s₀ s) (h4 : s.gpr .r4 = dO s₀ F.stWO) :
     WP isa (F.H.callInit .r4) s fun t => KK F s₀ t ∧ hH.SH.Repr t.mem (A s₀ F.stWO) [] ∧
       t.gpr .r4 = dO s₀ F.stWO := by
-  have hl := layout (F := F); have he := end_le hz; have := hz.S; have := hz.reach
-  have ea := dO_addr hp (o := F.stWO) (by omega)
   unfold Hash.callInit
-  refine WP.seq (wp_mov (op2_reg _ _) fun s₁ u₁ => WP.block_nil ?_)
-  have k₁ := hk.kr.upd (by decide) u₁
-  have cw : Covers [⟨State.addr (dO s₀ F.stWO), F.H.S⟩] s₁.wr := by
-    rw [ea]
-    refine Covers.of_sub fun r hr => ?_
-    simp only [List.mem_singleton] at hr; subst hr; exact cov_part hp k₁ (by omega)
-  refine init_call hH (st := dO s₀ F.stWO) (by rw [u₁.gpr, h4]) (by rw [dO_toNat hp (by omega)]; have := hp.nsc; omega)
-    cw fun s' a r => ?_
-  have a' := After.of_hmac a
-  refine ⟨⟨k₁.call hp hz a' fun r hr => ?_, ?_, ?_⟩, by rw [← ea]; exact r, ?_⟩
-  · simp only [List.mem_singleton] at hr; subst hr
-    exact .inr ⟨_, _, by rw [ea], by omega, by omega⟩
-  · rw [a.cs _ (by decide) (by decide), u₁.other _ (by decide), hk.r8]
-  · rw [a.cs _ (by decide) (by decide), u₁.other _ (by decide), hk.r9]
-  · rw [a.cs _ (by decide) (by decide), u₁.other _ (by decide), h4]
+  exact WP.seq (WP.mono (hk2a_ok hk h4) fun s₁ ⟨k₁, d₁, a₁⟩ => hk2b_ok hp hz hH k₁ d₁ a₁)
 
 omit hp hz hH in
 /-- `update`'s arguments: the password. -/
