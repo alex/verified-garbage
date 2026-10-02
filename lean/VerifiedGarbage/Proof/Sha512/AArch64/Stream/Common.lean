@@ -244,6 +244,25 @@ theorem ofNat_shr7 {a : Nat} (h : a < 2 ^ 64) : BitVec.ofNat 64 a >>> 7 = BitVec
   rw [BitVec.toNat_ushiftRight, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h,
     Nat.shiftRight_eq_div_pow, Nat.mod_eq_of_lt (by omega)]
 
+theorem ofNat_shr3 {a : Nat} (h : a < 2 ^ 64) : BitVec.ofNat 64 a >>> 3 = BitVec.ofNat 64 (a / 8) := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_ushiftRight, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h,
+    Nat.shiftRight_eq_div_pow, Nat.mod_eq_of_lt (by omega)]
+
+/-- A 64-bit store is a store of its eight bytes. -/
+theorem writeW_eq_writeBytes (m : Mem) (a : Addr) (v : BitVec 64) :
+    m.writeW a v = WriteBytes.writeBytes m a ((List.range 8).map fun k => v.extractLsb' (8 * k) 8) := by
+  show m.write a 8 (v.setWidth 64) = _
+  rw [BitVec.setWidth_eq]
+  exact WriteBytes.write_eq_writeBytes m a 8 v
+
+/-- Byte `k` of a 64-bit load. -/
+theorem extractLsb'_readW (m : Mem) (a : Addr) {k : Nat} (hk : k < 8) :
+    (m.readW a 64).extractLsb' (8 * k) 8 = m (a + BitVec.ofNat 64 k) := by
+  show ((m.read a 8).setWidth 64).extractLsb' (8 * k) 8 = _
+  rw [BitVec.setWidth_eq]
+  exact Mem.extractLsb'_read m a hk
+
 theorem bytesAt_getD {m : Mem} {p : Addr} {n : Nat} {l : List Byte} (h : bytesAt m p n = l) {k : Nat}
     (hk : k < n) : m (p + BitVec.ofNat 64 k) = l.getD k 0 := by
   subst h; simp [bytesAt, List.getD_eq_getElem?_getD, hk]
