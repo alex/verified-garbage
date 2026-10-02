@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.RowAcc
 
 /-! Reduction of an eight-word field product. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64 VG.Proof.X25519
 
 theorem fold_ok (s : State) (hz : s.gpr .x10 = 0) (h38 : s.gpr .x11 = 38)

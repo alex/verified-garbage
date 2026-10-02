@@ -1,4 +1,4 @@
-import VerifiedGarbage.TCB.AArch64.Isa
+import VerifiedGarbage.Impl.X448.AArch64.Tail
 
 /-!
 # X448: AArch64 implementation
@@ -6,12 +6,16 @@ import VerifiedGarbage.TCB.AArch64.Isa
 `vg_x448(out = x0, scalar = x1, point = x2, scratch = x3)`.
 
 Field elements are sixteen normalized 28-bit limbs in 64-bit words.
-Multiplication accumulates sixteen rows into 32 coefficients, folds with
-`2^448 = 2^224 + 1`, and propagates carries three times. The ladder and
+Multiplication packs them into eight 56-bit limbs, accumulates two-word product
+coefficients in registers, folding with
+`2^448 = 2^224 + 1`. Squaring computes each cross product once. One wide
+carry pass and two narrow passes restore normalized 28-bit slots. Pointwise
+operations fuse coefficient arithmetic with their first carry pass. The ladder and
 inversion addition chain follow the same arithmetic as the x86-64 baseline.
 
 `x3` holds the working space, `x1` the output pointer after scalar decoding,
-`x19` the ladder or squaring counter, and `x9` the multiplication row counter.
+`x19` the ladder or squaring counter. Multiplication uses caller-saved
+registers for its operands and coefficients.
 `x20` saves the output pointer during setup. The two callee-saved registers
 are saved in the working space and restored before returning. `x12` holds
 `2^28 - 1` throughout. Only pointers and counters affect addresses or branches.
@@ -20,39 +24,6 @@ are saved in the working space and restored before returning. `x12` holds
 namespace VG.Impl.X448.AArch64
 
 open VG.AArch64
-
-/-- A word in the working space. -/
-def ld (r : Reg) (d : Nat) : Instr := .ldr .x r .x3 d
-def st (r : Reg) (d : Nat) : Instr := .str .x r .x3 d
-
-/-- Each field element occupies 128 bytes. -/
-def slot (n : Nat) : Nat := 64 + 128 * n
-def X1 : Nat := slot 0
-def X2 : Nat := slot 1
-def Z2 : Nat := slot 2
-def X3 : Nat := slot 3
-def Z3 : Nat := slot 4
-def A : Nat := slot 5
-def B : Nat := slot 6
-def C : Nat := slot 7
-def D : Nat := slot 8
-def AA : Nat := slot 9
-def BB : Nat := slot 10
-def E : Nat := slot 11
-def DA : Nat := slot 12
-def CB : Nat := slot 13
-def T0 : Nat := slot 14
-def T1 : Nat := slot 15
-def T2 : Nat := slot 16
-def T3 : Nat := slot 17
-def T4 : Nat := slot 18
-def T5 : Nat := slot 19
-def T6 : Nat := slot 20
-def T7 : Nat := slot 21
-def SWAP : Nat := 16
-def BITS : Nat := 3072
-def ACC : Nat := 3584
-def TMP : Nat := 3840
 
 /-- Copy the sixteen limbs. -/
 def copy (o a : Nat) : List Instr :=
@@ -116,6 +87,34 @@ def mulSmall (o a : Nat) : List Instr :=
   [.movz .x .x6 39081 0] ++ (List.range 16).flatMap (fun i =>
     [ld .x4 (a + 8 * i), .mul .x .x4 .x4 .x6, st .x4 (TMP + 8 * i)]) ++ normalize o
 
+/-! Pointwise coefficients and their first carry pass share registers. -/
+namespace Pointwise
+
+def addEval (a b i : Nat) : List Instr :=
+  [ld .x4 (a + 8 * i), ld .x5 (b + 8 * i), .add .x .x4 .x4 .x5]
+
+def subEval (a b i : Nat) : List Instr :=
+  [ld .x4 (a + 8 * i), .movz .x .x5 (subK i) 0, .movk .x .x5 0x1fff 1,
+    .add .x .x4 .x4 .x5, ld .x5 (b + 8 * i), .sub .x .x4 .x4 .x5]
+
+def smallEval (a i : Nat) : List Instr :=
+  [ld .x4 (a + 8 * i), .movz .x .x5 39081 0, .mul .x .x4 .x4 .x5]
+
+def carry (i : Nat) : List Instr :=
+  [.add .x .x4 .x4 .x6, .logic .and .x .x5 .x4 .x12,
+    st .x5 (TMP + 8 * i), .lsr .x .x6 .x4 28]
+
+def finish (o : Nat) : List Instr := fold ++ pass TMP TMP ++ fold ++ pass o TMP
+
+def fused (code : Nat → List Instr) (o : Nat) : List Instr :=
+  [.movz .x .x6 0 0] ++ (List.range 16).flatMap (fun i => code i ++ carry i) ++ finish o
+
+def add (o a b : Nat) : List Instr := fused (addEval a b) o
+def sub (o a b : Nat) : List Instr := fused (subEval a b) o
+def small (o a : Nat) : List Instr := fused (smallEval a) o
+
+end Pointwise
+
 /-- Swap two slots under the mask in `x6`. -/
 def cswap (x y : Nat) : List Instr :=
   (List.range 16).flatMap fun i =>
@@ -132,10 +131,10 @@ inductive Op
   deriving DecidableEq, Repr
 
 def Op.code : Op → Prog isa
-  | .mul o a b => AArch64.mul o a b
-  | .mulSmall o a => .block (AArch64.mulSmall o a)
-  | .add o a b => .block (AArch64.add o a b)
-  | .sub o a b => .block (AArch64.sub o a b)
+  | .mul o a b => Tail.mul o a b
+  | .mulSmall o a => .block (Pointwise.small o a)
+  | .add o a b => .block (Pointwise.add o a b)
+  | .sub o a b => .block (Pointwise.sub o a b)
   | .copy o a => .block (AArch64.copy o a)
 
 def ops : List Op → Prog isa
@@ -164,7 +163,7 @@ def lastSwap : List Instr :=
 /-- Square `n` times in place, for `n > 0`. -/
 def sqn (o n : Nat) : Prog isa :=
   .seq (.block [.movz .x .x19 (BitVec.ofNat 16 n) 0])
-    (.loop (.seq (mul o o o) (.block [.subImm .x .x19 .x19 1])) (.nonzero .x .x19))
+    (.loop (.seq (Tail.mul o o o) (.block [.subImm .x .x19 .x19 1])) (.nonzero .x .x19))
 
 def invert : Prog isa :=
   .seq (ops [.copy T0 Z2]) <| .seq (sqn T0 1) <| .seq (ops [.mul T0 T0 Z2, .copy T1 T0]) <|
@@ -232,7 +231,7 @@ def packPair (i : Nat) : List Instr :=
   (List.range 7).flatMap fun j => [.strb .x4 .x1 (7 * i + j), .lsr .x .x4 .x4 8]
 
 def finish : Prog isa :=
-  .seq (mul X2 X2 T7) (.block (freeze ++ (List.range 8).flatMap packPair ++ [ld .x19 0, ld .x20 8]))
+  .seq (Tail.mul X2 X2 T7) (.block (freeze ++ (List.range 8).flatMap packPair ++ [ld .x19 0, ld .x20 8]))
 
 def x448 : Prog isa :=
   .seq (.block setup) <| .seq bits <| .seq (.block [.addImm .x .x1 .x20 0]) <|
