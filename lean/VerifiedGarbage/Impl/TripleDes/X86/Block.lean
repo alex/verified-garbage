@@ -9,10 +9,11 @@ open VG.X86
 open VG.Spec.TripleDes (Direction)
 
 def savedRegs : List Reg := [.ebp, .ebx, .esi, .edi]
-def blockSave : List Instr :=
-  [.mov .eax (.mem (memOp .esp 12))] ++
+def saveWithArg (slot : Nat) : List Instr :=
+  [.mov .eax (.mem (memOp .esp (4 * slot)))] ++
     savedRegs.zipIdx.map (fun (r, i) => .store (memOp .eax (4 * i)) r) ++
     [rr .ebp .eax]
+def blockSave : List Instr := saveWithArg 3
 def blockRestore : List Instr :=
   [rr .eax .ebp] ++ savedRegs.zipIdx.map fun (r, i) => .mov r (.mem (memOp .eax (4 * i)))
 def blockLoad : List Instr :=
@@ -59,13 +60,17 @@ def blockBody (direction : Direction) : Prog isa :=
   match direction with
   | .encrypt => .seq (pass 0 .encrypt) (.seq (pass 1 .decrypt) (pass 2 .encrypt))
   | .decrypt => .seq (pass 2 .decrypt) (.seq (pass 1 .encrypt) (pass 0 .decrypt))
-def blockStore : List Instr :=
+/-- Save the final permutation before restoring the caller's registers. -/
+def finalSave : List Instr :=
   permuteCode Spec.TripleDes.fp 64 32 32 .eax .ebx .edi .esi .ecx ++
-    [.bswap .ebx, .bswap .eax, .mov .edx (.mem (memOp .esp 8)),
-      .store (memOp .edx 0) .ebx, .store (memOp .edx 4) .eax]
+    [.store (memOp .ebp 24) .eax, .store (memOp .ebp 28) .ebx]
+def restoredOutput : List Instr :=
+  [rr .edx .eax, .mov .ecx (.mem (memOp .edx 28)), .mov .eax (.mem (memOp .edx 24)),
+    .bswap .ecx, .bswap .eax, .mov .edx (.mem (memOp .esp 8)),
+    .store (memOp .edx 0) .ecx, .store (memOp .edx 4) .eax]
 def block (direction : Direction) : Prog isa :=
   .seq (.block (blockSave ++ blockLoad))
-    (.seq (blockBody direction) (.block (blockStore ++ blockRestore)))
+    (.seq (blockBody direction) (.block (finalSave ++ blockRestore ++ restoredOutput)))
 def encryptBlock : Prog isa := block .encrypt
 def decryptBlock : Prog isa := block .decrypt
 end VG.Impl.TripleDes.X86

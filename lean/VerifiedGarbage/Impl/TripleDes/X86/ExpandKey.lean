@@ -2,9 +2,7 @@ import VerifiedGarbage.Impl.TripleDes.X86.Block
 namespace VG.Impl.TripleDes.X86.Key
 open VG.X86 VG.Impl.TripleDes.X86
 
-def save : List Instr :=
-  [.mov .eax (.mem (memOp .esp 16))] ++
-    savedRegs.zipIdx.map (fun (r, i) => .store (memOp .eax (4 * i)) r) ++ [rr .ebp .eax]
+def save : List Instr := saveWithArg 4
 def restore : List Instr := blockRestore
 def loadHead (offset : Nat) : List Instr :=
   [.mov .edx (.mem (memOp .esp 4)), .mov .edi (.mem (memOp .edx offset)),
@@ -26,17 +24,18 @@ def rotation : Prog isa :=
       (.seq (.block [.alu .cmp .eax (.imm 8)]) (.ite .e (rotate 1)
         (.seq (.block [.alu .cmp .eax (.imm 15)]) (.ite .e (rotate 1) (rotate 2))))))
 def storeTail : List Instr :=
-  [.mov .edx (.mem (memOp .ebp 16)), .store (memOp .edx 0) .eax,
-    .store (memOp .edx 4) .ebx, .alu .add .edx (.imm 8), .store (memOp .ebp 16) .edx,
-    .mov .eax (.mem (memOp .ebp 20)), .alu .add .eax (.imm 1),
-    .store (memOp .ebp 20) .eax, .alu .cmp .eax (.imm 16)]
+  [.mov .edx (.mem (memOp .ebp 16)), .mov .ecx (.mem (memOp .ebp 20)),
+    .store (memOp .edx 0) .eax, .store (memOp .edx 4) .ebx,
+    .alu .add .edx (.imm 8), .store (memOp .ebp 16) .edx,
+    .alu .add .ecx (.imm 1), .store (memOp .ebp 20) .ecx, .alu .cmp .ecx (.imm 16)]
 def storeRound : List Instr :=
   permuteCode Spec.TripleDes.pc2 56 28 32 .eax .ebx .edi .esi .ecx ++ storeTail
 def component (offset index : Nat) : Prog isa :=
   .seq (.block (load offset index)) (.loop (.seq rotation (.block storeRound)) .ne)
-def copyThird : List Instr :=
-  [.mov .edx (.mem (memOp .esp 12))] ++ (List.range 32).flatMap fun j =>
+def copyWords (n : Nat) : List Instr :=
+  (List.range n).flatMap fun j =>
     [.mov .eax (.mem (memOp .edx (4 * j))), .store (memOp .edx (256 + 4 * j)) .eax]
+def copyThird : List Instr := [.mov .edx (.mem (memOp .esp 12))] ++ copyWords 32
 def expandKey : Prog isa :=
   .seq (.block save) (.seq (component 0 0) (.seq (component 8 1)
     (.seq (.block [.mov .eax (.mem (memOp .esp 8)), .alu .cmp .eax (.imm 16)])

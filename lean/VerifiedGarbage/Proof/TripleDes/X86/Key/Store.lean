@@ -17,12 +17,11 @@ theorem nextRound_values : ∀ j < 16,
 
 theorem tail_ok (s : State) (hok : Ok sboxCfg s)
     (hw : ∀ t < 2, InRegions s.wr (wordAddr (roundKeyPtr s) t) 4)
-    (hsep : ∀ t < 2, Mem.Sep (wordAddr (s.gpr .ebp) 5) 4
-      (wordAddr (roundKeyPtr s) t) 4) :
+    :
     ∃ s', runBlock isa Impl.TripleDes.X86.Key.storeTail s = some s' ∧
       s'.mem = storeMem s ∧ s'.zf = some ((roundCount s + 1 - 16) == 0) ∧
       s'.rd = s.rd ∧ s'.wr = s.wr ∧
-      (∀ r, r ≠ .eax → r ≠ .edx → s'.gpr r = s.gpr r) := by
+      (∀ r, r ≠ .ecx → r ≠ .edx → s'.gpr r = s.gpr r) := by
   have hw4 := hok.slotIn 4 (by decide)
   have hw5 := hok.slotIn 5 (by decide)
   have hr4 : InRegions (s.rd ++ s.wr) (wordAddr (s.gpr .ebp) 4) 4 := by
@@ -31,10 +30,7 @@ theorem tail_ok (s : State) (hok : Ok sboxCfg s)
     obtain ⟨r, h, hc⟩ := hw5; exact ⟨r, List.mem_append_right _ h, hc⟩
   have hw0 := hw 0 (by decide)
   have hw1 := hw 1 (by decide)
-  have hc0 := hsep 0 (by decide)
-  have hc1 := hsep 1 (by decide)
-  have hcp := counter_ptr_sep s hok.fit
-  simp only [wordAddr, addr, sboxCfg, roundKeyPtr] at hw4 hw5 hr4 hr5 hw0 hw1 hc0 hc1 hcp
+  simp only [wordAddr, addr, sboxCfg, roundKeyPtr] at hw4 hw5 hr4 hr5 hw0 hw1
   refine ⟨_, by
     simp only [Impl.TripleDes.X86.Key.storeTail, runBlock_cons, runStep_some, runBlock_nil,
       exec, execAlu, readSrc, State.load32, State.store32, State.ea, memOp,
@@ -45,12 +41,10 @@ theorem tail_ok (s : State) (hok : Ok sboxCfg s)
   all_goals dsimp only [mem_setReg, mem_arithFlags, storeMem, roundKeyPtr, roundCount,
     wordAddr, addr, gpr_setReg, gpr_arithFlags, rd_setReg, wr_setReg,
     rd_arithFlags, wr_arithFlags, zf_setReg, zf_arithFlags]
-  all_goals try rw [Mem.readW_writeW_sep hcp (by decide),
-    Mem.readW_writeW_sep hc1 (by decide), Mem.readW_writeW_sep hc0 (by decide)]
   all_goals try rfl
   all_goals
-    intro r ha hd
-    simp only [ha, hd, ite_false]
+    intro r hc hd
+    simp only [hc, hd, ite_false]
 
 def keyStoreMem (s : State) (k : BitVec 64) : Mem :=
   ((s.mem.writeW (wordAddr (roundKeyPtr s) 0) k).writeW
@@ -71,8 +65,7 @@ theorem storeRound_ok (s : State) (c d : BitVec 28) (j : Nat) (hj : j < 16)
     (hcount : roundCount s = BitVec.ofNat 32 j) (hok : Ok sboxCfg s)
     (fit : (roundKeyPtr s).toNat + 8 ≤ 2 ^ 32)
     (hw : ∀ t < 2, InRegions s.wr (wordAddr (roundKeyPtr s) t) 4)
-    (hsep : ∀ t < 2, Mem.Sep (wordAddr (s.gpr .ebp) 5) 4
-      (wordAddr (roundKeyPtr s) t) 4) :
+    :
     WP isa (.block Impl.TripleDes.X86.Key.storeRound) s (StorePost c d j s) := by
   rw [Impl.TripleDes.X86.Key.storeRound, WP.block_append_iff]
   obtain ⟨s₁, run₁, lo₁, hi₁, rd₁, wr₁, sp₁, mem₁, reg₁⟩ := pc2_ok s
@@ -90,12 +83,10 @@ theorem storeRound_ok (s : State) (c d : BitVec 28) (j : Nat) (hj : j < 16)
   have hok₁ : Ok sboxCfg s₁ := hok.congr base₁ base₁ rd₁ wr₁
   have hw₁ : ∀ t < 2, InRegions s₁.wr (wordAddr (roundKeyPtr s₁) t) 4 := by
     rw [wr₁, ptr₁]; exact hw
-  have hs₁ : ∀ t < 2, Mem.Sep (wordAddr (s₁.gpr .ebp) 5) 4
-      (wordAddr (roundKeyPtr s₁) t) 4 := by rw [base₁, ptr₁]; exact hsep
-  obtain ⟨s₂, run₂, mem₂, flag₂, rd₂, wr₂, reg₂⟩ := tail_ok s₁ hok₁ hw₁ hs₁
+  obtain ⟨s₂, run₂, mem₂, flag₂, rd₂, wr₂, reg₂⟩ := tail_ok s₁ hok₁ hw₁
   have regs : ∀ r ∈ [Reg.esi, .edi, .esp, .ebp], s₂.gpr r = s.gpr r := by
     intro r hr
-    have diffs : ∀ r ∈ [Reg.esi, .edi, .esp, .ebp], r ≠ .eax ∧ r ≠ .edx := by decide
+    have diffs : ∀ r ∈ [Reg.esi, .edi, .esp, .ebp], r ≠ .ecx ∧ r ≠ .edx := by decide
     exact (reg₂ r (diffs r hr).1 (diffs r hr).2).trans (keep₁ r hr)
   have hm : s₂.mem = keyStoreMem s ((Spec.TripleDes.permute Spec.TripleDes.pc2 (c ++ d)).setWidth 64) := by
     rw [mem₂, storeMem, ptr₁, count₁, base₁, mem₁, lo₁, hi₁, BitVec.setWidth_eq]

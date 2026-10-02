@@ -58,12 +58,7 @@ theorem loopBody_ok (key : BitVec 64) (base : BitVec 32) (origin : State)
     intro t ht
     rw [h₁.keep.wr, hs.wr, ptr₁, hs.pointer, keyWordAddr base fit j t hj ht]
     exact hw j hj t ht
-  have sep₁ : ∀ t < 2, Mem.Sep (wordAddr (s₁.gpr .ebp) 5) 4 (wordAddr (roundKeyPtr s₁) t) 4 := by
-    intro t ht
-    rw [bp₁, ptr₁, hs.pointer, keyWordAddr base fit j t hj ht]
-    exact hdis.symm.sep (work_slot origin hok.fit 5 (Or.inr rfl))
-      (Offset.contains_base _ (by omega) (by omega))
-  apply WP.mono (storeRound_ok s₁ _ _ j hj h₁.c h₁.d (count₁.trans hs.counter) hok₁ fit₁ write₁ sep₁)
+  apply WP.mono (storeRound_ok s₁ _ _ j hj h₁.c h₁.d (count₁.trans hs.counter) hok₁ fit₁ write₁)
   intro s₂ h₂
   let k := (Spec.TripleDes.permute Spec.TripleDes.pc2
     ((keyPrefix key j).1.rotateLeft (Spec.TripleDes.rotations.getD j 0) ++
