@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Mul
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.AddSub
 import VerifiedGarbage.Proof.MlKem.X86_64.ArithOk
 import VerifiedGarbage.Proof.MlDsa.X86_64.Round.Bits
+import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.Rej4Verified
 
 /-!
 # ML-DSA on x86-64: what the callers of the polynomial arithmetic need of it
@@ -32,6 +33,15 @@ structure FnOk (k : Nat → Contract isa) (c : Prog isa) : Prop where
   ctl : ctlOk c = true
   sp : c.all (fun i => !isa.writesSp i) = true
 
+/-- What a caller needs of `vg_mldsa_rej_ntt_poly4`, which calls three deep
+and takes 24 bytes of stack. -/
+structure Rej4Ok (c : Prog isa) : Prop where
+  ver : Verified X86_64.target c (Spec.MlDsa.rejNTT4Contract X86_64.abi 24)
+  nosp : NoSp c
+  depth : c.depth ≤ 3
+  ctl : ctlOk c = true
+  sp : c.all (fun i => !isa.writesSp i) = true
+
 /-- Each function of the backend `B` meets its contract, and is safe to call. -/
 structure BackendOk (B : Backend) : Prop where
   ntt : FnOk (fun S => Spec.MlDsa.nttContract X86_64.abi S) B.ntt
@@ -42,6 +52,7 @@ structure BackendOk (B : Backend) : Prop where
   sub : FnOk (fun S => Spec.MlDsa.subContract X86_64.abi S) B.sub
   highBits : FnOk (fun S => Spec.MlDsa.highBitsContract X86_64.abi S) B.highBits
   lowBits : FnOk (fun S => Spec.MlDsa.lowBitsContract X86_64.abi S) B.lowBits
+  rej4 : Rej4Ok B.rej4
 
 /-- An implementation of the polynomial arithmetic on x86-64. -/
 structure ArithImpl where
@@ -75,7 +86,9 @@ def ArithImpl.sse2 : ArithImpl where
       highBits := FnOk.of Round.highBits_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       lowBits := FnOk.of Round.lowBits_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
-        (by decide +kernel) }
+        (by decide +kernel)
+      rej4 := ⟨Rej4.rejNTT4_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
+        by decide +kernel, Code.all_of_allInstrs (by decide +kernel)⟩ }
   features := []
 
 end VG.Proof.MlDsa.X86_64
