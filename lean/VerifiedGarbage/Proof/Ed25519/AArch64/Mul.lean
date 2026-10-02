@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.Reduce
 
 /-! Four-by-four word field multiplication and its memory frame. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64 VG.Proof.X25519
 
 theorem row0 (a b : Nat) : row a b 0 = rowR a b 0 .x4 .x5 .x6 .x7 .x21 := row_eq a b 0
@@ -18,13 +20,15 @@ theorem fe_mul_expand (m : Mem) (base : Addr) (a B : Nat) :
 
 def wideClob : List Reg := [.x2, .x3, .x4, .x5, .x6, .x7, .x8, .x9, .x20, .x21, .x22, .x23, .x24]
 
-theorem rowsAccumulate_ok {s : State} {base : Addr} (hs : Scr s base) {a b : Nat}
-    (ha : FieldRange a) (hb : FieldRange b) (hz : s.gpr .x10 = 0) :
+theorem rowsAccumulate_ok {s : State} {base : Addr} (hs : Scr s base large) {a b : Nat}
+    (ha : FieldRange a large) (hb : FieldRange b large) (hz : s.gpr .x10 = 0) :
     WP isa (.block (row a b 0 ++ (row a b 1 ++ (row a b 2 ++ row a b 3)))) s fun t =>
       val4 (t.gpr .x4) (t.gpr .x5) (t.gpr .x6) (t.gpr .x7) +
         2 ^ 256 * val4 (t.gpr .x21) (t.gpr .x22) (t.gpr .x23) (t.gpr .x24) =
           val4 (s.gpr .x4) (s.gpr .x5) (s.gpr .x6) (s.gpr .x7) +
             fe s.mem base a * fe s.mem base b ∧ Keeps wideClob s t := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   obtain ⟨haa, ha⟩ := ha
   obtain ⟨hba, hb⟩ := hb
   have g : ∀ {x y : State} {rs : List Reg} (k : Keeps rs x y) (r : Reg), r ∉ rs → y.gpr r = x.gpr r :=
@@ -70,11 +74,13 @@ theorem fe_mul_expand4 (A0 A1 A2 A3 B : Nat) :
       A0 * B + 2 ^ 64 * (A1 * B) + 2 ^ 128 * (A2 * B) + 2 ^ 192 * (A3 * B) := by
   simp only [Nat.add_mul, Nat.mul_assoc]
 
-theorem mulWide_ok {s : State} {base : Addr} (hs : Scr s base) {a b : Nat}
-    (ha : FieldRange a) (hb : FieldRange b) (hz : s.gpr .x10 = 0) :
+theorem mulWide_ok {s : State} {base : Addr} (hs : Scr s base large) {a b : Nat}
+    (ha : FieldRange a large) (hb : FieldRange b large) (hz : s.gpr .x10 = 0) :
     WP isa (.block (mulWide a b)) s fun t =>
       wide t = fe s.mem base a * fe s.mem base b ∧
       Keeps (.x12 :: .x13 :: .x14 :: .x15 :: mulRowClob) s t := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   obtain ⟨haa, ha'⟩ := ha
   simp only [mulWide, List.append_assoc]
   rw [WP.block_append_iff]
@@ -150,10 +156,12 @@ theorem zeroReg_ok (s : State) (r : Reg) :
   · exact RegUpd.gpr_write_of_ne _ _ _ (by simpa only [List.mem_singleton] using hq)
 
 /-- Reduce the eight words of a product and store the result at `o`. -/
-theorem fieldFinish_ok {s₀ s : State} {base : Addr} (hs : Scr s base) {o : Nat}
-    (ho : FieldRange o) (hz : s.gpr .x10 = 0) (k : Keeps clob s₀ s) :
+theorem fieldFinish_ok {s₀ s : State} {base : Addr} (hs : Scr s base large) {o : Nat}
+    (ho : FieldRange o large) (hz : s.gpr .x10 = 0) (k : Keeps clob s₀ s) :
     WP isa (.block (reduceWide ++ store4 o)) s fun t =>
       Op base o s₀ t ∧ F t.mem base o = toFe (wide s) := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   rw [WP.block_append_iff]
   refine WP.mono (reduceWide_ok s hz) fun s₁ ⟨e1, _, k1⟩ => ?_
   refine WP.mono (store4_ok (hs.of_keeps k1 (by decide)) ho) fun s₂ heq => ?_
@@ -164,10 +172,12 @@ theorem fieldFinish_ok {s₀ s : State} {base : Addr} (hs : Scr s base) {o : Nat
   exact e1
 
 /-- Multiplication modulo p, allowing the output to alias either input. -/
-theorem mul_ok {s : State} {base : Addr} (hs : Scr s base) {o a b : Nat}
-    (ho : FieldRange o) (ha : FieldRange a) (hb : FieldRange b) :
+theorem mul_ok {s : State} {base : Addr} (hs : Scr s base large) {o a b : Nat}
+    (ho : FieldRange o large) (ha : FieldRange a large) (hb : FieldRange b large) :
     WP isa (.block (fieldMul o a b)) s fun t =>
       Op base o s t ∧ F t.mem base o = F s.mem base a * F s.mem base b := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   rw [fieldMul, List.append_assoc, List.append_assoc, WP.block_append_iff]
   refine WP.mono (zeroReg_ok s .x10) fun s₀ ⟨hz, k0⟩ => ?_
   have hs₀ := hs.of_keeps k0 (by decide)
