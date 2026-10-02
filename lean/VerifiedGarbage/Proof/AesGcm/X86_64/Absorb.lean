@@ -224,7 +224,7 @@ omit L hyo in
 theorem wholeSplit_ok (p k : Reg) (hpk : (p = .rdx ∧ k = .rcx) ∨ (p = .rcx ∧ k = .r8)) {D : Addr} {n j : Nat}
     {s : State} (hn' : n < 2 ^ 64) (hj : j ≤ n)
     (h12 : s.gpr .r12 = D + BitVec.ofNat 64 j) (h13 : s.gpr .rbp = BitVec.ofNat 64 (n - j)) :
-    ∃ s₁, runBlock isa (splitWhole p k ++ [.alu .test k (.reg k)]) s = some s₁ ∧
+    ∃ s₁, runBlock isa (splitWhole p k ++ ([.alu .test k (.reg k)] : List Instr)) s = some s₁ ∧
       s₁.gpr p = D + BitVec.ofNat 64 j ∧ s₁.gpr k = BitVec.ofNat 64 ((n - j) / 16) ∧
       s₁.gpr .r12 = D + BitVec.ofNat 64 (j + 16 * ((n - j) / 16)) ∧
       s₁.gpr .rbp = BitVec.ofNat 64 (n - (j + 16 * ((n - j) / 16))) ∧

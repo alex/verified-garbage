@@ -66,7 +66,7 @@ def EnvAgree (Ctx St W SP : Addr) (rs : List Reg) (s₁ s₂ : State) : Prop :=
   Env Ctx St W SP s₁ ∧ Env Ctx St W SP s₂ ∧ ∀ r ∈ rs, s₁.gpr r = s₂.gpr r
 
 theorem EnvAgree.regs {Ctx St W SP : Addr} {rs : List Reg} {s₁ s₂ : State} (h : EnvAgree Ctx St W SP rs s₁ s₂) :
-    ∀ r ∈ rs ++ [.r13, .r14, .r15, .rsp], s₁.gpr r = s₂.gpr r := by
+    ∀ r ∈ rs ++ ([.r13, .r14, .r15, .rsp] : List Reg), s₁.gpr r = s₂.gpr r := by
   intro r hr
   rcases List.mem_append.mp hr with hr | hr
   · exact h.2.2 r hr

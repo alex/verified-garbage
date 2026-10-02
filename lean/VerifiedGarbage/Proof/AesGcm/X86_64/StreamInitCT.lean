@@ -15,8 +15,8 @@ open VG.Spec.Gcm (Block)
 
 /-- What the entry of `vg_aes_gcm_stream_init` leaves. -/
 theorem streamInitEntry_ok {s : State} (hp : Proof.AesGcm.streamInitX86_64.pre s) :
-    WP isa (.block (save .r8 ++ [.mov .r15 (.reg .r8), .mov .r14 (.reg .rcx), .mov .r13 (.reg .rdi),
-        .mov .r12 (.reg .rsi), .mov .rbp (.reg .rdx)])) s
+    WP isa (.block (save .r8 ++ ([.mov .r15 (.reg .r8), .mov .r14 (.reg .rcx), .mov .r13 (.reg .rdi),
+        .mov .r12 (.reg .rsi), .mov .rbp (.reg .rdx)] : List Instr))) s
       fun s₂ => ∃ H, J0In (s.gpr .rdi) (s.gpr .rcx) (s.gpr .r8) (s.gpr .rsp) H (s.gpr .rsi) (s.gpr .rdx).toNat s₂ := by
   simp only [Proof.AesGcm.streamInitX86_64, Proof.AesGcm.stk, Proof.AesGcm.ret] at hp
   obtain ⟨hrd, hwr, -, -, d_ns, d_nw, -, -, -, -, k_n, -, -, -, wn, -, -⟩ := hp

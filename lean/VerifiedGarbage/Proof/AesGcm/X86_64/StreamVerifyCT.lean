@@ -19,7 +19,7 @@ def VerS (Ctx St W SP : Addr) (R : Nat) (aL tL tl : BitVec 64) (s : State) : Pro
   FinS Ctx St W SP R aL tL s ∧ s.mem.readW (W + BitVec.ofNat 64 224) 64 = tl
 
 theorem verifyEntry_ok {s : State} (hp : Proof.AesGcm.verifyPre s) :
-    WP isa (.block (finEntry ++ [.mov .rbx (.mem (at_ .rsp 8)), .store (at_ .r15 tlO) .rbx])) s fun s₂ =>
+    WP isa (.block (finEntry ++ ([.mov .rbx (.mem (at_ .rsp 8)), .store (at_ .r15 tlO) .rbx] : List Instr))) s fun s₂ =>
       VerS (s.gpr .rdi) (s.gpr .rdx) (s.gpr .r9) (s.gpr .rsp) (s.gpr .rsi).toNat (s.gpr .rcx) (s.gpr .r8)
         (stackArg s 0) s₂ ∧ s₂.gpr .rbx = stackArg s 0 := by
   have hp' := hp

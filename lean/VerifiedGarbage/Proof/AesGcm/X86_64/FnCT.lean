@@ -50,12 +50,12 @@ theorem fn_rel₂ {E₁ : List Instr} {B : Prog isa} {s₀ s₀' : State} {I₁ 
     (hr₁ : InRegions (s₀.rd ++ s₀.wr) (s₀.gpr .rsp + BitVec.ofNat 64 k) 8)
     (hr₂ : InRegions (s₀'.rd ++ s₀'.wr) (s₀'.gpr .rsp + BitVec.ofNat 64 k) 8)
     (hc : ∃ hc, (taint.check (Taint.ofRegs (.rax :: rs)) (.block E₁) hc).isSome = true)
-    (hE₁ : WP isa (.block ([.mov .rax (.mem (at_ .rsp k))] ++ E₁)) s₀ I₁)
-    (hE₂ : WP isa (.block ([.mov .rax (.mem (at_ .rsp k))] ++ E₁)) s₀' I₂)
+    (hE₁ : WP isa (.block (([.mov .rax (.mem (at_ .rsp k))] : List Instr) ++ E₁)) s₀ I₁)
+    (hE₂ : WP isa (.block (([.mov .rax (.mem (at_ .rsp k))] : List Instr) ++ E₁)) s₀' I₂)
     (hB : RelCT isa (fun s₁ s₂ => True ∧ I₁ s₁ ∧ I₂ s₂) B
       fun s₁ s₂ => Env Ctx St W SP s₁ ∧ Env Ctx St W SP s₂) :
     RelCT isa (fun s₁ s₂ => s₁ = s₀ ∧ s₂ = s₀')
-      (.seq (.block ([.mov .rax (.mem (at_ .rsp k))] ++ E₁)) (.seq B (.block restore))) fun _ _ => True := by
+      (.seq (.block (([.mov .rax (.mem (at_ .rsp k))] : List Instr) ++ E₁)) (.seq B (.block restore))) fun _ _ => True := by
   have l := rel_wp (rel_taint (P := fun s₁ s₂ => s₁ = s₀ ∧ s₂ = s₀') [.rsp] (fun _ _ h r hr => by
       obtain ⟨rfl, rfl⟩ := h; simp only [List.mem_singleton] at hr; subst hr; exact hag _ hrs) hc₀)
     (fun _ _ h => h) (G₁ := fun s' => s'.gpr .rax = s₀.mem.readW (s₀.gpr .rsp + BitVec.ofNat 64 k) 64 ∧

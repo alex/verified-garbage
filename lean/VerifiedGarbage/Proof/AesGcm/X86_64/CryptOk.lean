@@ -129,7 +129,7 @@ theorem cryptHead_ok {R : Nat} {icb : Block} {P : Nat} {D : Addr} {n : Nat} {s :
 omit L in
 /-- The arguments of a call of `vg_aes_ctr32`, from `W + 176` and the state. -/
 theorem ctrArgs_ok {R : Nat} {s : State} (he : Env Ctx St W SP s) (hR : RoundsAt s.mem W R) :
-    ∃ s', runBlock isa ([.mov .rdi (.reg .r13), .mov .rsi (.mem (at_ .r15 roundsO))] ++ ptr .rdx .r14 48 ++
+    ∃ s', runBlock isa (([.mov .rdi (.reg .r13), .mov .rsi (.mem (at_ .r15 roundsO))] : List Instr) ++ ptr .rdx .r14 48 ++
         ptr .r9 .r15 scrO) s = some s' ∧
       s'.gpr .rdi = Ctx ∧ s'.gpr .rsi = BitVec.ofNat 64 R ∧ s'.gpr .rdx = St + BitVec.ofNat 64 48 ∧
       s'.gpr .r9 = W + BitVec.ofNat 64 512 ∧

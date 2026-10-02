@@ -25,8 +25,8 @@ structure InitA (K Ctx W SP : Addr) (L R : Nat) (rd wr : List Region) (s : State
   wr : s.wr = wr
 
 theorem initA_ok {s : State} (hp : Proof.AesGcm.initX86_64.pre s) :
-    WP isa (.block (save .rcx ++ [.mov .r15 (.reg .rcx), .mov .r13 (.reg .rdx), .mov .rbx (.reg .rsi),
-      .shift .shr .rbx 2, .alu .add .rbx (imm 6)] ++ ptr .rcx .r15 scrO)) s
+    WP isa (.block (save .rcx ++ ([.mov .r15 (.reg .rcx), .mov .r13 (.reg .rdx), .mov .rbx (.reg .rsi),
+      .shift .shr .rbx 2, .alu .add .rbx (imm 6)] : List Instr) ++ ptr .rcx .r15 scrO)) s
       (InitA (s.gpr .rdi) (s.gpr .rdx) (s.gpr .rcx) (s.gpr .rsp) (s.gpr .rsi).toNat
         (Spec.Aes.rounds ((s.gpr .rsi).toNat / 4)) s.rd s.wr) := by
   simp only [Proof.AesGcm.initX86_64, Proof.AesGcm.ret, Proof.AesGcm.stk] at hp
@@ -70,9 +70,9 @@ theorem initA_ok {s : State} (hp : Proof.AesGcm.initX86_64.pre s) :
 theorem initC_ok {s : State} (hp : Proof.AesGcm.initX86_64.pre s) {R : Nat} (hR' : R = 10 ∨ R = 12 ∨ R = 14)
     {s₃ : State} (h15 : s₃.gpr .r15 = s.gpr .rcx) (h13 : s₃.gpr .r13 = s.gpr .rdx)
     (hbx : s₃.gpr .rbx = BitVec.ofNat 64 R) (hsp : s₃.gpr .rsp = s.gpr .rsp) (hwr : s₃.wr = s.wr) :
-    WP isa (.block ([.mov32 .rax (imm 0), .store (at_ .r13 240) .rax, .store (at_ .r13 248) .rax,
+    WP isa (.block (([.mov32 .rax (imm 0), .store (at_ .r13 240) .rax, .store (at_ .r13 248) .rax,
         .store (at_ .r15 tO) .rax, .store (at_ .r15 (tO + 8)) .rax, .mov .rdi (.reg .r13),
-        .mov .rsi (.reg .rbx)] ++ ptr .rdx .r15 tO ++ ptr .rcx .r13 240 ++ [.mov32 .r8 (imm 1)] ++
+        .mov .rsi (.reg .rbx)] : List Instr) ++ ptr .rdx .r15 tO ++ ptr .rcx .r13 240 ++ ([.mov32 .r8 (imm 1)] : List Instr) ++
         ptr .r9 .r15 scrO)) s₃ fun s₄ =>
       CtrCall s₄ (s.gpr .rdx) (s.gpr .rcx + BitVec.ofNat 64 96) (s.gpr .rdx + BitVec.ofNat 64 240)
         (s.gpr .rcx + BitVec.ofNat 64 512) R 1 ∧ s₄.gpr .r15 = s.gpr .rcx ∧ s₄.gpr .rsp = s.gpr .rsp := by

@@ -63,9 +63,9 @@ theorem bytesAt_copy2 (m : Mem) {p q : Addr} (hd : (⟨p, 8⟩ : Region).Disjoin
 /-- `tag o` up to the call of `vg_aes_ctr32`. -/
 theorem tagMid_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {H J : Block} {s : State} (he : Env Ctx St W SP s)
     (hH : blockAt s.mem (Ctx + BitVec.ofNat 64 240) = H) (hR : RoundsAt s.mem W R) (hJ : blockAt s.mem St = J) :
-    WP isa (.seq (lens v.callees 16) (.block ([.mov .rax (.mem (at_ .r14 16)), .store (at_ .r15 o) .rax,
+    WP isa (.seq (lens v.callees 16) (.block (([.mov .rax (.mem (at_ .r14 16)), .store (at_ .r15 o) .rax,
         .mov .rax (.mem (at_ .r14 24)), .store (at_ .r15 (o + 8)) .rax, .mov .rdi (.reg .r13),
-        .mov .rsi (.mem (at_ .r15 roundsO)), .mov .rdx (.reg .r14)] ++ ptr .rcx .r15 o ++ [.mov32 .r8 (imm 1)] ++
+        .mov .rsi (.mem (at_ .r15 roundsO)), .mov .rdx (.reg .r14)] : List Instr) ++ ptr .rcx .r15 o ++ ([.mov32 .r8 (imm 1)] : List Instr) ++
         ptr .r9 .r15 scrO))) s (TagMid Ctx St W SP o R H (blockAt s.mem (St + BitVec.ofNat 64 16)) J
       (s.gpr .rbx).toNat (s.gpr .rbp).toNat s.mem) := by
   have hoW : o + 16 ≤ 16 ∨ (96 ≤ o ∧ o + 16 ≤ 2560) := by omega

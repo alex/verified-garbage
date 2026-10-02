@@ -16,8 +16,8 @@ open VG.Spec.Gcm (Block)
 
 /-- What the entry of `vg_aes_gcm_stream_aad` leaves. -/
 theorem streamAadEntry_ok {s : State} (hp : Proof.AesGcm.streamAadX86_64.pre s) :
-    WP isa (.block (save .r9 ++ [.mov .r15 (.reg .r9), .mov .r14 (.reg .rsi), .mov .r13 (.reg .rdi),
-        .mov .r12 (.reg .rcx), .mov .rbp (.reg .r8), .mov .rbx (.reg .rdx), .alu .and .rbx (imm 15)])) s
+    WP isa (.block (save .r9 ++ ([.mov .r15 (.reg .r9), .mov .r14 (.reg .rsi), .mov .r13 (.reg .rdi),
+        .mov .r12 (.reg .rcx), .mov .rbp (.reg .r8), .mov .rbx (.reg .rdx), .alu .and .rbx (imm 15)] : List Instr))) s
       fun s₂ => ∃ H, AbsIn (s.gpr .rdi) (s.gpr .rsi) (s.gpr .r9) (s.gpr .rsp) 16 H
         (List.replicate ((s.gpr .rdx).toNat % 16) 0) (s.gpr .rcx) (s.gpr .r8).toNat s₂ := by
   simp only [Proof.AesGcm.streamAadX86_64, Proof.AesGcm.stk, Proof.AesGcm.ret] at hp

@@ -82,7 +82,7 @@ structure Gh1Args (s₀ : State) (Ctx St W SP : Addr) (yo : Nat) (P : Addr) (s�
 theorem gh1Args_ok {Ctx St W SP : Addr} {yo : Nat} (hyo : yo = 0 ∨ yo = 16) {s : State} (he : Env Ctx St W SP s)
     (b : Reg) (o : Nat) (hb : b = .r14 ∨ b = .r15) {P : Addr} (hP : s.gpr b + BitVec.ofNat 64 o = P)
     (ho : o < 2 ^ 31) :
-    WP isa (.block (ptr .rdi .r13 240 ++ ptr .rsi .r14 yo ++ ptr .rdx b o ++ [.mov32 .rcx (imm 1)] ++
+    WP isa (.block (ptr .rdi .r13 240 ++ ptr .rsi .r14 yo ++ ptr .rdx b o ++ ([.mov32 .rcx (imm 1)] : List Instr) ++
         ptr .r8 .r15 scrO)) s (Gh1Args s Ctx St W SP yo P) := by
   have h13 := he.r13; have h14 := he.r14; have h15 := he.r15
   rcases hb with rfl | rfl <;> rcases hyo with rfl | rfl
@@ -121,7 +121,7 @@ theorem ghash1_rel (v : GcmImpl) {Ctx St W SP : Addr} (L : Lay Ctx St W SP) {yo 
     (hpw : (⟨P, 16⟩ : Region).Disjoint ⟨W + BitVec.ofNat 64 512, 256⟩)
     (hpk : (below SP 8).Disjoint ⟨P, 16⟩)
     (hc : ∃ hc, (taint.check (Taint.ofRegs [.r13, .r14, .r15, .rsp]) (.block (ptr .rdi .r13 240 ++
-      ptr .rsi .r14 yo ++ ptr .rdx b o ++ [.mov32 .rcx (imm 1)] ++ ptr .r8 .r15 scrO)) hc).isSome = true)
+      ptr .rsi .r14 yo ++ ptr .rdx b o ++ ([.mov32 .rcx (imm 1)] : List Instr) ++ ptr .r8 .r15 scrO)) hc).isSome = true)
     {F₁ F₂ : State → Prop}
     (hF : ∀ s, (F₁ s ∨ F₂ s) → Env Ctx St W SP s ∧ s.gpr b + BitVec.ofNat 64 o = P ∧
       Covers [⟨P, 16⟩] (s.rd ++ s.wr)) :
