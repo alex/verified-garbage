@@ -15,6 +15,9 @@ correctness proof pins to the public arguments), and each call of
 namespace VG.Proof.CmacAes.X86
 
 open VG VG.X86 VG.Impl.CmacAes.X86
+open VG.Proof.Aes.X86 (Ctr32Impl)
+
+variable (v : Ctr32Impl)
 open VG.Proof.MdStream.X86 (eval_e eval_ne)
 
 /-- The stack arguments of a state with the entry stack pointer, from
@@ -94,8 +97,8 @@ structure After (s₀ : State) (k : Nat) (s : State) : Prop where
   pt : Pt s₀ s
 
 theorem call_after {s₀ : State} (hp : UPre s₀) {k : Nat} {s : State} (h : Mid s₀ k s) :
-    WP isa ctrCall s (After s₀ k) :=
-  WP.mono (ctr_call h.pre) fun s' hc => by
+    WP isa (ctrCall v.callee) s (After s₀ k) :=
+  WP.mono (ctr_call v h.pre) fun s' hc => by
     have hb : below (s.gpr .esp) 28 = stkR s₀ := by rw [h.pt.esp]; exact hp.below_eq
     have cA : (Cb s₀).setWidth 64 = (S s₀).setWidth 64 + BitVec.ofNat 64 2048 := hp.scrA (by decide)
     have fr := hc.frame
@@ -116,17 +119,17 @@ def BRel (s₀ s₀' : State) (k : Nat) (s₁ s₂ : State) : Prop :=
   (k < N s₀ ∧ LInv s₀ k s₁) ∧ (k < N s₀' ∧ LInv s₀' k s₂)
 
 theorem body_ct {s₀ s₀' : State} (hp : UPre s₀) (hp' : UPre s₀') (hq : updateX86.pub s₀ s₀') (k : Nat) :
-    RelCT isa (BRel s₀ s₀' k) body fun _ _ => True := by
+    RelCT isa (BRel s₀ s₀' k) (body v.callee) fun _ _ => True := by
   have a := ((RelCT.taint (A := taint) (P := BRel s₀ s₀' k) (argTaint [.esi] (4 + 4 * 6))
     (fun _ _ h => Pt.agree hq hp hp' (h.1.2.pt hp) (h.2.2.pt hp') fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr; rw [h.1.2.esi, h.2.2.esi, pub_Dp hq])
     (c := .block chainIn) (by taint_decide)).wp (F₁ := Mid s₀ k) (F₂ := Mid s₀' k)
       fun _ _ h => ⟨bodyMid_wp hp h.1.1 h.1.2, bodyMid_wp hp' h.2.1 h.2.2⟩).mono (fun _ _ h => h)
       fun _ _ h => h.2
-  have c := ((ctr_rel (E := E s₀) (P := fun s₁ s₂ => Mid s₀ k s₁ ∧ Mid s₀' k s₂) fun s₁ s₂ h =>
+  have c := ((ctr_rel v (E := E s₀) (P := fun s₁ s₂ => Mid s₀ k s₁ ∧ Mid s₀' k s₂) fun s₁ s₂ h =>
       ⟨h.1.pre, by rw [pub_W hq, pub_Cb hq, pub_St hq, pub_S hq, pub_R hq]; exact h.2.pre, h.1.pt.esp,
         h.2.pt.esp.trans (pub_E hq).symm⟩).wp (F₁ := After s₀ k) (F₂ := After s₀' k)
-      fun _ _ h => ⟨call_after hp h.1, call_after hp' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
+      fun _ _ h => ⟨call_after v hp h.1, call_after v hp' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
   have b := RelCT.taint (A := taint) (P := fun s₁ s₂ => After s₀ k s₁ ∧ After s₀' k s₂)
     (argTaint [.esi] (4 + 4 * 6))
     (fun _ _ h => Pt.agree hq hp hp' h.1.pt h.2.pt fun r hr => by
@@ -141,7 +144,7 @@ def LRel (s₀ s₀' : State) (n : Nat) (s₁ s₂ : State) : Prop :=
   ∃ k, n = N s₀ - k ∧ BRel s₀ s₀' k s₁ s₂
 
 theorem loop_ct {s₀ s₀' : State} (hp : UPre s₀) (hp' : UPre s₀') (hq : updateX86.pub s₀ s₀') (n : Nat) :
-    RelCT isa (LRel s₀ s₀' n) (.loop body .ne) fun s₁ s₂ => LInv s₀ (N s₀) s₁ ∧ LInv s₀' (N s₀') s₂ := by
+    RelCT isa (LRel s₀ s₀' n) (.loop (body v.callee) .ne) fun s₁ s₂ => LInv s₀ (N s₀) s₁ ∧ LInv s₀' (N s₀') s₂ := by
   refine RelCT.loop (M := isa) (LRel s₀ s₀') (fun n => ?_) n
   have hN := pub_N hq
   refine (RelCT.exists_ fun k => ?_).mono (fun s₁ s₂ (h : LRel s₀ s₀' n s₁ s₂) => h) fun _ _ h => h
@@ -149,10 +152,10 @@ theorem loop_ct {s₀ s₀' : State} (hp : UPre s₀) (hp' : UPre s₀') (hq : u
   swap
   · exact RelCT.of_false fun _ _ h => hn h.1
   subst hn
-  have ct := (body_ct hp hp' hq k).wp
+  have ct := (body_ct v hp hp' hq k).wp
     (F₁ := fun (s : State) => (LInv s₀ (k + 1) s ∧ s.zf = some (decide (k + 1 = N s₀))) ∧ k < N s₀)
     (F₂ := fun (s : State) => LInv s₀' (k + 1) s ∧ s.zf = some (decide (k + 1 = N s₀')))
-    fun _ _ h => ⟨WP.mono (body_ok hp h.1.1 h.1.2) fun _ r => ⟨r, h.1.1⟩, body_ok hp' h.2.1 h.2.2⟩
+    fun _ _ h => ⟨WP.mono (body_ok v hp h.1.1 h.1.2) fun _ r => ⟨r, h.1.1⟩, body_ok v hp' h.2.1 h.2.2⟩
   refine ct.mono (fun _ _ h => h.2) fun s₁ s₂ ⟨_, ⟨⟨l₁, z₁⟩, hk⟩, ⟨l₂, z₂⟩⟩ => ?_
   have e₁ : isa.eval .ne s₁ = some !decide (k + 1 = N s₀) := by
     show VG.X86.eval .ne s₁ = _; rw [eval_ne, z₁]; rfl
@@ -170,7 +173,7 @@ theorem loop_ct {s₀ s₀' : State} (hp : UPre s₀) (hp' : UPre s₀') (hq : u
 
 theorem update_rel {s₀ s₀' : State} (h0 : updateX86.pre s₀) (h0' : updateX86.pre s₀')
     (hq : updateX86.pub s₀ s₀') :
-    RelCT isa (fun a b => a = s₀ ∧ b = s₀') update fun _ _ => True := by
+    RelCT isa (fun a b => a = s₀ ∧ b = s₀') (update v.callee) fun _ _ => True := by
   have hp := UPre.of h0
   have hp' := UPre.of h0'
   have hN := pub_N hq
@@ -195,14 +198,14 @@ theorem update_rel {s₀ s₀' : State} (h0 : updateX86.pre s₀) (h0' : updateX
     (c := .block []) (by taint_decide)
   have mid : RelCT isa (fun a b => (LInv s₀ 0 a ∧ a.zf = some (decide (N s₀ = 0))) ∧
       (LInv s₀' 0 b ∧ b.zf = some (decide (N s₀' = 0))))
-      (.ite .e (.block []) (.loop body .ne)) (fun a b => LInv s₀ (N s₀) a ∧ LInv s₀' (N s₀') b) := by
+      (.ite .e (.block []) (.loop (body v.callee) .ne)) (fun a b => LInv s₀ (N s₀) a ∧ LInv s₀' (N s₀') b) := by
     refine RelCT.ite (fun a b h => by rw [ev h.1.2, ev' h.2.2]) ?_ ?_
     · refine (nil.wp (F₁ := LInv s₀ (N s₀)) (F₂ := LInv s₀' (N s₀')) fun a b h => ?_).mono
         (fun _ _ h => h) fun _ _ h => h.2
       have h0 : N s₀ = 0 := by
         have := h.2; rw [ev h.1.1.2] at this; simpa using this
       exact ⟨WP.block_nil (h0 ▸ h.1.1.1), WP.block_nil (by rw [← hN, h0]; exact h.1.2.1)⟩
-    · refine (loop_ct hp hp' hq (N s₀ - 0)).mono (fun a b h => ⟨0, rfl, ⟨?_, h.1.1.1⟩, ⟨?_, h.1.2.1⟩⟩)
+    · refine (loop_ct v hp hp' hq (N s₀ - 0)).mono (fun a b h => ⟨0, rfl, ⟨?_, h.1.1.1⟩, ⟨?_, h.1.2.1⟩⟩)
         fun _ _ h => h
       all_goals
         have := h.2; rw [ev h.1.1.2] at this
@@ -213,7 +216,7 @@ theorem update_rel {s₀ s₀' : State} (h0 : updateX86.pre s₀) (h0' : updateX
     (c := .block (restore 5)) (by taint_decide)
   exact pro.seq (mid.seq epi)
 
-theorem update_ct : ConstantTime isa updateX86.pre updateX86.pub update :=
-  fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => (update_rel h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+theorem update_ct : ConstantTime isa updateX86.pre updateX86.pub (update v.callee) :=
+  fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => (update_rel v h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
 
 end VG.Proof.CmacAes.X86
