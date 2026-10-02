@@ -1,10 +1,11 @@
-import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyCTRhs
+import VerifiedGarbage.Proof.Ed25519.AArch64.WindowCT
+import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyContext
 
-/-! Untrusted: the verification inputs are public and survive every arithmetic stage. -/
+/-! Untrusted: the verification inputs are public, and the equation's trace depends on them alone. -/
 
 namespace VG.Proof.Ed25519.AArch64
 
-open VG VG.AArch64 VG.Impl.Ed25519.AArch64
+open VG VG.AArch64 VG.Impl.Ed25519.AArch64 VG.Proof.Ed25519 Edwards
 
 structure VerifyPublic (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte) (s : State) : Prop where
   context : VerifyContext s base pk sig challenge
@@ -26,28 +27,53 @@ def PointsCTPre (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte)
   VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
     tablePoint s.mem base 7424 = a ∧ tablePoint s.mem base 7552 = r
 
+theorem pointTableWrite_ct (base : Addr) (o : Nat) (ho : o ∈ [7424, 7552]) :
+    CT (fun s t => s.gpr .x0 = base ∧ t.gpr .x0 = base)
+      (.block (pointTableWrite o)) (fun _ _ => True) := by
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at ho
+  rcases ho with rfl | rfl
+  all_goals
+    apply CT.taint (Taint.ofRegs [.x0]) _ (by taint_decide)
+    exact fun _ _ h => x0_agree h.1 h.2
+
 theorem verifyEquationPoints_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte)
-    (a r : Spec.Ed25519.Point) :
+    (a r : Spec.Ed25519.Point) {Aa Ra : EPoint dZ} (hA : Rep a Aa) (hR : Rep r Ra) :
     CT (fun s t => PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r s ∧
       PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r t) verifyEquationPoints (fun _ _ => True) := by
-  have ht := (verifyLhs_ct base pk sig challenge (Spec.Ed25519.decodeLE sbs)).mono
-    (fun _ _ (h : PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r _ ∧
-      PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r _) =>
-        ⟨⟨h.1.1.context, by rw [h.1.1.sBytes]⟩, ⟨h.2.1.context, by rw [h.2.1.sBytes]⟩⟩)
-    (fun _ _ h => h)
-  have hw (s : State) (h : PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r s) :
-      WP isa verifyLhs s (RhsCTPre base pk sig challenge a r
-        (Spec.Ed25519.pointMul (Spec.Ed25519.decodeLE sbs) Spec.Ed25519.basePoint) (Spec.Ed25519.decodeLE kbs)) := by
-    refine WP.mono (verifyLhs_ok h.1.context.scratch h.1.context.sigHeader h.1.context.scalarBytes h.1.context.scalarFar)
-      fun t ⟨kt, tv, tp⟩ => ?_
-    refine ⟨h.1.context.of_keep kt, (tp 7424 (by decide) (by decide)).trans h.2.1,
-      (tp 7552 (by decide) (by decide)).trans h.2.2, ?_, ?_⟩
-    · rw [tv, h.1.sBytes]
-    · rw [(h.1.of_keep kt).kBytes]
-  have hp := CT.wp ht (fun s t h => ⟨hw s h.1, hw t h.2⟩)
+  let K := Spec.Ed25519.decodeLE kbs
+  let S := Spec.Ed25519.decodeLE sbs
+  let R₀ : State → Prop := fun s₀ => tablePoint s₀.mem base 7552 = r
+  have w (x : State) (h : PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r x) :
+      WP isa windowPrep x (SkipRun R₀ base challenge sig Aa K S 32) := by
+    have c := h.1.context
+    refine WP.mono (windowPrep_ok (Aa := Aa) c.scratch c.sigHeader c.challengeHeader c.scalarBytes
+      c.scalarFar c.challengeRead c.challengeFar (by rw [h.2.1]; exact hA)) fun e ⟨we, _, eR⟩ => ?_
+    rw [h.1.kBytes, h.1.sBytes] at we
+    exact ⟨e, eR.trans h.2.2, we, Nat.div_eq_of_lt (show Spec.Ed25519.decodeLE kbs < 256 ^ (32 + 32) from we.kVal ▸ decodeLE_lt64 _ _), by decide,
+      by decide⟩
+  have wn (x : State) (h : LoopRun R₀ base challenge sig Aa K S 0 x) :
+      WP isa (.block negR) x (EqRepPre base (K • Aa + S • (-baseAff)) (-Ra)) := by
+    obtain ⟨s₀, r₀, hx⟩ := h
+    have gv := hx.value
+    simp only [pow_zero, Nat.div_one] at gv
+    refine WP.mono (negR_ok hx.ctx.scratch) fun u ⟨ku, u0, u4⟩ =>
+      ⟨ku.scr hx.ctx.scratch, by rw [u0]; exact gv, ?_⟩
+    rw [u4, win_tablePoint hx.keep.mem (by decide) (by decide), r₀]
+    exact hR.neg.proj
+  have prepCT : CT (fun x y => x.gpr .x0 = y.gpr .x0) windowPrep (fun _ _ => True) := by
+    rw [windowPrep]
+    exact CT.taint (Taint.ofRegs [.x0]) (fun _ _ h => agree_x0 h) (by taint_decide)
+  have negRCT : CT (fun x y => x.gpr .x0 = y.gpr .x0) (.block negR) (fun _ _ => True) :=
+    CT.taint (Taint.ofRegs [.x0]) (fun _ _ h => agree_x0 h) (by taint_decide)
   rw [verifyEquationPoints]
-  exact CT.seq (hp.mono (fun _ _ h => h) (fun _ _ h => h.2))
-    (verifyRhs_ct base pk sig challenge a r
-      (Spec.Ed25519.pointMul (Spec.Ed25519.decodeLE sbs) Spec.Ed25519.basePoint) (Spec.Ed25519.decodeLE kbs))
+  apply RelCT.assoc; apply RelCT.assoc; apply RelCT.assoc
+  refine CT.seq ((CT.wp (x0_ct (fun x h => h.1.context.scratch.x0) prepCT)
+    fun x y h => ⟨w x h.1, w y h.2⟩).mono (fun _ _ h => h) (fun _ _ h => h.2)) ?_
+  refine CT.seq skipZero_ct ?_
+  refine CT.seq (fun x y tx ty x' y' ⟨hsp, c, hc32, hc64, hx, hy⟩ ex ey =>
+    windowsA_ct hc32 hc64 x y tx ty x' y' ⟨hsp, hx, hy⟩ ex ey) ?_
+  refine CT.seq loopB_ct ?_
+  exact seq_same (x0_ct (fun x h => by obtain ⟨_, _, h⟩ := h; exact h.ctx.scratch.x0) negRCT) wn
+    (pointEqualRep_ct base _ _)
 
 end VG.Proof.Ed25519.AArch64

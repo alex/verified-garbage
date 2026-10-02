@@ -18,20 +18,6 @@ open VG.Proof.X25519.X86_64 (off ofs Keeps clob Outside)
 
 variable {fld : Arith} [EdArith fld]
 
-theorem window_equation {P Q R A : Spec.Ed25519.Point} {Aa Ra : EPoint dZ} {K S : Nat}
-    (hA : Rep A Aa) (hR : Rep R Ra) (hP : Rep P (K • Aa + S • (-baseAff))) (hQ : Rep Q (-Ra)) :
-    Spec.Ed25519.pointEqual P Q = Spec.Ed25519.pointEqual
-      (Spec.Ed25519.pointMul S Spec.Ed25519.basePoint)
-      (Spec.Ed25519.pointAdd R (Spec.Ed25519.pointMul K A)) := by
-  rw [Bool.eq_iff_iff, pointEqual_rep hP hQ,
-    pointEqual_rep (pointMul_rep S basePoint_rep) (pointAdd_rep hR (pointMul_rep K hA))]
-  constructor
-  · intro h
-    have e : Ra = -(K • Aa + S • (-baseAff)) := by rw [h, neg_neg]
-    rw [e]; module
-  · intro h
-    rw [smul_neg, h]; module
-
 theorem PowersKeep.of_byte {base : Addr} {s t : State} (h : ByteKeep base s t) :
     PowersKeep base 56 7752 s t :=
   ⟨fun r hb hs hc => h.gpr r hc hb hs, h.rd, h.wr, TableFrame.table (h.mem.mono (by decide) (by decide))⟩
@@ -174,6 +160,6 @@ theorem verifyEquationPoints_ok {s : State} {base sig challenge : Addr} {Aa Ra :
   have gv := hg.value
   simp only [pow_zero, Nat.div_one] at gv
   rw [tv, u0, u4, win_tablePoint hg.keep.mem (by decide) (by decide), eR,
-    window_equation hA hR gv hR.neg]
+    window_equation hA hR gv.proj hR.neg.proj]
 
 end VG.Proof.Ed25519.X86_64
