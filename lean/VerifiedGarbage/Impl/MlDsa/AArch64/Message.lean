@@ -69,10 +69,9 @@ def oHdr : Nat := 984
 keep its address in `x28`, save the arguments `as` (registers and slots),
 and store `0 ‖ ctx_len`. -/
 def enter (sr : Reg) (p : Params) (as : List (Reg × Nat)) : List Instr :=
-  Impl.MlKem.AArch64.movImm .x9 (BitVec.ofNat 64 (oE p)) ++
-    [.add .x .x9 sr .x9, .str .x .x28 .x9 oX28, .str .x .x30 .x9 oX30, .addImm .x .x28 .x9 0] ++
-    as.map (fun (r, f) => .str .x r .x28 f) ++
-    [.movz .x .x9 0 0, .strb .x9 .x28 oHdr, .strb .x4 .x28 (oHdr + 1)]
+  Impl.MlKem.AArch64.movImm .x9 (BitVec.ofNat 64 (oE p)) ++ [.add .x .x9 sr .x9] ++
+    ([(.x28, oX28), (.x30, oX30)].map fun a => .str .x a.1 .x9 a.2) ++ [.addImm .x .x28 .x9 0] ++
+    (as.map fun a => .str .x a.1 .x28 a.2) ++ [.movz .x .x9 0 0, .strb .x9 .x28 oHdr, .strb .x4 .x28 (oHdr + 1)]
 
 /-- Restore `x30`, then `x28`. -/
 def leave : List Instr := [.ldr .x .x30 .x28 oX30, .ldr .x .x28 .x28 oX28]
