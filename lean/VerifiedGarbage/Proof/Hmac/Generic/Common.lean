@@ -9,9 +9,9 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 # HMAC over any streaming hash function: lemmas shared by every target
 
 Addresses and regions, the bytes `init`'s loops write, and the streaming
-states of SHA-1, MD5 and the SHA-512 family moved between addresses, about
-memory alone: every target's proof uses them, so they import no target's ISA
-or proofs.
+states of SHA-256, SHA-1, MD5 and the SHA-512 family moved between
+addresses, about memory alone: every target's proof uses them, so they
+import no target's ISA or proofs.
 -/
 
 namespace VG.Proof.Hmac.Generic.Common
@@ -226,6 +226,19 @@ theorem bytesAt_reloc {m m' : Mem} {p q : Addr} {n : Nat}
   refine List.map_congr_left fun i hi => ?_
   have := List.mem_range.mp hi
   rw [BitVec.add_assoc, BitVec.add_assoc, ← BitVec.ofNat_add, h (o + i) (by omega_nat)]
+
+/-- SHA-256's streaming state depends only on its 96 bytes. -/
+theorem sha256_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
+    (h : ∀ i < 96, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))
+    (hr : Spec.Sha256.Repr m p msg) : Spec.Sha256.Repr m' q msg := by
+  refine ⟨?_, ?_⟩
+  · rw [← hr.1]
+    apply Vector.ext
+    intro j hj
+    simp only [Spec.Sha256.stateAt, Vector.getElem_ofFn]
+    exact readW_reloc h (by omega_nat)
+  · rw [← hr.2]
+    exact bytesAt_reloc h (o := 32) (k := msg.length % 64) (by omega_nat)
 
 theorem sha1_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
     (h : ∀ i < 84, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))

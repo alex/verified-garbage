@@ -10,7 +10,7 @@ def verifyLocal : Contract isa where
     let pk := sub (arg s 0) 0 32
     let sig := sub (arg s 1) 0 64
     let challenge := sub (arg s 2) 0 64
-    let scratch := scR (arg s 3)
+    let scratch := scR 8192 (arg s 3)
     let args : Region := ⟨argAddr s 0, 16⟩
     let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
     s.rd = [pk, sig, challenge, args] ∧ s.wr = [sub (arg s 3) 0 0, scratch] ∧

@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.X25519.X86_64.Freeze
 import VerifiedGarbage.Proof.X25519.Bytes
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 
 /-!
 # X25519 on x86-64: reading the arguments
@@ -55,8 +56,7 @@ theorem Outside.writeW {base : Addr} {o n : Nat} {m m' : Mem} (h : Outside base 
   h.trans ((writeW_outside m' base v hn).mono ho hd)
 
 /-- The callee-saved registers of `g`, saved at the start of the working space. -/
-def Saved (base : Addr) (g : Reg → BitVec 64) (m : Mem) : Prop :=
-  ∀ rd ∈ saved, word m base rd.2 = g rd.1
+abbrev Saved (base : Addr) (g : Reg → BitVec 64) (m : Mem) : Prop := Spill.Saved m base g saved
 
 theorem saved_lt : ∀ rd ∈ saved, rd.2 + 8 ≤ 48 := by decide
 
@@ -70,21 +70,16 @@ theorem save_ok {s : State} {base : Addr} (hc : s.gpr .rcx = base)
     WP isa (.block save) s fun s' =>
       s'.gpr = s.gpr ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ Outside base 0 48 s.mem s'.mem ∧
       Saved base s.gpr s'.mem := by
-  have w : ∀ d, d + 8 ≤ 4096 → InRegions s.wr (off base d) 8 :=
-    fun d hd => ⟨_, hw, contains_sc hd⟩
-  apply WP.of_runBlock
-  simp only [save, saved, List.map_cons, List.map_nil, runBlock_cons, runStep_some, runBlock_nil,
-    exec, ea_at, hc, State.store64, w 0 (by omega), w 8 (by omega), w 16 (by omega),
-    w 24 (by omega), w 32 (by omega), w 40 (by omega), ite_true, Option.some.injEq,
-    exists_eq_left']
-  refine ⟨trivial, trivial, trivial, ?_, fun rd hrd => ?_⟩
-  · exact ((((((Outside.refl base 0 48 s.mem).writeW (by omega) (by omega) (by omega) _).writeW
-      (by omega) (by omega) (by omega) _).writeW (by omega) (by omega) (by omega) _).writeW
-      (by omega) (by omega) (by omega) _).writeW (by omega) (by omega) (by omega) _).writeW
-      (by omega) (by omega) (by omega) _
-  · simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hrd
-    rcases hrd with rfl | rfl | rfl | rfl | rfl | rfl <;>
-      simp (disch := decide) only [word_writeW_sep, word_writeW_self]
+  refine WP.mono (Spill.save_ok .rcx saved s fun p hp => ?_) fun s' ⟨hg, hrd, hwr, hm⟩ =>
+    ⟨hg, hrd, hwr, ?_, ?_⟩
+  · have := saved_lt p hp; rw [hc]; exact ⟨_, hw, contains_sc (by omega)⟩
+  · rw [hm, hc]
+    intro x hx
+    refine Spill.saveMem_frame_base _ _ _ _ saved_lt (by decide) x fun r hr hx' => ?_
+    rw [List.mem_singleton.mp hr] at hx'
+    simp only [Region.Contains, ofs] at hx hx'
+    omega
+  · rw [hm, hc]; exact Spill.saveMem_saved _ _ _ _ (by decide)
 
 /-! ## The initial values -/
 

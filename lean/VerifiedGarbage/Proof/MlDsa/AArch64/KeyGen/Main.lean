@@ -97,7 +97,7 @@ theorem trHash_piece {p : Params} (hF : PFacts p) {S' : Nat} (h16 : 16 ≤ S') (
   refine WP.mono (shake_ok h16 hSl L (by simp) (trHash_chk hF)) fun s' ⟨hP', x', ho⟩ => ⟨A, S, R, ?_, ?_⟩
   · exact h.keep hF hp hP' x' (by krchk hF)
   · simp only [List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil] at ho
-    rw [hP'.pa (show Reg.x27 ∈ bases by decide), ho]
+    rw [hP'.pa (show Reg.x27 ∈ keptRegs by decide), ho]
     exact congrArg (Spec.MlDsa.H · 64) (pk_bytes hF h)
 
 /-! ## The return -/

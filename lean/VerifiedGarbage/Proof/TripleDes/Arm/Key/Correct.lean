@@ -41,17 +41,10 @@ open VG VG.Arm
     rw [outputR, g₁] at h
     exact h
   have saved₂ : Saved s s₂ := by
-    intro i hi
-    have sub : Region.Sub ⟨(State.addr (s.gpr .r3)) + BitVec.ofNat 64 (4 * i), 4⟩ ⟨(State.addr (s.gpr .r3)), 512⟩ :=
-      Offset.sub_base _ (by omega_using [hi])
-    have mem := frame₂.readW (a := (State.addr (s.gpr .r3)) + BitVec.ofNat 64 (4 * i)) (w := 32)
-      (r := ⟨(State.addr (s.gpr .r3)) + BitVec.ofNat 64 (4 * i), 4⟩) (Region.contains_self _ _)
-      (fun r hr => by obtain rfl := List.mem_singleton.mp hr; exact (outputScratch.sub_right sub).symm)
-      (by decide)
-    rw [g₂ .r3 (by decide)]
-    have saved₁ := h₁.2.2.2.1 i hi
-    rw [g₁] at saved₁
-    exact mem.trans saved₁
+    have saved₁ := h₁.2.2.2.1
+    unfold Saved at saved₁ ⊢; rw [g₁] at saved₁; rw [g₂ .r3 (by decide)]
+    exact Spill.Saved.frame saved₁ slots_ok frame₂ fun r hr => by
+      rw [List.mem_singleton.mp hr]; exact (outputScratch.sub_right (Offset.sub_base _ (by decide))).symm
   have scratchReads : ∀ i < 9, InRegions (s₂.rd ++ s₂.wr) ((State.addr (s₂.gpr .r3)) + BitVec.ofNat 64 (4 * i)) 4 := by
     intro i hi
     rw [h₂.rd, h₂.wr, h₁.2.1, h₁.2.2.1, g₂ .r3 (by decide)]

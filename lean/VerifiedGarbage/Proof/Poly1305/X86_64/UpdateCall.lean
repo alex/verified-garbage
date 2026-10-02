@@ -360,22 +360,6 @@ theorem rest_ok {s₀ : State} (hp : UPre s₀) {d : Nat} {s : State} (h : Res s
 
 /-! ## Restoring the registers -/
 
-set_option simprocs false in
-theorem restoreS_ok (s : State) (hin : ∀ d, d + 8 ≤ 128 → InRegions (s.rd ++ s.wr) (off (s.gpr .r15) d) 8) :
-    WP isa (.block restoreS) s fun s' =>
-      s'.mem = s.mem ∧ s'.gpr .rbx = s.mem.readW (off (s.gpr .r15) 0) 64 ∧
-      s'.gpr .rbp = s.mem.readW (off (s.gpr .r15) 8) 64 ∧ s'.gpr .r12 = s.mem.readW (off (s.gpr .r15) 16) 64 ∧
-      s'.gpr .r13 = s.mem.readW (off (s.gpr .r15) 24) 64 ∧ s'.gpr .r14 = s.mem.readW (off (s.gpr .r15) 32) 64 ∧
-      s'.gpr .r15 = s.mem.readW (off (s.gpr .r15) 40) 64 ∧ s'.gpr .rsp = s.gpr .rsp := by
-  have i0 := hin 0 (by decide); have i1 := hin 8 (by decide); have i2 := hin 16 (by decide)
-  have i3 := hin 24 (by decide); have i4 := hin 32 (by decide); have i5 := hin 40 (by decide)
-  simp only [off] at i0 i1 i2 i3 i4 i5
-  apply WP.of_runBlock
-  rw [restoreS_eq]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, ea_at,
-    readSrc, State.load64, State.setReg, i0, i1, i2, i3, i4, i5,
-    ite_true, ite_false, Option.map_some, Option.some.injEq, exists_eq_left', and_self]
-
 theorem ret_stkR (s₀ : State) : (retR s₀).Disjoint (stkR s₀) := by
   have := Offset.disjoint_base (s₀.gpr .rsp - BitVec.ofNat 64 24) (d := 24) (n := 8) (k := 24)
     (by decide) (by decide)
@@ -383,20 +367,12 @@ theorem ret_stkR (s₀ : State) : (retR s₀).Disjoint (stkR s₀) := by
 
 theorem fin_ok {s₀ : State} (hp : UPre s₀) {s : State} (h : Fin s₀ s) :
     WP isa (.block restoreS) s fun s' => gprPreserved s₀ s' ∧ Proof.Poly1305.updateX86_64.post s₀ s' := by
-  refine WP.mono (restoreS_ok s fun d hd => ⟨scR s₀, by rw [h.rd, h.wr, hp.wr]; simp,
-    by rw [h.r15]; exact contains_off hd (by omega_using [hd])⟩) fun s' ⟨m', g1, g2, g3, g4, g5, g6, g7⟩ => ?_
-  obtain ⟨sv1, sv2, sv3, sv4, sv5, sv6⟩ := h.saved
-  rw [h.r15] at g1 g2 g3 g4 g5 g6
-  refine ⟨⟨fun r hr => ?_, ?_⟩, fun key msg hbuf hcnt => ?_⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · rw [g1, sv1]
-    · rw [g2, sv2]
-    · rw [g7, h.rsp]
-    · rw [g3, sv3]
-    · rw [g4, sv4]
-    · rw [g5, sv5]
-    · rw [g6, sv6]
+  refine WP.mono (Spill.restore_ok .r15 savedS s₀.gpr s (by decide) (fun q hq => ⟨scR s₀,
+    by rw [h.rd, h.wr, hp.wr]; simp, by
+      rw [h.r15]; exact Offset.contains_base _ (by have := savedS_bound q hq; omega)
+        (by have := savedS_bound q hq; omega)⟩)
+    (by rw [h.r15]; exact h.saved)) fun s' ⟨g₁, g₂, m', _⟩ => ?_
+  refine ⟨⟨Spill.calleeSaved_ok g₁ g₂ (by decide) h.rsp, ?_⟩, fun key msg hbuf hcnt => ?_⟩
   · rw [m']
     refine h.frame.readW (Region.contains_self _ _) ?_ (by decide)
     simp only [List.mem_cons, List.not_mem_nil, or_false]

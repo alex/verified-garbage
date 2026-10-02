@@ -1,16 +1,18 @@
-import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.CallPack
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Base
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Pack
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Sample
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Round
 
 /-!
 # ML-DSA signing on AArch64: calls of the other primitives
 
-As `CallSample.lean`, `CallRound.lean` and `CallPack.lean`, for the other
-primitives signing calls: `vg_mldsa_expand_mask_poly`, `vg_mldsa_high_bits`,
+As `Proof/MlDsa/AArch64/Call/`, for the other primitives signing calls: `vg_mldsa_expand_mask_poly`, `vg_mldsa_high_bits`,
 `vg_mldsa_low_bits`, `vg_mldsa_make_hint` and `vg_mldsa_hint_bit_pack`.
 
 Signing branches on the results of the two samplers, so it needs them to be
 the same in two runs whose samplers' public data agree: a callee whose
 result is public in its own runs (`RetPub`) returns the same in both
-(`RelCT.callRet`, `callAtK_trRet`). And its leakage is stated for
+(`RelCT.callRet`, `callAt_trRet`). And its leakage is stated for
 `maxBounds`, so it needs that a sampler succeeds only if the algorithm
 finishes within them: a fact of each run of the callee added to its
 postcondition (`withPost`, `CalleeOk.withPost`).
@@ -19,6 +21,7 @@ postcondition (`withPost`, `CalleeOk.withPost`).
 namespace VG.Proof.MlDsa.AArch64.Sign
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 
@@ -75,7 +78,7 @@ theorem RelCT.callRet {n : String} {c : Prog isa} {k : Contract isa}
 
 /-- The trace of the moves then a call whose result is public: the same
 trace, and the same result, in both runs. -/
-theorem callAtK_trRet {S : Nat} {n : String} {c : Prog isa} {k : Contract isa} (C : CalleeOk S c k)
+theorem callAt_trRet {S : Nat} {n : String} {c : Prog isa} {k : Contract isa} (C : CalleeOk S c k)
     (hr : RetPub k c) {as : List (Reg × Arg)} (hok : ∀ a ∈ as, a.2.Ok ∧ a.1 ∈ argRegs) (hnd : (as.map (·.1)).Nodup)
     {P : State → State → Prop}
     (hP : ∀ x y x1 y1, P x y → Args as x x1 → Args as y y1 → ∃ rd wr : List Region,
@@ -99,15 +102,6 @@ theorem callAtK_trRet {S : Nat} {n : String} {c : Prog isa} {k : Contract isa} (
           by rw [h2.2.rd, h2.2.wr]; exact c₂, by rw [h2.2.wr]; exact w₂⟩)
       fun _ _ h => h)
 
-/-- `k` with the fact `X` of each run added to its postcondition. -/
-def withPost (k : Contract isa) (X : State → State → Prop) : Contract isa :=
-  { k with post := fun s s' => k.post s s' ∧ X s s' }
-
-theorem CalleeOk.withPost {S : Nat} {c : Prog isa} {k : Contract isa} (C : CalleeOk S c k)
-    {X : State → State → Prop} (hx : ∀ s t s', k.pre s → Exec isa c s t s' → X s s') :
-    CalleeOk S c (withPost k X) :=
-  ⟨fun s hs => let ⟨t, s', e, a, p⟩ := C.correct s hs; ⟨t, s', e, a, p, hx s t s' hs e⟩, C.ct, C.fd⟩
-
 /-- A sampler's call leaves the result `w0` public in two runs whose seeds agree. -/
 theorem rejNttAtK_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContract AArch64.abi S))
     (hr : RetPub (rejNTTContract AArch64.abi S) P.rejNTT)
@@ -121,7 +115,7 @@ theorem rejNttAtK_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTCo
   simp only [rejNttChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : seed.1 ∈ bases ∧ a.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAtK_trRet C hr (rejNtt_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAt_trRet C hr (rejNtt_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, hsd, e⟩ := hQ x y hp
   refine ⟨_, _, rejNtt_pre Lx hc h1, ?_, ?_, (rejNtt_cov Lx hc).1, (rejNtt_cov Lx hc).2, ?_, ?_⟩
@@ -148,7 +142,7 @@ theorem ballAtK_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBall
   simp only [ballChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : ct.1 ∈ bases ∧ c.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAtK_trRet C hr (ball_args hB len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAt_trRet C hr (ball_args hB len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, hsd, e⟩ := hQ x y hp
   refine ⟨_, _, ball_pre Lx hc ht h1, ?_, ?_, (ball_cov Lx hc).1, (ball_cov Lx hc).2, ?_, ?_⟩
@@ -165,7 +159,7 @@ theorem ballAtK_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBall
 /-! ## `ExpandMask` -/
 
 def maskChk (rbs wbs : List (Reg × Nat)) (seed a ss : Ptr) : Bool :=
-  sepB (rbs ++ wbs) seed 66 a 1024 && sepB (rbs ++ wbs) seed 66 ss 2048 && sepB (rbs ++ wbs) a 1024 ss 2048 &&
+  sepB rbs wbs seed 66 a 1024 && sepB rbs wbs seed 66 ss 2048 && sepB rbs wbs a 1024 ss 2048 &&
     inB (rbs ++ wbs) seed 66 && inB (rbs ++ wbs) a 1024 && inB (rbs ++ wbs) ss 2048 && inB wbs a 1024 &&
     inB wbs ss 2048
 
@@ -181,7 +175,7 @@ theorem mask_cov : Covers ([⟨pa s seed, 66⟩] ++ [⟨pa s a, 1024⟩, ⟨pa s
     Covers [⟨pa s a, 1024⟩, ⟨pa s ss, 2048⟩] s.wr := by
   simp only [maskChk, Bool.and_eq_true, and_assoc] at hc
   obtain ⟨_, _, _, c4, _, _, c7, c8⟩ := hc
-  exact ⟨covers_append (L.cR c4) (covers_wr (covers_cons (L.cW c7) (L.cW c8))), covers_cons (L.cW c7) (L.cW c8)⟩
+  exact ⟨Covers.append_left (L.cR c4) (Covers.right (Covers.cons (L.cW c7) (L.cW c8))), Covers.cons (L.cW c7) (L.cW c8)⟩
 
 theorem mask_pre {γ : Nat} (hγ : γ = 2 ^ 17 ∨ γ = 2 ^ 19) {s1 : State} (h1 : Args (maskArgs seed γ a ss) s s1) :
     (expandMaskContract AArch64.abi S).pre
@@ -197,12 +191,12 @@ theorem mask_pre {γ : Nat} (hγ : γ = 2 ^ 17 ∨ γ = 2 ^ 19) {s1 : State} (h1
 
 end
 
-theorem mask_args {bs : List (Reg × Nat)} (L : LayOk bs) {seed a ss : Ptr} (γ : Nat) (c4 : inB bs seed 66 = true)
+theorem mask_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {seed a ss : Ptr} (γ : Nat) (c4 : inB bs seed 66 = true)
     (c5 : inB bs a 1024 = true) (c6 : inB bs ss 2048 = true) :
     ∀ x ∈ maskArgs seed γ a ss, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨trivial, by decide⟩, ⟨ptr_ok (ptr_bs L c5), by decide⟩,
-    ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨trivial, by decide⟩, ⟨ptr_ok (ptr_kept L c5), by decide⟩,
+    ⟨ptr_ok (ptr_kept L c6), by decide⟩⟩
 
 theorem maskAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
     (C : CalleeOk S P.expandMask (expandMaskContract AArch64.abi S))
@@ -215,7 +209,7 @@ theorem maskAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
   have hc' := hc
   simp only [maskChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
-  refine WP.mono (callAtK_ok hS C (mask_args L.ok γ c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAt_ok hS C (mask_args L.ok γ c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => mask_pre L hc hγ h1) (mask_cov L hc).1 (mask_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [expandMaskContract, expandMaskSig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -233,7 +227,7 @@ theorem maskAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.expandMask (expandMas
   simp only [maskChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : seed.1 ∈ bases ∧ a.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAtK_tr C (mask_args hB γ c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAt_tr C (mask_args hB γ c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, e⟩ := hQ x y hp
   refine ⟨_, _, mask_pre Lx hc hγ h1, ?_, ?_, (mask_cov Lx hc).1, (mask_cov Lx hc).2, ?_, ?_⟩
@@ -248,10 +242,6 @@ theorem maskAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.expandMask (expandMas
 
 /-! ## `HighBits` and `LowBits` -/
 
-theorem gamma2_lt {g2 : Nat} (h : g2 ∈ gamma2s) : g2 < 2 ^ 32 := by
-  simp only [gamma2s, List.mem_cons, List.not_mem_nil, or_false] at h
-  rcases h with rfl | rfl <;> decide
-
 /-- The contract of `vg_mldsa_high_bits` or `vg_mldsa_low_bits`: `bitsSig`'s,
 with the postcondition `Q γ₂ (the polynomial at r) m' out`. -/
 abbrev bitsC (Q : Nat → Poly → Mem → Addr → Prop) (S : Nat) : Contract isa :=
@@ -263,10 +253,10 @@ abbrev bitsC (Q : Nat → Poly → Mem → Addr → Prop) (S : Nat) : Contract i
 
 abbrev bitsArgs (r : Ptr) (g2 : Nat) (out : Ptr) : List (Reg × Arg) := [(.x0, .ptr r), (.x1, .imm g2), (.x2, .ptr out)]
 
-theorem bits_args {bs : List (Reg × Nat)} (L : LayOk bs) {r out : Ptr} (g2 : Nat) (c2 : inB bs r 1024 = true)
+theorem bits_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {r out : Ptr} (g2 : Nat) (c2 : inB bs r 1024 = true)
     (c3 : inB bs out 1024 = true) : ∀ x ∈ bitsArgs r g2 out, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨ptr_ok (ptr_bs L c3), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨ptr_ok (ptr_kept L c3), by decide⟩⟩
 
 section
 variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {r out : Ptr}
@@ -291,7 +281,7 @@ theorem bitsAtK_ok {S : Nat} (hS : S < 2 ^ 64) {Q : Nat → Poly → Mem → Add
     WP isa (callAt n c (bitsArgs r g2 out)) s fun s' => PPostB S s s' [(out, 1024)] ∧ s'.gpr .x24 = s.gpr .x24 ∧
       Q g2 (polyAt s.mem (pa s r)) s'.mem (pa s out) := by
   obtain ⟨_, c2, c3⟩ := rw_parts hc
-  refine WP.mono (callAtK_ok hS C (bits_args L.ok g2 c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAt_ok hS C (bits_args L.ok g2 c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => bits_pre L hc hg hr h1) (rw_cov L hc).1 (rw_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [bitsSig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -307,7 +297,7 @@ theorem bitsAtK_tr {S : Nat} {Q : Nat → Poly → Mem → Addr → Prop} {n : S
     RelCT isa R (callAt n c (bitsArgs r g2 out)) fun _ _ => True := by
   obtain ⟨_, c2, c3⟩ := rw_parts hc
   have hb : r.1 ∈ bases ∧ out.1 ∈ bases := ⟨ptr_bs hB c2, ptr_bs hB c3⟩
-  refine callAtK_tr C (bits_args hB g2 c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAt_tr C (bits_args hB g2 c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, rx, ry, e⟩ := hR x y hp
   refine ⟨_, _, bits_pre Lx hc hg rx h1, ?_, ?_, (rw_cov Lx hc).1, (rw_cov Lx hc).2, ?_, ?_⟩
@@ -322,17 +312,17 @@ theorem bitsAtK_tr {S : Nat} {Q : Nat → Poly → Mem → Addr → Prop} {n : S
 /-! ## `MakeHint` -/
 
 def hintChk (rbs wbs : List (Reg × Nat)) (z r h : Ptr) : Bool :=
-  sepB (rbs ++ wbs) z 1024 h 1024 && sepB (rbs ++ wbs) r 1024 h 1024 && inB (rbs ++ wbs) z 1024 &&
+  sepB rbs wbs z 1024 h 1024 && sepB rbs wbs r 1024 h 1024 && inB (rbs ++ wbs) z 1024 &&
     inB (rbs ++ wbs) r 1024 && inB (rbs ++ wbs) h 1024 && inB wbs h 1024
 
 abbrev hintArgs (z r : Ptr) (g2 : Nat) (h : Ptr) : List (Reg × Arg) :=
   [(.x0, .ptr z), (.x1, .ptr r), (.x2, .imm g2), (.x3, .ptr h)]
 
-theorem hint_args {bs : List (Reg × Nat)} (L : LayOk bs) {z r h : Ptr} (g2 : Nat) (c3 : inB bs z 1024 = true)
+theorem hint_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {z r h : Ptr} (g2 : Nat) (c3 : inB bs z 1024 = true)
     (c4 : inB bs r 1024 = true) (c5 : inB bs h 1024 = true) : ∀ x ∈ hintArgs z r g2 h, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c3), by decide⟩, ⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨trivial, by decide⟩,
-    ⟨ptr_ok (ptr_bs L c5), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c3), by decide⟩, ⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨trivial, by decide⟩,
+    ⟨ptr_ok (ptr_kept L c5), by decide⟩⟩
 
 section
 variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {z r h : Ptr}
@@ -343,7 +333,7 @@ theorem hint_cov : Covers ([⟨pa s z, 1024⟩, ⟨pa s r, 1024⟩] ++ [⟨pa s 
     Covers [⟨pa s h, 1024⟩] s.wr := by
   simp only [hintChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨_, _⟩, c3⟩, c4⟩, _⟩, c6⟩ := hc
-  exact ⟨covers_append (covers_cons (L.cR c3) (L.cR c4)) (covers_wr (L.cW c6)), L.cW c6⟩
+  exact ⟨Covers.append_left (Covers.cons (L.cR c3) (L.cR c4)) (Covers.right (L.cW c6)), L.cW c6⟩
 
 theorem hint_pre {g2 : Nat} (hg : g2 ∈ gamma2s) (hz : Reduced s.mem (pa s z)) (hr : Reduced s.mem (pa s r))
     {s1 : State} (h1 : Args (hintArgs z r g2 h) s s1) :
@@ -370,7 +360,7 @@ theorem hintAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.mak
   have hc' := hc
   simp only [hintChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨⟨_, _⟩, c3⟩, c4⟩, c5⟩, _⟩ := hc'
-  refine WP.mono (callAtK_ok hS C (hint_args L.ok g2 c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAt_ok hS C (hint_args L.ok g2 c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => hint_pre L hc hg hz hr h1) (hint_cov L hc).1 (hint_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [makeHintContract, makeHintSig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -388,7 +378,7 @@ theorem hintAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.makeHint (makeHintCon
   simp only [hintChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨⟨_, _⟩, c3⟩, c4⟩, c5⟩, _⟩ := hc'
   have hb : z.1 ∈ bases ∧ r.1 ∈ bases ∧ h.1 ∈ bases := ⟨ptr_bs hB c3, ptr_bs hB c4, ptr_bs hB c5⟩
-  refine callAtK_tr C (hint_args hB g2 c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAt_tr C (hint_args hB g2 c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, rx, ry, e⟩ := hQ x y hp
   refine ⟨_, _, hint_pre Lx hc hg rx.1 rx.2 h1, ?_, ?_, (hint_cov Lx hc).1, (hint_cov Lx hc).2, ?_, ?_⟩
@@ -406,12 +396,12 @@ theorem hintAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.makeHint (makeHintCon
 abbrev hbpArgs (h : Ptr) (hlen omega : Nat) (y : Ptr) (len : Nat) : List (Reg × Arg) :=
   [(.x0, .ptr h), (.x1, .imm hlen), (.x2, .imm omega), (.x3, .ptr y), (.x4, .imm len)]
 
-theorem hbp_args {bs : List (Reg × Nat)} (L : LayOk bs) {h y : Ptr} (hlen omega len : Nat)
+theorem hbp_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {h y : Ptr} (hlen omega len : Nat)
     (c2 : inB bs h (hlen * 4) = true) (c3 : inB bs y len = true) :
     ∀ x ∈ hbpArgs h hlen omega y len, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
-    ⟨ptr_ok (ptr_bs L c3), by decide⟩, ⟨trivial, by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
+    ⟨ptr_ok (ptr_kept L c3), by decide⟩, ⟨trivial, by decide⟩⟩
 
 /-- What `HintBitPack` asks of its arguments. -/
 structure HbpOk (hlen omega len : Nat) : Prop where
@@ -449,7 +439,7 @@ theorem hbpAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
       bytesAt s'.mem (pa s y) len = hintBitPack omega (len - omega) (hintAt s.mem (pa s h) (len - omega)) := by
   obtain ⟨_, c2, c3⟩ := rw_parts hc
   have l1 := hb.hlt.1; have l2 := hb.hlt.2.1; have l3 := hb.hlt.2.2
-  refine WP.mono (callAtK_ok hS C (hbp_args L.ok hlen omega len c2 c3)
+  refine WP.mono (callAt_ok hS C (hbp_args L.ok hlen omega len c2 c3)
     (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => hbp_pre L hc hb hn h1) (rw_cov L hc).1 (rw_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
@@ -470,7 +460,7 @@ theorem hbpAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.hintBitPack (hintBitPa
   obtain ⟨_, c2, c3⟩ := rw_parts hc
   have l1 := hb.hlt.1; have l2 := hb.hlt.2.1; have l3 := hb.hlt.2.2
   have hbs : h.1 ∈ bases ∧ y.1 ∈ bases := ⟨ptr_bs hB c2, ptr_bs hB c3⟩
-  refine callAtK_tr C (hbp_args hB hlen omega len c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAt_tr C (hbp_args hB hlen omega len c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y' x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, nx, ny, hl, e⟩ := hQ x y' hp
   refine ⟨_, _, hbp_pre Lx hc hb nx h1, ?_, ?_, (rw_cov Lx hc).1, (rw_cov Lx hc).2, ?_, ?_⟩

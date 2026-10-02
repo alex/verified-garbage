@@ -14,6 +14,8 @@ namespace VG.Proof.X25519.X86
 
 open VG VG.X86 VG.Impl.X25519.X86 VG.Spec.X25519
 
+variable {W : Nat}
+
 /-- `mul r`: `edx:eax = eax · r`, the other registers, memory and regions kept. -/
 structure MulUpd (s s' : State) (r : Reg) : Prop where
   eax : v s' .eax = (v s .eax * v s r) % 2 ^ 32
@@ -80,21 +82,21 @@ theorem head_ok {s : State} {c : Nat} (hc : acc s = c) (hc' : c < 2 ^ 26) :
   simp only [v] at e₂ hcx hbp
   rw [e₂, hcx, hbp]; omega_using []
 
-theorem tail_ok {x : BitVec 32} {s : State} (hctx : Ctx x s) {o c : Nat} (ho : o + 4 ≤ 4096)
+theorem tail_ok {x : BitVec 32} {s : State} (hctx : Ctx W x s) {o c : Nat} (ho : o + 4 ≤ 4096)
     (hc : acc s = c) (hc' : c ≤ 1) (hw : wv s.mem x o + 38 * c < 2 ^ 32) :
     WP isa (.block [.mov .eax (.imm 38), .mul .ebx, .alu .add .eax (.mem (sc o)), .store (sc o) .eax]) s
       fun s' => Keep s s' ∧ Frame [sub x o 4] s.mem s'.mem ∧ wv s'.mem x o = wv s.mem x o + 38 * c := by
   obtain ⟨hb, -, -⟩ := acc_small hc (by omega_using [hc'])
   refine Wp.wp_movi fun s₁ u₁ => wp_mul fun s₂ u₂ => ?_
   have c₂ := u₂.keep.ctx ((updKeep u₁).ctx hctx)
-  refine Wp.wp_addm c₂.edi (c₂.inRW ho (by decide)) fun s₃ u₃ => ?_
+  refine Wp.wp_addm c₂.edi (c₂.inRW4 ho (by decide)) fun s₃ u₃ => ?_
   have c₃ := (updKeep u₃).ctx c₂
-  refine Wp.wp_stm c₃.edi (c₃.inW ho (by decide)) fun s₄ u₄ => WP.block_nil ?_
+  refine Wp.wp_stm c₃.edi (c₃.inW4 ho (by decide)) fun s₄ u₄ => WP.block_nil ?_
   have m₂ : s₂.mem = s.mem := by rw [u₂.mem, u₁.mem]
   refine ⟨(updKeep u₁).trans (u₂.keep.trans ((updKeep u₃).trans ⟨by rw [u₄.gpr], by rw [u₄.gpr],
     by rw [u₄.gpr], u₄.rd, u₄.wr⟩)), ?_, ?_⟩
   · rw [u₄.mem, u₃.mem, m₂]
-    exact frame_write1 (Frame.refl _ _) hctx.fit ho (Nat.le_refl _) (Nat.le_refl _) _
+    exact frame_write1 (Frame.refl _ _) hctx.fit4 ho (Nat.le_refl _) (Nat.le_refl _) _
   · rw [u₄.mem, u₃.mem, u₃.gpr, m₂, wv, wd_write_self, BitVec.toNat_add]
     have e₂ : v s₂ .eax = 38 * c := by
       rw [u₂.eax, v, u₁.gpr, v, u₁.other _ (by decide), ← v, hb, toNat_38]
@@ -106,11 +108,11 @@ theorem tail_ok {x : BitVec 32} {s : State} (hctx : Ctx x s) {o c : Nat} (ho : o
 
 /-- The fold of the carry `c < 2²⁶` in the accumulator into the element at
 `[x + o]`. -/
-theorem fold_ok {x : BitVec 32} {s : State} (hctx : Ctx x s) {o c : Nat} (ho : o + 32 ≤ 4096)
+theorem fold_ok {x : BitVec 32} {s : State} (hctx : Ctx W x s) {o c : Nat} (ho : o + 32 ≤ 4096)
     (hc : acc s = c) (hc' : c < 2 ^ 26) :
     WP isa (.block (fold o)) s fun s' => Keep s s' ∧ Frame [sub x o 32] s.mem s'.mem ∧
       fe s'.mem x o % P = (fe s.mem x o + 38 * c) % P := by
-  have hfit := hctx.fit
+  have hfit := hctx.fit4
   refine WP.block_append (WP.block_append (WP.mono (head_ok hc hc') fun s₁ ⟨k₁, m₁, a₁⟩ => ?_))
   have c₁ := k₁.ctx hctx
   refine WP.mono (cols_ok c₁ (fun k => [.addM (o + 4 * k)]) 8 ho (fun k hk t ht d hd => ?_)
@@ -152,14 +154,14 @@ theorem fold_ok {x : BitVec 32} {s : State} (hctx : Ctx x s) {o c : Nat} (ho : o
 
 /-- An element summed by eight columns (reading no word an earlier one
 stored) and folded: the sum of the columns modulo `p`. -/
-theorem linear_ok {x : BitVec 32} {s : State} (hctx : Ctx x s) (o : Nat) (ts : Nat → List Term)
+theorem linear_ok {x : BitVec 32} {s : State} (hctx : Ctx W x s) (o : Nat) (ts : Nat → List Term)
     (ho : o + 32 ≤ 4096)
     (hr : ∀ k < 8, ∀ t ∈ ts k, ∀ d ∈ treads t, d + 4 ≤ 4096 ∧ (d + 4 ≤ o ∨ o + 4 * k ≤ d))
     (hb : ∀ k < 8, colv s.mem x (ts k) < 2 ^ 68)
     (hV : num (fun k => colv s.mem x (ts k)) 8 < 2 ^ 256 * 2 ^ 26) :
     WP isa (.block (linear o ts)) s fun s' => Keep s s' ∧ Frame [sub x o 32] s.mem s'.mem ∧
       fe s'.mem x o % P = num (fun k => colv s.mem x (ts k)) 8 % P := by
-  have hfit := hctx.fit
+  have hfit := hctx.fit4
   refine WP.block_append (WP.block_append ?_)
   refine Wp.wp_movi fun s₁ u₁ => Wp.wp_movi fun s₂ u₂ => Wp.wp_movi fun s₃ u₃ => WP.block_nil ?_
   have k₃ : Keep s s₃ := (updKeep u₁).trans ((updKeep u₂).trans (updKeep u₃))

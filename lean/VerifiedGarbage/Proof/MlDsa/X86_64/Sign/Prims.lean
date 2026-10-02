@@ -44,6 +44,7 @@ structure PrimsOk (P : Prims) (D : Nat) where
   bitUnpack : Callee (fun S => bitUnpackContract X86_64.abi S) D P.bitUnpack
   hintBitPack : Callee (fun S => hintBitPackContract X86_64.abi S) D P.hintBitPack
   rej4 : Callee (fun S => rejNTT4Contract X86_64.abi S) D P.rej4
+  expandMask4 : Callee (fun S => expandMask4Contract X86_64.abi S) D P.expandMask4
   /-- `vg_mldsa_rej_ntt_poly`'s result depends only on its public data (its seed). -/
   rejRet : RetPub (rejNTTContract X86_64.abi rejNTT.S) P.rejNTT
   /-- `vg_mldsa_rej_ntt_poly` succeeds only if `RejNTTPoly` finishes within `maxBounds`. -/
@@ -202,8 +203,8 @@ theorem ipAt_ok {t : Poly → Poly} {n : String} {c : Prog isa} (C : Callee (fun
   obtain ⟨w1, w2, i1, _, _, b1, o1⟩ := ipChk_spec hc
   have hD : 8 ≤ D := by have := C.hS; omega
   refine WP.mono (callP_ok C.ver.1 C.nosp C.depth L.dsm (by simp [Arg.ok, b1, o1]; decide)
-    (fun s1 hA hm k => ipPre C.hS (At.of L hm k) hc hA hr) (covers_wr (covers_cons (L.cW w1) (L.cW w2)))
-    (covers_cons (L.cW w1) (L.cW w2)))
+    (fun s1 hA hm k => ipPre C.hS (At.of L hm k) hc hA hr) (Covers.right (Covers.cons (L.cW w1) (L.cW w2)))
+    (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨h1, _⟩ := argsIn2 hA
@@ -219,10 +220,10 @@ theorem ipAt_tr {t : Poly → Poly} {n : String} {c : Prog isa} (C : Callee (fun
   refine callP_tr C.ver.1 C.ver.2.1 (by simp [Arg.ok, b1, o1]; decide)
     fun x y x1 y1 ⟨R, rx, ry⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, ipPre C.hS (At.of R.lx hmx kx) hc hAx rx, ipPre C.hS (At.of R.ly hmy ky) hc hAy ry, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2)),
-        by rw [kx.2.2]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
-        by rw [ky.2.1, ky.2.2]; exact covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2)),
-        by rw [ky.2.2]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2),
+        by rw [kx.2.1, kx.2.2]; exact Covers.right (Covers.cons (R.lx.cW w1) (R.lx.cW w2)),
+        by rw [kx.2.2]; exact Covers.cons (R.lx.cW w1) (R.lx.cW w2),
+        by rw [ky.2.1, ky.2.2]; exact Covers.right (Covers.cons (R.ly.cW w1) (R.ly.cW w2)),
+        by rw [ky.2.2]; exact Covers.cons (R.ly.cW w1) (R.ly.cW w2),
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2⟩ := argsIn2 hAx
   obtain ⟨hy1, hy2⟩ := argsIn2 hAy
@@ -289,7 +290,7 @@ theorem mulAt_ok {P : Prims} (C : Callee (fun S => mulContract X86_64.abi S) D P
   have hD : 8 ≤ D := by have := C.hS; omega
   refine WP.mono (callP_ok C.ver.1 C.nosp C.depth L.dsm ok
     (fun s1 hA hm k => mulPre C.hS (At.of L hm k) hc hA rf rg)
-    (covers_append (covers_cons (L.cR i2) (L.cR i3)) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (Covers.cons (L.cR i2) (L.cR i3)) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3⟩ := argsIn3 hA
@@ -308,7 +309,7 @@ theorem mulAddAt_ok {P : Prims} (C : Callee (fun S => mulAddContract X86_64.abi 
   have hD : 8 ≤ D := by have := C.hS; omega
   refine WP.mono (callP_ok C.ver.1 C.nosp C.depth L.dsm ok
     (fun s1 hA hm k => mulAddPre C.hS (At.of L hm k) hc hA rh rf rg)
-    (covers_append (covers_cons (L.cR i2) (L.cR i3)) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (Covers.cons (L.cR i2) (L.cR i3)) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3⟩ := argsIn3 hA
@@ -336,9 +337,9 @@ theorem mulAt_tr {P : Prims} (C : Callee (fun S => mulContract X86_64.abi S) D P
   refine callP_tr C.ver.1 C.ver.2.1 ok
     fun x y x1 y1 ⟨R, ⟨rfx, rgx⟩, ⟨rfy, rgy⟩⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, mulPre C.hS (At.of R.lx hmx kx) hc hAx rfx rgx, mulPre C.hS (At.of R.ly hmy ky) hc hAy rfy rgy, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (covers_cons (R.lx.cR i2) (R.lx.cR i3)) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (Covers.cons (R.lx.cR i2) (R.lx.cR i3)) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (covers_cons (R.ly.cR i2) (R.ly.cR i3)) (covers_wr (R.ly.cW w1)),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (Covers.cons (R.ly.cR i2) (R.ly.cR i3)) (Covers.right (R.ly.cW w1)),
         by rw [ky.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx
@@ -358,9 +359,9 @@ theorem mulAddAt_tr {P : Prims} (C : Callee (fun S => mulAddContract X86_64.abi 
     fun x y x1 y1 ⟨R, ⟨rhx, rfx, rgx⟩, ⟨rhy, rfy, rgy⟩⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, mulAddPre C.hS (At.of R.lx hmx kx) hc hAx rhx rfx rgx,
         mulAddPre C.hS (At.of R.ly hmy ky) hc hAy rhy rfy rgy, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (covers_cons (R.lx.cR i2) (R.lx.cR i3)) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (Covers.cons (R.lx.cR i2) (R.lx.cR i3)) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (covers_cons (R.ly.cR i2) (R.ly.cR i3)) (covers_wr (R.ly.cW w1)),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (Covers.cons (R.ly.cR i2) (R.ly.cR i3)) (Covers.right (R.ly.cW w1)),
         by rw [ky.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx

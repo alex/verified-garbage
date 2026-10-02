@@ -14,7 +14,6 @@ namespace VG.Proof.CmacAes.Stream.Arm
 
 open VG VG.Arm VG.Impl.CmacAes.Stream.Arm VG.WriteBytes
 open VG.Proof.MdStream.Arm (Upd wp_ldr)
-open VG.Proof.CmacAes.Arm (restoreB_ok)
 open VG.Proof.Cmac.Stream (held held_le)
 
 theorem disjoint_zero (p : Addr) (r : Region) : (⟨p, 0⟩ : Region).Disjoint r := fun a h _ => by
@@ -94,7 +93,7 @@ theorem chain2_mid {s₀ s : State} {St D S : BitVec 32} {L R : Nat} (hp : APre 
   · have hn : nbOf (countArm s₀).toNat L = 0 := by simp [nbOf, nbx, h0]
     simp only [d2Of, h0, ↓reduceIte, hn, Nat.mul_zero] at common ⊢
     refine common (by decide) (disjoint_zero _ _) (disjoint_zero _ _) ((disjoint_zero _ _).symm) (by omega)
-      (covers_wr (by have := hp.inSt (d := 0) (n := 0) (by decide); rwa [BitVec.add_zero] at this))
+      (Covers.right (by have := hp.inSt (d := 0) (n := 0) (by decide); rwa [BitVec.add_zero] at this))
   · simp only [d2Of, h0, ↓reduceIte] at common ⊢
     have hn : 16 * nbOf (countArm s₀).toNat L < leftOf (countArm s₀).toNat L := by
       simp only [nbOf, nbx, h0, ↓reduceIte]; omega
@@ -147,10 +146,7 @@ theorem AMid₁.after {s₀ s s' : State} {St D S : BitVec 32} {L R : Nat} (h : 
       (by decide) (by decide) (by decide) (by decide)], by rw [h₆.sp, h.sp], by rw [h₆.rd, h.rd],
     by rw [h₆.wr, h.wr]⟩
 
-theorem restore_eq : restore = (saved.take 7).map (fun p => Instr.ldr p.1 .r10 p.2) ++
-    ([.ldr .r10 .r10 2200] : List Instr) := rfl
-
-theorem take7_ne : ∀ p ∈ saved.take 7, p.1 ≠ .r10 := by decide
+theorem saved_eq : saved = saved.take 7 ++ [(.r10, 2200)] := rfl
 
 theorem absorb_wp {s₀ : State} (h0 : absorbArm.pre s₀) :
     WP isa absorb s₀ fun s' => abiPreserved s₀ s' ∧ absorbArm.post s₀ s' := by
@@ -203,15 +199,11 @@ theorem absorb_wp {s₀ : State} (h0 : absorbArm.pre s₀) :
   have inS : ∀ d, d + 4 ≤ 2304 → InRegions (s₁₀.rd ++ s₁₀.wr) (State.addr S + BitVec.ofNat 64 d) 4 :=
     fun d hd => by
       rw [h₁₀.rd, h₁₀.wr, rd₉', wr₉']
-      exact covers_wr (hp.inS hd) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
-  rw [restore_eq]
-  refine restoreB_ok (saved.take 7) s₁₀ _ (by decide) (fun p hp' => ?_)
-    fun s₁₁ ld₁₁ ho₁₁ m₁₁ rd₁₁ wr₁₁ sp₁₁ => ?_
-  · have hb := saved_bound p (List.mem_of_mem_take hp')
-    exact ⟨take7_ne p hp', by omega, by rw [r10₁₀]; omega, by rw [r10₁₀]; exact inS _ (by omega)⟩
-  refine wp_ldr (a := State.addr S + BitVec.ofNat 64 2200) (by decide)
-    (by rw [ho₁₁ _ (by decide), r10₁₀]; exact addr_add (by omega))
-    (by rw [rd₁₁, wr₁₁]; exact inS _ (by decide)) fun s₁₂ u₁₂ => WP.block_nil ?_
+      exact Covers.right (hp.inS hd) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
+  rw [restore, saved_eq, ← List.append_nil (List.map _ _)]
+  refine Spill.restoreBase_ok (by decide) (fun p hp' => ?_) fun s₁₂ ld₁₂ ho₁₂ m₁₂ _ _ sp₁₂ => WP.block_nil ?_
+  · have hb := saved_bound p (by rw [saved_eq]; exact hp')
+    exact ⟨by omega, by rw [r10₁₀]; omega, by rw [r10₁₀]; exact inS _ (by omega)⟩
   -- The frames.
   have hm5 : s₅.mem = m4 s₀ St D S c L := by rw [h₅.mem, hc]
   have hlr : (Spec.Aes.bytesAt s₉.mem (State.addr (D + BitVec.ofNat 32 (fOf c L) + BitVec.ofNat 32 (16 * nbOf c L)))
@@ -245,8 +237,7 @@ theorem absorb_wp {s₀ : State} (h0 : absorbArm.pre s₀) :
   have F8 : Frame K s₀.mem s₈.mem := F6.trans (f8.mono (by simp [K]))
   have F10 : Frame K s₀.mem s₁₀.mem := F8.trans (fC2.mono (by simp [K]))
   have a272 := hp.aS (k := 272) (by decide)
-  have m₁₂ : s₁₂.mem = s₁₀.mem := by rw [u₁₂.mem, m₁₁]
-  refine ⟨⟨fun r hr => ?_, by rw [u₁₂.sp, sp₁₁, h₁₀.sp, sp₉, sp₈]⟩, ?_⟩
+  refine ⟨⟨fun r hr => ?_, by rw [sp₁₂, h₁₀.sp, sp₉, sp₈]⟩, ?_⟩
   · -- The registers, restored from their slots.
     have Fp : Frame K.tail (aMem s₀ S) s₁₀.mem :=
       ((fC1.mono (by simp [K])).trans (f6.mono (by simp [K]))).trans
@@ -262,23 +253,13 @@ theorem absorb_wp {s₀ : State} (h0 : absorbArm.pre s₀) :
       · rw [a272]; exact (hp.st_s.sub_left (Offset.sub_base _ (by decide))).symm.sub_left sub
       · exact Offset.disjoint_base _ (by omega) (by omega)
       · exact hp.b_s.symm.sub_left sub
-    have ld (q : Reg) (d : Nat) (hq : (q, d) ∈ saved.take 7) : s₁₂.gpr q = s₀.gpr q := by
-      have hb := saved_bound _ (List.mem_of_mem_take hq)
-      rw [u₁₂.other _ (take7_ne _ hq), ld₁₁ _ hq, r10₁₀, slot d hb.1 hb.2,
-        aMem_slot s₀ S (List.mem_of_mem_take hq)]
-    have hr' := hr
-    simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact ld _ 2176 (by decide)
-    · exact ld _ 2180 (by decide)
-    · exact ld _ 2184 (by decide)
-    · exact ld _ 2188 (by decide)
-    · exact ld _ 2192 (by decide)
-    · exact ld _ 2196 (by decide)
-    · rw [u₁₂.gpr, m₁₁, slot 2200 (by decide) (by decide), aMem_slot s₀ S (r := .r10) (d := 2200) (by decide)]
-    · rw [u₁₂.other _ (by decide), ho₁₁ _ (by decide), h₁₀.other _ (by decide) (by decide) (by decide) (by decide)
+    by_cases hs : r ∈ saved.map Prod.fst
+    · obtain ⟨p, hp', rfl⟩ := List.mem_map.mp hs
+      have hb := saved_bound _ hp'
+      rw [ld₁₂ p (by rw [← saved_eq]; exact hp'), r10₁₀, slot p.2 hb.1 hb.2, aMem_slot s₀ S hp']
+    · have hk : ∀ r ∈ preserved, r ∉ saved.map Prod.fst → r = .r11 := by decide
+      rw [hk r hr hs, ho₁₂ _ (by decide), h₁₀.other _ (by decide) (by decide) (by decide) (by decide)
         (by decide), g₉ _ (by decide) (by decide) (by decide) (by decide), r11₈]
-    · exact ld _ 2204 (by decide)
   · intro key msg hr hR hcnt hlen
     rw [hp.r0] at hr ⊢
     rw [hp.a0, hp.a1, m₁₂]

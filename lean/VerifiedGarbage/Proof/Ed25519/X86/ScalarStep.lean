@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Ed25519.X86.Freeze
+import VerifiedGarbage.Proof.Ed25519.X86.Workspace
 import VerifiedGarbage.Proof.Ed25519.Scalar
 import VerifiedGarbage.Impl.Ed25519.X86.Scalar
 

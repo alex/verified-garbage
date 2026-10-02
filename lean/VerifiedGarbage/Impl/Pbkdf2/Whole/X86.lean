@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.Hmac.Generic.X86
+import VerifiedGarbage.Impl.Pbkdf2.Stream.X86
 
 /-!
 # PBKDF2-HMAC over any streaming hash function: x86 (32-bit) implementation of the whole derivation
@@ -21,7 +21,7 @@ from the verified functions of one hash function (`Fns`): its streaming
 
 `scratch` starts with the working space of the functions we call (`8 W`
 bytes); then come our caller's `ebx`, `esi`, `edi` and `ebp` (as in HMAC's
-code, `VG.Impl.Hmac.Generic.X86.Hash.saved`), the key's two states, the
+code, `VG.Impl.Pbkdf2.Stream.X86.Hash.saved`), the key's two states, the
 salted inner state, a working state, `U`, `T`, the hashed password (the `F`
 bytes `finalize` writes) and `INT (i)`. Every call passes its arguments in a
 frame of their own, pushed last to first, which the pop loads into `eax`.
@@ -36,7 +36,7 @@ only on the pointers, the lengths and `c`.
 namespace VG.Impl.Pbkdf2.Whole.X86
 
 open VG.X86
-open VG.Impl.Hmac.Generic.X86 (Hash copy scr at_)
+open VG.Impl.Pbkdf2.Stream.X86 (Hash copy scr at_)
 
 /-- The functions PBKDF2 calls, for one hash function: its streaming
 functions (`H`, with their sizes), the words of working space every function
