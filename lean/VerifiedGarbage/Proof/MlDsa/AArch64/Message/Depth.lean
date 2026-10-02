@@ -36,15 +36,10 @@ theorem DLe.loop {c : isa.Cond} {a : Prog isa} (ha : DLe d a) : DLe d (.loop a c
 
 theorem DLe.call {c : Prog isa} (n : String) (h : DLe d c) : DLe d (.call n c) := ⟨h.1⟩
 
-theorem DLe.seqRS {f : Nat → Prog isa} (h : ∀ k, DLe d (f k)) :
-    ∀ a n, DLe d (Impl.MlDsa.AArch64.Sign.seqR f a n)
+theorem DLe.seqR {f : Nat → Prog isa} (h : ∀ k, DLe d (f k)) :
+    ∀ a n, DLe d (Impl.MlDsa.AArch64.Call.seqR f a n)
   | _, 0 => DLe.block _
-  | a, n + 1 => DLe.seq (h a) (DLe.seqRS h (a + 1) n)
-
-theorem DLe.seqRK {f : Nat → Prog isa} (h : ∀ k, DLe d (f k)) :
-    ∀ a n, DLe d (Impl.MlDsa.AArch64.KeyGen.seqR f a n)
-  | _, 0 => DLe.block _
-  | a, n + 1 => DLe.seq (h a) (DLe.seqRK h (a + 1) n)
+  | a, n + 1 => DLe.seq (h a) (DLe.seqR h (a + 1) n)
 
 theorem DLe.of_fd {c : Prog isa} (h : 16 * c.aarch64Depth ≤ 16) : DLe 1 c := ⟨by omega⟩
 
@@ -57,8 +52,7 @@ macro "dle_tac" : tactic =>
     | apply DLe.seq
     | apply DLe.ite
     | apply DLe.loop
-    | (apply DLe.seqRS; intro)
-    | (apply DLe.seqRK; intro)
+    | (apply DLe.seqR; intro)
     | apply DLe.block))
 
 end VG.Proof.MlDsa.AArch64.Message

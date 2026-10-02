@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Call
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Call
 
 /-!
 # ML-DSA on AArch64: entry to a callee
@@ -7,12 +7,14 @@ What a callee's contract needs on its entry (the state of the call, with the
 link registers changed), from the layout of the caller (`cpre`): the stack it
 may use (`wfP_of`, `resv`), and its buffers apart from that stack and from
 each other, and not wrapping around. The values of the arguments after their
-moves (`Args.ptr`, `Args.imm`), and states that agree on the layout (`SameB`).
+moves (`Args.ptr`, `Args.imm`), the same in runs whose layout registers
+agree (`SameIn.args`).
 -/
 
-namespace VG.Proof.MlDsa.AArch64.KeyGen
+namespace VG.Proof.MlDsa.AArch64
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Spec.MlDsa
 
@@ -71,33 +73,16 @@ theorem Args.mem {as : List (Reg × Arg)} {s s1 : State} (h : Args as s s1) : s1
 theorem imm32 {v : Nat} (h : v < 2 ^ 32) : (BitVec.setWidth 32 (BitVec.ofNat 64 v)).toNat = v := by
   simp only [BitVec.toNat_setWidth, BitVec.toNat_ofNat]; omega
 
-theorem ptr_ok {p : Ptr} (h : p.1 ∈ bases) : (Arg.ptr p).Ok := by
+theorem ptr_ok {p : Ptr} (h : p.1 ∈ keptRegs) : (Arg.ptr p).Ok := by
   show p.1 ∉ argRegs
   revert h; generalize p.1 = r; cases r <;> decide
 
-/-- The buffers of a layout are in the registers `bases`. -/
-def LayOk (bs : List (Reg × Nat)) : Prop := ∀ b ∈ bs, b.1 ∈ bases
-
-theorem ptr_bs {bs : List (Reg × Nat)} (L : LayOk bs) {p : Ptr} {l : Nat}
-    (h : inB bs p l = true) : p.1 ∈ bases := by
-  obtain ⟨n, hn, _⟩ := inB_spec h
-  exact L (p.1, n) hn
-
-theorem Lay.ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) : LayOk (rbs ++ wbs) :=
-  L.bs
-
-/-- Two states whose layout registers and stack pointer agree. -/
-def SameB (x y : State) : Prop := (∀ r ∈ bases, x.gpr r = y.gpr r) ∧ x.sp = y.sp
-
-theorem SameB.pa {x y : State} (h : SameB x y) {p : Ptr} (hp : p.1 ∈ bases) : pa x p = pa y p := by
-  simp only [VG.Proof.MlDsa.AArch64.KeyGen.pa, h.1 _ hp]
-
-theorem SameB.args {as : List (Reg × Arg)} {x y x1 y1 : State} (h : SameB x y) (h1 : Args as x x1)
-    (h2 : Args as y y1) {r : Reg} {p : Ptr} (hp : p.1 ∈ bases) (hm : (r, Arg.ptr p) ∈ as := by simp) :
+theorem SameIn.args {B : List Reg} {as : List (Reg × Arg)} {x y x1 y1 : State} (h : SameIn B x y) (h1 : Args as x x1)
+    (h2 : Args as y y1) {r : Reg} {p : Ptr} (hp : p.1 ∈ B) (hm : (r, Arg.ptr p) ∈ as := by simp) :
     x1.gpr r = y1.gpr r := by
   rw [h1.ptr hm, h2.ptr hm, h.pa hp]
 
-theorem SameB.argi {as : List (Reg × Arg)} {x y x1 y1 : State} (h1 : Args as x x1)
+theorem SameIn.argi {as : List (Reg × Arg)} {x y x1 y1 : State} (h1 : Args as x x1)
     (h2 : Args as y y1) {r : Reg} {v : Nat} (hm : (r, Arg.imm v) ∈ as := by simp) :
     x1.gpr r = y1.gpr r := by
   rw [h1.imm hm, h2.imm hm]
@@ -122,4 +107,4 @@ macro_rules
         | exact Lay.nwp $L (by assumption)
         | skip))
 
-end VG.Proof.MlDsa.AArch64.KeyGen
+end VG.Proof.MlDsa.AArch64
