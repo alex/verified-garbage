@@ -2,7 +2,7 @@
 
 #![cfg(all(target_arch = "x86_64", feature = "openssl-argon2"))]
 
-use verified_garbage::argon2::{Variant, derive};
+use verified_garbage::argon2::{Params, Variant, derive_keyed};
 
 type Oracle = fn(
     Option<&openssl::lib_ctx::LibCtxRef>,
@@ -44,16 +44,18 @@ fn matches_openssl() {
                         )
                         .unwrap();
                         let mut actual = vec![0; length];
-                        derive(
-                            variant,
+                        derive_keyed(
+                            &Params {
+                                variant,
+                                iterations,
+                                memory_kib: memory,
+                                lanes,
+                            },
                             password,
                             b"saltsalt",
-                            iterations,
-                            memory,
-                            lanes,
-                            1,
                             secret,
                             ad,
+                            usize::MAX,
                             &mut actual,
                         )
                         .unwrap();
