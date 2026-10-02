@@ -49,7 +49,8 @@ use crate::arch::chacha20::{
 };
 use crate::arch::chacha20::{vg_chacha20_apply, vg_chacha20_init, vg_chacha20_set_nonce};
 use crate::cpu::{Features, detected};
-use crate::zeroize::zeroize;
+use crate::zeroize::zeroize_raw;
+use core::mem::MaybeUninit;
 
 /// The implementations of `vg_chacha20_xor` (and of `vg_chacha20_apply`,
 /// which calls them), which ChaCha20-Poly1305 follows
@@ -115,19 +116,36 @@ impl Backend {
     }
 }
 
+/// How many bytes at the start of the streaming state the functions write:
+/// the key, the position in the keystream and the partly used block (136
+/// bytes, `VG.Spec.ChaCha20.restAt`), then the working space of `apply` (the
+/// copy of the 16-word state and the working space it gives
+/// `vg_chacha20_xor`, our caller's registers and the bytes left), up to
+/// byte 616 on every target (see the layouts in
+/// `lean/VerifiedGarbage/Impl/ChaCha20/<Target>/Stream.lean`). The rest is
+/// never touched.
+const WRITTEN: usize = 616;
+
 /// A ChaCha20 keystream, applied incrementally.
 pub struct ChaCha20 {
     /// The streaming state of `vg_chacha20_init` and `vg_chacha20_apply`
     /// (`VG.Spec.ChaCha20.restAt`): the key, the position in the keystream
-    /// and the partly used block.
-    state: [u64; 96],
+    /// and the partly used block, then the working space of `apply`. Only
+    /// the verified functions read or write it, and they read only bytes
+    /// they have written, so it need not be initialized.
+    state: MaybeUninit<[u64; 96]>,
     backend: Backend,
 }
 
 impl Drop for ChaCha20 {
-    /// Wipes the state, which holds the key and the buffered keystream.
+    /// Wipes the bytes of the state the functions write, which hold the key
+    /// and keystream.
     fn drop(&mut self) {
-        zeroize(&mut self.state);
+        // SAFETY: `state` is valid for writes of 768 bytes, of which we write
+        // the first `WRITTEN`; it is a distinct object, so it does not
+        // overlap the callee's stack frame or wrap around the end of the
+        // address space.
+        unsafe { zeroize_raw(self.state.as_mut_ptr().cast::<u8>(), WRITTEN) };
     }
 }
 
@@ -141,21 +159,23 @@ impl ChaCha20 {
     /// little-endian, followed by the 12-byte RFC 8439 nonce).
     pub fn new(key: &[u8; 32], nonce: &[u8; 16]) -> Self {
         let mut c = ChaCha20 {
-            state: [0; 96],
+            state: MaybeUninit::uninit(),
             backend: Backend::select(detected()),
         };
-        // SAFETY: `state` is valid for reads and writes of 768 bytes, `key`
-        // for reads of 32 bytes and `nonce` for reads of 16 bytes; they are
-        // distinct objects, so they do not overlap each other or the return
-        // address, and do not wrap around the end of the address space.
-        unsafe { vg_chacha20_init(&mut c.state, key, nonce) };
+        // SAFETY: `state` is valid for writes of 768 bytes (`init` reads
+        // none of them), `key` for reads of 32 bytes and `nonce` for reads of
+        // 16 bytes; they are distinct objects, so they do not overlap each
+        // other or the return address, and do not wrap around the end of the
+        // address space.
+        unsafe { vg_chacha20_init(c.state.as_mut_ptr(), key, nonce) };
         c
     }
 
     /// Restarts the keystream, with the same key, for `nonce`.
     pub fn reset_nonce(&mut self, nonce: &[u8; 16]) {
-        // SAFETY: as in `new`, for `state` and `nonce`.
-        unsafe { vg_chacha20_set_nonce(&mut self.state, nonce) };
+        // SAFETY: as in `new`, for `state` and `nonce` (`set_nonce` reads no
+        // byte of `state` either).
+        unsafe { vg_chacha20_set_nonce(self.state.as_mut_ptr(), nonce) };
     }
 
     /// XORs the next `data.len()` bytes of the keystream into `data`
@@ -177,13 +197,15 @@ impl ChaCha20 {
             #[cfg(target_arch = "x86_64")]
             Backend::Avx512 => vg_chacha20_apply_avx512,
         };
-        // SAFETY: `state` is valid for reads and writes of 768 bytes and
-        // `data` for reads and writes of `data.len()` bytes; they are
+        // SAFETY: `state` is valid for reads and writes of 768 bytes (the
+        // bytes `apply` reads before writing them are those `init` and
+        // `set_nonce` wrote) and `data` for reads and writes of `data.len()`
+        // bytes; they are
         // distinct objects, so they do not overlap each other, the stack
         // frame of the call (the return address) or the stack below it, and
         // do not wrap around the end of the address space. The CPU has the
         // features of the implementation selected.
-        let ok = unsafe { f(&mut self.state, data.as_mut_ptr(), data.len()) };
+        let ok = unsafe { f(self.state.as_mut_ptr(), data.as_mut_ptr(), data.len()) };
         assert!(ok == 1, "ChaCha20 block counter would overflow");
     }
 }

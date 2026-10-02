@@ -61,20 +61,24 @@ theorem step_ok (word : Bool) (s₀ s : State) (hp : contract.pre s₀) (i : Nat
   · exact ⟨hadd _, prefix_writeW hz (by omega), hf.writeW hmem _ hc⟩
   · exact ⟨hadd _, prefix_writeW hz (by omega), hf.writeW hmem _ hc⟩
 
-theorem loop_ok (word : Bool) (s₀ s : State) (hp : contract.pre s₀) (i n : Nat)
-    (hn : i + (if word then 4 else 1) * n ≤ (s₀.gpr .r1).toNat)
+/-- `body` `n` times, each zeroing `w` more bytes. -/
+theorem loopOf_ok (body : List Instr) (w : Nat) (hw : 0 < w) (s₀ s : State) (i n : Nat)
+    (hn : i + w * n ≤ (s₀.gpr .r1).toNat)
+    (hstep : ∀ j u, j < n → Inv s₀ (i + w * j) u → WP isa (.block body) u fun v =>
+      Inv s₀ (i + w * (j + 1)) v ∧ v.gpr .r3 = u.gpr .r3 - 1 ∧ v.gpr .r1 = u.gpr .r1 ∧
+      v.z = (u.gpr .r3 - 1 == 0))
     (h : Inv s₀ i s) (hc : s.gpr .r3 = BitVec.ofNat 32 n) :
-    WP isa (loop word) s fun t =>
-      Inv s₀ (i + (if word then 4 else 1) * n) t ∧ t.gpr .r1 = s.gpr .r1 := by
+    WP isa (loopOf body) s fun t => Inv s₀ (i + w * n) t ∧ t.gpr .r1 = s.gpr .r1 := by
   have hlt : n < 2 ^ 32 := by
     have := (s₀.gpr .r1).isLt
-    cases word <;> simp only [↓reduceIte, Bool.false_eq_true] at hn <;> omega
+    have : n ≤ w * n := Nat.le_mul_of_pos_left n hw
+    omega
   have start : WP isa (.block [.cmp .r3 (.imm 0)]) s fun t =>
       Inv s₀ i t ∧ t.gpr .r3 = BitVec.ofNat 32 n ∧ t.gpr .r1 = s.gpr .r1 ∧
       t.z = (BitVec.ofNat 32 n == 0) := by
     zrun [Inv, hc, (show ∀ a : BitVec 32, a - 0 = a from BitVec.sub_zero)]
     exact h
-  unfold loop
+  unfold loopOf
   refine WP.seq (WP.mono start fun t ⟨ht, hct, hst, hz⟩ => ?_)
   by_cases he : n = 0
   · subst n
@@ -83,16 +87,12 @@ theorem loop_ok (word : Bool) (s₀ s : State) (hp : contract.pre s₀) (i n : N
   · have hne : BitVec.ofNat 32 n ≠ (0 : BitVec 32) := by bv_omega
     refine WP.ite false (by simp only [eval, hz, beq_eq_false_iff_ne.mpr hne]) (by simp) (fun _ => ?_)
     refine WP.loop (M := isa) (fun rem t => ∃ j, j < n ∧ rem = n - j ∧
-      Inv s₀ (i + (if word then 4 else 1) * j) t ∧ t.gpr .r3 = BitVec.ofNat 32 (n-j) ∧
+      Inv s₀ (i + w * j) t ∧ t.gpr .r3 = BitVec.ofNat 32 (n-j) ∧
       t.gpr .r1 = s.gpr .r1) ?_ n t ?_
     · intro rem u ⟨j, hj, hr, hu, hcu, hsu⟩
-      refine WP.mono (step_ok word s₀ u hp _ ?_ hu) fun v ⟨hv, hcv, hsv, hzv⟩ => ?_
-      · cases word <;> simp only [↓reduceIte, Bool.false_eq_true] at hn ⊢ <;> omega
+      refine WP.mono (hstep j u hj hu) fun v ⟨hv, hcv, hsv, hzv⟩ => ?_
       have hpred : BitVec.ofNat 32 (n-j) - 1 = BitVec.ofNat 32 (n-(j+1)) := by bv_omega
       rw [hcu, hpred] at hcv hzv
-      have hoff : i + (if word then 4 else 1) * j + (if word then 4 else 1) =
-          i + (if word then 4 else 1) * (j+1) := by rw [Nat.mul_succ, Nat.add_assoc]
-      rw [hoff] at hv
       by_cases hend : j + 1 = n
       · left
         refine ⟨by simp [eval, hzv, hend], ?_⟩
@@ -104,31 +104,87 @@ theorem loop_ok (word : Bool) (s₀ s : State) (hp : contract.pre s₀) (i n : N
           j+1, by omega, rfl, hv, hcv, hsv.trans hsu⟩
     · exact ⟨0, by omega, by omega, by simpa using ht, by simpa using hct, hst⟩
 
+theorem loop_ok (word : Bool) (s₀ s : State) (hp : contract.pre s₀) (i n : Nat)
+    (hn : i + (if word then 4 else 1) * n ≤ (s₀.gpr .r1).toNat)
+    (h : Inv s₀ i s) (hc : s.gpr .r3 = BitVec.ofNat 32 n) :
+    WP isa (loop word) s fun t =>
+      Inv s₀ (i + (if word then 4 else 1) * n) t ∧ t.gpr .r1 = s.gpr .r1 :=
+  loopOf_ok (step word) _ (by cases word <;> decide) s₀ s i n hn
+    (fun j u hj hu => by
+      have hs := step_ok word s₀ u hp _ (by
+        have : (if word then 4 else 1) * (j + 1) ≤ (if word then 4 else 1) * n :=
+          Nat.mul_le_mul_left _ hj
+        rw [Nat.mul_succ] at this; omega) hu
+      rwa [Nat.mul_succ, ← Nat.add_assoc])
+    h hc
+
+theorem wideStep_ok (s₀ s : State) (hp : contract.pre s₀) (i : Nat)
+    (hi : i + 32 ≤ (s₀.gpr .r1).toNat) (h : Inv s₀ i s) :
+    WP isa (.block wideStep) s fun t =>
+      Inv s₀ (i + 32) t ∧ t.gpr .r3 = s.gpr .r3 - 1 ∧ t.gpr .r1 = s.gpr .r1 ∧
+      t.z = (s.gpr .r3 - 1 == 0) := by
+  obtain ⟨hw, ha, hd, hz, hf⟩ := h
+  have hn := (s₀.gpr .r1).isLt
+  have hfit := hp.2.2
+  have hc : ∀ k, k ≤ 28 → (⟨State.addr (s₀.gpr .r0), (s₀.gpr .r1).toNat⟩ : Region).Contains
+      (State.addr (s₀.gpr .r0) + BitVec.ofNat 64 (i + k)) (32 / 8) :=
+    fun k hk => Offset.contains_base _ (by omega) (by omega)
+  have hmem := List.mem_singleton_self (⟨State.addr (s₀.gpr .r0), (s₀.gpr .r1).toNat⟩ : Region)
+  rw [← hp.2.1] at hmem
+  have hs : ∀ k, k ≤ 28 → InRegions s₀.wr (State.addr (s₀.gpr .r0) + BitVec.ofNat 64 (i + k)) 4 :=
+    fun k hk => ⟨_, hmem, hc k hk⟩
+  have ea : ∀ k, k ≤ 28 → State.addr (s₀.gpr .r0 + BitVec.ofNat 32 i + BitVec.ofNat 32 k) =
+      State.addr (s₀.gpr .r0) + BitVec.ofNat 64 (i + k) := fun k hk => by
+    rw [BitVec.add_assoc, ← BitVec.ofNat_add]
+    exact addr_add (by omega : (s₀.gpr .r0).toNat + (i + k) < 2 ^ 32)
+  have e0 : State.addr (s₀.gpr .r0 + BitVec.ofNat 32 i + BitVec.ofNat 32 0) =
+      State.addr (s₀.gpr .r0) + BitVec.ofNat 64 i := by rw [ea 0 (by decide), Nat.add_zero]
+  have s0 : InRegions s₀.wr (State.addr (s₀.gpr .r0) + BitVec.ofNat 64 i) 4 := by
+    have := hs 0 (by decide); rwa [Nat.add_zero] at this
+  unfold wideStep
+  zrun [hd, ha, Inv, hw, e0, ea 4 (by decide), ea 8 (by decide), ea 12 (by decide), ea 16 (by decide),
+    ea 20 (by decide), ea 24 (by decide), ea 28 (by decide), s0, hs 4 (by decide), hs 8 (by decide),
+    hs 12 (by decide), hs 16 (by decide), hs 20 (by decide), hs 24 (by decide), hs 28 (by decide),
+    (show ∀ a : BitVec 32, a + BitVec.ofNat 32 i + 32 = a + BitVec.ofNat 32 (i + 32) from fun a => by
+      rw [BitVec.add_assoc, show (32 : BitVec 32) = BitVec.ofNat 32 32 from rfl, BitVec.ofNat_add])]
+  have c0 : (⟨State.addr (s₀.gpr .r0), (s₀.gpr .r1).toNat⟩ : Region).Contains
+      (State.addr (s₀.gpr .r0) + BitVec.ofNat 64 i) (32 / 8) := by
+    have := hc 0 (by decide); rwa [Nat.add_zero] at this
+  exact ⟨prefix_writeW8 hz (by omega),
+    (((((((hf.writeW (w := 32) hmem _ c0).writeW hmem _ (hc 4 (by decide))).writeW hmem _ (hc 8 (by decide))).writeW
+      hmem _ (hc 12 (by decide))).writeW hmem _ (hc 16 (by decide))).writeW hmem _ (hc 20 (by decide))).writeW
+      hmem _ (hc 24 (by decide))).writeW hmem _ (hc 28 (by decide))⟩
+
 theorem correct (s₀ : State) (hp : contract.pre s₀) :
     WP isa zeroize s₀ fun t => contract.post s₀ t ∧ Frame s₀.wr s₀.mem t.mem := by
   let n := (s₀.gpr .r1).toNat
-  have start : WP isa (.block [.mov .r2 (.imm 0), .mov .r3 (.shifted .r1 .lsr 2),
-      .dp .and .r1 .r1 (.imm 3)]) s₀ fun t =>
-      Inv s₀ 0 t ∧ t.gpr .r3 = BitVec.ofNat 32 (n / 4) ∧
-      t.gpr .r1 = BitVec.ofNat 32 (n % 4) := by
-    zrun [Inv, Prefix, count32, tail32,
-      (show ∀ p : BitVec 32, p + BitVec.ofNat 32 0 = p from BitVec.add_zero)]
-    exact ⟨⟨by omega, Frame.refl _ _⟩, rfl, rfl⟩
+  have hn := (s₀.gpr .r1).isLt
+  have start : WP isa (.block [.mov .r2 (.imm 0), .mov .r3 (.shifted .r1 .lsr 5)]) s₀ fun t =>
+      Inv s₀ 0 t ∧ t.gpr .r3 = BitVec.ofNat 32 (n / 32) ∧ t.gpr .r1 = s₀.gpr .r1 := by
+    zrun [Inv, Prefix, shr32, (show ∀ p : BitVec 32, p + BitVec.ofNat 32 0 = p from BitVec.add_zero)]
+    exact ⟨⟨by omega, Frame.refl _ _⟩, rfl⟩
   unfold zeroize
   refine WP.seq (WP.mono start fun t ⟨ht, hc, hs⟩ => ?_)
-  refine WP.seq (WP.mono (loop_ok true s₀ t hp 0 (n / 4) (by dsimp [n]; omega) ht hc)
-    fun u ⟨hu, hsu⟩ => ?_)
-  have mid : WP isa (.block [.mov .r3 (.reg .r1)]) u fun v =>
-      Inv s₀ (4 * (n / 4)) v ∧ v.gpr .r3 = BitVec.ofNat 32 (n % 4) := by
-    zrun [Inv, hsu, hs]
-    change Inv s₀ (4 * (n / 4)) u
-    simpa only [Nat.zero_add, ↓reduceIte] using hu
-  refine WP.seq (WP.mono mid fun v ⟨hv, hcv⟩ => ?_)
-  refine WP.mono (loop_ok false s₀ v hp (4 * (n / 4)) (n % 4) (by dsimp [n]; omega) hv hcv)
-    fun w ⟨hw, _⟩ => ?_
-  have hn : 4 * (n / 4) + (if false then 4 else 1) * (n % 4) = n := by simp; omega
-  rw [hn] at hw
-  exact ⟨prefix_spec hw.2.2.2.1, hw.2.2.2.2⟩
+  refine WP.seq (WP.mono (loopOf_ok wideStep 32 (by decide) s₀ t 0 (n / 32) (by dsimp [n]; omega)
+    (fun j u hj hu => by
+      have := wideStep_ok s₀ u hp _ (by dsimp [n] at hj ⊢; omega) hu
+      rwa [Nat.mul_succ, ← Nat.add_assoc]) ht hc) fun u ⟨hu, hsu⟩ => ?_)
+  have mid : WP isa (.block [.mov .r3 (.shifted .r1 .lsr 2), .dp .and .r3 .r3 (.imm 7)]) u fun v =>
+      Inv s₀ (32 * (n / 32)) v ∧ v.gpr .r3 = BitVec.ofNat 32 (n / 4 % 8) ∧ v.gpr .r1 = s₀.gpr .r1 := by
+    zrun [Inv, hsu, hs, shr32, and7_32]
+    exact ⟨by simpa only [Nat.zero_add, Inv] using hu, rfl⟩
+  refine WP.seq (WP.mono mid fun v ⟨hv, hcv, hsv⟩ => ?_)
+  refine WP.seq (WP.mono (loop_ok true s₀ v hp (32 * (n / 32)) (n / 4 % 8) (by dsimp [n]; omega) hv hcv)
+    fun w ⟨hw, hsw⟩ => ?_)
+  have tl : WP isa (.block [.dp .and .r1 .r1 (.imm 3), .mov .r3 (.reg .r1)]) w fun x =>
+      Inv s₀ (32 * (n / 32) + 4 * (n / 4 % 8)) x ∧ x.gpr .r3 = BitVec.ofNat 32 (n % 4) := by
+    zrun [Inv, hsw, hsv, tail32]
+    exact ⟨by simpa only [↓reduceIte, Inv] using hw, rfl⟩
+  refine WP.seq (WP.mono tl fun x ⟨hx, hcx⟩ => ?_)
+  refine WP.mono (loop_ok false s₀ x hp _ (n % 4) (by dsimp [n]; simp; omega) hx hcx) fun y ⟨hy, _⟩ => ?_
+  have he : 32 * (n / 32) + 4 * (n / 4 % 8) + (if false then 4 else 1) * (n % 4) = n := by simp; omega
+  rw [he] at hy
+  exact ⟨prefix_spec hy.2.2.2.1, hy.2.2.2.2⟩
 
 def sat : State where
   gpr _ := 0
