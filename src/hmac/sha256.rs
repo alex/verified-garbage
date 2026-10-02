@@ -29,8 +29,7 @@ use super::{HmacHash, sealed};
 use crate::arch::hmac_sha256::{
     VG_HMAC_SHA256_FINALIZE_AVX2_FEATURES, VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES,
     VG_HMAC_SHA256_INIT_AVX2_FEATURES, VG_HMAC_SHA256_INIT_SHANI_FEATURES,
-    vg_hmac_sha256_finalize_avx2, vg_hmac_sha256_finalize_shani, vg_hmac_sha256_init_avx2,
-    vg_hmac_sha256_init_shani,
+    vg_hmac_sha256_finalize_avx2, vg_hmac_sha256_init_avx2,
 };
 #[cfg(target_arch = "aarch64")]
 use crate::arch::hmac_sha256::{
@@ -38,6 +37,8 @@ use crate::arch::hmac_sha256::{
     vg_hmac_sha256_finalize_sha2, vg_hmac_sha256_init_sha2,
 };
 use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize_shani, vg_hmac_sha256_init_shani};
 use crate::hashes::sha256::{Sha256, Sha256Backend};
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -121,6 +122,8 @@ impl HmacHash for Sha256 {
         // call's stack frame, nor wrap around the address space.
         let init = match state.backend {
             Sha256Backend::Scalar => vg_hmac_sha256_init,
+            #[cfg(target_arch = "x86")]
+            Sha256Backend::ShaNi => vg_hmac_sha256_init_shani,
         };
         unsafe {
             init(
@@ -167,6 +170,8 @@ impl HmacHash for Sha256 {
         // represents `K₀ ⊕ opad`.
         let finalize = match state.backend {
             Sha256Backend::Scalar => vg_hmac_sha256_finalize,
+            #[cfg(target_arch = "x86")]
+            Sha256Backend::ShaNi => vg_hmac_sha256_finalize_shani,
         };
         unsafe {
             finalize(

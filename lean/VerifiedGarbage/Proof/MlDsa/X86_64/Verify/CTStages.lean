@@ -43,7 +43,12 @@ theorem and15_post (x : State) : WP isa (.block and15) x fun x' => ∃ W, PostB 
 theorem sampledTail_tr {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) :
     RelCT isa (fun x y => SameB x y) (.seq (.block and15) (mask a)) fun _ _ => True :=
   RelCT.seq (RelCT.sameB and15_tr (fun x y _ => ⟨and15_post x, and15_post y⟩) fun _ _ h => h)
-    (mask_tr hok hb fun _ _ h => h)
+    (mask_tr hok hb (N := 256) (by decide) fun _ _ h => h)
+
+theorem sampledTail4_tr {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) :
+    RelCT isa (fun x y => SameB x y) (.seq (.block and15) (mask a 1024)) fun _ _ => True :=
+  RelCT.seq (RelCT.sameB and15_tr (fun x y _ => ⟨and15_post x, and15_post y⟩) fun _ _ h => h)
+    (mask_tr hok hb (N := 1024) (by decide) fun _ _ h => h)
 
 theorem flag_ne {P : Prop} [Decidable P] (h : (flag P).setWidth 32 ≠ 0) : P := by
   by_contra hn

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.WindowStep
 import VerifiedGarbage.Proof.Ed25519.X86_64.Bits
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulCounter
-import Mathlib.Tactic.Module
+import VerifiedGarbage.Proof.Ed25519.Window
 
 /-!
 # Verification's bytes: two windows per byte of the scalars
@@ -16,33 +16,14 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519 Edwards
 open VG.Proof.X25519.X86_64 (off ofs Keeps clob Outside)
 
 variable {fld : Arith} [EdArith fld]
-
-theorem decodeLE_byte : ∀ (bs : List Byte) (i : Nat),
-    Spec.Ed25519.decodeLE bs / 256 ^ i % 256 = (bs.getD i 0).toNat
-  | [], i => by simp [Spec.Ed25519.decodeLE]
-  | b :: bs, 0 => by
-    simp only [Spec.Ed25519.decodeLE, pow_zero, Nat.div_one, List.getD_cons_zero]
-    have := b.isLt; omega
-  | b :: bs, i + 1 => by
-    rw [List.getD_cons_succ, ← decodeLE_byte bs i, Spec.Ed25519.decodeLE, pow_succ,
-      Nat.mul_comm (256 ^ i), ← Nat.div_div_eq_div_mul]
-    congr 2
-    have := b.isLt; omega
-
-theorem div_split (x i : Nat) : x / 256 ^ i = 256 * (x / 256 ^ (i + 1)) + x / 256 ^ i % 256 := by
-  rw [pow_succ, ← Nat.div_div_eq_div_mul]; omega
-
-theorem window_algebra (A N : EPoint dZ) (q qs hA lA hS lS : Nat) :
-    (16 : Nat) • ((16 : Nat) • (q • A + qs • N) + hA • A + hS • N) + lA • A + lS • N =
-      (256 * q + (16 * hA + lA)) • A + (256 * qs + (16 * hS + lS)) • N := by
-  module
+variable {dbl : Prog isa} [EdDouble dbl]
 
 /-- What a byte of the scalars may change. -/
 structure ByteKeep (base : Addr) (s t : State) : Prop where
   gpr : ∀ r, r ∉ clob → r ≠ .rbx → r ≠ .rsi → t.gpr r = s.gpr r
   rd : t.rd = s.rd
   wr : t.wr = s.wr
-  mem : Outside base 56 712 s.mem t.mem
+  mem : Outside base 56 1832 s.mem t.mem
 
 theorem ByteKeep.trans {base : Addr} {s t u : State} (h : ByteKeep base s t) (k : ByteKeep base t u) :
     ByteKeep base s u :=
@@ -139,16 +120,9 @@ theorem counterCmp_ok {s : State} {base : Addr} (hs : Scratch s base) (i : Nat) 
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, hr, ite_false]
 
-theorem byte_split (K i : Nat) (b : Byte) (hb : (b.toNat) = K / 256 ^ i % 256) :
-    K / 256 ^ i = 256 * (K / 256 ^ (i + 1)) + (16 * (b.toNat / 16) + b.toNat % 16) := by
-  have := div_split K i; omega
-
 theorem scalar_byte {m : Mem} {p : Addr} {n i : Nat} (hi : i < n) :
     (m (off p i)).toNat = Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt m p n) / 256 ^ i % 256 := by
   rw [decodeLE_byte, input_byte m p n i hi]
-
-theorem high_zero {S i : Nat} (hS : S < 256 ^ 32) (hi : 32 ≤ i) : S / 256 ^ i = 0 :=
-  Nat.div_eq_of_lt (lt_of_lt_of_le hS (Nat.pow_le_pow_right (by decide) hi))
 
 theorem byteStepA_ok {s : State} {base kp sp : Addr} {A : EPoint dZ} (h : WinCtx base kp sp A s)
     (hd : env s.mem base 16 = Spec.Ed25519.d) {i : Nat} (hi32 : 32 ≤ i) (hi : i < 64)
@@ -156,7 +130,7 @@ theorem byteStepA_ok {s : State} {base kp sp : Addr} {A : EPoint dZ} (h : WinCtx
     (ha : Rep (point (env s.mem base) 0 1 2 3)
       ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ (i + 1)) • A +
         (S / 256 ^ (i + 1)) • (-baseAff))) :
-    WP isa (byteStepA fld) s fun t => t.zf = some (decide (i = 32)) ∧
+    WP isa (byteStepA fld dbl) s fun t => t.zf = some (decide (i = 32)) ∧
       t.mem.readW (off base 56) 64 = BitVec.ofNat 64 i ∧ env t.mem base 16 = Spec.Ed25519.d ∧
       Rep (point (env t.mem base) 0 1 2 3)
         ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ i) • A +
@@ -194,7 +168,7 @@ theorem byteStepAB_ok {s : State} {base kp sp : Addr} {A : EPoint dZ} (h : WinCt
       ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ (i + 1)) • A +
         (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem (off sp 32) 32) / 256 ^ (i + 1)) •
           (-baseAff))) :
-    WP isa (byteStepAB fld) s fun t => t.zf = some (decide (i = 0)) ∧
+    WP isa (byteStepAB fld dbl) s fun t => t.zf = some (decide (i = 0)) ∧
       t.mem.readW (off base 56) 64 = BitVec.ofNat 64 i ∧ env t.mem base 16 = Spec.Ed25519.d ∧
       Rep (point (env t.mem base) 0 1 2 3)
         ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ i) • A +
