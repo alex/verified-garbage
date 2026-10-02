@@ -18,6 +18,16 @@ mod protos {
     pub unsafe extern "C" fn dbl_ktab(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
         core::arch::naked_asm!(include_str!("sha512_proto/dbl_ktab.S"))
     }
+    /// Prototype `dblrot_keep`.
+    #[unsafe(naked)]
+    pub unsafe extern "C" fn dblrot_keep(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
+        core::arch::naked_asm!(include_str!("sha512_proto/dblrot_keep.S"))
+    }
+    /// Prototype `dblrot_keep_ktab`.
+    #[unsafe(naked)]
+    pub unsafe extern "C" fn dblrot_keep_ktab(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
+        core::arch::naked_asm!(include_str!("sha512_proto/dblrot_keep_ktab.S"))
+    }
     /// Prototype `keep`.
     #[unsafe(naked)]
     pub unsafe extern "C" fn keep(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
@@ -37,6 +47,16 @@ mod protos {
     #[unsafe(naked)]
     pub unsafe extern "C" fn pr592(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
         core::arch::naked_asm!(include_str!("sha512_proto/pr592.S"))
+    }
+    /// Prototype `rot_keep`.
+    #[unsafe(naked)]
+    pub unsafe extern "C" fn rot_keep(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
+        core::arch::naked_asm!(include_str!("sha512_proto/rot_keep.S"))
+    }
+    /// Prototype `rot_keep_ktab`.
+    #[unsafe(naked)]
+    pub unsafe extern "C" fn rot_keep_ktab(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
+        core::arch::naked_asm!(include_str!("sha512_proto/rot_keep_ktab.S"))
     }
     /// Prototype `rot_ktab`.
     #[unsafe(naked)]
@@ -58,10 +78,14 @@ pub fn bench(c: &mut Criterion) {
     let protos: &[(&str, Compress)] = &[
         ("dbl", protos::dbl as Compress),
         ("dbl_ktab", protos::dbl_ktab as Compress),
+        ("dblrot_keep", protos::dblrot_keep as Compress),
+        ("dblrot_keep_ktab", protos::dblrot_keep_ktab as Compress),
         ("keep", protos::keep as Compress),
         ("keep_ktab", protos::keep_ktab as Compress),
         ("main", protos::main as Compress),
         ("pr592", protos::pr592 as Compress),
+        ("rot_keep", protos::rot_keep as Compress),
+        ("rot_keep_ktab", protos::rot_keep_ktab as Compress),
         ("rot_ktab", protos::rot_ktab as Compress),
     ];
     let data = vec![0x5au8; 16384];
