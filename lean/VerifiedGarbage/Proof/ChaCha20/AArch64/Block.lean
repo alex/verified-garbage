@@ -427,18 +427,20 @@ theorem block_correct (s : State) (hs : Proof.ChaCha20.blockAArch64.pre s) :
   obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
   exact ⟨t, s', he, ⟨h₁, Exec.sp he, Exec.preservedV he⟩, h₂⟩
 
-theorem block_verified :
-    Verified AArch64.target Impl.ChaCha20.AArch64.block (Spec.ChaCha20.blockContract AArch64.abi) :=
-      by
-  refine Verified.of_correct block_correct ?_ (by
-    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, AArch64.abi, AArch64.argRegs,
-      Proof.ChaCha20.blockAArch64]
-      [satState] using satState)
+theorem block_ct : ConstantTime isa Proof.ChaCha20.blockAArch64.pre Proof.ChaCha20.blockAArch64.pub
+    Impl.ChaCha20.AArch64.block := by
   refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1]) ?_ (by taint_decide)
   intro s₁ s₂ _ _ ⟨h1, h2, hsp⟩
   refine ⟨hsp, fun r hr => ?_⟩
   simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl <;> assumption
+
+theorem block_verified :
+    Verified AArch64.target Impl.ChaCha20.AArch64.block (Spec.ChaCha20.blockContract AArch64.abi) :=
+  Verified.of_correct block_correct block_ct (by
+    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, AArch64.abi, AArch64.argRegs,
+      Proof.ChaCha20.blockAArch64]
+      [satState] using satState)
 
 end VG.Proof.ChaCha20.AArch64
 

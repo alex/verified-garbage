@@ -46,9 +46,19 @@ int!(u8, u16, u32, u64, i16, i32, i64);
 pub(crate) fn zeroize<T: Int>(x: &mut [T]) {
     // SAFETY: `x` is writable for its entire byte length, cannot wrap, and
     // lies outside the callee’s stack frame. All-zero bytes are valid for T.
-    unsafe {
-        crate::arch::zeroize::vg_zeroize(x.as_mut_ptr().cast::<u8>(), core::mem::size_of_val(x));
-    }
+    unsafe { zeroize_raw(x.as_mut_ptr().cast::<u8>(), core::mem::size_of_val(x)) };
+}
+
+/// Overwrites the `len` bytes at `p` with zeros, as `zeroize` does, for
+/// memory that may not be initialized.
+///
+/// # Safety
+///
+/// `p` must be valid for writes of `len` bytes, which may not wrap around the
+/// end of the address space or overlap the callee's stack frame.
+pub(crate) unsafe fn zeroize_raw(p: *mut u8, len: usize) {
+    // SAFETY: the caller's.
+    unsafe { crate::arch::zeroize::vg_zeroize(p, len) };
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
 
@@ -58,12 +68,13 @@ mod tests {
 
     #[test]
     fn zeroizes() {
-        // Bytes before, between and after aligned words, at every offset.
+        // Bytes before, between and after aligned words, at every offset,
+        // through the 32-byte, word and byte loops.
         for start in 0..8 {
-            for end in start..=25 {
-                let mut words = [u64::MAX; 4];
-                // SAFETY: `words` is 32 bytes, and any bytes are a valid `u8`.
-                let bytes = unsafe { &mut *words.as_mut_ptr().cast::<[u8; 32]>() };
+            for end in start..=100 {
+                let mut words = [u64::MAX; 13];
+                // SAFETY: `words` is 104 bytes, and any bytes are a valid `u8`.
+                let bytes = unsafe { &mut *words.as_mut_ptr().cast::<[u8; 104]>() };
                 zeroize(&mut bytes[start..end]);
                 for (i, b) in bytes.iter().enumerate() {
                     assert_eq!(*b == 0, (start..end).contains(&i));
