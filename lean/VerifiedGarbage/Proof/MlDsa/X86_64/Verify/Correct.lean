@@ -50,7 +50,7 @@ theorem S2.flag {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ) {
 
 theorem S4.toSC {p : Params} {h : List (Vector Bool n)} {σ s : State} (hs : S4 p h σ s) {q : Bool}
     (h15 : s.gpr .r15 = flag (q = true)) :
-    SC p h (fun r c => polyAt s.mem (pa s (pA r c))) (q = true) 0 (polyAt s.mem (pa s pC)) 0 σ s :=
+    SC p h (fun r c => polyAt s.mem (pa s (pA p.ℓ r c))) (q = true) 0 (polyAt s.mem (pa s pC)) 0 σ s :=
   ⟨hs.t, hs.hint, fun r hr c hc => ⟨hs.red r hr c hc, rfl⟩,
     fun i hi => by rw [iteN (Nat.not_lt_zero _)]; exact hs.z i hi, ⟨hs.redC, rfl⟩,
     fun _ h => absurd h (Nat.not_lt_zero _), h15⟩
@@ -74,9 +74,9 @@ theorem cs_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ :
   | true =>
     obtain ⟨hA, hB⟩ := hok rfl
     obtain ⟨nA, hnA⟩ := common_bound (P := fun r n => ∀ c < p.ℓ,
-        rejNTTPoly n (aSeed (vPk p σ) r c) = some (polyAt s.mem (pa s (pA r c))))
+        rejNTTPoly n (aSeed (vPk p σ) r c) = some (polyAt s.mem (pa s (pA p.ℓ r c))))
       (fun _ _ _ hle h c hc => rejNTTPoly_mono hle (h c hc)) p.k fun r hr =>
-        common_bound (P := fun c n => rejNTTPoly n (aSeed (vPk p σ) r c) = some (polyAt s.mem (pa s (pA r c))))
+        common_bound (P := fun c n => rejNTTPoly n (aSeed (vPk p σ) r c) = some (polyAt s.mem (pa s (pA p.ℓ r c))))
           (fun _ _ _ hle h => rejNTTPoly_mono hle h) p.ℓ fun c hc =>
             let ⟨b, hb⟩ := hA r hr c hc; ⟨b.rejNTT, hb⟩
     obtain ⟨bB, hbB⟩ := hB
@@ -85,7 +85,7 @@ theorem cs_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ :
     have e := verifyMu_rows p ⟨0, 0, nA, bB.ball⟩ (vPk p σ) (vMu σ) (vSig p σ) hh hl hnA hcc
     obtain ⟨hg, hβ, _, _⟩ := parChk p hp
     rw [decide_eq_true ((normR_vZ_iff hβ p hg _).mpr hn), hcc', Bool.true_and] at e
-    by_cases hE : H (vMu σ ++ w1Enc p σ h (fun r c => polyAt s.mem (pa s (pA r c))) (ntt (polyAt s.mem (pa s pC))))
+    by_cases hE : H (vMu σ ++ w1Enc p σ h (fun r c => polyAt s.mem (pa s (pA p.ℓ r c))) (ntt (polyAt s.mem (pa s pC))))
         p.ctildeLen = vCt p (vSig p σ)
     · exact .inl ⟨by rw [h15']; exact flag_congr (by simp [hE]),
         ⟨_, e.trans (congrArg some (beq_iff_eq.mpr hE.symm))⟩⟩
