@@ -92,11 +92,11 @@ theorem ft_wp {s : State} (hf : t₀.sp.toNat + 4 * 6 ≤ 2 ^ 32) (hin : args t�
     (a := List.replicate ((arg t₀ 0).toNat % 16) 0) (ct := List.replicate (arg t₀ 3 ++ arg t₀ 2).toNat 0)
     (by simp) (by simp)) fun s' h => ⟨h.env.choose, h.env.choose_spec, h.args⟩
 
-theorem cmp_wp {s : State} (hf : t₀.sp.toNat + 4 * 6 ≤ 2 ^ 32)
+theorem cmp_wp {s : State} (hf : t₀.sp.toNat + 4 * 6 ≤ 2 ^ 32) {o : Nat} (ho : o = 0 ∨ o = 112)
     (hD : (args t₀ 6).Disjoint ⟨State.addr w + BitVec.ofNat 64 240, 16⟩) (h1 : 1 ≤ tl) (h16 : tl ≤ 16)
-    (h : P6 c st w sp R tl t₀ s) : WP isa (cmp 0) s (P7 c st w sp R t₀) := by
+    (h : P6 c st w sp R tl t₀ s) : WP isa (cmp o) s (P7 c st w sp R t₀) := by
   obtain ⟨⟨k7, he, hk⟩, h6⟩ := h
-  refine WP.mono (cmp_ok L he (o := 0) (.inl rfl) h6 h1 h16) fun s' ⟨h0, hf₇, g₇, rd₇, wr₇, sp₇⟩ => ?_
+  refine WP.mono (cmp_ok L he ho h6 h1 h16) fun s' ⟨h0, hf₇, g₇, rd₇, wr₇, sp₇⟩ => ?_
   refine ⟨⟨k7, he.keep (fun r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl <;> exact g₇ _ (by decide) (by decide) (by decide) (by decide)
@@ -199,7 +199,8 @@ theorem streamVerify_rel {s₀ s₀' : State} (h0 : streamVerifyArm.pre s₀) (h
           rcases hr with rfl | rfl
           · rw [h.1.2, h.2.2]
           · rw [r11 h.1.1, r11 h.2.1]) c4)
-        (fun s h => cmp_wp L spf (hD (by decide)) t1 t16 h) (fun s h => cmp_wp L spf' (hD' (by decide)) t1 t16 h)
+        (fun s h => cmp_wp L spf (.inl rfl) (hD (by decide)) t1 t16 h)
+        (fun s h => cmp_wp L spf' (.inl rfl) (hD' (by decide)) t1 t16 h)
       obtain ⟨_, c5⟩ : ∃ h, (taint.check (Taint.ofRegs [.r11]) (.block mask) h).isSome = true :=
         ⟨_, by taint_decide⟩
       have x5 := rel_wp (F := P7₀ s₀) (F' := P7₀ s₀') (G := W) (G' := W)
