@@ -10,7 +10,11 @@ namespace VG.Proof.Rc2.Arm
 
 open VG VG.Arm VG.Impl.Rc2.Arm
 
-def blockSavedReg (i : Nat) : Reg := blockSaved.getD i .r4
+theorem blockSave_eq : blockSave = (slotsOf blockSaved).map (fun p => Instr.str p.1 .r2 p.2) := rfl
+
+theorem blockRestore_eq : blockRestore = (slotsOf blockSaved).map (fun p => Instr.ldr p.1 .r2 p.2) := rfl
+
+theorem blockSlots_ok : Spill.Slots 0 32 (slotsOf blockSaved) := by decide
 
 def cipher (d : Spec.Rc2.Direction) (k : Spec.Rc2.Schedule) (b : Spec.Rc2.Block) : Spec.Rc2.Block :=
   match d with
@@ -37,17 +41,14 @@ theorem cipher_rounds (d : Spec.Rc2.Direction) (k : Spec.Rc2.Schedule) (b : Spec
 theorem block_correct (d : Spec.Rc2.Direction) (s : State) (hs : (blockContract d).pre s) :
     WP isa (.block (blockCode d)) s (fun s' => (∀ r ∈ preserved, s'.gpr r = s.gpr r) ∧ (blockContract d).post s s') := by
   obtain ⟨hrd, hwr, keySep, dataSep, keyFit, dataFit, scratchFit⟩ := hs
-  have writes : ∀ i < 8, InRegions s.wr (State.addr (s.gpr .r2) + BitVec.ofNat 64 (4 * i)) 4 := by
-    intro i hi
-    rw [hwr]
-    exact ⟨⟨State.addr (s.gpr .r2), 256⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩
   simp only [blockCode, List.append_assoc]
-  rw [WP.block_append_iff]
-  apply WP.mono (saveCode_ok s .r2 blockSavedReg 8 (by decide) scratchFit writes)
+  rw [WP.block_append_iff, blockSave_eq]
+  apply WP.mono (Spill.save_block_ok blockSlots_ok (by omega) fun d _ hd => by
+    rw [hwr]; exact ⟨⟨State.addr (s.gpr .r2), 256⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩)
   intro s₁ h₁
   have scratchFrame : Frame [⟨State.addr (s.gpr .r2), 256⟩] s.mem s₁.mem := by
     rw [h₁.2.2.2]
-    exact saveMem_frame_le _ _ _ 8 64 (by decide) (by decide)
+    exact Spill.saveMem_frame _ _ _ (by decide) _ (by decide)
   have input₁ : Spec.Rc2.blockAt s₁.mem (State.addr (s₁.gpr .r1)) = Spec.Rc2.blockAt s.mem (State.addr (s.gpr .r1)) := by
     rw [h₁.1]
     exact blockAt_frame scratchFrame _ (by simpa using dataSep)
@@ -92,33 +93,27 @@ theorem block_correct (d : Spec.Rc2.Direction) (s : State) (hs : (blockContract 
     rw [h₄.reg r (by
       simp only [List.mem_singleton]
       intro he; subst r; exact hr (by decide)), keep₂₃.reg r hr, h₁.1]
-  have scratchRead₄ : ∀ i ∈ List.range 8,
-      InRegions (s₄.rd ++ s₄.wr) (State.addr (s₄.gpr .r2) + BitVec.ofNat 64 (4 * i)) 4 := by
-    intro i hi
-    rw [rd₄, wr₄, regs₄ .r2 (by decide), hrd, hwr]
-    have bound := List.mem_range.mp hi
-    exact ⟨⟨State.addr (s.gpr .r2), 256⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩
-  have saved₄ : ∀ i ∈ List.range 8,
-      s₄.mem.readW (State.addr (s₄.gpr .r2) + BitVec.ofNat 64 (4 * i)) 32 = s.gpr (blockSavedReg i) := by
-    intro i hi
-    have bound := List.mem_range.mp hi
+  have saved₄ : Spill.Saved s₄.mem (State.addr (s₄.gpr .r2)) s.gpr (slotsOf blockSaved) := by
+    intro p hp
+    have bound := blockSlots_ok.bound hp
     rw [mem₄, regs₄ .r2 (by decide), Mem.readW_writeW_sep
       (dataSep.symm.sep (Offset.contains_base _ (by omega) (by omega)) (Region.contains_self _ _))
       (by decide), h₁.2.2.2]
-    exact saveMem_read _ _ _ 8 (by decide) i bound
-  apply WP.mono (restoreCode_ok s₄ .r2 blockSavedReg (List.range 8) s.gpr
-    (by rw [regs₄ .r2 (by decide)]; exact scratchFit)
-    (fun i hi => by have := List.mem_range.mp hi; omega)
-    (by decide) scratchRead₄ saved₄)
+    exact Spill.saveMem_saved _ _ _ _ blockSlots_ok p hp
+  rw [blockRestore_eq]
+  apply WP.mono (Spill.restore_block_ok blockSlots_ok (by decide) (by rw [regs₄ .r2 (by decide)]; omega)
+    (fun d _ hd => by
+      rw [rd₄, wr₄, regs₄ .r2 (by decide), hrd, hwr]
+      exact ⟨⟨State.addr (s.gpr .r2), 256⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩) saved₄)
   intro s₅ h₅
-  have finalMem : s₅.mem = s₁.mem.writeW (State.addr (s.gpr .r1)) (pack v) := h₅.2.mem.trans mem₄
+  have finalMem : s₅.mem = s₁.mem.writeW (State.addr (s.gpr .r1)) (pack v) := h₅.2.2.1.trans mem₄
   constructor
   · intro r hr
-    by_cases hm : r ∈ (List.range 8).map blockSavedReg
-    · exact h₅.1 r hm
-    · rw [h₅.2.reg _ hm]
+    by_cases hm : r ∈ (slotsOf blockSaved).map Prod.fst
+    · exact Spill.restored_reg h₅.1 hm
+    · rw [h₅.2.1 _ hm]
       have covered : ∀ r ∈ preserved,
-          r ∈ (List.range 8).map blockSavedReg ∨ r ∉ roundWrites := by decide
+          r ∈ (slotsOf blockSaved).map Prod.fst ∨ r ∉ roundWrites := by decide
       exact regs₄ r ((covered r hr).resolve_left hm)
   · change Spec.Rc2.blockAt s₅.mem (State.addr (s.gpr .r1)) = _
     rw [finalMem, blockAt_write64, cipher_rounds]

@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Variant
 import VerifiedGarbage.Spec.Poly1305.Contract
 import VerifiedGarbage.Proof.Framework.PowLit
 import VerifiedGarbage.Proof.Framework.Omega
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 
 /-!
 # Poly1305 on x86-64: `update`, up to the call
@@ -133,54 +134,26 @@ theorem repr_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Add
 
 /-! ## The saved registers -/
 
+theorem savedS_bound : ∀ q ∈ savedS, q.2 + 8 ≤ 48 := by decide
+
 /-- The callee-saved registers of `s` are saved at `p` (in `scratch`). -/
-def SavedAt (p : Addr) (s : State) (m : Mem) : Prop :=
-  m.readW (off p 0) 64 = s.gpr .rbx ∧ m.readW (off p 8) 64 = s.gpr .rbp ∧
-  m.readW (off p 16) 64 = s.gpr .r12 ∧ m.readW (off p 24) 64 = s.gpr .r13 ∧
-  m.readW (off p 32) 64 = s.gpr .r14 ∧ m.readW (off p 40) 64 = s.gpr .r15
+abbrev SavedAt (p : Addr) (s : State) (m : Mem) : Prop := Spill.Saved m p s.gpr savedS
 
 theorem SavedAt.frame {p : Addr} {s : State} {m m' : Mem} (h : SavedAt p s m) {rs : List Region}
-    (hf : Frame rs m m') (hd : ∀ r ∈ rs, (⟨p, 128⟩ : Region).Disjoint r) : SavedAt p s m' := by
-  have e : ∀ d, d + 8 ≤ 128 → m'.readW (off p d) 64 = m.readW (off p d) 64 := by
-    intro d hd'
-    refine hf.readW (r := ⟨off p d, 8⟩) (Region.contains_self _ _)
-      (fun r hr => (hd r hr).sub_left ?_) (by decide)
-    simp only [off, ofInt_natCast]; exact Offset.sub_base p hd'
-  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h
-  exact ⟨(e 0 (by decide)).trans h1, (e 8 (by decide)).trans h2, (e 16 (by decide)).trans h3,
-    (e 24 (by decide)).trans h4, (e 32 (by decide)).trans h5, (e 40 (by decide)).trans h6⟩
+    (hf : Frame rs m m') (hd : ∀ r ∈ rs, (⟨p, 128⟩ : Region).Disjoint r) : SavedAt p s m' :=
+  Spill.Saved.frame h hf fun q hq r hr =>
+    (hd r hr).sub_left (Offset.sub_base p (by have := savedS_bound q hq; omega))
 
-theorem saveS_eq : saveS = [
-    .store (at_ .r8 0) .rbx, .store (at_ .r8 8) .rbp, .store (at_ .r8 16) .r12,
-    .store (at_ .r8 24) .r13, .store (at_ .r8 32) .r14, .store (at_ .r8 40) .r15] := rfl
-
-theorem restoreS_eq : restoreS = [
-    .mov .rbx (.mem (at_ .r15 0)), .mov .rbp (.mem (at_ .r15 8)), .mov .r12 (.mem (at_ .r15 16)),
-    .mov .r13 (.mem (at_ .r15 24)), .mov .r14 (.mem (at_ .r15 32)), .mov .r15 (.mem (at_ .r15 40))] := rfl
-
-set_option simprocs false in
 theorem saveS_ok (s : State) (hw : (⟨s.gpr .r8, 128⟩ : Region) ∈ s.wr) :
     WP isa (.block saveS) s fun s' =>
       s'.gpr = s.gpr ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
-      Frame [⟨s.gpr .r8, 128⟩] s.mem s'.mem ∧ SavedAt (s.gpr .r8) s s'.mem := by
-  have o : ∀ d, d + 8 ≤ 128 → InRegions s.wr (off (s.gpr .r8) d) 8 :=
-    fun d hd => ⟨_, hw, contains_off hd (by omega_using [hd])⟩
-  have o0 := o 0 (by decide); have o1 := o 8 (by decide); have o2 := o 16 (by decide)
-  have o3 := o 24 (by decide); have o4 := o 32 (by decide); have o5 := o 40 (by decide)
-  apply WP.of_runBlock
-  rw [saveS_eq]
-  simp only [off] at o0 o1 o2 o3 o4 o5
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, ea_at,
-    State.store64, o0, o1, o2, o3, o4, o5, ite_true, Option.some.injEq, exists_eq_left']
-  refine ⟨trivial, trivial, trivial, ?_, ?_⟩
-  · have c : ∀ d, d + 8 ≤ 128 → (⟨s.gpr .r8, 128⟩ : Region).Contains (off (s.gpr .r8) d) (64 / 8) :=
-      fun d h₂ => contains_off h₂ (by omega_using [h₂])
-    refine (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 0 ?_)).writeW
-      (List.mem_singleton_self _) _ (c 8 ?_)).writeW (List.mem_singleton_self _) _ (c 16 ?_)).writeW
-      (List.mem_singleton_self _) _ (c 24 ?_)).writeW (List.mem_singleton_self _) _ (c 32 ?_)
-      |>.writeW (List.mem_singleton_self _) _ (c 40 ?_) <;> omega_using []
-  · refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    simp (config := {decide := true}) only [off, Mem.readW_writeW_self64, readW_writeW_off]
+      Frame [⟨s.gpr .r8, 128⟩] s.mem s'.mem ∧ SavedAt (s.gpr .r8) s s'.mem :=
+  WP.mono (Spill.save_ok .r8 savedS s fun q hq =>
+      ⟨_, hw, Offset.contains_base _ (by have := savedS_bound q hq; omega)
+        (by have := savedS_bound q hq; omega)⟩)
+    fun s' ⟨hg, hrd, hwr, hm⟩ => ⟨hg, hrd, hwr,
+      hm ▸ Spill.saveMem_frame_base _ _ _ _ (fun q hq => by have := savedS_bound q hq; omega) (by decide),
+      hm ▸ Spill.saveMem_saved _ _ _ _ (by decide)⟩
 
 /-! ## Invariants -/
 

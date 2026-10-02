@@ -45,7 +45,7 @@ theorem uh_cov : Covers ([⟨pa s h, 1024⟩, ⟨pa s r, 1024⟩] ++ [⟨pa s ou
     Covers [⟨pa s out, 1024⟩] s.wr := by
   simp only [uhChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨_, c3⟩, c4⟩, c5⟩, c6⟩ := hc
-  exact ⟨covers_append (covers_cons (L.cR c3) (L.cR c4)) (L.cR c5), L.cW c6⟩
+  exact ⟨Covers.append_left (Covers.cons (L.cR c3) (L.cR c4)) (L.cR c5), L.cW c6⟩
 
 theorem uh_pre (hg : g2 ∈ gamma2s) (hr : Reduced s.mem (pa s r)) {s1 : State} (h1 : Args (uhArgs h r g2 out) s s1) :
     (useHintContract X86_64.abi 16).pre
@@ -129,7 +129,7 @@ include L hc
 theorem sbp_cov : Covers ([⟨pa s f, 1024⟩] ++ [⟨pa s out, len⟩]) (s.rd ++ s.wr) ∧ Covers [⟨pa s out, len⟩] s.wr := by
   simp only [sbpChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨_, c2⟩, c3⟩, c4⟩ := hc
-  exact ⟨covers_append (L.cR c2) (L.cR c3), L.cW c4⟩
+  exact ⟨Covers.append_left (L.cR c2) (L.cR c3), L.cW c4⟩
 
 theorem sbp_pre (hb : b ∈ simpleBitPackBounds) (hl : len = 32 * bitlen b)
     (hf : ∀ i < n, (coeffAt s.mem (pa s f) i).toNat ≤ b) {s1 : State} (h1 : Args (sbpArgs f b out len) s s1) :
@@ -218,7 +218,7 @@ include L hc
 theorem bu_cov : Covers ([⟨pa s v, len⟩] ++ [⟨pa s f, 1024⟩]) (s.rd ++ s.wr) ∧ Covers [⟨pa s f, 1024⟩] s.wr := by
   simp only [buChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨_, c2⟩, c3⟩, c4⟩ := hc
-  exact ⟨covers_append (L.cR c2) (L.cR c3), L.cW c4⟩
+  exact ⟨Covers.append_left (L.cR c2) (L.cR c3), L.cW c4⟩
 
 theorem bu_pre (hab : (a, b) ∈ bitPackParams) (hl : len = 32 * bitlen (a + b)) {s1 : State}
     (h1 : Args (buArgs v len a b f) s s1) :
@@ -296,7 +296,7 @@ include L hc
 theorem t1_cov : Covers ([⟨pa s v, 320⟩] ++ [⟨pa s f, 1024⟩]) (s.rd ++ s.wr) ∧ Covers [⟨pa s f, 1024⟩] s.wr := by
   simp only [t1Chk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨_, c2⟩, c3⟩, c4⟩ := hc
-  exact ⟨covers_append (L.cR c2) (L.cR c3), L.cW c4⟩
+  exact ⟨Covers.append_left (L.cR c2) (L.cR c3), L.cW c4⟩
 
 theorem t1_pre {s1 : State} (h1 : Args (t1Args v f) s s1) :
     (unpackT1Contract X86_64.abi 16).pre (s1.callEntry.withRegions [⟨pa s v, 320⟩] [⟨pa s f, 1024⟩]) := by
@@ -383,7 +383,7 @@ theorem hu_cov : Covers ([⟨pa s y, len⟩] ++ [⟨pa s h, hlen * 4⟩]) (s.rd 
     Covers [⟨pa s h, hlen * 4⟩] s.wr := by
   simp only [huChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨_, c2⟩, c3⟩, c4⟩ := hc
-  exact ⟨covers_append (L.cR c2) (L.cR c3), L.cW c4⟩
+  exact ⟨Covers.append_left (L.cR c2) (L.cR c3), L.cW c4⟩
 
 theorem hu_pre (hp : HuPar len omega hlen) {s1 : State} (h1 : Args (huArgs y len omega h hlen) s s1) :
     (hintBitUnpackContract X86_64.abi 16).pre (s1.callEntry.withRegions [⟨pa s y, len⟩] [⟨pa s h, hlen * 4⟩]) := by
@@ -467,7 +467,7 @@ theorem normLtAt_ok {P : Prims} (C : CalleeOk P.normLt (normLtContract X86_64.ab
       res s' = if normRq [polyAt s.mem (pa s f)] < bound then 1 else 0 := by
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (nl_args L.ok hb hc)
     (by simp only [List.map_cons, List.map_nil]; decide)
-    (fun s1 h1 => nl_pre L hc hr h1) (covers_append (L.cR hc) covers_nil) covers_nil)
+    (fun s1 h1 => nl_pre L hc hr h1) (Covers.append_left (L.cR hc) Covers.nil) Covers.nil)
     fun s' ⟨hP, s1, h1, s₂, hm, hg, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   sig_post [normLtContract, normLtSig, X86_64.abi, VG.X86_64.argRegs] at hq
   rw [h1.r0, h1.r1, h1.rsp, h1.1.2, hg _ (by decide)] at hq
@@ -482,8 +482,8 @@ theorem normLtAt_tr {P : Prims} (C : CalleeOk P.normLt (normLtContract X86_64.ab
   refine callAt_tr C.correct C.ct (nl_args hS hb hc) (by simp only [List.map_cons, List.map_nil]; decide) ?_
   intro x y x1 y1 hp h1 h2
   obtain ⟨Lx, Ly, rx, ry, e⟩ := hQ x y hp
-  refine ⟨_, _, _, _, nl_pre Lx hc rx h1, nl_pre Ly hc ry h2, ?_, covers_append (Lx.cR hc) covers_nil, covers_nil,
-    covers_append (Ly.cR hc) covers_nil, covers_nil, e.2⟩
+  refine ⟨_, _, _, _, nl_pre Lx hc rx h1, nl_pre Ly hc ry h2, ?_, Covers.append_left (Lx.cR hc) Covers.nil, Covers.nil,
+    Covers.append_left (Ly.cR hc) Covers.nil, Covers.nil, e.2⟩
   sig_pub [normLtContract, normLtSig, X86_64.abi, VG.X86_64.argRegs]
   rw [h1.r0, h1.r1, h2.r0, h2.r1, h1.rsp, h2.rsp]
   simp only [Arg.val]

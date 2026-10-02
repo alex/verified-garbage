@@ -9,8 +9,8 @@
 //! They follow the implementation of SHA-1 that `Sha1` runs on this CPU: on
 //! x86-64 with the SHA extensions, `vg_hmac_sha1_init_shani` and
 //! `vg_hmac_sha1_finalize_shani`, the same verified code calling
-//! `vg_sha1_update_shani` and `vg_sha1_finalize_shani`, with the same
-//! contracts.
+//! `vg_sha1_update_shani`, `vg_sha1_finalize_shani` and
+//! `vg_sha1_compress_shani`, with the same contracts.
 //!
 //! On AArch64, the `_sha2` variants follow SHA-1 hardware dispatch.
 

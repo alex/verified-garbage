@@ -30,10 +30,6 @@ def keyContract : Contract isa where
 theorem key_body_correct (s : State) (hs : keyContract.pre s) :
     WP isa expandKey s (fun s' => (∀ r ∈ preserved, s'.gpr r = s.gpr r) ∧ keyContract.post s s') := by
   obtain ⟨hrd, hwr, keyOut, keyScratch, outScratch, _argsOut, _argsScratch, keyFit, outFit, scratchFit, _spFit, ht, ht', hb, hb'⟩ := hs
-  have writes : ∀ i < 9, InRegions s.wr (State.addr (stackArg s 0) + BitVec.ofNat 64 (4 * i)) 4 := by
-    intro i hi
-    rw [hwr]
-    exact ⟨⟨State.addr (stackArg s 0), 512⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩
   rw [expandKey]
   apply WP.seq
   obtain ⟨s₀, run₀, scratch₀, keep₀⟩ := loadScratch_ok s (by
@@ -43,8 +39,9 @@ theorem key_body_correct (s : State) (hs : keyContract.pre s) :
   have gpr₀ (r : Reg) (hr : r ≠ .r12) : s₀.gpr r = s.gpr r := keep₀.reg r (by simpa using hr)
   apply WP.seq
   rw [WP.block_append_iff, keySave_eq]
-  apply WP.mono (saveCode_ok s₀ .r12 savedReg 9 (by decide)
-    (by rw [scratch₀]; omega) (by rw [keep₀.wr, scratch₀]; exact writes))
+  apply WP.mono (Spill.save_block_ok keySlots_ok (by rw [scratch₀]; omega) fun d _ hd => by
+    rw [keep₀.wr, scratch₀, hwr]
+    exact ⟨⟨State.addr (stackArg s 0), 512⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩)
   intro s₁ h₁
   obtain ⟨s₂, run₂, r8₂, key₂, len₂, ptr₂, bits₂, zero₂, keep₂⟩ := pinKey_ok s₁
   refine WP.of_runBlock ⟨s₂, run₂, ?_⟩
@@ -55,12 +52,7 @@ theorem key_body_correct (s : State) (hs : keyContract.pre s) :
   rw [h₁.1, gpr₀ .r2 (by decide)] at bits₂
   have scratchFrame : Frame [⟨State.addr (stackArg s 0), 512⟩] s.mem s₂.mem := by
     rw [keep₂.mem, h₁.2.2.2, keep₀.mem, scratch₀]
-    apply (saveMem_frame_le _ _ _ 9 64 (by decide) (by decide)).sub
-    intro r hr
-    simp only [List.mem_singleton] at hr
-    subst r
-    exact ⟨⟨State.addr (stackArg s 0), 512⟩, List.mem_cons_self,
-      Region.sub_prefix (by decide)⟩
+    exact Spill.saveMem_frame _ _ _ (by decide) _ (by decide)
   have rd₂ : s₂.rd = s.rd := keep₂.rd.trans (h₁.2.1.trans keep₀.rd)
   have wr₂ : s₂.wr = s.wr := keep₂.wr.trans (h₁.2.2.1.trans keep₀.wr)
   have source₂ : Spec.Rc2.bytesAt s₂.mem (State.addr (s₂.gpr .r4)) (s.gpr .r1).toNat =
@@ -109,34 +101,24 @@ theorem key_body_correct (s : State) (hs : keyContract.pre s) :
   rw [r8₄] at base₅
   have rd₅ := keep₅.rd.trans rd₄
   have wr₅ := keep₅.wr.trans wr₄
-  have scratchRead : ∀ i ∈ List.range 9,
-      InRegions (s₅.rd ++ s₅.wr) (State.addr (s₅.gpr .r12) + BitVec.ofNat 64 (4 * i)) 4 := by
-    intro i hi
-    rw [rd₅, wr₅, base₅, hrd, hwr]
-    have bound := List.mem_range.mp hi
-    exact ⟨⟨State.addr (stackArg s 0), 512⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩
-  have stored : ∀ i ∈ List.range 9,
-      s₅.mem.readW (State.addr (s₅.gpr .r12) + BitVec.ofNat 64 (4 * i)) 32 = s.gpr (savedReg i) := by
-    intro i hi
-    have bound := List.mem_range.mp hi
+  have stored : Spill.Saved s₅.mem (State.addr (s₅.gpr .r12)) s.gpr (slotsOf saved) := by
+    intro p hp
+    have bound := keySlots_ok.bound hp
     rw [keep₅.mem, base₅, outFrame.readW (r := ⟨State.addr (stackArg s 0), 512⟩)
       (Offset.contains_base _ (by omega) (by omega)) (by simpa using outScratch.symm) (by decide),
-      keep₂.mem, h₁.2.2.2, scratch₀]
-    rw [saveMem_read _ _ _ 9 (by decide) i bound]
-    exact gpr₀ _ (by
-      have sep : ∀ i ∈ List.range 9, savedReg i ≠ .r12 := by decide
-      exact sep i hi)
+      keep₂.mem, h₁.2.2.2, scratch₀, Spill.saveMem_saved _ _ _ _ keySlots_ok p hp]
+    have sep : ∀ p ∈ slotsOf saved, p.1 ≠ .r12 := by decide
+    exact gpr₀ _ (sep p hp)
   rw [keyRestore_eq]
-  apply WP.mono (restoreCode_ok s₅ .r12 savedReg (List.range 9) s.gpr (by rw [base₅]; omega)
-    (by decide) (by decide) scratchRead stored)
+  apply WP.mono (Spill.restore_block_ok keySlots_ok (by decide) (by rw [base₅]; omega)
+    (fun d _ hd => by
+      rw [rd₅, wr₅, base₅, hrd, hwr]
+      exact ⟨⟨State.addr (stackArg s 0), 512⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩) stored)
   intro s₆ h₆
   constructor
-  · intro r hr
-    exact h₆.1 r (by
-      have covered : ∀ r ∈ preserved, r ∈ (List.range 9).map savedReg := by decide
-      exact covered r hr)
+  · exact Spill.restored_of h₆.1 (by decide)
   · change Spec.Rc2.scheduleAt s₆.mem (State.addr (s.gpr .r3)) = _
-    rw [h₆.2.mem, keep₅.mem]
+    rw [h₆.2.2.1, keep₅.mem]
     exact scheduleAt_expanded expanded
 
 def keySatState : State where

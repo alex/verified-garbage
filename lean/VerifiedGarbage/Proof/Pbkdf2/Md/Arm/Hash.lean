@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Compress
 import VerifiedGarbage.Proof.Pbkdf2.MdStep
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Init
+import VerifiedGarbage.Proof.Pbkdf2.Stream.Arm.Common
 
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on ARMv7: the hash function
@@ -12,7 +12,9 @@ Merkle–Damgård hash function `md` (`Md`) whose digest code does what it shoul
 words the code stores (`len`), with a verified compression function
 (`CompOk`); its streaming functions are verified against the contracts HMAC's
 generic proofs call them with (`stream`); its specification is `md` from the
-initial hash value `iv`, with the digest the first `D` bytes of `md`'s; and
+initial hash value `iv` (a state represents a message as the specification
+has it exactly when it does as `md` has it: `repr`, `back`), with the digest
+the first `D` bytes of `md`'s; and
 its sizes fit (`Sizes`).
 -/
 
@@ -56,10 +58,11 @@ structure HashOK (H : Hash) where
   /-- The constant length field is that of a `B + D`-byte message. -/
   len : wordsBytes (lenWords H.be H.L (H.B + H.D)) = md.lenBytes (H.B + H.D)
   /-- The streaming functions, verified. -/
-  stream : Hmac.Generic.Arm.HashOK H.st
+  stream : Pbkdf2.Stream.Arm.HashOK H.st
   /-- The specification is `md` from `iv`, with a `D`-byte digest. -/
   iv : md.HV
   repr : ∀ mem p m, stream.SH.Repr mem p m → md.Repr iv mem p m
+  back : ∀ mem p m, md.Repr iv mem p m → stream.SH.Repr mem p m
   hash : ∀ m, stream.SH.H.hash m = (md.hash iv m).take H.D
   sizes : Sizes H
 

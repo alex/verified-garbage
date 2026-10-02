@@ -122,28 +122,35 @@ def sub (o a b : Nat) : List Instr := prologue ++ pass .r0 o (subSrc a b) ++ tai
 /-- Register `r` stored into the `n` words from `o` of the working space. -/
 def storeN (r : Reg) (o n : Nat) : List Instr := (List.range n).flatMap fun k => [.str r .r0 (o + 4 * k)]
 
-/-- The words `ACC[0, 16)` zeroed. -/
-def zeroAcc : List Instr := .mov .r3 (.imm 0) :: storeN .r3 ACC 16
+/-! The product's 32 limbs are at an offset `acc` of the working space
+(X25519's `ACC`; Ed25519 on ARMv7 uses the same code with its own). -/
+
+/-- The words `acc[0, 16)` zeroed. -/
+def zeroAcc (acc : Nat) : List Instr := .mov .r3 (.imm 0) :: storeN .r3 acc 16
 
 /-- Limb `j` of row `i` (`r7` = the base plus `4 i`, `a_i` in `r1`) into
-`r3`: `a_i b_j + ACC[i + j]`. -/
-def rowSrc (b j : Nat) : List Instr :=
-  [.ldr .r2 .r0 (b + 4 * j), .mul .r2 .r1 .r2, .ldr .r3 .r7 (ACC + 4 * j), .dp .add .r3 .r3 (.reg .r2)]
+`r3`: `a_i b_j + acc[i + j]`. -/
+def rowSrc (acc b j : Nat) : List Instr :=
+  [.ldr .r2 .r0 (b + 4 * j), .mul .r2 .r1 .r2, .ldr .r3 .r7 (acc + 4 * j), .dp .add .r3 .r3 (.reg .r2)]
 
-/-- Row `i` of the product: `ACC[i, i + 17) = ACC[i, i + 16) + a_i · b`. -/
-def row (a b : Nat) : List Instr :=
-  [.ldr .r1 .r7 a, .mov .r5 (.imm 0)] ++ pass .r7 ACC (rowSrc b) ++
-    [.str .r5 .r7 (ACC + 64), .dp .add .r7 .r7 (.imm 4), .subs .r9 .r9 (.imm 1)]
+/-- Row `i` of the product: `acc[i, i + 17) = acc[i, i + 16) + a_i · b`. -/
+def row (acc a b : Nat) : List Instr :=
+  [.ldr .r1 .r7 a, .mov .r5 (.imm 0)] ++ pass .r7 acc (rowSrc acc b) ++
+    [.str .r5 .r7 (acc + 64), .dp .add .r7 .r7 (.imm 4), .subs .r9 .r9 (.imm 1)]
 
-/-- Limb `k` of `lo + 38 hi` for the product in `ACC`, into `r3`. -/
-def mulSrc (k : Nat) : List Instr :=
-  [.ldr .r3 .r0 (ACC + 4 * k), .ldr .r2 .r0 (ACC + 64 + 4 * k), .mul .r2 .r2 .r8,
+/-- Limb `k` of `lo + 38 hi` for the product in `acc`, into `r3`. -/
+def mulSrc (acc k : Nat) : List Instr :=
+  [.ldr .r3 .r0 (acc + 4 * k), .ldr .r2 .r0 (acc + 64 + 4 * k), .mul .r2 .r2 .r8,
     .dp .add .r3 .r3 (.reg .r2)]
 
-/-- `[o] = [a] · [b]` (`o` may be `a` or `b`). -/
-def mul (o a b : Nat) : Prog isa :=
-  .seq (.block (prologue ++ zeroAcc ++ [.mov .r7 (.reg .r0), .mov .r9 (.imm 16)]))
-    (.seq (.loop (.block (row a b)) .ne) (.block (.mov .r5 (.imm 0) :: pass .r0 o mulSrc ++ tail o)))
+/-- `[o] = [a] · [b]` (`o` may be `a` or `b`), with the product in `acc`. -/
+def mulAt (acc o a b : Nat) : Prog isa :=
+  .seq (.block (prologue ++ zeroAcc acc ++ [.mov .r7 (.reg .r0), .mov .r9 (.imm 16)]))
+    (.seq (.loop (.block (row acc a b)) .ne)
+      (.block (.mov .r5 (.imm 0) :: pass .r0 o (mulSrc acc) ++ tail o)))
+
+/-- `[o] = [a] · [b]`, with the product in `ACC`. -/
+abbrev mul (o a b : Nat) : Prog isa := mulAt ACC o a b
 
 /-- Swaps limb `k` of `[x]` and `[y]` if the mask `r9` is all ones (and not
 if it is zero): `d = r9 ∧ (x ⊕ y)`, `x ⊕= d`, `y ⊕= d`. -/

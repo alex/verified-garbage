@@ -22,7 +22,7 @@ variable (v : Ctr32Impl)
 theorem callee_nosp_all : v.callee.code.allInstrs (fun i => !Taint.clobbers i .esp) = true := by
   rw [Code.allInstrs_eq]
   exact List.all_eq_true.mpr fun i hi => by
-    have h := v.nosp i (by rw [instrs_eq_instrs]; exact hi)
+    have h := v.nosp i hi
     simp only [h, Bool.not_false]
 
 theorem subkeys_nosp : NoSp (subkeys v.callee) := by

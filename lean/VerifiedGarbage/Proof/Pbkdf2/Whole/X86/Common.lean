@@ -1,13 +1,13 @@
 import VerifiedGarbage.Impl.Pbkdf2.Whole.X86
 import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Contract
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Init
+import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Common
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 
 /-!
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: the functions it calls, and its parts
 
 `FnsOK F` is what the proof knows of the functions `pbkdf2` calls: the hash
-function's streaming functions (`VG.Proof.Hmac.Generic.X86.HashOK`), and
+function's streaming functions (`VG.Proof.Pbkdf2.Stream.X86.HashOK`), and
 HMAC's `init` and `finalize` and PBKDF2's `iterate`, sound for their shared
 contracts with 48 bytes of stack (`Sound`), with some working space each, at
 most the `8 W` bytes they get. Then the precondition of `pbkdf2` (`Pre`), the
@@ -18,8 +18,8 @@ namespace VG.Proof.Pbkdf2.Whole.X86
 
 open VG.X86
 open VG.Impl.Pbkdf2.Whole.X86 (Fns)
-open VG.Impl.Hmac.Generic.X86 (Hash at_)
-open VG.Proof.Hmac.Generic.X86 (HashOK SavedRegs saveR)
+open VG.Impl.Pbkdf2.Stream.X86 (Hash at_)
+open VG.Proof.Pbkdf2.Stream.X86 (HashOK SavedRegs saveR)
 open VG.Proof.Hmac.Generic.Common (bytes_keep)
 open Spec.Sha256 (bytesAt)
 
@@ -168,11 +168,11 @@ include hp hz
 
 omit hz in
 theorem dO_addr {o : Nat} (ho : o < F.L8) : (dO s₀ o).setWidth 64 = A s₀ o := by
-  have := hp.nsc; exact Hmac.Generic.X86.setWidth_add (by omega)
+  have := hp.nsc; exact Pbkdf2.Stream.X86.setWidth_add (by omega)
 
 omit hz in
 theorem dO_toNat {o : Nat} (ho : o < F.L8) : (dO s₀ o).toNat = (scr s₀).toNat + o := by
-  have := hp.nsc; exact Hmac.Generic.X86.toNat_add_ofNat (by omega)
+  have := hp.nsc; exact Pbkdf2.Stream.X86.toNat_add_ofNat (by omega)
 
 omit hp hz in
 theorem part_sub {o n : Nat} (h : o + n ≤ F.L8) : Region.Sub (sR s₀ o n) (scR s₀ F) :=
@@ -306,7 +306,7 @@ theorem KR.argEq {s : State} (hk : KR F s₀ s) {i : Nat} (hi : i < 8) : arg s i
     · exact hp.o_a.symm
     · exact hp.s_a.symm
     · exact hp.b_a.symm
-  exact Hmac.Generic.X86.arg_keep rfl hk.esp (n := 32) (by have := hp.spf; omega) hk.frame hd (by omega)
+  exact Pbkdf2.Stream.X86.arg_keep rfl hk.esp (n := 32) (by have := hp.spf; omega) hk.frame hd (by omega)
 
 omit hp in
 theorem argW {s : State} (hs : s.gpr .esp = E s₀) (i : Nat) :
@@ -317,7 +317,7 @@ theorem argIn {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) {i : Nat
     InRegions (s.rd ++ s.wr) (argAddr s₀ i) 4 := by
   rw [hrd, hwr, hp.rd, hp.wr]
   exact ⟨argR s₀, by simp, by
-    rw [argR_eq]; exact Hmac.Generic.X86.arg_contains rfl (by omega) (by have := hp.spf; omega)⟩
+    rw [argR_eq]; exact Pbkdf2.Stream.X86.arg_contains rfl (by omega) (by have := hp.spf; omega)⟩
 
 /-- An argument, read from memory while `KR` holds. -/
 theorem KR.readArg {s : State} (hk : KR F s₀ s) {i : Nat} (hi : i < 8) :
@@ -325,7 +325,7 @@ theorem KR.readArg {s : State} (hk : KR F s₀ s) {i : Nat} (hi : i < 8) :
   have := hk.argEq hp hi
   simp only [arg] at this ⊢
   rwa [show argAddr s i = argAddr s₀ i by
-    rw [Hmac.Generic.X86.argAddr_eq, Hmac.Generic.X86.argAddr_eq, hk.esp]] at this
+    rw [Pbkdf2.Stream.X86.argAddr_eq, Pbkdf2.Stream.X86.argAddr_eq, hk.esp]] at this
 
 /-- `mov d, [esp + 4 + 4 i]`: argument `i`, while `KR` holds. -/
 theorem wp_arg {s : State} (hk : KR F s₀ s) {d : Reg} {i : Nat} (hi : i < 8) {is : List Instr}
@@ -374,8 +374,8 @@ end
 /-- `d ← scratch + o`, while `KR` holds. -/
 theorem scr_ok {s₀ s : State} (hk : KR F s₀ s) {d : Reg} {o : Nat} {rest : List Instr} {Q : State → Prop}
     (k : ∀ s', VG.Proof.Sha256.X86.Stream.Upd s s' d (dO s₀ o) → WP isa (.block rest) s' Q) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86.scr d o ++ rest)) s Q := by
-  simp only [VG.Impl.Hmac.Generic.X86.scr, List.cons_append, List.nil_append]
+    WP isa (.block (VG.Impl.Pbkdf2.Stream.X86.scr d o ++ rest)) s Q := by
+  simp only [VG.Impl.Pbkdf2.Stream.X86.scr, List.cons_append, List.nil_append]
   refine VG.Proof.Sha256.X86.Stream.wp_mov fun s₁ u₁ => VG.Proof.Sha256.X86.Stream.wp_addi fun s₂ u₂ =>
     k s₂ ⟨?_, fun r hr => by rw [u₂.other r hr, u₁.other r hr], by rw [u₂.mem, u₁.mem], by rw [u₂.rd, u₁.rd],
       by rw [u₂.wr, u₁.wr]⟩

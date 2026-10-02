@@ -3,7 +3,7 @@ import VerifiedGarbage.TCB.X86_64.Sse
 /-!
 # x86-64 AVX instructions
 
-**Trusted.** The VEX-encoded (AVX and AVX2) instructions of the x86-64 model
+**Trusted.** The VEX-encoded (AVX, AVX2, VAES and VPCLMULQDQ) instructions of the x86-64 model
 in `TCB/X86_64/Isa.lean` that write only vector registers, and the EVEX-encoded
 AVX512_IFMA multiply-adds on `xmm` and `ymm` registers (with AVX512VL), which
 write their destination as the VEX-encoded instructions do.
@@ -19,6 +19,7 @@ inductive VBinOp
   | vpunpckldq | vpunpckhdq | vpunpcklqdq | vpunpckhqdq
   | vpaddw | vpsubw | vpsubd | vpmullw | vpmulhw | vpackssdw | vpunpcklwd | vpunpckhwd
   | vpsubq
+  | vaesenc | vaesenclast
   deriving DecidableEq, Repr
 
 /-- AVX2 shifts of each element by the count in the corresponding element
@@ -30,6 +31,8 @@ inductive VVarOp | vpsllvd | vpsrlvd | vpsllvq | vpsrlvq
 inductive VOp
   /-- `vop dst, src1, src2` -/
   | vbin (op : VBinOp) (len : VLen) (dst src1 src2 : XReg)
+  /-- `vpclmulqdq dst, src1, src2, imm8` (VEX.128 or VEX.256). -/
+  | vpclmulqdq (len : VLen) (dst src1 src2 : XReg) (sel : BitVec 8)
   /-- `vmovdqa dst, src` -/
   | vmovdqa (len : VLen) (dst src : XReg)
   /-- `vop dst, src, imm8` (`vpslld`, `vpsrld`, `vpsllq`, `vpsrlq`, `vpslldq`,
@@ -110,6 +113,20 @@ def VBinOp.sse : VBinOp → XBinOp
   | .vpaddw => .paddw | .vpsubw => .psubw | .vpsubd => .psubd | .vpmullw => .pmullw
   | .vpmulhw => .pmulhw | .vpackssdw => .packssdw | .vpunpcklwd => .punpcklwd
   | .vpunpckhwd => .punpckhwd | .vpsubq => .psubq
+  | .vaesenc => .aesenc | .vaesenclast => .aesenclast
+
+/-! ### Vector AES and carry-less multiplication
+
+Intel SDM Vol. 2, "AESENC", "AESENCLAST" and "PCLMULQDQ"
+(https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html):
+VAESENC/VAESENCLAST apply the AES round to `SRC1.xmm[i]` with round key
+`SRC2.xmm[i]` independently for each 128-bit lane, then zero
+`DEST[MAXVL-1:VL]`. These are `XBinOp.aesenc`/`aesenclast` in `VBinOp.sse`.
+VPCLMULQDQ likewise applies the legacy carry-less multiplication to each
+pair of lanes: imm8 bit 0 selects the quadword of SRC1, bit 4 that of
+SRC2, and all other immediate bits are ignored (`pclmul` in `Sse.lean`).
+The VEX.128 forms need AES/PCLMULQDQ and AVX; the VEX.256 forms need
+VAES/VPCLMULQDQ and AVX (see `Instr.requires`). -/
 
 /-- SDM Vol. 2, "VPBLENDD", for one lane (`imm` holding that lane's four
 selector bits): `IF (imm8[i]) THEN DEST[32i+31:32i] := SRC2[32i+31:32i]
@@ -282,6 +299,8 @@ Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
   ((SRC1[127:0] << 128) OR SRC2[127:0]) >> (imm8*8)`, and likewise for
   bits 255:128), `blendDwords` (VPBLENDD, lane `j` selected by
   `imm8[4j+3:4j]`), and `VVarOp.eval`.
+* VAESENC/VAESENCLAST and VPCLMULQDQ: see the vector AES and carry-less
+  multiplication description above.
 * VMOVDQA (register form): `DEST[255:0] := SRC[255:0]` (`VEX.128`:
   `DEST[127:0] := SRC[127:0]`).
 * VPBROADCASTD/VPBROADCASTQ (register source): every doubleword
@@ -303,6 +322,9 @@ Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
 def VOp.exec : VOp → State → State
   | .vbin op len d a b, s =>
     s.setV len d (op.sse.eval (s.lane a 0) (s.lane b 0)) (op.sse.eval (s.lane a 1) (s.lane b 1))
+  | .vpclmulqdq len d a b n, s =>
+    s.setV len d (pclmul (s.lane a 0) (s.lane b 0) n)
+      (pclmul (s.lane a 1) (s.lane b 1) n)
   | .vmovdqa len d r, s => s.setV len d (s.lane r 0) (s.lane r 1)
   | .vshift op len d r n, s => s.setV len d (op.eval (s.lane r 0) n) (op.eval (s.lane r 1) n)
   | .vpshufd len d r o, s => s.setV len d (shufDwords (s.lane r 0) o) (shufDwords (s.lane r 1) o)

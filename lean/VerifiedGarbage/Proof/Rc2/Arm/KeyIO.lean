@@ -8,11 +8,11 @@ namespace VG.Proof.Rc2.Arm
 
 open VG VG.Arm VG.Arm.RegUpd VG.Impl.Rc2.Arm VG.Proof.Rc2.Word32
 
-def savedReg (i : Nat) : Reg := saved.getD i .r0
+theorem keySave_eq : save .r12 0 = (slotsOf saved).map (fun p => Instr.str p.1 .r12 p.2) := by rfl
 
-theorem keySave_eq : save .r12 0 = saveCode .r12 savedReg 9 := by rfl
+theorem keyRestore_eq : restore .r12 0 = (slotsOf saved).map (fun p => Instr.ldr p.1 .r12 p.2) := by rfl
 
-theorem keyRestore_eq : restore .r12 0 = restoreCode .r12 savedReg (List.range 9) := by rfl
+theorem keySlots_ok : Spill.Slots 0 36 (slotsOf saved) := by decide
 
 theorem pinKey_ok (s : State) :
     ∃ s', runBlock isa [rr .r8 .r12, rr .r4 .r0, rr .r5 .r1, rr .r6 .r3, rr .r7 .r2, imm .r0 0] s = some s' ∧

@@ -13,6 +13,7 @@ entry's `RejNTTPoly` does not finish within `minBounds` (`expandA_ok`).
 namespace VG.Proof.MlDsa.AArch64.Sign
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -81,20 +82,20 @@ def eChk (p : Params) (e : Nat) : Bool :=
   let w2 : List (Ptr × Nat) := [(sc (oRS + 33), 1)]
   let w3 : List (Ptr × Nat) := [(a, 1024), (sc oPS, 2048)]
   stChk p w1 && stChk p w2 && stChk p w3 && stChk p [] && inB (sgW p) (sc (oRS + 32)) 1 &&
-    inB (sgW p) (sc (oRS + 33)) 1 && keepB (sgB p) w1 (sc oRS) 32 && keepB (sgB p) w2 (sc oRS) 32 &&
-    keepB (sgB p) w3 (sc oRS) 32 && keepB (sgB p) w2 (sc (oRS + 32)) 1 && famChk (sgB p) w1 (aBase p) e &&
-    famChk (sgB p) w2 (aBase p) e && famChk (sgB p) w3 (aBase p) e && rejChkS (sgR p) (sgW p) a &&
+    inB (sgW p) (sc (oRS + 33)) 1 && keepB (sgR p) (sgW p) w1 (sc oRS) 32 && keepB (sgR p) (sgW p) w2 (sc oRS) 32 &&
+    keepB (sgR p) (sgW p) w3 (sc oRS) 32 && keepB (sgR p) (sgW p) w2 (sc (oRS + 32)) 1 && famChk (sgR p) (sgW p) w1 (aBase p) e &&
+    famChk (sgR p) (sgW p) w2 (aBase p) e && famChk (sgR p) (sgW p) w3 (aBase p) e && rejChkS (sgR p) (sgW p) a &&
     decide (e % p.ℓ < 256) && decide (e / p.ℓ < 256)
 
 theorem eChk_spec {p : Params} {e : Nat} (h : eChk p e = true) :
     stChk p [(sc (oRS + 32), 1)] = true ∧ stChk p [(sc (oRS + 33), 1)] = true ∧
       stChk p [(pS (aBase p + e), 1024), (sc oPS, 2048)] = true ∧ stChk p [] = true ∧
       inB (sgW p) (sc (oRS + 32)) 1 = true ∧ inB (sgW p) (sc (oRS + 33)) 1 = true ∧
-      keepB (sgB p) [(sc (oRS + 32), 1)] (sc oRS) 32 = true ∧ keepB (sgB p) [(sc (oRS + 33), 1)] (sc oRS) 32 = true ∧
-      keepB (sgB p) [(pS (aBase p + e), 1024), (sc oPS, 2048)] (sc oRS) 32 = true ∧
-      keepB (sgB p) [(sc (oRS + 33), 1)] (sc (oRS + 32)) 1 = true ∧
-      famChk (sgB p) [(sc (oRS + 32), 1)] (aBase p) e = true ∧ famChk (sgB p) [(sc (oRS + 33), 1)] (aBase p) e = true ∧
-      famChk (sgB p) [(pS (aBase p + e), 1024), (sc oPS, 2048)] (aBase p) e = true ∧
+      keepB (sgR p) (sgW p) [(sc (oRS + 32), 1)] (sc oRS) 32 = true ∧ keepB (sgR p) (sgW p) [(sc (oRS + 33), 1)] (sc oRS) 32 = true ∧
+      keepB (sgR p) (sgW p) [(pS (aBase p + e), 1024), (sc oPS, 2048)] (sc oRS) 32 = true ∧
+      keepB (sgR p) (sgW p) [(sc (oRS + 33), 1)] (sc (oRS + 32)) 1 = true ∧
+      famChk (sgR p) (sgW p) [(sc (oRS + 32), 1)] (aBase p) e = true ∧ famChk (sgR p) (sgW p) [(sc (oRS + 33), 1)] (aBase p) e = true ∧
+      famChk (sgR p) (sgW p) [(pS (aBase p + e), 1024), (sc oPS, 2048)] (aBase p) e = true ∧
       rejChkS (sgR p) (sgW p) (pS (aBase p + e)) = true ∧ e % p.ℓ < 256 ∧ e / p.ℓ < 256 := by
   simp only [eChk, Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩, h8⟩, h9⟩, h10⟩, h11⟩, h12⟩, h13⟩, h14⟩, h15⟩, h16⟩ := h
@@ -217,7 +218,7 @@ theorem sampleE_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : S
 
 /-- What `ExpandA` needs of the layout. -/
 def aChk (p : Params) : Bool :=
-  (List.range (p.k * p.ℓ)).all (eChk p) && copyPChk (sgB p) (sgW p) (sc oRS) (.x25, 0) &&
+  (List.range (p.k * p.ℓ)).all (eChk p) && copyPChk (sgR p) (sgW p) (sc oRS) (.x25, 0) &&
     stChk p [(sc oRS, 32)] && decide (32 ≤ p.skLen)
 
 theorem aChk_ok {p : Params} (h : Ok3 p) : aChk p = true := by

@@ -40,7 +40,7 @@ theorem inputBits_ok {s₀ s : State} {scidx argc i n : Nat}
     · rw [scR_eq]; exact sub_sub hp.fit (by decide) (by omega_using [hn]) (by decide)
   refine WP.mono (expandScalarBits_ok cu eu (by omega_using [hn]) hi.fit hr hsep)
     fun t ⟨kt, ft, bt⟩ => ?_
-  refine ⟨hu.of_offset hp.fit kt.scalar ft (by decide) (by omega_using [hn]) (by decide), fun k hk => ?_⟩
+  refine ⟨hu.of_offset hp.fit (Keep.scalar kt) ft (by decide) (by omega_using [hn]) (by decide), fun k hk => ?_⟩
   rw [bt k (by omega_using [hk]), inputBytes_same hi hu]
 
 end VG.Proof.Ed25519.X86

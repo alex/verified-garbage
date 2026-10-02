@@ -9,11 +9,12 @@ The streaming state (192 bytes at `state`) is the hash value followed by a
 * `init iv (state = x0)` stores the initial hash value `iv`.
 * `update(state = x0, count = x1, data = x2, len = x3, scratch = x4)`
   processes one block per iteration: straight from `data` while the buffer is
-  empty and a whole block remains, otherwise by copying bytes into the buffer,
-  compressing it once it is full.
+  empty and a whole block remains, otherwise by copying data into the buffer
+  (eight bytes at a time, then the rest one at a time), compressing it once it
+  is full.
 * `finalize(state = x0, count = x1, out = x2, scratch = x3)` pads the
-  buffered bytes (one or two blocks), compresses them and writes the final
-  hash value.
+  buffered bytes (one or two blocks, zeroing eight bytes at a time),
+  compresses them and writes the final hash value.
 
 The compression function's code (`Impl.Sha512.AArch64.compress`) is inlined
 with `scratch[0..176)` as its scratch space. It only uses `x0`–`x15`, and its
@@ -66,6 +67,18 @@ The loop runs while `x22 ≠ 0`, so each iteration starts with `x22 ≥ 1` and
 def direct : List Instr :=
   [mov .x1 .x21, .addImm .x .x21 .x21 128, .subImm .x .x22 .x22 128, .movz .x .x10 1 0]
 
+/-- Copy `x11` bytes of `data` into the buffer at `r`: eight at a time
+(`x13 = x11 >> 3` of them), then one at a time. -/
+def copy : Prog isa :=
+  .seq (.block [.lsr .x .x13 .x11 3])
+  (.seq (.ite (.zero .x .x13) (.block [])
+      (.loop (.block [.ldr .x .x9 .x21 0, .add .x .x12 .x19 .x23, .str .x .x9 .x12 64,
+        .addImm .x .x21 .x21 8, .addImm .x .x23 .x23 8, .subImm .x .x11 .x11 8,
+        .lsr .x .x13 .x11 3]) (.nonzero .x .x13)))
+    (.ite (.zero .x .x11) (.block [])
+      (.loop (.block [.ldrb .x9 .x21 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 64,
+        .addImm .x .x21 .x21 1, .addImm .x .x23 .x23 1, .subImm .x .x11 .x11 1]) (.nonzero .x .x11))))
+
 /-- Copy `n = min(128 - r, len) ≥ 1` bytes of `data` into the buffer; if that
 fills it, compress it. -/
 def fill : Prog isa :=
@@ -76,8 +89,7 @@ def fill : Prog isa :=
         (.ite (.zero .x .x9) (.block [mov .x11 .x22]) (.block [])))
       (.block []))
   (.seq (.block [.sub .x .x22 .x22 .x11])
-  (.seq (.loop (.block [.ldrb .x9 .x21 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 64,
-      .addImm .x .x21 .x21 1, .addImm .x .x23 .x23 1, .subImm .x .x11 .x11 1]) (.nonzero .x .x11))
+  (.seq copy
   -- Full: compress the buffer.
   (.seq (.block [.subImm .x .x9 .x23 128])
     (.ite (.zero .x .x9) (.block [.addImm .x .x1 .x19 64, .movz .x .x23 0 0, .movz .x .x10 1 0])
@@ -101,14 +113,23 @@ def updateWith (code : Prog isa) : Prog isa :=
 Registers: `x21` = `out`, `x22` = `count`, `x23` = bytes in the buffer (`r`),
 `x24` = 1 while the block being padded is not the last one (then 0). -/
 
+/-- Zero `x11` buffer bytes from `r` (`x9 = 0`): eight at a time (`x13 =
+x11 >> 3` of them), then one at a time. -/
+def zero : Prog isa :=
+  .seq (.block [.lsr .x .x13 .x11 3])
+  (.seq (.ite (.zero .x .x13) (.block [])
+      (.loop (.block [.add .x .x12 .x19 .x23, .str .x .x9 .x12 64, .addImm .x .x23 .x23 8,
+        .subImm .x .x11 .x11 8, .lsr .x .x13 .x11 3]) (.nonzero .x .x13)))
+    (.ite (.zero .x .x11) (.block [])
+      (.loop (.block [.add .x .x12 .x19 .x23, .strb .x9 .x12 64, .addImm .x .x23 .x23 1,
+        .subImm .x .x11 .x11 1]) (.nonzero .x .x11))))
+
 def finalizeBodyWith (code : Prog isa) : Prog isa :=
   -- Zero the buffer from `r` to 128, or to 112 in the last block.
   .seq (.block [.movz .x .x11 128 0])
   (.seq (.ite (.zero .x .x24) (.block [.movz .x .x11 112 0]) (.block []))
   (.seq (.block [.movz .x .x9 0 0, .sub .x .x11 .x11 .x23])
-  (.seq (.ite (.zero .x .x11) (.block [])
-      (.loop (.block [.add .x .x12 .x19 .x23, .strb .x9 .x12 64, .addImm .x .x23 .x23 1,
-        .subImm .x .x11 .x11 1]) (.nonzero .x .x11)))
+  (.seq zero
   -- In the last block, the message length in bits as a 128-bit big-endian
   -- integer: `count >> 61`, then `count << 3` (modulo 2⁶⁴).
   (.seq (.ite (.zero .x .x24)

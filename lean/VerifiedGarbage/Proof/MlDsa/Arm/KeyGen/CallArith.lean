@@ -81,8 +81,8 @@ theorem mulAdd_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : stk �
 
 theorem mul_cov {s : State} (hs : Site L Wb STK s) (m : MulOk L Wb h f g) :
     Covers (mulRd L f g ++ mulWr L h) (s.rd ++ s.wr) ∧ Covers (mulWr L h) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.pf) (covers_cons' (hs.crE m.pg) covers_nil'))
-    (covers_wr (covers_cons' (hs.cwE m.ph m.wh) covers_nil')), covers_cons' (hs.cwE m.ph m.wh) covers_nil'⟩
+  ⟨Covers.append_left (covers_cons' (hs.crE m.pf) (covers_cons' (hs.crE m.pg) covers_nil'))
+    (Covers.right (covers_cons' (hs.cwE m.ph m.wh) covers_nil')), covers_cons' (hs.cwE m.ph m.wh) covers_nil'⟩
 
 theorem mul_ok {c : Prog isa} (hc : Callee c (fun stk => mulContract Arm.abi stk) S) {s : State}
     (hs : Site L Wb STK s) (hS : S ≤ STK) {name : String} (m : MulOk L Wb h f g)
@@ -180,7 +180,7 @@ theorem accG {s : State} (hs : Site L Wb STK s) (m : AccOk L Wb f g) (rd wr : Li
 
 theorem acc_cov {s : State} (hs : Site L Wb STK s) (m : AccOk L Wb f g) :
     Covers (accRd L g ++ accWr L f) (s.rd ++ s.wr) ∧ Covers (accWr L f) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.pg) covers_nil') (covers_wr (covers_cons' (hs.cwE m.pf m.wf) covers_nil')),
+  ⟨Covers.append_left (covers_cons' (hs.crE m.pg) covers_nil') (Covers.right (covers_cons' (hs.cwE m.pf m.wf) covers_nil')),
     covers_cons' (hs.cwE m.pf m.wf) covers_nil'⟩
 
 theorem add_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : stk ≤ STK) (m : AccOk L Wb f g)

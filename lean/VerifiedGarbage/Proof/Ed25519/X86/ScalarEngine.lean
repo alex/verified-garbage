@@ -17,7 +17,7 @@ theorem scalarInit_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
     change fe v.mem x scalarR + _ * _ = acc u + 0 at ev
     rw [au] at ev
     omega_using [ev]
-  refine ⟨ku.scalar.trans (kv.scalar.trans (scalarUpd ht)), ht.gpr, ?_, ?_⟩
+  refine ⟨(Keep.scalar ku).trans ((Keep.scalar kv).trans (scalarUpd ht)), ht.gpr, ?_, ?_⟩
   · rw [ht.mem, mu] at *; exact fv
   · rw [ht.mem]; exact hz
 

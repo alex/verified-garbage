@@ -10,7 +10,7 @@ def scalarTaint (scidx argc : Nat) : VG.X86.Taint.T :=
 
 theorem scalarTaint_wf {s : State} {scidx argc : Nat} (hp : ScratchPre s scidx argc)
     (ho : OutputPre s scidx)
-    (hw : s.wr = [⟨(arg s 0).setWidth 64, 32⟩, scR (arg s scidx)])
+    (hw : s.wr = [⟨(arg s 0).setWidth 64, 32⟩, scR 8192 (arg s scidx)])
     (hao : (⟨argAddr s 0, 4 * argc⟩ : Region).Disjoint ⟨(arg s 0).setWidth 64, 32⟩) :
     VG.X86.Taint.Wf (scalarTaint scidx argc) s := by
   have hf := hp.fit; have ofit := ho.fit; have spfit := hp.sp_fit
@@ -35,8 +35,8 @@ theorem scalarTaint_agree {s t : State} {scidx argc : Nat}
     (hs : VG.X86.Taint.Wf (scalarTaint scidx argc) s) (ht : VG.X86.Taint.Wf (scalarTaint scidx argc) t)
     (hsp : s.gpr .esp = t.gpr .esp) (ha : ∀ i < argc, arg s i = arg t i)
     (hi : scidx < argc)
-    (hws : s.wr = [⟨(arg s 0).setWidth 64, 32⟩, scR (arg s scidx)])
-    (hwt : t.wr = [⟨(arg t 0).setWidth 64, 32⟩, scR (arg t scidx)])
+    (hws : s.wr = [⟨(arg s 0).setWidth 64, 32⟩, scR 8192 (arg s scidx)])
+    (hwt : t.wr = [⟨(arg t 0).setWidth 64, 32⟩, scR 8192 (arg t scidx)])
     (hss : (s.gpr .esp).toNat + 4 + 4 * argc ≤ 2 ^ 32)
     (hst : (t.gpr .esp).toNat + 4 + 4 * argc ≤ 2 ^ 32) :
     VG.X86.Taint.Agree (scalarTaint scidx argc) s t := by

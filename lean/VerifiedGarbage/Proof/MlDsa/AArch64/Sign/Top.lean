@@ -17,6 +17,7 @@ sequences of pieces indexed by a number (`seqR_ok`, `seqR_tr`).
 namespace VG.Proof.MlDsa.AArch64.Sign
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep wp_nil wp_movz wp_addImm wp_ldrx in_rd_wr)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -105,14 +106,15 @@ theorem sgLay (hsz : scrLen p < 2 ^ 32 ∧ p.skLen < 2 ^ 32 ∧ p.sigLen < 2 ^ 3
     ⟨r, by rw [h.rd, h.wr]; exact hr, Region.contains_self _ _⟩
   have memw : ∀ r ∈ σ.wr, InRegions s.wr r.base r.len := fun r hr =>
     ⟨r, by rw [h.wr]; exact hr, Region.contains_self _ _⟩
-  refine ⟨?_, fun b hb b' hb' hne hw => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_,
-    sgB_bases p, by rw [h.sp]; exact hsp⟩
+  refine ⟨⟨?_, fun b hb b' hb' hne hw => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_⟩,
+    fun b hb => bases_kept _ (sgB_bases p b hb), by rw [h.sp]; exact hsp⟩
   · intro b hb
     simp only [sgR, sgW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hb
     rcases hb with rfl | rfl | rfl | rfl | rfl <;> simp only <;> omega
   · simp only [sgR, sgW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hb hb'
+    have w : ∀ r, isW (sgW p) r = (r == .x28 || r == .x23) := fun r => by cases r <;> rfl
     rcases hb with rfl | rfl | rfl | rfl | rfl <;> rcases hb' with rfl | rfl | rfl | rfl | rfl <;>
-      simp only [wRegs, List.mem_cons, List.not_mem_nil, or_false, reduceCtorEq, or_self, ne_eq,
+      simp only [w, beq_iff_eq, reduceCtorEq, Bool.or_eq_true, or_self, or_false, false_or, ne_eq,
         not_true_eq_false] at hne hw ⊢ <;> simp only [e1, e2, e3, e4, e5]
     all_goals first
       | exact d1 | exact d2 | exact d3 | exact d4 | exact d5 | exact d6 | exact d7
@@ -135,15 +137,15 @@ theorem sgLay (hsz : scrLen p < 2 ^ 32 ∧ p.skLen < 2 ^ 32 ∧ p.sigLen < 2 ^ 3
 end
 
 /-- The saved registers are apart from the regions `ws`. -/
-def topChk (bs : List (Reg × Nat)) (ws : List (Ptr × Nat)) : Bool :=
-  (List.range 7).all fun k => keepB bs ws (sc (oSV + 8 * k)) 8
+def topChk (rbs wbs : List (Reg × Nat)) (ws : List (Ptr × Nat)) : Bool :=
+  (List.range 7).all fun k => keepB rbs wbs ws (sc (oSV + 8 * k)) 8
 
 theorem Top.step {S : Nat} {σ s s' : State} {rbs wbs : List (Reg × Nat)} (h : Top σ s)
     (L : Lay S rbs wbs s) {ws : List (Ptr × Nat)} (hP : PPostB S s s' ws)
-    (hc : topChk (rbs ++ wbs) ws = true) : Top σ s' := by
+    (hc : topChk rbs wbs ws = true) : Top σ s' := by
   simp only [topChk, List.all_eq_true, List.mem_range] at hc
   refine ⟨hP.rd.trans h.rd, hP.wr.trans h.wr, hP.sp.trans h.sp,
-    fun m hm => (hP.bs _ (sgM_bases m hm)).trans (h.regs m hm),
+    fun m hm => (hP.bs _ (bases_kept _ (sgM_bases m hm))).trans (h.regs m hm),
     fun r hr => by rw [hP.cs r (untouched_kept r hr), h.cs r hr], fun k hk => ?_,
     fun r hr => (hP.vcs r hr).trans (h.vcs r hr)⟩
   rw [L.keepW hP (hc k hk)]; exact h.saved k hk
@@ -256,33 +258,5 @@ theorem ifOkElse_tr {t e : Prog isa} {P Q : State → State → Prop}
   RelCT.ite (fun x y h => by rw [eval24, eval24, hq x y h])
     (RelCT.mono ht (fun x y ⟨h, hc⟩ => ⟨h, by rw [eval24] at hc; simpa using hc⟩) fun _ _ h => h)
     (RelCT.mono he (fun x y ⟨h, hc⟩ => ⟨h, by rw [eval24] at hc; simpa using hc⟩) fun _ _ h => h)
-
-/-! ## Sequences -/
-
-theorem seqR_ok {f : Nat → Prog isa} {I : Nat → State → Prop} :
-    ∀ (n a : Nat), (∀ k, a ≤ k → k < a + n → ∀ s, I k s → WP isa (f k) s (I (k + 1))) →
-      ∀ s, I a s → WP isa (seqR f a n) s (I (a + n))
-  | 0, a, _, s, hs => WP.block_nil hs
-  | n + 1, a, h, s, hs => by
-    rw [seqR]
-    refine WP.seq (WP.mono (h a (Nat.le_refl _) (by omega) s hs) fun s₁ h₁ => ?_)
-    rw [show a + (n + 1) = a + 1 + n by omega]
-    exact seqR_ok n (a + 1) (fun k hk hk' => h k (by omega) (by omega)) s₁ h₁
-
-theorem nil_tr {P : State → State → Prop} : RelCT isa P (.block []) P := by
-  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
-  rw [Exec.block_iff] at e₁ e₂
-  simp only [execBlock, Option.some.injEq, Prod.mk.injEq] at e₁ e₂
-  obtain ⟨rfl, rfl⟩ := e₁
-  obtain ⟨rfl, rfl⟩ := e₂
-  exact ⟨rfl, hp⟩
-
-theorem seqR_tr {f : Nat → Prog isa} {R : Nat → State → State → Prop} :
-    ∀ (n a : Nat), (∀ k, a ≤ k → k < a + n → RelCT isa (R k) (f k) (R (k + 1))) →
-      RelCT isa (R a) (seqR f a n) (R (a + n))
-  | 0, _, _ => nil_tr
-  | n + 1, a, h => by
-    rw [seqR, show a + (n + 1) = a + 1 + n by omega]
-    exact RelCT.seq (h a (Nat.le_refl _) (by omega)) (seqR_tr n (a + 1) fun k hk hk' => h k (by omega) (by omega))
 
 end VG.Proof.MlDsa.AArch64.Sign
