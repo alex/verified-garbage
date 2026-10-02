@@ -648,9 +648,12 @@ jobs:
           path: "*.lcov"
           if-no-files-found: error
 
-  # Skipped with the jobs it merges.
+  # Skipped with the jobs it merges. The condition must be explicit: the
+  # default, `success()`, is false when any job before it in the chain was
+  # skipped, and `reuse` is skipped outside pushes.
   coverage:
     needs: [rust, rust-cpu-features]
+    if: ${{ !cancelled() && needs.rust.result == 'success' && needs.rust-cpu-features.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
