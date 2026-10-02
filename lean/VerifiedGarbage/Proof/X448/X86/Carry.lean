@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Range
 
 /-!
 # X448 on x86 (32-bit): carry propagation
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X448.X86

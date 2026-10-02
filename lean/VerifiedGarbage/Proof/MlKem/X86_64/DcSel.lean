@@ -4,9 +4,9 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Decaps
 /-!
 # ML-KEM-768 on x86-64: `vg_mlkem768_decaps`, the choice of the key
 
-Untrusted: everything here is checked by Lean. The comparison of the
-ciphertexts (`cmp_ok`: the OR of the XORs of their bytes), the mask
-(`mid_ok`), and the choice of each byte of the key (`sel_ok`).
+The comparison of the ciphertexts (`cmp_ok`: the OR of the XORs of their
+bytes), the mask (`mid_ok`), and the choice of each byte of the key
+(`sel_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.EcBase
 /-!
 # ML-KEM-768 on x86-64: `vg_mlkem768_encaps`
 
-Untrusted: everything here is checked by Lean. The function, piece by
-piece: it returns 1 with `ML-KEM.Encaps_internal(ek, m)` in `key` and `ct`
-if every `SampleNTT` succeeded within 280 iterations (`allOk`), and 0
-otherwise (`encaps_correct`); it leaks only the pointers and `ρ`
-(`encaps_ct`); so it meets the shared contract (`encaps_verified`).
+The function, piece by piece: it returns 1 with `ML-KEM.Encaps_internal(ek,
+m)` in `key` and `ct` if every `SampleNTT` succeeded within 280 iterations
+(`allOk`), and 0 otherwise (`encaps_correct`); it leaks only the pointers and
+`ρ` (`encaps_ct`); so it meets the shared contract (`encaps_verified`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

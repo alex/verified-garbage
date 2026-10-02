@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Round.Bits
 
 /-!
 # ML-DSA on x86-64: `vg_mldsa_use_hint`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

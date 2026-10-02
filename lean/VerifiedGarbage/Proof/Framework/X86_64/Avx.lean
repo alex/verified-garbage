@@ -4,10 +4,9 @@ import VerifiedGarbage.TCB.X86_64.Avx
 /-!
 # x86-64: AVX registers lane by lane
 
-Untrusted: everything here is checked by Lean. The AVX instructions of the
-model, stated on one 128-bit lane of their operands (`State.lane`) and on the
-doublewords of a lane; and little-endian reads and writes of any width, as
-the words and bytes they contain.
+The AVX instructions of the model, stated on one 128-bit lane of their
+operands (`State.lane`) and on the doublewords of a lane; and little-endian
+reads and writes of any width, as the words and bytes they contain.
 -/
 
 namespace VG.X86_64

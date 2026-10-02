@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Framework.AArch64.RelCT
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 
-/-! Untrusted: relational constant-time composition with a public stack pointer.
+/-! Relational constant-time composition with a public stack pointer.
 The AArch64 taint domain always includes sp; this wrapper carries its agreement
 through every composition, while individual relations describe the other data. -/
 namespace VG.Proof.Ed25519.AArch64

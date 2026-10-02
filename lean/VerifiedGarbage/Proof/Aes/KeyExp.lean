@@ -3,8 +3,6 @@ import VerifiedGarbage.Spec.Aes
 /-!
 # The key expansion, word by word
 
-Untrusted: everything here is checked by Lean.
-
 `expandWords key nk i` only ever appends: word `j` is the same in every
 prefix that has it (`kw`), each word is 4 bytes when the key is `4 nk`
 bytes, and word `i ≥ nk` is `w[i − nk] ⊕ temp` byte by byte, with `temp`

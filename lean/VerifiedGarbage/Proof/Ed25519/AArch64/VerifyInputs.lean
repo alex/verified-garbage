@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.AArch64.Verify
 import VerifiedGarbage.Proof.Ed25519.AArch64.DecodeBits
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarStep
 
-/-! Untrusted: reload verification pointers and check the complete unsigned scalar S. -/
+/-! Reload verification pointers and check the complete unsigned scalar S. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 

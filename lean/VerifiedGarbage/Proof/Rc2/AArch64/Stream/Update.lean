@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.Rc2.AArch64.Cbc.Verified
 /-!
 # Streaming RC2-CBC on AArch64: the update functions
 
-Untrusted: everything here is checked by Lean. With no complete block, the
-data is appended to the pending bytes (`short_ok`); otherwise, inside the
-frame saving `x30`, the copies (`prep_ok`) are followed by the call of the
-verified CBC function (`call_ok`). `update_post_short` and
-`update_post_long` (`Proof/Rc2/Stream.lean`) turn the memory each leaves
-into the contract's postcondition.
+With no complete block, the data is appended to the pending bytes
+(`short_ok`); otherwise, inside the frame saving `x30`, the copies (`prep_ok`)
+are followed by the call of the verified CBC function (`call_ok`).
+`update_post_short` and `update_post_long` (`Proof/Rc2/Stream.lean`) turn the
+memory each leaves into the contract's postcondition.
 -/
 
 namespace VG.Proof.Rc2.AArch64.Stream

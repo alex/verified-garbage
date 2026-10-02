@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseL
 /-!
 # ML-DSA signing on AArch64: the signature
 
-Untrusted: everything here is checked by Lean. Once an iteration passed:
-`c̃`, then `BitPack(z[r], γ₁ - 1, γ₁)` for each `r` (in range, as `z`
-passed its norm check: `inRange_of_norm`), then `HintBitPack(h)` (with at
-most `ω` 1s) to `sig`, which then holds `sigEncode(c̃, z mod± q, h)`
-(`output_ok`).
+Once an iteration passed: `c̃`, then `BitPack(z[r], γ₁ - 1, γ₁)` for each `r`
+(in range, as `z` passed its norm check: `inRange_of_norm`), then
+`HintBitPack(h)` (with at most `ω` 1s) to `sig`, which then holds
+`sigEncode(c̃, z mod± q, h)` (`output_ok`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign

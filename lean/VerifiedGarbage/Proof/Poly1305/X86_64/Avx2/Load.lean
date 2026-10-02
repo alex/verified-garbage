@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Mul
 /-!
 # Poly1305 on x86-64 with AVX2: loading blocks, `r` and the accumulator
 
-Untrusted: everything here is checked by Lean. `addGroup` splits the four
-blocks at `rsi` into limbs (block `k` in lane `k`) and adds them, with the
-pad bit, to `H`; `loadR` and `loadH` split `r` and the accumulator the same
-way.
+`addGroup` splits the four blocks at `rsi` into limbs (block `k` in lane `k`)
+and adds them, with the pad bit, to `H`; `loadR` and `loadH` split `r` and the
+accumulator the same way.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx2

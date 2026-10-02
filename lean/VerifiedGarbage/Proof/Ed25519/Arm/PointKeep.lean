@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.MulInput
 import VerifiedGarbage.Proof.Ed25519.Arm.DecodeKeep
 
-/-! Untrusted: point engines preserve register saves, the output pointer, and
+/-! Point engines preserve register saves, the output pointer, and
 the three packed points reserved for verification. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm

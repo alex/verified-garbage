@@ -6,10 +6,9 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024 on x86-64: `vg_mlkem1024_check_ek`
 
-Untrusted: everything here is checked by Lean. As `vg_mlkem768_check_ek`
-(`Proof/MlKem/X86_64/CheckEk.lean`, whose loop body and count `cnt` it
-shares): all 1024 fields are less than `q` exactly when the key passes the
-check (`cnt_eq_iff`, `ekCheck1024`).
+As `vg_mlkem768_check_ek` (`Proof/MlKem/X86_64/CheckEk.lean`, whose loop body
+and count `cnt` it shares): all 1024 fields are less than `q` exactly when the
+key passes the check (`cnt_eq_iff`, `ekCheck1024`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

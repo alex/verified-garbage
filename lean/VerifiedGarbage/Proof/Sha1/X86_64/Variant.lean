@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Sha1.X86_64.Stream.Md
 /-!
 # Implementations of the SHA-1 compression function on x86-64
 
-Untrusted: everything here is checked by Lean.
-
 A `Compress` is what a function that calls the compression function needs
 of it, so that its proof holds for every implementation: each makes
 SHA-1 a variant of the interface `MdHash` on x86-64

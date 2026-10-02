@@ -3,15 +3,14 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Pack.HintBase
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_hint_bit_unpack`, the steps
 
-Untrusted: everything here is checked by Lean. As on x86-64, the code
-follows the fold form of `HintBitUnpack` (`hintBitUnpack_eq`,
-`Proof/MlDsa/Pack/Hint.lean`) step by step: while no check has failed, the
-words of `h` are the hint of the spec (`HArr`) and `r1` its index; once one
-has, `r1` is 256, which skips the rest (`SRel`). Here: the arguments,
-zeroing `h`, and one coefficient (`first_ok`, `next_ok`); the loops are in
-`HintUnpackLoops.lean`. They run from any state that permits reading `y` and
-writing `h` (`MainPre`), so that constant time can narrow the state to those
-two regions.
+As on x86-64, the code follows the fold form of `HintBitUnpack`
+(`hintBitUnpack_eq`, `Proof/MlDsa/Pack/Hint.lean`) step by step: while no
+check has failed, the words of `h` are the hint of the spec (`HArr`) and `r1`
+its index; once one has, `r1` is 256, which skips the rest (`SRel`). Here: the
+arguments, zeroing `h`, and one coefficient (`first_ok`, `next_ok`); the loops
+are in `HintUnpackLoops.lean`. They run from any state that permits reading
+`y` and writing `h` (`MainPre`), so that constant time can narrow the state to
+those two regions.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Pack.Hint.Unpack

@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.Mem
 /-!
 # TDEA: the passes, and the key schedule in memory
 
-Untrusted: everything here is checked by Lean.
-
 `des` is `IP`, sixteen rounds and `IP⁻¹`; TDEA's three passes share one
 `IP` and one `IP⁻¹`, which cancel between them, so that the passes are the
 rounds with the halves exchanged (`tdes_eq`). The key schedule's slots are

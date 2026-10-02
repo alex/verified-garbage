@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.RowMem
 /-!
 # X448 on x86 (32-bit): advancing the product row
 
-Untrusted: everything here is checked by Lean. The last carry becomes the
-next product word, and the public row pointer controls loop termination.
+The last carry becomes the next product word, and the public row pointer
+controls loop termination.
 -/
 
 namespace VG.Proof.X448.X86

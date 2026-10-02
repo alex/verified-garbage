@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseCT
 import VerifiedGarbage.Proof.Framework.Contract
 
-/-! Untrusted: a state satisfying the precondition of `vg_ed25519_scalar_base`'s contract,
+/-! A state satisfying the precondition of `vg_ed25519_scalar_base`'s contract,
 the witness that it is satisfiable (`ScalarBasePrecomputedVerified.lean`). -/
 
 namespace VG.Proof.Ed25519.X86_64

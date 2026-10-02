@@ -4,8 +4,7 @@ import VerifiedGarbage.Proof.Framework.Arm.RegUpd
 /-!
 # X448 on ARMv7: constant-time conditional swaps
 
-Untrusted: everything here is checked by Lean. An XOR mask swaps limbs
-without a secret-dependent branch or memory address.
+An XOR mask swaps limbs without a secret-dependent branch or memory address.
 -/
 
 namespace VG.Proof.X448.Arm

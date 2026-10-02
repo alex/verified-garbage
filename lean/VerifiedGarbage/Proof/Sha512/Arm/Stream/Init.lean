@@ -8,8 +8,7 @@ import VerifiedGarbage.Proof.Sha512.Arm.Lit
 /-!
 # Streaming SHA-512 on ARMv7: `init`
 
-Untrusted: everything here is checked by Lean. One proof for every initial
-hash value `iv`.
+One proof for every initial hash value `iv`.
 -/
 
 namespace VG.Proof.Sha512.Arm.Stream

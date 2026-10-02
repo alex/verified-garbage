@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.RecoverCTSign
 
-/-! Untrusted: the two square-root checks branch on public field values. -/
+/-! The two square-root checks branch on public field values. -/
 
 namespace VG.Proof.Ed25519.X86
 

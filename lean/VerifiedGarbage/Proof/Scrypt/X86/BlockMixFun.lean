@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Scrypt.X86.BlockMix
 /-!
 # scryptBlockMix on x86 (32-bit): the whole function
 
-Untrusted: everything here is checked by Lean. The prologue saves our
-caller's `ebx`, `esi`, `edi` and `ebp` in `scratch` and sets up the loop's
-registers from the arguments; the loop runs the `r` pairs; the epilogue
-restores the registers.
+The prologue saves our caller's `ebx`, `esi`, `edi` and `ebp` in `scratch` and
+sets up the loop's registers from the arguments; the loop runs the `r` pairs;
+the epilogue restores the registers.
 -/
 
 namespace VG.Proof.Scrypt.X86.BlockMix

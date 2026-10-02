@@ -4,15 +4,14 @@ import VerifiedGarbage.Proof.MlKem1024.Arm.EncryptCT
 /-!
 # ML-KEM-1024 on 32-bit ARM: `vg_mlkem1024_decaps`, constant time and `Verified`
 
-Untrusted: everything here is checked by Lean. Two runs from states that
-agree on the public data (the pointers, the stack pointer, and `ρ` in `dk`,
-which the contract lets the function leak) leak the same trace (`all_ct`),
-phase by phase: the blocks by the taint analysis, from the pointers, or
-because they access no memory; the calls of the primitives on the same
-pointers; the hashes by `hash_ct`; and the re-encryption by `encrypt_ct`.
-The comparison of `c` and `c'` and the selection of the key branch on
-nothing but their counters: the taint analysis proves them constant time
-from the pointers, which are the same in both runs. What each run is at
+Two runs from states that agree on the public data (the pointers, the stack
+pointer, and `ρ` in `dk`, which the contract lets the function leak) leak the
+same trace (`all_ct`), phase by phase: the blocks by the taint analysis, from
+the pointers, or because they access no memory; the calls of the primitives on
+the same pointers; the hashes by `hash_ct`; and the re-encryption by
+`encrypt_ct`. The comparison of `c` and `c'` and the selection of the key
+branch on nothing but their counters: the taint analysis proves them constant
+time from the pointers, which are the same in both runs. What each run is at
 each point comes from its correctness (`Decaps.lean`).
 -/
 

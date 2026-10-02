@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyCTDecodeA
 
-/-! Untrusted: the canonical scalar check depends only on the public signature. -/
+/-! The canonical scalar check depends only on the public signature. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

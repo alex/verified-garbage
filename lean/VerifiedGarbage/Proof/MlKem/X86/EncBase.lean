@@ -6,13 +6,12 @@ import VerifiedGarbage.Impl.MlKem.X86.Encrypt
 /-!
 # ML-KEM-768 on x86 (32-bit): the setting of K-PKE.Encrypt
 
-Untrusted: everything here is checked by Lean. `encrypt sc` is proven once,
-for any layout whose `scratch` has 32768 bytes and whose stack is 88 bytes
-(`SOK`), which `vg_mlkem768_encaps` and `vg_mlkem768_decaps` both have. The
-facts of the layout of its buffers, all in `scratch`, are then computed from
-their offsets (`ok_sc`, `sep_sc`: `sc_decide`), and its code, which reaches
-them through `esi`, does not depend on the argument `scratch` is
-(`ptrTo_sc`: `sc_taint`).
+`encrypt sc` is proven once, for any layout whose `scratch` has 32768 bytes
+and whose stack is 88 bytes (`SOK`), which `vg_mlkem768_encaps` and
+`vg_mlkem768_decaps` both have. The facts of the layout of its buffers, all in
+`scratch`, are then computed from their offsets (`ok_sc`, `sep_sc`:
+`sc_decide`), and its code, which reaches them through `esi`, does not depend
+on the argument `scratch` is (`ptrTo_sc`: `sc_taint`).
 
 Its inputs (`Inp`) are `ek`, `m` and 64 bytes whose last 32 are `r`, at
 `eEK`, `eM` and `eKR` (`Base`). A step's frame is within what a predicate

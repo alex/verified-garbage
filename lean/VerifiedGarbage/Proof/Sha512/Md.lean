@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Sha512.Stream
 /-!
 # The SHA-512 family as a streaming Merkle–Damgård hash function
 
-Untrusted: everything here is checked by Lean. SHA-512 (for any initial hash
-value, so SHA-384, SHA-512/224 and SHA-512/256 too) as an instance of
-`Proof.MdStream.Md`, for the generic streaming proofs: its `Repr` and
-`finalHash` are the generic ones, by unfolding.
+SHA-512 (for any initial hash value, so SHA-384, SHA-512/224 and SHA-512/256
+too) as an instance of `Proof.MdStream.Md`, for the generic streaming proofs:
+its `Repr` and `finalHash` are the generic ones, by unfolding.
 -/
 
 namespace VG.Proof.Sha512

@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.FragC
 /-!
 # ML-KEM-768 on x86-64: entry and exit of the top-level functions
 
-Untrusted: everything here is checked by Lean. What holds of the state of
-a top-level function throughout (`Top`): the permissions and the stack
-pointer of entry, its pointers in their registers, its caller's
-callee-saved registers saved in `scratch`, and the return address; its
-buffers make a layout (`Lay.of`). The saves (`stores_read`), the return
-(`topEpi_ok`), the branch on the results of `SampleNTT` (`ifOk_ok`,
+What holds of the state of a top-level function throughout (`Top`): the
+permissions and the stack pointer of entry, its pointers in their registers,
+its caller's callee-saved registers saved in `scratch`, and the return
+address; its buffers make a layout (`Lay.of`). The saves (`stores_read`), the
+return (`topEpi_ok`), the branch on the results of `SampleNTT` (`ifOk_ok`,
 `ifOk_tr`), and sequences of pieces indexed by a number (`seqR_ok`,
 `seqR_tr`).
 -/

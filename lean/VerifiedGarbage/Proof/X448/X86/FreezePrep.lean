@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Copy
 /-!
 # X448 on x86 (32-bit): preparing canonical reduction
 
-Untrusted: everything here is checked by Lean. Adding one in limbs zero
-and fourteen implements the addition of 1 + 2²²⁴ before carry propagation.
+Adding one in limbs zero and fourteen implements the addition of 1 + 2²²⁴
+before carry propagation.
 -/
 
 namespace VG.Proof.X448.X86

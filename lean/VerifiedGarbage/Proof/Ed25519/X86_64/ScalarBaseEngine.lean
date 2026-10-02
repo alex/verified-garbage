@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.PointMul
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointEncode
 import VerifiedGarbage.Proof.Ed25519.X86_64.Bits
 
-/-! Untrusted: the scalar bits, point multiplication, and canonical encoding compose. -/
+/-! The scalar bits, point multiplication, and canonical encoding compose. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

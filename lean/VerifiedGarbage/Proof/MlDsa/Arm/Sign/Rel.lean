@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.BlockTr
 /-!
 # ML-DSA signing on ARMv7: two runs
 
-Untrusted: everything here is checked by Lean. Constant time is proven
-piece by piece (`RelCT`) for two runs from entry states that satisfy
-`signK`'s precondition and agree on its public data, each satisfying the
-invariant `I` of the correctness proof, and related by `E` (`RR`): each
-piece leaks the same, correctness gives each run's next invariant, and the
-piece's own proof the next relation (`relInvE`). The runs are in the same
-layout (`RR.lrel`) and agree on `ρ` (`RR.rho`), which the leakage begins
-with.
+Constant time is proven piece by piece (`RelCT`) for two runs from entry
+states that satisfy `signK`'s precondition and agree on its public data, each
+satisfying the invariant `I` of the correctness proof, and related by `E`
+(`RR`): each piece leaks the same, correctness gives each run's next
+invariant, and the piece's own proof the next relation (`relInvE`). The runs
+are in the same layout (`RR.lrel`) and agree on `ρ` (`RR.rho`), which the
+leakage begins with.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

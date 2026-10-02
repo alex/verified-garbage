@@ -7,10 +7,9 @@ import VerifiedGarbage.Spec.Cmac.Contract
 /-!
 # AES-CMAC on x86: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness and constant
-time, a state satisfying each precondition, and the shared contracts of
-`Spec/Cmac/Contract.lean`, with 28 bytes of stack: each call of
-`vg_aes_ctr32` pushes its six arguments and the return address.
+Correctness and constant time, a state satisfying each precondition, and the
+shared contracts of `Spec/Cmac/Contract.lean`, with 28 bytes of stack: each
+call of `vg_aes_ctr32` pushes its six arguments and the return address.
 -/
 
 namespace VG.Proof.CmacAes.X86

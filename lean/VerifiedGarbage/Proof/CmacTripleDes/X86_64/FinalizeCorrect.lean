@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.CmacTripleDes.X86_64.Finalize
 /-!
 # TDEA-CMAC on x86-64: `vg_cmac_triple_des_finalize` is correct
 
-Untrusted: everything here is checked by Lean. After the branch on the
-length, `rax` holds `Mₙ` (`BPost`); the function XORs in the chaining value
-`C`, encrypts it and stores `CIPH_K(C ⊕ Mₙ)` as the state, the MAC
-(`macFull_split8`).
+After the branch on the length, `rax` holds `Mₙ` (`BPost`); the function XORs
+in the chaining value `C`, encrypts it and stores `CIPH_K(C ⊕ Mₙ)` as the
+state, the MAC (`macFull_split8`).
 -/
 
 namespace VG.Proof.CmacTripleDes.X86_64

@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.Prims
 /-!
 # ML-DSA signing on ARMv7: calls of the samplers
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_rej_ntt_poly`, `vg_mldsa_expand_mask_poly` and
-`vg_mldsa_sample_in_ball` (whose fifth argument is on the stack). The
-results of `RejNTTPoly` and `SampleInBall` are public in two runs whose
-seeds agree (`rejCall_tr`, `ballCall_tr`), and they succeed only if the
-algorithm finishes within `maxBounds` (`rejCall_ok`, `ballCall_ok`).
+As `Prims.lean`, for `vg_mldsa_rej_ntt_poly`, `vg_mldsa_expand_mask_poly` and
+`vg_mldsa_sample_in_ball` (whose fifth argument is on the stack). The results
+of `RejNTTPoly` and `SampleInBall` are public in two runs whose seeds agree
+(`rejCall_tr`, `ballCall_tr`), and they succeed only if the algorithm finishes
+within `maxBounds` (`rejCall_ok`, `ballCall_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

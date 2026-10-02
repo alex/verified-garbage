@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.X25519.Arm.Pass
 /-!
 # X448 on ARMv7: multiplication-row carry propagation
 
-Untrusted: everything here is checked by Lean. The instruction rules and
-carry-chain arithmetic are shared with X25519. This pass handles the
-28 limbs of X448.
+The instruction rules and carry-chain arithmetic are shared with X25519. This
+pass handles the 28 limbs of X448.
 -/
 
 namespace VG.Proof.X448.Arm

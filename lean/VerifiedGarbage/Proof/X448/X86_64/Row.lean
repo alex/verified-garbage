@@ -5,9 +5,8 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # X448 on x86-64: a row of multiplication
 
-Untrusted: everything here is checked by Lean. Sixteen multiply-adds update
-the coefficient array. Each coefficient is visited once in a row, and the
-field operands are outside that array.
+Sixteen multiply-adds update the coefficient array. Each coefficient is
+visited once in a row, and the field operands are outside that array.
 -/
 
 namespace VG.Proof.X448.X86_64

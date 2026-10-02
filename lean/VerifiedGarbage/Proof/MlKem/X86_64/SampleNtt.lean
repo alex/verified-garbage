@@ -6,14 +6,13 @@ import VerifiedGarbage.Proof.MlKem.KPke
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt`, correctness
 
-Untrusted: everything here is checked by Lean. The function runs in
-pieces, each from a state satisfying an invariant (`I1` … `I6`, relative
-to the entry state `σ`) to the next. `snSample n` runs the three calls of
-the sponge, whose output is `XOF(B, 3 n)` (`xof_eq`), and the loop, which
-then samples `sampleAfter [] (xofByte B) n` (`sample_ok`). After 168
-iterations these are `sampleAfter [] (xofByte B) 280` if there are 256 of
-them (`sampleAfter_full`), and otherwise the function runs the 280
-iterations (`more_ok`).
+The function runs in pieces, each from a state satisfying an invariant (`I1` …
+`I6`, relative to the entry state `σ`) to the next. `snSample n` runs the
+three calls of the sponge, whose output is `XOF(B, 3 n)` (`xof_eq`), and the
+loop, which then samples `sampleAfter [] (xofByte B) n` (`sample_ok`). After
+168 iterations these are `sampleAfter [] (xofByte B) 280` if there are 256 of
+them (`sampleAfter_full`), and otherwise the function runs the 280 iterations
+(`more_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

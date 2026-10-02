@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.MlDsa.Arith.Ntt
 /-!
 # ML-DSA on AArch64: the butterflies of `NTT` and `NTT⁻¹`
 
-Untrusted: everything here is checked by Lean. What one butterfly's code
-stores (`bfly_ok`, `bflyInv_ok`), for any `len`, from the words it reads
-and the zeta in `x6`; and that it does what the butterfly of the
-specification does (`bfly_spec`, `bflyInv_spec`).
+What one butterfly's code stores (`bfly_ok`, `bflyInv_ok`), for any `len`,
+from the words it reads and the zeta in `x6`; and that it does what the
+butterfly of the specification does (`bfly_spec`, `bflyInv_spec`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Arith

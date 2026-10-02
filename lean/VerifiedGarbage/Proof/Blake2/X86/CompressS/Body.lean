@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Blake2.X86.Stream.Common
 /-!
 # BLAKE2s on x86 (32-bit): one block
 
-Untrusted: everything here is checked by Lean. `body_ok`: the loop body
-compresses block `i` into the state and advances to the next block, from the
-loop invariant `LInv`.
+`body_ok`: the loop body compresses block `i` into the state and advances to
+the next block, from the loop invariant `LInv`.
 -/
 
 namespace VG.Proof.Blake2.X86.CompressS

@@ -7,11 +7,11 @@ import VerifiedGarbage.Spec.Cmac.Contract
 /-!
 # Streaming AES-CMAC on ARMv7: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness and constant
-time, a state satisfying each precondition, and the shared contracts of
-`Spec/Cmac/Contract.lean`: with 8 bytes of stack for `init` (the frame of
-`vg_cmac_aes_subkeys`), and 16 for `absorb` and `finish` (the stack
-arguments they push, and the frame of the function they call below them).
+Correctness and constant time, a state satisfying each precondition, and the
+shared contracts of `Spec/Cmac/Contract.lean`: with 8 bytes of stack for
+`init` (the frame of `vg_cmac_aes_subkeys`), and 16 for `absorb` and `finish`
+(the stack arguments they push, and the frame of the function they call below
+them).
 -/
 
 namespace VG.Proof.CmacAes.Stream.Arm

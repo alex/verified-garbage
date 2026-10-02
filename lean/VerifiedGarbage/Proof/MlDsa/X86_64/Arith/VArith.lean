@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.MlKem.X86_64.VArith
 /-!
 # ML-DSA on x86-64: arithmetic modulo `q` in doublewords
 
-Untrusted: everything here is checked by Lean. What `vmont`, `vcadd` and
-`vcsub` (`Impl/MlDsa/X86_64/Arith/Vec.lean`) compute in each doubleword:
+What `vmont`, `vcadd` and `vcsub` (`Impl/MlDsa/X86_64/Arith/Vec.lean`) compute
+in each doubleword:
 
 * `montV d z zo`, the register `vmont` leaves: each doubleword is `mont` of
   the product of those of `d` and `z` (`dword_montV`), if the even

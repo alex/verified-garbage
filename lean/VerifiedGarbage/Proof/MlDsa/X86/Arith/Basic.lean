@@ -6,11 +6,10 @@ import VerifiedGarbage.Proof.MlDsa.Arith.Mem
 /-!
 # ML-DSA on x86 (32-bit): the reductions modulo `q`
 
-Untrusted: everything here is checked by Lean. What the pieces of code of
-`Impl/MlDsa/X86/Arith/Basic.lean` compute: `csubQ` reduces a value less
-than `2q` (`csubQ_eq`), and `montRaw` and `mont` leave the Montgomery
-reduction `mont x` (`Proof/MlDsa/Arith/Mont.lean`) of the product `x` in
-`edx:eax` (`mredRaw_spec`, `mont_spec`).
+What the pieces of code of `Impl/MlDsa/X86/Arith/Basic.lean` compute: `csubQ`
+reduces a value less than `2q` (`csubQ_eq`), and `mredRaw` and `mred` leave
+the Montgomery reduction `mont x` (`Proof/MlDsa/Arith/Mont.lean`) of the
+product `x` in `edx:eax` (`mredRaw_spec`, `mred_spec`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Arith

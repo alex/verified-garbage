@@ -10,10 +10,9 @@ import VerifiedGarbage.Spec.Hmac.Generic
 /-!
 # PBKDF2-HMAC-SHA-256 on x86 (32-bit), the whole derivation: the functions it calls
 
-Untrusted: everything here is checked by Lean. SHA-256 has backends on x86
-(`Proof/Sha256/X86/Variants/Interface.lean`): its streaming `update` and
-`finalize`, HMAC's `init` and `finalize` and PBKDF2's `iterate` call the
-backend's compression function. The whole derivation
+SHA-256 has backends on x86 (`Proof/Sha256/X86/Variants/Interface.lean`): its
+streaming `update` and `finalize`, HMAC's `init` and `finalize` and PBKDF2's
+`iterate` call the backend's compression function. The whole derivation
 (`Impl/Pbkdf2/Whole/X86.lean`) calls them, by the names the generic
 registration files give them (with the backend's suffix).
 -/

@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # TDEA on x86-64: the passes and the block
 
-Untrusted: everything here is checked by Lean.
-
 `block` encrypts the 64-bit block in `rax` with the key schedule at `r14`
 (`block_ok`): `IP` into `r12` and `r13`, three passes of sixteen rounds
 (`pass_ok`, the round keys `rbx` bytes apart, the halves exchanged after

@@ -6,12 +6,12 @@ import VerifiedGarbage.Proof.Framework.Sig
 /-!
 # ML-DSA on AArch64: calls
 
-Untrusted: everything here is checked by Lean. A call of verified code,
-with the moves of its arguments before it (`callAt_ok`), leaves the
-permissions, the stack pointer, the low halves of v8–v15 and the callee-saved GPRs but `x30` as
-they were, and changes memory only within the buffers it writes and the `S`
-bytes of stack below the stack pointer (`Post`); two runs whose callee's
-preconditions hold and whose public data agree leak the same (`callAt_tr`).
+A call of verified code, with the moves of its arguments before it
+(`callAt_ok`), leaves the permissions, the stack pointer, the low halves of
+v8–v15 and the callee-saved GPRs but `x30` as they were, and changes memory only
+within the buffers it writes and the `S` bytes of stack below the stack pointer
+(`Post`); two runs whose callee's preconditions hold and whose public data agree
+leak the same (`callAt_tr`).
 
 A callee (`CalleeOk S`) is correct and constant time under its contract
 with a stack of `S` bytes, and its frames use at most those `S` bytes; one

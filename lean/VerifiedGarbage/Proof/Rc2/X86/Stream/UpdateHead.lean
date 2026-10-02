@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.Rc2.X86.Stream.UpdateLong
 /-!
 # Streaming RC2-CBC on x86 (32-bit): everything before the call
 
-Untrusted: everything here is checked by Lean. The state before the call of
-the CBC function (`Mid`): the copies done, and its arguments in `eax`,
-`ecx`, `edx`, `esi` and `ebx` (`head_ok`).
+The state before the call of the CBC function (`Mid`): the copies done, and
+its arguments in `eax`, `ecx`, `edx`, `esi` and `ebx` (`head_ok`).
 -/
 
 namespace VG.Proof.Rc2.X86.Stream.Update

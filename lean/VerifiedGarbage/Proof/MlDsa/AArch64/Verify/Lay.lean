@@ -10,15 +10,14 @@ import VerifiedGarbage.Proof.Framework.RelCTAssoc
 /-!
 # ML-DSA verification on AArch64: parameters, buffers, and pieces
 
-Untrusted: everything here is checked by Lean. The facts about the parameter
-sets the proof uses (`VFacts`); the layout of the buffers of verification
-(`pk`, `mu` and `sig` in `x25`, `x26` and `x27`, read; `scratch` in `x28`,
-written: `vR p`, `vW p`), which the contract's precondition gives from the
-prologue on (`vLay`), and the checks of pointers into them, which `vlay`
-proves from the offsets by `omega`; what holds throughout (`VC`: `Top`, and
-the inputs); and pieces of code, which take each run from an invariant to
-the next and leak the same in two runs whose inputs agree (`VPiece`), as in
-key generation.
+The facts about the parameter sets the proof uses (`VFacts`); the layout of
+the buffers of verification (`pk`, `mu` and `sig` in `x25`, `x26` and `x27`,
+read; `scratch` in `x28`, written: `vR p`, `vW p`), which the contract's
+precondition gives from the prologue on (`vLay`), and the checks of pointers
+into them, which `vlay` proves from the offsets by `omega`; what holds
+throughout (`VC`: `Top`, and the inputs); and pieces of code, which take each
+run from an invariant to the next and leak the same in two runs whose inputs
+agree (`VPiece`), as in key generation.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Verify

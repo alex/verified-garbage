@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyCombine
 
-/-! Untrusted: the right side reads all 512 challenge bits before the strict equation. -/
+/-! The right side reads all 512 challenge bits before the strict equation. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

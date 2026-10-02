@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlKem.Arith
 /-!
 # ML-KEM: bit arrays as numbers, for every target
 
-Untrusted: everything here is checked by Lean. `ByteEncode_d` and
-`ByteDecode_d` (Algorithms 5 and 6) go through arrays of bits
-(`BitsToBytes`, `BytesToBits`, Algorithms 3 and 4). Here they are
+`ByteEncode_d` and `ByteDecode_d` (Algorithms 5 and 6) go through arrays of
+bits (`BitsToBytes`, `BytesToBits`, Algorithms 3 and 4). Here they are
 restated without bits: a list of integers less than `2ʷ` is the digits of a
 little-endian number in base `2ʷ` (`digits w`), and
 

@@ -5,11 +5,11 @@ import VerifiedGarbage.Proof.Framework.X86.Taint
 /-!
 # Streaming RC2-CBC on x86 (32-bit): the shared contracts
 
-Untrusted: everything here is checked by Lean. The shared contracts
-(`Spec.Rc2.cbcInitContract`, `Spec.Rc2.cbcUpdateContract`) let the code
-write its arguments; `wideInit` and `wideUpdate` are the per-target
-contracts with that permission, which imply the shared ones. `narrow*` drop
-it again, for the proofs against `initContract` and `updateContract`.
+The shared contracts (`Spec.Rc2.cbcInitContract`,
+`Spec.Rc2.cbcUpdateContract`) let the code write its arguments; `wideInit` and
+`wideUpdate` are the per-target contracts with that permission, which imply
+the shared ones. `narrow*` drop it again, for the proofs against
+`initContract` and `updateContract`.
 -/
 
 namespace VG.Proof.Rc2.X86.Stream

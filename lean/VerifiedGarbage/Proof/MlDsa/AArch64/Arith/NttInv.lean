@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Ntt
 /-!
 # ML-DSA on AArch64: `vg_mldsa_inv_ntt`
 
-Untrusted: everything here is checked by Lean. The butterfly's code does
-what `bflyInv` does (`bflyInv_spec`), with the negated zetas of the table
-(`negZetaTab_of`), so each layer is `nttInvLayer`, the eight layers are
-those of `NTT⁻¹` (`nttInv_eq_layers`), and the last loop multiplies each
-coefficient by `8347681 = 256⁻¹ mod q`.
+The butterfly's code does what `bflyInv` does (`bflyInv_spec`), with the
+negated zetas of the table (`negZetaTab_of`), so each layer is `nttInvLayer`,
+the eight layers are those of `NTT⁻¹` (`nttInv_eq_layers`), and the last loop
+multiplies each coefficient by `8347681 = 256⁻¹ mod q`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Arith

@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.Framework.X86.RelCT
 /-!
 # Streaming RC2-CBC on x86 (32-bit): constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis proves
-everything but the call of the CBC function (which restores registers the
-analysis then takes for secret), from the public arguments on the stack
-(`τ0`); the call is related in both runs by `RelCT.callWith`, from what the
-correctness proof knows of the state it is made from (`Mid`), and the
-restore of our caller's registers through `ebx`, public again by
-correctness.
+The taint analysis proves everything but the call of the CBC function (which
+restores registers the analysis then takes for secret), from the public
+arguments on the stack (`τ0`); the call is related in both runs by
+`RelCT.callWith`, from what the correctness proof knows of the state it is
+made from (`Mid`), and the restore of our caller's registers through `ebx`,
+public again by correctness.
 -/
 
 namespace VG.Proof.Rc2.X86.Stream

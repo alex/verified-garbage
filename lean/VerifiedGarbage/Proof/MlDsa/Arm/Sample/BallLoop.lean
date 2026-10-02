@@ -5,17 +5,16 @@ import VerifiedGarbage.Proof.MlDsa.Sample.ExpandMask
 /-!
 # ML-DSA on 32-bit ARM: the loops of `vg_mldsa_sample_in_ball`
 
-Untrusted: everything here is checked by Lean. A call is described by
-`spOf σ` (`c̃`, its length, `scratch`, `c` and `τ`), and the XOF output is
-`X σ`, `H(c̃, 272)`. The polynomial `c` is kept in memory as the words that
-represent its coefficients modulo `q` (`CStored`); the first loop zeroes it
-(`zero_ok`). Iteration `t` of the second starts from `BAt σ t`: with the
-polynomial and `i` (in `r2`) that `bFold` computes from the first `t` bytes
-after the sign bits, and the sign bits not yet used in `r1` (low word) and
-`r4` (high word), whose value `r1 + 2³² r4` is that of the first 8 bytes
-shifted right once per coefficient set (`Sg`). The pieces of an iteration
-are `pieceA` (`i ≥ 256`?), `tryA` (the byte `j`, and `j ≤ i`?), `setOk`
-(`c[i] ← c[j]`, `c[j] ← ±1`) and `pieceC` (the step).
+A call is described by `spOf σ` (`c̃`, its length, `scratch`, `c` and `τ`),
+and the XOF output is `X σ`, `H(c̃, 272)`. The polynomial `c` is kept in
+memory as the words that represent its coefficients modulo `q` (`CStored`);
+the first loop zeroes it (`zero_ok`). Iteration `t` of the second starts from
+`BAt σ t`: with the polynomial and `i` (in `r2`) that `bFold` computes from
+the first `t` bytes after the sign bits, and the sign bits not yet used in
+`r1` (low word) and `r4` (high word), whose value `r1 + 2³² r4` is that of the
+first 8 bytes shifted right once per coefficient set (`Sg`). The pieces of an
+iteration are `pieceA` (`i ≥ 256`?), `tryA` (the byte `j`, and `j ≤ i`?),
+`setOk` (`c[i] ← c[j]`, `c[j] ← ±1`) and `pieceC` (the step).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sample.Ball

@@ -3,8 +3,6 @@ import Lean.ToExpr
 /-!
 # Sets of registers as bit masks
 
-Untrusted: everything here is checked by Lean.
-
 The taint analyses (`VG.Taint`) are evaluated by the kernel, which is slow at
 lists of registers: every membership test compares registers one at a time,
 and removing a register rebuilds the list. A `RegSet` is a `Nat` whose bit

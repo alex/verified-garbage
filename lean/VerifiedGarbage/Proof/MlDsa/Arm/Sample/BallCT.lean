@@ -3,16 +3,15 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sample.Ball
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_sample_in_ball`, constant time but for `c̃`, and `Verified`
 
-Untrusted: everything here is checked by Lean. Two runs whose `c̃` (the
-declared leak), `len`, `τ`, pointers and stack pointer agree (`Two`) leak
-the same: the prologue by `relct_ldrSp` (the load of `scratch` from the
-stack) and the taint analysis, the sponge by `sponge_ct`, the blocks around
-the loop by the taint analysis, and the loop, whose branches and addresses
-depend on the SHAKE256 output, by relating the two runs iteration by
-iteration (`body_ct`): both are at the same iteration with the same `i`,
-sign bits and byte `j` (being those of the same output), so each branch
-goes the same way, and each piece between the branches is constant time in
-registers that hold the same values in both runs.
+Two runs whose `c̃` (the declared leak), `len`, `τ`, pointers and stack
+pointer agree (`Two`) leak the same: the prologue by `relct_ldrSp` (the load
+of `scratch` from the stack) and the taint analysis, the sponge by
+`sponge_ct`, the blocks around the loop by the taint analysis, and the loop,
+whose branches and addresses depend on the SHAKE256 output, by relating the
+two runs iteration by iteration (`body_ct`): both are at the same iteration
+with the same `i`, sign bits and byte `j` (being those of the same output), so
+each branch goes the same way, and each piece between the branches is constant
+time in registers that hold the same values in both runs.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sample.Ball

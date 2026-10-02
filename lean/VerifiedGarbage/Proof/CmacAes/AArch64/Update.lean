@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.AArch64.RegUpd
 
 /-!
 # AES-CMAC on AArch64: `vg_cmac_aes_update`, the blocks before and in the loop
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.CmacAes.AArch64

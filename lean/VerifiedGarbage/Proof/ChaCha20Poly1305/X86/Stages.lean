@@ -19,8 +19,6 @@ section
 
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): the entry state, regions and invariant
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -57,9 +55,7 @@ open VG.X86 in
 def pubX86 (s₁ s₂ : X86.State) : Prop := s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 5, arg s₁ i = arg s₂ i
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
+/-- `vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
 def sealX86 : Contract X86.isa where
   pre := preX86
   post s s' :=
@@ -71,9 +67,7 @@ def sealX86 : Contract X86.isa where
   pub := pubX86
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
+/-- `vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
 def openX86 : Contract X86.isa where
   pre := preX86
   post s s' :=
@@ -388,11 +382,10 @@ end
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): the calls
 
-Untrusted: everything here is checked by Lean. Each call of a verified
-function, in a frame of its arguments (`callWith`), from its proof of
-`Verified` (`WP.callWith`): what it needs of the state it is called from
-(`CallPre`, which the constant-time proof uses too), and what holds when it
-returns.
+Each call of a verified function, in a frame of its arguments (`callWith`),
+from its proof of `Verified` (`WP.callWith`): what it needs of the state it is
+called from (`CallPre`, which the constant-time proof uses too), and what
+holds when it returns.
 -/
 
 open VG.PowLit
@@ -899,11 +892,10 @@ end VG.Proof.ChaCha20Poly1305.X86
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): absorbing padded data
 
-Untrusted: everything here is checked by Lean. `absorbOne k` absorbs the 16
-bytes at `ctx + k`; `macPad p n` absorbs the bytes whose address and length
-are the stack arguments at `esp + p` and `esp + n`, and zeros to a multiple
-of 16: `msg ++ x ++ pad16 x`. Each stage is stated separately, for the
-constant-time proof.
+`absorbOne k` absorbs the 16 bytes at `ctx + k`; `macPad p n` absorbs the
+bytes whose address and length are the stack arguments at `esp + p` and `esp +
+n`, and zeros to a multiple of 16: `msg ++ x ++ pad16 x`. Each stage is stated
+separately, for the constant-time proof.
 -/
 
 open VG.PowLit
@@ -1478,9 +1470,9 @@ section
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): the prologue
 
-Untrusted: everything here is checked by Lean. Saving the registers, the
-ChaCha20 state for counter 0, the one-time key and the Poly1305 state for it.
-Each stage is stated separately (`Pro1`, …), for the constant-time proof.
+Saving the registers, the ChaCha20 state for counter 0, the one-time key and
+the Poly1305 state for it. Each stage is stated separately (`Pro1`, …), for
+the constant-time proof.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86
@@ -1827,8 +1819,8 @@ end
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): the other parts
 
-Untrusted: everything here is checked by Lean. The lengths block, the
-encryption, the tag, comparing tags, and restoring the registers.
+The lengths block, the encryption, the tag, comparing tags, and restoring the
+registers.
 -/
 
 open VG.PowLit

@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.X25519.X86_64.AddSub
 
 /-!
 # X25519 on x86-64: multiplication by `a24`, and the swap
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X25519.X86_64

@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Verify.SampC
 /-!
 # ML-DSA verification on 32-bit ARM: after the samplers
 
-Untrusted: everything here is checked by Lean. Once the samplers are done,
-with `Â` and `c` in memory as `A'` and `cc` and `r11` as `R`, the rest of
-the function computes `w′₁` from them, whatever they are (`KC5`): the first
-`nz` of `z` in the NTT domain, `c` in it or not, and the first `nr` rows of
-`w′₁` packed to `B`. Here: `ẑ[j] = NTT(z[j])` and `ĉ = NTT(c)`
-(`nttZ_piece`, `nttC_piece`).
+Once the samplers are done, with `Â` and `c` in memory as `A'` and `cc` and
+`r11` as `R`, the rest of the function computes `w′₁` from them, whatever they
+are (`KC5`): the first `nz` of `z` in the NTT domain, `c` in it or not, and
+the first `nr` rows of `w′₁` packed to `B`. Here: `ẑ[j] = NTT(z[j])` and `ĉ =
+NTT(c)` (`nttZ_piece`, `nttC_piece`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

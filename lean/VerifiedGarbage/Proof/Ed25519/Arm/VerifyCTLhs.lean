@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyCTPublic
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyCTLit
 
-/-! Untrusted: both scalar pointer reload and [S]B have a public trace. -/
+/-! Both scalar pointer reload and [S]B have a public trace. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.X25519.Invert
 
-/-! Untrusted: the decoding addition chain equals the RFC 8032 exponent. -/
+/-! The decoding addition chain equals the RFC 8032 exponent. -/
 
 namespace VG.Proof.Ed25519
 

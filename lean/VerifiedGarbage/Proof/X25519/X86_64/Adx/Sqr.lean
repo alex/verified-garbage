@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Adx.Mul
 /-!
 # X25519 on x86-64: squaring with BMI2 and ADX
 
-Untrusted: everything here is checked by Lean. `sqrX o a` in four phases:
-the products `a₀ a_j`, `a₁ a_j` and `a₂ a₃` into `r9–r14` (`sqrA`–`sqrC`),
-then those doubled while the squares `a_i²` are added (`sqrD`), and
-reduced as in `mulX`.
+`sqrX o a` in four phases: the products `a₀ a_j`, `a₁ a_j` and `a₂ a₃` into
+`r9–r14` (`sqrA`–`sqrC`), then those doubled while the squares `a_i²` are
+added (`sqrD`), and reduced as in `mulX`.
 -/
 
 namespace VG.Proof.X25519.X86_64

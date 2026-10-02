@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Field
 /-!
 # X448 on x86 (32-bit): pointwise field operations
 
-Untrusted: everything here is checked by Lean. A pointwise operation fills
-`TMP` before the carry passes write the output, permitting input/output aliasing.
+A pointwise operation fills `TMP` before the carry passes write the output,
+permitting input/output aliasing.
 -/
 
 namespace VG.Proof.X448.X86

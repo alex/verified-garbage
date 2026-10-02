@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.PrimsC
 /-!
 # ML-DSA signing on ARMv7: calls of the encodings with a stack argument
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_bit_pack`, `vg_mldsa_bit_unpack` and `vg_mldsa_hint_bit_pack`,
-whose fifth argument is on the stack (`callS`).
+As `Prims.lean`, for `vg_mldsa_bit_pack`, `vg_mldsa_bit_unpack` and
+`vg_mldsa_hint_bit_pack`, whose fifth argument is on the stack (`callS`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

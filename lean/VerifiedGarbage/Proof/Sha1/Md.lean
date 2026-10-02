@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Sha1.Stream
 /-!
 # SHA-1 as a streaming Merkle–Damgård hash function
 
-Untrusted: everything here is checked by Lean. SHA-1 as an instance of
-`Proof.MdStream.Md`, for the generic streaming proofs: its `Repr` and `hash`
-are the generic ones for `H0`, by unfolding.
+SHA-1 as an instance of `Proof.MdStream.Md`, for the generic streaming proofs:
+its `Repr` and `hash` are the generic ones for `H0`, by unfolding.
 -/
 
 namespace VG.Proof.Sha1

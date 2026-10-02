@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Setup
 /-!
 # ML-DSA signing on AArch64: the function's contract, layout, entry and exit
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (`signK`, which the shared contract implies), the layout of
-the function's buffers (`sk`, `mu`, `rnd` read, in `x25`, `x26`, `x27`;
-`scratch` and `sig` written, in `x28` and `x23`), what holds of the state
-throughout (`Top`: the permissions and the stack pointer of entry, the
-pointers in their registers, the callee-saved registers it never writes,
-and the caller's registers saved in `scratch`), the saves (`pro_ok`), the
-return (`epi_ok`), branches on `w24` (`ifOkElse_ok`, `ifOkElse_tr`) and
+The contract the proof is written against (`signK`, which the shared contract
+implies), the layout of the function's buffers (`sk`, `mu`, `rnd` read, in
+`x25`, `x26`, `x27`; `scratch` and `sig` written, in `x28` and `x23`), what
+holds of the state throughout (`Top`: the permissions and the stack pointer of
+entry, the pointers in their registers, the callee-saved registers it never
+writes, and the caller's registers saved in `scratch`), the saves (`pro_ok`),
+the return (`epi_ok`), branches on `w24` (`ifOkElse_ok`, `ifOkElse_tr`) and
 sequences of pieces indexed by a number (`seqR_ok`, `seqR_tr`).
 -/
 

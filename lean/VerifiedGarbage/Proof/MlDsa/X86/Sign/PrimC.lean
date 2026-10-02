@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Prims
 /-!
 # ML-DSA signing on x86 (32-bit): calls of the rounding and hint primitives
 
-Untrusted: everything here is checked by Lean. `HighBits` and `LowBits` of
-a polynomial (`hb_piece`, `lb_piece`), the norm check (`norm_piece`) and
-`MakeHint` (`hint_piece`), which return their results in `eax`.
+`HighBits` and `LowBits` of a polynomial (`hb_piece`, `lb_piece`), the norm
+check (`norm_piece`) and `MakeHint` (`hint_piece`), which return their results
+in `eax`.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

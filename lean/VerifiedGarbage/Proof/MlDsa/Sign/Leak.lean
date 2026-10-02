@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Loop
 /-!
 # ML-DSA: what signing leaks, iteration by iteration
 
-Untrusted: everything here is checked by Lean.
-
 `signLeakLoop` (`Spec/MlDsa/Contract.lean`) lists the commitment hash `c̃`
 of each iteration of the signing loop, then the hint of the one that
 passes. That list does not determine where each iteration ends: after a

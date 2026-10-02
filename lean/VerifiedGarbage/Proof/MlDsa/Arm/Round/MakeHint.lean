@@ -7,12 +7,11 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_make_hint`
 
-Untrusted: everything here is checked by Lean. The loop body is
-symbolically executed once for each value of `γ₂` (`body_ok`): the hint is
-`(r₁(r) ⊕ r₁(r + z mod q) + 63) >> 6`, 1 exactly when the two differ, as
-both are less than 64 (`bmh_val`, from `makeHint_eq`), and `r4` counts the
-1s (`onesFrom`). `γ₂` selects one of two loops, in the frames that save
-`r4`–`r6`.
+The loop body is symbolically executed once for each value of `γ₂`
+(`body_ok`): the hint is `(r₁(r) ⊕ r₁(r + z mod q) + 63) >> 6`, 1 exactly when
+the two differ, as both are less than 64 (`bmh_val`, from `makeHint_eq`), and
+`r4` counts the 1s (`onesFrom`). `γ₂` selects one of two loops, in the frames
+that save `r4`–`r6`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Round.MakeHint

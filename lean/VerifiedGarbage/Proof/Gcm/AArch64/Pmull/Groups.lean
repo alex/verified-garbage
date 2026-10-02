@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.AArch64.RegUpd
 /-!
 # GHASH with PMULL: the instruction groups
 
-Untrusted: everything here is checked by Lean. What each group of
-instructions of `Impl.Gcm.AArch64.Pmull` does to the state, each proved by
-one symbolic execution for any registers it is used with, and what a load
-and a store of a block are in `Q`.
+What each group of instructions of `Impl.Gcm.AArch64.Pmull` does to the state,
+each proved by one symbolic execution for any registers it is used with, and
+what a load and a store of a block are in `Q`.
 -/
 
 namespace VG.Proof.Gcm.AArch64.Pmull

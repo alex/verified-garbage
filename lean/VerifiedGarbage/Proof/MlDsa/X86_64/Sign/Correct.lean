@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Framework.X86_64.Mxcsr
 /-!
 # ML-DSA signing on x86-64: correctness
 
-Untrusted: everything here is checked by Lean. The function returns 1 with
-`Sign_internal`'s signature (within `maxBounds`) in `sig`, or 0 when
-`Sign_internal` returns nothing within `minBounds` (`sign_correct`): its
-`ExpandA` or its loop does not finish (`signMu_min_A`, `signMu_min_L`), or
-an iteration passes (`signMu_max`).
+The function returns 1 with `Sign_internal`'s signature (within `maxBounds`)
+in `sig`, or 0 when `Sign_internal` returns nothing within `minBounds`
+(`sign_correct`): its `ExpandA` or its loop does not finish (`signMu_min_A`,
+`signMu_min_L`), or an iteration passes (`signMu_max`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

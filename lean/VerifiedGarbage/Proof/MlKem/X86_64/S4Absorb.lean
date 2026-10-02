@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlKem.X86_64.S4Base
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, the round constants and the padded seeds
 
-Untrusted: everything here is checked by Lean. After the prologue, the
-table of the round constants (`rc_ok`), and the four states holding the
-padded seeds, byte by byte (`absorb_ok`).
+After the prologue, the table of the round constants (`rc_ok`), and the four
+states holding the padded seeds, byte by byte (`absorb_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4

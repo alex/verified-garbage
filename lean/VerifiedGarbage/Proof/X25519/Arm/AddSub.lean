@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.X25519.Arm.Field
 /-!
 # X25519 on 32-bit ARM: sums and differences
 
-Untrusted: everything here is checked by Lean. `add o x y` and `sub o x y`
-store at `o` a number congruent to `[x] + [y]` and `[x] - [y]` (as
-`[x] + 4p - [y]`), with limbs below `2¹⁶`; `o` may be `x` or `y`.
+`add o x y` and `sub o x y` store at `o` a number congruent to `[x] + [y]` and
+`[x] - [y]` (as `[x] + 4p - [y]`), with limbs below `2¹⁶`; `o` may be `x` or
+`y`.
 -/
 
 namespace VG.Proof.X25519.Arm

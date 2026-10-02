@@ -16,14 +16,13 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Backend
 /-!
 # ML-DSA signing on x86-64: the primitives it calls
 
-Untrusted: everything here is checked by Lean. The verified x86-64
-implementations of the primitives (`prims`), and what the proofs of signing
-need of them, with any implementation `v` of the polynomial arithmetic
-(`prims_okWith`), with 32 bytes of stack for each call: their
-contracts, and, of the samplers whose result signing branches on, that
-it depends only on their public data and that they succeed only if the
-algorithm finishes within `maxBounds` (from what their own proofs say they
-return, `rejNTT_correct` and `sampleInBall_correct`).
+The verified x86-64 implementations of the primitives (`prims`), and what the
+proofs of signing need of them, with any implementation `v` of the polynomial
+arithmetic (`prims_okWith`), with 32 bytes of stack for each call: their
+contracts, and, of the samplers whose result signing branches on, that it
+depends only on their public data and that they succeed only if the algorithm
+finishes within `maxBounds` (from what their own proofs say they return,
+`rejNTT_correct` and `sampleInBall_correct`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

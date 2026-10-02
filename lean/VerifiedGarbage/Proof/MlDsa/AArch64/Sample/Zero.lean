@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Sponge
 /-!
 # ML-DSA on AArch64: the output polynomial set to zeros
 
-Untrusted: everything here is checked by Lean. `zeroPoly` stores zero to
-the 256 coefficients of the output polynomial (`zeroPoly_ok`), and writes
-nothing else but `x3`, `x4` and `x9`.
+`zeroPoly` stores zero to the 256 coefficients of the output polynomial
+(`zeroPoly_ok`), and writes nothing else but `x3`, `x4` and `x9`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sample

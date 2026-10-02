@@ -6,11 +6,11 @@ import Mathlib.Algebra.Group.Basic
 /-!
 # The comb's tables represent `[k 256^j]B`, and `combG` represents `[G]B`
 
-Untrusted. Each entry is turned back into affine `(x, y)` (`uncache`, which
-the kernel checks inverts the caching) and `checkTables` walks the tables
-once: within table `j`, each entry is the previous one plus the first, with
-the specification's addition, compared projectively; the first entry of
-table `j + 1` is `[256]` of table `j`'s, with the specification's `pointMul`.
+Each entry is turned back into affine `(x, y)` (`uncache`, which the kernel
+checks inverts the caching) and `checkTables` walks the tables once: within
+table `j`, each entry is the previous one plus the first, with the
+specification's addition, compared projectively; the first entry of table `j +
+1` is `[256]` of table `j`'s, with the specification's `pointMul`.
 -/
 
 namespace VG.Proof.Ed25519

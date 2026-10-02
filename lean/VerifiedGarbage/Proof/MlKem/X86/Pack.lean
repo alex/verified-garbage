@@ -5,11 +5,10 @@ import VerifiedGarbage.Impl.MlKem.X86.Compress
 /-!
 # ML-KEM on x86 (32-bit): compressing and packing coefficients
 
-Untrusted: everything here is checked by Lean. `compOp` computes the
-compress formula of `Compress.lean` (`comp_spec`); `accStep` packs one more
-compressed coefficient into `ebx` (`accStep_spec`), and `accSteps` packs
-`j` of them, from `j - 1` down to 0 (`accSteps_spec`), as the number `pk`
-whose base-`2ᵈ` digits they are.
+`compOp` computes the compress formula of `Compress.lean` (`comp_spec`);
+`accStep` packs one more compressed coefficient into `ebx` (`accStep_spec`),
+and `accSteps` packs `j` of them, from `j - 1` down to 0 (`accSteps_spec`), as
+the number `pk` whose base-`2ᵈ` digits they are.
 -/
 
 namespace VG.Proof.MlKem.X86

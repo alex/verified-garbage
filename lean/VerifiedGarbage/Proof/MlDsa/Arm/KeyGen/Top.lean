@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.RestRow
 /-!
 # ML-DSA key generation on 32-bit ARM: `vg_mldsa44_keygen`, `vg_mldsa65_keygen`, `vg_mldsa87_keygen`
 
-Untrusted: everything here is checked by Lean. The rows (`row_piece`), the
-keys in memory (`pk_bytes`, `sk_bytes`), `tr = H(pk, 64)` (`trHash_piece`),
-and the whole function, piece by piece, for any parameter set of Table 1
-and any verified implementations of the primitives (`keyGen_piece`).
+The rows (`row_piece`), the keys in memory (`pk_bytes`, `sk_bytes`), `tr =
+H(pk, 64)` (`trHash_piece`), and the whole function, piece by piece, for any
+parameter set of Table 1 and any verified implementations of the primitives
+(`keyGen_piece`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

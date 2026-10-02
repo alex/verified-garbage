@@ -4,14 +4,14 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx512.Gpr
 /-!
 # Poly1305 on x86-64 with AVX-512: the multipliers into the state
 
-Untrusted: everything here is checked by Lean. `storeY` computes five times
-the limbs of `Y` (`fiveY`), stores lane 0 of `Y_i` at `rdi + 56 + 4 i` and of
-`5 Y_i` at `rdi + 72 + 4 i` (`1 ≤ i ≤ 4`), each 16-byte store overwriting all
-but the first doubleword of the one before, then the mask and the pad bit
-at `rdi + 104` and `rdi + 112`. The doubleword at each of these addresses is
-then the low doubleword of quadword 0 of the register stored there, which is
-all that the loop's `vpmuludq`s read (`MemM`). Everything it writes is
-working space of the state (`wR`), below MXCSR's slot at byte 120.
+`storeY` computes five times the limbs of `Y` (`fiveY`), stores lane 0 of
+`Y_i` at `rdi + 56 + 4 i` and of `5 Y_i` at `rdi + 72 + 4 i` (`1 ≤ i ≤ 4`),
+each 16-byte store overwriting all but the first doubleword of the one before,
+then the mask and the pad bit at `rdi + 104` and `rdi + 112`. The doubleword
+at each of these addresses is then the low doubleword of quadword 0 of the
+register stored there, which is all that the loop's `vpmuludq`s read (`MemM`).
+Everything it writes is working space of the state (`wR`), below MXCSR's slot
+at byte 120.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx512

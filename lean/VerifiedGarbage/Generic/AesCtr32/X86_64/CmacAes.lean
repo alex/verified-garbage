@@ -6,15 +6,9 @@ import VerifiedGarbage.Proof.CmacAes.Stream.X86_64.Verified
 # AES-CMAC (NIST SP 800-38B) on x86-64
 
 A generic file (see `TCB/Emit.lean`): the artifacts it lists, calling an
-implementation `v` of `vg_aes_ctr32`, are emitted once for each
-implementation (`Variants/AesCtr32/X86_64/`), named with its suffix (e.g.
-`vg_cmac_aes_update_aesni`), and need its CPU features. **Review note**:
-`sig` and `doc` are trusted, as they tie the Rust caller to the contract;
-check them against the contract's `pre`/`post`. An artifact made from a
-function's `Api` (in `Spec/`, reviewed with the contract) takes them from
-there, and this file adds only notes on the implementation. The emitter adds
-the `# Safety` items that depend on the target (`Sig.layoutDoc`), from
-`stack` and `writeArgs`, which `ofSig` checks against the contract.
+implementation `v` of `vg_aes_ctr32`, are emitted once for each implementation
+(`Variants/AesCtr32/X86_64/`), named with its suffix (e.g.
+`vg_cmac_aes_update_aesni`), and need its CPU features.
 
 The stack is 8 bytes for every implementation of the first three: the
 return address of the call of `vg_aes_ctr32`, which makes no calls. The

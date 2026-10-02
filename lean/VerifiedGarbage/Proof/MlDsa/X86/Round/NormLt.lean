@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Round.Bits
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_norm_lt`
 
-Untrusted: everything here is checked by Lean. `ebp` is all ones while
-every coefficient `a` so far has `a < bound` or `q - a < bound`, and zero
-otherwise (`NInv`): each comparison borrows into a mask (`nl_step`). Its low
-bit is the result (`normZq_lt`, `normRq_lt`).
+`ebp` is all ones while every coefficient `a` so far has `a < bound` or `q - a
+< bound`, and zero otherwise (`NInv`): each comparison borrows into a mask
+(`nl_step`). Its low bit is the result (`normZq_lt`, `normRq_lt`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Round

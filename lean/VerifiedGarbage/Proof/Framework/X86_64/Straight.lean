@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Dom
 /-!
 # x86-64: straight-line bitwise code, by evaluation
 
-Untrusted: everything here is checked by Lean.
-
 A block of 64-bit `mov`, `xor`, `and`, `or`, `ror`, `shr` and `movabs`
 instructions on registers and on two memory areas (read-write *slots*
 `[base + 8k]`, `k < slots`, and read-only *external words*

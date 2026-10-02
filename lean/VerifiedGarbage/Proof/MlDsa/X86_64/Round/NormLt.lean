@@ -6,9 +6,8 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 /-!
 # ML-DSA on x86-64: `vg_mldsa_norm_lt`
 
-Untrusted: everything here is checked by Lean. The top bit of `r9` stays set
-while every coefficient `a` so far has `a < bound` or `q - a < bound`
-(`Good`), which is `‖a‖∞ < bound` (`normZq_lt`).
+The top bit of `r9` stays set while every coefficient `a` so far has `a <
+bound` or `q - a < bound` (`Good`), which is `‖a‖∞ < bound` (`normZq_lt`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

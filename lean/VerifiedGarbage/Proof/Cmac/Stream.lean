@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.Cmac.Spec
 /-!
 # Streaming AES-CMAC: lemmas about the state
 
-Untrusted: everything here is checked by Lean. What every target's
-`vg_cmac_aes_absorb` and `vg_cmac_aes_finish` need of the streaming state
-(`Spec.Cmac.Repr`), whatever the ISA:
+What every target's `vg_cmac_aes_absorb` and `vg_cmac_aes_finish` need of the
+streaming state (`Spec.Cmac.Repr`), whatever the ISA:
 
 * `held n`, the number of bytes a state for a message of `n` bytes holds
   back: none for the empty message, else 1 to 16.

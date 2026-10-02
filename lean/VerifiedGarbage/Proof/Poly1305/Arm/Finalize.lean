@@ -8,14 +8,13 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Poly1305 on 32-bit ARM: `finalize`
 
-Untrusted: everything here is checked by Lean. After saving the registers in
-`scratch` (`prologue_ok`), a non-empty buffer is padded in place with `0x01`
-and zeros (`pad_ok`); its length is stored, the limbs of `r` computed and
-the accumulator loaded (`mid_ok`); the padded buffer is absorbed
-(`last_ok`); then the columns are reduced fully, `s` is added, and the sum is
-carried and stored modulo `2¹²⁸` in `out` (`tag_ok`). Until then (`FC`),
-only the state's working space, the buffer, the accumulator and `scratch`
-change.
+After saving the registers in `scratch` (`prologue_ok`), a non-empty buffer is
+padded in place with `0x01` and zeros (`pad_ok`); its length is stored, the
+limbs of `r` computed and the accumulator loaded (`mid_ok`); the padded buffer
+is absorbed (`last_ok`); then the columns are reduced fully, `s` is added, and
+the sum is carried and stored modulo `2¹²⁸` in `out` (`tag_ok`). Until then
+(`FC`), only the state's working space, the buffer, the accumulator and
+`scratch` change.
 -/
 
 open VG.PowLit

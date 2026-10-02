@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Difference
 /-!
 # X448 on AArch64: addition and subtraction
 
-Untrusted: everything here is checked by Lean. Subtraction adds twice the
-prime limbwise before subtracting, so every intermediate remains nonnegative.
+Subtraction adds twice the prime limbwise before subtracting, so every
+intermediate remains nonnegative.
 -/
 
 namespace VG.Proof.X448.AArch64

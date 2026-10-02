@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.Field
 import VerifiedGarbage.Proof.X25519.X86_64.Env
 
-/-! Untrusted: field constants and copies, with the surrounding memory preserved. -/
+/-! Field constants and copies, with the surrounding memory preserved. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

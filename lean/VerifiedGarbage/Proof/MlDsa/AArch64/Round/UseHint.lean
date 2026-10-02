@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Round.NormLt
 /-!
 # ML-DSA on AArch64: `vg_mldsa_use_hint`
 
-Untrusted: everything here is checked by Lean. The body computes
-`(f + m + δ) mod m` (`uhV`): `δ` is `2s - 1` for the sign bit `s` of
-`f · 2γ₂ - a`, times the sign bit of `0 - h` (whether the hint is 1), and
-two conditional subtractions of `m` reduce `f + m + δ < 3m` (`csubM_toNat`).
+The body computes `(f + m + δ) mod m` (`uhV`): `δ` is `2s - 1` for the sign
+bit `s` of `f · 2γ₂ - a`, times the sign bit of `0 - h` (whether the hint is
+1), and two conditional subtractions of `m` reduce `f + m + δ < 3m`
+(`csubM_toNat`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Round

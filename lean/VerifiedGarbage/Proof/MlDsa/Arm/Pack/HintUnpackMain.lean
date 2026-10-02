@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Pack.HintUnpackLoops
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_hint_bit_unpack`, correct
 
-Untrusted: everything here is checked by Lean. The whole function: the load
-of `hlen`, the frame, and in it zeroing `h`, the loops
-(`HintUnpackLoops.lean`), the return value and the reloads of the saved
+The whole function: the load of `hlen`, the frame, and in it zeroing `h`, the
+loops (`HintUnpackLoops.lean`), the return value and the reloads of the saved
 registers; the result is `HintBitUnpack` (Algorithm 21) through its fold form
 (`hintBitUnpack_eq`).
 -/

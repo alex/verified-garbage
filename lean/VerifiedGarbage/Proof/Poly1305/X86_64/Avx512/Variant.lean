@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx512.Blocks
 /-!
 # `vg_poly1305_blocks_avx512` as an implementation of `vg_poly1305_blocks`
 
-Untrusted: everything here is checked by Lean. The `BlocksImpl` of
-`vg_poly1305_blocks_avx512` (see `Proof/Poly1305/X86_64/Variant.lean`): its
-calls use 16 bytes of stack below its return address (the return addresses
-of its call of `vg_poly1305_blocks_avx2` and of that one's call of
-`vg_poly1305_blocks`), two levels of calls.
+The `BlocksImpl` of `vg_poly1305_blocks_avx512` (see
+`Proof/Poly1305/X86_64/Variant.lean`): its calls use 16 bytes of stack below
+its return address (the return addresses of its call of
+`vg_poly1305_blocks_avx2` and of that one's call of `vg_poly1305_blocks`), two
+levels of calls.
 -/
 
 namespace VG.Proof.Poly1305.X86_64

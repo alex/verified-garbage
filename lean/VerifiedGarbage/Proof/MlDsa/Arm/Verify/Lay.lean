@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.MlDsa.Verify.Final
 /-!
 # ML-DSA verification on 32-bit ARM: its parameters, precondition and buffers
 
-Untrusted: everything here is checked by Lean. The facts about the parameter
-sets the proof uses (`VFacts`); the precondition of the shared contract,
-evaluated (`VPre`, `vpre_of`); and the buffers of the function (`vlay`):
-`scratch`, the stack, `pk`, `mu` and `sig`, of which only `scratch` (and the
-stack) are written, and the inputs, only read, may overlap each other. `vsep`
-proves the facts about the offsets of pointers into them by `omega`, for any
-parameter set.
+The facts about the parameter sets the proof uses (`VFacts`); the precondition
+of the shared contract, evaluated (`VPre`, `vpre_of`); and the buffers of the
+function (`vlay`): `scratch`, the stack, `pk`, `mu` and `sig`, of which only
+`scratch` (and the stack) are written, and the inputs, only read, may overlap
+each other. `vsep` proves the facts about the offsets of pointers into them by
+`omega`, for any parameter set.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

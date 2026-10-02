@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.Rc2.X86.Stream.UpdatePre
 /-!
 # Streaming RC2-CBC on x86 (32-bit): the copies of the update functions
 
-Untrusted: everything here is checked by Lean. Saving our caller's registers
-(`entry_ok`), and the copies: with no complete block, the data after the
-pending bytes (`short_ok`); otherwise the pending bytes and the first
-`out_len - pending_len` bytes of data to `out` and the rest to the pending
-block (`long_ok`).
+Saving our caller's registers (`entry_ok`), and the copies: with no complete
+block, the data after the pending bytes (`short_ok`); otherwise the pending
+bytes and the first `out_len - pending_len` bytes of data to `out` and the
+rest to the pending block (`long_ok`).
 -/
 
 namespace VG.Proof.Rc2.X86.Stream.Update

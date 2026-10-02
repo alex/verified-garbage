@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # ML-DSA: bytes written one at a time, for every target
 
-Untrusted: everything here is checked by Lean. `Written m m' o c v`: `m'` is
-`m` with the `c` bytes at `o` replaced by `v 0, …, v (c - 1)`, built one
-byte store at a time (`Written.nil`, `Written.snoc`), and how a loop that
-writes its output `c` bytes at a time extends what it has written
-(`Written.step`). (The same as ML-KEM's on x86-64, which a module of
+`Written m m' o c v`: `m'` is `m` with the `c` bytes at `o` replaced by `v 0,
+…, v (c - 1)`, built one byte store at a time (`Written.nil`, `Written.snoc`),
+and how a loop that writes its output `c` bytes at a time extends what it has
+written (`Written.step`). (The same as ML-KEM's on x86-64, which a module of
 another target may not import, with distances computed by `VG.Offset`.)
 -/
 

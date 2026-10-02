@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Hmac.Generic.Arm.Sha224
 /-!
 # The PBKDF2-HMAC-SHA-224 iteration on 32-bit ARM
 
-Untrusted: everything here is checked by Lean. The generic proof of the
-iteration (`Instances.lean`) at SHA-224 (`Proof/Hmac/Generic/Arm/Sha224.lean`),
-moved to the shared contract of `Spec.Hmac.sha224I`.
+The generic proof of the iteration (`Instances.lean`) at SHA-224
+(`Proof/Hmac/Generic/Arm/Sha224.lean`), moved to the shared contract of
+`Spec.Hmac.sha224I`.
 -/
 
 namespace VG.Proof.Pbkdf2.Generic.Arm.Instances

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyDecodeA
 import VerifiedGarbage.Proof.Ed25519.VerifyBytes
 
-/-! Untrusted: the strict scalar check and decoding branches implement verifyEquation. -/
+/-! The strict scalar check and decoding branches implement verifyEquation. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

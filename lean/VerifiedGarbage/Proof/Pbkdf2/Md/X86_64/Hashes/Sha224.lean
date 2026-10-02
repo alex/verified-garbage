@@ -7,15 +7,14 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # SHA-224 on x86-64, as a Merkle–Damgård hash function
 
-Untrusted: everything here is checked by Lean. SHA-224 with an
-implementation `v` of SHA-256's compression function
-(`Proof/Sha256/X86_64/Variant.lean`), as a variant of `MdHash`
-(`variant v`), from which HMAC and PBKDF2 are emitted
-(`Generic/MdHash/X86_64/`): its streaming code is SHA-256's, the generic
-Merkle–Damgård code (`Stream.params`) from SHA-224's initial hash value
-(`vg_sha224_init`), its specification `Spec.Hmac.sha224S`, with the digest
-the first 28 bytes of the final hash value. The facts about the code HMAC
-and PBKDF2 add, which do not depend on `v`, are checked once (`coreOK`).
+SHA-224 with an implementation `v` of SHA-256's compression function
+(`Proof/Sha256/X86_64/Variant.lean`), as a variant of `MdHash` (`variant v`),
+from which HMAC and PBKDF2 are emitted (`Generic/MdHash/X86_64/`): its
+streaming code is SHA-256's, the generic Merkle–Damgård code (`Stream.params`)
+from SHA-224's initial hash value (`vg_sha224_init`), its specification
+`Spec.Hmac.sha224S`, with the digest the first 28 bytes of the final hash
+value. The facts about the code HMAC and PBKDF2 add, which do not depend on
+`v`, are checked once (`coreOK`).
 
 Its streaming `update` and `finalize` are SHA-256's, which SHA-256's
 variants carry (`Proof/Pbkdf2/Md/X86_64/Hashes/Sha256.lean`): SHA-224's

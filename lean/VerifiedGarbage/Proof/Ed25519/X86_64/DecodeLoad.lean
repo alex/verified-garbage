@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.DecodeBits
 import VerifiedGarbage.Proof.Ed25519.X86_64.CanonicalY
 import VerifiedGarbage.Proof.Ed25519.X86_64.StoreWords
 
-/-! Untrusted: point decoding loads all bytes before changing its workspace. -/
+/-! Point decoding loads all bytes before changing its workspace. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

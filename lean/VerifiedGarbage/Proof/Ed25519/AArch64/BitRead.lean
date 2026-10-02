@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.BitByte
 
-/-! Untrusted: load the next scalar byte and calculate its bit-output address. -/
+/-! Load the next scalar byte and calculate its bit-output address. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64
 

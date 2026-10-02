@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.CmacAes.X86_64.Update
 /-!
 # AES-CMAC on x86-64: the loop of `vg_cmac_aes_update`
 
-Untrusted: everything here is checked by Lean. The invariant after `k`
-blocks (`LInv`): the registers hold the arguments (`r13` the next block,
-`r14` the blocks left), only the state, the first 2064 bytes of the scratch
-buffer and the stack below the return address have changed since the
-registers were saved, and the state is the chaining value after the first
-`k` blocks.
+The invariant after `k` blocks (`LInv`): the registers hold the arguments
+(`r13` the next block, `r14` the blocks left), only the state, the first 2064
+bytes of the scratch buffer and the stack below the return address have
+changed since the registers were saved, and the state is the chaining value
+after the first `k` blocks.
 -/
 
 namespace VG.Proof.CmacAes.X86_64

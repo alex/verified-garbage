@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarBaseCT
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarBaseLit
 import VerifiedGarbage.Proof.Framework.Contract
 
-/-! Untrusted: base-point multiplication satisfies the merged specification. -/
+/-! Base-point multiplication satisfies the merged specification. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

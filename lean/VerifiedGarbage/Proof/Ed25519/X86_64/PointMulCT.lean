@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulCTLoop
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMul
 
-/-! Untrusted: complete secret scalar multiplication has a public trace. -/
+/-! Complete secret scalar multiplication has a public trace. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

@@ -6,15 +6,15 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Frag
 /-!
 # ML-DSA on x86-64: checks of code, but for the functions it calls
 
-Untrusted: everything here is checked by Lean. A check of code that
-composes over its structure and looks at the code of each function called
-only through `mc` (`Comp m mc`: `ctlC`, with `ctlOk` of the functions
-called, and `Code.allInstrs q`) gives the same result on two programs that
-differ only in functions called, if it holds (`mc`) of those of the first
-and the second calls empty code instead (`Same`, proven by `same_tac` from
-the structure of the code). The top-level functions, written for any
-implementation of the polynomial arithmetic, are checked once with every
-function of it empty, so that the kernel evaluates no implementation of it.
+A check of code that composes over its structure and looks at the code of each
+function called only through `mc` (`Comp m mc`: `ctlC`, with `ctlOk` of the
+functions called, and `Code.allInstrs q`) gives the same result on two
+programs that differ only in functions called, if it holds (`mc`) of those of
+the first and the second calls empty code instead (`Same`, proven by
+`same_tac` from the structure of the code). The top-level functions, written
+for any implementation of the polynomial arithmetic, are checked once with
+every function of it empty, so that the kernel evaluates no implementation of
+it.
 -/
 
 namespace VG.Proof.MlDsa.X86_64

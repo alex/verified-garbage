@@ -7,8 +7,6 @@ import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # Reasoning about `Exec`: determinism, weakest preconditions, constant time
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG

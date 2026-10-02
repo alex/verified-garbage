@@ -8,13 +8,12 @@ import VerifiedGarbage.Impl.MlDsa.AArch64.Sample.ExpandMask
 /-!
 # ML-DSA on AArch64: the loop of `vg_mldsa_expand_mask_poly`
 
-Untrusted: everything here is checked by Lean. Group `g` of the loop takes
-the `c/2` bytes `D` of the output from byte `g c/2` on, and stores the
-coefficients `4g` to `4g + 3`: coefficient `i` is `γ₁` minus field `i` of
-the output, `⌊leNat X / 2^(ic)⌋ mod 2^c` (`expandMask_getElem`), modulo `q`.
-The fields are bits of the `u64` of the group's first 8 bytes
-(`field_low`), and the last one those above them and the group's last bytes
-(`split_div`).
+Group `g` of the loop takes the `c/2` bytes `D` of the output from byte `g
+c/2` on, and stores the coefficients `4g` to `4g + 3`: coefficient `i` is `γ₁`
+minus field `i` of the output, `⌊leNat X / 2^(ic)⌋ mod 2^c`
+(`expandMask_getElem`), modulo `q`. The fields are bits of the `u64` of the
+group's first 8 bytes (`field_low`), and the last one those above them and the
+group's last bytes (`split_div`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sample.ExpandMask

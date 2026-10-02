@@ -9,10 +9,9 @@ import VerifiedGarbage.Spec.Sha512.Contract
 /-!
 # Sha512 on AArch64: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha512/AArch64/Compress.lean`); these theorems move
-them to the shared contracts of `Spec/Sha512/Contract.lean`, which the
-artifacts are emitted with.
+The proofs are written against per-target contracts
+(`Proof/Sha512/AArch64/Compress.lean`); these theorems move them to the shared
+contracts of `Spec/Sha512/Contract.lean`, which the artifacts are emitted with.
 
 The shared contracts give the functions more scratch than these ones use (1328
 bytes for `compress`, 1376 for `update` and `finalize`, sized for the x86-64

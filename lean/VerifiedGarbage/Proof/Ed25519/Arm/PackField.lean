@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.Packed
 
-/-! Untrusted: store bounded field limbs in a compact 32-byte buffer. -/
+/-! Store bounded field limbs in a compact 32-byte buffer. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

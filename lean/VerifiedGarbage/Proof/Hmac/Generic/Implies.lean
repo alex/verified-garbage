@@ -4,14 +4,14 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # Moving the generic proofs to the shared contracts, once for every hash function
 
-Untrusted: everything here is checked by Lean. The contracts the generic HMAC
-and PBKDF2 proofs are written against (`initG`, `finG`, `iterG`) and the
-shared contracts of `Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean`
-both take the streaming hash function `S` and the scratch space `W` as
-parameters, and the implication between them holds for any `S` and `W`:
-`generic_implies` proves it once (as `sig_implies`, `Proof/Framework/Contract.lean`,
-but for the sizes, which stay symbolic), from the satisfiability of the shared
-contract, which each instance proves at its own sizes with `sig_implies_sat`.
+The contracts the generic HMAC and PBKDF2 proofs are written against (`initG`,
+`finG`, `iterG`) and the shared contracts of `Spec/Hmac/Generic.lean` and
+`Spec/Pbkdf2/Generic.lean` both take the streaming hash function `S` and the
+scratch space `W` as parameters, and the implication between them holds for any
+`S` and `W`: `generic_implies` proves it once (as `sig_implies`,
+`Proof/Framework/Contract.lean`, but for the sizes, which stay symbolic), from
+the satisfiability of the shared contract, which each instance proves at its own
+sizes with `sig_implies_sat`.
 -/
 
 namespace VG

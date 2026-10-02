@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlKem.X86.TopPrim3
 /-!
 # ML-KEM on x86 (32-bit): the calls of the top-level functions, with their arguments
 
-Untrusted: everything here is checked by Lean. A buffer's address, computed
-by `ptrTo` from `esi` or from the argument on the stack (`ptrTo_ok`); the
-block that sets a call's arguments (`setup_piece`, whose addresses depend
-only on `esp` and `esi`); and each call with it (`nttC_piece`, …), whose
-postcondition relates the state before the block to the state after the
-call.
+A buffer's address, computed by `ptrTo` from `esi` or from the argument on the
+stack (`ptrTo_ok`); the block that sets a call's arguments (`setup_piece`,
+whose addresses depend only on `esp` and `esi`); and each call with it
+(`nttC_piece`, …), whose postcondition relates the state before the block to
+the state after the call.
 -/
 
 namespace VG.Proof.MlKem.X86.Top

@@ -5,13 +5,12 @@ import VerifiedGarbage.Spec.MlDsa.Poly
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_rej_ntt_poly`, constant time but for the seed, and `Verified`
 
-Untrusted: everything here is checked by Lean. Two runs from entry states
-whose seeds (the declared leak), pointers and stack pointers agree leak the
-same (`all_ct`): the prologue and the blocks around the loop by the taint
-analysis, the sponge by `sponge_ct`, and the loop, whose branches and
-stores depend on the XOF output, by relating the two runs iteration by
-iteration (`body_ct`): both are at the same iteration with the same
-coefficients sampled and the same bytes to read, so each branch goes the
+Two runs from entry states whose seeds (the declared leak), pointers and stack
+pointers agree leak the same (`all_ct`): the prologue and the blocks around
+the loop by the taint analysis, the sponge by `sponge_ct`, and the loop, whose
+branches and stores depend on the XOF output, by relating the two runs
+iteration by iteration (`body_ct`): both are at the same iteration with the
+same coefficients sampled and the same bytes to read, so each branch goes the
 same way and each store goes to the same address.
 -/
 

@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.MlKem.AArch64.KgCommon
 
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_keygen`, the prologue and `G(d ‖ 3)`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.MlKem.AArch64.KeyGen
