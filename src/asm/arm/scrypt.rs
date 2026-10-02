@@ -1184,3 +1184,96 @@ pub(crate) unsafe extern "C" fn vg_scrypt_romix(b: *mut [u8; 128], r: usize, v: 
         vg_scrypt_blockmix = sym super::scrypt::vg_scrypt_blockmix,
     )
 }
+
+/// scrypt (RFC 7914 §6) with block size parameter `r`, cost parameter `N = vlen / r` and parallelization parameter `p = blen / r`: writes the `out_len`-byte key derived from the `password_len` bytes at `password` and the `salt_len` bytes at `salt` to `out`. Calls `vg_pbkdf2_hmac_sha256` for its two PBKDF2-HMAC-SHA256 steps and `vg_scrypt_romix` for each of the `p` blocks.
+///
+/// Contract: `VG.Spec.Scrypt.scryptContract`. Not constant time in the indices: timing may depend on the pointers, the lengths, `r`, `N`, `p` and the indices `j` of step 3 of each scryptROMix, which are derived from the password and the salt and so leak information about them (as in every scrypt that indexes `V` directly), but on nothing else.
+///
+/// Derives both keys with `vg_pbkdf2_hmac_sha256` and runs scryptROMix on each block with `vg_scrypt_romix`, using the start of `scratch` as the working space of each. The function has no stack frame of its own: the caller's `r4`–`r11` and the return address are saved in the last of the `r + 16` chunks of `scratch`, which neither callee uses; each call's stack arguments are pushed in a frame of their own.
+///
+/// # Safety
+///
+/// * `password` must be valid for reads of `password_len` bytes.
+/// * `salt` must be valid for reads of `salt_len` bytes.
+/// * `b` must be valid for reads and writes of `128 * blen` bytes.
+/// * `v` must be valid for reads and writes of `128 * vlen` bytes.
+/// * `scratch` must be valid for reads and writes of `128 * slen` bytes.
+/// * `out` must be valid for reads and writes of `out_len` bytes.
+/// * `r` must be positive, `blen` must be `p * r` and `vlen` must be `N * r` for parameters that RFC 7914 §6 accepts (`N` a power of two greater than 1 and less than `2^(16 r)`, `0 < p ≤ (2^32 - 1) * 32 / (128 r)`, `0 < out_len ≤ (2^32 - 1) * 32`), and `slen` must be `r + 16`.
+/// * `b`, `v` and `scratch` are working space: their contents on return are unspecified.
+/// * `b`, `v`, `scratch` and `out` must not overlap each other, `password`, `salt` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `password`, `salt`, `b`, `v`, `scratch` and `out` may overlap the 40 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_scrypt(password: *const u8, password_len: usize, salt: *const u8, salt_len: usize, r: usize, b: *mut [u8; 128], blen: usize, v: *mut [u8; 128], vlen: usize, scratch: *mut [u8; 128], slen: usize, out: *mut u8, out_len: usize) {
+    core::arch::naked_asm!(
+        "ldr r12, [sp, #20]",
+        "str lr, [r12, #0]",
+        "ldr lr, [sp, #0]",
+        "add r12, r12, lr, lsl #7",
+        "add r12, r12, #1920",
+        "str r4, [r12, #0]",
+        "str r5, [r12, #4]",
+        "str r6, [r12, #8]",
+        "str r7, [r12, #12]",
+        "str r8, [r12, #16]",
+        "str r9, [r12, #20]",
+        "str r10, [r12, #24]",
+        "str r11, [r12, #28]",
+        "ldr lr, [sp, #20]",
+        "ldr lr, [lr, #0]",
+        "str lr, [r12, #32]",
+        "mov r8, r0",
+        "mov r9, r1",
+        "ldr r6, [sp, #0]",
+        "ldr r7, [sp, #20]",
+        "ldr r4, [sp, #4]",
+        "ldr r5, [sp, #8]",
+        "add r5, r4, r5, lsl #7",
+        "mov r10, #1",
+        "mov r11, r4",
+        "sub r12, r5, r4",
+        "mov lr, r7",
+        "push {{r10, r11, r12, lr}}",
+        "bl {vg_pbkdf2_hmac_sha256}",
+        "ldr r12, [sp], #16",
+        "20:",
+        "mov r0, r4",
+        "mov r1, r6",
+        "ldr r2, [sp, #12]",
+        "ldr r3, [sp, #16]",
+        "mov r12, r7",
+        "add lr, r6, #2",
+        "push {{r12, lr}}",
+        "bl {vg_scrypt_romix}",
+        "ldr r12, [sp], #8",
+        "add r4, r4, r6, lsl #7",
+        "cmp r4, r5",
+        "bne 20b",
+        "mov r0, r8",
+        "mov r1, r9",
+        "ldr r2, [sp, #4]",
+        "ldr r3, [sp, #8]",
+        "lsl r3, r3, #7",
+        "mov r10, #1",
+        "ldr r11, [sp, #28]",
+        "ldr r12, [sp, #32]",
+        "mov lr, r7",
+        "push {{r10, r11, r12, lr}}",
+        "bl {vg_pbkdf2_hmac_sha256}",
+        "ldr r12, [sp], #16",
+        "add r12, r7, r6, lsl #7",
+        "add r12, r12, #1920",
+        "ldr r4, [r12, #0]",
+        "ldr r5, [r12, #4]",
+        "ldr r6, [r12, #8]",
+        "ldr r7, [r12, #12]",
+        "ldr r8, [r12, #16]",
+        "ldr r9, [r12, #20]",
+        "ldr r10, [r12, #24]",
+        "ldr r11, [r12, #28]",
+        "ldr lr, [r12, #32]",
+        "bx lr",
+        vg_pbkdf2_hmac_sha256 = sym super::pbkdf2_sha256::vg_pbkdf2_hmac_sha256,
+        vg_scrypt_romix = sym super::scrypt::vg_scrypt_romix,
+    )
+}

@@ -1,18 +1,15 @@
 //! scrypt (RFC 7914 §6).
 //!
-//! On x86-64 and AArch64, the whole derivation is the verified `vg_scrypt`
-//! (contract `VG.Spec.Scrypt.scryptContract`): it calls the verified
+//! The whole derivation is the verified `vg_scrypt` (contract
+//! `VG.Spec.Scrypt.scryptContract`): it calls the verified
 //! `vg_pbkdf2_hmac_sha256` for `B = PBKDF2-HMAC-SHA256 (P, S, 1, p · 128 · r)`
 //! and for the derived key `PBKDF2-HMAC-SHA256 (P, B, 1, dkLen)`, and in
 //! between the verified `vg_scrypt_romix` on each of the `p` blocks of `B`.
 //! It follows the implementation of SHA-256 that `Sha256` runs on this CPU:
-//! `vg_scrypt_shani` with the SHA extensions, the same verified code calling
-//! `vg_pbkdf2_hmac_sha256_shani`, with the same contract; likewise
-//! `vg_scrypt_avx2` with AVX2, and on AArch64 `vg_scrypt_sha2` with the
-//! SHA-256 instructions.
-//!
-//! On ARMv7 and x86, the two PBKDF2 steps are `pbkdf2_hmac::<Sha256>`, and
-//! each block goes through `vg_scrypt_romix` in between.
+//! on x86-64 and x86, `vg_scrypt_shani` with the SHA extensions, the same
+//! verified code calling `vg_pbkdf2_hmac_sha256_shani`, with the same
+//! contract; likewise `vg_scrypt_avx2` with AVX2 on x86-64, and on AArch64
+//! `vg_scrypt_sha2` with the SHA-256 instructions.
 //!
 //! ROMix (contract `VG.Spec.Scrypt.roMixContract`) calls the verified
 //! `vg_scrypt_blockmix` and `vg_salsa20_8`. This module only checks the
@@ -35,23 +32,15 @@
 
 use alloc::vec::Vec;
 use core::fmt;
-#[cfg(any(target_arch = "arm", target_arch = "x86"))]
-use core::num::NonZeroU32;
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use crate::arch::scrypt::vg_scrypt;
-#[cfg(any(target_arch = "arm", target_arch = "x86"))]
-use crate::arch::scrypt::vg_scrypt_romix;
+#[cfg(target_arch = "x86_64")]
+use crate::arch::scrypt::vg_scrypt_avx2;
 #[cfg(target_arch = "aarch64")]
 use crate::arch::scrypt::vg_scrypt_sha2;
-#[cfg(target_arch = "x86_64")]
-use crate::arch::scrypt::{vg_scrypt_avx2, vg_scrypt_shani};
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::arch::scrypt::vg_scrypt_shani;
 use crate::hashes::sha256::Sha256Backend;
-#[cfg(any(target_arch = "arm", target_arch = "x86"))]
-use crate::hashes::sha256::Sha256;
-#[cfg(any(target_arch = "arm", target_arch = "x86"))]
-use crate::pbkdf2::pbkdf2_hmac;
 
 /// Why [`scrypt`] refused to derive a key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -149,7 +138,6 @@ pub fn scrypt(
 /// scrypt with block size parameter `r`, cost parameter `N = v.len() / r`
 /// and parallelization parameter `p = b.len() / r`, for parameters that
 /// [`scrypt`] checked, with `r + 16` chunks of `scratch`.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn derive(
     password: &[u8],
     salt: &[u8],
@@ -163,7 +151,7 @@ fn derive(
         Sha256Backend::Scalar => vg_scrypt,
         #[cfg(target_arch = "aarch64")]
         Sha256Backend::Sha2 => vg_scrypt_sha2,
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
         Sha256Backend::ShaNi => vg_scrypt_shani,
         #[cfg(target_arch = "x86_64")]
         Sha256Backend::Avx2 => vg_scrypt_avx2,
@@ -199,47 +187,18 @@ fn derive(
     };
 }
 
-/// scrypt with block size parameter `r`, cost parameter `N = v.len() / r`
-/// and parallelization parameter `p = b.len() / r`, for parameters that
-/// [`scrypt`] checked, with at least `r + 2` chunks of `scratch`.
-#[cfg(any(target_arch = "arm", target_arch = "x86"))]
-fn derive(
-    password: &[u8],
-    salt: &[u8],
-    r: usize,
-    b: &mut [[u8; 128]],
-    v: &mut [[u8; 128]],
-    scratch: &mut [[u8; 128]],
-    out: &mut [u8],
-) {
-    pbkdf2_hmac::<Sha256>(password, salt, NonZeroU32::MIN, b.as_flattened_mut());
-    for block in b.chunks_exact_mut(r) {
-        // SAFETY: `block` is valid for reads and writes of `128 r` bytes,
-        // `v` of `128 vlen` bytes and `scratch` of at least `128 (r + 2)`
-        // bytes; they are distinct allocations, so they do not overlap each
-        // other or the stack, and they do not wrap around the address space.
-        // `r > 0`, `vlen = n r` with `n` a power of two, and `slen = r + 2`.
-        unsafe {
-            vg_scrypt_romix(
-                block.as_mut_ptr(),
-                r,
-                v.as_mut_ptr(),
-                v.len(),
-                scratch.as_mut_ptr(),
-                r + 2,
-            )
-        };
-    }
-    pbkdf2_hmac::<Sha256>(password, b.as_flattened(), NonZeroU32::MIN, out);
-}
-
-#[cfg(all(test, any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(all(
+    test,
+    any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86")
+))]
 mod tests {
     use super::*;
+    #[cfg(target_arch = "x86_64")]
+    use crate::arch::scrypt::VG_SCRYPT_AVX2_FEATURES;
     #[cfg(target_arch = "aarch64")]
     use crate::arch::scrypt::VG_SCRYPT_SHA2_FEATURES;
-    #[cfg(target_arch = "x86_64")]
-    use crate::arch::scrypt::{VG_SCRYPT_AVX2_FEATURES, VG_SCRYPT_SHANI_FEATURES};
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    use crate::arch::scrypt::VG_SCRYPT_SHANI_FEATURES;
     use crate::cpu::{Features, NAMES};
 
     /// Each implementation of `vg_scrypt` needs no CPU feature that the
@@ -252,6 +211,8 @@ mod tests {
             (Sha256Backend::ShaNi, VG_SCRYPT_SHANI_FEATURES),
             (Sha256Backend::Avx2, VG_SCRYPT_AVX2_FEATURES),
         ];
+        #[cfg(target_arch = "x86")]
+        let variants = [(Sha256Backend::ShaNi, VG_SCRYPT_SHANI_FEATURES)];
         #[cfg(target_arch = "aarch64")]
         let variants = [(Sha256Backend::Sha2, VG_SCRYPT_SHA2_FEATURES)];
         for (backend, req) in variants {
