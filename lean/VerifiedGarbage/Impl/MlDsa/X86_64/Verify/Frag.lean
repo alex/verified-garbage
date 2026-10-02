@@ -26,8 +26,9 @@ of `vg_mldsa_rej_ntt_poly4` (`SB4`, 136 bytes) at 2560; the working
 space of the primitives at 4096 (2048 bytes); and polynomials of 1024 bytes
 from 8192 (`P j`): the hint `h` (polynomials 0 to 7, of which the first
 `k`), `z` (8 to 14), `c` (15), two temporaries (16, 17), `w′` (18), `w′₁`
-(19), and `Â[r, s]` (`20 + 8r + s`), then the working space of
-`vg_mldsa_rej_ntt_poly4` (8 KiB, after the last row of `Â`).
+(19), and `Â[r, s]` (`20 + ℓr + s`, entry `ℓr + s` of `Â` in order), then the
+working space of `vg_mldsa_rej_ntt_poly4` (8 KiB, from polynomial `20 + 8k`, after
+`Â` for every `ℓ` ≤ 8).
 -/
 
 namespace VG.Impl.MlDsa.X86_64.Verify
@@ -62,7 +63,8 @@ abbrev pT : Ptr := pS 16
 abbrev pT2 : Ptr := pS 17
 abbrev pW : Ptr := pS 18
 abbrev pW1 : Ptr := pS 19
-abbrev pA (r s : Nat) : Ptr := pS (20 + 8 * r + s)
+/-- `Â[r, s]`, for rows of `l` entries. -/
+abbrev pA (l r s : Nat) : Ptr := pS (20 + l * r + s)
 
 /-! ## Moves -/
 
