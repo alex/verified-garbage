@@ -38,7 +38,6 @@ def artifacts : List Artifact := [
     code := Impl.Pbkdf2.Generic.Arm.iterate sha384H
     contract := Spec.Hmac.sha384I.iterateContract Arm.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
-    writeArgs := true
     stack := 16
     verified := Proof.Pbkdf2.Generic.Arm.Instances.sha384
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
