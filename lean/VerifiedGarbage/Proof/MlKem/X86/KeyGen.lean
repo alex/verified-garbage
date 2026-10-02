@@ -1,15 +1,13 @@
-import VerifiedGarbage.Proof.MlKem.X86.KeyGenFin
+import VerifiedGarbage.Proof.MlKem.X86.KeyGenBody
+import VerifiedGarbage.Spec.MlKem.Contract
 
 /-!
 # ML-KEM-768 on x86 (32-bit): `vg_mlkem768_keygen`
 
-The body is the start (`KeyGenG.lean`), `ŝ` and `ê` (`KeyGenPrf.lean`), the
-rows of `t̂` (`KeyGenRow.lean`) and the keys (`KeyGenFin.lean`). If every
-`SampleNTT` succeeded (`kgACC` is 1), `samp_bound` gives one bound on their
-iterations, within which K-PKE.KeyGen succeeds with the matrix sampled
-(`kpkeKeyGen768_some`); if one failed within `minIterations`, K-PKE.KeyGen
-fails with that bound (`kpkeKeyGen768_none`). Two runs with the same pointers
-and `ρ` leak the same: the contract lets the function leak `ρ`.
+Key generation (`KeyGenBody.lean`) for ML-KEM-768 (`L768`): the facts of its
+layout (`GOK`, `PrfOK`, `KgRowOK`, `FinOK`), computed from its offsets; the
+contract's precondition implies `TPre (Y L768)` (`pre_of`) and its public data
+`TPub`, which includes `ρ` (`pub_of`).
 -/
 
 namespace VG.Proof.MlKem.X86.KeyGen
@@ -21,62 +19,111 @@ open VG.Proof.MlKem.X86.Top
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-theorem body_piece : Piece (TPre Y) (TPub Y lk) (fun s₀ s => s = P0 s₀) Done kgBody :=
-  start_piece <| prfs_piece <| rows_piece fin_piece |>.mono (fun _ _ _ h =>
-    ⟨h.ctx, h.rho, h.se, .inr h.acc, fun _ _ h => absurd h (Nat.not_lt_zero _),
-      fun e => absurd (h.acc.symm.trans e) (by decide), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩)
-    fun _ _ _ h => h
+instance : GOK L768 where
+  rs := by decide
+  g := by decide
 
-theorem piece : Piece (TPre Y) (TPub Y lk) (fun s₀ s => s = s₀) (fun s₀ s' => LeafPost (Done s₀) s₀ s')
-    Impl.MlKem.X86.keyGen :=
-  topLeaf (NoSp.of_all (by decide +kernel)) (body_piece.mono (fun _ _ _ h => h) fun _ _ _ h => ⟨h.ctx, h⟩)
+instance : PrfOK L768 where
+  sig := by decide
+  nb := by decide
+  hash := by decide
+  prf := by decide
 
-/-- Every sample, within one bound. -/
-theorem samples {s₀ s : State} (h : Done s₀ s) (e : accV s₀ s = 1) :
-    ∃ M, ∀ i < 3, ∀ j < 3, sampleNTT M (matSeed (kgRho (d s₀)) i j) = some (aM s₀ i j) := by
-  obtain ⟨M, hM⟩ := samp_bound ((List.range 9).map fun k => (mS s₀ k, aM s₀ (k / 3) (k % 3))) (by
-    intro p hp
-    obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hp
-    obtain ⟨a, ha⟩ := h.ok e k (List.mem_range.mp hk)
-    show Samp (mS s₀ k) (sv (mS s₀ k))
-    rw [sv_eq ha]; exact ha)
-  refine ⟨M, fun i hi j hj => ?_⟩
-  have r := hM (mS s₀ (3 * i + j), aM s₀ ((3 * i + j) / 3) ((3 * i + j) % 3))
-    (List.mem_map.mpr ⟨3 * i + j, List.mem_range.mpr (by omega), rfl⟩)
-  rw [mS_eq s₀ hj, show (3 * i + j) / 3 = i by omega, show (3 * i + j) % 3 = j by omega] at r
-  exact r
+instance : KgRowOK L768 where
+  seed := by decide
+  nb := by decide
+  samp := by decide
+  mask := by decide
+  mul := by decide
+  mul0 := by decide
+  mulJ := by decide
+  row := by decide
 
-/-- The postcondition, from the final state of the body. -/
-theorem post {s₀ s : State} (hp : TPre Y s₀) (h : Done s₀ s) :
-    Outcome (fun iters => keyGenInternal mlKem768 iters (d s₀) (z s₀)) (accV s₀ s)
-      (bytesAt s.mem (Buf.addr s₀ ⟨1, 0, 1184⟩) 1184, bytesAt s.mem (Buf.addr s₀ ⟨2, 0, 2400⟩) 2400) := by
-  rcases h.acc with e | e
-  · obtain ⟨k, hk, hn⟩ := h.fail e
-    refine .inr ⟨e, ?_⟩
-    show keyGenInternal mlKem768 minIterations (d s₀) (z s₀) = none
-    rw [keyGenInternal768, kpkeKeyGen768_none (i := k / 3) (j := k % 3) (by omega) (by omega) hn]
-    rfl
-  · obtain ⟨M, hM⟩ := samples h e
-    refine .inl ⟨e, M, ?_⟩
-    show keyGenInternal mlKem768 M (d s₀) (z s₀) = _
-    rw [keyGenInternal768, kpkeKeyGen768_some hM, ek_full hp h.toF (by decide) e, dk_full hp h.toF e]
-    rfl
+instance : FinOK L768 where
+  fin := by decide
+  enc := by decide
+  ek := by decide
+  rho := by decide
+  cp := by decide
+  hh := by decide
+  zk := by decide
+  acc := by decide
+
+theorem pre_of {s₀ : State} (h : (keyGenContract X86.abi 88).pre s₀) : TPre (Y L768) s₀ := by
+  sig_pre [keyGenContract, keyGenSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at h
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21,
+    h22, h23, h24, h25, h26, h27, h28⟩ := h
+  have hs : (⟨(E0 s₀).setWidth 64 - 88#64, 88⟩ : Region) = below (E0 s₀) 88 := by
+    simp only [below]; rw [Taint.sub_setWidth h1]
+  rw [hs] at h20 h21 h22 h23 h24
+  have c4 : ∀ i, i < (Y L768).n → i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 := fun i hi => by
+    simp only [Y, Lay.n, List.length_cons, List.length_nil] at hi; omega
+  refine ⟨h1, by decide, by simp only [Y, Lay.n, List.length_cons, List.length_nil]; omega, ?_, ?_, ?_, ?_, ?_,
+    ?_, ?_, h24, ?_, by decide⟩
+  · intro i hi hw
+    rcases c4 i hi with rfl | rfl | rfl | rfl
+    · rw [h3]; exact List.mem_singleton_self _
+    all_goals exact absurd hw (by decide)
+  · intro i hi hw
+    rw [h4]
+    rcases c4 i hi with rfl | rfl | rfl | rfl
+    · exact absurd hw (by decide)
+    all_goals simp [argR, Lay.alen, Y, L768, Params.ekLen, Params.dkLen, mlKem768]
+  · rw [h4]; simp [gR, Lay.n, Y]
+  · intro i hi j hj hne _
+    rcases c4 i hi with rfl | rfl | rfl | rfl <;> rcases c4 j hj with rfl | rfl | rfl | rfl
+    exacts [absurd rfl hne, h5, h6, h7, h5.symm, absurd rfl hne, h9, h10, h6.symm, h9.symm, absurd rfl hne, h12,
+      h7.symm, h10.symm, h12.symm, absurd rfl hne]
+  · intro i hi
+    rcases c4 i hi with rfl | rfl | rfl | rfl
+    · exact h8.symm
+    · exact h11.symm
+    · exact h13.symm
+    · exact h14.symm
+  · intro i hi
+    rcases c4 i hi with rfl | rfl | rfl | rfl
+    · exact h15
+    · exact h16
+    · exact h17
+    · exact h18
+  · intro i hi
+    rcases c4 i hi with rfl | rfl | rfl | rfl
+    · exact h20
+    · exact h21
+    · exact h22
+    · exact h23
+  · intro i hi
+    rcases c4 i hi with rfl | rfl | rfl | rfl
+    · exact h25
+    · exact h26
+    · exact h27
+    · exact h28
+
+theorem pub_of {s₀ s₀' : State} (h : (keyGenContract X86.abi 88).pub s₀ s₀') : TPub (Y L768) (lk L768) s₀ s₀' := by
+  sig_pub [keyGenContract, keyGenSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at h
+  obtain ⟨e₁, e₂, e₃, e₄, e₅, e₆⟩ := h
+  refine ⟨e₁, fun i hi => ?_, ?_⟩
+  · simp only [Y, Lay.n, List.length_cons, List.length_nil] at hi
+    obtain rfl | rfl | rfl | rfl : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 := by omega
+    exacts [e₃, e₄, e₅, e₆]
+  · simp only [lk, d, addr0]
+    exact map_toNat_inj e₂
 
 /-- Memory with the arguments `0`, `0x100`, `0x1000` and `0x10000` at `0x5004`. -/
 def satMem : Mem := fun a => if a = 0x5009 then 1 else if a = 0x500d then 0x10 else if a = 0x5012 then 1 else 0
 
 theorem verified : Verified X86.target Impl.MlKem.X86.keyGen (keyGenContract X86.abi 88) := by
-  refine Piece.verified ((piece.pre_mono (fun _ h => pre_of h) fun _ _ _ _ h => pub_of h).mono
+  refine Piece.verified (((piece (L := L768) (NoSp.of_all (by decide +kernel))).pre_mono (fun _ h => pre_of h) fun _ _ _ _ h => pub_of h).mono
     (fun _ _ _ h => h) fun s₀ s' h₀ hq => ?_) ?_
   · have hp := pre_of h₀
     obtain ⟨habi, -, -, s, hfin, hm, hax⟩ := hq
     refine ⟨habi, ?_⟩
     sig_post [keyGenContract, keyGenSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     rw [setWidth_append32, hax, hfin.eax, hm]
-    have r := post hp hfin
+    have r := post (by decide) hp hfin
     have ez : Buf.addr s₀ ⟨0, 32, 32⟩ = (arg s₀ 0).setWidth 64 + 32 := Buf.addr_eq hp (by decide)
-    simp only [d, z, addr0, ez, show Buf.addr s₀ ⟨1, 0, 1184⟩ = (arg s₀ 1).setWidth 64 from addr0 s₀ 1,
-      show Buf.addr s₀ ⟨2, 0, 2400⟩ = (arg s₀ 2).setWidth 64 from addr0 s₀ 2] at r
+    simp only [d, z, addr0, ez, show Buf.addr s₀ ⟨1, 0, L768.p.ekLen⟩ = (arg s₀ 1).setWidth 64 from addr0 s₀ 1,
+      show Buf.addr s₀ ⟨2, 0, L768.p.dkLen⟩ = (arg s₀ 2).setWidth 64 from addr0 s₀ 2] at r
     exact r
   · let st := satState satMem [⟨0, 64⟩]
       [⟨0x100, 1184⟩, ⟨0x1000, 2400⟩, ⟨0x10000, 32768⟩, ⟨0x5004, 16⟩]

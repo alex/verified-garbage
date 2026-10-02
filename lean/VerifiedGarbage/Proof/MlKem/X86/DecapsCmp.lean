@@ -1,8 +1,8 @@
 import VerifiedGarbage.Proof.MlKem.X86.DecapsPre
-import VerifiedGarbage.Proof.MlKem.X86.CheckEk
+import VerifiedGarbage.Proof.MlKem.X86.CheckEkBody
 
 /-!
-# ML-KEM-768 on x86 (32-bit): the implicit rejection in `vg_mlkem768_decaps`
+# ML-KEM on x86 (32-bit): the implicit rejection in decapsulation
 
 `cmpC` compares `ct` with `c'` (at `eC`) without branching on them: `ebx` is
 the OR of the XORs of their bytes (`accB`), then all ones if it is 0 and zero
@@ -21,7 +21,7 @@ open VG.Proof.MlKem.X86.Top
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-variable {A B : State → State → Prop}
+variable {L : KemLay} {A B : State → State → Prop}
 
 /-! ## Single instructions -/
 
@@ -83,56 +83,67 @@ theorem accB_eq (c c' : List Byte) : ∀ n, n ≤ c.length → n ≤ c'.length �
       List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (show n < c.length by omega),
       List.getElem?_eq_getElem (show n < c'.length by omega), Option.getD_some]
 
-/-- `c` and `c'` of 1088 bytes are equal exactly when `accB` of all their bytes is 0. -/
-theorem accB_zero {c c' : List Byte} (h₁ : c.length = 1088) (h₂ : c'.length = 1088) :
-    c = c' ↔ accB c c' 1088 = 0 := by
-  rw [accB_eq c c' 1088 (by omega) (by omega), List.take_of_length_le (by omega),
+/-- `c` and `c'` of `n` bytes are equal exactly when `accB` of all their bytes is 0. -/
+theorem accB_zero {c c' : List Byte} {n : Nat} (h₁ : c.length = n) (h₂ : c'.length = n) :
+    c = c' ↔ accB c c' n = 0 := by
+  rw [accB_eq c c' n (by omega) (by omega), List.take_of_length_le (by omega),
     List.take_of_length_le (by omega)]
   exact eq_iff_foldl_or_xor (by omega)
 
 /-- `c'`. -/
-abbrev bC : Buf := ⟨3, eC, 1088⟩
+abbrev bC (L : KemLay) : Buf := ⟨3, L.eC, L.p.ctLen⟩
 
 /-- The mask: all ones if `p`, and zero otherwise. -/
 def mask (p : Prop) [Decidable p] : BitVec 32 := if p then 0xffffffff else 0
 
+/-- The facts of the layout that the comparison and the selection use. -/
+class CmpOK (L : KemLay) : Prop where
+  ct : (Y L).ok ⟨1, 0, L.p.ctLen⟩ = true ∧ (Y L).ok (bC L) = true ∧ 0 < L.p.ctLen ∧ L.p.ctLen < 2 ^ 32 ∧
+    L.eC + L.p.ctLen ≤ L.scratch
+  sel : (Y L).ok ⟨3, L.eKR, 32⟩ = true ∧ (Y L).ok ⟨3, L.eH, 32⟩ = true ∧ L.eKR + 32 ≤ L.scratch ∧
+    L.eH + 32 ≤ L.scratch
+
 /-- The comparison, from the setup. -/
-structure CL (s₀ : State) (m : Mem) (k : Nat) (u : State) : Prop where
-  ctx : Ctx Y s₀ u
+structure CL (L : KemLay) (s₀ : State) (m : Mem) (k : Nat) (u : State) : Prop where
+  ctx : Ctx (Y L) s₀ u
   mem : u.mem = m
   edi : u.gpr .edi = arg s₀ 1 + BitVec.ofNat 32 k
   ebp : u.gpr .ebp = arg s₀ 3 + BitVec.ofNat 32 k
-  ecx : u.gpr .ecx = BitVec.ofNat 32 (1088 - k)
-  ebx : u.gpr .ebx = (accB (ct s₀) (bytesAt m (Buf.addr s₀ bC) 1088) k).setWidth 32
+  ecx : u.gpr .ecx = BitVec.ofNat 32 (L.p.ctLen - k)
+  ebx : u.gpr .ebx = (accB (ct L s₀) (bytesAt m (Buf.addr s₀ (bC L)) L.p.ctLen) k).setWidth 32
 
-theorem cmp_step {s₀ : State} (hp : TPre Y s₀) {m : Mem} {k : Nat} (hk : k < 1088) {u : State}
-    (h : CL s₀ m k u) :
-    WP isa (.block cmpBody) u fun u' => CL s₀ m (k + 1) u' ∧ isa.eval .ne u' = some (decide (k + 1 < 1088)) := by
-  have f1 : (arg s₀ 1).toNat + 1088 ≤ 2 ^ 32 := hp.fit 1 (by decide)
-  have f3 : (arg s₀ 3).toNat + 32768 ≤ 2 ^ 32 := hp.fit 3 (by decide)
-  have e₁ : u.ea (at_ .edi 0) = Buf.addr s₀ ⟨1, 0, 1088⟩ + BitVec.ofNat 64 k := by
+theorem cmp_step [CmpOK L] {s₀ : State} (hp : TPre (Y L) s₀) {m : Mem} {k : Nat} (hk : k < L.p.ctLen) {u : State}
+    (h : CL L s₀ m k u) :
+    WP isa (.block (cmpBody L)) u fun u' => CL L s₀ m (k + 1) u' ∧
+      isa.eval .ne u' = some (decide (k + 1 < L.p.ctLen)) := by
+  obtain ⟨ok₁, ok₂, -, hN, hC⟩ := CmpOK.ct (L := L)
+  have f1 : (arg s₀ 1).toNat + L.p.ctLen ≤ 2 ^ 32 := hp.fit 1 (by rdecide)
+  have f3 : (arg s₀ 3).toNat + L.scratch ≤ 2 ^ 32 := hp.fit 3 (by rdecide)
+  have e₁ : u.ea (at_ .edi 0) = Buf.addr s₀ ⟨1, 0, L.p.ctLen⟩ + BitVec.ofNat 64 k := by
     simp only [State.ea, at_, h.edi]; rw [ea_add (by omega), addr0]; rfl
-  have e₂ : u.ea (at_ .ebp eC) = Buf.addr s₀ bC + BitVec.ofNat 64 k := by
+  have e₂ : u.ea (at_ .ebp L.eC) = Buf.addr s₀ (bC L) + BitVec.ofNat 64 k := by
     simp only [State.ea, at_, h.ebp]
-    rw [ea_add (by simp only [eC]; omega), Buf.addr_eq hp (b := bC) (by decide), BitVec.add_assoc,
+    rw [ea_add (by omega), Buf.addr_eq hp (b := bC L) ok₂, BitVec.add_assoc,
       ← BitVec.ofNat_add, Nat.add_comm]
-  have i₁ := Buf.inRegR (o := k) (n := 1) hp (b := ⟨1, 0, 1088⟩) (by decide) h.ctx.rd h.ctx.wr (show k + 1 ≤ 1088 by omega)
+  have i₁ := Buf.inRegR (o := k) (n := 1) hp (b := ⟨1, 0, L.p.ctLen⟩) ok₁ h.ctx.rd h.ctx.wr
+    (show k + 1 ≤ L.p.ctLen by omega)
   refine wp_movzx' (by rw [e₁]; exact i₁) fun u₁ o₁ v₁ => ?_
   have c₁ := h.ctx.only o₁ (by decide) (by decide)
-  have e₂' : u₁.ea (at_ .ebp eC) = Buf.addr s₀ bC + BitVec.ofNat 64 k := by
+  have e₂' : u₁.ea (at_ .ebp L.eC) = Buf.addr s₀ (bC L) + BitVec.ofNat 64 k := by
     rw [← e₂]; simp only [State.ea, at_, o₁.gpr .ebp (by decide)]
-  have i₂ := Buf.inRegR (o := k) (n := 1) hp (b := bC) (by decide) c₁.rd c₁.wr (show k + 1 ≤ 1088 by omega)
+  have i₂ := Buf.inRegR (o := k) (n := 1) hp (b := bC L) ok₂ c₁.rd c₁.wr (show k + 1 ≤ L.p.ctLen by omega)
   refine wp_movzx' (by rw [e₂']; exact i₂) fun u₂ o₂ v₂ => ?_
   refine wp_xorr fun u₃ o₃ v₃ => wp_orr fun u₄ o₄ v₄ => wp_addi fun u₅ o₅ v₅ => wp_addi fun u₆ o₆ v₆ =>
     wp_subi_last fun u₇ o₇ v₇ z₇ => ?_
   have c₇ := (((((c₁.only o₂ (by decide) (by decide)).only o₃ (by decide) (by decide)).only o₄ (by decide)
     (by decide)).only o₅ (by decide) (by decide)).only o₆ (by decide) (by decide)).only o₇ (by decide) (by decide)
   have m₁ : u₁.mem = m := o₁.mem.trans h.mem
-  have x₁ : u.mem (Buf.addr s₀ ⟨1, 0, 1088⟩ + BitVec.ofNat 64 k) = (ct s₀).getD k 0 := by
-    rw [h.ctx.ro hp (b := ⟨1, 0, 1088⟩) (by decide) rfl hk, ct_eq, bytesAt_getD _ _ hk]
-  have x₂ : u₁.mem (Buf.addr s₀ bC + BitVec.ofNat 64 k) = (bytesAt m (Buf.addr s₀ bC) 1088).getD k 0 := by
+  have x₁ : u.mem (Buf.addr s₀ ⟨1, 0, L.p.ctLen⟩ + BitVec.ofNat 64 k) = (ct L s₀).getD k 0 := by
+    rw [h.ctx.ro hp (b := ⟨1, 0, L.p.ctLen⟩) ok₁ rfl hk, ct_eq, bytesAt_getD _ _ hk]
+  have x₂ : u₁.mem (Buf.addr s₀ (bC L) + BitVec.ofNat 64 k) =
+      (bytesAt m (Buf.addr s₀ (bC L)) L.p.ctLen).getD k 0 := by
     rw [m₁, bytesAt_getD _ _ hk]
-  have ex : u₆.gpr .ecx = BitVec.ofNat 32 (1088 - k) := by
+  have ex : u₆.gpr .ecx = BitVec.ofNat 32 (L.p.ctLen - k) := by
     rw [o₆.gpr _ (by decide), o₅.gpr _ (by decide), o₄.gpr _ (by decide), o₃.gpr _ (by decide),
       o₂.gpr _ (by decide), o₁.gpr _ (by decide), h.ecx]
   refine ⟨⟨c₇, by rw [o₇.mem, o₆.mem, o₅.mem, o₄.mem, o₃.mem, o₂.mem, m₁], ?_, ?_, by rw [v₇, ex]; exact cnt_next hk,
@@ -147,33 +158,34 @@ theorem cmp_step {s₀ : State} (hp : TPre Y s₀) {m : Mem} {k : Nat} (hk : k <
       o₂.gpr .ebx (by decide), o₂.gpr .eax (by decide), v₂, o₁.gpr .ebx (by decide), v₁, h.ebx, e₁, e₂', x₁, x₂,
       accB, BitVec.setWidth_or, BitVec.setWidth_xor]
   · show u₇.zf.map (!·) = _
-    rw [z₇, ex]; exact cnt_ne hk (by decide)
+    rw [z₇, ex]; exact cnt_ne hk hN
 
 /-- `ebx ←` all ones if `ct = c'`, and zero otherwise. -/
-theorem cmp_piece (hA : ∀ s₀ s, TPre Y s₀ → A s₀ s → Ctx Y s₀ s)
-    (hQ : ∀ s₀ s s', TPre Y s₀ → A s₀ s → Ctx Y s₀ s' → s'.mem = s.mem →
-      s'.gpr .ebx = mask (ct s₀ = bytesAt s.mem (Buf.addr s₀ bC) 1088) → B s₀ s') :
-    Piece (TPre Y) (TPub Y lk) A B cmpC := by
+theorem cmp_piece [CmpOK L] (hA : ∀ s₀ s, TPre (Y L) s₀ → A s₀ s → Ctx (Y L) s₀ s)
+    (hQ : ∀ s₀ s s', TPre (Y L) s₀ → A s₀ s → Ctx (Y L) s₀ s' → s'.mem = s.mem →
+      s'.gpr .ebx = mask (ct L s₀ = bytesAt s.mem (Buf.addr s₀ (bC L)) L.p.ctLen) → B s₀ s') :
+    Piece (TPre (Y L)) (TPub (Y L) (lk L)) A B (cmpC L) := by
+  obtain ⟨-, -, h0, -⟩ := CmpOK.ct (L := L)
   refine Piece.seq (setup_piece (fun s₀ s₁ => s₁.gpr .edi = arg s₀ 1 ∧ s₁.gpr .ebp = arg s₀ 3 ∧
-      s₁.gpr .ecx = 1088 ∧ s₁.gpr .ebx = 0) (fun s₀ s hp h => ?_) hA (by taint_decide)) ?_
+      s₁.gpr .ecx = BitVec.ofNat 32 L.p.ctLen ∧ s₁.gpr .ebx = 0) (fun s₀ s hp h => ?_) hA (by taint_rfl)) ?_
   · have ea : s.ea (at_ .esp 24) = argAddr s₀ 1 := h.argEa (i := 1)
-    refine wp_movm' (by rw [ea]; exact h.argIn hp (by decide)) fun s₁ o₁ v₁ => ?_
+    refine wp_movm' (by rw [ea]; exact h.argIn hp (by rdecide)) fun s₁ o₁ v₁ => ?_
     have c₁ := h.only o₁ (by decide) (by decide)
     refine wp_movr' fun s₂ o₂ v₂ => wp_movi fun s₃ o₃ v₃ => wp_movi fun s₄ o₄ v₄ => WP.block_nil_iff.mpr ?_
     have c₄ := ((c₁.only o₂ (by decide) (by decide)).only o₃ (by decide) (by decide)).only o₄ (by decide) (by decide)
     refine ⟨c₄, by rw [o₄.mem, o₃.mem, o₂.mem, o₁.mem], ?_, ?_, by rw [o₄.gpr _ (by decide), v₃], v₄⟩
-    · rw [o₄.gpr _ (by decide), o₃.gpr _ (by decide), o₂.gpr _ (by decide), v₁, ea, h.argw hp (by decide)]
+    · rw [o₄.gpr _ (by decide), o₃.gpr _ (by decide), o₂.gpr _ (by decide), v₁, ea, h.argw hp (by rdecide)]
     · rw [o₄.gpr _ (by decide), o₃.gpr _ (by decide), v₂, c₁.esi]; rfl
-  refine Piece.seq (B := fun s₀ u => ∃ s, A s₀ s ∧ CL s₀ s.mem 1088 u)
+  refine Piece.seq (B := fun s₀ u => ∃ s, A s₀ s ∧ CL L s₀ s.mem L.p.ctLen u)
     (Piece.taint [.edi, .ebp, .ecx] (fun s₀ s₁ hp ⟨s, ha, h₁, m₁, e₁, e₂, e₃, e₄⟩ => ?_)
       (fun s₀ s₀' s s' hp hp' hq ⟨_, _, _, _, e₁, e₂, e₃, _⟩ ⟨_, _, _, _, e₁', e₂', e₃', _⟩ r hr => ?_)
-      (by taint_decide)) ?_
-  · refine (wp_count (N := 1088) (by decide) (CL s₀ s.mem) ⟨h₁, m₁, by rw [e₁]; simp, by rw [e₂]; simp,
-      by rw [e₃]; rfl, by rw [e₄]; rfl⟩ fun k hk u h => cmp_step hp hk h).mono fun u h => ⟨s, ha, h⟩
+      (by taint_rfl)) ?_
+  · refine (wp_count (N := L.p.ctLen) h0 (CL L s₀ s.mem) ⟨h₁, m₁, by rw [e₁]; simp, by rw [e₂]; simp,
+      by rw [e₃, Nat.sub_zero], by rw [e₄]; rfl⟩ fun k hk u h => cmp_step hp hk h).mono fun u h => ⟨s, ha, h⟩
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
-    · rw [e₁, e₁', hq.2.1 1 (by decide)]
-    · rw [e₂, e₂', hq.2.1 3 (by decide)]
+    · rw [e₁, e₁', hq.2.1 1 (by rdecide)]
+    · rw [e₂, e₂', hq.2.1 3 (by rdecide)]
     · rw [e₃, e₃']
   refine Piece.taint [] (fun s₀ u hp ⟨s, ha, h⟩ => ?_) (fun _ _ _ _ _ _ _ _ _ r hr => absurd hr (by simp))
     (by taint_decide)
@@ -181,15 +193,17 @@ theorem cmp_piece (hA : ∀ s₀ s, TPre Y s₀ → A s₀ s → Ctx Y s₀ s)
   have c₂ := (h.ctx.only o₁ (by decide) (by decide)).only o₂ (by decide) (by decide)
   refine hQ s₀ s u₂ hp ha c₂ (by rw [o₂.mem, o₁.mem, h.mem]) ?_
   rw [v₂, CheckEk.sbb_mask, h.ebx, mask]
-  have hl : (bytesAt s.mem (Buf.addr s₀ bC) 1088).length = 1088 := bytesAt_length _ _ _
-  have hc : (ct s₀).length = 1088 := by rw [ct_eq]; exact bytesAt_length _ _ _
-  have lt := (accB (ct s₀) (bytesAt s.mem (Buf.addr s₀ bC) 1088) 1088).isLt
-  by_cases e : ct s₀ = bytesAt s.mem (Buf.addr s₀ bC) 1088
+  have hl : (bytesAt s.mem (Buf.addr s₀ (bC L)) L.p.ctLen).length = L.p.ctLen := bytesAt_length _ _ _
+  have hc : (ct L s₀).length = L.p.ctLen := by rw [ct_eq]; exact bytesAt_length _ _ _
+  have lt := (accB (ct L s₀) (bytesAt s.mem (Buf.addr s₀ (bC L)) L.p.ctLen) L.p.ctLen).isLt
+  by_cases e : ct L s₀ = bytesAt s.mem (Buf.addr s₀ (bC L)) L.p.ctLen
   · have z := (accB_zero hc hl).mp e
     rw [ite_eq_left e, z]; rfl
-  · have z : accB (ct s₀) (bytesAt s.mem (Buf.addr s₀ bC) 1088) 1088 ≠ 0 := fun z => e ((accB_zero hc hl).mpr z)
+  · have z : accB (ct L s₀) (bytesAt s.mem (Buf.addr s₀ (bC L)) L.p.ctLen) L.p.ctLen ≠ 0 :=
+      fun z => e ((accB_zero hc hl).mpr z)
     rw [ite_eq_right e]
-    have : ¬ ((accB (ct s₀) (bytesAt s.mem (Buf.addr s₀ bC) 1088) 1088).setWidth 32).toNat < (1 : BitVec 32).toNat := by
+    have : ¬ ((accB (ct L s₀) (bytesAt s.mem (Buf.addr s₀ (bC L)) L.p.ctLen) L.p.ctLen).setWidth 32).toNat <
+        (1 : BitVec 32).toNat := by
       rw [BitVec.toNat_setWidth, Nat.mod_eq_of_lt (by omega)]
       intro h'
       exact z (BitVec.eq_of_toNat_eq (by simp at h'; simp [h']))
@@ -203,37 +217,38 @@ def selB (m a b : Byte) : Byte := b ^^^ ((a ^^^ b) &&& m)
 
 /-- `key`, `K'` and `K̄`. -/
 abbrev bKey : Buf := ⟨2, 0, 32⟩
-abbrev bK : Buf := ⟨3, eKR, 32⟩
-abbrev bKB : Buf := ⟨3, deKB, 32⟩
+abbrev bK (L : KemLay) : Buf := ⟨3, L.eKR, 32⟩
+abbrev bKB (L : KemLay) : Buf := ⟨3, L.eH, 32⟩
 
 /-- The selection, from the setup. -/
-structure SL (s₀ : State) (m : Mem) (M : BitVec 32) (k : Nat) (u : State) : Prop where
-  ctx : Ctx Y s₀ u
+structure SL (L : KemLay) (s₀ : State) (m : Mem) (M : BitVec 32) (k : Nat) (u : State) : Prop where
+  ctx : Ctx (Y L) s₀ u
   fr : Frame [Buf.rgn s₀ bKey] m u.mem
   edi : u.gpr .edi = arg s₀ 3 + BitVec.ofNat 32 k
   ebp : u.gpr .ebp = arg s₀ 2 + BitVec.ofNat 32 k
   ecx : u.gpr .ecx = BitVec.ofNat 32 (32 - k)
   ebx : u.gpr .ebx = M
   out : ∀ j < k, u.mem (Buf.addr s₀ bKey + BitVec.ofNat 64 j) =
-    selB (M.setWidth 8) (m (Buf.addr s₀ bK + BitVec.ofNat 64 j)) (m (Buf.addr s₀ bKB + BitVec.ofNat 64 j))
+    selB (M.setWidth 8) (m (Buf.addr s₀ (bK L) + BitVec.ofNat 64 j)) (m (Buf.addr s₀ (bKB L) + BitVec.ofNat 64 j))
 
-theorem sel_step {s₀ : State} (hp : TPre Y s₀) {m : Mem} {M : BitVec 32} {k : Nat} (hk : k < 32) {u : State}
-    (h : SL s₀ m M k u) :
-    WP isa (.block selBody) u fun u' => SL s₀ m M (k + 1) u' ∧ isa.eval .ne u' = some (decide (k + 1 < 32)) := by
-  have f2 : (arg s₀ 2).toNat + 32 ≤ 2 ^ 32 := hp.fit 2 (by decide)
-  have f3 : (arg s₀ 3).toNat + 32768 ≤ 2 ^ 32 := hp.fit 3 (by decide)
+theorem sel_step [CmpOK L] {s₀ : State} (hp : TPre (Y L) s₀) {m : Mem} {M : BitVec 32} {k : Nat} (hk : k < 32)
+    {u : State} (h : SL L s₀ m M k u) :
+    WP isa (.block (selBody L)) u fun u' => SL L s₀ m M (k + 1) u' ∧
+      isa.eval .ne u' = some (decide (k + 1 < 32)) := by
+  obtain ⟨ok₁, ok₂, n₁, n₂⟩ := CmpOK.sel (L := L)
+  have f2 : (arg s₀ 2).toNat + 32 ≤ 2 ^ 32 := hp.fit 2 (by rdecide)
+  have f3 : (arg s₀ 3).toNat + L.scratch ≤ 2 ^ 32 := hp.fit 3 (by rdecide)
   have ea : ∀ (u' : State) (o : Nat) (b : Buf), u'.gpr .edi = arg s₀ 3 + BitVec.ofNat 32 k → b.arg = 3 → b.off = o →
-      Y.ok b = true → o + k < 32768 → u'.ea (at_ .edi o) = Buf.addr s₀ b + BitVec.ofNat 64 k :=
+      (Y L).ok b = true → o + k < L.scratch → u'.ea (at_ .edi o) = Buf.addr s₀ b + BitVec.ofNat 64 k :=
     fun u' o b e h₁ h₂ hok ho => by
       simp only [State.ea, at_, e]
       rw [ea_add (by omega), Buf.addr_eq hp hok, h₁, h₂, BitVec.add_assoc, ← BitVec.ofNat_add, Nat.add_comm]
-  have e₁ := ea u eKR bK h.edi rfl rfl (by decide) (by simp only [eKR]; omega)
-  have i₁ := Buf.inRegR (o := k) (n := 1) hp (b := bK) (by decide) h.ctx.rd h.ctx.wr (show k + 1 ≤ 32 by omega)
+  have e₁ := ea u L.eKR (bK L) h.edi rfl rfl ok₁ (by omega)
+  have i₁ := Buf.inRegR (o := k) (n := 1) hp (b := bK L) ok₁ h.ctx.rd h.ctx.wr (show k + 1 ≤ 32 by omega)
   refine wp_movzx' (by rw [e₁]; exact i₁) fun u₁ o₁ v₁ => ?_
   have c₁ := h.ctx.only o₁ (by decide) (by decide)
-  have e₂ := ea u₁ deKB bKB (by rw [o₁.gpr .edi (by decide), h.edi]) rfl rfl (by decide)
-    (by simp only [deKB]; omega)
-  have i₂ := Buf.inRegR (o := k) (n := 1) hp (b := bKB) (by decide) c₁.rd c₁.wr (show k + 1 ≤ 32 by omega)
+  have e₂ := ea u₁ L.eH (bKB L) (by rw [o₁.gpr .edi (by decide), h.edi]) rfl rfl ok₂ (by omega)
+  have i₂ := Buf.inRegR (o := k) (n := 1) hp (b := bKB L) ok₂ c₁.rd c₁.wr (show k + 1 ≤ 32 by omega)
   refine wp_movzx' (by rw [e₂]; exact i₂) fun u₂ o₂ v₂ => ?_
   have c₂ := c₁.only o₂ (by decide) (by decide)
   refine wp_xorr fun u₃ o₃ v₃ => wp_andr fun u₄ o₄ v₄ => wp_xorr fun u₅ o₅ v₅ => ?_
@@ -243,29 +258,29 @@ theorem sel_step {s₀ : State} (hp : TPre Y s₀) {m : Mem} {M : BitVec 32} {k 
       o₁.gpr .ebp (by decide), h.ebp]
   have e₃ : u₅.ea (at_ .ebp 0) = Buf.addr s₀ bKey + BitVec.ofNat 64 k := by
     simp only [State.ea, at_, eb]; rw [ea_add (by omega), addr0]; rfl
-  have i₃ := Buf.inRegW (o := k) (n := 1) hp (b := bKey) (by decide) (by decide) c₅.wr (show k + 1 ≤ 32 by omega)
+  have i₃ := Buf.inRegW (o := k) (n := 1) hp (b := bKey) (by rdecide) (by rdecide) c₅.wr (show k + 1 ≤ 32 by omega)
   refine wp_store8 (by rw [e₃]; exact i₃) (wp_addi fun u₆ o₆ v₆ => wp_addi fun u₇ o₇ v₇ =>
     wp_subi_last fun u₈ o₈ v₈ z₈ => ?_)
-  obtain ⟨r, hr, hcr⟩ := Buf.contains hp (b := bKey) (by decide) (by decide) (o := k) (n := 1)
+  obtain ⟨r, hr, hcr⟩ := Buf.contains hp (b := bKey) (by rdecide) (by rdecide) (o := k) (n := 1)
     (show k + 1 ≤ 32 by omega)
   set u₅' : State := { u₅ with mem := u₅.mem.writeW (u₅.ea (at_ .ebp 0)) ((u₅.gpr Reg8.al.reg).setWidth 8) }
-  have c₅' : Ctx Y s₀ u₅' := ⟨c₅.esp, c₅.rd, c₅.wr, c₅.esi, by
+  have c₅' : Ctx (Y L) s₀ u₅' := ⟨c₅.esp, c₅.rd, c₅.wr, c₅.esi, by
     show Frame _ _ (u₅.mem.writeW _ _); rw [e₃]; exact c₅.frame.writeW hr _ hcr⟩
   have c₈ := ((c₅'.only o₆ (by decide) (by decide)).only o₇ (by decide) (by decide)).only o₈ (by decide)
     (by decide)
   have m₅ : u₅.mem = u.mem := by rw [o₅.mem, o₄.mem, o₃.mem, o₂.mem, o₁.mem]
   have m₈ : u₈.mem = u.mem.writeW (Buf.addr s₀ bKey + BitVec.ofNat 64 k) ((u₅.gpr .eax).setWidth 8) := by
     rw [o₈.mem, o₇.mem, o₆.mem]; show u₅.mem.writeW _ _ = _; rw [e₃, m₅]; rfl
-  have keepK : ∀ b : Buf, b.arg = 3 → Y.ok b = true → ∀ i < b.len,
+  have keepK : ∀ b : Buf, b.arg = 3 → (Y L).ok b = true → ∀ i < b.len,
       u.mem (Buf.addr s₀ b + BitVec.ofNat 64 i) = m (Buf.addr s₀ b + BitVec.ofNat 64 i) := fun b hb hok i hi =>
     (h.fr.bytes (R := Buf.rgn s₀ b) (fun r hr => by
       rw [List.mem_singleton] at hr; subst hr
-      exact Buf.disj hp hok (c := bKey) (by decide) (by simp [Lay.sep, hb, Y, Lay.awr])) (by
+      exact Buf.disj hp hok (c := bKey) (by rdecide) (by simp [Lay.sep, hb, Y, Lay.awr])) (by
         show b.len ≤ 2 ^ 64; have := Buf.fit hp hok; omega) hi)
-  have x₁ : u.mem (Buf.addr s₀ bK + BitVec.ofNat 64 k) = m (Buf.addr s₀ bK + BitVec.ofNat 64 k) :=
-    keepK bK rfl (by decide) k hk
-  have x₂ : u₁.mem (Buf.addr s₀ bKB + BitVec.ofNat 64 k) = m (Buf.addr s₀ bKB + BitVec.ofNat 64 k) := by
-    rw [o₁.mem]; exact keepK bKB rfl (by decide) k hk
+  have x₁ : u.mem (Buf.addr s₀ (bK L) + BitVec.ofNat 64 k) = m (Buf.addr s₀ (bK L) + BitVec.ofNat 64 k) :=
+    keepK (bK L) rfl ok₁ k hk
+  have x₂ : u₁.mem (Buf.addr s₀ (bKB L) + BitVec.ofNat 64 k) = m (Buf.addr s₀ (bKB L) + BitVec.ofNat 64 k) := by
+    rw [o₁.mem]; exact keepK (bKB L) rfl ok₂ k hk
   have ex : u₇.gpr .ecx = BitVec.ofNat 32 (32 - k) := by
     rw [o₇.gpr .ecx (by decide), o₆.gpr .ecx (by decide), show u₅'.gpr .ecx = u₅.gpr .ecx from rfl,
       o₅.gpr .ecx (by decide), o₄.gpr .ecx (by decide), o₃.gpr .ecx (by decide), o₂.gpr .ecx (by decide),
@@ -274,7 +289,7 @@ theorem sel_step {s₀ : State} (hp : TPre Y s₀) {m : Mem} {M : BitVec 32} {k 
     rw [o₅.gpr .ebx (by decide), o₄.gpr .ebx (by decide), o₃.gpr .ebx (by decide), o₂.gpr .ebx (by decide),
       o₁.gpr .ebx (by decide), h.ebx]
   have val : (u₅.gpr .eax).setWidth 8 =
-      selB (M.setWidth 8) (m (Buf.addr s₀ bK + BitVec.ofNat 64 k)) (m (Buf.addr s₀ bKB + BitVec.ofNat 64 k)) := by
+      selB (M.setWidth 8) (m (Buf.addr s₀ (bK L) + BitVec.ofNat 64 k)) (m (Buf.addr s₀ (bKB L) + BitVec.ofNat 64 k)) := by
     rw [v₅, v₄, v₃, o₄.gpr .edx (by decide), o₃.gpr .edx (by decide), o₃.gpr .ebx (by decide),
       o₂.gpr .ebx (by decide), o₂.gpr .eax (by decide), v₂, v₁, o₁.gpr .ebx (by decide), h.ebx, e₁, e₂, x₁, x₂,
       selB]
@@ -307,12 +322,13 @@ theorem sel_step {s₀ : State} (hp : TPre Y s₀) {m : Mem} {M : BitVec 32} {k 
     rw [z₈, ex]; exact cnt_ne hk (by decide)
 
 /-- `key ← K̄ ^ ((K' ^ K̄) & ebx)`, byte by byte. -/
-theorem sel_piece (hA : ∀ s₀ s, TPre Y s₀ → A s₀ s → Ctx Y s₀ s)
-    (hQ : ∀ s₀ s s', TPre Y s₀ → A s₀ s → Ctx Y s₀ s' → Frame [Buf.rgn s₀ bKey] s.mem s'.mem →
+theorem sel_piece [CmpOK L] (hA : ∀ s₀ s, TPre (Y L) s₀ → A s₀ s → Ctx (Y L) s₀ s)
+    (hQ : ∀ s₀ s s', TPre (Y L) s₀ → A s₀ s → Ctx (Y L) s₀ s' → Frame [Buf.rgn s₀ bKey] s.mem s'.mem →
       (∀ j < 32, s'.mem (Buf.addr s₀ bKey + BitVec.ofNat 64 j) = selB ((s.gpr .ebx).setWidth 8)
-        (s.mem (Buf.addr s₀ bK + BitVec.ofNat 64 j)) (s.mem (Buf.addr s₀ bKB + BitVec.ofNat 64 j))) → B s₀ s') :
-    Piece (TPre Y) (TPub Y lk) A B selC := by
-  refine Piece.seq (B := fun s₀ s₁ => ∃ s, A s₀ s ∧ SL s₀ s.mem (s.gpr .ebx) 0 s₁)
+        (s.mem (Buf.addr s₀ (bK L) + BitVec.ofNat 64 j)) (s.mem (Buf.addr s₀ (bKB L) + BitVec.ofNat 64 j))) →
+      B s₀ s') :
+    Piece (TPre (Y L)) (TPub (Y L) (lk L)) A B (selC L) := by
+  refine Piece.seq (B := fun s₀ s₁ => ∃ s, A s₀ s ∧ SL L s₀ s.mem (s.gpr .ebx) 0 s₁)
     (Piece.taint [.esp, .esi] (fun s₀ s hp ha => ?_) (fun s₀ s₀' s s' hp _ hq ha ha' r hr => ?_) (by taint_decide))
     ?_
   · have h := hA s₀ s hp ha
@@ -320,7 +336,7 @@ theorem sel_piece (hA : ∀ s₀ s, TPre Y s₀ → A s₀ s → Ctx Y s₀ s)
     refine wp_movr' fun s₁ o₁ v₁ => ?_
     have c₁ := h.only o₁ (by decide) (by decide)
     refine wp_movm' (by rw [o₁.rd, o₁.wr, show s₁.ea (at_ .esp 28) = s.ea (at_ .esp 28) by
-      simp only [State.ea, at_, o₁.gpr .esp (by decide)], ea]; exact h.argIn hp (by decide)) fun s₂ o₂ v₂ => ?_
+      simp only [State.ea, at_, o₁.gpr .esp (by decide)], ea]; exact h.argIn hp (by rdecide)) fun s₂ o₂ v₂ => ?_
     have c₂ := c₁.only o₂ (by decide) (by decide)
     refine wp_movi fun s₃ o₃ v₃ => WP.block_nil_iff.mpr ⟨s, ha, ?_⟩
     have c₃ := c₂.only o₃ (by decide) (by decide)
@@ -328,20 +344,20 @@ theorem sel_piece (hA : ∀ s₀ s, TPre Y s₀ → A s₀ s → Ctx Y s₀ s)
       fun j hj => absurd hj (Nat.not_lt_zero _)⟩
     · rw [o₃.gpr .edi (by decide), o₂.gpr .edi (by decide), v₁, h.esi]; simp; rfl
     · rw [o₃.gpr .ebp (by decide), v₂, o₁.mem, show s₁.ea (at_ .esp 28) = s.ea (at_ .esp 28) by
-        simp only [State.ea, at_, o₁.gpr .esp (by decide)], ea, h.argw hp (by decide)]; simp
+        simp only [State.ea, at_, o₁.gpr .esp (by decide)], ea, h.argw hp (by rdecide)]; simp
     · rw [o₃.gpr .ebx (by decide), o₂.gpr .ebx (by decide), o₁.gpr .ebx (by decide)]
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
     · rw [(hA _ _ hp ha).esp, (hA _ _ ‹_› ha').esp, hq.E1]
     · rw [(hA _ _ hp ha).esi, (hA _ _ ‹_› ha').esi, hq.sc hp]
   refine Piece.taint [.edi, .ebp, .ecx] (fun s₀ s₁ hp ⟨s, ha, h⟩ => ?_)
-    (fun s₀ s₀' s s' hp hp' hq ⟨_, _, h⟩ ⟨_, _, h'⟩ r hr => ?_) (by taint_decide)
-  · refine (wp_count (N := 32) (by decide) (SL s₀ s.mem (s.gpr .ebx)) h fun k hk u h => sel_step hp hk h).mono
+    (fun s₀ s₀' s s' hp hp' hq ⟨_, _, h⟩ ⟨_, _, h'⟩ r hr => ?_) (by taint_rfl)
+  · refine (wp_count (N := 32) (by decide) (SL L s₀ s.mem (s.gpr .ebx)) h fun k hk u h => sel_step hp hk h).mono
       fun u h => hQ s₀ s u hp ha h.ctx h.fr fun j hj => h.out j hj
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
-    · rw [h.edi, h'.edi, hq.2.1 3 (by decide)]
-    · rw [h.ebp, h'.ebp, hq.2.1 2 (by decide)]
+    · rw [h.edi, h'.edi, hq.2.1 3 (by rdecide)]
+    · rw [h.ebp, h'.ebp, hq.2.1 2 (by rdecide)]
     · rw [h.ecx, h'.ecx]
 
 end VG.Proof.MlKem.X86.Decaps
