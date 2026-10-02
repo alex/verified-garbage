@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Core
 import VerifiedGarbage.Proof.Sha512.X86_64.Variant
+import VerifiedGarbage.Proof.Sha256.X86_64.Variant
 import VerifiedGarbage.TCB.Artifact
 
 /-!
@@ -83,6 +84,11 @@ structure MdHash where
   made (`Generic/MdHash/X86_64/Ed25519.lean`); `none` for the other hash
   functions. -/
   sha512 : Option Proof.Sha512.X86_64.Compress := none
+  /-- For SHA-256's variants, the implementation of the compression
+  function, from which the functions built on SHA-256 alone (scrypt's) are
+  made (`Generic/MdHash/X86_64/Scrypt.lean`); `none` for the other hash
+  functions. -/
+  sha256 : Option Proof.Sha256.X86_64.Compress := none
 
 namespace MdHash
 
