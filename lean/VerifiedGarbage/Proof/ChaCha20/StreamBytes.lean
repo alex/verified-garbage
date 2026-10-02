@@ -67,4 +67,29 @@ theorem leftAt_halves (m : Mem) (p : Addr) {v : Nat} (hv : v < 2 ^ 64) :
   rw [show (p + 128 : Addr) = p + BitVec.ofNat 64 128 from rfl, readW64_halves m p (e := 128) v (by decide),
     BitVec.toNat_ofNat, Nat.mod_eq_of_lt hv]
 
+/-- Byte `j` of two words, low first. -/
+theorem append_byte (hi lo : BitVec 32) {j : Nat} (hj : j < 8) :
+    (hi ++ lo).extractLsb' (8 * j) 8 = if j < 4 then lo.extractLsb' (8 * j) 8 else hi.extractLsb' (8 * (j - 4)) 8 := by
+  by_cases h : j < 4
+  · rw [ite_pos h]
+    ext k hk
+    simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_append, show 8 * j + k < 32 by omega, ite_true]
+  · rw [ite_neg h]
+    ext k hk
+    simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_append, show ¬ (8 * j + k < 32) by omega, ite_false]
+    congr 1; omega
+
+/-- A 64-bit word in memory is its two 32-bit halves, low first. -/
+theorem readW64_split (m : Mem) (a : Addr) : m.readW a 64 = m.readW (a + BitVec.ofNat 64 4) 32 ++ m.readW a 32 := by
+  refine word64_ext fun j hj => ?_
+  rw [readW64_byte _ _ hj, append_byte _ _ hj]
+  by_cases h : j < 4
+  · rw [ite_pos h, ← Mem.readW_byte _ _ h]
+  · rw [ite_neg h, ← Mem.readW_byte _ _ (by omega), Offset.add_add, show 4 + (j - 4) = j by omega]
+
+theorem readW64_toNat (m : Mem) (a : Addr) :
+    (m.readW a 64).toNat = (m.readW a 32).toNat + 2 ^ 32 * (m.readW (a + BitVec.ofNat 64 4) 32).toNat := by
+  rw [readW64_split, BitVec.toNat_append, ← Nat.shiftLeft_add_eq_or_of_lt (m.readW a 32).isLt, Nat.shiftLeft_eq]
+  omega
+
 end VG.Proof.ChaCha20
