@@ -13,7 +13,11 @@ pinned by `HMid`.
 
 namespace VG.Proof.CmacAes.Stream.X86
 
-open VG VG.X86 VG.Impl.CmacAes.Stream.X86 VG.WriteBytes
+open VG VG.X86 VG.Impl.CmacAes.Stream.X86
+
+open VG.WriteBytes
+
+variable (v : Proof.Aes.X86.Ctr32Impl)
 open VG.Impl.CmacAes.X86 (at_ argOp)
 open VG.Proof.MdStream.X86 (Upd wp_mov wp_movi wp_addi)
 open VG.Proof.CmacAes.X86 (wp_arg saveMem_congr toNat_rounds)
@@ -280,7 +284,7 @@ theorem finPre_wp {s₀ : State} (hp : HPre s₀) : WP isa finPre s₀ (HMid s�
 /-! ## The whole function -/
 
 theorem finish_wp {s₀ : State} (h0 : finishX86.pre s₀) :
-    WP isa finish s₀ fun s' => abiPreserved s₀ s' ∧ finishX86.post s₀ s' := by
+    WP isa (finish v.callee v.suffix) s₀ fun s' => abiPreserved s₀ s' ∧ finishX86.post s₀ s' := by
   have hp := HPre.of h0
   have fS : (arg s₀ 5).toNat + 2304 ≤ 2 ^ 32 := hp.fS
   have fSt : (arg s₀ 0).toNat + 304 ≤ 2 ^ 32 := hp.fSt
@@ -292,7 +296,7 @@ theorem finish_wp {s₀ : State} (h0 : finishX86.pre s₀) :
   have e56 := hp.esp56
   unfold finish
   refine WP.seq (WP.mono (finPre_wp hp) fun s₁ h₁ => ?_)
-  refine WP.seq (WP.mono (fin_call h₁.args) fun s₂ h₂ => ?_)
+  refine WP.seq (WP.mono ((fin_call v) h₁.args) fun s₂ h₂ => ?_)
   have f₂ : Frame [hoR s₀, ⟨(hSc s₀).setWidth 64, 2176⟩, below (hE s₀) 56] s₁.mem s₂.mem := by
     have := h₂.frame; rw [h₁.esp] at this; exact this
   have F₂ : Frame (HBig s₀) s₀.mem s₂.mem := (h₁.mem ▸ hMem_frame hp).trans (f₂.sub fun r hr => by
@@ -390,8 +394,8 @@ structure HAft (s₀ s : State) : Prop where
   frame : Frame (HBig s₀) s₀.mem s.mem
 
 theorem fin_after {s₀ s : State} (hp : HPre s₀) (h : HMid s₀ s) :
-    WP isa (call6 "vg_cmac_aes_finalize" Impl.CmacAes.X86.finalize) s (HAft s₀) :=
-  WP.mono (fin_call h.args) fun s' h' => by
+    WP isa (call6 ("vg_cmac_aes_finalize" ++ v.suffix) (Impl.CmacAes.X86.finalize v.callee)) s (HAft s₀) :=
+  WP.mono ((fin_call v) h.args) fun s' h' => by
     have fr := h'.frame
     rw [h.esp] at fr
     refine ⟨by rw [h'.saved .esp (by simp [calleeSaved]), h.esp], by rw [h'.wr, h.wr],
@@ -404,7 +408,7 @@ theorem fin_after {s₀ s : State} (hp : HPre s₀) (h : HMid s₀ s) :
 
 theorem finish_rel {s₀ s₀' : State} (h0 : finishX86.pre s₀) (h0' : finishX86.pre s₀')
     (hq : finishX86.pub s₀ s₀') :
-    RelCT isa (fun a b => a = s₀ ∧ b = s₀') finish fun _ _ => True := by
+    RelCT isa (fun a b => a = s₀ ∧ b = s₀') (finish v.callee v.suffix) fun _ _ => True := by
   have hp := HPre.of h0
   have hp' := HPre.of h0'
   obtain ⟨qE, qa⟩ := hq
@@ -420,16 +424,16 @@ theorem finish_rel {s₀ s₀' : State} (h0 : finishX86.pre s₀) (h0' : finishX
     (c := finPre) (by taint_decide)).wp (F₁ := HMid s₀) (F₂ := HMid s₀')
     fun a b h => by obtain ⟨rfl, rfl⟩ := h; exact ⟨finPre_wp hp, finPre_wp hp'⟩).mono (fun _ _ h => h)
     fun _ _ h => h.2
-  have c := ((fin_rel (E := hE s₀) (Q := fun a b => HMid s₀ a ∧ HMid s₀' b) fun a b h =>
+  have c := ((fin_rel v (E := hE s₀) (Q := fun a b => HMid s₀ a ∧ HMid s₀' b) fun a b h =>
       ⟨h.1.args, by rw [e0, e1, eH, e4, e5]; exact h.2.args, h.1.esp, by rw [h.2.esp]; exact qE.symm⟩).wp
-      (F₁ := HAft s₀) (F₂ := HAft s₀') fun _ _ h => ⟨fin_after hp h.1, fin_after hp' h.2⟩).mono
+      (F₁ := HAft s₀) (F₂ := HAft s₀') fun _ _ h => ⟨(fin_after v) hp h.1, (fin_after v) hp' h.2⟩).mono
       (fun _ _ h => h) fun _ _ h => h.2
   have b := RelCT.taint (A := taint) (P := fun a b => HAft s₀ a ∧ HAft s₀' b) (argTaint [] (4 + 4 * 6))
     (fun _ _ h => ag ⟨h.1.esp, h.1.wr, fun _ hi => hp.keep h.1.frame hi⟩
       ⟨h.2.esp, h.2.wr, fun _ hi => hp'.keep h.2.frame hi⟩) (c := .block (restore 5)) (by taint_decide)
   exact a.seq (c.seq b)
 
-theorem finish_ct : ConstantTime isa finishX86.pre finishX86.pub finish :=
-  fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => (finish_rel h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+theorem finish_ct : ConstantTime isa finishX86.pre finishX86.pub (finish v.callee v.suffix) :=
+  fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => ((finish_rel v) h₁ h₂ hq _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
 
 end VG.Proof.CmacAes.Stream.X86
