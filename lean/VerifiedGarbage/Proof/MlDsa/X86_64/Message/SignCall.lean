@@ -6,7 +6,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.Verified
 # ML-DSA on x86-64, `sign_message`: the call of the signing function on `μ`
 
 Untrusted: everything here is checked by Lean. Any code that meets the
-contract the proof of `vg_mldsa*_sign` is written against (`signK p 24`),
+contract the proof of `vg_mldsa*_sign` is written against (`signK p 32`),
 never writes `rsp` and whose calls nest at most three deep (`SignFn`): its
 call from the frame, on the key, `μ` at `X + 840`, `rnd`, `sig` and the
 first `scratchWords p` words of `scratch` (`signCall_ok`).
@@ -23,10 +23,10 @@ open VG.Spec.Sha3 (bytesAt)
 
 /-- A signing function on `μ` that `sign_message` can call. -/
 structure SignFn (p : Params) (c : Prog isa) : Prop where
-  ok : ∀ s, (signK p 24).pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ (signK p 24).post s s'
-  ct : ConstantTime isa (signK p 24).pre (signK p 24).pub c
+  ok : ∀ s, (signK p 32).pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ (signK p 32).post s s'
+  ct : ConstantTime isa (signK p 32).pre (signK p 32).pub c
   nosp : NoSp c
-  depth : c.depth ≤ 3
+  depth : c.depth ≤ 4
 
 /-- The arguments of the call of the signing function on `μ`. -/
 abbrev signArgs (p : Params) : List Arg := [.slot fKey, aMu p, .slot fRnd, .slot fSig, .slot fScr]
@@ -75,7 +75,7 @@ theorem signRegs_of {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : Mem} {t t1 
 /-- The precondition of the signing function on `μ`, on entry to it. -/
 theorem signK_pre (hp : p ∈ params) (h : SPre p s) (h8 : (s.gpr .r8).toNat < 256) {g : Reg → BitVec 64}
     {mx : BitVec 32} {m₀ : Mem} {t t1 : State} (hc : Ctx (slay p s) g mx m₀ t) (hm : Moved (signArgs p) t t1) :
-    (signK p 24).pre (t1.callEntry.withRegions (signRd p s) (signWr p s)) := by
+    (signK p 32).pre (t1.callEntry.withRegions (signRd p s) (signWr p s)) := by
   have hL := slay_ok hp h h8
   have hc1 : Ctx (slay p s) g mx m₀ t1 :=
     hc.regs hm.2.2.1 hm.2.2.2 hm.1.2.1 hm.1.2.2 fun r hr => hm.2.gpr (argRegs_cs r hr)
@@ -83,7 +83,7 @@ theorem signK_pre (hp : p ∈ params) (h : SPre p s) (h8 : (s.gpr .r8).toNat < 2
   simp only [signK, State.withRegions_rd, State.withRegions_wr, gpr_ce t1 _ _ (by decide : Reg.rdi ≠ .rsp),
     gpr_ce t1 _ _ (by decide : Reg.rsi ≠ .rsp), gpr_ce t1 _ _ (by decide : Reg.rdx ≠ .rsp),
     gpr_ce t1 _ _ (by decide : Reg.rcx ≠ .rsp), gpr_ce t1 _ _ (by decide : Reg.r8 ≠ .rsp), rsp_ce,
-    e1, e2, e3, e4, e5, Sign.retR, hc1.rsp, sp_sub8, below24]
+    e1, e2, e3, e4, e5, Sign.retR, hc1.rsp, sp_sub8, below32]
   have hsub := scrMu_sub p s
   have hmu := (mu_within p s).sub
   have hB := hL.nB
@@ -94,11 +94,11 @@ theorem signK_pre (hp : p ∈ params) (h : SPre p s) (h8 : (s.gpr .r8).toNat < 2
     hL.stk_x (d := 32) (n := 8) (e := 840) (k := 64) (by omega) (by omega), hL.stk_r h.stkRnd (by omega),
     hL.stk_r h.stkSig (by omega), hL.stk_r (h.stkScr.sub_right hsub) (by omega), ?_, ?_, ?_, ?_, ?_, h.nSk, ?_,
     h.nRnd, h.nSig, by simp only [mScrLen, scrLen, messageScratchWords] at hn ⊢; omega, ?_⟩
-  · exact h.stkSk.sub_left (Offset.sub_base _ (by omega))
-  · exact (hL.kX.sub_left (Offset.sub_base _ (by omega))).sub_right (Offset.sub_base _ (by omega))
-  · exact h.stkRnd.sub_left (Offset.sub_base _ (by omega))
-  · exact h.stkSig.sub_left (Offset.sub_base _ (by omega))
-  · exact (h.stkScr.sub_right hsub).sub_left (Offset.sub_base _ (by omega))
+  · exact h.stkSk.sub_left (Region.sub_prefix (by omega))
+  · exact (hL.kX.sub_left (Region.sub_prefix (by omega))).sub_right (Offset.sub_base _ (by omega))
+  · exact h.stkRnd.sub_left (Region.sub_prefix (by omega))
+  · exact h.stkSig.sub_left (Region.sub_prefix (by omega))
+  · exact (h.stkScr.sub_right hsub).sub_left (Region.sub_prefix (by omega))
   · exact mu_nowrap h
   · rw [toNat_add_ofNat (by omega)]; omega
 
