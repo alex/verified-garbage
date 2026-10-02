@@ -1050,7 +1050,7 @@ pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: 
 ///
 /// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
 ///
-/// Stream backend `vg_chacha20_xor_neon`.
+/// Uses NEON: five blocks at a time (four in AdvSIMD lanes, one in the integer registers), then two to four more in lanes, then `vg_chacha20_block` for the rest.
 ///
 /// # Safety
 ///
@@ -4464,7 +4464,7 @@ pub(crate) unsafe extern "C" fn vg_chacha20_xor_neon(state: *mut [u32; 16], data
 ///
 /// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
 ///
-/// Stream backend `vg_chacha20_xor`.
+/// Calls `vg_chacha20_block` for each 64 bytes.
 ///
 /// # Safety
 ///
