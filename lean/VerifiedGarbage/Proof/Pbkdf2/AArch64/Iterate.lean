@@ -145,8 +145,8 @@ section
 variable {P : Params} {D W : Nat} (hz : Sizes P D W)
 include hz
 
-theorem so_le : P.so ≤ 1024 := hz.dims.so.2
-theorem so8 : P.so % 8 = 0 ∧ P.so ≤ 1024 := hz.dims.so
+theorem so_le : P.so ≤ 256 := hz.dims.so.2
+theorem so8 : P.so % 8 = 0 ∧ P.so ≤ 256 := hz.dims.so
 theorem saved_off {q : Reg × Nat} (hq : q ∈ saved P.md) : P.so ≤ q.2 ∧ q.2 + 8 ≤ P.so + 48 :=
   saved_offset hz.dims hq
 theorem N_le : P.N ≤ 64 := hz.dims.N.2
