@@ -182,6 +182,8 @@ open VG.Impl.MdStream.X86 (Params len64 out32)
 /-- SHA-256's sizes, length field and digest in the generic streaming code. -/
 def params : Params where
   N := 32
+  B := 64
+  L := 8
   so := 112
   len := len64 112 88 true
   out := out32 8 true
@@ -195,11 +197,12 @@ theorem finalize_eq :
       Impl.MdStream.X86.finalize params "vg_sha256_compress" Impl.Sha256.X86.compress :=
   rfl
 
-theorem dims : Dims params 160 := ⟨by decide, by decide, by decide⟩
+theorem dims : Dims params 160 := ⟨.inl rfl, by decide, by decide, by decide, by decide⟩
 
 theorem shape : Shape (P := params) md where
-  len _ hfit hlo hhi ho₁ ho₂ := len64_ok (so := params.so) (d := params.N + 56) (be := true) (by omega)
-    hlo hhi ho₁ ho₂
+  len _ hfit hlo hhi ho := len64_ok (so := params.so) (d := params.N + params.B - params.L) (be := true)
+    (by have : params.N + params.B - params.L + 8 = params.N + params.B := rfl; omega) hlo hhi
+    (ho _ (Nat.le_refl _) (by decide)) (ho _ (by decide) (by decide))
   out _ hbx hax hin hout hd := by
     refine (out32_ok (n := 8) true (by decide) hbx hax hin hout hd).mono fun s' ⟨g, rd, wr, m⟩ =>
       ⟨g, rd, wr, ?_⟩
