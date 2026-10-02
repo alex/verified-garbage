@@ -20,7 +20,8 @@ open VG.Proof.Gcm (Absorbed Ctr xorKs lensBlock padded)
 
 /-- What `seal` and `open` share: `J₀`, the additional data, and their
 effects so far, from the entry. -/
-structure OneMid (s₀ : State) (Ctx W SP D : Addr) (n : Nat) (H : Block) (iv a : List Byte) (s : State) : Prop where
+structure OneMid (s₀ : State) (Ctx W SP D : Addr) (n : Nat) (H : Block) (iv a : List Byte) (mE : Mem) (s : State) :
+    Prop where
   env : Env Ctx (W + BitVec.ofNat 64 16) W SP s
   hH : blockAt s.mem (Ctx + BitVec.ofNat 64 240) = H
   rounds : RoundsAt s.mem W (s₀.gpr .rsi).toNat
@@ -33,6 +34,7 @@ structure OneMid (s₀ : State) (Ctx W SP D : Addr) (n : Nat) (H : Block) (iv a 
   cb : blockAt s.mem (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 48) = inc32 (Spec.Gcm.j0 H iv)
   saved : SavedAt s.mem W s₀
   frame : Frame [⟨W, 2560⟩, below SP 8] s₀.mem s.mem
+  fr : Frame (wFrame W SP) mE s.mem
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
 
@@ -43,20 +45,18 @@ theorem wFrame_w {W SP : Addr} {m m' : Mem} (h : Frame (wFrame W SP) m m') :
     Frame [⟨W, 2560⟩, below SP 8] m m' := h.sub fun r hr => by
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl
-  · exact ⟨_, List.mem_cons_self .., Region.sub_prefix (by decide)⟩
+  · exact ⟨_, List.mem_cons_self .., Lay.wSub (by decide)⟩
   · exact ⟨_, List.mem_cons_self .., Lay.wSub (by decide)⟩
   · exact ⟨_, List.mem_cons_self .., Lay.wSub (by decide)⟩
   · exact ⟨_, by simp, fun _ h => h⟩
 
-/-- The entry and `oneAad`. -/
-theorem oneStart_ok (v : GcmImpl) {k : Nat} (hk : 3 ≤ k) {s : State} {Ctx W SP Np A D : Addr} {nl al n : Nat}
-    (C : OneCtx s k Ctx W SP Np A D nl al n) (hCtx : s.gpr .rdi = Ctx) (hSP : s.gpr .rsp = SP)
-    (hNp : s.gpr .rdx = Np) (hnl : (s.gpr .rcx).toNat = nl) (hA : s.gpr .r8 = A) (hal : (s.gpr .r9).toNat = al)
-    (hD : stackArg s 0 = D) (hn : (stackArg s 1).toNat = n) (hW : stackArg s 2 = W) :
-    WP isa (.seq (.block oneEntry) (oneAad v.callees)) s
-      (OneMid s Ctx W SP D n (ctxH s.mem Ctx) (bytesAt s.mem Np nl) (bytesAt s.mem A al)) := by
+/-- `oneAad`, after the entry. -/
+theorem oneMid_ok (v : GcmImpl) {k : Nat} {s s₁ : State} {Ctx W SP Np A D : Addr} {nl al n : Nat}
+    (C : OneCtx s k Ctx W SP Np A D nl al n) (E : OneEntry s Ctx W SP A D n s₁)
+    (hNp : s.gpr .rdx = Np) (hnl : (s.gpr .rcx).toNat = nl) (hal : (s.gpr .r9).toNat = al) :
+    WP isa (oneAad v.callees) s₁
+      (OneMid s Ctx W SP D n (ctxH s.mem Ctx) (bytesAt s.mem Np nl) (bytesAt s.mem A al) s₁.mem) := by
   have L := C.lay
-  refine WP.seq (WP.mono (oneEntry_ok hk C hCtx hSP hA hD hn hW) fun s₁ E => ?_)
   have dW : ∀ (p : Addr) (k : Nat), (⟨p, k⟩ : Region).Disjoint ⟨W, 2560⟩ → ∀ r ∈ [oneR W], (⟨p, k⟩ : Region).Disjoint r :=
     fun p k h r hr => by simp only [List.mem_singleton] at hr; subst hr; exact h.sub_right (Lay.wSub (by decide))
   have hH₁ : blockAt s₁.mem (Ctx + BitVec.ofNat 64 240) = ctxH s.mem Ctx := by
@@ -69,7 +69,7 @@ theorem oneStart_ok (v : GcmImpl) {k : Nat} (hk : 3 ≤ k) {s : State} {Ctx W SP
     (by rw [E.rbp, ← hnl, BitVec.ofNat_toNat, BitVec.setWidth_eq]) (C.nonce.of_eq E.rd E.wr) (C.aad.of_eq E.rd E.wr)
     C.dE E.aad hal')) fun s₂ ⟨ao, hrd₂, hwr₂⟩ => ?_
   rw [hiv, haa] at ao
-  have f₂ := wFrame_one (D := D) (n := n) ao.frame
+  have f₂ := wFrame_one (D := D) (n := n) (o := 0) (.inl rfl) (wFrame_cons ao.frame)
   have kp : ∀ d, (128 ≤ d ∧ d + 8 ≤ 216) ∨ (224 ≤ d ∧ d + 8 ≤ 240) →
       s₂.mem.readW (W + BitVec.ofNat 64 d) 64 = s₁.mem.readW (W + BitVec.ofNat 64 d) 64 :=
     fun d hd => f₂.readW (r := ⟨W + BitVec.ofNat 64 d, 8⟩) (Region.contains_self _ _) (kept_oneFrame L C.dE hd)
@@ -77,9 +77,19 @@ theorem oneStart_ok (v : GcmImpl) {k : Nat} (hk : 3 ≤ k) {s : State} {Ctx W SP
   refine ⟨ao.env, ao.hH, ⟨by rw [kp 176 (.inl ⟨by decide, by decide⟩)]; exact E.rounds.1, E.rounds.2⟩,
     by rw [kp 200 (.inl ⟨by decide, by decide⟩)]; exact E.dat, by rw [kp 208 (.inl ⟨by decide, by decide⟩)]; exact E.len,
     by rw [kp 184 (.inl ⟨by decide, by decide⟩)]; exact E.alen, ao.j0, ao.abs, ao.cb,
-    E.saved.frame f₂ (saved_oneFrame L C.dE), ?_, hrd₂.trans E.rd, hwr₂.trans E.wr⟩
+    E.saved.frame f₂ (saved_oneFrame L C.dE), ?_, ao.frame, hrd₂.trans E.rd, hwr₂.trans E.wr⟩
   exact (E.frame.sub fun r hr => by simp only [List.mem_singleton] at hr; subst hr; exact oneR_w).trans
     (wFrame_w ao.frame)
+
+/-- The entry and `oneAad`. -/
+theorem oneStart_ok (v : GcmImpl) {k : Nat} (hk : 3 ≤ k) {s : State} {Ctx W SP Np A D : Addr} {nl al n : Nat}
+    (C : OneCtx s k Ctx W SP Np A D nl al n) (hCtx : s.gpr .rdi = Ctx) (hSP : s.gpr .rsp = SP)
+    (hNp : s.gpr .rdx = Np) (hnl : (s.gpr .rcx).toNat = nl) (hA : s.gpr .r8 = A) (hal : (s.gpr .r9).toNat = al)
+    (hD : stackArg s 0 = D) (hn : (stackArg s 1).toNat = n) (hW : stackArg s 2 = W) :
+    WP isa (.seq (.block oneEntry) (oneAad v.callees)) s fun s' => ∃ mE,
+      OneMid s Ctx W SP D n (ctxH s.mem Ctx) (bytesAt s.mem Np nl) (bytesAt s.mem A al) mE s' :=
+  WP.seq (WP.mono (oneEntry_ok hk C hCtx hSP hA hD hn hW) fun s₁ E =>
+    WP.mono (oneMid_ok v C E hNp hnl hal) fun _ h => ⟨s₁.mem, h⟩)
 
 end VG.Proof.AesGcm.X86_64
 
@@ -108,7 +118,7 @@ theorem seal_wp (v : GcmImpl) {s : State} (hp : Proof.AesGcm.sealX86_64.pre s) :
   generalize hR : (s.gpr .rsi).toNat = R at *
   have hR' : R = 10 ∨ R = 12 ∨ R = 14 := hR ▸ C.rounds
   refine WP.seq_assoc (WP.seq (WP.mono (oneStart_ok v (k := 3) le_rfl C hCtx hSP hNp hnl hA hal hD hn hW)
-    fun s₂ M => ?_))
+    fun s₂ ⟨_, M⟩ => ?_))
   generalize hH : ctxH s.mem Ctx = H at M
   generalize hiv : bytesAt s.mem Np nl = iv at M
   generalize ha : bytesAt s.mem A al = a at M
@@ -133,14 +143,15 @@ theorem seal_wp (v : GcmImpl) {s : State} (hp : Proof.AesGcm.sealX86_64.pre s) :
     (by rw [kp f₃ 200 (.inl ⟨by decide, by decide⟩)]; exact M.dat)
     (by rw [kp f₃ 208 (.inl ⟨by decide, by decide⟩)]; exact M.len)
     (by rw [kp f₃ 184 (.inl ⟨by decide, by decide⟩)]; exact hal₂) hal₃ hd₃ C.dE C.data.ctx)
-    fun s₄ ⟨he₄, f₄, hrd₄, hwr₄, hq⟩ => ?_)
+    fun s₄ ⟨he₄, f₄, hrd₄, hwr₄, _, hq⟩ => ?_)
   have hsv₄ : SavedAt s₄.mem W s :=
-    (M.saved.frame co.frame (saved_crFrame L hd₂)).frame (wFrame_one (D := D) (n := n) f₄) (saved_oneFrame L C.dE)
-  have dRw : ∀ r ∈ wFrame W SP, (⟨SP, 8⟩ : Region).Disjoint r := by
+    (M.saved.frame co.frame (saved_crFrame L hd₂)).frame (wFrame_one (D := D) (n := n) (o := 0) (.inl rfl) f₄) (saved_oneFrame L C.dE)
+  have dRw : ∀ r ∈ (⟨W + BitVec.ofNat 64 0, 16⟩ :: wFrame W SP), (⟨SP, 8⟩ : Region).Disjoint r := by
     intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
-    · exact C.rW.sub_right (Region.sub_prefix (by decide))
+    rcases hr with rfl | rfl | rfl | rfl | rfl
+    · exact C.rW.sub_right (Lay.wSub (by decide))
+    · exact C.rW.sub_right (Lay.wSub (by decide))
     · exact C.rW.sub_right (Lay.wSub (by decide))
     · exact C.rW.sub_right (Lay.wSub (by decide))
     · exact ret_below SP
@@ -172,11 +183,12 @@ theorem seal_wp (v : GcmImpl) {s : State} (hp : Proof.AesGcm.sealX86_64.pre s) :
     bytesAt_frame M.frame (dM _ _ C.dE C.data.ok.stk) (by have := C.data.ok.lt; omega)
   have hc₃ : bytesAt s₃.mem D n = gctr (ctxCiph s.mem Ctx R) (inc32 (Spec.Gcm.j0 H iv)) (bytesAt s.mem D n) := by
     rw [co.out hctr₂, hc₂, hp₂, Proof.Gcm.gctr_eq]
-  have dDw : ∀ r ∈ wFrame W SP, (⟨D, n⟩ : Region).Disjoint r := by
+  have dDw : ∀ r ∈ (⟨W + BitVec.ofNat 64 0, 16⟩ :: wFrame W SP), (⟨D, n⟩ : Region).Disjoint r := by
     intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
-    · exact C.dE.sub_right (Region.sub_prefix (by decide))
+    rcases hr with rfl | rfl | rfl | rfl | rfl
+    · exact C.dE.sub_right (Lay.wSub (by decide))
+    · exact C.dE.sub_right (Lay.wSub (by decide))
     · exact C.dE.sub_right (Lay.wSub (by decide))
     · exact C.dE.sub_right (Lay.wSub (by decide))
     · exact C.data.ok.stk.symm
