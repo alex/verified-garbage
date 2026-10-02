@@ -100,6 +100,16 @@ theorem rel_reassoc4 {P Q : State → State → Prop} {a b c d e : Prog isa}
   simp only [List.append_assoc] at ht
   exact ⟨ht, hq⟩
 
+/-- `e; (a; (b; c))`, related as `e; ((a; b); c)`. -/
+theorem rel_reassoc_inner {P Q : State → State → Prop} {e a b c : Prog isa}
+    (h : RelCT isa P (.seq e (.seq (.seq a b) c)) Q) : RelCT isa P (.seq e (.seq a (.seq b c))) Q := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  cases e₁ with | seq x₁ e₁ => cases e₁ with | seq a₁ e₁ => cases e₁ with | seq b₁ c₁ =>
+  cases e₂ with | seq x₂ e₂ => cases e₂ with | seq a₂ e₂ => cases e₂ with | seq b₂ c₂ =>
+  obtain ⟨ht, hq⟩ := h _ _ _ _ _ _ hp (.seq x₁ (.seq (.seq a₁ b₁) c₁)) (.seq x₂ (.seq (.seq a₂ b₂) c₂))
+  simp only [List.append_assoc] at ht
+  exact ⟨ht, hq⟩
+
 /-- `a; (b; c)`, related as `(a; b); c`. -/
 theorem rel_reassoc2 {P Q : State → State → Prop} {a b c : Prog isa}
     (h : RelCT isa P (.seq (.seq a b) c) Q) : RelCT isa P (.seq a (.seq b c)) Q := RelCT.assoc h
