@@ -67,15 +67,6 @@ def artifacts (v : Proof.Aes.AArch64.Ctr32Impl) : List Artifact := [
     verified := Proof.CmacAes.Stream.AArch64.init_verified v
     spSafe := Code.all_of_forall (fun _ => rfl) _
     features := v.features },
-  { Spec.Cmac.aesAbsorbApi with
-    name := Spec.Cmac.aesAbsorbApi.name ++ v.suffix
-    target := AArch64.target
-    doc := Spec.Cmac.aesAbsorbApi.doc (notes := [streamNote v])
-    code := Impl.CmacAes.Stream.AArch64.absorb v.callee v.suffix
-    contract := Spec.Cmac.aesAbsorbContract AArch64.abi
-    verified := Proof.CmacAes.Stream.AArch64.absorb_verified v
-    spSafe := Code.all_of_forall (fun _ => rfl) _
-    features := v.features },
   { Spec.Cmac.aesFinishApi with
     name := Spec.Cmac.aesFinishApi.name ++ v.suffix
     target := AArch64.target

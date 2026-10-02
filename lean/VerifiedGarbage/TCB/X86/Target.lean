@@ -21,8 +21,8 @@ it: it must not be built with `-Zregparm` (nor Clang's `-mregparm` for code
 calling it through the C ABI).
 
 Not modelled: the direction flag (no modelled instruction changes it; it is
-clear on entry and exit), x87/SSE state (never modified), and memory below
-`esp` (never granted to a function).
+clear on entry and exit), x87 state and MXCSR (never modified), and memory
+below `esp` (never granted to a function).
 -/
 
 namespace VG.X86

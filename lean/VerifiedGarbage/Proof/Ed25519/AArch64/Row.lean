@@ -2,17 +2,21 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.Mem
 
 /-! One row of a four-by-four word multiplication. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 
 /-- One loaded operand and a multiply-accumulate step. -/
-theorem mulLoad_ok {s : State} {base : Addr} (hs : Scr s base) (hz : s.gpr .x10 = 0)
-    {d : Nat} (ha : d % 8 = 0) (hd : d + 8 ≤ 8192) {t : Reg}
+theorem mulLoad_ok {s : State} {base : Addr} (hs : Scr s base large) (hz : s.gpr .x10 = 0)
+    {d : Nat} (ha : d % 8 = 0) (hd : d + 8 ≤ workSize large) {t : Reg}
     (ht8 : t ≠ .x8) (ht2 : t ≠ .x2) (ht10 : t ≠ .x10)
     (ht20 : t ≠ .x20) (ht9 : t ≠ .x9) :
     WP isa (.block (([ld .x9 d] : List Instr) ++ mulStep t .x20 .x3 .x9)) s fun s' =>
       (s'.gpr t).toNat + 2 ^ 64 * (s'.gpr .x20).toNat =
         (s.gpr t).toNat + (s.gpr .x20).toNat + (s.gpr .x3).toNat * (word s.mem base d).toNat ∧
       Keeps [t, .x20, .x8, .x2, .x9] s s' := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   rw [WP.block_append_iff]
   refine WP.mono (ld_ok hs ha hd .x9) fun s₁ ⟨v1, k1⟩ => ?_
   have hz1 : s₁.gpr .x10 = 0 := (k1.gpr _ (by decide)).trans hz
@@ -50,10 +54,12 @@ theorem row_eq (a b i : Nat) :
   simp only [row, rowR, List.append_assoc]
   rfl
 
-theorem rowStart_ok {s : State} {base : Addr} (hs : Scr s base) {d : Nat}
-    (ha : d % 8 = 0) (hd : d + 8 ≤ 8192) :
+theorem rowStart_ok {s : State} {base : Addr} (hs : Scr s base large) {d : Nat}
+    (ha : d % 8 = 0) (hd : d + 8 ≤ workSize large) :
     WP isa (.block [ld .x3 d, .movz .w .x20 0 0]) s fun t =>
       t.gpr .x3 = word s.mem base d ∧ t.gpr .x20 = 0 ∧ Keeps [.x3, .x20] s t := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   apply WP.of_runBlock
   rw [runBlock_cons, load_sc hs ha hd, runStep_some]
   simp only [runBlock_cons, runStep_some, runBlock_nil,
@@ -68,8 +74,8 @@ theorem rowStart_ok {s : State} {base : Addr} (hs : Scr s base) {d : Nat}
     rw [RegUpd.gpr_write_of_ne _ _ _ hr.2, RegUpd.gpr_write_of_ne _ _ _ hr.1]
 
 /-- A row: `r0 + 2⁶⁴ r1 + 2¹²⁸ r2 + 2¹⁹² r3 + a_i · b`, into `r0`–`r4`. -/
-theorem rowR_ok {s : State} {base : Addr} (hs : Scr s base) {a b i : Nat}
-    (ha : a + 8 * i + 8 ≤ 8192) (hb : b + 32 ≤ 8192)
+theorem rowR_ok {s : State} {base : Addr} (hs : Scr s base large) {a b i : Nat}
+    (ha : a + 8 * i + 8 ≤ workSize large) (hb : b + 32 ≤ workSize large)
     (haa : a % 8 = 0) (hba : b % 8 = 0) (hz : s.gpr .x10 = 0) {r0 r1 r2 r3 r4 : Reg}
     (hd : ([r0, r1, r2, r3, r4, .x8, .x2, .x3, .x20, .x0, .x9, .x10] : List Reg).Nodup) :
     WP isa (.block (rowR a b i r0 r1 r2 r3 r4)) s fun s' =>
@@ -77,6 +83,8 @@ theorem rowR_ok {s : State} {base : Addr} (hs : Scr s base) {a b i : Nat}
         val4 (s.gpr r0) (s.gpr r1) (s.gpr r2) (s.gpr r3) +
           (word s.mem base (a + 8 * i)).toNat * fe s.mem base b ∧
       Keeps [r0, r1, r2, r3, r4, .x8, .x2, .x3, .x20, .x9] s s' := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   simp only [List.nodup_cons, List.mem_cons, List.not_mem_nil, or_false, not_or] at hd
   obtain ⟨⟨h01, h02, h03, h04, h0a, h0d, h0c, h0b, h0i, h09, h0z⟩, ⟨h12, h13, h14, h1a, h1d, h1c, h1b, h1i, h19, h1z⟩,
     ⟨h23, h24, h2a, h2d, h2c, h2b, h2i, h29, h2z⟩, ⟨h34, h3a, h3d, h3c, h3b, h3i, h39, h3z⟩,

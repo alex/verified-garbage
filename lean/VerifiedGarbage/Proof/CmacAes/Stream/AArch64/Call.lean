@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.CmacAes.Stream.AArch64.Contract
+import VerifiedGarbage.Proof.CmacAes.AArch64.Variant
 
 /-!
 # Streaming AES-CMAC on AArch64: the calls
@@ -23,9 +24,6 @@ theorem toNat_ofNat {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = n :
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
 
 /-! ## No frames -/
-
-theorem update_noFrames (v : Ctr32Impl) : (Impl.CmacAes.AArch64.update v.callee).noFrames = true := by
-  simp [Impl.CmacAes.AArch64.update, Impl.CmacAes.AArch64.body, Code.noFrames, v.noFrames]
 
 theorem subkeys_noFrames (v : Ctr32Impl) : (Impl.CmacAes.AArch64.subkeys v.callee).noFrames = true := by
   simp [Impl.CmacAes.AArch64.subkeys, Code.noFrames, v.noFrames]
@@ -79,12 +77,12 @@ theorem UArgs.pre {s : State} {W C D S : Addr} {R n : Nat} (h : UArgs s W C D S 
     h.x0, h.x1, h.x2, h.x3, h.x4, h.x5, hR, hN]
   exact ⟨trivial, trivial, h.wc, h.ws, h.dc, h.ds, h.cs, h.wrapC, h.wrapD, h.wrapS, h.rounds⟩
 
-theorem upd_call (v : Ctr32Impl) (nm : String) {s : State} {W C D S : Addr} {R n : Nat}
+theorem upd_call (v : Proof.CmacAes.AArch64.UpdateImpl) (nm : String) {s : State} {W C D S : Addr} {R n : Nat}
     (h : UArgs s W C D S R n) :
-    WP isa (.call nm (Impl.CmacAes.AArch64.update v.callee)) s (UPost s W C D S R n) := by
+    WP isa (.call nm v.callee.code) s (UPost s W C D S R n) := by
   have hR := toNat_rounds h.rounds
   have hN := toNat_ofNat (n := n) (by have := h.hn; omega)
-  refine WP.call (k := updateAArch64) (update_correct v) h.pre h.reads h.writes ?_ (update_noFrames v)
+  refine WP.call (k := updateAArch64) v.ok h.pre h.reads h.writes ?_ v.noFrames
   intro s' hrd hwr hsp hf hsaved _ hpost
   refine ⟨hrd, hwr, hsp, hsaved, hf, ?_⟩
   simp only [updateAArch64, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem,
@@ -92,10 +90,10 @@ theorem upd_call (v : Ctr32Impl) (nm : String) {s : State} {W C D S : Addr} {R n
     hR, hN] at hpost
   exact hpost
 
-theorem upd_rel (v : Ctr32Impl) (nm : String) {W C D S : Addr} {R n : Nat} {P : State → State → Prop}
+theorem upd_rel (v : Proof.CmacAes.AArch64.UpdateImpl) (nm : String) {W C D S : Addr} {R n : Nat} {P : State → State → Prop}
     (h : ∀ s₁ s₂, P s₁ s₂ → UArgs s₁ W C D S R n ∧ UArgs s₂ W C D S R n ∧ s₁.sp = s₂.sp) :
-    RelCT isa P (.call nm (Impl.CmacAes.AArch64.update v.callee)) fun _ _ => True := by
-  refine RelCT.call (update_correct v) (update_ct v) [⟨W, 240⟩, ⟨D, 16 * n⟩] [⟨C, 16⟩, ⟨S, 2176⟩] fun s₁ s₂ hp => ?_
+    RelCT isa P (.call nm v.callee.code) fun _ _ => True := by
+  refine RelCT.call v.ok v.ct [⟨W, 240⟩, ⟨D, 16 * n⟩] [⟨C, 16⟩, ⟨S, 2176⟩] fun s₁ s₂ hp => ?_
   obtain ⟨h₁, h₂, hsp⟩ := h s₁ s₂ hp
   refine ⟨h₁.pre, h₂.pre, ?_, h₁.reads, h₁.writes, h₂.reads, h₂.writes⟩
   simp only [updateAArch64, State.withRegions_gpr, State.withRegions_sp, State.callEntry_sp,
