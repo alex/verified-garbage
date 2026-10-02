@@ -24,12 +24,14 @@
 ))]
 
 use crate::arch::pbkdf2_sha256::vg_pbkdf2_hmac_sha256;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-use crate::arch::pbkdf2_sha256::{VG_PBKDF2_HMAC_SHA256_SHANI_FEATURES, vg_pbkdf2_hmac_sha256_shani};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::pbkdf2_sha256::{VG_PBKDF2_HMAC_SHA256_AVX2_FEATURES, vg_pbkdf2_hmac_sha256_avx2};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::pbkdf2_sha256::{VG_PBKDF2_HMAC_SHA256_SHA2_FEATURES, vg_pbkdf2_hmac_sha256_sha2};
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+use crate::arch::pbkdf2_sha256::{
+    VG_PBKDF2_HMAC_SHA256_SHANI_FEATURES, vg_pbkdf2_hmac_sha256_shani,
+};
 use crate::hashes::sha256::{Sha256, Sha256Backend};
 
 super::whole_pbkdf2!(
