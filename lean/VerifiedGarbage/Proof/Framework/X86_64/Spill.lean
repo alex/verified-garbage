@@ -20,8 +20,12 @@ buffer, or the stack) and loads them back before returning. Given the list
 * `Saved.frame`, `Saved.writeW`: the slots keep their values across a frame
   or a write that misses them;
 * `restore_run`, `restore_ok`: the restore loads every register of `l` back
-  from `Saved` slots (the base register too, if it comes last), and leaves the other registers and everything else as
-  it was. The state stays folded (`restoreState`, a `setReg` per pair).
+  from `Saved` slots (the base register too, if it comes last), and leaves
+  the other registers and everything else as it was. The state stays folded
+  (`restoreState`, a `setReg` per pair);
+* `save_then`, `restore_then`: the same, followed by more code;
+* `calleeSaved_ok`: restoring every callee-saved register but `rsp` meets
+  the calling convention's obligation on them.
 
 Everything is proven once, by induction on `l`.
 -/
@@ -233,8 +237,9 @@ theorem calleeSaved_ok {l : List (Reg × Nat)} {g : Reg → BitVec 64} {s s' : S
   intro r hr
   by_cases hm : r ∈ l.map Prod.fst
   · exact h₁ r hm
-  · have : r = .rsp := Classical.byContradiction fun h => hm (hl r hr h)
-    subst this; rw [h₂ _ hm, hsp]
+  · by_cases hsp' : r = .rsp
+    · subst hsp'; rw [h₂ _ hm, hsp]
+    · exact absurd (hl r hr hsp') hm
 
 theorem restoreState_calleeSaved {l : List (Reg × Nat)} {g : Reg → BitVec 64} {s : State}
     (hl : ∀ r ∈ calleeSaved, r ≠ .rsp → r ∈ l.map Prod.fst) (hsp : s.gpr .rsp = g .rsp) :
