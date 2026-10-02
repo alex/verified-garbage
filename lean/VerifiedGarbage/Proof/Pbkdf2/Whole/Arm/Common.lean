@@ -51,6 +51,11 @@ structure FnsOK (F : Fns) where
   fits : 40 + 2 * F.H.D + F.H.F ≤ 4 * F.H.S
   /-- And `scratch` is within reach of an immediate offset. -/
   reach : (F.W + F.H.S) * 8 ≤ 4096
+  /-- The immediates the code compares and adds. -/
+  encB1 : encodable (BitVec.ofNat 32 (F.H.B + 1)) = true
+  encB : encodable (BitVec.ofNat 32 F.H.B) = true
+  encB4 : encodable (BitVec.ofNat 32 (F.H.B + 4)) = true
+  encD : encodable (BitVec.ofNat 32 F.H.D) = true
 
 variable {F : Fns}
 
@@ -82,6 +87,10 @@ abbrev sR (o n : Nat) : Region := ⟨A s₀ o, n⟩
 abbrev lowR (k : Nat) : Region := ⟨State.addr (scr s₀), k⟩
 
 end
+
+theorem toNat_addr (a : BitVec 32) : (State.addr a).toNat = a.toNat := by
+  simp only [State.addr, BitVec.toNat_setWidth]
+  exact Nat.mod_eq_of_lt (Nat.lt_trans a.isLt (by decide))
 
 /-- The size of `scratch`. -/
 abbrev _root_.VG.Impl.Pbkdf2.Whole.Arm.Fns.L8 (F : Fns) : Nat := (F.W + F.H.S) * 8
@@ -133,10 +142,14 @@ structure Sizes (F : Fns) : Prop where
   BS : F.H.B ≤ F.H.S
   fits : 40 + 2 * F.H.D + F.H.F ≤ 4 * F.H.S
   reach : F.L8 ≤ 4096
+  encB1 : encodable (BitVec.ofNat 32 (F.H.B + 1)) = true
+  encB : encodable (BitVec.ofNat 32 F.H.B) = true
+  encB4 : encodable (BitVec.ofNat 32 (F.H.B + 4)) = true
+  encD : encodable (BitVec.ofNat 32 F.H.D) = true
 
 theorem FnsOK.sizes (hF : FnsOK F) : Sizes F :=
   ⟨⟨hF.hH.hB0, hF.hH.hBB⟩, ⟨hF.hH.hS0, hF.hH.hSB⟩, ⟨hF.hH.hD0, hF.hH.hDF, hF.hH.hF⟩, hF.hWH, hF.hDB, hF.hBS,
-    hF.fits, hF.reach⟩
+    hF.fits, hF.reach, hF.encB1, hF.encB, hF.encB4, hF.encD⟩
 
 /-- Where the parts of `scratch` are. -/
 theorem layout : F.L.buf = 8 * F.W + 36 ∧ F.st0O = 8 * F.W + 36 ∧ F.st1O = 8 * F.W + 36 + F.H.S ∧
