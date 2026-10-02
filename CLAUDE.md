@@ -48,7 +48,7 @@ trustworthy. Read `lean/README.md` first.
   primitive"), so a new variant is emitted for its callers too, and their
   callers, without anyone listing it. The Rust code that chooses among
   implementations matches exhaustively on the primitive's backend enum
-  (`streaming_hash!`'s, which `streaming_hmac!` and `streaming_pbkdf2!`
+  (`streaming_hash!`'s, which `streaming_hmac!` and `whole_pbkdf2!`
   follow; `chacha20::Backend`, which ChaCha20-Poly1305 follows): a new
   backend does not compile until everything built on it handles it.
   `ci/check_variants.py` checks the generated code: each caller of a

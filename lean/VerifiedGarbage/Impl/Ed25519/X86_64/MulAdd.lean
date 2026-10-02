@@ -33,8 +33,7 @@ def loadScalar : List Instr := loadWords .rsi
 def storeWide : List Instr := stores 128 .r8 .r9 .r10 .r11 ++ stores 160 .r12 .r13 .r14 .r15
 
 def reduceArgs : List Instr :=
-  [.mov .rsi (.reg .rdi), .alu .add .rsi (.imm 128),
-    .mov .rdx (.reg .rdi), .mov .rdi (.reg .rbx)]
+  [.mov .rsi (.reg .rdi), .alu .add .rsi (.imm 128), .store (at_ .rdi 48) .rbx]
 
 def mulAddSetup : List Instr :=
   mulAddSave ++ [.mov .rbx (.reg .rdi), .mov .rdi (.reg .r8)] ++
@@ -47,8 +46,8 @@ def scalarMulAdd : Prog isa :=
   .seq (.block mulAddSetup) <|
   .seq (.block (wideAccumulate 64 96)) <|
   .seq (.block (storeWide ++ reduceArgs ++ zero4 ++ [.mov32 .rbx (.imm 64)])) <|
-  .seq (.loop (.block scalarByte) .ne) <|
-    .block (scalarRestore ++ [.store (at_ .rdi 0) .r8, .store (at_ .rdi 8) .r9,
+  .seq (.loop (.block scalarWord) .ne) <|
+    .block (scalarFinishArgs ++ scalarRestore ++ [.store (at_ .rdi 0) .r8, .store (at_ .rdi 8) .r9,
       .store (at_ .rdi 16) .r10, .store (at_ .rdi 24) .r11])
 
 end VG.Impl.Ed25519.X86_64
