@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.Scrypt.AArch64.Common
 import VerifiedGarbage.Proof.Scrypt.AArch64.Salsa
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Scrypt.Contract
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 
 /-!
 # scryptBlockMix on AArch64: correctness of the loop
@@ -67,8 +68,7 @@ def xP : Nat → Addr
   | k + 1 => yO s₀ k
 
 /-- The caller's `x19`–`x24` are saved in the scratch space. -/
-def Saved (m : Mem) : Prop :=
-  ∀ p ∈ bmSaved, m.readW (sc s₀ + BitVec.ofNat 64 p.2) 64 = s₀.gpr p.1
+abbrev Saved (m : Mem) : Prop := Spill.Saved (sc s₀) s₀.gpr bmSaved m
 
 end
 
@@ -235,15 +235,10 @@ theorem xP_disj {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < rr s₀) :
 
 /-- What a call's frame keeps: our caller's saved registers. -/
 theorem saved_keep {s₀ : State} (hp : Pre s₀) {o : Nat} (ho : o + 64 ≤ 128 * rr s₀) {m m' : Mem}
-    (hf : Frame [slot s₀ o, ⟨sc s₀, 64⟩] m m') (h : Saved s₀ m) : Saved s₀ m' := by
-  intro p hp'
-  rw [← h p hp']
-  have hp8 : p.2 + 8 ≤ 128 ∧ 64 ≤ p.2 := by
-    simp only [bmSaved, List.mem_cons, List.not_mem_nil, or_false] at hp'
-    rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;> simp
+    (hf : Frame [slot s₀ o, ⟨sc s₀, 64⟩] m m') (h : Saved s₀ m) : Saved s₀ m' :=
+  Spill.Saved.frame h hf fun p hp' r hr => by
+  have hp8 : p.2 + 8 ≤ 128 ∧ 64 ≤ p.2 := by revert p; decide
   have hsub : Region.Sub ⟨sc s₀ + BitVec.ofNat 64 p.2, 8⟩ (scR s₀) := s_sub s₀ (by omega)
-  refine hf.readW (r := ⟨sc s₀ + BitVec.ofNat 64 p.2, 8⟩) (Region.contains_self _ _) (fun r hr => ?_)
-    (by decide)
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl
   · exact (hp.y_s.sub_left (y_sub hp ho)).sub_right hsub |>.symm
@@ -480,63 +475,25 @@ open VG.Proof.Scrypt.Memory (toNat_ofNat_lt add_ofNat InRegions.of_mem frame_byt
 /-! ## The prologue -/
 
 /-- The memory after the prologue's stores. -/
-def saveMem (s₀ : State) : Mem :=
-  (((((s₀.mem.writeW (sc s₀ + BitVec.ofNat 64 64) (s₀.gpr .x19)).writeW
-    (sc s₀ + BitVec.ofNat 64 72) (s₀.gpr .x20)).writeW (sc s₀ + BitVec.ofNat 64 80)
-    (s₀.gpr .x21)).writeW (sc s₀ + BitVec.ofNat 64 88) (s₀.gpr .x23)).writeW
-    (sc s₀ + BitVec.ofNat 64 96) (s₀.gpr .x24)).writeW (sc s₀ + BitVec.ofNat 64 104)
-    (s₀.gpr .x22)
+abbrev saveMem (s₀ : State) : Mem := Spill.saveMem s₀.mem (sc s₀) s₀.gpr bmSaved
 
-set_option simprocs false in
-theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) := by
-  intro p hp
-  simp only [bmSaved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (config := {decide := true}) only [saveMem, Mem.readW_writeW_self64, readW_writeW_save]
+theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) := Spill.saveMem_saved (by decide) _ _ _
 
-theorem saveMem_frame (s₀ : State) : Frame [scR s₀] s₀.mem (saveMem s₀) := by
-  have c : ∀ d : Nat, d + 8 ≤ 128 → (scR s₀).Contains (sc s₀ + BitVec.ofNat 64 d) (64 / 8) :=
-    fun d hd => in_s s₀ hd
-  simp only [saveMem]
-  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 64 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 72 (by omega))).writeW (List.mem_singleton_self _) _
-    (c 80 (by omega))).writeW (List.mem_singleton_self _) _ (c 88 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 96 (by omega)) |>.writeW (List.mem_singleton_self _) _
-    (c 104 (by omega))
+theorem saveMem_frame (s₀ : State) : Frame [scR s₀] s₀.mem (saveMem s₀) :=
+  Spill.saveMem_frame_base (by decide) (by decide) _ _ _
 
-theorem prologue_eq : bmPrologue =
-    ([.str .x .x19 .x4 64, .str .x .x20 .x4 72, .str .x .x21 .x4 80, .str .x .x23 .x4 88,
-     .str .x .x24 .x4 96, .str .x .x22 .x4 104] : List Instr) ++
-    [mov .x23 .x1, mov .x19 .x0, mov .x20 .x2, mov .x22 .x4,
+theorem prologue_eq : bmPrologue = Spill.saveCode .x4 bmSaved ++
+    ([mov .x23 .x1, mov .x19 .x0, mov .x20 .x2, mov .x22 .x4,
      .lsl .x .x9 .x1 6, .add .x .x21 .x2 .x9,
-     .lsl .x .x9 .x1 7, .add .x .x24 .x0 .x9, .subImm .x .x24 .x24 64] := rfl
+     .lsl .x .x9 .x1 7, .add .x .x24 .x0 .x9, .subImm .x .x24 .x24 64] : List Instr) := rfl
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s₁, s₁.gpr = s₀.gpr → s₁.rd = s₀.rd → s₁.wr = s₀.wr → s₁.sp = s₀.sp →
       s₁.mem = saveMem s₀ → WP isa (.block rest) s₁ Q) :
-    WP isa (.block (([.str .x .x19 .x4 64, .str .x .x20 .x4 72, .str .x .x21 .x4 80,
-      .str .x .x23 .x4 88, .str .x .x24 .x4 96, .str .x .x22 .x4 104] : List Instr) ++ rest)) s₀ Q := by
-  have o : ∀ d, d + 8 ≤ 128 → ∀ s : State, s.wr = s₀.wr →
-      InRegions s.wr (sc s₀ + BitVec.ofNat 64 d) 8 := fun d hd s hw => by
-    rw [hw, hp.wr]; exact InRegions.of_mem (by simp) (in_s s₀ hd)
-  simp only [List.cons_append, List.nil_append]
-  refine wp_str (by decide) rfl (o 64 (by omega) _ rfl) fun s1 u1 => ?_
-  refine wp_str (by decide) (by rw [u1.gpr]) (o 72 (by omega) _ u1.wr) fun s2 u2 => ?_
-  refine wp_str (by decide) (by rw [u2.gpr, u1.gpr]) (o 80 (by omega) _ (u2.wr.trans u1.wr))
-    fun s3 u3 => ?_
-  refine wp_str (by decide) (by rw [u3.gpr, u2.gpr, u1.gpr])
-    (o 88 (by omega) _ (u3.wr.trans (u2.wr.trans u1.wr))) fun s4 u4 => ?_
-  refine wp_str (by decide) (by rw [u4.gpr, u3.gpr, u2.gpr, u1.gpr])
-    (o 96 (by omega) _ (u4.wr.trans (u3.wr.trans (u2.wr.trans u1.wr)))) fun s5 u5 => ?_
-  refine wp_str (by decide) (by rw [u5.gpr, u4.gpr, u3.gpr, u2.gpr, u1.gpr])
-    (o 104 (by omega) _ (u5.wr.trans (u4.wr.trans (u3.wr.trans (u2.wr.trans u1.wr)))))
-    fun s6 u6 => ?_
-  exact k s6 (by rw [u6.gpr, u5.gpr, u4.gpr, u3.gpr, u2.gpr, u1.gpr])
-    (by rw [u6.rd, u5.rd, u4.rd, u3.rd, u2.rd, u1.rd])
-    (u6.wr.trans (u5.wr.trans (u4.wr.trans (u3.wr.trans (u2.wr.trans u1.wr)))))
-    (by rw [u6.sp, u5.sp, u4.sp, u3.sp, u2.sp, u1.sp])
-    (by rw [u6.mem, u5.mem, u4.mem, u3.mem, u2.mem, u1.mem, u5.gpr, u4.gpr, u3.gpr, u2.gpr, u1.gpr]
-        rfl)
+    WP isa (.block (Spill.saveCode .x4 bmSaved ++ rest)) s₀ Q :=
+  Spill.save_ok (by decide) (fun p hp' => by
+    rw [hp.wr]; exact InRegions.of_mem (by simp) (in_s s₀ (by revert p; decide)))
+    (k _ rfl rfl rfl rfl rfl)
 
 theorem shl_eq {x : BitVec 64} {n : Nat} (h : x.toNat * 2 ^ n < 2 ^ 64) :
     x <<< n = BitVec.ofNat 64 (x.toNat * 2 ^ n) := by
@@ -636,51 +593,16 @@ theorem loop_ok {c : Prog isa} (hS : SalsaSpec c) {s₀ : State} (hp : Pre s₀)
 
 /-! ## The epilogue -/
 
+theorem preserved_cases : ∀ r ∈ preserved, r ≠ .x30 → r ∈ bmSaved.map Prod.fst ∨ r ∈ others := by
+  decide
+
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Inv s₀ (rr s₀) s) :
     WP isa (.block bmEpilogue) s fun s' => s'.mem = s.mem ∧ s'.sp = s.sp ∧
-      (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) := by
-  have hin : ∀ d, d + 8 ≤ 128 → ∀ t : State, t.rd = s.rd → t.wr = s.wr →
-      InRegions (t.rd ++ t.wr) (sc s₀ + BitVec.ofNat 64 d) 8 := fun d hd t hr hw => by
-    rw [hr, hw, h.rd, h.wr, hp.rd, hp.wr]; exact InRegions.of_mem (by simp) (in_s s₀ hd)
-  have sv : ∀ p ∈ bmSaved, s.mem.readW (sc s₀ + BitVec.ofNat 64 p.2) 64 = s₀.gpr p.1 := h.saved
-  simp only [bmEpilogue, bmSaved, List.map_cons, List.map_nil]
-  refine wp_ldr (by decide) (by rw [h.x22]) (hin 64 (by omega) _ rfl rfl) fun a ua => ?_
-  refine wp_ldr (by decide) (by rw [ua.other _ (by decide), h.x22])
-    (hin 72 (by omega) _ ua.rd ua.wr) fun b ub => ?_
-  refine wp_ldr (by decide) (by rw [ub.other _ (by decide), ua.other _ (by decide), h.x22])
-    (hin 80 (by omega) _ (ub.rd.trans ua.rd) (ub.wr.trans ua.wr)) fun c uc => ?_
-  refine wp_ldr (by decide) (by rw [uc.other _ (by decide), ub.other _ (by decide),
-      ua.other _ (by decide), h.x22])
-    (hin 88 (by omega) _ (uc.rd.trans (ub.rd.trans ua.rd)) (uc.wr.trans (ub.wr.trans ua.wr)))
-    fun d ud => ?_
-  refine wp_ldr (by decide) (by rw [ud.other _ (by decide), uc.other _ (by decide),
-      ub.other _ (by decide), ua.other _ (by decide), h.x22])
-    (hin 96 (by omega) _ (ud.rd.trans (uc.rd.trans (ub.rd.trans ua.rd)))
-      (ud.wr.trans (uc.wr.trans (ub.wr.trans ua.wr)))) fun e ue => ?_
-  refine wp_ldr (by decide) (by rw [ue.other _ (by decide), ud.other _ (by decide),
-      uc.other _ (by decide), ub.other _ (by decide), ua.other _ (by decide), h.x22])
-    (hin 104 (by omega) _ (ue.rd.trans (ud.rd.trans (uc.rd.trans (ub.rd.trans ua.rd))))
-      (ue.wr.trans (ud.wr.trans (uc.wr.trans (ub.wr.trans ua.wr))))) fun f uf => WP.block_nil ?_
-  have hm : f.mem = s.mem := by rw [uf.mem, ue.mem, ud.mem, uc.mem, ub.mem, ua.mem]
-  refine ⟨hm, by rw [uf.sp, ue.sp, ud.sp, uc.sp, ub.sp, ua.sp], fun r hr h30 => ?_⟩
-  simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-  · rw [uf.other _ (by decide), ue.other _ (by decide), ud.other _ (by decide),
-      uc.other _ (by decide), ub.other _ (by decide), ua.gpr, sv (.x19, 64) (by simp [bmSaved])]
-  · rw [uf.other _ (by decide), ue.other _ (by decide), ud.other _ (by decide),
-      uc.other _ (by decide), ub.gpr, ua.mem, sv (.x20, 72) (by simp [bmSaved])]
-  · rw [uf.other _ (by decide), ue.other _ (by decide), ud.other _ (by decide),
-      uc.gpr, ub.mem, ua.mem, sv (.x21, 80) (by simp [bmSaved])]
-  · rw [uf.gpr, ue.mem, ud.mem, uc.mem, ub.mem, ua.mem, sv (.x22, 104) (by simp [bmSaved])]
-  · rw [uf.other _ (by decide), ue.other _ (by decide), ud.gpr, uc.mem, ub.mem, ua.mem,
-      sv (.x23, 88) (by simp [bmSaved])]
-  · rw [uf.other _ (by decide), ue.gpr, ud.mem, uc.mem, ub.mem, ua.mem,
-      sv (.x24, 96) (by simp [bmSaved])]
-  all_goals first
-    | exact absurd rfl h30
-    | rw [uf.other _ (by decide), ue.other _ (by decide), ud.other _ (by decide),
-        uc.other _ (by decide), ub.other _ (by decide), ua.other _ (by decide)]
-      exact h.keep _ (by simp [others])
+      (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) :=
+  WP.mono (Spill.restore_wp (b := .x22) h.x22 (by decide) (by decide) (fun p hp' => by
+      rw [h.rd, h.wr, hp.rd, hp.wr]; exact InRegions.of_mem (by simp) (in_s s₀ (by revert p; decide)))
+    h.saved) fun s' h' => ⟨h'.mem, h'.sp, fun r hr h30 =>
+      h'.gpr_of ((preserved_cases r hr h30).imp id (h.keep r))⟩
 
 /-! ## The body of the frame -/
 
