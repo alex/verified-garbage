@@ -569,9 +569,8 @@ end
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness (from
-`Correct.lean`), constant time (from `CT.lean`), and a state satisfying the
-precondition.
+Untrusted: everything here is checked by Lean. Correctness and constant
+time (both above), and a state satisfying the precondition.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86

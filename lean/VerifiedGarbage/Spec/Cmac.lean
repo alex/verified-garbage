@@ -22,9 +22,10 @@ The instances are `aesCmac` for AES and `tdesCmac` for TDEA (Triple DES,
 subkey generation (§6.1), the chaining of whole blocks (§6.2 step 6,
 `chain`) and the last block (§6.2 steps 4 and 6); their contracts are in
 `Spec/Cmac/Contract.lean` (AES) and `Spec/Cmac/TripleDesContract.lean`
-(TDEA). Splitting the message into blocks as it
-arrives, truncating the MAC (§6.2 step 7) and comparing MACs (§6.3) is the
-caller's (Rust's) job.
+(TDEA). For AES there is also streaming AES-CMAC built from them (`init`,
+`absorb` and `finish`, on the streaming state `Repr`), which takes the key
+and the message in pieces of any length. Truncating the MAC (§6.2 step 7)
+and comparing MACs (§6.3) is the caller's (Rust's) job.
 -/
 
 namespace VG.Spec.Cmac
@@ -157,5 +158,48 @@ def tdesCmac (key : List Byte) (t : Nat) (m : List Byte) : List Byte := mac (tde
 /-- The `n` blocks of `b` bytes at `p`. -/
 def blocksAt (m : Mem) (p : Addr) (b n : Nat) : List (List Byte) :=
   (List.range n).map fun i => Aes.bytesAt m (p + BitVec.ofNat 64 (b * i)) b
+
+/-! ## Streaming AES-CMAC
+
+The streaming functions MAC a message given in pieces of any length. §6.2
+cannot process a block until it knows whether it is the last (step 4 masks
+the last block `Mₙ` with `K1` or `K2`), so the state holds back the
+message's last bytes `Mₙ*`, between 1 and 16 of them (none for the empty
+message), even a whole block, and chains the blocks before them
+(`chainedLen`).
+
+The state is 304 bytes (`[u64; 38]`):
+
+* bytes 0–239: the AES key schedule, `16 (Nr + 1)` bytes as
+  `vg_aes_expand_key` writes it (the rest of the 240 bytes is
+  unspecified);
+* bytes 240–271: the subkeys `K1 ‖ K2` (§6.1);
+* bytes 272–287: the chaining value `Cᵢ` (§6.2 step 6) of the blocks
+  chained so far, from `C₀ = 0¹²⁸` (step 5);
+* bytes 288–303: the bytes held back, of which the first
+  `msg.length - chainedLen 16 msg.length` are specified.
+
+Bytes 0–271 are laid out as `vg_cmac_aes_finalize`'s `key` reads them. -/
+
+/-- The number of bytes of a message of `len` bytes, in blocks of `b`
+bytes, that §6.2 chains before its last block: those of the complete blocks
+`M₁ … Mₙ₋₁` of step 3, `b (n - 1)` bytes for the `n` of step 2
+(`⌈len/b⌉`, or 1 for the empty message, as `macFull` computes it). The
+other bytes are `Mₙ*`. -/
+def chainedLen (b len : Nat) : Nat := b * ((len + b - 1) / b - 1)
+
+/-- The streaming state at `p` represents the message `msg` under the AES
+key `key`: the key is 16, 24 or 32 bytes, and the state holds its key
+schedule, its subkeys, the chaining value of the first
+`chainedLen 16 msg.length` bytes of `msg` from the zero block, and the rest
+of `msg` (see above). The rest of the state is unspecified. -/
+def Repr (mem : Mem) (p : Addr) (key msg : List Byte) : Prop :=
+  let ks := subkeys (aes key) 16
+  let c := chainedLen 16 msg.length
+  (key.length = 16 ∨ key.length = 24 ∨ key.length = 32) ∧
+    Aes.bytesAt mem p (16 * (Aes.rounds (key.length / 4) + 1)) = Aes.expandKey key ∧
+    Aes.bytesAt mem (p + 240) 32 = ks.1 ++ ks.2 ∧
+    Aes.bytesAt mem (p + 272) 16 = chain (aes key) (zeros 16) (blocks 16 (msg.take c)) ∧
+    Aes.bytesAt mem (p + 288) (msg.length - c) = msg.drop c
 
 end VG.Spec.Cmac

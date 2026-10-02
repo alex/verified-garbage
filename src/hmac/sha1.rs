@@ -11,7 +11,7 @@
 //! `vg_hmac_sha1_finalize_shani`, the same verified code calling
 //! `vg_sha1_update_shani` and `vg_sha1_finalize_shani`, with the same
 //! contracts.
-
+//!
 //! On AArch64, the `_sha2` variants follow SHA-1 hardware dispatch.
 
 #![cfg(any(
