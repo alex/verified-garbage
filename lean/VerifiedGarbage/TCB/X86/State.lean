@@ -3,10 +3,9 @@ import VerifiedGarbage.TCB.Code
 /-!
 # IA-32 machine state
 
-**Trusted.** Register, memory and flag definitions of the 32-bit x86 model.
-The scalar definitions are unchanged from `Isa.lean`; legacy SSE adds the
-eight 128-bit XMM registers (Intel SDM Vol. 1 §10.2.1). All XMM registers
-are caller-saved in the System V i386 ABI.
+**Trusted.** Register, memory and flag definitions of the 32-bit x86 model,
+with legacy SSE's eight 128-bit XMM registers (Intel SDM Vol. 1 §10.2.1),
+all caller-saved in the System V i386 ABI.
 -/
 
 namespace VG.X86
