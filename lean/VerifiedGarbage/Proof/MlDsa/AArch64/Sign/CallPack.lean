@@ -27,7 +27,7 @@ include L hc
 theorem rw_cov : Covers ([⟨pa s f, lf⟩] ++ [⟨pa s out, lo⟩]) (s.rd ++ s.wr) ∧ Covers [⟨pa s out, lo⟩] s.wr := by
   simp only [rwChk, Bool.and_eq_true, and_assoc] at hc
   obtain ⟨_, c2, _, c4⟩ := hc
-  exact ⟨covers_append (L.cR c2) (covers_wr (L.cW c4)), L.cW c4⟩
+  exact ⟨Covers.append_left (L.cR c2) (Covers.right (L.cW c4)), L.cW c4⟩
 
 end
 

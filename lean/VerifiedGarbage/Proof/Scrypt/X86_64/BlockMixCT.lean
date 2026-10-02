@@ -545,22 +545,6 @@ theorem salsa_nosp : NoSp Impl.Scrypt.X86_64.salsa := by
   intro i hi
   simpa using List.all_eq_true.mp this i hi
 
-/-- A region inside one of `rs` is covered by `rs`. -/
-theorem covers_of_in {rs : List Region} {a : Addr} {n : Nat} (h : InRegions rs a n) :
-    Covers [⟨a, n⟩] rs := by
-  obtain ⟨R, hR, hc⟩ := h
-  refine Covers.of_sub fun r hr => ?_
-  simp only [List.mem_singleton] at hr; subst hr
-  exact ⟨R, hR, (a - R.base).toNat, by rw [BitVec.ofNat_toNat, BitVec.setWidth_eq]; bv_omega, hc⟩
-
-theorem covers_pair {rs : List Region} {a b : Region} (ha : Covers [a] rs) (hb : Covers [b] rs) :
-    Covers [a, b] rs := by
-  intro x n ⟨r, hr, hc⟩
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl
-  · exact ha x n ⟨_, List.mem_singleton_self _, hc⟩
-  · exact hb x n ⟨_, List.mem_singleton_self _, hc⟩
-
 theorem salsaSpec : SalsaSpec Impl.Scrypt.X86_64.salsa := by
   intro s d sc hd hsc hds hsd hss _ _ hind hins Q hQ
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
@@ -570,11 +554,11 @@ theorem salsaSpec : SalsaSpec Impl.Scrypt.X86_64.salsa := by
       State.withRegions_wr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),
       hne _ (by decide : Reg.rsi ≠ .rsp), hd, hsc]
     exact ⟨trivial, trivial, hds, hsd, hss⟩
-  · have := covers_pair (covers_of_in hind) (covers_of_in hins)
+  · have := Covers.pair (Covers.one hind) (Covers.one hins)
     intro a n h
     obtain ⟨R, hR, hc⟩ := this a n (by simpa using h)
     exact ⟨R, List.mem_append_right _ hR, hc⟩
-  · exact covers_pair (covers_of_in hind) (covers_of_in hins)
+  · exact Covers.pair (Covers.one hind) (Covers.one hins)
   · intro s₂ hrd hwr hcs hf _ ⟨s₃, hm₃, _, hpost⟩
     simp only [Proof.Scrypt.salsaX86_64, State.withRegions_gpr, State.withRegions_mem,
       hne _ (by decide : Reg.rdi ≠ .rsp), hd, hm₃] at hpost
@@ -938,8 +922,8 @@ theorem call_hyps {s₀ : State} (hp : Pre s₀) {o : Nat} (ho : o + 64 ≤ 128 
     simp only [Region.Contains, BitVec.sub_self, BitVec.toNat_zero]; omega
   have cw : Covers [⟨yP s₀ + BitVec.ofNat 64 o, 64⟩, ⟨sc s₀, 64⟩] s.wr := by
     rw [hwr, hp.wr]
-    exact covers_pair (covers_of_in (InRegions.of_mem (by simp) (in_y hp ho)))
-      (covers_of_in (InRegions.of_mem (R := scR s₀) (by simp) hsc))
+    exact Covers.pair (Covers.one (InRegions.of_mem (by simp) (in_y hp ho)))
+      (Covers.one (InRegions.of_mem (R := scR s₀) (by simp) hsc))
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
   refine ⟨?_, fun a n h => ?_, cw⟩
   · simp only [Proof.Scrypt.salsaX86_64, State.withRegions_gpr, State.withRegions_rd,

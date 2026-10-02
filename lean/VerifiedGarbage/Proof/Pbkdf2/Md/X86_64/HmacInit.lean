@@ -13,7 +13,7 @@ key's bytes XORed in, then the outer buffer from the inner one a word at a
 time), compresses each buffer into its state's hash value (`cmp_ok`), and
 loads our caller's registers back. A state whose initial hash value has
 absorbed the block in its buffer represents that block
-(`Md.repr_of_block`). Constant time: the taint analysis checks the pieces
+(`Md.repr_block`). Constant time: the taint analysis checks the pieces
 between the calls (`Checks`); the calls are constant time by the callees'
 own proofs.
 -/
@@ -632,7 +632,7 @@ theorem correct : WP isa H.hmacInit s₀ fun s' => gprPreserved s₀ s' ∧ (ini
         · exact hp.stk_i.symm.sub_left hvI), iv r₂]
   have hl : (xorPad (k0 H s₀) ipad).length = H.P.B := by
     rw [Proof.Hmac.Common.xorPad_length, K0_length _ _ hkl]
-  have rI₅ := Md.repr_of_block hH.md hB0 hl iv₄ bI₄ e₅
+  have rI₅ := Md.repr_block (H := hH.md) (iv := hH.iv) hB0 hl bI₄ (e₅.trans (congrArg (hH.md.compress · _) iv₄))
   -- The outer state.
   have iv₆ : hH.md.stateAt s₆.mem (out s₀) = hH.iv := by
     rw [m₆, keepS f₅ (by
@@ -655,7 +655,7 @@ theorem correct : WP isa H.hmacInit s₀ fun s' => gprPreserved s₀ s' ∧ (ini
         · exact so.stk.symm.sub_left bO) (by omega), bO₄]
   have hl' : (xorPad (k0 H s₀) opad).length = H.P.B := by
     rw [Proof.Hmac.Common.xorPad_length, K0_length _ _ hkl]
-  have rO₇ := Md.repr_of_block hH.md hB0 hl' iv₆ bO₆ e₇
+  have rO₇ := Md.repr_block (H := hH.md) (iv := hH.iv) hB0 hl' bO₆ (e₇.trans (congrArg (hH.md.compress · _) iv₆))
   -- The inner state, kept by the outer compression.
   have rI₇ : hH.SH.Repr s₇.mem (inn s₀) (xorPad (k0 H s₀) ipad) :=
     repr_keep hH.stream f₇ (by

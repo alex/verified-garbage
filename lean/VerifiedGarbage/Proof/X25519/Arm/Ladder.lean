@@ -20,7 +20,7 @@ open VG.Proof.X25519 (toFe ladderAfter ladderAfter_step ladderStep_eq bit bit_le
 area. -/
 structure Stp (b : BitVec 32) (s s' : State) : Prop where
   rest : Rest [.r1, .r2, .r3, .r4, .r5, .r6, .r7, .r8, .r9, .r10, .r11] s s'
-  frame : Frame [FA b] s.mem s'.mem
+  frame : Frame [FA ACC b] s.mem s'.mem
 
 theorem Stp.refl (b : BitVec 32) (s : State) : Stp b s s := ⟨Rest.refl _ _, Frame.refl _ _⟩
 
@@ -45,25 +45,25 @@ section
 variable {b : BitVec 32} {s0 : State} {a c : BitVec 32} {qs : List Nat} {v : Nat → Fe}
 
 theorem Cur.next {s s' : State} (h : Cur b s0 a c qs v s) (hr : Rest clob s s')
-    (hf : Frame [FA b] s.mem s'.mem) {qs' : List Nat} {v' : Nat → Fe}
+    (hf : Frame [FA ACC b] s.mem s'.mem) {qs' : List Nat} {v' : Nat → Fe}
     (hS : SlotsOk s'.mem (State.addr b) qs' v') : Cur b s0 a c qs' v' s' :=
   ⟨h.ctx.of_rest hr (by decide), h.stp.trans ⟨hr.mono (by decide), hf⟩,
     by rw [hr.gpr _ (by decide), h.r10], by rw [hr.gpr _ (by decide), h.r11], hS⟩
 
-theorem opMul {o x y : Nat} (hq : Sep1 o qs = true) (ho : 64 ≤ o ∧ o + 64 ≤ ACC) (hx : x ∈ qs)
+theorem opMul {o x y : Nat} (hq : Sep1 ACC o qs = true) (ho : 64 ≤ o ∧ o + 64 ≤ ACC) (hx : x ∈ qs)
     (hy : y ∈ qs) {s : State} (h : Cur b s0 a c qs v s) :
     WP isa (mul o x y) s (Cur b s0 a c (o :: qs) (upd v o (v x * v y))) :=
-  WP.mono (mulS hq ho hx hy h.ctx h.slots) fun _ ⟨hr, hf, hS⟩ => h.next hr hf hS
+  WP.mono (mulS (by decide) hq ho hx hy h.ctx h.slots) fun _ ⟨hr, hf, hS⟩ => h.next hr hf hS
 
-theorem opAdd {o x y : Nat} (hq : Sep1 o qs = true) (ho : 64 ≤ o ∧ o + 64 ≤ ACC) (hx : x ∈ qs)
+theorem opAdd {o x y : Nat} (hq : Sep1 ACC o qs = true) (ho : 64 ≤ o ∧ o + 64 ≤ ACC) (hx : x ∈ qs)
     (hy : y ∈ qs) {s : State} (h : Cur b s0 a c qs v s) :
     WP isa (.block (add o x y)) s (Cur b s0 a c (o :: qs) (upd v o (v x + v y))) :=
-  WP.mono (addS hq ho hx hy h.ctx h.slots) fun _ ⟨hr, hf, hS⟩ => h.next hr hf hS
+  WP.mono (addS (by decide) hq ho hx hy h.ctx h.slots) fun _ ⟨hr, hf, hS⟩ => h.next hr hf hS
 
-theorem opSub {o x y : Nat} (hq : Sep1 o qs = true) (ho : 64 ≤ o ∧ o + 64 ≤ ACC) (hx : x ∈ qs)
+theorem opSub {o x y : Nat} (hq : Sep1 ACC o qs = true) (ho : 64 ≤ o ∧ o + 64 ≤ ACC) (hx : x ∈ qs)
     (hy : y ∈ qs) {s : State} (h : Cur b s0 a c qs v s) :
     WP isa (.block (sub o x y)) s (Cur b s0 a c (o :: qs) (upd v o (v x - v y))) :=
-  WP.mono (subS hq ho hx hy h.ctx h.slots) fun _ ⟨hr, hf, hS⟩ => h.next hr hf hS
+  WP.mono (subS (by decide) hq ho hx hy h.ctx h.slots) fun _ ⟨hr, hf, hS⟩ => h.next hr hf hS
 
 end
 
@@ -103,7 +103,7 @@ def opsCode : List FOp → Prog isa → Prog isa
 known. -/
 def opsOk : List FOp → List Nat → Bool
   | [], _ => true
-  | op :: ops, qs => Sep1 op.out qs && 64 ≤ op.out && op.out + 64 ≤ ACC && qs.contains op.x &&
+  | op :: ops, qs => Sep1 ACC op.out qs && 64 ≤ op.out && op.out + 64 ≤ ACC && qs.contains op.x &&
       qs.contains op.y && opsOk ops (op.out :: qs)
 
 /-- The elements after the operations. -/
@@ -117,7 +117,7 @@ def outsQ : List FOp → List Nat → List Nat
   | op :: ops, qs => outsQ ops (op.out :: qs)
 
 theorem op_ok {b : BitVec 32} {s0 : State} {a c : BitVec 32} {qs : List Nat} {v : Nat → Fe} (op : FOp)
-    (hq : Sep1 op.out qs = true) (ho : 64 ≤ op.out ∧ op.out + 64 ≤ ACC) (hx : op.x ∈ qs) (hy : op.y ∈ qs)
+    (hq : Sep1 ACC op.out qs = true) (ho : 64 ≤ op.out ∧ op.out + 64 ≤ ACC) (hx : op.x ∈ qs) (hy : op.y ∈ qs)
     {s : State} (h : Cur b s0 a c qs v s) :
     WP isa op.code s (Cur b s0 a c (op.out :: qs) (upd v op.out (op.val v))) := by
   cases op with
@@ -226,6 +226,7 @@ theorem head_ok {b : BitVec 32} {k : Nat} {x1 : Fe} {sL : State} (hbits : Bits b
       exact fun h => by
         simp only [Region.Contains] at h
         rw [Offset.sub_toNat _ (by omega) (by omega)] at h
+        have := ACC_eq
         omega
   refine wp_dp (op2_reg _ _) fun s4 u4 => ?_
   have e10 : s4.gpr .r10 = BitVec.ofNat 32 ((ladderAfter k x1 n).swap ^^^ bit k (n - 1)) := by
@@ -243,10 +244,12 @@ theorem head_ok {b : BitVec 32} {k : Nat} {x1 : Fe} {sL : State} (hbits : Bits b
   have hc6 : Ctx b s6 := hc.of_rest hr6 (by decide)
   have hS6 : SlotsOk s6.mem (State.addr b) LQ (ladV x1 (ladderAfter k x1 n)) := by
     rw [hm6]; exact hcur.slots
-  refine WP.append (cswapS (by decide) (by decide) (by decide) (by decide) (by decide) hc6 hx e9 hS6)
+  refine WP.append (cswapS (acc := ACC) (by decide) (by decide) (by decide) (by decide) (by decide)
+    (by decide) hc6 hx e9 hS6)
     fun s7 ⟨hr7, hf7, hS7⟩ => ?_
   have hc7 : Ctx b s7 := hc6.of_rest hr7 (by decide)
-  refine WP.append (cswapS (by decide) (by decide) (by decide) (by decide) (by decide) hc7 hx
+  refine WP.append (cswapS (acc := ACC) (by decide) (by decide) (by decide) (by decide) (by decide)
+    (by decide) hc7 hx
     (by rw [hr7.gpr _ (by decide), e9]) hS7) fun s8 ⟨hr8, hf8, hS8⟩ => ?_
   refine wp_mov (op2_reg _ _) fun s9 u9 => WP.block_nil ?_
   have hr9 : Rest [.r1, .r2, .r3, .r4, .r9, .r10, .r11] s s9 :=

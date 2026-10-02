@@ -25,7 +25,6 @@ end Stream
 
 open VG VG.X86_64 VG.Impl.Scrypt.X86_64
 open VG.Spec.Scrypt (bytesAt blockMix)
-open VG.Proof.Scrypt.X86_64.BlockMix (covers_of_in covers_pair)
 open VG.Proof.MdStream.X86_64 (callEntry_byte)
 
 /-! ## What a call of `vg_scrypt_blockmix` does -/
@@ -92,7 +91,7 @@ theorem bm_pre {s : State} {src dst scr : Addr} {r : Nat} (hdi : s.gpr .rdi = sr
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
   have tr : (BitVec.ofNat 64 r).toNat = r := Memory.toNat_ofNat_lt (by omega)
   have c128 : r * 128 = 128 * r := Nat.mul_comm _ _
-  have cw := covers_pair (covers_of_in idst) (covers_of_in iscr)
+  have cw := Covers.pair (Covers.one idst) (Covers.one iscr)
   refine ⟨?_, ?_, cw⟩
   · simp only [Proof.Scrypt.blockMixX86_64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),
@@ -105,7 +104,7 @@ theorem bm_pre {s : State} {src dst scr : Addr} {r : Nat} (hdi : s.gpr .rdi = sr
     · exact bsrc.sub_left (below8_sub _)
     · exact bdst.sub_left (below8_sub _)
     · exact bscr.sub_left (below8_sub _)
-  · have h1 := covers_of_in isrc
+  · have h1 := Covers.one isrc
     intro a n h
     simp only [List.cons_append, List.nil_append] at h
     obtain ⟨R, hR, hc⟩ := h

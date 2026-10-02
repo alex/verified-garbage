@@ -1,5 +1,6 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.ScalarMulAdd
-import VerifiedGarbage.Proof.Ed25519.Arm.AddSub
+import VerifiedGarbage.Proof.Ed25519.Arm.Field
+import VerifiedGarbage.Proof.X25519.Arm.AddSub
 
 /-! Exact full-width addition, without the field multiplier's modulo-p tail. -/
 namespace VG.Proof.Ed25519.Arm

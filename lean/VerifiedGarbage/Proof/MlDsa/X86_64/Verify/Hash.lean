@@ -101,8 +101,8 @@ theorem kabs_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) (h
     fun h => by rw [hsp]; exact h.sub_left (below_sub (by omega) (by omega))
   refine absorb_call ⟨h1.r0, h1.r1, h1.r2, h1.r3, h1.r4, h1.r5, by decide, hpos, by omega, d1, (L.disj p1),
     (L.disj p2), kk k1, kk (L.stkD p3), kk k2⟩
-    (by rw [h1.2.2.1, h1.2.2.2]; exact covers_append (L.cR p3) (covers_wr (covers_cons w1 w2)))
-    (by rw [h1.2.2.2]; exact covers_cons w1 w2) (fun s' hrd hwr hcs hf hR _ => ?_)
+    (by rw [h1.2.2.1, h1.2.2.2]; exact Covers.append_left (L.cR p3) (Covers.right (Covers.cons w1 w2)))
+    (by rw [h1.2.2.2]; exact Covers.cons w1 w2) (fun s' hrd hwr hcs hf hR _ => ?_)
   have hb : ∀ r ∈ bases, s'.gpr r = s.gpr r := by
     intro r hr
     simp only [bases, List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -150,8 +150,8 @@ theorem kpad_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) (h
   have kk : ∀ {R : Region}, (below (s.gpr .rsp) 32).Disjoint R → (below (s1.gpr .rsp) 16).Disjoint R :=
     fun h => by rw [hsp]; exact h.sub_left (below_sub (by omega) (by omega))
   refine pad_call ⟨h1.r0, h1.r1, h1.r2, h1.r4, by decide, hpos, d1, kk k1, kk k2⟩
-    (by rw [h1.2.2.1, h1.2.2.2]; exact covers_append covers_nil (covers_wr (covers_cons w1 w2)))
-    (by rw [h1.2.2.2]; exact covers_cons w1 w2) (fun s' hrd hwr hcs hf hR => ⟨postB_call h1 hrd hwr hcs ?_, r15_call h1 hcs, ?_⟩)
+    (by rw [h1.2.2.1, h1.2.2.2]; exact Covers.append_left Covers.nil (Covers.right (Covers.cons w1 w2)))
+    (by rw [h1.2.2.2]; exact Covers.cons w1 w2) (fun s' hrd hwr hcs hf hR => ⟨postB_call h1 hrd hwr hcs ?_, r15_call h1 hcs, ?_⟩)
   · rw [← h1.1.2, ← hsp]; exact hf
   · intro msg hm hpo
     rw [← h1.1.2] at hm
@@ -188,8 +188,8 @@ theorem ksqz_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) (h
     fun h => by rw [hsp]; exact h.sub_left (below_sub (by omega) (by omega))
   refine squeeze_call ⟨h1.r0, h1.r1, h1.r2, h1.r3, h1.r4, h1.r5, by decide, by decide, by omega, (L.disj o1).symm, d1,
     L.disj o2, kk k1, kk (L.stkD o3), kk k2⟩
-    (by rw [h1.2.2.1, h1.2.2.2]; exact covers_append covers_nil (covers_wr (covers_cons w1 (covers_cons (L.cW o4) w2))))
-    (by rw [h1.2.2.2]; exact covers_cons w1 (covers_cons (L.cW o4) w2)) (fun s' hrd hwr hcs hf hR => ⟨postB_call h1 hrd hwr hcs ?_, r15_call h1 hcs, ?_⟩)
+    (by rw [h1.2.2.1, h1.2.2.2]; exact Covers.append_left Covers.nil (Covers.right (Covers.cons w1 (Covers.cons (L.cW o4) w2))))
+    (by rw [h1.2.2.2]; exact Covers.cons w1 (Covers.cons (L.cW o4) w2)) (fun s' hrd hwr hcs hf hR => ⟨postB_call h1 hrd hwr hcs ?_, r15_call h1 hcs, ?_⟩)
   · rw [← h1.1.2, ← hsp]; exact hf
   · simp only [Arg.val] at hR
     rw [hR, h1.1.2]

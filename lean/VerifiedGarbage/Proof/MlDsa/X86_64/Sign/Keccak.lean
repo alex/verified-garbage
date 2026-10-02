@@ -171,9 +171,9 @@ theorem kabs_ok {s : State} (L : Lay D rbs wbs s) (hD : 24 ≤ D) (hk : kChk (rb
   refine WP.seq (WP.mono (setArgs_ok _ (kabsOk hc hrate hpos) s) fun s1 ⟨⟨hA, hm⟩, k⟩ => ?_)
   have hsp : s1.gpr .rsp = s.gpr .rsp := k.gpr (by decide)
   have cW : Covers [⟨pa s (sc 0), 200⟩, ⟨pa s (sc 200), 640⟩] s1.wr := by
-    rw [k.2.2]; exact covers_cons (L.cW w0) (L.cW w1)
+    rw [k.2.2]; exact Covers.cons (L.cW w0) (L.cW w1)
   refine absorb_call (kabsArgs L hD hk hc hrate hpos hA hsp)
-    (covers_append (by rw [k.2.1, k.2.2]; exact L.cR is) (covers_wr cW)) cW
+    (Covers.append_left (by rw [k.2.1, k.2.2]; exact L.cR is) (Covers.right cW)) cW
     fun s' hrd hwr hcs hf hR _ => ⟨⟨hrd.trans k.2.1, hwr.trans k.2.2,
       fun r hr => by rw [hcs r (bases_cs r hr), k.gpr (argRegs_cs r (bases_cs r hr))],
       by rw [hcs .rsp (by decide), hsp], ?_⟩, fun r hr => by rw [hcs r hr, k.gpr (argRegs_cs r hr)], ?_⟩
@@ -197,10 +197,10 @@ theorem kabs_tr (hD : 24 ≤ D) (hk : kChk (rbs ++ wbs) wbs = true) {src : Ptr} 
   have ax := kabsArgs R.lx hD hk hc hrate hpos hAx hsx
   have ay := kabsArgs R.ly hD hk hc hrate hpos hAy hsy
   refine ⟨_, _, _, _, absorb_pre ax, absorb_pre ay, ?_,
-    covers_append (by rw [kx.2.1, kx.2.2]; exact R.lx.cR is) (covers_wr (by rw [kx.2.2]; exact covers_cons (R.lx.cW w0) (R.lx.cW w1))),
-    by rw [kx.2.2]; exact covers_cons (R.lx.cW w0) (R.lx.cW w1),
-    covers_append (by rw [ky.2.1, ky.2.2]; exact R.ly.cR is) (covers_wr (by rw [ky.2.2]; exact covers_cons (R.ly.cW w0) (R.ly.cW w1))),
-    by rw [ky.2.2]; exact covers_cons (R.ly.cW w0) (R.ly.cW w1), by rw [hsx, hsy, R.rsp]⟩
+    Covers.append_left (by rw [kx.2.1, kx.2.2]; exact R.lx.cR is) (Covers.right (by rw [kx.2.2]; exact Covers.cons (R.lx.cW w0) (R.lx.cW w1))),
+    by rw [kx.2.2]; exact Covers.cons (R.lx.cW w0) (R.lx.cW w1),
+    Covers.append_left (by rw [ky.2.1, ky.2.2]; exact R.ly.cR is) (Covers.right (by rw [ky.2.2]; exact Covers.cons (R.ly.cW w0) (R.ly.cW w1))),
+    by rw [ky.2.2]; exact Covers.cons (R.ly.cW w0) (R.ly.cW w1), by rw [hsx, hsy, R.rsp]⟩
   simp only [Proof.Sha3.absorbX86_64, State.withRegions_gpr, State.callEntry_rsp,
     State.callEntry_gpr _ (by decide : Reg.rdi ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rsi ≠ .rsp),
     State.callEntry_gpr _ (by decide : Reg.rdx ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rcx ≠ .rsp),
@@ -242,9 +242,9 @@ theorem kpad_ok {s : State} (L : Lay D rbs wbs s) (hD : 24 ≤ D) (hk : kChk (rb
   refine WP.seq (WP.mono (setArgs_ok _ (kpadOk hrate hpos hs) s) fun s1 ⟨⟨hA, hm⟩, k⟩ => ?_)
   have hsp : s1.gpr .rsp = s.gpr .rsp := k.gpr (by decide)
   have cW : Covers [⟨pa s (sc 0), 200⟩, ⟨pa s (sc 200), 640⟩] s1.wr := by
-    rw [k.2.2]; exact covers_cons (L.cW w0) (L.cW w1)
+    rw [k.2.2]; exact Covers.cons (L.cW w0) (L.cW w1)
   have hcx : s1.gpr .rcx = BitVec.ofNat 64 suffix := (argsIn5 hA).2.2.2.1
-  refine pad_call (kpadArgs L hD hk hrate hpos hA hsp) (covers_append covers_nil (covers_wr cW)) cW
+  refine pad_call (kpadArgs L hD hk hrate hpos hA hsp) (Covers.append_left Covers.nil (Covers.right cW)) cW
     fun s' hrd hwr hcs hf hR => ⟨⟨hrd.trans k.2.1, hwr.trans k.2.2,
       fun r hr => by rw [hcs r (bases_cs r hr), k.gpr (argRegs_cs r (bases_cs r hr))],
       by rw [hcs .rsp (by decide), hsp], ?_⟩, fun r hr => by rw [hcs r hr, k.gpr (argRegs_cs r hr)], ?_⟩
@@ -266,10 +266,10 @@ theorem kpad_tr (hD : 24 ≤ D) (hk : kChk (rbs ++ wbs) wbs = true) {rate pos su
   have ax := kpadArgs R.lx hD hk hrate hpos hAx hsx
   have ay := kpadArgs R.ly hD hk hrate hpos hAy hsy
   refine ⟨_, _, _, _, pad_pre ax, pad_pre ay, ?_,
-    covers_append covers_nil (covers_wr (by rw [kx.2.2]; exact covers_cons (R.lx.cW w0) (R.lx.cW w1))),
-    by rw [kx.2.2]; exact covers_cons (R.lx.cW w0) (R.lx.cW w1),
-    covers_append covers_nil (covers_wr (by rw [ky.2.2]; exact covers_cons (R.ly.cW w0) (R.ly.cW w1))),
-    by rw [ky.2.2]; exact covers_cons (R.ly.cW w0) (R.ly.cW w1), by rw [hsx, hsy, R.rsp]⟩
+    Covers.append_left Covers.nil (Covers.right (by rw [kx.2.2]; exact Covers.cons (R.lx.cW w0) (R.lx.cW w1))),
+    by rw [kx.2.2]; exact Covers.cons (R.lx.cW w0) (R.lx.cW w1),
+    Covers.append_left Covers.nil (Covers.right (by rw [ky.2.2]; exact Covers.cons (R.ly.cW w0) (R.ly.cW w1))),
+    by rw [ky.2.2]; exact Covers.cons (R.ly.cW w0) (R.ly.cW w1), by rw [hsx, hsy, R.rsp]⟩
   simp only [Proof.Sha3.padX86_64, State.withRegions_gpr, State.callEntry_rsp,
     State.callEntry_gpr _ (by decide : Reg.rdi ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rsi ≠ .rsp),
     State.callEntry_gpr _ (by decide : Reg.rdx ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.r8 ≠ .rsp),
@@ -306,8 +306,8 @@ theorem ksqz_ok {s : State} (L : Lay D rbs wbs s) (hD : 24 ≤ D) (hk : kChk (rb
   refine WP.seq (WP.mono (setArgs_ok _ (ksqzOk hc hrate) s) fun s1 ⟨⟨hA, hm⟩, k⟩ => ?_)
   have hsp : s1.gpr .rsp = s.gpr .rsp := k.gpr (by decide)
   have cW : Covers [⟨pa s (sc 0), 200⟩, ⟨pa s dst, len⟩, ⟨pa s (sc 200), 640⟩] s1.wr := by
-    rw [k.2.2]; exact covers_cons (L.cW w0) (covers_cons (L.cW wd) (L.cW w1))
-  refine squeeze_call (ksqzArgs L hD hk hc hrate hA hsp) (covers_append covers_nil (covers_wr cW)) cW
+    rw [k.2.2]; exact Covers.cons (L.cW w0) (Covers.cons (L.cW wd) (L.cW w1))
+  refine squeeze_call (ksqzArgs L hD hk hc hrate hA hsp) (Covers.append_left Covers.nil (Covers.right cW)) cW
     fun s' hrd hwr hcs hf ho => ⟨⟨hrd.trans k.2.1, hwr.trans k.2.2,
       fun r hr => by rw [hcs r (bases_cs r hr), k.gpr (argRegs_cs r (bases_cs r hr))],
       by rw [hcs .rsp (by decide), hsp], ?_⟩, fun r hr => by rw [hcs r hr, k.gpr (argRegs_cs r hr)], ?_⟩
@@ -328,10 +328,10 @@ theorem ksqz_tr (hD : 24 ≤ D) (hk : kChk (rbs ++ wbs) wbs = true) {dst : Ptr} 
   have ax := ksqzArgs R.lx hD hk hc hrate hAx hsx
   have ay := ksqzArgs R.ly hD hk hc hrate hAy hsy
   refine ⟨_, _, _, _, squeeze_pre ax, squeeze_pre ay, ?_,
-    covers_append covers_nil (covers_wr (by rw [kx.2.2]; exact covers_cons (R.lx.cW w0) (covers_cons (R.lx.cW wd) (R.lx.cW w1)))),
-    by rw [kx.2.2]; exact covers_cons (R.lx.cW w0) (covers_cons (R.lx.cW wd) (R.lx.cW w1)),
-    covers_append covers_nil (covers_wr (by rw [ky.2.2]; exact covers_cons (R.ly.cW w0) (covers_cons (R.ly.cW wd) (R.ly.cW w1)))),
-    by rw [ky.2.2]; exact covers_cons (R.ly.cW w0) (covers_cons (R.ly.cW wd) (R.ly.cW w1)), by rw [hsx, hsy, R.rsp]⟩
+    Covers.append_left Covers.nil (Covers.right (by rw [kx.2.2]; exact Covers.cons (R.lx.cW w0) (Covers.cons (R.lx.cW wd) (R.lx.cW w1)))),
+    by rw [kx.2.2]; exact Covers.cons (R.lx.cW w0) (Covers.cons (R.lx.cW wd) (R.lx.cW w1)),
+    Covers.append_left Covers.nil (Covers.right (by rw [ky.2.2]; exact Covers.cons (R.ly.cW w0) (Covers.cons (R.ly.cW wd) (R.ly.cW w1)))),
+    by rw [ky.2.2]; exact Covers.cons (R.ly.cW w0) (Covers.cons (R.ly.cW wd) (R.ly.cW w1)), by rw [hsx, hsy, R.rsp]⟩
   simp only [Proof.Sha3.squeezeX86_64, State.withRegions_gpr, State.callEntry_rsp,
     State.callEntry_gpr _ (by decide : Reg.rdi ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rsi ≠ .rsp),
     State.callEntry_gpr _ (by decide : Reg.rdx ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rcx ≠ .rsp),
