@@ -866,6 +866,22 @@ yours to keep:
 
 <tr>
 
+<td>ECDH P-256</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>X25519</td>
 
 <td>✅</td>
