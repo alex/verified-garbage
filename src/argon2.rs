@@ -15,7 +15,10 @@
 //! Argon2i leaks no input contents. Argon2d and Argon2id permit the
 //! data-dependent reference indices specified by `VG.Spec.Argon2.references`.
 
-#![cfg(all(target_arch = "x86_64", feature = "alloc"))]
+#![cfg(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "alloc"
+))]
 
 use alloc::vec::Vec;
 use core::fmt;
@@ -298,8 +301,8 @@ impl<'a> Derivation<'a> {
         // 2048 u64s. Input slices are valid for their lengths; output and
         // both allocations are distinct mutable objects. They do not overlap
         // each other, any input, the caller's stack arguments or the
-        // 344-byte assembly stack frame, and no region wraps the address
-        // space. The selected BLAKE2b backend supplies every required CPU
+        // assembly stack frame (344 bytes on x86-64, 400 on ARM64), and no
+        // region wraps the address space. The selected BLAKE2b backend supplies every required CPU
         // feature.
         unsafe {
             derive(
