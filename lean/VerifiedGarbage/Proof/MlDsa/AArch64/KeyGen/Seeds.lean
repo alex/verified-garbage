@@ -141,17 +141,17 @@ theorem seeds_ok {p : Params} (hF : PFacts p) {S : Nat} (h16 : 16 ≤ S) (hSl : 
   rw [hmsg, ← hx_eq] at ho₂
   have ho₂' : bytesAt s₂.mem (pa s₂ (sc oHX)) 128 = hxOf p σ := by rw [sc_pa hP₂]; exact ho₂
   rw [WP.block_append_iff, WP.block_append_iff, WP.block_append_iff]
-  refine WP.mono (copyP_ok L₂ (dst := sc oSA) (src := sc oHX) (by unfold copyChk; lay)) fun s₃ ⟨hP₃, k₃, b₃⟩ => ?_
+  refine WP.mono (copyP_ok L₂ (dst := sc oSA) (src := sc oHX) (by unfold copyPChk; lay)) fun s₃ ⟨hP₃, k₃, b₃⟩ => ?_
   have h₃ := h₂.step hF hp hP₃ (by unfold kcChk; lay)
   have L₃ := h₃.lay hF hp
   have hx3 : bytesAt s₃.mem (pa s₃ (sc oHX)) 128 = hxOf p σ := by rw [L₂.keepBytes hP₃ (by lay)]; exact ho₂'
   have sa3 : bytesAt s₃.mem (pa s₃ (sc oSA)) 32 = rhoOf p σ := by
     rw [sc_pa hP₃, b₃, rho_eq, ← ho₂', Proof.MlKem.bytesAt_take _ _ (by decide)]
-  refine WP.mono (copyP_ok L₃ (dst := sc oSB) (src := sc (oHX + 32)) (by unfold copyChk; lay))
+  refine WP.mono (copyP_ok L₃ (dst := sc oSB) (src := sc (oHX + 32)) (by unfold copyPChk; lay))
     fun s₄ ⟨hP₄, k₄, b₄⟩ => ?_
   have h₄ := h₃.step hF hp hP₄ (by unfold kcChk; lay)
   have L₄ := h₄.lay hF hp
-  refine WP.mono (copyP_ok L₄ (dst := sc (oSB + 32)) (src := sc (oHX + 64)) (by unfold copyChk; lay))
+  refine WP.mono (copyP_ok L₄ (dst := sc (oSB + 32)) (src := sc (oHX + 64)) (by unfold copyPChk; lay))
     fun s₅ ⟨hP₅, k₅, b₅⟩ => ?_
   have h₅ := h₄.step hF hp hP₅ (by unfold kcChk; lay)
   have L₅ := h₅.lay hF hp

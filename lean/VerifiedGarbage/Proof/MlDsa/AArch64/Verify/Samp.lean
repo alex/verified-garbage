@@ -65,8 +65,8 @@ theorem VA.keep {p : Params} (hF : VFacts p) {S : Nat} {σ : State} (hp : vPre p
 
 theorem copyRho_vpiece {p : Params} (hF : VFacts p) {S : Nat} :
     VPiece p S (fun σ s => Z0 p p.ℓ σ s ∧ normOk p σ p.ℓ) (VA p · 0) (.block (copy32 .x25 0 .x28 oSA)) := by
-  have hc : copyChk (vR p) (vW p) (sc oSA) (.x25, 0) = true := by
-    have := hF.k; have := hF.l; have := hF.scr; have := hF.pk; unfold copyChk; vlay
+  have hc : copyPChk (vR p) (vW p) (sc oSA) (.x25, 0) = true := by
+    have := hF.k; have := hF.l; have := hF.scr; have := hF.pk; unfold copyPChk; vlay
   refine ⟨fun σ s hp h => ?_, taintRel [.x25, .x28] (fun x y ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩ => ?_)
     (by taint_decide)⟩
   · have L := h.1.1.vc.lay hF hp

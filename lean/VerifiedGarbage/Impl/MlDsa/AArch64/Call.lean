@@ -48,4 +48,12 @@ def glue : List (Reg × Arg) → List Instr
 def callAt (name : String) (c : Prog isa) (as : List (Reg × Arg)) : Prog isa :=
   .seq (.block (glue as)) (.call name c)
 
+/-- The byte `v` to `p` (`p.2 < 4096`), through `x9`. -/
+def setB (p : Ptr) (v : Nat) : List Instr := [.movz .x .x9 (BitVec.ofNat 16 v) 0, .strb .x9 p.1 p.2]
+
+/-- `x24 ← x24 ∧ w0`, in 32 bits (a callee's `u32` result is `w0`, and the
+upper half of `x0` is unspecified): the AND of the results that decide
+whether the function goes on. -/
+def and24 : List Instr := [.logic .and .w .x24 .x24 .x0]
+
 end VG.Impl.MlDsa.AArch64

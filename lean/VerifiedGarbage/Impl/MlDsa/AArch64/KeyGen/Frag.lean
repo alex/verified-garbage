@@ -29,9 +29,6 @@ open VG.AArch64
 /-- Where the caller's `x24`–`x28` and `x30` are saved in `scratch`. -/
 def SV : Nat := 840
 
-/-- The byte `v` to `p` (`p.2 < 4096`). -/
-def setB (p : Ptr) (v : Nat) : List Instr := [.movz .x .x9 (BitVec.ofNat 16 v) 0, .strb .x9 p.1 p.2]
-
 /-- `f a, f (a + 1), …, f (a + n - 1)`, in sequence. -/
 def seqR (f : Nat → Prog isa) (a : Nat) : Nat → Prog isa
   | 0 => .block []
@@ -121,10 +118,6 @@ def hintUnpackAt (y : Ptr) (len omega : Nat) (h : Ptr) (hlen : Nat) : Prog isa :
 end
 
 /-! ## Results -/
-
-/-- `x24 ← x24 ∧ w0`, in 32 bits (a callee's `u32` result is `w0`, and the
-upper half of `x0` is unspecified). -/
-def and24 : List Instr := [.logic .and .w .x24 .x24 .x0]
 
 /-- The polynomial at `a` masked by the result `w0` (0 or 1) of the sampler
 that wrote it: unchanged if 1, and zero if 0, so that it is reduced either

@@ -73,10 +73,7 @@ def oP (i : Nat) : Nat := 5120 + 1024 * i
 
 /-! ## Stores and copies
 
-Moves and calls are in `Impl/MlDsa/AArch64/Call.lean`. -/
-
-/-- The byte `v` to `p` (`p.2 < 4096`), through `x9`. -/
-def setB (p : Ptr) (v : Nat) : List Instr := [.movz .x .x9 (BitVec.ofNat 16 v) 0, .strb .x9 p.1 p.2]
+Moves, calls and byte stores are in `Impl/MlDsa/AArch64/Call.lean`. -/
 
 /-- The 8 bytes `v` to `p` (`p.2` a multiple of 8, less than 32768), through `x9`. -/
 def setQ (p : Ptr) (v : Nat) : List Instr := [.movz .x .x9 (BitVec.ofNat 16 v) 0, .str .x .x9 p.1 p.2]
@@ -109,10 +106,6 @@ def seqR (f : Nat → Prog isa) (a : Nat) : Nat → Prog isa
 /-! ## The polynomial primitives
 
 Each takes its working space (if any) at `PS`. -/
-
-/-- `x24 ← x24 ∧ w0`, in 32 bits (a callee's `u32` result is `w0`, and the
-upper half of `x0` is unspecified). -/
-def and24 : List Instr := [.logic .and .w .x24 .x24 .x0]
 
 section
 variable (P : Prims)

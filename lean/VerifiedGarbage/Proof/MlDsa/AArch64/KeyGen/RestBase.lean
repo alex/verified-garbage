@@ -91,14 +91,14 @@ theorem copies_ok {p : Params} (hF : PFacts p) {S' : Nat} {σ : State} (hp : kgP
   unfold copies
   rw [WP.block_append_iff, WP.block_append_iff]
   rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;>
-  · refine WP.mono (copyP_ok L (dst := (.x26, 0)) (src := sc oHX) (by unfold copyChk; lay [hF.pk, hF.sk, hlen]))
+  · refine WP.mono (copyP_ok L (dst := (.x26, 0)) (src := sc oHX) (by unfold copyPChk; lay [hF.pk, hF.sk, hlen]))
       fun s₁ ⟨hP₁, k₁, hb₁⟩ => ?_
     have L₁ := L.post hP₁
-    refine WP.mono (copyP_ok L₁ (dst := (.x27, 0)) (src := sc oHX) (by unfold copyChk; lay [hF.pk, hF.sk, hlen]))
+    refine WP.mono (copyP_ok L₁ (dst := (.x27, 0)) (src := sc oHX) (by unfold copyPChk; lay [hF.pk, hF.sk, hlen]))
       fun s₂ ⟨hP₂, k₂, hb₂⟩ => ?_
     have L₂ := L₁.post hP₂
     refine WP.mono (copyP_ok L₂ (dst := (.x27, 32)) (src := sc (oHX + 96))
-      (by unfold copyChk; lay [hF.pk, hF.sk, hlen])) fun s₃ ⟨hP₃, k₃, hb₃⟩ => ?_
+      (by unfold copyPChk; lay [hF.pk, hF.sk, hlen])) fun s₃ ⟨hP₃, k₃, hb₃⟩ => ?_
     have hP := PPostB.app (PPostB.app hP₁ hP₂ (b27 _ _)) hP₃ (b27 _ _)
     have h24 : s₃.gpr .x24 = s.gpr .x24 := by rw [k₃.get .x24, k₂.get .x24, k₁.get .x24]
     obtain ⟨A, S, hA, hS, hG⟩ := h.ex
