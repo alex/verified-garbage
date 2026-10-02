@@ -3,7 +3,12 @@
 //! Key expansion and ECB encryption/decryption use verified primitives.
 //! Each operation accepts complete eight-byte blocks, including empty input.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use crate::arch::triple_des::{
     vg_triple_des_ecb_decrypt, vg_triple_des_ecb_encrypt, vg_triple_des_expand_key,
