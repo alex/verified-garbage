@@ -1780,3 +1780,243 @@ pub(crate) unsafe extern "C" fn vg_chacha20_xor(state: *mut [u32; 16], data: *mu
         vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
     )
 }
+
+/// Starts a ChaCha20 keystream (RFC 8439 §2.4): makes the streaming state `*state` hold the 32-byte key `*key` and the whole keystream for the 16-byte nonce `*nonce`, the initial block counter `c` (4 bytes, little-endian) followed by the 12-byte RFC 8439 nonce: the blocks for the counters `c` to 2³² − 1, 64 × (2³² − `c`) bytes.
+///
+/// Contract: `VG.Spec.ChaCha20.initContract`. The streaming state is opaque (`VG.Spec.ChaCha20.keyAt`, `VG.Spec.ChaCha20.restAt`). Constant time: only the pointers may affect timing, not the key or the nonce.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 768 bytes.
+/// * `key` must be valid for reads of 32 bytes.
+/// * `nonce` must be valid for reads of 16 bytes.
+/// * `state` must not overlap `key`, `nonce` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `state`, `key` and `nonce` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_chacha20_init(state: *mut [u64; 96], key: *const [u8; 32], nonce: *const [u8; 16]) {
+    core::arch::naked_asm!(
+        "mov eax, DWORD PTR [esp+4]",
+        "mov ecx, DWORD PTR [esp+8]",
+        "movdqu xmm1, XMMWORD PTR [ecx]",
+        "movdqu xmm2, XMMWORD PTR [ecx+16]",
+        "mov edx, DWORD PTR [esp+12]",
+        "movdqu xmm0, XMMWORD PTR [edx]",
+        "mov ecx, 0",
+        "sub ecx, DWORD PTR [edx]",
+        "mov edx, 1",
+        "sbb edx, 0",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "movdqu XMMWORD PTR [eax+16], xmm1",
+        "movdqu XMMWORD PTR [eax+32], xmm2",
+        "movdqu XMMWORD PTR [eax+48], xmm0",
+        "mov DWORD PTR [eax+128], ecx",
+        "mov DWORD PTR [eax+132], edx",
+        "mov ecx, 1634760805",
+        "mov DWORD PTR [eax], ecx",
+        "mov ecx, 857760878",
+        "mov DWORD PTR [eax+4], ecx",
+        "mov ecx, 2036477234",
+        "mov DWORD PTR [eax+8], ecx",
+        "mov ecx, 1797285236",
+        "mov DWORD PTR [eax+12], ecx",
+        "ret",
+    )
+}
+
+/// Restarts a ChaCha20 keystream with the same key: makes the streaming state `*state` represent the whole keystream of its key for the 16-byte nonce `*nonce` (as `vg_chacha20_init` does), discarding what was left of the previous one.
+///
+/// Contract: `VG.Spec.ChaCha20.setNonceContract`. Constant time: only the pointers may affect timing, not the key or the nonce.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 768 bytes.
+/// * `nonce` must be valid for reads of 16 bytes.
+/// * `state` must not overlap `nonce` or the arguments on the stack (distinct Rust objects never do).
+/// * Neither `state` nor `nonce` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_chacha20_set_nonce(state: *mut [u64; 96], nonce: *const [u8; 16]) {
+    core::arch::naked_asm!(
+        "mov eax, DWORD PTR [esp+4]",
+        "mov edx, DWORD PTR [esp+8]",
+        "movdqu xmm0, XMMWORD PTR [edx]",
+        "mov ecx, 0",
+        "sub ecx, DWORD PTR [edx]",
+        "mov edx, 1",
+        "sbb edx, 0",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "add ecx, ecx",
+        "adc edx, edx",
+        "movdqu XMMWORD PTR [eax+48], xmm0",
+        "mov DWORD PTR [eax+128], ecx",
+        "mov DWORD PTR [eax+132], edx",
+        "mov ecx, 1634760805",
+        "mov DWORD PTR [eax], ecx",
+        "mov ecx, 857760878",
+        "mov DWORD PTR [eax+4], ecx",
+        "mov ecx, 2036477234",
+        "mov DWORD PTR [eax+8], ecx",
+        "mov ecx, 1797285236",
+        "mov DWORD PTR [eax+12], ecx",
+        "ret",
+    )
+}
+
+/// Applies a ChaCha20 keystream (RFC 8439 §2.4), encrypting or decrypting: if at least `len` bytes are left of the keystream that the streaming state `*state` represents, XORs the next `len` of them into the `len` bytes at `data`, keeps the rest in `*state`, and returns 1. Otherwise (the block counter would pass 2³² − 1) returns 0, and leaves the bytes at `data` and the keystream unchanged.
+///
+/// Contract: `VG.Spec.ChaCha20.applyContract`. Constant time: only the pointers, `len` and the number of bytes of keystream left in `*state` (`VG.Spec.ChaCha20.leftAt`: 64 × (2³² − `c`) for the initial block counter `c`, less the bytes applied since) may affect timing, not the key, the nonce, the keystream or the data. The function may leak that number.
+///
+/// The function may overwrite the arguments on the stack, as the calling convention lets it.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 768 bytes.
+/// * `data` must be valid for reads and writes of `len` bytes.
+/// * `state` and `data` must not overlap each other (distinct Rust objects never do).
+/// * Neither `state` nor `data` may overlap the arguments on the stack, overlap the return address on the stack or the 32 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_chacha20_apply(state: *mut [u64; 96], data: *mut u8, len: usize) -> u32 {
+    core::arch::naked_asm!(
+        "mov eax, DWORD PTR [esp+4]",
+        "mov ecx, DWORD PTR [eax+128]",
+        "mov edx, DWORD PTR [eax+132]",
+        "sub ecx, DWORD PTR [esp+12]",
+        "sbb edx, 0",
+        "jb 20f",
+        "mov DWORD PTR [eax+576], ebx",
+        "mov DWORD PTR [eax+580], esi",
+        "mov DWORD PTR [eax+584], edi",
+        "mov DWORD PTR [eax+588], ebp",
+        "mov DWORD PTR [eax+600], ecx",
+        "mov DWORD PTR [eax+604], edx",
+        "mov ebx, eax",
+        "mov esi, DWORD PTR [esp+8]",
+        "mov ebp, DWORD PTR [esp+12]",
+        "mov eax, DWORD PTR [ebx+128]",
+        "and eax, 63",
+        "mov ecx, ebp",
+        "cmp eax, ebp",
+        "jb 22f",
+        "jmp 23f",
+        "22:",
+        "mov ecx, eax",
+        "23:",
+        "mov edx, ebx",
+        "add edx, 128",
+        "sub edx, eax",
+        "sub ebp, ecx",
+        "test ecx, ecx",
+        "je 24f",
+        "26:",
+        "movzx eax, BYTE PTR [esi]",
+        "xor eax, DWORD PTR [edx]",
+        "mov BYTE PTR [esi], al",
+        "add esi, 1",
+        "add edx, 1",
+        "sub ecx, 1",
+        "jne 26b",
+        "jmp 25f",
+        "24:",
+        "25:",
+        "mov ecx, ebp",
+        "and ecx, -64",
+        "je 27f",
+        "movdqu xmm0, XMMWORD PTR [ebx]",
+        "movdqu xmm1, XMMWORD PTR [ebx+16]",
+        "movdqu xmm2, XMMWORD PTR [ebx+32]",
+        "movdqu xmm3, XMMWORD PTR [ebx+48]",
+        "movdqu XMMWORD PTR [ebx+192], xmm0",
+        "movdqu XMMWORD PTR [ebx+208], xmm1",
+        "movdqu XMMWORD PTR [ebx+224], xmm2",
+        "movdqu XMMWORD PTR [ebx+240], xmm3",
+        "mov eax, ecx",
+        "shr eax, 6",
+        "add eax, DWORD PTR [ebx+48]",
+        "mov DWORD PTR [ebx+48], eax",
+        "mov edi, ecx",
+        "mov eax, ebx",
+        "add eax, 256",
+        "mov edx, ebx",
+        "add edx, 192",
+        "push eax",
+        "push ecx",
+        "push esi",
+        "push edx",
+        "call {vg_chacha20_xor}",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "add esi, edi",
+        "sub ebp, edi",
+        "jmp 28f",
+        "27:",
+        "28:",
+        "test ebp, ebp",
+        "je 29f",
+        "mov eax, ebx",
+        "add eax, 64",
+        "push eax",
+        "push ebx",
+        "call {vg_chacha20_block}",
+        "pop eax",
+        "pop eax",
+        "mov eax, DWORD PTR [ebx+48]",
+        "add eax, 1",
+        "mov DWORD PTR [ebx+48], eax",
+        "mov edx, ebx",
+        "add edx, 64",
+        "mov ecx, ebp",
+        "test ecx, ecx",
+        "je 211f",
+        "213:",
+        "movzx eax, BYTE PTR [esi]",
+        "xor eax, DWORD PTR [edx]",
+        "mov BYTE PTR [esi], al",
+        "add esi, 1",
+        "add edx, 1",
+        "sub ecx, 1",
+        "jne 213b",
+        "jmp 212f",
+        "211:",
+        "212:",
+        "jmp 210f",
+        "29:",
+        "210:",
+        "mov eax, DWORD PTR [ebx+600]",
+        "mov DWORD PTR [ebx+128], eax",
+        "mov eax, DWORD PTR [ebx+604]",
+        "mov DWORD PTR [ebx+132], eax",
+        "mov esi, DWORD PTR [ebx+580]",
+        "mov edi, DWORD PTR [ebx+584]",
+        "mov ebp, DWORD PTR [ebx+588]",
+        "mov ebx, DWORD PTR [ebx+576]",
+        "mov eax, 1",
+        "jmp 21f",
+        "20:",
+        "mov eax, 0",
+        "21:",
+        "ret",
+        vg_chacha20_xor = sym super::chacha20::vg_chacha20_xor,
+        vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
+    )
+}

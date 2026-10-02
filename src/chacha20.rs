@@ -37,12 +37,12 @@
 
 #[cfg(target_arch = "aarch64")]
 use crate::arch::chacha20::vg_chacha20_apply_neon;
-use crate::arch::chacha20::{vg_chacha20_apply, vg_chacha20_init, vg_chacha20_set_nonce};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::chacha20::{
     VG_CHACHA20_APPLY_AVX2_FEATURES, VG_CHACHA20_APPLY_AVX512_FEATURES, vg_chacha20_apply_avx2,
     vg_chacha20_apply_avx512,
 };
+use crate::arch::chacha20::{vg_chacha20_apply, vg_chacha20_init, vg_chacha20_set_nonce};
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
 
@@ -313,7 +313,9 @@ mod tests {
         let mut data = [0u8; 64];
         c.apply_keystream(&mut data[..10]);
         let mut more = [0x5au8; 55];
-        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.apply_keystream(&mut more)));
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            c.apply_keystream(&mut more)
+        }));
         assert!(r.is_err());
         assert_eq!(more, [0x5a; 55]);
         c.apply_keystream(&mut data[10..]);
