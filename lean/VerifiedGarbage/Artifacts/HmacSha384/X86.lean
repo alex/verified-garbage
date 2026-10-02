@@ -1,5 +1,6 @@
 import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.Hmac.Generic.X86.Instances
+import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Instances
 
 /-!
 # HMAC-SHA-384 (RFC 2104) on x86
@@ -14,9 +15,14 @@ target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract (after unfolding the `Instance`'s contract to the
 generic one, which is a `Sig.contract`).
 
-The code is the one HMAC implementation for every streaming hash function
-(`Impl/Hmac/Generic/X86.lean`), calling SHA-384's verified `init`, `update`
-and `finalize`.
+`init` is the one HMAC implementation for every streaming hash function
+(`Impl/Hmac/Generic/X86.lean`), calling SHA-384's verified `init` and `update`.
+`finalize` is the one for every Merkle–Damgård hash function
+(`Impl/Pbkdf2/Md/X86.lean`): it calls SHA-384's verified streaming `finalize`
+for the inner hash, then computes the outer hash with one call of SHA-384's
+verified compression function, on a block it lays out word by word in
+`scratch`: the outer key's hash value, the inner digest, its padding and
+length.
 -/
 
 namespace VG.Artifacts.HmacSha384.X86
@@ -36,11 +42,11 @@ def artifacts : List Artifact := [
   { Spec.Hmac.sha384I.finalizeApi with
     target := X86.target
     doc := Spec.Hmac.sha384I.finalizeApi.doc
-    code := sha384H.finalize
+    code := Proof.Pbkdf2.Md.X86.sha384M.hmacFin
     contract := Spec.Hmac.sha384I.finalizeContract X86.abi 48
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
     stack := 48
-    verified := Instances.sha384_finalize
+    verified := Proof.Pbkdf2.Md.X86.Instances.sha384_finalize
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.HmacSha384.X86

@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Loop
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: constant time
 
 Untrusted: everything here is checked by Lean. As for `iterate`
-(`Proof/Pbkdf2/Generic/X86/IterateCT.lean`): the pieces of code between the
+(`Proof/Pbkdf2/Md/X86/IterateCT.lean`): the pieces of code between the
 calls are checked by the taint analysis (`Checks`, which the kernel
 evaluates for each hash function), with the arguments, `esp`, `ebp` and, in
 the loop over the blocks, `ebx` public (`piece`); the calls are related by

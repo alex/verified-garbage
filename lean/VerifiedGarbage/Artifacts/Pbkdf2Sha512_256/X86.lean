@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.X86.Target
-import VerifiedGarbage.Proof.Pbkdf2.Generic.X86.Instances
+import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Instances
 import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Instances
 
 /-!
@@ -15,9 +15,11 @@ target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract (after unfolding the `Instance`'s contract to the
 generic one, which is a `Sig.contract`).
 
-The code is the one PBKDF2 iteration for every streaming hash function
-(`Impl/Pbkdf2/Generic/X86.lean`), calling SHA-512/256's verified `update` and
-`finalize`.
+The iteration is the one for every Merkle–Damgård hash function
+(`Impl/Pbkdf2/Md/X86.lean`): each step is two calls of SHA-512/256's verified
+compression function, on a block laid out once, word by word, in `scratch`
+(`U`, its padding and length), starting from the key's inner and outer hash
+values.
 
 The whole derivation, `pbkdf2`, is the one for every streaming hash function
 (`Impl/Pbkdf2/Whole/X86.lean`), calling the hash function's streaming
@@ -35,11 +37,11 @@ def artifacts : List Artifact := [
   { Spec.Hmac.sha512_256I.iterateApi with
     target := X86.target
     doc := Spec.Hmac.sha512_256I.iterateApi.doc
-    code := Impl.Pbkdf2.Generic.X86.iterate sha512_256H
+    code := Proof.Pbkdf2.Md.X86.sha512_256M.iterate
     contract := Spec.Hmac.sha512_256I.iterateContract X86.abi 48
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
     stack := 48
-    verified := Proof.Pbkdf2.Generic.X86.Instances.sha512_256
+    verified := Proof.Pbkdf2.Md.X86.Instances.sha512_256_iterate
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Hmac.sha512_256I.pbkdf2Api with
     target := X86.target
