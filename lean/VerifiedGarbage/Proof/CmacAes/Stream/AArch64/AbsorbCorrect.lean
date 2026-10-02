@@ -28,8 +28,8 @@ theorem blocksAt_one (m : Mem) (p : Addr) :
     Spec.Cmac.blocksAt m p 16 1 = [Spec.Aes.bytesAt m p 16] := by
   simp [Spec.Cmac.blocksAt]
 
-theorem absorb_wp (v : Ctr32Impl) {s₀ : State} (h0 : absorbAArch64.pre s₀) :
-    WP isa (absorb v.callee v.suffix) s₀ fun s' => GprAbi s₀ s' ∧ absorbAArch64.post s₀ s' := by
+theorem absorb_wp (v : Proof.CmacAes.AArch64.UpdateImpl) {s₀ : State} (h0 : absorbAArch64.pre s₀) :
+    WP isa (absorb v.callee) s₀ fun s' => GprAbi s₀ s' ∧ absorbAArch64.post s₀ s' := by
   have hp := APre.of h0
   generalize s₀.gpr .x0 = St at hp
   generalize s₀.gpr .x3 = D at hp

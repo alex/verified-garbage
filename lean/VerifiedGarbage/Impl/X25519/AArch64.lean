@@ -5,7 +5,7 @@ import VerifiedGarbage.TCB.AArch64.Isa
 
 `vg_x25519(out = x0, scalar = x1, point = x2, scratch = x3)`.
 
-The model has no carry flag and no multiply-high (`umulh`), so a field
+This backend predates the carry-flag and multiply-high ISA extensions. A field
 element is fifteen 17-bit limbs, `x = Σ xᵢ 2^(17 i)` (`255 = 15 · 17`, so
 `2²⁵⁵ ≡ 19` modulo `p = 2²⁵⁵ - 19` folds a product's upper half onto its
 lower half), each a 64-bit word: the products of two limbs, and their sums,
@@ -44,10 +44,8 @@ The arithmetic, on limbs below `2²⁶` (products below `2⁵²`):
 
 The ladder follows RFC 7748 §5 operation by operation, over the bits of the
 scalar from 254 down to 0 (the counter `x23`, with the bit's address
-`x3 + x23 + BITS`). The inversion `z2^(p-2)` is computed left to right over
-the bits of the exponent `p - 2 = 2²⁵⁵ - 21`, which is public: a square for
-every bit, and a multiplication by `z2` for every bit that is set (all but
-bits 2 and 4), a branch on the counter.
+`x3 + x23 + BITS`). The inversion `z2^(p-2)` uses the ref10 addition chain: 254 squarings
+and 11 multiplications, with public counters for runs of squarings.
 
 The only branches are on the loop counters, and every address is a pointer
 plus a constant or a counter, so only the pointers can affect timing.
@@ -213,23 +211,28 @@ def ladder : Prog isa :=
 /-- The swap after the loop. -/
 def lastSwap : List Instr := [.addImm .x .x20 .x24 0] ++ maskOf ++ cswap X2 X3 ++ cswap Z2 Z3
 
-/-! ## Inversion
+/-! ## Inversion: ref10's 254-square, 11-multiply addition chain.
+The ladder's dead temporaries A, B and C are reused, with T holding the result. -/
 
-`[T] = [Z2]^(p-2)`, left to right over the bits `253, …, 0` of `p - 2`
-(bit 254 is set: `[T]` starts as `[Z2]`), the counter `x23` being one more
-than the bit. -/
+def sqn (o a n : Nat) : Prog isa :=
+  .seq (.block (copy o a ++ [.movz .x .x23 n 0]))
+    (.loop (.block (mul o o o ++ [.subImm .x .x23 .x23 1])) (.nonzero .x .x23))
 
-/-- Multiplies by `[Z2]` unless the bit `x23` is 2 or 4. -/
-def invMul : Prog isa :=
-  .seq (.block [.subImm .x .x17 .x23 2])
-    (.ite (.zero .x .x17) (.block [])
-      (.seq (.block [.subImm .x .x17 .x23 4])
-        (.ite (.zero .x .x17) (.block []) (.block (mul T T Z2)))))
-
-def invBody : Prog isa := .seq (.block ([.subImm .x .x23 .x23 1] ++ mul T T T)) invMul
+def invChain : Prog isa :=
+  .seq (.block (mul A Z2 Z2)) <|
+  .seq (sqn T A 2) <|
+  .seq (.block (mul T Z2 T ++ mul A A T ++ mul B A A ++ mul T T B)) <|
+  .seq (sqn B T 5) <| .seq (.block (mul T B T)) <|
+  .seq (sqn B T 10) <| .seq (.block (mul B B T)) <|
+  .seq (sqn C B 20) <| .seq (.block (mul B C B)) <|
+  .seq (sqn B B 10) <| .seq (.block (mul T B T)) <|
+  .seq (sqn B T 50) <| .seq (.block (mul B B T)) <|
+  .seq (sqn C B 100) <| .seq (.block (mul B C B)) <|
+  .seq (sqn B B 50) <| .seq (.block (mul T B T)) <|
+  .seq (sqn T T 5) (.block (mul T T A))
 
 def invert : Prog isa :=
-  .seq (.block (copy T Z2 ++ [.movz .x .x23 254 0])) (.loop invBody (.nonzero .x .x23))
+  .seq (.block (copy A Z2 ++ copy B Z2 ++ copy C Z2 ++ copy T Z2)) invChain
 
 /-! ## Decoding -/
 

@@ -6,6 +6,7 @@ import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Avx2
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Avx512
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Lit
+import VerifiedGarbage.Proof.ChaCha20.X86_64.Stream.Init
 
 /-! # The ChaCha20 block function (RFC 8439) on x86-64 -/
 
@@ -52,6 +53,20 @@ def artifacts : List Artifact := [
     stack := 16
     verified := Proof.ChaCha20.X86_64.Avx512.xor_verified
     features := ["avx", "avx512f"]
-    spSafe := Code.all_of_allInstrs (by lit_decide) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.ChaCha20.initApi with
+    target := X86_64.target
+    doc := Spec.ChaCha20.initApi.doc
+    code := Impl.ChaCha20.X86_64.Stream.init
+    contract := Spec.ChaCha20.initContract X86_64.abi
+    verified := Proof.ChaCha20.X86_64.Stream.init_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.ChaCha20.setNonceApi with
+    target := X86_64.target
+    doc := Spec.ChaCha20.setNonceApi.doc
+    code := Impl.ChaCha20.X86_64.Stream.setNonce
+    contract := Spec.ChaCha20.setNonceContract X86_64.abi
+    verified := Proof.ChaCha20.X86_64.Stream.setNonce_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.ChaCha20.X86_64
