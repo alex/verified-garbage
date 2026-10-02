@@ -9,22 +9,6 @@
     target_arch = "arm"
 ))]
 
-/// The message representative `μ = H(tr ‖ M′, 64)` (FIPS 204 Algorithm 7,
-/// line 6) of the message `msg` with the context string `ctx`, formatted as
-/// `M′ = 0 ‖ |ctx| ‖ ctx ‖ msg` (Algorithm 2, line 10), for the public key
-/// hash `tr`; `None` if `ctx` is longer than 255 bytes.
-pub(crate) fn message_rep(tr: &[u8; 64], msg: &[u8], ctx: &[u8]) -> Option<[u8; 64]> {
-    let len = u8::try_from(ctx.len()).ok()?;
-    let mut h = crate::hashes::sha3::Shake256::new();
-    h.update(tr);
-    h.update(&[0, len]);
-    h.update(ctx);
-    h.update(msg);
-    let mut mu = [0u8; 64];
-    h.finalize(&mut mu);
-    Some(mu)
-}
-
 /// The implementations of ML-DSA's verified functions: their instances for
 /// the polynomial arithmetic and Keccak they call (`Generic/MlDsaArith/` and
 /// the Keccak backend, `crate::hashes::sha3::Backend`).
@@ -65,8 +49,9 @@ impl Backend {
 }
 
 /// Defines the API of one ML-DSA parameter set: its `Error`, `SigningKey`
-/// and `VerifyingKey`, over its verified `keygen`, `sign` and `verify`
-/// functions (which take `μ`) and its sizes.
+/// and `VerifyingKey`, over its verified `keygen`, `sign_message` and
+/// `verify_message` functions, its `sign` and `verify` functions (which take
+/// `μ`, for known-answer tests) and its sizes.
 macro_rules! ml_dsa {
     (
         name: $name:literal,
@@ -75,18 +60,24 @@ macro_rules! ml_dsa {
         keygen: $keygen:path,
         sign: $sign:path,
         verify: $verify:path,
+        sign_message: $sign_message:path,
+        verify_message: $verify_message:path,
         keygen_sha3: ($keygen_sha3:path, $keygen_sha3_features:path),
         sign_sha3: ($sign_sha3:path, $sign_sha3_features:path),
         verify_sha3: ($verify_sha3:path, $verify_sha3_features:path),
+        sign_message_sha3: ($sign_message_sha3:path, $sign_message_sha3_features:path),
+        verify_message_sha3: ($verify_message_sha3:path, $verify_message_sha3_features:path),
         keygen_avx2: ($keygen_avx2:path, $keygen_avx2_features:path),
         sign_avx2: ($sign_avx2:path, $sign_avx2_features:path),
         verify_avx2: ($verify_avx2:path, $verify_avx2_features:path),
+        sign_message_avx2: ($sign_message_avx2:path, $sign_message_avx2_features:path),
+        verify_message_avx2: ($verify_message_avx2:path, $verify_message_avx2_features:path),
         pk: $pk:literal,
         sk: $sk:literal,
         sig: $sig:literal,
-        scratch: $scratch:literal $(,)?
+        scratch: $scratch:literal,
+        message_scratch: $message_scratch:literal $(,)?
     ) => {
-        use $crate::mldsa_common::message_rep;
         use $crate::zeroize::zeroize;
         use $crate::mldsa_common::Backend;
 
@@ -100,11 +91,19 @@ macro_rules! ml_dsa {
                 $keygen_sha3_features,
                 $sign_sha3_features,
                 $verify_sha3_features,
+                $sign_message_sha3_features,
+                $verify_message_sha3_features,
             ])) {
                 return Backend::Scalar;
             }
             #[cfg(target_arch = "x86_64")]
-            const AVX2: &[&[&str]] = &[$keygen_avx2_features, $sign_avx2_features, $verify_avx2_features];
+            const AVX2: &[&[&str]] = &[
+                $keygen_avx2_features,
+                $sign_avx2_features,
+                $verify_avx2_features,
+                $sign_message_avx2_features,
+                $verify_message_avx2_features,
+            ];
             #[cfg(not(target_arch = "x86_64"))]
             const AVX2: &[&[&str]] = &[];
             Backend::select($crate::hashes::sha3::Backend::detected(), $crate::cpu::detected(), AVX2)
@@ -125,15 +124,16 @@ macro_rules! ml_dsa {
             Randomness,
         }
 
-        /// The working space of the assembly functions.
+        /// The working space of the assembly functions on `μ`.
         type Scratch = [u64; $scratch];
+
+        /// The working space of the assembly functions on messages.
+        type MessageScratch = [u64; $message_scratch];
 
         #[doc = concat!("An ", $name, " public key.")]
         #[derive(Clone, PartialEq, Eq)]
         pub struct $VerifyingKey {
             bytes: [u8; $pk],
-            /// `tr = H(pk, 64)`.
-            tr: [u8; 64],
         }
 
         impl core::fmt::Debug for $VerifyingKey {
@@ -151,9 +151,7 @@ macro_rules! ml_dsa {
             /// The public key `bytes` (every byte string of this size is
             /// one).
             pub fn from_bytes(bytes: &[u8; $pk]) -> Self {
-                let mut tr = [0u8; 64];
-                $crate::hashes::sha3::Shake256::digest(bytes, &mut tr);
-                $VerifyingKey { bytes: *bytes, tr }
+                $VerifyingKey { bytes: *bytes }
             }
 
             /// The bytes of the key.
@@ -168,8 +166,28 @@ macro_rules! ml_dsa {
             /// about 2⁻²⁵⁶ or less, if a loop reaches its bound), and
             /// [`Error::ContextTooLong`] if `ctx` is longer than 255 bytes.
             pub fn verify(&self, msg: &[u8], ctx: &[u8], sig: &[u8; $sig]) -> Result<(), Error> {
-                let mu = message_rep(&self.tr, msg, ctx).ok_or(Error::ContextTooLong)?;
-                self.verify_internal(&mu, sig)
+                let mut scratch: MessageScratch = [0; $message_scratch];
+                let (m, m_len, c, c_len) = (msg.as_ptr(), msg.len(), ctx.as_ptr(), ctx.len());
+                // SAFETY: `self.bytes`, `sig` and `scratch` are valid for
+                // reads (and, for `scratch`, writes) of their sizes, and
+                // `msg` and `ctx` for reads of their lengths; they are
+                // distinct Rust objects, so they do not overlap each other or
+                // the stack, or wrap around the end of the address space.
+                // Backend selection checks the generated CPU feature requirements.
+                let r = unsafe {
+                    match backend() {
+                        Backend::Scalar => $verify_message(&self.bytes, m, m_len, c, c_len, sig, &mut scratch),
+                        #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                        Backend::Sha3 => $verify_message_sha3(&self.bytes, m, m_len, c, c_len, sig, &mut scratch),
+                        #[cfg(target_arch = "x86_64")]
+                        Backend::Avx2 => $verify_message_avx2(&self.bytes, m, m_len, c, c_len, sig, &mut scratch),
+                    }
+                };
+                match r {
+                    1 => Ok(()),
+                    2 => Err(Error::ContextTooLong),
+                    _ => Err(Error::InvalidSignature),
+                }
             }
 
             /// `ML-DSA.Verify_internal` (FIPS 204 Algorithm 8) with the
@@ -231,7 +249,7 @@ macro_rules! ml_dsa {
             pub fn from_seed(seed: &[u8; 32]) -> Result<Self, Error> {
                 let mut key = $SigningKey {
                     seed: *seed,
-                    vk: $VerifyingKey { bytes: [0; $pk], tr: [0; 64] },
+                    vk: $VerifyingKey { bytes: [0; $pk] },
                     sk: [0; $sk],
                 };
                 let mut scratch: Scratch = [0; $scratch];
@@ -258,9 +276,6 @@ macro_rules! ml_dsa {
                     return Err(Error::LoopBound);
                     // NO-COVERAGE-END
                 }
-                // `tr` is bytes 64–127 of the private key (FIPS 204
-                // Algorithm 24).
-                key.vk.tr.copy_from_slice(&key.sk[64..128]);
                 Ok(key)
             }
 
@@ -302,8 +317,44 @@ macro_rules! ml_dsa {
             }
 
             fn sign_with(&self, msg: &[u8], ctx: &[u8], rnd: &[u8; 32]) -> Result<[u8; $sig], Error> {
-                let mu = message_rep(&self.vk.tr, msg, ctx).ok_or(Error::ContextTooLong)?;
-                self.sign_internal(&mu, rnd)
+                let mut sig = [0u8; $sig];
+                let mut scratch: MessageScratch = [0; $message_scratch];
+                let (m, m_len, c, c_len) = (msg.as_ptr(), msg.len(), ctx.as_ptr(), ctx.len());
+                // SAFETY: `self.sk`, `rnd`, `sig` and `scratch` are valid for
+                // reads (and, for the last two, writes) of their sizes, and
+                // `msg` and `ctx` for reads of their lengths; they are
+                // distinct Rust objects, so they do not overlap each other or
+                // the stack, or wrap around the end of the address space.
+                // `self.sk` was written by the key generation.
+                // Backend selection checks the generated CPU feature requirements.
+                let r = unsafe {
+                    match backend() {
+                        Backend::Scalar => {
+                            $sign_message(&self.sk, m, m_len, c, c_len, rnd, &mut sig, &mut scratch)
+                        }
+                        #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                        Backend::Sha3 => {
+                            $sign_message_sha3(&self.sk, m, m_len, c, c_len, rnd, &mut sig, &mut scratch)
+                        }
+                        #[cfg(target_arch = "x86_64")]
+                        Backend::Avx2 => {
+                            $sign_message_avx2(&self.sk, m, m_len, c, c_len, rnd, &mut sig, &mut scratch)
+                        }
+                    }
+                };
+                zeroize(&mut scratch);
+                match r {
+                    1 => Ok(sig),
+                    2 => Err(Error::ContextTooLong),
+                    // A loop reaches its bound with probability about 2^-256
+                    // or less.
+                    // NO-COVERAGE-START
+                    _ => {
+                        zeroize(&mut sig);
+                        Err(Error::LoopBound)
+                    }
+                    // NO-COVERAGE-END
+                }
             }
 
             /// `ML-DSA.Sign_internal` (FIPS 204 Algorithm 7) with the
@@ -349,11 +400,15 @@ pub(crate) use ml_dsa;
 
 #[cfg(test)]
 mod tests {
-    use super::message_rep;
+    use crate::mldsa44::{Error, SigningKey44};
 
     #[test]
     fn context_too_long() {
-        assert!(message_rep(&[0; 64], b"", &[0; 255]).is_some());
-        assert!(message_rep(&[0; 64], b"", &[0; 256]).is_none());
+        let key = SigningKey44::from_seed(&[7; 32]).unwrap();
+        let sig = key.sign_deterministic(b"msg", &[0; 255]).unwrap();
+        let vk = key.verifying_key();
+        assert_eq!(vk.verify(b"msg", &[0; 255], &sig), Ok(()));
+        assert_eq!(key.sign(b"msg", &[0; 256]), Err(Error::ContextTooLong));
+        assert_eq!(vk.verify(b"msg", &[0; 256], &sig), Err(Error::ContextTooLong));
     }
 }
