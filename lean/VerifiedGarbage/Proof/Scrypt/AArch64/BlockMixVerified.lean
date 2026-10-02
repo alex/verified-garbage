@@ -774,27 +774,11 @@ open VG VG.AArch64
 
 theorem salsa_noFrames : Impl.Scrypt.AArch64.salsa.noFrames = true := by decide +kernel
 
-/-- A region inside one of `rs` is covered by `rs`. -/
-theorem covers_of_in {rs : List Region} {a : Addr} {n : Nat} (h : InRegions rs a n) :
-    Covers [⟨a, n⟩] rs := by
-  obtain ⟨R, hR, hc⟩ := h
-  refine Covers.of_sub fun r hr => ?_
-  simp only [List.mem_singleton] at hr; subst hr
-  exact ⟨R, hR, (a - R.base).toNat, by rw [BitVec.ofNat_toNat, BitVec.setWidth_eq]; bv_omega, hc⟩
-
-theorem covers_pair {rs : List Region} {a b : Region} (ha : Covers [a] rs) (hb : Covers [b] rs) :
-    Covers [a, b] rs := by
-  intro x n ⟨r, hr, hc⟩
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl
-  · exact ha x n ⟨_, List.mem_singleton_self _, hc⟩
-  · exact hb x n ⟨_, List.mem_singleton_self _, hc⟩
-
 theorem salsaSpec : SalsaSpec Impl.Scrypt.AArch64.salsa := by
   intro s d sc hd hsc hds hind hins Q hQ
   have c0 : s.callEntry.gpr .x0 = d := (State.callEntry_gpr _ (by decide)).trans hd
   have c1 : s.callEntry.gpr .x1 = sc := (State.callEntry_gpr _ (by decide)).trans hsc
-  have hw : Covers [⟨d, 64⟩, ⟨sc, 64⟩] s.wr := covers_pair (covers_of_in hind) (covers_of_in hins)
+  have hw : Covers [⟨d, 64⟩, ⟨sc, 64⟩] s.wr := Covers.pair (Covers.one hind) (Covers.one hins)
   refine WP.call (k := Proof.Scrypt.salsaAArch64) Proof.Scrypt.AArch64.salsa_correct
     (rd := []) (wr := [⟨d, 64⟩, ⟨sc, 64⟩]) ?_ ?_ hw ?_ salsa_noFrames
   · simp only [Proof.Scrypt.salsaAArch64, State.withRegions_gpr, State.withRegions_rd,

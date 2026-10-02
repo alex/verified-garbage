@@ -36,7 +36,7 @@ include L hc
 theorem ip_cov : Covers ([] ++ [⟨pa s f, 1024⟩, ⟨pa s ss, 1024⟩]) (s.rd ++ s.wr) ∧
     Covers [⟨pa s f, 1024⟩, ⟨pa s ss, 1024⟩] s.wr := by
   simp only [ipChk, Bool.and_eq_true] at hc
-  exact ⟨covers_wr (covers_cons (L.cW hc.1.2) (L.cW hc.2)), covers_cons (L.cW hc.1.2) (L.cW hc.2)⟩
+  exact ⟨Covers.right (Covers.cons (L.cW hc.1.2) (L.cW hc.2)), Covers.cons (L.cW hc.1.2) (L.cW hc.2)⟩
 
 theorem ip_pre {t : Poly → Poly} (hr : Reduced s.mem (pa s f)) {s1 : State} (h1 : Args (ipArgs f ss) s s1) :
     (inPlaceContract AArch64.abi t S).pre (s1.callEntry.withRegions [] [⟨pa s f, 1024⟩, ⟨pa s ss, 1024⟩]) := by
@@ -107,7 +107,7 @@ theorem mul_cov : Covers ([⟨pa s f, 1024⟩, ⟨pa s g, 1024⟩] ++ [⟨pa s h
     Covers [⟨pa s h, 1024⟩] s.wr := by
   simp only [mulChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨_, _⟩, _⟩, c4⟩, c5⟩, c6⟩ := hc
-  exact ⟨covers_append (covers_cons (L.cR c4) (L.cR c5)) (covers_wr (L.cW c6)), L.cW c6⟩
+  exact ⟨Covers.append_left (Covers.cons (L.cR c4) (L.cR c5)) (Covers.right (L.cW c6)), L.cW c6⟩
 
 theorem mul_pre (hf : Reduced s.mem (pa s f)) (hg : Reduced s.mem (pa s g)) {s1 : State}
     (h1 : Args (mulArgs h f g) s s1) :
@@ -229,7 +229,7 @@ include L hc
 theorem acc_cov : Covers ([⟨pa s g, 1024⟩] ++ [⟨pa s f, 1024⟩]) (s.rd ++ s.wr) ∧ Covers [⟨pa s f, 1024⟩] s.wr := by
   simp only [accChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨_, _⟩, c3⟩, c4⟩ := hc
-  exact ⟨covers_append (L.cR c3) (covers_wr (L.cW c4)), L.cW c4⟩
+  exact ⟨Covers.append_left (L.cR c3) (Covers.right (L.cW c4)), L.cW c4⟩
 
 theorem acc_pre {op : Poly → Poly → Poly} (hf : Reduced s.mem (pa s f)) (hg : Reduced s.mem (pa s g)) {s1 : State}
     (h1 : Args (accArgs f g) s s1) :

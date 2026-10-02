@@ -25,11 +25,12 @@ open VG VG.X86 VG.Proof.MdStream VG.Proof.MdStream.X86
 
 abbrev params := Impl.Sha1.X86.Stream.params
 
-theorem dims : Dims params 160 := ⟨by decide, by decide, by decide⟩
+theorem dims : Dims params 160 := ⟨.inl rfl, by decide, by decide, by decide, by decide⟩
 
 theorem shape : Shape (P := params) md where
-  len _ hfit hlo hhi ho₁ ho₂ := len64_ok (so := params.so) (d := params.N + 56) (be := true) (by omega)
-    hlo hhi ho₁ ho₂
+  len _ hfit hlo hhi ho := len64_ok (so := params.so) (d := params.N + params.B - params.L) (be := true)
+    (by have : params.N + params.B - params.L + 8 = params.N + params.B := rfl; omega) hlo hhi
+    (ho _ (Nat.le_refl _) (by decide)) (ho _ (by decide) (by decide))
   out _ hbx hax hin hout hd := by
     refine (out32_ok (n := 5) true (by decide) hbx hax hin hout hd).mono fun s' ⟨g, rd, wr, m⟩ =>
       ⟨g, rd, wr, ?_⟩

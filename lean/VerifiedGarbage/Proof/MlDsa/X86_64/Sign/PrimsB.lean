@@ -79,7 +79,7 @@ theorem accAt_ok {t : Poly → Poly → Poly} {n : String} {c : Prog isa} (C : C
   have hD : 8 ≤ D := by have := C.hS; omega
   refine WP.mono (callP_ok C.ver.1 C.nosp C.depth L.dsm ok
     (fun s1 hA hm k => accPre C.hS (At.of L hm k) hc hA rf rg)
-    (covers_append (L.cR i2) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (L.cR i2) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2⟩ := argsIn2 hA
@@ -95,9 +95,9 @@ theorem accAt_tr {t : Poly → Poly → Poly} {n : String} {c : Prog isa} (C : C
   refine callP_tr C.ver.1 C.ver.2.1 ok
     fun x y x1 y1 ⟨R, ⟨rfx, rgx⟩, ⟨rfy, rgy⟩⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, accPre C.hS (At.of R.lx hmx kx) hc hAx rfx rgx, accPre C.hS (At.of R.ly hmy ky) hc hAy rfy rgy, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i2) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i2) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i2) (covers_wr (R.ly.cW w1)),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i2) (Covers.right (R.ly.cW w1)),
         by rw [ky.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2⟩ := argsIn2 hAx
@@ -177,7 +177,7 @@ theorem rejCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs
   have hD : 8 ≤ D := by have := hP.rejNTT.hS; omega
   refine WP.mono (callP_ok (hv_with hP.rejNTT.ver.1 hP.rejMax) hP.rejNTT.nosp hP.rejNTT.depth L.dsm ok
     (fun s1 hA hm k => rejPre hP.rejNTT.hS (At.of L hm k) hc hA)
-    (covers_append (L.cR i1) (covers_wr (covers_cons (L.cW w1) (L.cW w2)))) (covers_cons (L.cW w1) (L.cW w2)))
+    (Covers.append_left (L.cR i1) (Covers.right (Covers.cons (L.cW w1) (L.cW w2)))) (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, hg₂, hq, hx⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3⟩ := argsIn3 hA
@@ -197,10 +197,10 @@ theorem rejCall_tr {P : Prims} (hP : PrimsOk P D) {a : Ptr} (hc : rejChk (rbs ++
   refine callPRet_tr hP.rejNTT.ver.1 hP.rejRet ok
     fun x y x1 y1 ⟨R, hb⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, rejPre hP.rejNTT.hS (At.of R.lx hmx kx) hc hAx, rejPre hP.rejNTT.hS (At.of R.ly hmy ky) hc hAy, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2))),
-        by rw [kx.2.2]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2))),
-        by rw [ky.2.2]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (Covers.cons (R.lx.cW w1) (R.lx.cW w2))),
+        by rw [kx.2.2]; exact Covers.cons (R.lx.cW w1) (R.lx.cW w2),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (Covers.cons (R.ly.cW w1) (R.ly.cW w2))),
+        by rw [ky.2.2]; exact Covers.cons (R.ly.cW w1) (R.ly.cW w2),
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx
   obtain ⟨hy1, hy2, hy3⟩ := argsIn3 hAy
@@ -271,7 +271,7 @@ theorem rej4Call_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wb
   have hD : 8 ≤ D := by have := hP.rej4.hS; omega
   refine WP.mono (callP_ok (hv_with hP.rej4.ver.1 hP.rej4Max) hP.rej4.nosp hP.rej4.depth L.dsm ok
     (fun s1 hA hm k => rej4Pre hP.rej4.hS (At.of L hm k) hc hA)
-    (covers_append (L.cR i1) (covers_wr (covers_cons (L.cW w1) (L.cW w2)))) (covers_cons (L.cW w1) (L.cW w2)))
+    (Covers.append_left (L.cR i1) (Covers.right (Covers.cons (L.cW w1) (L.cW w2)))) (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, hg₂, hq, hx⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3⟩ := argsIn3 hA
@@ -296,10 +296,10 @@ theorem rej4Call_tr {P : Prims} (hP : PrimsOk P D) {a w : Ptr} (hc : rej4Chk (rb
   refine callPRet_tr hP.rej4.ver.1 hP.rej4Ret ok
     fun x y x1 y1 ⟨R, hb⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, rej4Pre hP.rej4.hS (At.of R.lx hmx kx) hc hAx, rej4Pre hP.rej4.hS (At.of R.ly hmy ky) hc hAy, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2))),
-        by rw [kx.2.2]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2))),
-        by rw [ky.2.2]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (Covers.cons (R.lx.cW w1) (R.lx.cW w2))),
+        by rw [kx.2.2]; exact Covers.cons (R.lx.cW w1) (R.lx.cW w2),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (Covers.cons (R.ly.cW w1) (R.ly.cW w2))),
+        by rw [ky.2.2]; exact Covers.cons (R.ly.cW w1) (R.ly.cW w2),
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx
   obtain ⟨hy1, hy2, hy3⟩ := argsIn3 hAy
@@ -356,7 +356,7 @@ theorem maskAt_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs 
   refine WP.mono (callP_ok hP.expandMask.ver.1 hP.expandMask.nosp hP.expandMask.depth L.dsm
     (by simp only [List.all_cons, List.all_nil, Arg.ok, b1, o1, decide_true, Bool.and_true, decide_eq_true hγ']; decide)
     (fun s1 hA hm k => maskPre hP.expandMask.hS (At.of L hm k) hγ hc hA)
-    (covers_append (L.cR i1) (covers_wr (covers_cons (L.cW w1) (L.cW w2)))) (covers_cons (L.cW w1) (L.cW w2)))
+    (Covers.append_left (L.cR i1) (Covers.right (Covers.cons (L.cW w1) (L.cW w2)))) (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3, _⟩ := argsIn4 hA
@@ -374,10 +374,10 @@ theorem maskAt_tr {P : Prims} (hP : PrimsOk P D) {γ : Nat} {a : Ptr} (hγ : γ 
     fun x y x1 y1 R ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, maskPre hP.expandMask.hS (At.of R.lx hmx kx) hγ hc hAx,
         maskPre hP.expandMask.hS (At.of R.ly hmy ky) hγ hc hAy, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2))),
-        by rw [kx.2.2]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2))),
-        by rw [ky.2.2]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (Covers.cons (R.lx.cW w1) (R.lx.cW w2))),
+        by rw [kx.2.2]; exact Covers.cons (R.lx.cW w1) (R.lx.cW w2),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (Covers.cons (R.ly.cW w1) (R.ly.cW w2))),
+        by rw [ky.2.2]; exact Covers.cons (R.ly.cW w1) (R.ly.cW w2),
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3, hx4⟩ := argsIn4 hAx
   obtain ⟨hy1, hy2, hy3, hy4⟩ := argsIn4 hAy
@@ -443,7 +443,7 @@ theorem mask4Call_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs w
     (by simp only [List.all_cons, List.all_nil, Arg.ok, b1, o1, b2, o2, decide_true, Bool.and_true,
       decide_eq_true hγ']; decide)
     (fun s1 hA hm k => mask4Pre hP.expandMask4.hS (At.of L hm k) hγ hc hA)
-    (covers_append (L.cR i1) (covers_wr (covers_cons (L.cW w1) (L.cW w2)))) (covers_cons (L.cW w1) (L.cW w2)))
+    (Covers.append_left (L.cR i1) (Covers.right (Covers.cons (L.cW w1) (L.cW w2)))) (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3, _⟩ := argsIn4 hA
@@ -462,10 +462,10 @@ theorem mask4Call_tr {P : Prims} (hP : PrimsOk P D) {γ : Nat} {a w : Ptr} (hγ 
     fun x y x1 y1 R ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, mask4Pre hP.expandMask4.hS (At.of R.lx hmx kx) hγ hc hAx,
         mask4Pre hP.expandMask4.hS (At.of R.ly hmy ky) hγ hc hAy, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2))),
-        by rw [kx.2.2]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2))),
-        by rw [ky.2.2]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (Covers.cons (R.lx.cW w1) (R.lx.cW w2))),
+        by rw [kx.2.2]; exact Covers.cons (R.lx.cW w1) (R.lx.cW w2),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (Covers.cons (R.ly.cW w1) (R.ly.cW w2))),
+        by rw [ky.2.2]; exact Covers.cons (R.ly.cW w1) (R.ly.cW w2),
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3, hx4⟩ := argsIn4 hAx
   obtain ⟨hy1, hy2, hy3, hy4⟩ := argsIn4 hAy
@@ -533,7 +533,7 @@ theorem ballCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wb
     simp only [ballParams, List.mem_cons, Prod.mk.injEq, List.not_mem_nil, or_false] at hp; omega
   refine WP.mono (callP_ok (hv_with hP.ball.ver.1 hP.ballMax) hP.ball.nosp hP.ball.depth L.dsm (ballArgs_ok hp b1 o1)
     (fun s1 hA hm k => ballPre hP.ball.hS (At.of L hm k) hp hc hA)
-    (covers_append (L.cR i1) (covers_wr (covers_cons (L.cW w1) (L.cW w2)))) (covers_cons (L.cW w1) (L.cW w2)))
+    (Covers.append_left (L.cR i1) (Covers.right (Covers.cons (L.cW w1) (L.cW w2)))) (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, hg₂, hq, hx⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3, e4, _⟩ := argsIn5 hA
@@ -557,10 +557,10 @@ theorem ballCall_tr {P : Prims} (hP : PrimsOk P D) {len tau : Nat} {c : Ptr} (hp
     fun x y x1 y1 ⟨R, hb⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, ballPre hP.ball.hS (At.of R.lx hmx kx) hp hc hAx, ballPre hP.ball.hS (At.of R.ly hmy ky) hp hc hAy,
         ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2))),
-        by rw [kx.2.2]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2))),
-        by rw [ky.2.2]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (Covers.cons (R.lx.cW w1) (R.lx.cW w2))),
+        by rw [kx.2.2]; exact Covers.cons (R.lx.cW w1) (R.lx.cW w2),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (Covers.cons (R.ly.cW w1) (R.ly.cW w2))),
+        by rw [ky.2.2]; exact Covers.cons (R.ly.cW w1) (R.ly.cW w2),
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3, hx4, hx5⟩ := argsIn5 hAx
   obtain ⟨hy1, hy2, hy3, hy4, hy5⟩ := argsIn5 hAy

@@ -357,8 +357,8 @@ theorem body_nosp : NoSp (scryptBody name pbk) := by
       ∀ i ∈ is, Taint.clobbers i .esp = false := fun is h i hi => by
     simpa using List.all_eq_true.mp h i hi
   intro i hi
-  replace hi : i ∈ (pbk1Args ++ VG.X86.instrs pbk) ++ (cur0 ++ ((romixArgs ++
-      (VG.X86.instrs Impl.Scrypt.X86.roMix ++ nextBlock)) ++ (pbk2Args ++ VG.X86.instrs pbk))) := hi
+  replace hi : i ∈ (pbk1Args ++ VG.instrs pbk) ++ (cur0 ++ ((romixArgs ++
+      (VG.instrs Impl.Scrypt.X86.roMix ++ nextBlock)) ++ (pbk2Args ++ VG.instrs pbk))) := hi
   simp only [List.mem_append, or_assoc] at hi
   rcases hi with h | h | h | h | h | h | h | h
   · exact hb _ (by decide) i h

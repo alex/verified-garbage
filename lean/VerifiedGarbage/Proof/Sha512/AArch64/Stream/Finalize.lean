@@ -186,18 +186,18 @@ theorem zero_step {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ 
   · rw [u₄.gpr, u₃.other _ (by decide), g₂.gpr, u₁.other _ (by decide), h.x11,
       sub_ofNat (by omega), Nat.sub_sub, Nat.sub_sub]
 
-theorem zero_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI) {n lim : Nat}
-    (hlim : lim ≤ 128) (hn : n ≤ lim) {s : State} (h : Zero s₀ sI n lim 0 s) :
+theorem zero_bytes_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI) {n lim j₀ : Nat}
+    (hlim : lim ≤ 128) (hn : n ≤ lim) (hj₀ : j₀ ≤ lim - n) {s : State} (h : Zero s₀ sI n lim j₀ s) :
     WP isa (.ite (.zero .x .x11) (.block []) (.loop (.block zeroBody) (.nonzero .x .x11))) s
       (Zero s₀ sI n lim (lim - n)) := by
-  have hz : eval (.zero .x .x11) s = some (decide (lim - n = 0)) := by
-    rw [eval_zero, h.x11, Nat.sub_zero, ofNat_beq_zero (by omega)]
-  refine WP.ite (decide (lim - n = 0)) hz (fun hb => ?_) (fun hb => ?_)
+  have hz : eval (.zero .x .x11) s = some (decide (lim - n - j₀ = 0)) := by
+    rw [eval_zero, h.x11, ofNat_beq_zero (by omega)]
+  refine WP.ite (decide (lim - n - j₀ = 0)) hz (fun hb => ?_) (fun hb => ?_)
   · simp only [decide_eq_true_eq] at hb
-    exact WP.block_nil (hb ▸ h)
+    exact WP.block_nil (by rwa [show j₀ = lim - n by omega] at h)
   · simp only [decide_eq_false_iff_not] at hb
     refine WP.loop (M := isa) (fun k s => ∃ j, k = lim - n - j ∧ j < lim - n ∧ Zero s₀ sI n lim j s)
-      ?_ (lim - n) s ⟨0, rfl, by omega, h⟩
+      ?_ (lim - n - j₀) s ⟨j₀, rfl, by omega, h⟩
     rintro k s ⟨j, rfl, hj, hZ⟩
     refine WP.mono (zero_step hp hC hlim hj hZ) fun s' ⟨hZ', h11⟩ => ?_
     have hz' : isa.eval (.nonzero .x .x11) s' = some (decide (lim - n - (j + 1) ≠ 0)) := by
@@ -208,6 +208,98 @@ theorem zero_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI
     · refine .inl ⟨by rw [hz']; simp [hl], ?_⟩
       rwa [show j + 1 = lim - n by omega] at hZ'
     · exact .inr ⟨by rw [hz']; simp [hl], _, by omega, j + 1, rfl, by omega, hZ'⟩
+
+/-- The word-zeroing loop's body. -/
+def zeroWordBody : List Instr :=
+  [.add .x .x12 .x19 .x23, .str .x .x9 .x12 64, .addImm .x .x23 .x23 8, .subImm .x .x11 .x11 8,
+    .lsr .x .x13 .x11 3]
+
+theorem zero_word_step {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI) {n lim j : Nat}
+    (hlim : lim ≤ 128) (hj : j + 8 ≤ lim - n) {s : State} (h : Zero s₀ sI n lim j s) :
+    WP isa (.block zeroWordBody) s fun s' =>
+      Zero s₀ sI n lim (j + 8) s' ∧ s'.gpr .x13 = BitVec.ofNat 64 ((lim - n - (j + 8)) / 8) := by
+  have hx19 : s.gpr .x19 = st s₀ := by rw [h.keep _ (by simp), hC.x19]
+  have hout : InRegions s.wr (st s₀ + 64 + BitVec.ofNat 64 n + BitVec.ofNat 64 j) 8 := by
+    refine ⟨stR s₀, by simp [h.wr, hC.wr, hp.wr], ?_⟩
+    rw [show st s₀ + 64 + BitVec.ofNat 64 n + BitVec.ofNat 64 j = st s₀ + BitVec.ofNat 64 (64 + n + j) by
+      simp only [BitVec.ofNat_add]; ac_rfl]
+    exact contains_offset (by omega) (by omega)
+  unfold zeroWordBody
+  refine wp_add fun s₁ u₁ => wp_str (a := st s₀ + 64 + BitVec.ofNat 64 n + BitVec.ofNat 64 j)
+    (by decide) ?_ (by rw [u₁.wr]; exact hout) fun s₂ g₂ => ?_
+  · rw [u₁.gpr, hx19, h.x23, BitVec.ofNat_add, show BitVec.ofNat 64 64 = (64 : BitVec 64) from rfl]
+    ac_rfl
+  refine wp_addImm (by omega) fun s₃ u₃ => wp_subImm (by omega) fun s₄ u₄ =>
+    wp_lsr (by decide) fun s₅ u₅ => WP.block_nil ?_
+  have hx11₄ : s₄.gpr .x11 = BitVec.ofNat 64 (lim - n - (j + 8)) := by
+    rw [u₄.gpr, u₃.other _ (by decide), g₂.gpr, u₁.other _ (by decide), h.x11,
+      sub_ofNat (by omega), Nat.sub_sub]
+  refine ⟨⟨by omega, fun r hr => ?_, by rw [u₅.rd, u₄.rd, u₃.rd, g₂.rd, u₁.rd, h.rd],
+    by rw [u₅.wr, u₄.wr, u₃.wr, g₂.wr, u₁.wr, h.wr], by rw [u₅.sp, u₄.sp, u₃.sp, g₂.sp, u₁.sp, h.sp],
+    ?_, ?_, by rw [u₅.other _ (by decide), hx11₄], ?_⟩,
+    by rw [u₅.gpr, hx11₄, ofNat_shr3 (by omega)]⟩
+  · have : r ≠ .x13 ∧ r ≠ .x11 ∧ r ≠ .x23 ∧ r ≠ .x12 := by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide
+    rw [u₅.other r this.1, u₄.other r this.2.1, u₃.other r this.2.2.1, g₂.gpr,
+      u₁.other r this.2.2.2, h.keep r hr]
+  · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), g₂.gpr,
+      u₁.other _ (by decide), h.x9]
+  · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, g₂.gpr, u₁.other _ (by decide),
+      h.x23, ← BitVec.ofNat_add, Nat.add_assoc]
+  · have hw : (List.range 8).map (fun k => (0 : BitVec 64).extractLsb' (8 * k) 8) =
+        List.replicate 8 (0 : Byte) := by decide
+    rw [u₅.mem, u₄.mem, u₃.mem, g₂.mem, u₁.mem, u₁.other _ (by decide), h.x9, h.mem,
+      writeW_eq_writeBytes, hw,
+      show st s₀ + 64 + BitVec.ofNat 64 n + BitVec.ofNat 64 j =
+        st s₀ + 64 + BitVec.ofNat 64 n + BitVec.ofNat 64 (List.replicate j (0 : Byte)).length by
+        rw [List.length_replicate],
+      writeBytes_append _ _ _ _ (by simp only [List.length_replicate]; omega), List.replicate_append_replicate]
+
+theorem zero_words_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI) {n lim : Nat}
+    (hlim : lim ≤ 128) (hn : n ≤ lim) {s : State} (h : Zero s₀ sI n lim 0 s)
+    (h13 : s.gpr .x13 = BitVec.ofNat 64 ((lim - n) / 8)) :
+    WP isa (.ite (.zero .x .x13) (.block []) (.loop (.block zeroWordBody) (.nonzero .x .x13))) s
+      (Zero s₀ sI n lim (8 * ((lim - n) / 8))) := by
+  have hz : eval (.zero .x .x13) s = some (decide ((lim - n) / 8 = 0)) := by
+    rw [eval_zero, h13, ofNat_beq_zero (by omega)]
+  refine WP.ite (decide ((lim - n) / 8 = 0)) hz (fun hb => ?_) (fun hb => ?_)
+  · simp only [decide_eq_true_eq] at hb
+    exact WP.block_nil (by rw [hb]; exact h)
+  · simp only [decide_eq_false_iff_not] at hb
+    refine WP.loop (M := isa)
+      (fun k s => ∃ i, k = (lim - n) / 8 - i ∧ i < (lim - n) / 8 ∧ Zero s₀ sI n lim (8 * i) s)
+      ?_ ((lim - n) / 8) s ⟨0, rfl, by omega, h⟩
+    rintro k s ⟨i, rfl, hi, hZ⟩
+    refine WP.mono (zero_word_step hp hC hlim (by omega) hZ) fun s' ⟨hZ', h13'⟩ => ?_
+    have hz' : isa.eval (.nonzero .x .x13) s' = some (decide ((lim - n) / 8 - (i + 1) ≠ 0)) := by
+      show VG.AArch64.eval (.nonzero .x .x13) s' = _
+      rw [eval_nonzero, h13', show (lim - n - (8 * i + 8)) / 8 = (lim - n) / 8 - (i + 1) by omega,
+        bne, ofNat_beq_zero (by omega)]
+      simp
+    rw [show 8 * i + 8 = 8 * (i + 1) by omega] at hZ'
+    by_cases hl : (lim - n) / 8 - (i + 1) = 0
+    · refine .inl ⟨by rw [hz']; simp [hl], ?_⟩
+      rwa [show i + 1 = (lim - n) / 8 by omega] at hZ'
+    · exact .inr ⟨by rw [hz']; simp [hl], _, by omega, i + 1, rfl, by omega, hZ'⟩
+
+theorem zero_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI) {n lim : Nat}
+    (hlim : lim ≤ 128) (hn : n ≤ lim) {s : State} (h : Zero s₀ sI n lim 0 s) :
+    WP isa zero s (Zero s₀ sI n lim (lim - n)) := by
+  unfold zero
+  refine WP.seq (wp_lsr (by decide) fun s₁ u₁ => WP.block_nil ?_)
+  have hZ₁ : Zero s₀ sI n lim 0 s₁ :=
+    ⟨h.j_le, fun r hr => by
+      rw [u₁.other r (by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide), h.keep r hr],
+      by rw [u₁.rd, h.rd], by rw [u₁.wr, h.wr], by rw [u₁.sp, h.sp],
+      by rw [u₁.other _ (by decide), h.x9], by rw [u₁.other _ (by decide), h.x23],
+      by rw [u₁.other _ (by decide), h.x11], by rw [u₁.mem, h.mem]⟩
+  have h13 : s₁.gpr .x13 = BitVec.ofNat 64 ((lim - n) / 8) := by
+    rw [u₁.gpr, h.x11, Nat.sub_zero, ofNat_shr3 (by omega)]
+  exact WP.seq (WP.mono (zero_words_ok hp hC hlim hn hZ₁ h13) fun s₂ hZ₂ =>
+    zero_bytes_ok hp hC hlim hn (by omega) hZ₂)
 
 /-! ## One block -/
 
@@ -278,7 +370,7 @@ theorem body_eq (code : Prog isa) : finalizeBodyWith code =
     .seq (.block [.movz .x .x11 128 0])
     (.seq (.ite (.zero .x .x24) (.block [.movz .x .x11 112 0]) (.block []))
     (.seq (.block [.movz .x .x9 0 0, .sub .x .x11 .x11 .x23])
-    (.seq (.ite (.zero .x .x11) (.block []) (.loop (.block zeroBody) (.nonzero .x .x11)))
+    (.seq zero
     (.seq (.ite (.zero .x .x24)
         (.block [.lsr .x .x9 .x22 61, .rev .x9 .x9, .str .x .x9 .x19 176,
           .add .x .x9 .x22 .x22, .add .x .x9 .x9 .x9, .add .x .x9 .x9 .x9, .rev .x9 .x9,
@@ -691,7 +783,8 @@ theorem correct_of {code : Prog isa}
     WP isa (finalizeWith code) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.finalizeAArch64.post s₀ s' := by
   apply WP.withPreservedV (hc := hvec)
   refine WP.mono (WP.gprs (Q := Post s₀) (hn := by
-    simp only [finalizeWith, finalizeBodyWith, compressAtWith, Code.noCalls, hno, Bool.and_self]) ?_ (untouched_ok_of hkeep)) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
+    simp only [finalizeWith, finalizeBodyWith, compressAtWith, zero, Code.noCalls, hno,
+      Bool.and_self]) ?_ (untouched_ok_of hkeep)) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
   · rw [finalize_eq]
     refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨k, hL⟩ => ?_)

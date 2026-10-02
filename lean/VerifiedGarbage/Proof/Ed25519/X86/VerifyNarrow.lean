@@ -13,7 +13,7 @@ theorem verifyNarrow_read (s : State) (h : verifyWide.pre s) (a : Addr) (n : Nat
   · exact ⟨_, by simp, hc⟩
   · exact ⟨_, by simp, hc⟩
   · exact ⟨_, by simp, hc⟩
-  · refine ⟨scR (arg s 3), by simp, ?_⟩
+  · refine ⟨scR 8192 (arg s 3), by simp, ?_⟩
     simp only [addr_zero, Region.Contains] at hc ⊢
     omega_using [hc]
   · exact ⟨_, by simp, hc⟩
@@ -24,7 +24,7 @@ theorem verifyNarrow_write (s : State) (h : verifyWide.pre s) (a : Addr) (n : Na
   rw [h.2.1]
   simp only [verifyWr, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl
-  · refine ⟨scR (arg s 3), by simp, ?_⟩
+  · refine ⟨scR 8192 (arg s 3), by simp, ?_⟩
     simp only [addr_zero, Region.Contains] at hc ⊢
     omega_using [hc]
   · exact ⟨_, by simp, hc⟩

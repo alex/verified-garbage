@@ -80,7 +80,7 @@ theorem field_finish {b : BitVec 32} {s t : State} (o : Slot) (hl : AllLim s.mem
     Keep b s t ∧ AllLim t.mem b ∧ env t.mem b = Function.update (env s.mem b) o v := by
   obtain ⟨hlim, he⟩ := field_update o hl hf ho
   rw [hv] at he
-  exact ⟨⟨hr, frame_FA (slot_range o) hf⟩, hlim, he⟩
+  exact ⟨⟨hr, frame_FA (by decide) (slot_range o) hf⟩, hlim, he⟩
 
 theorem fieldOp_ok {b : BitVec 32} {s : State} (hc : Ctx b s) (hl : AllLim s.mem b)
     (op : FieldOp) :
@@ -94,7 +94,7 @@ theorem fieldOp_ok {b : BitVec 32} {s : State} (hc : Ctx b s) (hl : AllLim s.mem
     refine WP.mono (constField_op hc o v) fun t ⟨hr, hf, ho, hv⟩ => ?_
     exact field_finish o hl (hr.mono (by decide)) (frame_o hf) ho hv
   | mul o a c =>
-    refine WP.mono (mul_ok (slot_range o).2 (slot_range a).2 (slot_range c).2 hc (hl a) (hl c))
+    refine WP.mono (mul_ok (by decide) (slot_range o).2 (slot_range a).2 (slot_range c).2 hc (hl a) (hl c))
       fun t ⟨hr, hf, ho, hv⟩ => ?_
     exact field_finish o hl hr hf ho (VG.Proof.X25519.toFe_mul hv)
   | add o a c =>

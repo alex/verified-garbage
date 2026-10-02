@@ -12,6 +12,7 @@ import VerifiedGarbage.Proof.Blake2.X86_64.Lit
 import VerifiedGarbage.Proof.Blake2.X86_64.Contract
 import VerifiedGarbage.Spec.Blake2.Contract
 import VerifiedGarbage.TCB.X86_64.Target
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 
 /-!
 # BLAKE2 compression function on x86-64
@@ -1374,49 +1375,23 @@ theorem common0 {P : Params w} (hw : w = 64 ∨ w = 32) {s₀ : State} (hp : Pre
 
 /-! ## The epilogue -/
 
-theorem restore_eq : restore = [
-    .mov .rbx (.mem (at_ .r9 296)), .mov .rbp (.mem (at_ .r9 304)), .mov .r12 (.mem (at_ .r9 312)),
-    .mov .r13 (.mem (at_ .r9 320)), .mov .r14 (.mem (at_ .r9 328)),
-    .mov .r15 (.mem (at_ .r9 336))] := rfl
-
 theorem restore_ok {P : Params w} {s₀ : State} (hp : Pre w s₀) {s : State}
     (hc : Common P s₀ (nb s₀) s) :
     WP isa (.block restore) s fun s' =>
       gprPreserved s₀ s' ∧ (compressX86_64 P).post s₀ s' := by
   have hsc : scR (scA s₀) ∈ s.wr := hc.wr ▸ hp.hsc
-  have i1 : InRegions (s.rd ++ s.wr) (off (scA s₀) 296) 8 := in_sc hsc (by decide)
-  have i2 : InRegions (s.rd ++ s.wr) (off (scA s₀) 304) 8 := in_sc hsc (by decide)
-  have i3 : InRegions (s.rd ++ s.wr) (off (scA s₀) 312) 8 := in_sc hsc (by decide)
-  have i4 : InRegions (s.rd ++ s.wr) (off (scA s₀) 320) 8 := in_sc hsc (by decide)
-  have i5 : InRegions (s.rd ++ s.wr) (off (scA s₀) 328) 8 := in_sc hsc (by decide)
-  have i6 : InRegions (s.rd ++ s.wr) (off (scA s₀) 336) 8 := in_sc hsc (by decide)
-  have g1 : s.mem.readW (off (scA s₀) 296) 64 = s₀.gpr .rbx :=
-    hc.saved (.rbx, 296) (by decide)
-  have g2 : s.mem.readW (off (scA s₀) 304) 64 = s₀.gpr .rbp :=
-    hc.saved (.rbp, 304) (by decide)
-  have g3 : s.mem.readW (off (scA s₀) 312) 64 = s₀.gpr .r12 :=
-    hc.saved (.r12, 312) (by decide)
-  have g4 : s.mem.readW (off (scA s₀) 320) 64 = s₀.gpr .r13 :=
-    hc.saved (.r13, 320) (by decide)
-  have g5 : s.mem.readW (off (scA s₀) 328) 64 = s₀.gpr .r14 :=
-    hc.saved (.r14, 328) (by decide)
-  have g6 : s.mem.readW (off (scA s₀) 336) 64 = s₀.gpr .r15 :=
-    hc.saved (.r15, 336) (by decide)
   have hret : s.mem.readW (s₀.gpr .rsp) 64 = s₀.mem.readW (s₀.gpr .rsp) 64 :=
     hc.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_sc⟩) (by decide)
-  have hrsp := hc.rsp
-  have hstate := hc.state
-  have h9 := hc.r9
-  apply WP.of_runBlock
-  rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, readSrc,
-    isa, ea_at, State.load64, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg,
-    RegUpd.wr_setReg, h9, i1, i2, i3, i4, i5, i6, g1, g2, g3, g4, g5, g6, ite_true, ite_false,
-    Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨⟨fun r hr => ?_, hret⟩, hstate⟩
-  simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-    simp (config := {decide := true}) only [RegUpd.gpr_setReg, hrsp, ite_true, ite_false]
+  refine WP.mono (Spill.restore_ok .r9 saved s₀.gpr s (by decide) (fun p hp' => ?_) fun p hp' => ?_)
+    fun s' ⟨h₁, h₂, hm, _⟩ => ?_
+  · have := in_sc (rs := s.rd) hsc (d := p.2) (n := 8) (by have := saved_bounds p hp'; omega)
+    rw [off, ofInt_natCast] at this
+    rw [hc.r9]; exact this
+  · have := hc.saved p hp'
+    rw [off, ofInt_natCast] at this
+    rw [hc.r9]; exact this
+  · exact ⟨⟨Spill.calleeSaved_ok h₁ h₂ (by decide) hc.rsp, by rw [hm]; exact hret⟩,
+      by show Spec.Blake2.stateAt _ _ _ = _; rw [hm]; exact hc.state⟩
 
 /-! ## The whole function -/
 
