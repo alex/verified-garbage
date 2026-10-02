@@ -9,7 +9,7 @@
     target_arch = "x86"
 ))]
 
-use verified_garbage::aes_gcm::AesGcm;
+use verified_garbage::aes_gcm::{AesGcm, Error};
 
 use super::unhex;
 
@@ -48,6 +48,21 @@ fn field<'a>(fields: &[(&str, &'a str)], key: &str) -> &'a str {
         .1
 }
 
+/// Decrypts `data` with `tag`, whose length the vector gives: the API takes
+/// it as a type parameter, so each length §5.2.1.2 allows is a separate call.
+fn decrypt(key: &AesGcm, iv: &[u8], aad: &[u8], data: &mut [u8], tag: &[u8]) -> Result<(), Error> {
+    match tag.len() {
+        4 => key.decrypt_in_place_truncated::<4>(iv, aad, data, tag.try_into().unwrap()),
+        8 => key.decrypt_in_place_truncated::<8>(iv, aad, data, tag.try_into().unwrap()),
+        12 => key.decrypt_in_place_truncated::<12>(iv, aad, data, tag.try_into().unwrap()),
+        13 => key.decrypt_in_place_truncated::<13>(iv, aad, data, tag.try_into().unwrap()),
+        14 => key.decrypt_in_place_truncated::<14>(iv, aad, data, tag.try_into().unwrap()),
+        15 => key.decrypt_in_place_truncated::<15>(iv, aad, data, tag.try_into().unwrap()),
+        // Panics on any other length.
+        _ => key.decrypt_in_place(iv, aad, data, tag.try_into().unwrap()),
+    }
+}
+
 /// Encryption with an external IV must give the ciphertext and the tag
 /// (truncated to its length), and decryption must return the plaintext or,
 /// for a `FAIL` vector, reject the tag.
@@ -74,7 +89,8 @@ fn aes_gcm() {
             let key = AesGcm::new(&unhex(field(&r, "Key"))).unwrap();
             let mut buf = unhex(field(&r, "CT"));
             let tag = unhex(field(&r, "Tag"));
-            let result = key.decrypt_in_place(
+            let result = decrypt(
+                &key,
                 &unhex(field(&r, "IV")),
                 &unhex(field(&r, "AAD")),
                 &mut buf,

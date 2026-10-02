@@ -8,6 +8,8 @@
 //! * Every other object holding key material (the ciphers, AEADs and MACs,
 //!   and the hash functions, whose state represents the key under HMAC,
 //!   PBKDF2 or keyed BLAKE2) wipes it when it is dropped.
+//! * The password KDFs' `verify` functions wipe the key they derive once
+//!   they have compared it with the expected one.
 //!
 //! What is not: the working space (`scratch`) of the symmetric algorithms'
 //! calls, and the copies of states the Rust code makes on the stack when

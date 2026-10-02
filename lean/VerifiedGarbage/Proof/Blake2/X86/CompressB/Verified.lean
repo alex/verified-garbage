@@ -22,9 +22,8 @@ open VG.Proof.Sha256.X86.Stream (contains_addr)
 
 /-! ## The prologue -/
 
-theorem pro_eq : prologue = ([.mov .eax (.mem ⟨.esp, 28⟩), .store ⟨.eax, 288⟩ .ebx,
-      .store ⟨.eax, 292⟩ .esi, .store ⟨.eax, 296⟩ .edi, .store ⟨.eax, 300⟩ .ebp,
-      .mov .esi (.reg .eax)] : List Instr) ++
+theorem pro_eq : prologue = (.mov .eax (.mem ⟨.esp, 28⟩) :: (Spill.saveCode .eax saved ++
+      ([.mov .esi (.reg .eax)] : List Instr))) ++
     (([.mov .eax (.mem ⟨.esp, 8⟩), .store ⟨.esi, 256⟩ .eax,
       .mov .eax (.mem ⟨.esp, 16⟩), .store ⟨.esi, 264⟩ .eax,
       .mov .eax (.mem ⟨.esp, 20⟩), .store ⟨.esi, 268⟩ .eax,
@@ -50,9 +49,7 @@ theorem flag32_eq (x : BitVec 32) : flag32 x ++ flag32 x = flagW (x != 0) := by
     decide
 
 /-- The memory after saving the callee-saved registers. -/
-def proMem₁ (s₀ : State) : Mem :=
-  (((s₀.mem.writeW (addr (scr s₀) 288) (s₀.gpr .ebx)).writeW (addr (scr s₀) 292)
-    (s₀.gpr .esi)).writeW (addr (scr s₀) 296) (s₀.gpr .edi)).writeW (addr (scr s₀) 300) (s₀.gpr .ebp)
+abbrev proMem₁ (s₀ : State) : Mem := Spill.saveMem s₀.mem (addr (scr s₀)) s₀.gpr saved
 
 /-- And the block's address and the counter. -/
 def proMem₂ (s₀ : State) : Mem :=
@@ -92,7 +89,9 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
   -- The arguments, read after writes to `scratch`.
   have r₁ : ∀ e, 4 ≤ e → e + 4 ≤ 32 →
       (proMem₁ s₀).readW (addr (esp₀ s₀) e) 32 = s₀.mem.readW (addr (esp₀ s₀) e) 32 := by
-    intro e h1 h2; simp (disch := omega) only [proMem₁, hsa]
+    intro e h1 h2
+    exact Spill.saveMem_readW_of_sep _ _ (by decide) _ _ fun p h => hp.arg_scr.sep (hp.arg_contains h1 h2)
+      (contains_addr (by have := saved_bounds p h; omega) (by omega) hp.scr_fits)
   have r₂ : ∀ e, 4 ≤ e → e + 4 ≤ 32 →
       (proMem₂ s₀).readW (addr (esp₀ s₀) e) 32 = s₀.mem.readW (addr (esp₀ s₀) e) 32 := by
     intro e h1 h2; simp (disch := omega) only [proMem₂, hsa, r₁]
@@ -102,11 +101,14 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
   rw [pro_eq, WP.block_append_iff]
   refine WP.mono (Q := fun (s : State) => s.gpr .esi = scr s₀ ∧ s.gpr .esp = esp₀ s₀ ∧ s.rd = s₀.rd ∧
     s.wr = s₀.wr ∧ s.mem = proMem₁ s₀) ?_ fun s₁ ⟨e₁, p₁, d₁, w₁, m₁⟩ => ?_
-  · apply WP.of_runBlock
-    simp (config := {decide := true}) (disch := decide) only [runBlock_cons, runBlock_nil,
-      runStep_some, exec, readSrc, ea_mk, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg,
-      RegUpd.wr_setReg, State.load32, State.store32, i28, a28, hout, ite_true, ite_false,
-      Option.map_some, Option.some.injEq, exists_eq_left', proMem₁]
+  · refine Wp.wp_ldm rfl i28 fun s₁ u₁ => ?_
+    refine Spill.save_ok saved (fun p h => by
+        rw [u₁.gpr, u₁.wr]; exact hout _ (by have := saved_bounds p h; omega))
+      fun s₂ u₂ => Wp.wp_mov fun s₃ u₃ => WP.block_nil ⟨by rw [u₃.gpr, u₂.gpr, u₁.gpr]; rfl,
+        by rw [u₃.other _ (by decide), u₂.gpr, u₁.other _ (by decide)], by rw [u₃.rd, u₂.rd, u₁.rd],
+        by rw [u₃.wr, u₂.wr, u₁.wr], ?_⟩
+    rw [u₃.mem, u₂.mem, u₁.gpr, u₁.mem]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p h => u₁.other _ (by revert p h; decide)
   rw [WP.block_append_iff]
   refine WP.mono (Q := fun (s : State) => s.gpr .esi = scr s₀ ∧ s.gpr .esp = esp₀ s₀ ∧ s.rd = s₀.rd ∧
     s.wr = s₀.wr ∧ s.mem = proMem₂ s₀) ?_ fun s₂ ⟨e₂, p₂, d₂, w₂, m₂⟩ => ?_
@@ -137,9 +139,9 @@ theorem proMem_frame {s₀ : State} (hp : Pre s₀) : Frame [scrR s₀] s₀.mem
   have c : ∀ d : Nat, d + 4 ≤ 512 → (scrR s₀).Contains (addr (scr s₀) d) (32 / 8) :=
     fun d hd => contains_addr hd (by omega) hp.scr_fits
   have m := List.mem_singleton_self (scrR s₀)
-  simp only [proMem, proMem₃, proMem₂, proMem₁]
-  exact (((((((((((((Frame.refl _ _).writeW m _ (c 288 (by omega))).writeW m _ (c 292 (by omega))).writeW
-    m _ (c 296 (by omega))).writeW m _ (c 300 (by omega))).writeW m _ (c 256 (by omega))).writeW m _
+  simp only [proMem, proMem₃, proMem₂]
+  exact (((((((((Spill.saveMem_frame m _ _ _ _ fun p h => c _ (by have := saved_bounds p h; omega)).writeW
+    m _ (c 256 (by omega))).writeW m _
     (c 264 (by omega))).writeW m _ (c 268 (by omega))).writeW m _ (c 272 (by omega))).writeW m _
     (c 276 (by omega))).writeW m _ (c 280 (by omega))).writeW m _ (c 284 (by omega))).writeW m _
     (c 260 (by omega)))
@@ -156,10 +158,11 @@ theorem common_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hesi : s₁.g
     apply Vector.ext; intro j hj
     rw [stateAt_rd64 hp.st_fits _ hj, stateAt_rd64 hp.st_fits _ hj]
     exact rd64_frame hF (by simpa using hp.st_scr) hp.st_fits (by omega)
-  · intro p hp'
-    simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
-    rcases hp' with rfl | rfl | rfl | rfl <;>
-      simp (disch := decide) only [rd, proMem, proMem₃, proMem₂, proMem₁, r32, Mem.readW_writeW_self32]
+  · have w : ∀ {m : Mem} (e : Nat), Saved s₀ m → e + 4 ≤ 512 → (∀ p ∈ saved, p.2 + 4 ≤ e ∨ e + 4 ≤ p.2) →
+        ∀ v : BitVec 32, Saved s₀ (m.writeW (addr (scr s₀) e) v) :=
+      fun e h he hsep v => h.writeW_addr (w := 32) hp.scr_fits (fun p hp' => by have := saved_bounds p hp'; omega) he hsep v
+    rw [hm]
+    exact w _ (w _ (w _ (w _ (w _ (w _ (w _ (w _ (Spill.saveMem_saved_addr s₀.mem _ saved_fits (by have := hp.scr_fits; omega)) (by decide) (by decide) _) (by decide) (by decide) _) (by decide) (by decide) _) (by decide) (by decide) _) (by decide) (by decide) _) (by decide) (by decide) _) (by decide) (by decide) _) (by decide) (by decide) _
   · simp (disch := decide) only [rd, proMem, proMem₃, proMem₂, proMem₁, r32, Mem.readW_writeW_self32, blOff, blkAddr,
       Nat.mul_zero]
     exact (BitVec.add_zero _).symm
@@ -177,30 +180,17 @@ theorem common_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hesi : s₁.g
 
 /-! ## The epilogue -/
 
-theorem epilogue_eq : epilogue = [.mov .ebx (.mem ⟨.esi, 288⟩), .mov .edi (.mem ⟨.esi, 296⟩),
-    .mov .ebp (.mem ⟨.esi, 300⟩), .mov .esi (.mem ⟨.esi, 292⟩)] := rfl
+theorem epilogue_eq :
+    epilogue = Spill.restoreCode .esi ([(.ebx, 288), (.edi, 296), (.ebp, 300)] ++ [(.esi, 292)]) ++ [] := rfl
 
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block epilogue) s fun s' =>
       (∀ r ∈ calleeSaved, s'.gpr r = s₀.gpr r) ∧ s'.mem = s.mem := by
-  have hin : ∀ d, d + 4 ≤ 512 → InRegions (s.rd ++ s.wr) (addr (scr s₀) d) 4 :=
-    fun d hd => hp.in_scr hc.wr hd
-  have g0 := hc.saved (.ebx, 288) (by decide)
-  have g1 := hc.saved (.esi, 292) (by decide)
-  have g2 := hc.saved (.edi, 296) (by decide)
-  have g3 := hc.saved (.ebp, 300) (by decide)
-  simp only at g0 g1 g2 g3
-  have hesi := hc.esi
-  have hesp := hc.esp
-  apply WP.of_runBlock
   rw [epilogue_eq]
-  simp (config := {decide := true}) (disch := decide) only [runBlock_cons,
-    runBlock_nil, runStep_some, exec, readSrc, ea_mk, RegUpd.gpr_setReg, RegUpd.mem_setReg,
-    RegUpd.rd_setReg, RegUpd.wr_setReg, State.load32, hesi, hin, g0, g1, g2, g3, ite_true, ite_false,
-    Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨fun r hr => ?_, trivial⟩
-  simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hesp]
+  exact Spill.restoreBase_ok _ (by decide)
+    (fun p h => by rw [hc.esi]; exact hp.in_scr hc.wr (saved_bounds p (by revert p h; decide)).2)
+    (by rw [hc.esi]; exact hc.saved.sub (by decide)) fun s' r' =>
+      WP.block_nil ⟨r'.abi (by decide) (by decide) hc.esp, r'.mem⟩
 
 /-! ## The whole function -/
 

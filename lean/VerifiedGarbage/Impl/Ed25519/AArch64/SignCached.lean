@@ -10,7 +10,7 @@ import VerifiedGarbage.Spec.Ed25519.CachedSign
 /-! Complete cached-key signing. SHA-512 is generic over its compression
 implementation. The local frame holds scalar32, prefix64, nonce96,
 challenge128 and digest192; the original six arguments are saved at256.
-SHA-512 state and working memory use scratch[0..416). All secret local
+SHA-512 state and working memory use scratch[0..880). All secret local
 buffers are wiped before returning. -/
 namespace VG.Impl.Ed25519.AArch64.SignCached
 open VG.AArch64 VG.Impl.Ed25519.AArch64.Whole
@@ -32,10 +32,10 @@ def finalizeArgs (prefixLen : Nat) (withMessage : Bool) : List Instr :=
 def init : Prog isa := callWith initArgs Spec.Sha512.init512Api.name
   (Sha512.AArch64.Stream.init Spec.Sha512.H0_512)
 def update (compress : Prog isa) (suffix : String) (args : List Instr) : Prog isa :=
-  callWith args (Spec.Sha512.updateApi.name ++ suffix) (Sha512.AArch64.Stream.updateWith compress)
+  callWith args (Spec.Sha512.updateApi.name ++ suffix) (Sha512.AArch64.Stream.updateWith suffix compress)
 def finalize (compress : Prog isa) (suffix : String) (n : Nat) (b : Bool) : Prog isa :=
   callWith (finalizeArgs n b) (Spec.Sha512.finalizeApi.name ++ suffix)
-    (Sha512.AArch64.Stream.finalizeWith compress)
+    (Sha512.AArch64.Stream.finalizeWith suffix compress)
 
 def hashSeed (compress : Prog isa) (suffix : String) : Prog isa :=
   .seq init (.seq (update compress suffix (inputArgs 1 0)) (finalize compress suffix 32 false))

@@ -10,12 +10,13 @@ def init_ready (h0 : t.gpr .x0=L.scr) :
     Whole.covers_writes (Whole.init_writes (by simp [Lay.outputs])),
     Whole.init_writes (by simp [Lay.outputs])⟩
 
-def update_ready {p len : Addr} (h0 : t.gpr .x0=L.scr) (h2 : t.gpr .x2=p)
+def update_ready (hL : L.Ok) (hsp : t.sp = L.E) {p len : Addr} (h0 : t.gpr .x0=L.scr) (h2 : t.gpr .x2=p)
     (h3 : t.gpr .x3=len) (h4 : t.gpr .x4=L.scr+192)
     (hd : Region.Disjoint ⟨p,len.toNat⟩ L.SCR)
     (hi : ∃ R ∈ L.inputs, Whole.Within ⟨p,len.toNat⟩ R) :
     Whole.CallReady Proof.Sha512.updateAArch64 L.E L.inputs L.outputs t := by
-  refine ⟨Whole.updateRd p len,Whole.hashWr L.scr,Whole.update_pre h0 h2 h3 h4 hd,?_,hash_writes⟩
+  refine ⟨Whole.updateRd p len,Whole.hashWr L.scr,Whole.update_pre h0 h2 h3 h4 hd (by rw [hsp]; exact hL.e16)
+    (by rw [hsp]; exact hL.cc) (by rw [hsp]; exact hL.ck_within hi),?_,hash_writes⟩
   apply covers
   intro r hr
   rcases List.mem_append.mp hr with hr | hr
@@ -26,11 +27,12 @@ def update_ready {p len : Addr} (h0 : t.gpr .x0=L.scr) (h2 : t.gpr .x2=p)
     · exact .inl hf
     · exact .inr ⟨R,List.mem_append_right _ hR,hs⟩
 
-def finalize_ready (hL : L.Ok) (h0 : t.gpr .x0=L.scr)
+def finalize_ready (hL : L.Ok) (hsp : t.sp = L.E) (h0 : t.gpr .x0=L.scr)
     (h2 : t.gpr .x2=L.E+192) (h3 : t.gpr .x3=L.scr+192) :
     Whole.CallReady Proof.Sha512.finalizeAArch64 L.E L.inputs L.outputs t :=
   ⟨[],Whole.finalizeWr L.scr (L.E+192),Whole.finalize_pre h0 h2 h3
-    (hL.kc.sub_left (Offset.sub_base _ (by decide))),
+    (hL.kc.sub_left (Offset.sub_base _ (by decide))) (by rw [hsp]; exact hL.e16) (by rw [hsp]; exact hL.cc)
+    (by rw [hsp]; exact Whole.ck_frame (by decide : 192 + 64 ≤ 304)),
     Whole.covers_writes finalize_writes,finalize_writes⟩
 
 def reduce_ready (hL : L.Ok) (ha : ReduceArgs L 128 t) :

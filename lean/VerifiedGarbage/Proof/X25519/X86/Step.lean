@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.X25519.X86.Ops
 import VerifiedGarbage.Proof.X25519.Ladder
+import VerifiedGarbage.Proof.Framework.X86.Spill
 
 /-!
 # X25519 on x86 (32-bit): the ladder
@@ -15,12 +16,11 @@ namespace VG.Proof.X25519.X86
 
 open VG VG.X86 VG.Impl.X25519.X86 VG.Spec.X25519
 
-/-- The callee-saved registers, in the order `save` stores them. -/
-def savedReg : Nat → Reg
-  | 0 => .ebx
-  | 1 => .esi
-  | 2 => .edi
-  | _ => .ebp
+/-- The callee-saved registers and their slots in the working space, in the
+order `save` stores them. -/
+def savedSlots : Spill.Slots := [(.ebx, 0), (.esi, 4), (.edi, 8), (.ebp, 12)]
+
+theorem savedSlots_bound : ∀ p ∈ savedSlots, p.2 + 4 ≤ 16 := by decide
 
 /-- What holds from the end of the setup on: the working space at `x` (in
 `edi`), the saved registers (of the state on entry `s₀`), the bits of the
@@ -31,7 +31,7 @@ structure Base (x : BitVec 32) (k : Nat) (s₀ s : State) : Prop where
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
   frame : Frame [scR 4096 x] s₀.mem s.mem
-  saved : ∀ j < 4, wd s.mem x (4 * j) = s₀.gpr (savedReg j)
+  saved : Spill.Saved s.mem (addr x) s₀.gpr savedSlots
   bits : ∀ t < 255, s.mem (addr x (BITS + t)) = BitVec.ofNat 8 (bit k t)
 
 /-- A byte of the working space outside a frame's region. -/
@@ -48,12 +48,13 @@ theorem Base.of_frame {x : BitVec 32} {k : Nat} {s₀ s s' : State} (h : Base x 
     (hwr : s'.wr = s.wr) {o n : Nat} (hf : Frame [sub x o n] s.mem s'.mem) (ho : o + n ≤ 4096)
     (hlo : 16 ≤ o) (hgap : o + n ≤ 32 ∨ 288 ≤ o) (hon : o < 4096) : Base x k s₀ s' := by
   have hfit := h.ctx.fit
-  refine ⟨h.ctx.keep hedi hwr, hesp.trans h.esp, hrd.trans h.rd, hwr.trans h.wr, ?_, fun j hj => ?_,
-    fun t ht => ?_⟩
+  refine ⟨h.ctx.keep hedi hwr, hesp.trans h.esp, hrd.trans h.rd, hwr.trans h.wr, ?_,
+    h.saved.of_readW fun p hp => ?_, fun t ht => ?_⟩
   · exact h.frame.trans (hf.sub fun _ hr => ⟨_, List.mem_singleton_self _, by
       rw [List.mem_singleton.mp hr, scR_eq]
       exact sub_sub hfit (Nat.zero_le _) (by omega_using [ho]) hon⟩)
-  · rw [wd_frame1 hf hfit ho (by omega_using [hj]) (by omega_using [hj, hlo])]; exact h.saved j hj
+  · have := savedSlots_bound p hp
+    exact wd_frame1 hf hfit ho (by omega_using [this]) (by omega_using [this, hlo])
   · rw [byte_frame1 hf hfit ho (by simp only [BITS]; omega_using [ht]) (by simp only [BITS]; omega_using [ht, hgap])]
     exact h.bits t ht
 

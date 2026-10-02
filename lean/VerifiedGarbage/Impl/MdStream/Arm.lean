@@ -3,15 +3,15 @@ import VerifiedGarbage.TCB.Arm.Isa
 /-!
 # Streaming Merkle–Damgård hash functions: 32-bit ARM implementation
 
-The streaming `update` and `finalize` of MD5, SHA-1 and SHA-256, whose blocks
-are 64 bytes and whose length fields are 8 bytes, and which differ only in
-the size of their hash values, in how they store the message length and
-output the digest, and in the compression function they call (`Params`).
+The streaming `update` and `finalize` of MD5, SHA-1, SHA-256 and the SHA-512
+family, which differ only in their sizes, in how they store the message
+length and output the digest, and in the compression function they call
+(`Params`).
 Each hash function's `Impl/<Alg>/Arm/Stream.lean` instantiates them. The
 same algorithm as on AArch64 (`VG.Impl.MdStream.AArch64`).
 
-The streaming state (`N + 64` bytes at `state`) is the hash value (`N`
-bytes) followed by a 64-byte buffer.
+The streaming state (`N + B` bytes at `state`) is the hash value (`N`
+bytes) followed by a `B`-byte buffer.
 
 * `update(state = r0, count = r2:r3, data = [sp], len = [sp, #4],
   scratch = [sp, #8])` compresses, in each iteration, every whole block left
@@ -44,14 +44,18 @@ open VG.Arm
 structure Params where
   /-- The size of the hash value, where the buffer starts. -/
   N : Nat
+  /-- The block size, a power of two. -/
+  B : Nat
+  /-- The size of the length field at the end of the last block. -/
+  L : Nat
   /-- Where our caller's registers are saved in the scratch space, after the
   compression function's own. -/
   so : Nat
   /-- Stores the length field, from `count` in `r4:r5` (low, high), at
-  `r0 + N + 56`; writes only `r9`. -/
+  `r0 + N + B - L`; writes only `r9`. -/
   len : List Instr
   /-- Writes the digest, from the hash value at `r0`, to `r6`; writes only
-  `r9`. -/
+  `r9` and `r10`. -/
   out : List Instr
 
 variable (P : Params)
@@ -84,43 +88,46 @@ Registers: `r4` = bytes in the buffer (`r`), `r5` = `data`, `r6` = bytes of
 `data` left, `r7` = the number of blocks this iteration compresses (at
 `r1`).
 The loop runs while `r6 ≠ 0`, so each iteration starts with `r6 ≥ 1` and
-`r4 < 64`. -/
+`r4 < B`. -/
 
-/-- Every whole block left, straight from `data`: `len >> 6` blocks,
-`(len >> 6) << 6` bytes. -/
+/-- Every whole block left, straight from `data`: `len >> log₂ B` blocks,
+`(len >> log₂ B) << log₂ B` bytes. -/
 def direct : List Instr :=
-  [.mov .r1 (.reg .r5), .mov .r7 (.shifted .r6 .lsr 6), .mov .r12 (.shifted .r7 .lsl 6),
+  [.mov .r1 (.reg .r5), .mov .r7 (.shifted .r6 .lsr (Nat.log2 P.B)),
+    .mov .r12 (.shifted .r7 .lsl (Nat.log2 P.B)),
     .dp .add .r5 .r5 (.reg .r12), .dp .sub .r6 .r6 (.reg .r12)]
 
-/-- Copy `n = min(64 - r, len) ≥ 1` bytes of `data` into the buffer; if that
+/-- Copy `n = min(B - r, len) ≥ 1` bytes of `data` into the buffer; if that
 fills it, compress it. -/
 def fill : Prog isa :=
-  -- r8 := 64 - r; if len < 64 and len + r < 64 (i.e. len < 64 - r), r8 := len.
-  .seq (.block [.mov .r8 (.imm 64), .dp .sub .r8 .r8 (.reg .r4), .mov .r12 (.shifted .r6 .lsr 6),
-      .cmp .r12 (.imm 0)])
+  -- r8 := B - r; if len < B and len + r < B (i.e. len < B - r), r8 := len.
+  .seq (.block [.mov .r8 (.imm (BitVec.ofNat 32 P.B)), .dp .sub .r8 .r8 (.reg .r4),
+      .mov .r12 (.shifted .r6 .lsr (Nat.log2 P.B)), .cmp .r12 (.imm 0)])
   (.seq (.ite .eq
-      (.seq (.block [.dp .add .r12 .r6 (.reg .r4), .mov .r12 (.shifted .r12 .lsr 6), .cmp .r12 (.imm 0)])
+      (.seq (.block [.dp .add .r12 .r6 (.reg .r4), .mov .r12 (.shifted .r12 .lsr (Nat.log2 P.B)),
+          .cmp .r12 (.imm 0)])
         (.ite .eq (.block [.mov .r8 (.reg .r6)]) (.block [])))
       (.block []))
   (.seq (.block [.dp .sub .r6 .r6 (.reg .r8)])
   (.seq (.loop (.block [.ldrb .r12 .r5 0, .dp .add .r1 .r0 (.reg .r4), .strb .r12 .r1 P.N,
       .dp .add .r5 .r5 (.imm 1), .dp .add .r4 .r4 (.imm 1), .subs .r8 .r8 (.imm 1)]) .ne)
   -- Full: compress the buffer.
-  (.seq (.block [.cmp .r4 (.imm 64)])
+  (.seq (.block [.cmp .r4 (.imm (BitVec.ofNat 32 P.B))])
     (.ite .eq (.block [.dp .add .r1 .r0 (.imm (BitVec.ofNat 32 P.N)), .mov .r4 (.imm 0), .mov .r7 (.imm 1)])
       (.block []))))))
 
 def updateBody (name : String) (code : Prog isa) : Prog isa :=
   .seq (.block [.mov .r7 (.imm 0), .cmp .r4 (.imm 0)])
   (.seq (.ite .eq
-      (.seq (.block [.mov .r12 (.shifted .r6 .lsr 6), .cmp .r12 (.imm 0)]) (.ite .eq (fill P) (.block direct)))
+      (.seq (.block [.mov .r12 (.shifted .r6 .lsr (Nat.log2 P.B)), .cmp .r12 (.imm 0)])
+        (.ite .eq (fill P) (.block (direct P))))
       (fill P))
   (.seq (.seq (.block [.cmp .r7 (.imm 0)]) (.ite .eq (.block []) (compressN name code)))
     (.block [.cmp .r6 (.imm 0)])))
 
 def update (name : String) (code : Prog isa) : Prog isa :=
-  .seq (.block ([.ldrSp .r12 8] ++ save P .r12 ++ [.mov .r3 (.reg .r12), .dp .and .r4 .r2 (.imm 63),
-      .ldrSp .r5 0, .ldrSp .r6 4, .cmp .r6 (.imm 0)]))
+  .seq (.block ([.ldrSp .r12 8] ++ save P .r12 ++ [.mov .r3 (.reg .r12),
+      .dp .and .r4 .r2 (.imm (BitVec.ofNat 32 (P.B - 1))), .ldrSp .r5 0, .ldrSp .r6 4, .cmp .r6 (.imm 0)]))
   (.seq (.ite .eq (.block []) (.loop (updateBody P name code) .ne))
     (.block (restore P)))
 
@@ -131,9 +138,9 @@ the buffer (`r`), `r8` = 1 while the block being padded is not the last one
 (then 0). -/
 
 def finalizeBody (name : String) (code : Prog isa) : Prog isa :=
-  -- Zero the buffer from `r` to 64, or to 56 in the last block.
-  .seq (.block [.mov .r9 (.imm 64), .cmp .r8 (.imm 0)])
-  (.seq (.ite .eq (.block [.mov .r9 (.imm 56)]) (.block []))
+  -- Zero the buffer from `r` to `B`, or to `B - L` in the last block.
+  .seq (.block [.mov .r9 (.imm (BitVec.ofNat 32 P.B)), .cmp .r8 (.imm 0)])
+  (.seq (.ite .eq (.block [.mov .r9 (.imm (BitVec.ofNat 32 (P.B - P.L)))]) (.block []))
   (.seq (.block [.mov .r12 (.imm 0), .subs .r9 .r9 (.reg .r7)])
   (.seq (.ite .eq (.block [])
       (.loop (.block [.dp .add .r1 .r0 (.reg .r7), .strb .r12 .r1 P.N, .dp .add .r7 .r7 (.imm 1),
@@ -147,11 +154,11 @@ def finalizeBody (name : String) (code : Prog isa) : Prog isa :=
 
 def finalize (name : String) (code : Prog isa) : Prog isa :=
   .seq (.block ([.ldrSp .r12 4] ++ save P .r12 ++ [.mov .r4 (.reg .r2), .mov .r5 (.reg .r3),
-      .mov .r3 (.reg .r12), .ldrSp .r6 0, .dp .and .r7 .r4 (.imm 63),
+      .mov .r3 (.reg .r12), .ldrSp .r6 0, .dp .and .r7 .r4 (.imm (BitVec.ofNat 32 (P.B - 1))),
       -- The `0x80` byte.
       .mov .r12 (.imm 0x80), .dp .add .r1 .r0 (.reg .r7), .strb .r12 .r1 P.N, .dp .add .r7 .r7 (.imm 1),
-      -- Two blocks iff that leaves fewer than 8 bytes for the length (r ≥ 57).
-      .dp .add .r8 .r7 (.imm 7), .mov .r8 (.shifted .r8 .lsr 6)]))
+      -- Two blocks iff that leaves fewer than `L` bytes for the length (r > B - L).
+      .dp .add .r8 .r7 (.imm (BitVec.ofNat 32 (P.L - 1))), .mov .r8 (.shifted .r8 .lsr (Nat.log2 P.B))]))
   (.seq (.loop (finalizeBody P name code) .eq)
     (.block (P.out ++ restore P)))
 

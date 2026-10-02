@@ -29,14 +29,11 @@ theorem prologue_eq : rmPrologue =
       ([.mov .eax (.mem (at_ .esp 8)), .mov .ecx (.imm 1), .mov .edx (.mem (at_ .esp 16)),
         .alu .add .edx (.reg .edx)] : List Instr)) := rfl
 
-set_option simprocs false in
-theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
-    ∀ p ∈ rmSaved, (saveMem m B g rmSaved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 := by
-  intro p hp
-  simp only [rmSaved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl <;>
-  simp (config := {decide := true}) only [rmSaved, saveMem, Mem.readW_writeW_self32,
-    readW_writeW_save]
+theorem rmSaved_fits : Spill.Fits 144 rmSaved := by decide
+
+theorem rmSaved_addr (s₀ : State) (hp : Pre s₀) :
+    ∀ p ∈ rmSaved, addr (sc s₀) p.2 = scA s₀ + BitVec.ofNat 64 p.2 :=
+  Spill.addr_eq_of_fits (by have := hp.s_nw; omega) rmSaved_fits
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s₁, (∀ r, r ≠ .eax → s₁.gpr r = s₀.gpr r) → s₁.rd = s₀.rd →
@@ -46,15 +43,17 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State �
   have hs := hp.s_nw
   refine wp_movm (a := addr (esp₀ s₀) 20) rfl (arg_in hp (by omega) (by omega)) fun s₁ u₁ => ?_
   have e : s₁.gpr .eax = sc s₀ := u₁.gpr
-  refine saveList_ok rmSaved s₁ Q (fun p hp' => ?_) fun s₂ g rd wr m => ?_
-  · obtain ⟨h1, h2, -⟩ := saved_offs p hp'
-    rw [e, u₁.wr, hp.wr]
-    exact ⟨by omega, InRegions.of_mem (by simp) (in_s s₀ (by omega))⟩
-  refine k s₂ (fun r hr => by rw [g, u₁.other r hr]) (by rw [rd, u₁.rd]) (by rw [wr, u₁.wr]) ?_ ?_
-  · rw [m, e, u₁.mem]
-    exact saveMem_frame _ _ _ fun p hp' => in_s s₀ (by have := saved_offs p hp'; omega)
-  · intro p hp'
-    rw [m, e, saveMem_saved _ _ _ p hp', u₁.other _ (saved_offs p hp').2.2]
+  have ha := rmSaved_addr s₀ hp
+  refine Spill.save_ok rmSaved (fun p hp' => ?_) fun s₂ u₂ => ?_
+  · rw [e, u₁.wr, hp.wr, ha p hp']
+    exact InRegions.of_mem (by simp) (in_s s₀ (by have := rmSaved_fits.1 p hp'; omega))
+  refine k s₂ (fun r hr => by rw [u₂.gpr, u₁.other r hr]) (by rw [u₂.rd, u₁.rd]) (by rw [u₂.wr, u₁.wr]) ?_ ?_
+  · rw [u₂.mem, e, u₁.mem]
+    exact Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p hp' => by
+      rw [ha p hp']; exact in_s s₀ (by have := rmSaved_fits.1 p hp'; omega)
+  · rw [u₂.mem, e, u₁.mem]
+    exact (Spill.saveMem_saved_addr _ _ rmSaved_fits (by have := hp.s_nw; omega)).congr ha
+      fun p hp' => u₁.other _ (saved_offs p hp').2.2
 
 /-- The memory and registers the function starts each piece with. -/
 structure Base (s₀ s : State) : Prop where
@@ -715,20 +714,13 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Inv3 s₀ (NN
   rw [epilogue_eq]
   refine wp_arg (i := 4) hp h.toBase (by omega) fun s₁ u₁ => ?_
   have e : s₁.gpr .eax = sc s₀ := u₁.gpr
-  refine restoreList_ok _ s₁ _ (by decide) (fun p hp' => ?_) fun s₂ hl ho hm hrd hwr => WP.block_nil ?_
-  · have hb := saved_offs p hp'
-    rw [e, u₁.rd, u₁.wr, h.rd, h.wr, hp.rd, hp.wr]
-    exact ⟨hb.2.2, by omega, InRegions.of_mem (by simp) (in_s s₀ (by omega))⟩
-  refine ⟨by rw [hm, u₁.mem], fun r hr => ?_⟩
-  have sv : ∀ p ∈ rmSaved, s₁.mem.readW (scA s₀ + BitVec.ofNat 64 p.2) 32 = s₀.gpr p.1 := by
-    rw [u₁.mem]; exact h.saved
-  simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl
-  · rw [hl (.ebx, 128) (by decide), e]; exact sv (.ebx, 128) (by decide)
-  · rw [hl (.esi, 132) (by decide), e]; exact sv (.esi, 132) (by decide)
-  · rw [hl (.edi, 136) (by decide), e]; exact sv (.edi, 136) (by decide)
-  · rw [hl (.ebp, 140) (by decide), e]; exact sv (.ebp, 140) (by decide)
-  · rw [ho _ (by decide), u₁.other _ (by decide), h.esp]
+  have ha := rmSaved_addr s₀ hp
+  refine Spill.restore_ok rmSaved (by decide) (fun p hp' => ?_)
+    (by rw [e, u₁.mem]; exact h.saved.congr (fun p hp' => (ha p hp').symm) fun _ _ => rfl)
+    fun s₂ u => WP.block_nil ⟨by rw [u.mem, u₁.mem],
+      u.abi (by decide) (by decide) (by rw [u₁.other _ (by decide), h.esp])⟩
+  rw [e, u₁.rd, u₁.wr, h.rd, h.wr, hp.rd, hp.wr, ha p hp']
+  exact InRegions.of_mem (by simp) (in_s s₀ (by have := rmSaved_fits.1 p hp'; omega))
 
 /-! ## The whole function -/
 

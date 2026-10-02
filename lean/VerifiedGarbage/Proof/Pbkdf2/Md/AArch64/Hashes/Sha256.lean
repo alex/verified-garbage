@@ -137,7 +137,8 @@ def ok : HashOK (hash v) where
     show Spec.Sha256.hash m = _
     rw [Proof.Sha256.hash_eq]
     exact (List.take_of_length_le (Nat.le_of_eq (Proof.Sha256.md.digest_length _))).symm
-  sizes := ⟨⟨by simp only [hash] <;> decide, by simp only [hash] <;> decide⟩,
+  sizes := ⟨⟨by simp only [hash] <;> decide, by simp only [hash] <;> decide, by simp only [hash] <;> decide,
+      by simp only [hash] <;> decide⟩,
     by simp only [hash] <;> decide, by simp only [hash] <;> decide,
     by simp only [hash] <;> decide, by simp only [hash] <;> decide,
     by simp only [hash] <;> decide, by simp only [hash] <;> decide,

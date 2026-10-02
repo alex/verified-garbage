@@ -19,7 +19,7 @@ private theorem byteMap_inj : ∀ {xs ys : List Byte}, xs.map (·.toNat) = ys.ma
     simp only [List.map_cons, List.cons.injEq] at h
     rw [BitVec.eq_of_toNat_eq h.1, byteMap_inj h.2]
 
-theorem verifyMessage_implies : verifyMessageLocal.Implies (Spec.Ed25519.verifyContract AArch64.abi 336) where
+theorem verifyMessage_implies : verifyMessageLocal.Implies (Spec.Ed25519.verifyContract AArch64.abi 352) where
   pre := by
     sig_implies_pre [Spec.Ed25519.verifyContract, Spec.Ed25519.verifySig,
       Spec.Ed25519.scratchWords, verifyMessageLocal, below,

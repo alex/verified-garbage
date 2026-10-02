@@ -32,19 +32,6 @@ abbrev dkH1024 (dk : List Byte) : List Byte := KPke.dkH mlKem1024 dk
 abbrev dkZ1024 (dk : List Byte) : List Byte := KPke.dkZ mlKem1024 dk
 abbrev decM1024 (dk c : List Byte) : List Byte := KPke.decM mlKem1024 dk c
 
-theorem ekPKE1024_eq (a : Nat → Nat → Poly) (d : List Byte) :
-    ekPKE1024 a d = encode12 (kgT1024 a d 0) ++ encode12 (kgT1024 a d 1) ++ encode12 (kgT1024 a d 2) ++
-      encode12 (kgT1024 a d 3) ++ kgRho1024 d := rfl
-
-theorem ct1024_eq (a : Nat → Nat → Poly) (ek m r : List Byte) :
-    ct1024 a ek m r = compressEncode 11 (encU1024 a r 0) ++ compressEncode 11 (encU1024 a r 1) ++
-      compressEncode 11 (encU1024 a r 2) ++ compressEncode 11 (encU1024 a r 3) ++
-      compressEncode 5 (encV1024 ek m r) := rfl
-
-theorem dkPKE1024_eq (d : List Byte) :
-    dkPKE1024 d = encode12 (kgS1024 d 0) ++ encode12 (kgS1024 d 1) ++ encode12 (kgS1024 d 2) ++
-      encode12 (kgS1024 d 3) := rfl
-
 theorem kpkeKeyGen1024_some {iters : Nat} {d : List Byte} {a : Nat → Nat → Poly}
     (h : ∀ i < 4, ∀ j < 4, sampleNTT iters (matSeed (kgRho1024 d) i j) = some (a i j)) :
     kpkeKeyGen mlKem1024 iters d = some (ekPKE1024 a d, dkPKE1024 d) :=

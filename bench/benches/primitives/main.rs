@@ -89,6 +89,35 @@ pub(crate) fn hash_group<const N: usize>(
     g.finish();
 }
 
+/// Benchmarks checking the digest of the data with `vg`, which computes it
+/// and compares it with the expected one in constant time, against
+/// OpenSSL's `md` and `CRYPTO_memcmp`.
+pub(crate) fn hash_verify_group<const N: usize>(
+    c: &mut Criterion,
+    name: &str,
+    digest: fn(&[u8]) -> [u8; N],
+    vg: fn(&[u8], &[u8]) -> bool,
+    md: MessageDigest,
+) {
+    let mut g = c.benchmark_group(name);
+    for size in SIZES {
+        g.throughput(Throughput::Bytes(size as u64));
+        let data = vec![0x5a; size];
+        let expected = digest(&data);
+        assert_eq!(hash(md, &data).unwrap()[..], expected[..]);
+        g.bench_function(BenchmarkId::new(VG, size), |b| {
+            b.iter(|| assert!(vg(black_box(&data), black_box(&expected))))
+        });
+        g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
+            b.iter(|| {
+                let d = hash(md, black_box(&data)).unwrap();
+                assert!(openssl::memcmp::eq(&d, black_box(&expected)))
+            })
+        });
+    }
+    g.finish();
+}
+
 /// Benchmarks HMAC with the hash of `vg` and `md` (32-byte key) against
 /// OpenSSL's.
 pub(crate) fn hmac_group<O>(

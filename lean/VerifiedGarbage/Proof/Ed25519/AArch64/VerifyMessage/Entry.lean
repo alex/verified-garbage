@@ -10,12 +10,12 @@ def verifyMessageLocal : Contract isa where
     let msg : Region := ⟨s.gpr .x1,(s.gpr .x2).toNat⟩
     let sig : Region := ⟨s.gpr .x3,64⟩
     let scr : Region := ⟨s.gpr .x4,8192⟩
-    let stk : Region := below s.sp 336
+    let stk : Region := below s.sp 352
     s.rd = [pk,msg,sig] ∧ s.wr = [scr] ∧
     pk.Disjoint scr ∧ msg.Disjoint scr ∧ sig.Disjoint scr ∧
     stk.Disjoint pk ∧ stk.Disjoint msg ∧ stk.Disjoint sig ∧ stk.Disjoint scr ∧
     (s.gpr .x0).toNat+32≤2^64 ∧ (s.gpr .x1).toNat+(s.gpr .x2).toNat≤2^64 ∧
-    (s.gpr .x3).toNat+64≤2^64 ∧ (s.gpr .x4).toNat+8192≤2^64 ∧ 336≤s.sp.toNat
+    (s.gpr .x3).toNat+64≤2^64 ∧ (s.gpr .x4).toNat+8192≤2^64 ∧ 352≤s.sp.toNat
   post s t := t.gpr .x0 = if Spec.Ed25519.verify (Spec.Ed25519.bytesAt s.mem (s.gpr .x0) 32)
     (Spec.Ed25519.bytesAt s.mem (s.gpr .x1) (s.gpr .x2).toNat)
     (Spec.Ed25519.bytesAt s.mem (s.gpr .x3) 64) then 1 else 0
@@ -28,12 +28,12 @@ def verifyMessageLocal : Contract isa where
 
 def lay (s : State) : Lay := ⟨s.gpr .x0,s.gpr .x1,s.gpr .x2,s.gpr .x3,s.gpr .x4,Whole.base s⟩
 
-theorem entry_below {s : State} (h : verifyMessageLocal.pre s) : 336≤s.sp.toNat := by
+theorem entry_below {s : State} (h : verifyMessageLocal.pre s) : 352≤s.sp.toNat := by
   obtain ⟨_,_,_,_,_,_,_,_,_,_,_,_,_,hb⟩ := h
   exact hb
 
 theorem entry_writes {s : State} (h : verifyMessageLocal.pre s) :
-    ∀ r ∈ s.wr, (below s.sp 336).Disjoint r := by
+    ∀ r ∈ s.wr, (below s.sp 352).Disjoint r := by
   obtain ⟨_,hw,_,_,_,_,_,_,hc,_⟩ := h
   intro r hr
   rw [hw,List.mem_singleton] at hr
@@ -42,11 +42,15 @@ theorem entry_writes {s : State} (h : verifyMessageLocal.pre s) :
 
 theorem lay_ok {s : State} (h : verifyMessageLocal.pre s) : (lay s).Ok := by
   obtain ⟨_,_,pc,mc,sc,kp,km,ks,kc,np,nm,ns,nc,hb⟩ := h
-  have fr : Region.Sub (Whole.FR (Whole.base s)) (below s.sp 336) := Region.sub_prefix (by decide)
-  have ar : Region.Sub (Whole.ARGS (Whole.base s)) (below s.sp 336) := Offset.sub_base _ (by decide)
-  refine ⟨?_,?_,?_,kc.sub_left fr,np,nm,ns,nc⟩
+  have stk := Whole.stk_sub s
+  have fr : Region.Sub (Whole.FR (Whole.base s)) (below s.sp 352) :=
+    fun a h => stk a ((Region.sub_prefix (by decide) : Region.Sub (Whole.FR (Whole.base s)) ⟨Whole.base s, 336⟩) a h)
+  have ar : Region.Sub (Whole.ARGS (Whole.base s)) (below s.sp 352) :=
+    fun a h => stk a ((Offset.sub_base _ (by decide) : Region.Sub (Whole.ARGS (Whole.base s)) ⟨Whole.base s, 336⟩) a h)
+  have ck := Whole.ck_sub s
+  refine ⟨?_,?_,?_,kc.sub_left fr,np,nm,ns,nc,Whole.base_16 hb,?_,kc.sub_left ck⟩
   · change (s.sp-336#64).toNat+304≤2^64
-    rw [BitVec.toNat_sub_of_le (by change 336≤s.sp.toNat; exact hb)]
+    rw [BitVec.toNat_sub_of_le (by change 336≤s.sp.toNat; omega)]
     have hs := s.sp.isLt
     change s.sp.toNat-336+304≤2^64
     omega
@@ -62,6 +66,12 @@ theorem lay_ok {s : State} (h : verifyMessageLocal.pre s) : (lay s).Ok := by
     · exact km.sub_left fr
     · exact ks.sub_left fr
     · exact Offset.base_disjoint _ (by decide) (by decide)
+  · simp only [Lay.inputs,List.mem_cons,List.not_mem_nil,or_false]
+    rintro r (rfl | rfl | rfl | rfl)
+    · exact kp.sub_left ck
+    · exact km.sub_left ck
+    · exact ks.sub_left ck
+    · exact Whole.ck_frame (by decide : 256 + 48 ≤ 304)
 
 theorem entry_ctx {s p : State} (h : verifyMessageLocal.pre s) (hp : Whole.Saved (Whole.entered s) 6 p) :
     Ctx (lay s) s.gpr s.v p.mem (p.withRegions (Whole.bodyRd s) (Whole.bodyWr s)) := by
@@ -85,9 +95,10 @@ theorem entry_input {s : State} (h : verifyMessageLocal.pre s) {m : Mem}
   obtain ⟨hrd,_,_,_,_,kp,km,ks,_⟩ := h
   rw [hrd] at hr
   simp only [List.mem_cons,List.not_mem_nil,or_false] at hr
+  have hb : Region.Sub (below s.sp 336) (below s.sp 352) := below_sub (by decide) (by decide)
   rcases hr with rfl | rfl | rfl
-  · exact kp.symm
-  · exact km.symm
-  · exact ks.symm
+  · exact (kp.sub_left hb).symm
+  · exact (km.sub_left hb).symm
+  · exact (ks.sub_left hb).symm
 
 end VG.Proof.Ed25519.AArch64.VerifyMessage

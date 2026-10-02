@@ -164,7 +164,7 @@ structure StreamOK (H : Stream) where
   hB0 : 0 < H.B
   hBB : H.B ≤ 128
   hWb : Wb ≤ 8 * H.W
-  hW : H.W ≤ 64
+  hW : H.W ≤ 134
   /-- The representation depends only on the state's bytes. -/
   repr : ∀ (m m' : Mem) (p q : Addr) (msg : List Byte),
     (∀ i < H.S, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i)) →

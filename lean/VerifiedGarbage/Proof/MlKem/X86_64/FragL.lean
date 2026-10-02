@@ -149,30 +149,30 @@ theorem dec12At_trL {p q : Ptr} (hq : NA q) (hc : twoChk (rbs ++ wbs) wbs p 384 
   RelCT.mono (dec12At_tr hq) (fun _ _ e => ⟨TwoH.of e.1 hc, TwoH.of e.2.1 hc, e.eq (twoChk_in hc).1,
     e.eq (twoChk_in hc).2, e.2.2.2⟩) fun _ _ _ => trivial
 
-theorem ceAt_okL {s : State} (L : Lay rbs wbs s) {f out : Ptr} {d : Nat} (hout : NA out)
-    (hc : twoChk (rbs ++ wbs) wbs f 1024 out (32 * d) = true) (hd : d ∈ compressWidths)
+theorem ceCall_okL {n : String} {c : Prog isa} {ws : List Nat} (I : CEImpl n c ws) {s : State} (L : Lay rbs wbs s)
+    {f out : Ptr} {d : Nat} (hout : NA out) (hc : twoChk (rbs ++ wbs) wbs f 1024 out (32 * d) = true) (hd : d ∈ ws)
     (red : Reduced s.mem (pa s f)) :
-    WP isa (ceAt f d out) s fun s' => PPost s s' [(out, 32 * d)] ∧
+    WP isa (ceCall n c f d out) s fun s' => PPost s s' [(out, 32 * d)] ∧
       bytesAt s'.mem (pa s out) (32 * d) = compressEncode d (polyAt s.mem (pa s f)) :=
-  ceAt_ok hout (CEH.of L hc hd red)
+  ceCall_ok I hout (CEH.of L hc hd red)
 
-theorem ceAt_trL {f out : Ptr} {d : Nat} (hout : NA out) (hc : twoChk (rbs ++ wbs) wbs f 1024 out (32 * d) = true)
-    (hd : d ∈ compressWidths) :
-    RelCT isa (fun x y => LRel rbs wbs x y ∧ Reduced x.mem (pa x f) ∧ Reduced y.mem (pa y f)) (ceAt f d out)
+theorem ceCall_trL {n : String} {c : Prog isa} {ws : List Nat} (I : CEImpl n c ws) {f out : Ptr} {d : Nat}
+    (hout : NA out) (hc : twoChk (rbs ++ wbs) wbs f 1024 out (32 * d) = true) (hd : d ∈ ws) :
+    RelCT isa (fun x y => LRel rbs wbs x y ∧ Reduced x.mem (pa x f) ∧ Reduced y.mem (pa y f)) (ceCall n c f d out)
       fun _ _ => True :=
-  RelCT.mono (ceAt_tr hout) (fun _ _ ⟨e, r1, r2⟩ => ⟨CEH.of e.1 hc hd r1, CEH.of e.2.1 hc hd r2,
+  RelCT.mono (ceCall_tr I hout) (fun _ _ ⟨e, r1, r2⟩ => ⟨CEH.of e.1 hc hd r1, CEH.of e.2.1 hc hd r2,
     e.eq (twoChk_in hc).1, e.eq (twoChk_in hc).2, e.2.2.2⟩) fun _ _ _ => trivial
 
-theorem ddAt_okL {s : State} (L : Lay rbs wbs s) {b f : Ptr} {d : Nat} (hf : NA f)
-    (hc : twoChk (rbs ++ wbs) wbs b (32 * d) f 1024 = true) (hd : d ∈ compressWidths) :
-    WP isa (ddAt b d f) s fun s' => PPost s s' [(f, 1024)] ∧
+theorem ddCall_okL {n : String} {c : Prog isa} {ws : List Nat} (I : DDImpl n c ws) {s : State} (L : Lay rbs wbs s)
+    {b f : Ptr} {d : Nat} (hf : NA f) (hc : twoChk (rbs ++ wbs) wbs b (32 * d) f 1024 = true) (hd : d ∈ ws) :
+    WP isa (ddCall n c b d f) s fun s' => PPost s s' [(f, 1024)] ∧
       PolyIs s'.mem (pa s f) (decodeDecompress d (bytesAt s.mem (pa s b) (32 * d))) :=
-  ddAt_ok hf (DDH.of L hc hd)
+  ddCall_ok I hf (DDH.of L hc hd)
 
-theorem ddAt_trL {b f : Ptr} {d : Nat} (hf : NA f) (hc : twoChk (rbs ++ wbs) wbs b (32 * d) f 1024 = true)
-    (hd : d ∈ compressWidths) :
-    RelCT isa (LRel rbs wbs) (ddAt b d f) fun _ _ => True :=
-  RelCT.mono (ddAt_tr hf) (fun _ _ e => ⟨DDH.of e.1 hc hd, DDH.of e.2.1 hc hd, e.eq (twoChk_in hc).1,
+theorem ddCall_trL {n : String} {c : Prog isa} {ws : List Nat} (I : DDImpl n c ws) {b f : Ptr} {d : Nat} (hf : NA f)
+    (hc : twoChk (rbs ++ wbs) wbs b (32 * d) f 1024 = true) (hd : d ∈ ws) :
+    RelCT isa (LRel rbs wbs) (ddCall n c b d f) fun _ _ => True :=
+  RelCT.mono (ddCall_tr I hf) (fun _ _ e => ⟨DDH.of e.1 hc hd, DDH.of e.2.1 hc hd, e.eq (twoChk_in hc).1,
     e.eq (twoChk_in hc).2, e.2.2.2⟩) fun _ _ _ => trivial
 
 /-! ## `SampleNTT` -/

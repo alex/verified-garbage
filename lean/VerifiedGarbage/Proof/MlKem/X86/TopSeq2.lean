@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.MlKem.X86.TopSeq
 /-!
 # ML-KEM on x86 (32-bit): the calls of three and four arguments, with their arguments
 
-As `TopSeq.lean`, for `vg_mlkem_multiply_ntts`, `vg_mlkem_sample_ntt`,
-`vg_mlkem_compress_encode` and `vg_mlkem_decode_decompress`.
+As `TopSeq.lean`, for `vg_mlkem_multiply_ntts`, `vg_mlkem_sample_ntt`, and
+the leaves that compress and decompress (`CeFn`, `DdFn`).
 -/
 
 namespace VG.Proof.MlKem.X86.Top
@@ -92,7 +92,8 @@ theorem sampleC_piece (da dO aa ao ca co : Nat)
   · rw [m₁] at fr out
     exact hQ s₀ s s' hp ha h' fr r₁ out
 
-theorem ceC_piece (d : Nat) (hd : d ∈ compressWidths) (fa fo oa oo : Nat)
+theorem ceC_piece {nm : String} {c : Prog isa} {ws : List Nat} (F : CeFn c ws) (d : Nat) (hd : d ∈ ws)
+    (fa fo oa oo : Nat)
     (hc : (Y.ok ⟨fa, fo, 1024⟩ && Y.okW ⟨oa, oo, 32 * d⟩ && Y.sep ⟨fa, fo, 1024⟩ ⟨oa, oo, 32 * d⟩) = true)
     (hN : 52 ≤ Y.stk) {ht : Taint.Hint VG.X86.Taint.T}
     (tt : (VG.X86.taint.check (τr [.esp, .esi]) (.block (ptrTo Y.sc .eax ⟨fa, fo, 1024⟩ ++
@@ -103,14 +104,16 @@ theorem ceC_piece (d : Nat) (hd : d ∈ compressWidths) (fa fo oa oo : Nat)
       Frame ([⟨oa, oo, 32 * d⟩].map (Buf.rgn s₀) ++ [below (E1 s₀) 36]) s.mem s'.mem →
       Spec.Sha3.bytesAt s'.mem (Buf.addr s₀ ⟨oa, oo, 32 * d⟩) (32 * d) =
         compressEncode d (polyAt s.mem (Buf.addr s₀ ⟨fa, fo, 1024⟩)) → B s₀ s') :
-    Piece (TPre Y) (TPub Y lk) A B (ceC Y.sc d ⟨fa, fo, 1024⟩ ⟨oa, oo, 32 * d⟩) := by
+    Piece (TPre Y) (TPub Y lk) A B (.seq (.block (ptrTo Y.sc .eax ⟨fa, fo, 1024⟩ ++
+      ([.mov .ecx (.imm (BitVec.ofNat 32 d))] : List Instr) ++ ptrTo Y.sc .edx ⟨oa, oo, 32 * d⟩ ++
+      ([.mov .edi (.imm (BitVec.ofNat 32 (32 * d)))] : List Instr))) (callWith [.edi, .edx, .ecx, .eax] nm c)) := by
   have hc' := hc
   simp only [Bool.and_eq_true] at hc'
   obtain ⟨⟨h0, h1⟩, -⟩ := hc'
   refine Piece.seq (setup_piece (fun s₀ s₁ => s₁.gpr .eax = Buf.ptr s₀ ⟨fa, fo, 1024⟩ ∧
       s₁.gpr .ecx = BitVec.ofNat 32 d ∧ s₁.gpr .edx = Buf.ptr s₀ ⟨oa, oo, 32 * d⟩ ∧
       s₁.gpr .edi = BitVec.ofNat 32 (32 * d)) (fun s₀ s hp h => ?_) (fun s₀ s hp ha => (hA s₀ s hp ha).1) tt)
-    (ce_call d hd fa fo oa oo hc hN (fun s₀ s₁ hp ⟨s, ha, h₁, m₁, e₁, e₂, e₃, e₄⟩ =>
+    (ce_call F d hd fa fo oa oo hc hN (fun s₀ s₁ hp ⟨s, ha, h₁, m₁, e₁, e₂, e₃, e₄⟩ =>
       ⟨h₁, e₁, e₂, e₃, e₄, m₁ ▸ (hA s₀ s hp ha).2⟩)
       fun s₀ s₁ s' hp ⟨s, ha, _, m₁, _⟩ h' _ fr post => ?_)
   · simp only [List.append_assoc, List.cons_append, List.nil_append]
@@ -127,7 +130,8 @@ theorem ceC_piece (d : Nat) (hd : d ∈ compressWidths) (fa fo oa oo : Nat)
   · rw [m₁] at fr post
     exact hQ s₀ s s' hp ha h' fr post
 
-theorem ddC_piece (d : Nat) (hd : d ∈ compressWidths) (ba bo fa fo : Nat)
+theorem ddC_piece {nm : String} {c : Prog isa} {ws : List Nat} (F : DdFn c ws) (d : Nat) (hd : d ∈ ws)
+    (ba bo fa fo : Nat)
     (hc : (Y.ok ⟨ba, bo, 32 * d⟩ && Y.okW ⟨fa, fo, 1024⟩ && Y.sep ⟨ba, bo, 32 * d⟩ ⟨fa, fo, 1024⟩) = true)
     (hN : 52 ≤ Y.stk) {ht : Taint.Hint VG.X86.Taint.T}
     (tt : (VG.X86.taint.check (τr [.esp, .esi]) (.block (ptrTo Y.sc .eax ⟨ba, bo, 32 * d⟩ ++
@@ -138,14 +142,16 @@ theorem ddC_piece (d : Nat) (hd : d ∈ compressWidths) (ba bo fa fo : Nat)
       Frame ([⟨fa, fo, 1024⟩].map (Buf.rgn s₀) ++ [below (E1 s₀) 36]) s.mem s'.mem →
       PolyIs s'.mem (Buf.addr s₀ ⟨fa, fo, 1024⟩)
         (decodeDecompress d (Spec.Sha3.bytesAt s.mem (Buf.addr s₀ ⟨ba, bo, 32 * d⟩) (32 * d))) → B s₀ s') :
-    Piece (TPre Y) (TPub Y lk) A B (ddC Y.sc d ⟨ba, bo, 32 * d⟩ ⟨fa, fo, 1024⟩) := by
+    Piece (TPre Y) (TPub Y lk) A B (.seq (.block (ptrTo Y.sc .eax ⟨ba, bo, 32 * d⟩ ++
+      ([.mov .ecx (.imm (BitVec.ofNat 32 (32 * d))), .mov .edx (.imm (BitVec.ofNat 32 d))] : List Instr) ++
+      ptrTo Y.sc .edi ⟨fa, fo, 1024⟩)) (callWith [.edi, .edx, .ecx, .eax] nm c)) := by
   have hc' := hc
   simp only [Bool.and_eq_true] at hc'
   obtain ⟨⟨h0, h1⟩, -⟩ := hc'
   refine Piece.seq (setup_piece (fun s₀ s₁ => s₁.gpr .eax = Buf.ptr s₀ ⟨ba, bo, 32 * d⟩ ∧
       s₁.gpr .ecx = BitVec.ofNat 32 (32 * d) ∧ s₁.gpr .edx = BitVec.ofNat 32 d ∧
       s₁.gpr .edi = Buf.ptr s₀ ⟨fa, fo, 1024⟩) (fun s₀ s hp h => ?_) hA tt)
-    (dd_call d hd ba bo fa fo hc hN (fun s₀ s₁ hp ⟨_, _, h₁, _, e₁, e₂, e₃, e₄⟩ => ⟨h₁, e₁, e₂, e₃, e₄⟩)
+    (dd_call F d hd ba bo fa fo hc hN (fun s₀ s₁ hp ⟨_, _, h₁, _, e₁, e₂, e₃, e₄⟩ => ⟨h₁, e₁, e₂, e₃, e₄⟩)
       fun s₀ s₁ s' hp ⟨s, ha, _, m₁, _⟩ h' _ fr post => ?_)
   · simp only [List.append_assoc, List.cons_append, List.nil_append]
     refine ptrTo_ok hp h h0 fun s₁ o₁ v₁ => ?_

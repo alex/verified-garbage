@@ -39,6 +39,8 @@ use crate::arch::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
 
+pub use crate::hmac::InvalidMac;
+
 /// The implementations of `vg_poly1305_update`, one for each implementation
 /// of `vg_poly1305_blocks`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -156,6 +158,18 @@ impl Poly1305 {
         tag
     }
 
+    /// Checks that `tag` is the tag of everything absorbed, in constant
+    /// time: the time taken does not depend on where, or whether, `tag`
+    /// differs from it (its length is public). `tag` must be the whole tag,
+    /// of [`Self::TAG_SIZE`] bytes; a truncated one is rejected.
+    pub fn verify(self, tag: &[u8]) -> Result<(), InvalidMac> {
+        if crate::ct::eq(&self.finalize(), tag) {
+            Ok(())
+        } else {
+            Err(InvalidMac)
+        }
+    }
+
     /// The tag of `data` with the one-time key `key`.
     pub fn mac(key: &[u8; 32], data: &[u8]) -> [u8; 16] {
         let mut p = Self::new(key);
@@ -189,6 +203,32 @@ mod tests {
                 assert_eq!(p.finalize(), expected);
             }
         }
+    }
+
+    /// `verify` accepts the tag and rejects any other: one with a bit
+    /// flipped in its first, a middle or its last byte, a truncated tag and
+    /// a longer one.
+    #[test]
+    fn verify() {
+        let key: [u8; 32] = core::array::from_fn(|i| (i * 13 + 5) as u8);
+        let data = b"Cryptographic Forum Research Group";
+        let tag = Poly1305::mac(&key, data);
+        let check = |t: &[u8]| {
+            let mut p = Poly1305::new(&key);
+            p.update(data);
+            p.verify(t)
+        };
+        assert_eq!(check(&tag), Ok(()));
+        for i in [0, 7, 15] {
+            let mut bad = tag;
+            bad[i] ^= 1;
+            assert_eq!(check(&bad), Err(InvalidMac));
+        }
+        assert_eq!(check(&tag[..15]), Err(InvalidMac));
+        assert_eq!(check(&[]), Err(InvalidMac));
+        let mut longer = [0u8; 17];
+        longer[..16].copy_from_slice(&tag);
+        assert_eq!(check(&longer), Err(InvalidMac));
     }
 
     /// The implementation chosen gives the same tag as the scalar one, for

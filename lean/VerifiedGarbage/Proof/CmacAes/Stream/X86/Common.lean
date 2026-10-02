@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.CmacAes.Stream.X86.Call
 import VerifiedGarbage.Proof.CmacAes.X86.Finalize
 import VerifiedGarbage.Proof.Framework.WriteBytes
 import VerifiedGarbage.Proof.Framework.X86.ArgTaint
+import VerifiedGarbage.Proof.Framework.X86.Spill
 
 /-!
 # Streaming AES-CMAC on x86: arithmetic, copies and saved registers
@@ -21,7 +22,7 @@ variable (v : Proof.Aes.X86.Ctr32Impl)
 open VG.Impl.CmacAes.X86 (at_ argOp)
 open VG.Proof.MdStream.X86 (Upd Mupd Fupd WP.cons wp_mov wp_movi wp_movm wp_store wp_addi wp_add wp_subi wp_sub
   wp_andi wp_cmp wp_test wp_movzx8 wp_store8 eval_e eval_ne eval_b ofNat_beq_zero sub_ofNat)
-open VG.Proof.CmacAes.X86 (wp_arg ea_at' saveMem restoreList_ok byte_rt32 addr_at add0' readW_writeW_save)
+open VG.Proof.CmacAes.X86 (wp_arg ea_at' byte_rt32 addr_at add0')
 open VG.Proof.Cmac.Stream (held held_le held_pos held_zero)
 
 /-! ## Arithmetic -/
@@ -240,58 +241,46 @@ theorem bytesAt_writeBytes (m : Mem) (p : Addr) (r : Nat) (xs : List Byte) (h : 
 
 /-! ## The saved registers -/
 
+theorem saved_fits : Spill.Fits 2192 saved := by decide
+
 theorem saved_bound : ∀ p ∈ saved, 2176 ≤ p.2 ∧ p.2 + 4 ≤ 2192 := by decide
 
 theorem saved_ne_eax : ∀ p ∈ saved, p.1 ≠ .eax := by decide
 
-theorem saved_nodup : (saved.map Prod.fst).Nodup := by decide
+theorem save_eq : save = Spill.saveCode .eax saved := rfl
 
-theorem save_eq : save = saved.map fun p => Instr.store (at_ .eax p.2) p.1 := rfl
+theorem restore_eq (i : Nat) : restore i = .mov .eax (argOp i) :: (Spill.restoreCode .eax saved ++ []) := rfl
 
-theorem restore_eq (i : Nat) :
-    restore i = .mov .eax (argOp i) :: (saved.map fun p => Instr.mov p.1 (.mem (at_ .eax p.2))) ++ [] := by
-  simp [restore]
-
-set_option simprocs false in
 /-- Each slot of `saved` holds the register saved there. -/
 theorem saveMem_slot (m : Mem) (B : Addr) (g : Reg → BitVec 32) {r : Reg} {d : Nat} (h : (r, d) ∈ saved) :
-    (saveMem m B g saved).readW (B + BitVec.ofNat 64 d) 32 = g r := by
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at h
-  rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
-  simp (disch := decide) only [saved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+    (Spill.saveMem m (B + BitVec.ofNat 64 ·) g saved).readW (B + BitVec.ofNat 64 d) 32 = g r :=
+  Spill.saveMem_saved_ofNat m B g saved_fits (by decide) (r, d) h
 
 /-- The memory after saving the registers in the scratch buffer at `Sc`. -/
-def savedMem (s₀ : State) (Sc : BitVec 32) : Mem := saveMem s₀.mem (Sc.setWidth 64) s₀.gpr saved
+def savedMem (s₀ : State) (Sc : BitVec 32) : Mem :=
+  Spill.saveMem s₀.mem (Sc.setWidth 64 + BitVec.ofNat 64 ·) s₀.gpr saved
 
 theorem savedMem_frame (s₀ : State) (Sc : BitVec 32) :
-    Frame [⟨Sc.setWidth 64 + BitVec.ofNat 64 2176, 16⟩] s₀.mem (savedMem s₀ Sc) := by
-  have : ∀ (m : Mem) (l : List (Reg × Nat)), (∀ p ∈ l, 2176 ≤ p.2 ∧ p.2 + 4 ≤ 2192) →
-      Frame [⟨Sc.setWidth 64 + BitVec.ofNat 64 2176, 16⟩] m (saveMem m (Sc.setWidth 64) s₀.gpr l) := by
-    intro m l
-    induction l generalizing m with
-    | nil => intro _; exact Frame.refl _ _
-    | cons p l ih =>
-      intro hl
-      have h := hl p (by simp)
-      refine ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ ?_).trans
-        (ih _ fun q hq => hl q (List.mem_cons_of_mem _ hq))
-      rw [show Sc.setWidth 64 + BitVec.ofNat 64 p.2 =
-          Sc.setWidth 64 + BitVec.ofNat 64 2176 + BitVec.ofNat 64 (p.2 - 2176) by
-        rw [Offset.add_add, Nat.add_sub_cancel' h.1]]
-      exact Offset.contains_base _ (by omega) (by omega)
-  exact this _ _ saved_bound
+    Frame [⟨Sc.setWidth 64 + BitVec.ofNat 64 2176, 16⟩] s₀.mem (savedMem s₀ Sc) :=
+  Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p hp => by
+    have h := saved_bound p hp
+    rw [show Sc.setWidth 64 + BitVec.ofNat 64 p.2 =
+        Sc.setWidth 64 + BitVec.ofNat 64 2176 + BitVec.ofNat 64 (p.2 - 2176) by
+      rw [Offset.add_add, Nat.add_sub_cancel' h.1]]
+    exact Offset.contains_base _ (by omega) (by omega)
 
 /-- Saving the registers, with the scratch buffer `Sc` in `eax`. -/
 theorem save_wp {is : List Instr} {s : State} {Q : State → Prop} {Sc : BitVec 32} (heax : s.gpr .eax = Sc)
     (hfit : Sc.toNat + 2304 ≤ 2 ^ 32) (hw : Covers [⟨Sc.setWidth 64, 2304⟩] s.wr)
     (k : ∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr →
-      s'.mem = saveMem s.mem (Sc.setWidth 64) s.gpr saved → WP isa (.block is) s' Q) :
+      s'.mem = Spill.saveMem s.mem (Sc.setWidth 64 + BitVec.ofNat 64 ·) s.gpr saved → WP isa (.block is) s' Q) :
     WP isa (.block (save ++ is)) s Q := by
   rw [save_eq]
-  refine VG.Proof.CmacAes.X86.saveList_ok saved s Q (fun p hp => ?_) fun s' g rd wr m => k s' g rd wr (by rw [m, heax])
+  refine Spill.save_ofNat_ok saved saved_fits (by rw [heax]; omega) (fun p hp => ?_) fun s' u =>
+    k s' u.gpr u.rd u.wr (by rw [u.mem, heax])
   have hb := saved_bound p hp
   rw [heax]
-  exact ⟨by omega, hw _ _ ⟨_, List.mem_singleton_self _, Offset.contains_base _ (by omega) (by omega)⟩⟩
+  exact hw _ _ ⟨_, List.mem_singleton_self _, Offset.contains_base _ (by omega) (by omega)⟩
 
 /-- Restoring the registers, from the scratch buffer `Sc` (the stack argument
 `i`), whose slots hold the registers of `s₀`. -/
@@ -304,19 +293,12 @@ theorem restore_wp {s₀ s : State} {i : Nat} {Sc : BitVec 32} (hesp : s.gpr .es
   rw [restore_eq]
   refine VG.Proof.MdStream.X86.wp_movm (a := argAddr s₀ i) (by rw [ea_at', hesp]; rfl) hin fun s₁ u₁ => ?_
   rw [hv] at u₁
-  refine restoreList_ok saved s₁ _ saved_nodup (fun p hp' => ?_) fun s₂ ld₂ ho₂ m₂ _ _ => WP.block_nil ?_
-  · have hb := saved_bound p hp'
-    rw [u₁.gpr, u₁.rd, u₁.wr]
-    exact ⟨saved_ne_eax p hp', by omega, hr _ _ ⟨_, List.mem_singleton_self _,
-      Offset.contains_base _ (by omega) (by omega)⟩⟩
-  refine ⟨fun r hr => ?_, by rw [m₂, u₁.mem]⟩
-  simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl
-  · rw [ld₂ (.ebx, 2176) (by decide), u₁.gpr, u₁.mem, hs .ebx 2176 (by decide)]
-  · rw [ld₂ (.esi, 2180) (by decide), u₁.gpr, u₁.mem, hs .esi 2180 (by decide)]
-  · rw [ld₂ (.edi, 2184) (by decide), u₁.gpr, u₁.mem, hs .edi 2184 (by decide)]
-  · rw [ld₂ (.ebp, 2188) (by decide), u₁.gpr, u₁.mem, hs .ebp 2188 (by decide)]
-  · rw [ho₂ _ (by decide), u₁.other _ (by decide), hesp]
+  refine Spill.restore_ofNat_ok saved saved_fits (by rw [u₁.gpr]; omega) saved_ne_eax (fun p hp' => ?_)
+    (fun p hp' => by rw [u₁.gpr, u₁.mem]; exact hs p.1 p.2 hp') fun s₂ r₂ =>
+      WP.block_nil ⟨r₂.abi (by decide) (by decide) (by rw [u₁.other _ (by decide), hesp]), by rw [r₂.mem, u₁.mem]⟩
+  have hb := saved_bound p hp'
+  rw [u₁.gpr, u₁.rd, u₁.wr]
+  exact hr _ _ ⟨_, List.mem_singleton_self _, Offset.contains_base _ (by omega) (by omega)⟩
 
 /-! ## The stack arguments and the stack -/
 

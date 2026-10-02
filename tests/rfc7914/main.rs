@@ -14,7 +14,7 @@
     feature = "alloc"
 ))]
 
-use verified_garbage::scrypt::{Error, scrypt};
+use verified_garbage::scrypt::{Error, scrypt, verify};
 
 /// One `scrypt (P="…", S="…", N=…, r=…, p=…, dkLen=…) = <hex>` vector.
 struct Vector {
@@ -169,6 +169,54 @@ fn invalid_parameters() {
         Error::AllocationFailed.to_string(),
         "could not allocate scrypt's memory"
     );
+    assert_eq!(
+        Error::KeyMismatch.to_string(),
+        "scrypt derived key does not match"
+    );
+}
+
+/// `verify` accepts the RFC's keys, and a key derived with a length of its
+/// own (each is a prefix of the longer ones), and rejects any other: with a
+/// bit flipped in its first, a middle or its last byte, with a byte
+/// appended that is not the next one derived, and from another password.
+#[test]
+fn verify_keys() {
+    let vs = vectors();
+    for v in &vs[..2] {
+        let check =
+            |expected: &[u8]| verify(&v.password, &v.salt, v.n, v.r, v.p, usize::MAX, expected);
+        assert_eq!(check(&v.dk), Ok(()));
+        for i in [0, 32, 63] {
+            let mut bad = v.dk.clone();
+            bad[i] ^= 1;
+            assert_eq!(check(&bad), Err(Error::KeyMismatch));
+        }
+        assert_eq!(check(&v.dk[..1]), Ok(()));
+        assert_eq!(check(&v.dk[..63]), Ok(()));
+        let mut longer = vec![0u8; 65];
+        scrypt(&v.password, &v.salt, v.n, v.r, v.p, usize::MAX, &mut longer).unwrap();
+        assert_eq!(longer[..64], v.dk[..]);
+        assert_eq!(check(&longer), Ok(()));
+        longer[64] ^= 1;
+        assert_eq!(check(&longer), Err(Error::KeyMismatch));
+        let other = verify(b"passwore", &v.salt, v.n, v.r, v.p, usize::MAX, &v.dk);
+        assert_eq!(other, Err(Error::KeyMismatch));
+    }
+}
+
+/// `verify` refuses what `scrypt` refuses: an empty key, invalid
+/// parameters and more memory than the limit.
+#[test]
+fn verify_errors() {
+    let v = &vectors()[0];
+    let need = 128 * (v.r as usize * (v.n as usize + v.p as usize) + v.r as usize + 2);
+    let check = |n, max_memory, expected: &[u8]| {
+        verify(&v.password, &v.salt, n, v.r, v.p, max_memory, expected)
+    };
+    assert_eq!(check(v.n, need, &[]), Err(Error::InvalidParameters));
+    assert_eq!(check(3, need, &v.dk), Err(Error::InvalidParameters));
+    assert_eq!(check(v.n, need - 1, &v.dk), Err(Error::MemoryLimitExceeded));
+    assert_eq!(check(v.n, need, &v.dk), Ok(()));
 }
 
 /// The largest `n` for `r = 1` and the largest `p` are accepted (and then

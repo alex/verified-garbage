@@ -260,18 +260,18 @@ open Spec.Sha512
 
 open VG.AArch64 in
 /-- AArch64 contract for
-`vg_sha512_compress(state: *mut [u64; 8], blocks: *const [u8; 128], n: usize, scratch: *mut [u64; 22])`:
+`vg_sha512_compress(state: *mut [u64; 8], blocks: *const [u8; 128], n: usize, scratch: *mut [u64; 80])`:
 updates the hash value at `state` with the `n` 128-byte blocks at `blocks`.
 
 The code may read `blocks` (`128 * n` bytes) and read and write `state`
-(64 bytes) and `scratch` (176 bytes, whose contents on exit are unspecified).
+(64 bytes) and `scratch` (`scratchBytes` bytes, whose contents on exit are unspecified).
 These may not overlap each other. The pointers and `n` are public; the hash
 value and the blocks are secret. -/
 def compressAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 64⟩
     let blocks : Region := ⟨s.gpr .x1, 128 * (s.gpr .x2).toNat⟩
-    let scratch : Region := ⟨s.gpr .x3, 176⟩
+    let scratch : Region := ⟨s.gpr .x3, Impl.Sha512.AArch64.scratchBytes⟩
     s.rd = [blocks] ∧ s.wr = [state, scratch] ∧
     state.Disjoint scratch ∧ blocks.Disjoint state ∧ blocks.Disjoint scratch
   post s s' :=
@@ -297,22 +297,25 @@ def initAArch64 (iv : HashValue) : Contract AArch64.isa where
 
 open VG.AArch64 in
 /-- AArch64 contract for
-`vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 28])`:
+`vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 86])`:
 if the streaming state at `state` represents a message `m` of `count` bytes
 (modulo 2⁶⁴), hashed from any initial hash value, then afterwards it
 represents `m` followed by the `len` bytes at `data`, from the same one.
 
 The code may read `data` (`len` bytes) and read and write `state` (192
-bytes) and `scratch` (224 bytes, whose contents on exit are unspecified).
-These may not overlap each other. The pointers, `count` and `len` are public;
-the state and the data are secret. -/
+bytes) and `scratch` (`scratchBytes + 48` bytes, whose contents on exit are unspecified).
+These may not overlap each other, nor the 16 bytes below the stack pointer
+(the frame saving `x30`), which do not wrap around. The pointers, `count` and
+`len` are public; the state and the data are secret. -/
 def updateAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 192⟩
     let data : Region := ⟨s.gpr .x2, (s.gpr .x3).toNat⟩
-    let scratch : Region := ⟨s.gpr .x4, 224⟩
+    let scratch : Region := ⟨s.gpr .x4, Impl.Sha512.AArch64.scratchBytes + 48⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
     s.rd = [data] ∧ s.wr = [state, scratch] ∧
-    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch
+    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch
   post s s' := ∀ iv m, Repr iv s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
     Repr iv s'.mem (s.gpr .x0) (m ++ bytesAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
   pub s₁ s₂ :=
@@ -321,7 +324,7 @@ def updateAArch64 : Contract AArch64.isa where
 
 open VG.AArch64 in
 /-- AArch64 contract for
-`vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 28])`:
+`vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 86])`:
 if the streaming state at `state` represents a message `m` of `count` bytes,
 fewer than 2⁶⁴, hashed from the initial hash value `iv`, writes the final
 hash value `H⁽ᴺ⁾` of `m` from `iv` (64 bytes; `finalHash iv m`) to `out`. The
@@ -329,16 +332,19 @@ digest of SHA-384, SHA-512/224 or SHA-512/256 is its first 48, 28 or 32
 bytes.
 
 The code may read and write `state` (192 bytes, whose contents on exit are
-unspecified), `out` (64 bytes) and `scratch` (224 bytes, whose contents on
-exit are unspecified). These may not overlap each other. The pointers and
-`count` are public; the state is secret. -/
+unspecified), `out` (64 bytes) and `scratch` (`scratchBytes + 48` bytes, whose contents on
+exit are unspecified). These may not overlap each other, nor the 16 bytes
+below the stack pointer (the frame saving `x30`), which do not wrap around.
+The pointers and `count` are public; the state is secret. -/
 def finalizeAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 192⟩
     let out : Region := ⟨s.gpr .x2, 64⟩
-    let scratch : Region := ⟨s.gpr .x3, 224⟩
+    let scratch : Region := ⟨s.gpr .x3, Impl.Sha512.AArch64.scratchBytes + 48⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
     s.rd = [] ∧ s.wr = [state, out, scratch] ∧
-    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch
+    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch
   post s s' := ∀ iv m, Repr iv s.mem (s.gpr .x0) m → m.length < 2 ^ 64 →
     s.gpr .x1 = BitVec.ofNat 64 m.length → bytesAt s'.mem (s.gpr .x2) 64 = finalHash iv m
   pub s₁ s₂ :=
@@ -397,7 +403,7 @@ abbrev nb : Nat := (s₀.gpr .x2).toNat
 abbrev scr : Addr := s₀.gpr .x3
 abbrev stR : Region := ⟨st s₀, 64⟩
 abbrev blR : Region := ⟨bp s₀, 128 * nb s₀⟩
-abbrev scrR : Region := ⟨scr s₀, 176⟩
+abbrev scrR : Region := ⟨scr s₀, 640⟩
 abbrev H₀ : HashValue := stateAt s₀.mem (st s₀)
 
 /-- Block `i`, and where it starts. -/
@@ -604,7 +610,7 @@ theorem blk_word {s₀ : State} (i t : Nat) (ht : t < 16) :
   rw [W_lt _ ht, rev64_readW]
   simp only [blk, blockAt, parseBlock, Offset.add_ofNat_add_one, Nat.add_assoc, Nat.reduceAdd]
 
-theorem win_sub (p : Addr) : Region.Sub (winRegion p) ⟨p, 176⟩ := Region.sub_prefix (by omega)
+theorem win_sub (p : Addr) : Region.Sub (winRegion p) ⟨p, 640⟩ := Region.sub_prefix (by omega)
 
 theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s : State}
     (hL : LInv s₀ i s) :
@@ -709,7 +715,7 @@ def satState : State where
   sp := 0x4000
   mem _ := 0
   rd := [⟨0x2000, 0⟩]
-  wr := [⟨0x1000, 64⟩, ⟨0x3000, 176⟩]
+  wr := [⟨0x1000, 64⟩, ⟨0x3000, 640⟩]
 
 theorem compress_verified :
     Verified AArch64.target Impl.Sha512.AArch64.compress Proof.Sha512.compressAArch64 := by

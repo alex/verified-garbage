@@ -46,7 +46,7 @@ theorem call_gpr_eq {args : List (Reg × Value)} {a b : State}
 
 theorem call_ct {P : State → Prop} {k : Contract isa} {c : Prog isa} {name : String}
     (correct : ∀ s, k.pre s → ∃ tr s', Exec isa c s tr s' ∧ abiPreserved s s' ∧ k.post s s')
-    (ct : ConstantTime isa k.pre k.pub c) (hn : c.noFrames = true)
+    (ct : ConstantTime isa k.pre k.pub c) (hd : c.aarch64Depth ≤ 1)
     (ready : ∀ {g v m t}, Ctx L g v m t → P t → Whole.CallReady k L.E L.inputs L.outputs t)
     (kp : ∀ (a b : State) ar aw br bw, Two L g₁ g₂ v₁ v₂ m₁ m₂ P a b →
       k.pub (a.callEntry.withRegions ar aw) (b.callEntry.withRegions br bw)) :
@@ -61,8 +61,8 @@ theorem call_ct {P : State → Prop} {k : Contract isa} {c : Prog isa} {name : S
     exact ⟨ra.reads, ra.writes, rb.reads, rb.writes, ra.pre, rb.pre,
       kp a b _ _ _ _ h, ca, wa, cb, wb⟩
   · intro t hc hs
-    exact WP.mono (Whole.CallReady.wp hc (ready hc hs) correct hn) fun _ hu => ⟨hu, trivial⟩
+    exact WP.mono (Whole.CallReady.wpF hc (ready hc hs) correct hd) fun _ hu => ⟨hu, trivial⟩
   · intro t hc hs
-    exact WP.mono (Whole.CallReady.wp hc (ready hc hs) correct hn) fun _ hu => ⟨hu, trivial⟩
+    exact WP.mono (Whole.CallReady.wpF hc (ready hc hs) correct hd) fun _ hu => ⟨hu, trivial⟩
 
 end VG.Proof.Ed25519.AArch64.SignCached
