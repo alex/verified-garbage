@@ -171,7 +171,7 @@ theorem signBody_tr {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
   have hE := oE_lt hp
   have mh := muHash_tr (I := signI p) (Φ := fun L m _ => SOk p L m) hE (fun _ _ _ h => h.facts.e)
     (tr := .slotOff fKey 64) (by decide) (fun L => L.key + BitVec.ofNat 64 64)
-    (fun L g mx m t hc => by rw [hc.slotOff, fKey, hc.pKey])
+    (fun L g mx m t hc _ => by rw [hc.slotOff, fKey, hc.pKey])
     fun L hL => by
       have := hL.hKey
       have w : Within ⟨L.key + BitVec.ofNat 64 64, 64⟩ L.KEY := within_off _ (by omega)

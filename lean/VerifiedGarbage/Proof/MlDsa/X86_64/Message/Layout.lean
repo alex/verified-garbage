@@ -192,6 +192,10 @@ theorem below_call_sub (B : Addr) {m : Nat} (hm : m ≤ 32) :
   rw [this]
   exact Offset.sub_base _ (by omega)
 
+theorem below24 (B : Addr) : below (B + BitVec.ofNat 64 24) 24 = ⟨B, 24⟩ := by
+  show (⟨B + BitVec.ofNat 64 24 - BitVec.ofNat 64 24, 24⟩ : Region) = _
+  rw [BitVec.add_sub_cancel]
+
 /-! ## Between the frame's push and pop -/
 
 /-- The state between the setting of the formatted message's bytes and the

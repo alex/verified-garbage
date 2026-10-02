@@ -47,10 +47,6 @@ theorem mu_scrMu {p : Params} (hp : p ∈ params) (s : State) : Region.Disjoint 
   rw [add_add]
   exact Offset.disjoint_base _ (by simp [scrLen, oE]) (by have := oE_lt hp; omega)
 
-theorem below24 (B : Addr) : below (B + BitVec.ofNat 64 24) 24 = ⟨B, 24⟩ := by
-  show (⟨B + BitVec.ofNat 64 24 - BitVec.ofNat 64 24, 24⟩ : Region) = _
-  rw [BitVec.add_sub_cancel]
-
 /-- The regions the signing function on `μ` reads and writes. -/
 abbrev signRd (p : Params) (s : State) : List Region :=
   [⟨s.gpr .rdi, p.skLen⟩, ⟨(slay p s).MU, 64⟩, ⟨s.gpr .r9, 32⟩]

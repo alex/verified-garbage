@@ -207,7 +207,7 @@ abbrev qMsg (L : Lay) : Nat := (qCtx L + L.len.toNat) % 136
 
 theorem muHash_tr (hE : oE p + 1024 < 2 ^ 31) {Φ : Lay → Mem → State → Prop}
     (hΦ : ∀ L m t, Φ L m t → EOk p L) {tr : Arg} (hok : tr.ok = true) (trp : Lay → Addr)
-    (htr : ∀ (L : Lay) g mx m (t : State), Ctx L g mx m t → tr.val t = trp L)
+    (htr : ∀ (L : Lay) g mx m (t : State), Ctx L g mx m t → EOk p L → tr.val t = trp L)
     (hs : ∀ L : Lay, L.Ok → (∃ R ∈ L.rd ++ L.FR :: L.wr, Within ⟨trp L, 64⟩ R) ∧
       Region.Disjoint ⟨trp L, 64⟩ ⟨L.ST, 200⟩ ∧ Region.Disjoint ⟨trp L, 64⟩ ⟨L.KS, 640⟩ ∧
       Region.Disjoint ⟨L.B, 32⟩ ⟨trp L, 64⟩) :
@@ -218,12 +218,12 @@ theorem muHash_tr (hE : oE p + 1024 < 2 ^ 31) {Φ : Lay → Mem → State → Pr
     fun L g mx m₀ t hL hc hφ => WP.mono (zeroSt_ok hL (hΦ L m₀ t hφ) hc) fun t' ⟨hc', _⟩ => ⟨hc', hΦ L m₀ t hφ⟩
   have a1 := two_wp (I := I) (Ψ := Ψ fun _ => 64)
     (kabs_tr (Φ := fun L _ _ => EOk p L) (fun _ _ _ h => h) (absOk' hE hok rfl rfl) trp (fun _ => 64)
-      (fun _ => 0) (fun L g mx m t _ hc _ => ⟨htr L g mx m t hc, rfl, rfl⟩)
+      (fun _ => 0) (fun L g mx m t _ hc hφ => ⟨htr L g mx m t hc hφ, rfl, rfl⟩)
       fun L hL => ⟨by decide, by decide, (hs L hL).1, (hs L hL).2.1, (hs L hL).2.2.1, (hs L hL).2.2.2⟩)
     fun L g mx m₀ t hL hc hφ => by
       obtain ⟨a, b, c, d⟩ := hs L hL
       exact WP.mono (kabs_ok hL hφ hc (src := tr) (len := .imm 64) (pos := .imm 0) (n := 64) (q := 0)
-        (absOk' hE hok rfl rfl) (htr L g mx m₀ t hc) rfl rfl (by decide)
+        (absOk' hE hok rfl rfl) (htr L g mx m₀ t hc hφ) rfl rfl (by decide)
         (by decide) a b c d) fun t' ⟨hc', _, _, hx⟩ => ⟨hc', hφ, hx⟩
   have a2 := two_wp (I := I) (Φ := Ψ fun _ => 64) (Ψ := Ψ fun _ => 66)
     (kabs_tr (src := .sp) (len := .imm 2) (pos := .imm 64) (fun _ _ _ h => h.1) (absOk' hE rfl rfl rfl) (fun L => L.SP) (fun _ => 2) (fun _ => 64)
