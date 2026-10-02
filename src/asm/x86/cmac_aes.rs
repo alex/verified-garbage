@@ -366,3 +366,305 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_finalize(key: *const [u8; 272], roun
         vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
     )
 }
+
+/// Starts an AES-CMAC computation (NIST SP 800-38B, RFC 4493): makes the streaming state `*state` represent the empty message under the AES key of `key_len` bytes at `key` (AES-128, AES-192 or AES-256). The state holds the key schedule of AES (FIPS 197) with `key_len / 4 + 6` rounds, the subkeys `K1 ‖ K2` (§6.1), the chaining value and the message's last bytes, held back (`VG.Spec.Cmac.Repr`). Continue with `vg_cmac_aes_absorb` and `vg_cmac_aes_finish`, passing them `key_len / 4 + 6` as `rounds`.
+///
+/// Contract: `VG.Spec.Cmac.aesInitContract`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+///
+/// This implementation calls the CMAC functions above (e.g. `vg_cmac_aes_update`).
+///
+/// It expands the key with `vg_aes_expand_key`.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 304 bytes.
+/// * `key` must be valid for reads of `key_len` bytes.
+/// * `scratch` must be valid for reads and writes of 2304 bytes.
+/// * `key_len` must be 16, 24 or 32.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `key` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `state`, `key` and `scratch` may overlap the return address on the stack or the 48 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_init(state: *mut [u64; 38], key: *const u8, key_len: usize, scratch: *mut [u64; 288]) {
+    core::arch::naked_asm!(
+        "mov eax, DWORD PTR [esp+16]",
+        "mov DWORD PTR [eax+2176], ebx",
+        "mov DWORD PTR [eax+2180], esi",
+        "mov DWORD PTR [eax+2184], edi",
+        "mov DWORD PTR [eax+2188], ebp",
+        "mov eax, DWORD PTR [esp+8]",
+        "mov ecx, DWORD PTR [esp+12]",
+        "mov edx, DWORD PTR [esp+4]",
+        "mov ebx, DWORD PTR [esp+16]",
+        "push ebx",
+        "push edx",
+        "push ecx",
+        "push eax",
+        "call {vg_aes_expand_key}",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "mov eax, DWORD PTR [esp+4]",
+        "mov ecx, DWORD PTR [esp+12]",
+        "shr ecx, 2",
+        "add ecx, 6",
+        "mov edx, eax",
+        "add edx, 240",
+        "mov ebx, DWORD PTR [esp+16]",
+        "push ebx",
+        "push edx",
+        "push ecx",
+        "push eax",
+        "call {vg_cmac_aes_subkeys}",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "mov edx, DWORD PTR [esp+4]",
+        "mov eax, 0",
+        "mov DWORD PTR [edx+272], eax",
+        "mov DWORD PTR [edx+276], eax",
+        "mov DWORD PTR [edx+280], eax",
+        "mov DWORD PTR [edx+284], eax",
+        "mov eax, DWORD PTR [esp+16]",
+        "mov ebx, DWORD PTR [eax+2176]",
+        "mov esi, DWORD PTR [eax+2180]",
+        "mov edi, DWORD PTR [eax+2184]",
+        "mov ebp, DWORD PTR [eax+2188]",
+        "ret",
+        vg_aes_expand_key = sym super::aes::vg_aes_expand_key,
+        vg_cmac_aes_subkeys = sym super::cmac_aes::vg_cmac_aes_subkeys,
+    )
+}
+
+/// Absorbs data into an AES-CMAC computation (NIST SP 800-38B §6.2): if the streaming state `*state` represents a message of `count` bytes under an AES key with `rounds` rounds (as `vg_cmac_aes_init` set it up), it then represents that message followed by the `len` bytes at `data`, under the same key, provided that the two together are shorter than 2⁶⁴ bytes. It chains (step 6) every block of the message but its last bytes `Mₙ*` (step 3), which it holds back in the state, since only `vg_cmac_aes_finish` knows they are the last.
+///
+/// Contract: `VG.Spec.Cmac.aesAbsorbContract`. Constant time: only the pointers, `rounds`, `count` and `len` may affect timing, not the state or the data.
+///
+/// This implementation calls the CMAC functions above (e.g. `vg_cmac_aes_update`).
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 304 bytes.
+/// * `data` must be valid for reads of `len` bytes.
+/// * `scratch` must be valid for reads and writes of 2304 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `data` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `state`, `data` and `scratch` may overlap the return address on the stack or the 56 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb(state: *mut [u64; 38], rounds: usize, count: u64, data: *const u8, len: usize, scratch: *mut [u64; 288]) {
+    core::arch::naked_asm!(
+        "mov eax, DWORD PTR [esp+28]",
+        "mov DWORD PTR [eax+2176], ebx",
+        "mov DWORD PTR [eax+2180], esi",
+        "mov DWORD PTR [eax+2184], edi",
+        "mov DWORD PTR [eax+2188], ebp",
+        "mov eax, DWORD PTR [esp+12]",
+        "mov ecx, DWORD PTR [esp+16]",
+        "or ecx, eax",
+        "je 20f",
+        "sub eax, 1",
+        "and eax, 15",
+        "add eax, 1",
+        "jmp 21f",
+        "20:",
+        "21:",
+        "mov ecx, 16",
+        "sub ecx, eax",
+        "mov edx, DWORD PTR [esp+24]",
+        "cmp edx, ecx",
+        "jb 22f",
+        "jmp 23f",
+        "22:",
+        "mov ecx, edx",
+        "23:",
+        "mov ebp, ecx",
+        "mov esi, DWORD PTR [esp+20]",
+        "mov edi, DWORD PTR [esp+4]",
+        "add edi, 288",
+        "add edi, eax",
+        "test ecx, ecx",
+        "je 24f",
+        "26:",
+        "movzx eax, BYTE PTR [esi]",
+        "mov BYTE PTR [edi], al",
+        "add esi, 1",
+        "add edi, 1",
+        "sub ecx, 1",
+        "jne 26b",
+        "jmp 25f",
+        "24:",
+        "25:",
+        "mov esi, 0",
+        "mov edx, DWORD PTR [esp+24]",
+        "sub edx, ebp",
+        "je 27f",
+        "mov esi, 1",
+        "jmp 28f",
+        "27:",
+        "28:",
+        "mov eax, DWORD PTR [esp+4]",
+        "mov ecx, DWORD PTR [esp+8]",
+        "mov edx, eax",
+        "add edx, 272",
+        "mov ebx, eax",
+        "add ebx, 288",
+        "mov edi, DWORD PTR [esp+28]",
+        "push edi",
+        "push esi",
+        "push ebx",
+        "push edx",
+        "push ecx",
+        "push eax",
+        "call {vg_cmac_aes_update}",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "mov ecx, 0",
+        "mov ebx, DWORD PTR [esp+4]",
+        "add ebx, 288",
+        "mov edx, DWORD PTR [esp+24]",
+        "sub edx, ebp",
+        "je 29f",
+        "mov ecx, edx",
+        "sub ecx, 1",
+        "mov eax, ecx",
+        "and eax, 15",
+        "sub ecx, eax",
+        "mov ebx, DWORD PTR [esp+20]",
+        "add ebx, ebp",
+        "jmp 210f",
+        "29:",
+        "210:",
+        "mov esi, ecx",
+        "shr esi, 4",
+        "add ebp, ecx",
+        "mov eax, DWORD PTR [esp+4]",
+        "mov ecx, DWORD PTR [esp+8]",
+        "mov edx, eax",
+        "add edx, 272",
+        "mov edi, DWORD PTR [esp+28]",
+        "push edi",
+        "push esi",
+        "push ebx",
+        "push edx",
+        "push ecx",
+        "push eax",
+        "call {vg_cmac_aes_update}",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "mov esi, DWORD PTR [esp+20]",
+        "add esi, ebp",
+        "mov edi, DWORD PTR [esp+4]",
+        "add edi, 288",
+        "mov ecx, DWORD PTR [esp+24]",
+        "sub ecx, ebp",
+        "test ecx, ecx",
+        "je 211f",
+        "213:",
+        "movzx eax, BYTE PTR [esi]",
+        "mov BYTE PTR [edi], al",
+        "add esi, 1",
+        "add edi, 1",
+        "sub ecx, 1",
+        "jne 213b",
+        "jmp 212f",
+        "211:",
+        "212:",
+        "mov eax, DWORD PTR [esp+28]",
+        "mov ebx, DWORD PTR [eax+2176]",
+        "mov esi, DWORD PTR [eax+2180]",
+        "mov edi, DWORD PTR [eax+2184]",
+        "mov ebp, DWORD PTR [eax+2188]",
+        "ret",
+        vg_cmac_aes_update = sym super::cmac_aes::vg_cmac_aes_update,
+    )
+}
+
+/// Finishes an AES-CMAC computation (NIST SP 800-38B §6.2, with `Tlen = 128`): if the streaming state `*state` represents a message of `count` bytes, shorter than 2⁶⁴ bytes, under an AES key with `rounds` rounds (as `vg_cmac_aes_init` and `vg_cmac_aes_absorb` set it up), writes the MAC of that message under that key to `*out`: `Cₙ = CIPH_K(Cₙ₋₁ ⊕ Mₙ)`, where `Mₙ = K1 ⊕ Mₙ*` if the message's last bytes `Mₙ*` are a complete block, and `Mₙ = K2 ⊕ (Mₙ* ‖ 10ʲ)` otherwise (step 4). The caller truncates it (step 7) and compares it (§6.3).
+///
+/// Contract: `VG.Spec.Cmac.aesFinishContract`. Constant time: only the pointers, `rounds` and `count` may affect timing, not the state.
+///
+/// This implementation calls the CMAC functions above (e.g. `vg_cmac_aes_update`).
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 304 bytes.
+/// * `out` must be valid for reads and writes of 16 bytes.
+/// * `scratch` must be valid for reads and writes of 2304 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `state` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state`, `out` and `scratch` must not overlap each other or the arguments on the stack (distinct Rust objects never do).
+/// * None of `state`, `out` and `scratch` may overlap the return address on the stack or the 56 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_finish(state: *mut [u64; 38], rounds: usize, count: u64, out: *mut [u8; 16], scratch: *mut [u64; 288]) {
+    core::arch::naked_asm!(
+        "mov eax, DWORD PTR [esp+24]",
+        "mov DWORD PTR [eax+2176], ebx",
+        "mov DWORD PTR [eax+2180], esi",
+        "mov DWORD PTR [eax+2184], edi",
+        "mov DWORD PTR [eax+2188], ebp",
+        "mov esi, DWORD PTR [esp+4]",
+        "add esi, 272",
+        "mov edi, DWORD PTR [esp+20]",
+        "mov ecx, 16",
+        "test ecx, ecx",
+        "je 20f",
+        "22:",
+        "movzx eax, BYTE PTR [esi]",
+        "mov BYTE PTR [edi], al",
+        "add esi, 1",
+        "add edi, 1",
+        "sub ecx, 1",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "21:",
+        "mov esi, DWORD PTR [esp+12]",
+        "mov ecx, DWORD PTR [esp+16]",
+        "or ecx, esi",
+        "je 23f",
+        "sub esi, 1",
+        "and esi, 15",
+        "add esi, 1",
+        "jmp 24f",
+        "23:",
+        "24:",
+        "mov eax, DWORD PTR [esp+4]",
+        "mov ecx, DWORD PTR [esp+8]",
+        "mov edx, DWORD PTR [esp+20]",
+        "mov ebx, eax",
+        "add ebx, 288",
+        "mov edi, DWORD PTR [esp+24]",
+        "push edi",
+        "push esi",
+        "push ebx",
+        "push edx",
+        "push ecx",
+        "push eax",
+        "call {vg_cmac_aes_finalize}",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "pop eax",
+        "mov eax, DWORD PTR [esp+24]",
+        "mov ebx, DWORD PTR [eax+2176]",
+        "mov esi, DWORD PTR [eax+2180]",
+        "mov edi, DWORD PTR [eax+2184]",
+        "mov ebp, DWORD PTR [eax+2188]",
+        "ret",
+        vg_cmac_aes_finalize = sym super::cmac_aes::vg_cmac_aes_finalize,
+    )
+}

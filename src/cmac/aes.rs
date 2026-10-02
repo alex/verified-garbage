@@ -29,8 +29,9 @@ use super::{InvalidKeyLength, InvalidMac};
 use crate::aes::Backend;
 #[cfg(target_arch = "aarch64")]
 use crate::arch::cmac_aes::{
-    VG_CMAC_AES_ABSORB_AES_FEATURES, VG_CMAC_AES_FINISH_AES_FEATURES, VG_CMAC_AES_INIT_AES_FEATURES,
-    vg_cmac_aes_absorb_aes, vg_cmac_aes_finish_aes, vg_cmac_aes_init_aes,
+    VG_CMAC_AES_ABSORB_AES_FEATURES, VG_CMAC_AES_FINISH_AES_FEATURES,
+    VG_CMAC_AES_INIT_AES_FEATURES, vg_cmac_aes_absorb_aes, vg_cmac_aes_finish_aes,
+    vg_cmac_aes_init_aes,
 };
 #[cfg(target_arch = "x86_64")]
 use crate::arch::cmac_aes::{
