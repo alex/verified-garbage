@@ -2,6 +2,7 @@ import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Proof.ChaCha20.Arm.Xor
 import VerifiedGarbage.Impl.ChaCha20.Arm.Xor
 import VerifiedGarbage.Proof.ChaCha20.Arm.Lit
+import VerifiedGarbage.Proof.ChaCha20.Arm.Stream.Init
 
 /-!
 # The ChaCha20 block function (RFC 8439) on ARMv7
@@ -32,6 +33,20 @@ def artifacts : List Artifact := [
     code := Impl.ChaCha20.Arm.Xor.xor
     contract := Spec.ChaCha20.xorContract Arm.abi
     verified := Proof.ChaCha20.Arm.Xor.xor_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.ChaCha20.initApi with
+    target := Arm.target
+    doc := Spec.ChaCha20.initApi.doc
+    code := Impl.ChaCha20.Arm.Stream.init
+    contract := Spec.ChaCha20.initContract Arm.abi
+    verified := Proof.ChaCha20.Arm.Stream.init_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.ChaCha20.setNonceApi with
+    target := Arm.target
+    doc := Spec.ChaCha20.setNonceApi.doc
+    code := Impl.ChaCha20.Arm.Stream.setNonce
+    contract := Spec.ChaCha20.setNonceContract Arm.abi
+    verified := Proof.ChaCha20.Arm.Stream.setNonce_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.ChaCha20.Arm
