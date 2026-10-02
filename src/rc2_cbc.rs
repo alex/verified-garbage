@@ -17,6 +17,7 @@
     feature = "alloc"
 ))]
 
+use alloc::vec;
 use alloc::vec::Vec;
 
 pub use crate::aes_gcm::Direction;
