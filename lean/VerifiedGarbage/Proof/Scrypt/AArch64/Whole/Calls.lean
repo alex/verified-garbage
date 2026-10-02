@@ -19,7 +19,7 @@ open VG VG.AArch64 VG.Impl.Scrypt.AArch64
 open VG.Proof.Scrypt.Memory (toNat_ofNat_lt toNat_add_ofNat)
 open VG.Spec.Scrypt (bytesAt)
 open VG.Proof.Pbkdf2.Md.AArch64 (pbkG)
-open VG.Proof.Hmac.Generic.AArch64 (stk)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (stk)
 
 theorem gpr_ce (t : State) (rd wr : List Region) {r : Reg} (h : r ∉ linkRegs) :
     (t.callEntry.withRegions rd wr).gpr r = t.gpr r := by

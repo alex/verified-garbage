@@ -6,10 +6,11 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Variant
 
 A generic file (see `TCB/Emit.lean`): HMAC's `init` and `finalize`, the one
 implementation for every Merkle–Damgård hash function
-(`Impl/Hmac/Generic/AArch64.lean`, `Impl/Pbkdf2/Md/AArch64.lean`), calling the
-hash function's streaming functions, and `finalize` its compression function
-itself, are emitted once for each variant (`Variants/MdHash/AArch64/`), named
-with its suffix.
+(`Impl/Pbkdf2/Md/AArch64.lean`), calling the variant's compression function
+(each once or twice), the hash function's streaming `init` and, in
+`finalize`, its streaming `finalize` made with that compression function, are
+emitted once for each variant (`Variants/MdHash/AArch64/`), named with its
+suffix.
 
 `stack` is the 16 bytes below the stack pointer that the streaming
 functions may use for a frame saving `x30`.

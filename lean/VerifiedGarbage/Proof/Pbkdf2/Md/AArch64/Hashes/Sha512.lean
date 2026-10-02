@@ -25,8 +25,7 @@ namespace VG.Proof.Pbkdf2.Md.AArch64.Sha512
 open VG.AArch64
 open VG.Proof.Sha512.AArch64 (Compress)
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
-open VG.Proof.Hmac.Generic.AArch64 (updK finK)
-open VG.Proof.Hmac.Generic.AArch64.Instances (initSat finSat)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (updK finK)
 open Spec.Sha512 (H0_384 H0_512 H0_512_224 H0_512_256)
 
 /-- The member of the SHA-512 family of instance `I`, with a `D`-byte digest,
@@ -60,12 +59,12 @@ theorem coreOK (D : Nat) (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) : CoreOK
       iter := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
         ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
       hinit := {
-        keys := ⟨_, by taint_decide⟩
+        pro := ⟨_, by taint_decide⟩
         argI := by
           simp only [List.mem_cons, List.not_mem_nil, or_false]
           rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-        argU₁ := ⟨_, by taint_decide⟩
-        argU₂ := ⟨_, by taint_decide⟩
+        keys := ⟨_, by taint_decide⟩
+        mid := ⟨_, by taint_decide⟩
         restore := ⟨_, by taint_decide⟩ }
       hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
       fitI := by decide
@@ -114,7 +113,7 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
     (hh : ∀ m, I.S.H.hash m = (Spec.Sha512.finalHash iv m).take D)
     (hB : I.S.H.blockSize = 128) (hS : I.S.stateBytes = 192) (hDs : I.S.digestBytes = D)
     (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) (hiv : IVs iv) :
-    Hmac.Generic.AArch64.HashOK (hash v I D initN iv).stream where
+    Calls.StreamOK (hash v I D initN iv).stream where
   SH := I.S
   Wb := 224
   hS := hS

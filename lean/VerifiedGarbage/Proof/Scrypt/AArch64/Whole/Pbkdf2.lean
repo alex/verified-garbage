@@ -16,7 +16,7 @@ namespace VG.Proof.Scrypt.AArch64.Whole
 
 open VG.AArch64
 open VG.Proof.Pbkdf2.Md.AArch64 (pbkG)
-open VG.Proof.Hmac.Generic.AArch64 (stk)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (stk)
 
 /-- `pbkdf2`'s contract, spelt out. -/
 abbrev pbkK : Contract isa := pbkG Spec.Hmac.sha256S 200
