@@ -15,7 +15,7 @@
 //! SSSE3 run `vg_aes_expand_key_aesni`, `vg_aes_ctr32_aesni` and
 //! `vg_ghash_pclmul` instead, which have the same contracts; on AArch64,
 //! CPUs with the AES and PMULL extensions run `vg_aes_expand_key_aes`,
-//! `vg_aes_ctr32_aes` and `vg_ghash_pmull`. A CPU with the AES instructions
+//! `vg_aes_ctr32_aes` and `vg_ghash_aes`. A CPU with the AES instructions
 //! but not those GHASH needs runs the scalar AES too.
 
 #![cfg(any(
@@ -35,7 +35,7 @@ use crate::arch::gcm::vg_ghash;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
 #[cfg(target_arch = "aarch64")]
-use crate::arch::gcm::{VG_GHASH_PMULL_FEATURES, vg_ghash_pmull};
+use crate::arch::gcm::{VG_GHASH_AES_FEATURES, vg_ghash_aes};
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
 use core::mem::MaybeUninit;
@@ -142,7 +142,7 @@ fn select(f: Features) -> Backend {
 /// together with GHASH's for the same CPUs.
 #[cfg(target_arch = "aarch64")]
 fn select(f: Features) -> Backend {
-    Backend::select_for(f, &[VG_GHASH_PMULL_FEATURES])
+    Backend::select_for(f, &[VG_GHASH_AES_FEATURES])
 }
 
 /// The best implementation a CPU with the features `f` can run: there is
@@ -243,7 +243,7 @@ impl AesGcm {
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_ghash_pclmul,
             #[cfg(target_arch = "aarch64")]
-            Backend::Aes => vg_ghash_pmull,
+            Backend::Aes => vg_ghash_aes,
         };
         if !blocks.is_empty() {
             // SAFETY: `self.h` is valid for reads of 16 bytes, `y` for reads and
