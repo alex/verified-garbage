@@ -17,7 +17,8 @@ the other targets (`Proof/Hmac/Generic/Arm/Hashes.lean`). Their contracts are
 `update` and `finalize`, which hold from any initial hash value, and whose
 `finalize` only reads its arguments (`finKr`). Another hash function with
 streaming functions verified on x86 is one more `HashOK` here, and a
-registration file for each of its functions.
+registration file for each of its functions. SHA-256's, for each of its
+backends, are in `Sha256.lean`.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86

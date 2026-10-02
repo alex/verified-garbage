@@ -1,18 +1,16 @@
-import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Instances
+import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Sha256
 import VerifiedGarbage.Proof.Hmac.Generic.Arm.Sha224
-import VerifiedGarbage.Proof.Sha256.Arm.Stream.Md
-import VerifiedGarbage.Proof.Sha256.Arm.Lit
 
 /-!
 # HMAC-SHA-224 and PBKDF2-HMAC-SHA-224 over the compression function on ARMv7
 
 SHA-224 as a `Hash`: its streaming functions as HMAC's `init` calls them
 (`sha224H`, `Proof/Hmac/Generic/Arm/Sha224.lean`), SHA-256's hash value,
-length field, digest code and compression function; what the proofs need of it
-(`HashOK`), with SHA-256's `Md` from SHA-224's initial hash value and the
-digest its first 28 bytes; and the generic proofs at it, moved to the shared
-contracts of `Spec.Hmac.sha224I` (as for the hash functions of
-`Instances.lean`).
+length field, digest code and compression function (`Sha256.lean`); what
+the proofs need of it (`HashOK`), with SHA-256's `Md` from SHA-224's initial
+hash value and the digest its first 28 bytes; and the generic proofs at it,
+moved to the shared contracts of `Spec.Hmac.sha224I` (as for the hash
+functions of `Instances.lean`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.Arm
@@ -32,10 +30,6 @@ def sha224Md : Hash where
   out := Impl.Sha256.Arm.Stream.params.out
   compN := "vg_sha256_compress"
   compC := Impl.Sha256.Arm.compress
-
-theorem sha256_comp : CompOk Proof.Sha256.md 112 Impl.Sha256.Arm.compress :=
-  ⟨Proof.Sha256.Arm.compress_verified.1, Proof.Sha256.Arm.compress_verified.2.1, by lit_decide,
-    by rw [← Code.allInstrs_eq]; lit_decide⟩
 
 def sha224MdOK : HashOK sha224Md where
   md := Proof.Sha256.md

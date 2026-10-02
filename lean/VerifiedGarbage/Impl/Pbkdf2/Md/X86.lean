@@ -6,8 +6,8 @@ import VerifiedGarbage.Impl.MdStream.X86
 
 One implementation of HMAC's `finalize` and of PBKDF2's iteration for every
 hash function that x86 has streaming functions and a compression function
-for, with blocks of 64 bytes (MD5, SHA-1: `Impl/MdStream/X86.lean`) or 128
-(the SHA-512 family: `Impl/Sha512/X86/Stream.lean`). A `Hash` is what the
+for, with blocks of 64 bytes (MD5, SHA-1, SHA-256: `Impl/MdStream/X86.lean`)
+or 128 (the SHA-512 family: `Impl/Sha512/X86/Stream.lean`). A `Hash` is what the
 code needs of one of them: its streaming functions, as HMAC's `init` calls
 them (`Impl/Hmac/Generic/X86.lean`, with the sizes of the block, the state
 and the digest), the size of its hash value and of its length field, the

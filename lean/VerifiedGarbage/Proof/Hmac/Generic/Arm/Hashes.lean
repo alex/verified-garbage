@@ -11,7 +11,7 @@ import VerifiedGarbage.Proof.Hmac.Generic.Common
 x86 (`Proof/Hmac/Generic/X86/Hashes.lean`). Their contracts are `initK`,
 `updK` and `finK` at their sizes, but for the length bound of SHA-1's and
 MD5's `finK`, and for the SHA-512 family's, which hold from any initial hash
-value.
+value. SHA-256's and SHA-224's are in `Sha256.lean` and `Sha224.lean`.
 -/
 
 namespace VG.Proof.Hmac.Generic.Arm
