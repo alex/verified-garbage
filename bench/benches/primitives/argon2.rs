@@ -1,4 +1,7 @@
 //! Complete Argon2 derivations, including allocation and initialization.
+//!
+//! OpenSSL supplies Argon2 from version 3.2; the runners use 3.0. Enable
+//! `openssl-argon2` on a supported host to benchmark it alongside this library.
 
 use criterion::Criterion;
 
@@ -11,22 +14,11 @@ pub fn bench(c: &mut Criterion) {
     use criterion::BenchmarkId;
     use verified_garbage::argon2::{Variant, derive};
 
-    use crate::{OPENSSL, VG};
-    type Oracle = fn(
-        Option<&openssl::lib_ctx::LibCtxRef>,
-        &[u8],
-        &[u8],
-        Option<&[u8]>,
-        Option<&[u8]>,
-        u32,
-        u32,
-        u32,
-        &mut [u8],
-    ) -> Result<(), openssl::error::ErrorStack>;
-    for (variant, name, openssl) in [
-        (Variant::Argon2d, "argon2d", openssl::kdf::argon2d as Oracle),
-        (Variant::Argon2i, "argon2i", openssl::kdf::argon2i),
-        (Variant::Argon2id, "argon2id", openssl::kdf::argon2id),
+    use crate::VG;
+    for (variant, name) in [
+        (Variant::Argon2d, "argon2d"),
+        (Variant::Argon2i, "argon2i"),
+        (Variant::Argon2id, "argon2id"),
     ] {
         let mut g = c.benchmark_group(name);
         g.sample_size(10);
@@ -49,22 +41,30 @@ pub fn bench(c: &mut Criterion) {
                     .unwrap()
                 })
             });
-            g.bench_function(BenchmarkId::new(OPENSSL, memory), |b| {
-                b.iter(|| {
-                    openssl(
-                        None,
-                        black_box(b"password"),
-                        black_box(b"saltsalt"),
-                        None,
-                        None,
-                        3,
-                        1,
-                        memory,
-                        &mut out,
-                    )
-                    .unwrap()
-                })
-            });
+            #[cfg(feature = "openssl-argon2")]
+            {
+                let openssl = match variant {
+                    Variant::Argon2d => openssl::kdf::argon2d,
+                    Variant::Argon2i => openssl::kdf::argon2i,
+                    Variant::Argon2id => openssl::kdf::argon2id,
+                };
+                g.bench_function(BenchmarkId::new(crate::OPENSSL, memory), |b| {
+                    b.iter(|| {
+                        openssl(
+                            None,
+                            black_box(b"password"),
+                            black_box(b"saltsalt"),
+                            None,
+                            None,
+                            3,
+                            1,
+                            memory,
+                            &mut out,
+                        )
+                        .unwrap()
+                    })
+                });
+            }
         }
         g.finish();
     }
