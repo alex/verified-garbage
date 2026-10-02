@@ -242,10 +242,10 @@ theorem cmpTail_ok {W : BitVec 32} {s : State} (he : WEnv W s) :
     · have h0 : (a₀ ^^^ b₀) ||| (a₁ ^^^ b₁) ||| (a₂ ^^^ b₂) ||| (a₃ ^^^ b₃) ≠ 0 := fun h' => h (e.mp h')
       have hne : ((a₀ ^^^ b₀) ||| (a₁ ^^^ b₁) ||| (a₂ ^^^ b₂) ||| (a₃ ^^^ b₃)).toNat ≠ 0 := fun h' =>
         h0 (BitVec.eq_of_toNat_eq (by simpa using h'))
-      simp only [h, ↓reduceIte]
-      apply BitVec.eq_of_toNat_eq
-      simp
-      omega
+      have hlt : ¬ ((a₀ ^^^ b₀) ||| (a₁ ^^^ b₁) ||| (a₂ ^^^ b₂) ||| (a₃ ^^^ b₃)).toNat < (BitVec.ofNat 32 1).toNat := by
+        rw [BitVec.toNat_ofNat]; omega
+      simp only [h, ↓reduceIte, decide_eq_false hlt]
+      rfl
   all_goals sorry
 
 end VG.Proof.AesGcm.X86

@@ -117,8 +117,10 @@ theorem streamVerify_verified :
         sig_eval [Spec.Gcm.streamVerifyContract, Spec.Gcm.streamVerifySig, Arm.abi, Arm.argRegs,
           Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
         simp only [streamVerifyArm, Arm.State.addr] at h
-        trace_state
-        sorry
+        have e : ∀ x y : BitVec 32, (x ++ y).setWidth 32 = y := fun _ _ => BitVec.setWidth_append_eq_right
+        intro iv a c hs ha hc
+        rw [e]
+        exact h iv a c hs ha hc
       pub := by
         sig_implies_pub [Spec.Gcm.streamVerifyContract, Spec.Gcm.streamVerifySig, streamVerifyArm, finPre,
           finPub, bel, arg, args, arg64, roundsOk, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
@@ -163,14 +165,23 @@ theorem open_verified : Verified Arm.target «open» (Spec.Gcm.openContract Arm.
         sig_eval [Spec.Gcm.openContract, Spec.Gcm.openSig, Arm.abi, Arm.argRegs, Arm.reduceClassify,
           Arm.Loc.val, Arm.State.addr]
         simp only [openArm, Arm.State.addr] at h
-        trace_state
-        sorry
+        have e : ∀ x y : BitVec 32, (x ++ y).setWidth 32 = y := fun _ _ => BitVec.setWidth_append_eq_right
+        rw [e]
+        exact h
       pub := by
         intro s₁ s₂ _ _ h
         sig_pub [Spec.Gcm.openContract, Spec.Gcm.openSig, openArm, onePre, onePub, bel, arg, args,
           arg64, roundsOk, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] at h
-        trace_state
-        sorry
+        obtain ⟨hsp, hl, h0, h1, h2, h3, a0, a1, a2, a3, a4, a5⟩ := h
+        refine ⟨⟨hsp, h0, h1, h2, h3, fun i hi => ?_⟩, leak_bool hl⟩
+        rcases (show i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 by omega) with
+          rfl | rfl | rfl | rfl | rfl | rfl
+        · exact a0
+        · exact a1
+        · exact a2
+        · exact a3
+        · exact a4
+        · exact a5
       sat := by
         sig_implies_sat [Spec.Gcm.openContract, Spec.Gcm.openSig, openArm, onePre, onePub, bel, arg, args,
           arg64, roundsOk, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
