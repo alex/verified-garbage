@@ -40,7 +40,9 @@ stack below its return address.
 The branches are on the length and the number of bytes left only, and every
 address is `esp`, a pointer plus a constant, or advances by one: only the
 pointers, the length and the number of bytes left (which the contract lets
-`apply` leak) can affect timing.
+`apply` leak) can affect timing. (The argument slots may be written, so the
+state pointer is loaded in a block of its own: the proof of constant time
+takes it from the correctness proof, not from the slot.)
 -/
 
 namespace VG.Impl.ChaCha20.X86.Stream
@@ -76,11 +78,11 @@ def init : Prog isa :=
 
 /-! ## `apply` -/
 
-/-- `ecx:edx` = the bytes left less `len`, and the borrow whether fewer than
-`len` are left; `eax` = the state. -/
+/-- With the state in `eax`: `edx:ecx` = the bytes left less `len`, and the
+borrow whether fewer than `len` are left. -/
 def check : List Instr :=
-  [.mov .eax (.mem (at_ .esp 4)), .mov .ecx (.mem (at_ .eax 128)), .mov .edx (.mem (at_ .eax 132)),
-   .alu .sub .ecx (.mem (at_ .esp 12)), .alu .sbb .edx (.imm 0)]
+  [.mov .ecx (.mem (at_ .eax 128)), .mov .edx (.mem (at_ .eax 132)), .alu .sub .ecx (.mem (at_ .esp 12)),
+   .alu .sbb .edx (.imm 0)]
 
 /-- Saves our caller's registers and the bytes left after `apply`, loads the
 arguments where they are kept, and compares the bytes left in the buffered
@@ -146,8 +148,8 @@ def finish : List Instr :=
    .mov .ebp (.mem (at_ .ebx 588)), .mov .ebx (.mem (at_ .ebx 576)), .mov .eax (.imm 1)]
 
 def apply : Prog isa :=
-  .seq (.block check)
+  .seq (.block [.mov .eax (.mem (at_ .esp 4))]) (.seq (.block check)
   (.ite .b (.block [.mov .eax (.imm 0)])
-    (.seq part1 (.seq part2 (.seq part3 (.block finish)))))
+    (.seq part1 (.seq part2 (.seq part3 (.block finish))))))
 
 end VG.Impl.ChaCha20.X86.Stream
