@@ -171,16 +171,7 @@ impl SigningKey {
 /// The public key of `seed` (RFC 8032 §5.1.5), with the verified
 /// `vg_ed25519_public_key` including SHA-512.
 fn public_key(seed: &[u8; 32]) -> [u8; 32] {
-    // SAFETY: the CPU has the features it was detected to have.
-    unsafe { public_key_with(detected(), seed) }
-}
-
-/// `public_key`, with the implementations a CPU with the features `f` can run.
-///
-/// # Safety
-///
-/// The CPU has the features `f`.
-unsafe fn public_key_with(f: Features, seed: &[u8; 32]) -> [u8; 32] {
+    let f = detected();
     let derive = match (Sha512Backend::select(f), Field::select(f)) {
         (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_public_key,
         #[cfg(target_arch = "x86_64")]
@@ -209,22 +200,7 @@ unsafe fn public_key_with(f: Features, seed: &[u8; 32]) -> [u8; 32] {
 }
 
 fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
-    // SAFETY: the CPU has the features it was detected to have.
-    unsafe { verify_message_with(detected(), pk, message, signature) }
-}
-
-/// `verify_message`, with the implementations a CPU with the features `f`
-/// can run.
-///
-/// # Safety
-///
-/// The CPU has the features `f`.
-unsafe fn verify_message_with(
-    f: Features,
-    pk: &[u8; 32],
-    message: &[u8],
-    signature: &[u8; 64],
-) -> u32 {
+    let f = detected();
     let verify = match (Sha512Backend::select(f), Field::select(f)) {
         (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_verify,
         #[cfg(target_arch = "x86_64")]
@@ -257,23 +233,7 @@ unsafe fn verify_message_with(
 }
 
 fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
-    // SAFETY: the CPU has the features it was detected to have, and pk is
-    // seed's public key, as `sign_message_with` requires.
-    unsafe { sign_message_with(detected(), seed, pk, message) }
-}
-
-/// `sign_message`, with the implementations a CPU with the features `f` can
-/// run.
-///
-/// # Safety
-///
-/// The CPU has the features `f`, and `pk` is `seed`'s public key.
-unsafe fn sign_message_with(
-    f: Features,
-    seed: &[u8; 32],
-    pk: &[u8; 32],
-    message: &[u8],
-) -> [u8; 64] {
+    let f = detected();
     let sign = match (Sha512Backend::select(f), Field::select(f)) {
         (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_sign_cached,
         #[cfg(target_arch = "x86_64")]
@@ -294,9 +254,9 @@ unsafe fn sign_message_with(
     // SAFETY: the input references are valid for their declared lengths.
     // Signature and scratch are distinct writable objects, disjoint from the
     // inputs and the call's stack. None wraps the address space. pk is seed's
-    // public key (the caller's requirement). SHA-512's backend and the
-    // field's, selected from features the CPU has, select every required CPU
-    // feature.
+    // public key (`SigningKey::sign` passes the one `from_seed` derived).
+    // SHA-512's backend and the field's, selected from features the CPU has,
+    // select every required CPU feature.
     unsafe {
         sign(
             &mut signature,
@@ -414,46 +374,61 @@ mod x86_64_tests {
         }
     }
 
-    /// Each operation gives the same results with every choice of
-    /// implementations this CPU can run: the features of each subset of
-    /// SHA-512's backends and the field's.
+    /// The implementations chosen with exactly the features of each one,
+    /// with only one of BMI2 and ADX, which `_adx` needs both of, and with
+    /// all of `_ifma`'s but AVX512VL.
     #[test]
-    fn every_backend() {
-        let groups: [&[&str]; 4] = [
-            VG_ED25519_PUBLIC_KEY_SHANI_FEATURES,
-            VG_ED25519_PUBLIC_KEY_AVX2_FEATURES,
-            VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
-            VG_ED25519_VERIFY_IFMA_FEATURES,
-        ];
-        let seed = [0x42; 32];
-        let message = b"every backend";
-        // SAFETY: no feature is needed; `public` is `seed`'s public key.
-        let (public, signature) = unsafe {
-            let public = public_key_with(Features(0), &seed);
+    fn select() {
+        let cases: [(&[&str], Sha512Backend, Field); 12] = [
+            (&[], Sha512Backend::Scalar, Field::Baseline),
+            (&["bmi2"], Sha512Backend::Scalar, Field::Baseline),
+            (&["adx"], Sha512Backend::Scalar, Field::Baseline),
+            (&["bmi2", "adx"], Sha512Backend::Scalar, Field::Adx),
             (
-                public,
-                sign_message_with(Features(0), &seed, &public, message),
-            )
-        };
-        for mask in 0..1u32 << groups.len() {
-            let f = groups
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| mask >> i & 1 == 1)
-                .fold(Features(0), |f, (_, g)| Features(f.0 | Features::of(g).0));
-            if !detected().contains(f) {
-                continue;
-            }
-            // SAFETY: the CPU has the features `f`; `public` is `seed`'s
-            // public key.
-            let got = unsafe {
-                (
-                    public_key_with(f, &seed),
-                    sign_message_with(f, &seed, &public, message),
-                    verify_message_with(f, &public, message, &signature),
-                )
-            };
-            assert_eq!(got, (public, signature, 1), "{mask:#b}");
+                VG_ED25519_PUBLIC_KEY_AVX2_FEATURES,
+                Sha512Backend::Avx2,
+                Field::Baseline,
+            ),
+            (
+                VG_ED25519_PUBLIC_KEY_AVX2_ADX_FEATURES,
+                Sha512Backend::Avx2,
+                Field::Adx,
+            ),
+            (
+                VG_ED25519_PUBLIC_KEY_SHANI_FEATURES,
+                Sha512Backend::ShaNi,
+                Field::Baseline,
+            ),
+            (
+                VG_ED25519_PUBLIC_KEY_SHANI_ADX_FEATURES,
+                Sha512Backend::ShaNi,
+                Field::Adx,
+            ),
+            (
+                VG_ED25519_VERIFY_IFMA_FEATURES,
+                Sha512Backend::Scalar,
+                Field::Ifma,
+            ),
+            (
+                &["avx", "avx2", "bmi2", "adx", "avx512ifma"],
+                Sha512Backend::Scalar,
+                Field::Adx,
+            ),
+            (
+                VG_ED25519_VERIFY_AVX2_IFMA_FEATURES,
+                Sha512Backend::Avx2,
+                Field::Ifma,
+            ),
+            (
+                VG_ED25519_VERIFY_SHANI_IFMA_FEATURES,
+                Sha512Backend::ShaNi,
+                Field::Ifma,
+            ),
+        ];
+        for (names, s, f) in cases {
+            let features = Features::of(names);
+            let chosen = (Sha512Backend::select(features), Field::select(features));
+            assert_eq!(chosen, (s, f), "{names:?}");
         }
     }
 }

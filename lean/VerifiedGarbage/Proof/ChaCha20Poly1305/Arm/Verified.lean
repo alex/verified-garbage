@@ -412,8 +412,8 @@ end
 /-!
 # ChaCha20-Poly1305 on ARMv7: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness (from
-`Correct.lean`), constant time, and a state satisfying the precondition.
+Untrusted: everything here is checked by Lean. Correctness (above),
+constant time, and a state satisfying the precondition.
 
 Constant time relates two runs from states that agree on the public data
 (`RelCT`), part by part. The taint analysis does not analyse frames, so it

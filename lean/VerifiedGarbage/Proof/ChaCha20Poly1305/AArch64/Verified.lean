@@ -181,8 +181,8 @@ end
 /-!
 # ChaCha20-Poly1305 on AArch64: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness (from
-`Correct.lean`), constant time, and a state satisfying the precondition.
+Untrusted: everything here is checked by Lean. Correctness (above),
+constant time, and a state satisfying the precondition.
 
 The taint analysis runs through the callees' code: it knows `x21`–`x25`
 (the context, the data, the additional data and their lengths) for public

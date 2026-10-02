@@ -16,8 +16,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Same
 # ML-DSA key generation on x86-64, with this library's primitives
 
 Untrusted: everything here is checked by Lean. The x86-64 implementations of
-the primitives (`prims`) are verified, use at most 16 bytes of stack, and
-never write `rsp` but by calls nested at most twice, with any implementation
+the primitives (`prims`) are verified, use at most 16 bytes of stack (24
+for `vg_mldsa_rej_ntt_poly4`), and never write `rsp` but by calls nested at
+most twice (three times for `vg_mldsa_rej_ntt_poly4`), with any implementation
 `v` of the polynomial arithmetic (`prims_okWith`), so key generation with
 them is verified (`keyGen_verifiedWith`).
 -/
@@ -50,6 +51,7 @@ theorem prims_okWith (v : ArithImpl) : PrimsOk (primsWith v.code) where
     by decide +kernel⟩ : Callee prims.simpleBitPack _)
   bitPack := (⟨⟨0, by decide, Pack.bitPack_verified⟩, nosp_of (by decide +kernel), by decide +kernel⟩ :
     Callee prims.bitPack _)
+  rej4 := ⟨v.ok.rej4.ver, v.ok.rej4.nosp, v.ok.rej4.depth⟩
 
 /-! For any implementation of the polynomial arithmetic, that key
 generation never writes `rsp` is checked by evaluating it with every
@@ -57,7 +59,7 @@ function of it empty (`keyGen_same`, as `sign_same`). -/
 
 theorem keyGen_same {m mc : Prog isa → Bool} (hm : Comp m mc) {B : Backend} (h1 : mc B.ntt = true)
     (h2 : mc B.invNtt = true) (h3 : mc B.mul = true) (h4 : mc B.mulAdd = true) (h5 : mc B.add = true)
-    (p : Spec.MlDsa.Params) : Same m (keyGen (primsWith B) p) (keyGen (primsWith .empty) p) := by
+    (h6 : mc B.rej4 = true) (p : Spec.MlDsa.Params) : Same m (keyGen (primsWith B) p) (keyGen (primsWith .empty) p) := by
   unfold keyGen
   same_tac hm
 
@@ -73,7 +75,8 @@ include hp
 theorem keyGen_spSafe : (keyGen (primsWith v.code) p).all (fun i => !isa.writesSp i) = true :=
   Code.all_of_allInstrs (Same.ok (keyGen_same (Comp.all _) (Code.allInstrs_of_all v.ok.ntt.sp)
     (Code.allInstrs_of_all v.ok.invNtt.sp) (Code.allInstrs_of_all v.ok.mul.sp)
-    (Code.allInstrs_of_all v.ok.mulAdd.sp) (Code.allInstrs_of_all v.ok.add.sp) p) (keyGen0_sp hp))
+    (Code.allInstrs_of_all v.ok.mulAdd.sp) (Code.allInstrs_of_all v.ok.add.sp)
+    (Code.allInstrs_of_all v.ok.rej4.sp) p) (keyGen0_sp hp))
 
 theorem keyGen_verifiedWith :
     Verified X86_64.target (keyGen (primsWith v.code) p) (Spec.MlDsa.keyGenContract p X86_64.abi 32) :=

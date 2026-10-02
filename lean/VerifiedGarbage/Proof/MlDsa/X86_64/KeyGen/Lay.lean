@@ -42,7 +42,7 @@ abbrev scrLen (p : Params) : Nat := scratchWords p * 8
 /-- `vg_mldsa*_keygen(seed = rdi, pk = rsi, sk = rdx, scratch = rcx) -> eax`, with 32 bytes of stack. -/
 def kgK (p : Params) : Contract isa where
   pre s :=
-    24 ≤ (s.gpr .rsp).toNat ∧
+    32 ≤ (s.gpr .rsp).toNat ∧
     s.rd = [⟨s.gpr .rdi, 32⟩] ∧ s.wr = [⟨s.gpr .rsi, p.pkLen⟩, ⟨s.gpr .rdx, p.skLen⟩, ⟨s.gpr .rcx, scrLen p⟩] ∧
     Region.Disjoint ⟨s.gpr .rdi, 32⟩ ⟨s.gpr .rsi, p.pkLen⟩ ∧ Region.Disjoint ⟨s.gpr .rdi, 32⟩ ⟨s.gpr .rdx, p.skLen⟩ ∧
     Region.Disjoint ⟨s.gpr .rdi, 32⟩ ⟨s.gpr .rcx, scrLen p⟩ ∧
@@ -188,6 +188,7 @@ macro_rules
       set_option linter.unusedSimpArgs false in
       try simp only [VG.Proof.MlDsa.X86_64.KeyGen.scrLen, VG.Spec.MlDsa.scratchWords,
         VG.Impl.MlDsa.X86_64.KeyGen.oP, VG.Impl.MlDsa.X86_64.KeyGen.oSA, VG.Impl.MlDsa.X86_64.KeyGen.oSB,
+        VG.Impl.MlDsa.X86_64.KeyGen.oSA4, VG.Impl.MlDsa.X86_64.KeyGen.oR4,
         VG.Impl.MlDsa.X86_64.KeyGen.oHX, VG.Impl.MlDsa.X86_64.KeyGen.oKL, VG.Impl.MlKem.X86_64.oSS,
         VG.Impl.MlKem.X86_64.oSV, VG.Impl.MlDsa.X86_64.KeyGen.oT0, $ls,*]
       and_intros <;> omega_arith))

@@ -202,8 +202,8 @@ theorem rej_pub {p : Params} {σ₁ σ₂ : State} (pub : (kgK p).pub σ₁ σ�
 
 theorem Two.post {p : Params} {x y x' y' : State} (T : Two p x y) {W₁ W₂ : List Region} (hx : PostB x x' W₁)
     (hy : PostB y y' W₂) : Two p x' y' :=
-  ⟨⟨T.sx.lay.post hx (kgB_bases p), by rw [hx.rsp]; exact T.sx.h24⟩,
-    ⟨T.sy.lay.post hy (kgB_bases p), by rw [hy.rsp]; exact T.sy.h24⟩,
+  ⟨⟨T.sx.lay.post hx (kgB_bases p), by rw [hx.rsp]; exact T.sx.h32⟩,
+    ⟨T.sy.lay.post hy (kgB_bases p), by rw [hy.rsp]; exact T.sy.h32⟩,
     fun r hr => by
       have hb : r ∈ bases := by simp only [kgRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
                                 rcases hr with rfl | rfl | rfl | rfl <;> decide
@@ -399,14 +399,6 @@ theorem KSamp.zero {p : Params} {σ s : State} (h : K1 p σ s) (h15 : s.gpr .r15
   ⟨h, fun _ => Vector.replicate 256 0, fun _ => Vector.replicate 256 0, fun _ h => absurd h (Nat.not_lt_zero _),
     fun _ h => absurd h (Nat.not_lt_zero _),
     .inl ⟨h15, ⟨0, 0, 0, 0⟩, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩⟩
-
-/-- The entries of `Â`. -/
-theorem sampA_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) :
-    Piece p (fun σ s => K1 p σ s ∧ s.gpr .r15 = 1) (fun σ s => KSamp p σ (p.k * p.ℓ) 0 s)
-      (seqR (expA P p) 0 (p.k * p.ℓ)) := by
-  refine Piece.mono (Piece.seqR (I := fun e σ s => KSamp p σ e 0 s) (p.k * p.ℓ) 0
-    fun e _ he => expA_piece hP hF (by omega)) (fun σ s _ h => KSamp.zero h.1 h.2) fun σ s _ h => ?_
-  simpa using h
 
 /-- The entries of `s₁ ‖ s₂`. -/
 theorem sampS_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) :

@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.Scrypt.X86.RoMix
 
 Untrusted: everything here is checked by Lean. The word copy (`copyLoop`),
 the word exclusive-or (`xorLoop`) and the computation of `2 N` by doubling
-(`nLoop`), as on 32-bit ARM (`Proof/Scrypt/Arm/RoMixLoops.lean`). Words are
+(`nLoop`), as on 32-bit ARM (`Proof/Scrypt/Arm/RoMixCT.lean`). Words are
 4 bytes, and pointers 32 bits, which address memory by their zero
 extensions.
 -/

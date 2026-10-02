@@ -8,8 +8,8 @@ import VerifiedGarbage.TCB.Arm.Target
 implementations of the compression function and of the streaming functions
 (`init`, `update`, `finalize`; see `VG.Spec.Sha256.Repr`), in terms of
 `Spec/Sha256.lean`. The streaming contracts are those of x86-64 and AArch64
-(`Spec/Sha256/X86_64.lean`, `Spec/Sha256/AArch64.lean`), with the arguments
-where AAPCS passes them.
+(`Proof/Sha256/X86_64/Contract.lean`, `Proof/Sha256/AArch64/Contract.lean`),
+with the arguments where AAPCS passes them.
 -/
 
 namespace VG.Proof.Sha256
