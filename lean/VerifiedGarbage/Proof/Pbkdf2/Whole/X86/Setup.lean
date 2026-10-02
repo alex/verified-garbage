@@ -13,8 +13,8 @@ namespace VG.Proof.Pbkdf2.Whole.X86
 
 open VG.X86
 open VG.Impl.Pbkdf2.Whole.X86 (Fns)
-open VG.Impl.Hmac.Generic.X86 (Hash at_ copy)
-open VG.Proof.Hmac.Generic.X86 (HashOK UpdArgs upd_frame CopyInv Copied copy_ok cclob)
+open VG.Impl.Pbkdf2.Stream.X86 (Hash at_ copy)
+open VG.Proof.Pbkdf2.Stream.X86 (HashOK UpdArgs upd_frame CopyInv Copied copy_ok cclob)
 open VG.Proof.Sha256.X86.Stream (Upd wp_mov wp_movi wp_movm)
 open VG.Proof.Hmac.Generic.Common (bytes_keep bytesAt_writeBytes_self')
 open VG.Proof.Hmac.Common (bytesAt_length writeBytes_at bytesAt_getD' xorPad_length)
@@ -106,11 +106,11 @@ theorem keyed_ok {s : State} (hk : KR F s₀ s) : WP isa F.key s (Keyed hF s₀)
 
 omit hp hz in
 theorem su1_ok {s : State} (h : Keyed hF s₀ s) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86.scr .edi F.st0O ++ VG.Impl.Hmac.Generic.X86.scr .esi F.st1O)) s
+    WP isa (.block (VG.Impl.Pbkdf2.Stream.X86.scr .edi F.st0O ++ VG.Impl.Pbkdf2.Stream.X86.scr .esi F.st1O)) s
       fun t => Keyed hF s₀ t ∧ t.gpr .edi = dO s₀ F.st0O ∧ t.gpr .esi = dO s₀ F.st1O := by
   refine scr_ok h.kr fun s₁ u₁ => ?_
   have k₁ := h.kr.upd (by decide) u₁
-  rw [← List.append_nil (VG.Impl.Hmac.Generic.X86.scr .esi F.st1O)]
+  rw [← List.append_nil (VG.Impl.Pbkdf2.Stream.X86.scr .esi F.st1O)]
   refine scr_ok k₁ fun s₂ u₂ => WP.block_nil ⟨⟨k₁.upd (by decide) u₂, ?_, ?_, ?_⟩, ?_, u₂.gpr⟩
   · rw [u₂.other _ (by decide), u₁.other _ (by decide), h.edx]
   · rw [u₂.other _ (by decide), u₁.other _ (by decide), h.ecx]
@@ -211,7 +211,7 @@ theorem su3_ok {s : State} (hk : KR F s₀ s) (r0 : hF.hH.SH.Repr s.mem (A s₀ 
 omit hz hF in
 /-- `update`'s arguments: the salt. -/
 theorem su4_ok {s : State} (hk : KR F s₀ s) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86.scr .edi F.stSO ++ ([.mov .eax (.imm 0),
+    WP isa (.block (VG.Impl.Pbkdf2.Stream.X86.scr .edi F.stSO ++ ([.mov .eax (.imm 0),
       .mov .esi (.imm (BitVec.ofNat 32 F.H.B)), .mov .ecx (Fns.argM 3), .mov .edx (Fns.argM 2)] : List Instr))) s
       fun t => KR F s₀ t ∧ t.gpr .edi = dO s₀ F.stSO ∧ t.gpr .esi = BitVec.ofNat 32 F.H.B ∧ t.gpr .eax = 0 ∧
         t.gpr .ecx = arg s₀ 3 ∧ t.gpr .edx = salt s₀ ∧ t.mem = s.mem := by
@@ -305,7 +305,7 @@ theorem su5_ok {s : State} (hk : KR F s₀ s) (hdi : s.gpr .edi = dO s₀ F.stSO
     · exact low_disj hz (by omega) (by omega) |>.symm
     · exact (b48 hp hk (part_sub (by omega))).symm
   · have := r (xorPad (K0 hF s₀) ipad) (by rw [ea]; exact rS) (by
-      rw [xorPad_length, hkl, Hmac.Generic.X86.zero_append_ofNat (by have := hz.B; omega)])
+      rw [xorPad_length, hkl, Pbkdf2.Stream.X86.zero_append_ofNat (by have := hz.B; omega)])
     rw [ea, hk.saltBytes hp] at this
     exact this
 

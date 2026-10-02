@@ -16,7 +16,7 @@ open VG.AArch64
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
 open VG.Proof.Pbkdf2.Md.AArch64 (HashOK)
 open VG.Proof.Pbkdf2.AArch64 (iterK)
-open VG.Proof.Hmac.Generic.AArch64 (initG finG After frame_depth fdepth_lt ce0 ce1 ce2 ce3 ce4)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (initG finG After frame_depth fdepth_lt ce0 ce1 ce2 ce3 ce4)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad blockKey hmacBlockKey)
 

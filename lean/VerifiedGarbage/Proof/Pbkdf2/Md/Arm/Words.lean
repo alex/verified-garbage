@@ -18,7 +18,7 @@ namespace VG.Proof.Pbkdf2.Md.Arm
 
 open VG VG.Arm
 open VG.Impl.Pbkdf2.Md.Arm (cp copyW padFrom constW xorW)
-open VG.Impl.Hmac.Generic.Arm (scrAt)
+open VG.Impl.Pbkdf2.Stream.Arm (scrAt)
 open VG.Proof.MdStream (Md bytes32)
 open VG.Proof.MdStream.Arm (Upd Mupd wp_mov wp_add wp_ldr wp_str op2_imm op2_reg writeW_le)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_append)

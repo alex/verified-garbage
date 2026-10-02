@@ -26,7 +26,6 @@ namespace VG.Proof.Pbkdf2.Md.X86_64.Sha224
 open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Sha256.X86_64 (Compress)
-open VG.Proof.Hmac.Generic.X86_64.Instances (initSat finSat)
 
 /-- SHA-224's functions, calling the implementation `v` of the compression
 function, named with its suffix. -/
@@ -56,15 +55,14 @@ theorem coreOK : CoreOK coreH where
   iter := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   hinit := {
-    keys := ⟨_, by taint_decide⟩
+    pro := ⟨_, by taint_decide⟩
     argI := by
       simp only [List.mem_cons, List.not_mem_nil, or_false]
       rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-    argU₁ := ⟨_, by taint_decide⟩
-    argU₂ := ⟨_, by taint_decide⟩
+    keys := ⟨_, by taint_decide⟩
+    mid := ⟨_, by taint_decide⟩
     restore := ⟨_, by taint_decide⟩ }
-  hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
-    ⟨_, by taint_decide⟩⟩
+  hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   pbkMx := by decide +kernel
   pbkSp := by decide +kernel
   hinitMx := by decide +kernel

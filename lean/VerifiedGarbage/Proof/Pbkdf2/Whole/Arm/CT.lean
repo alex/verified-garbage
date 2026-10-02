@@ -19,8 +19,8 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 
 open VG.Arm
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
-open VG.Impl.Hmac.Generic.Arm (Hash scrAt copy)
-open VG.Proof.Hmac.Generic.Arm (HashOK count FinArgs init_rel fin_rel)
+open VG.Impl.Pbkdf2.Stream.Arm (Hash scrAt copy)
+open VG.Proof.Pbkdf2.Stream.Arm (HashOK count FinArgs init_rel fin_rel)
 open VG.Proof.MdStream.Arm (eval_eq)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad)

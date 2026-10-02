@@ -15,7 +15,7 @@ open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Pbkdf2.Md.X86_64 (HashOK)
 open VG.Proof.Pbkdf2.X86_64 (iterK)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG ne_rsp callEntry_bytes)
+open VG.Proof.Pbkdf2.Md.X86_64.Calls (initG finG ne_rsp callEntry_bytes)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad blockKey hmacBlockKey)
 
