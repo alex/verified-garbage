@@ -304,10 +304,10 @@ def OutOk {B N L : Nat} (H : Md B N L) (out : List Instr) : Prop :=
       s'.wr = s.wr ∧ s'.sp = s.sp ∧
       s'.mem = writeBytes s.mem (State.addr (s.gpr .r6)) (H.digest (H.stateAt s.mem (State.addr (s.gpr .r0))))
 
-/-- The streaming proofs' digest code, for a hash function with 64-byte blocks. -/
-theorem OutOk.ofShape {P : Impl.MdStream.Arm.Params} {H : Md 64 P.N 8} (h : MdStream.Arm.Shape H) :
+/-- The streaming proofs' digest code. -/
+theorem OutOk.ofShape {P : Impl.MdStream.Arm.Params} {H : Md P.B P.N P.L} (h : MdStream.Arm.Shape H) :
     OutOk H P.out := fun s f₀ f₆ hin hout hd =>
-  (h.out s f₀ f₆ hin hout hd).mono fun _ ⟨g, rd, wr, sp, m⟩ => ⟨fun r h9 _ => g r h9, rd, wr, sp, m⟩
+  h.out s f₀ f₆ hin hout hd
 
 /-! ## Blocks -/
 

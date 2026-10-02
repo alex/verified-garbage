@@ -102,7 +102,7 @@ theorem save_ok {b : Reg} {rest : List Instr} {s : State} {Q : State → Prop}
 
 theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
     ∀ p ∈ saved, (Proof.MdStream.Arm.saveMem m B g saved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 :=
-  Proof.MdStream.Arm.saveMem_saved (P := params) ⟨by decide, by decide, by decide⟩ m B g
+  Proof.MdStream.Arm.saveMem_saved (P := params) ⟨.inl rfl, by decide, by decide, by decide, by decide, by decide⟩ m B g
 
 theorem saveMem_frame (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
     ∀ (l : List (Reg × Nat)), (∀ p ∈ l, p.2 + 4 ≤ 160) → Frame [⟨B, 160⟩] m (Proof.MdStream.Arm.saveMem m B g l) := by

@@ -237,11 +237,14 @@ theorem shr6 {a : Nat} (h : a < 2 ^ 32) : BitVec.ofNat 32 a >>> 6 = BitVec.ofNat
 theorem cmp0 {a : Nat} (h : a < 2 ^ 32) : (BitVec.ofNat 32 a - 0 == 0) = decide (a = 0) := by
   rw [show BitVec.ofNat 32 a - 0 = BitVec.ofNat 32 a by simp]; exact ofNat_beq_zero h
 
-theorem and63 (x : BitVec 32) : x &&& 63 = BitVec.ofNat 32 (x.toNat % 64) := by
+theorem and_pow_sub_one (x : BitVec 32) {n : Nat} (hn : n ≤ 32) :
+    x &&& BitVec.ofNat 32 (2 ^ n - 1) = BitVec.ofNat 32 (x.toNat % 2 ^ n) := by
   apply BitVec.eq_of_toNat_eq
+  have : 2 ^ n ≤ 2 ^ 32 := Nat.pow_le_pow_right (by decide) hn
+  have : 0 < 2 ^ n := Nat.two_pow_pos n
   simp only [BitVec.toNat_and, BitVec.toNat_ofNat]
-  rw [show (63 : BitVec 32).toNat = 2 ^ 6 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod]
-  omega
+  rw [Nat.mod_eq_of_lt (show 2 ^ n - 1 < 2 ^ 32 by omega), Nat.and_two_pow_sub_one_eq_mod,
+    Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le (Nat.mod_lt _ (by omega)) (by omega))]
 
 /-! ## Saving and restoring registers -/
 
@@ -333,9 +336,72 @@ theorem restoreList_ok {rest : List Instr} (l : List (Reg × Nat)) :
 /-- The sizes the generic proofs support, checked for each hash function by
 `decide`. -/
 structure Dims (P : Params) : Prop where
+  B : P.B = 64 ∨ P.B = 128
+  L : 0 < P.L ∧ P.L ≤ 16
   N : 0 < P.N ∧ P.N ≤ 64
   so : P.so % 4 = 0 ∧ P.so ≤ 256
   enc : encodable (BitVec.ofNat 32 P.N) = true
+  /-- The immediates the code compares and masks with. -/
+  encB : encodable (BitVec.ofNat 32 P.B) = true ∧ encodable (BitVec.ofNat 32 (P.B - 1)) = true ∧
+    encodable (BitVec.ofNat 32 (P.B - P.L)) = true ∧ encodable (BitVec.ofNat 32 (P.L - 1)) = true
+
+section
+variable {P : Params}
+
+theorem Dims.pos (hd : Dims P) : 0 < P.B := by rcases hd.B with h | h <;> omega
+
+theorem Dims.le (hd : Dims P) : 64 ≤ P.B ∧ P.B ≤ 128 := by rcases hd.B with h | h <;> omega
+
+/-- The shift count of `direct`, `fill` and `finalize`. -/
+theorem Dims.lg (hd : Dims P) : 1 ≤ Nat.log2 P.B ∧ Nat.log2 P.B ≤ 31 ∧ 2 ^ Nat.log2 P.B = P.B := by
+  rcases hd.B with h | h <;> rw [h]
+  · rw [show (64 : Nat) = 2 ^ 6 from rfl, Nat.log2_two_pow]; decide
+  · rw [show (128 : Nat) = 2 ^ 7 from rfl, Nat.log2_two_pow]; decide
+
+/-- A block size divides `2³²`. -/
+theorem Dims.mod (hd : Dims P) (h l : Nat) : (h * 2 ^ 32 + l) % P.B = l % P.B := by
+  rcases hd.B with e | e <;> rw [e] <;> omega
+
+/-- A block size divides `2⁶⁴`. -/
+theorem Dims.mod64 (hd : Dims P) (n : Nat) : n % 2 ^ 64 % P.B = n % P.B := by
+  rcases hd.B with e | e <;> rw [e] <;> omega
+
+theorem Dims.div_eq_zero (hd : Dims P) {a : Nat} : a / P.B = 0 ↔ a < P.B := by
+  rcases hd.B with e | e <;> rw [e] <;> omega
+
+theorem shrB (hd : Dims P) {a : Nat} (h : a < 2 ^ 32) :
+    BitVec.ofNat 32 a >>> Nat.log2 P.B = BitVec.ofNat 32 (a / P.B) := by
+  rw [ofNat_shr h, hd.lg.2.2]
+
+/-- Whether `a >>> log₂ B` is zero. -/
+theorem cmp0_shrB (hd : Dims P) {a : Nat} (h : a < 2 ^ 32) :
+    (BitVec.ofNat 32 a >>> Nat.log2 P.B - 0 == 0) = decide (a < P.B) := by
+  rw [shrB hd h, cmp0 (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) h)]
+  exact decide_eq_decide.mpr hd.div_eq_zero
+
+theorem andB (hd : Dims P) (x : BitVec 32) :
+    x &&& BitVec.ofNat 32 (P.B - 1) = BitVec.ofNat 32 (x.toNat % P.B) := by
+  have := hd.lg
+  have e := and_pow_sub_one x (n := Nat.log2 P.B) (by omega)
+  rwa [this.2.2] at e
+
+theorem op2_shrB (hd : Dims P) {s : State} {r : Reg} :
+    (Op2.shifted r .lsr (Nat.log2 P.B)).eval s = some (s.gpr r >>> Nat.log2 P.B) :=
+  op2_lsr ⟨hd.lg.1, hd.lg.2.1⟩
+
+theorem ofNat_shlB (hd : Dims P) {a : Nat} (h : P.B * a < 2 ^ 32) :
+    BitVec.ofNat 32 a <<< Nat.log2 P.B = BitVec.ofNat 32 (P.B * a) := by
+  have := hd.pos
+  have : a ≤ P.B * a := Nat.le_mul_of_pos_left a this
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.shiftLeft_eq, hd.lg.2.2,
+    Nat.mod_eq_of_lt (show a < 2 ^ 32 by omega), Nat.mul_comm, Nat.mod_eq_of_lt h]
+
+theorem op2_shlB (hd : Dims P) {s : State} {r : Reg} :
+    (Op2.shifted r .lsl (Nat.log2 P.B)).eval s = some (s.gpr r <<< Nat.log2 P.B) :=
+  op2_lsl ⟨hd.lg.1, hd.lg.2.1⟩
+
+end
 
 /-! ## Saving the caller's registers -/
 
@@ -423,18 +489,18 @@ low word in `r2`). -/
 def count (s : State) : BitVec 64 := s.gpr .r3 ++ s.gpr .r2
 
 section
-variable {P : Params} (H : Md 64 P.N 8)
+variable {P : Params} (H : Md P.B P.N P.L)
 
 /-- The contract of the compression function: updates the hash value at
 `r0` with the `r2` blocks at `r1`, with scratch space `r3` (`so` bytes). -/
 def compressK : Contract isa where
   pre s :=
     let state : Region := ⟨State.addr (s.gpr .r0), P.N⟩
-    let blocks : Region := ⟨State.addr (s.gpr .r1), 64 * (s.gpr .r2).toNat⟩
+    let blocks : Region := ⟨State.addr (s.gpr .r1), P.B * (s.gpr .r2).toNat⟩
     let scratch : Region := ⟨State.addr (s.gpr .r3), P.so⟩
     s.rd = [blocks] ∧ s.wr = [state, scratch] ∧
     state.Disjoint scratch ∧ blocks.Disjoint state ∧ blocks.Disjoint scratch ∧
-    (s.gpr .r0).toNat + P.N ≤ 2 ^ 32 ∧ (s.gpr .r1).toNat + 64 * (s.gpr .r2).toNat ≤ 2 ^ 32 ∧
+    (s.gpr .r0).toNat + P.N ≤ 2 ^ 32 ∧ (s.gpr .r1).toNat + P.B * (s.gpr .r2).toNat ≤ 2 ^ 32 ∧
     (s.gpr .r3).toNat + P.so ≤ 2 ^ 32
   post s s' :=
     H.stateAt s'.mem (State.addr (s.gpr .r0)) =
@@ -449,14 +515,14 @@ def compressK : Contract isa where
 that message followed by the `len` bytes at `data`. -/
 def updK : Contract isa where
   pre s :=
-    let state : Region := ⟨State.addr (s.gpr .r0), P.N + 64⟩
+    let state : Region := ⟨State.addr (s.gpr .r0), P.N + P.B⟩
     let data : Region := ⟨State.addr (stackArg s 0), (stackArg s 1).toNat⟩
     let scratch : Region := ⟨State.addr (stackArg s 2), P.so + 48⟩
     let args : Region := ⟨stackArgAddr s 0, 12⟩
     s.rd = [data, args] ∧ s.wr = [state, scratch] ∧
     state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
     args.Disjoint state ∧ args.Disjoint scratch ∧
-    (s.gpr .r0).toNat + (P.N + 64) ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + (stackArg s 1).toNat ≤ 2 ^ 32 ∧
+    (s.gpr .r0).toNat + (P.N + P.B) ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + (stackArg s 1).toNat ≤ 2 ^ 32 ∧
     (stackArg s 2).toNat + (P.so + 48) ≤ 2 ^ 32 ∧ s.sp.toNat + 12 ≤ 2 ^ 32
   post s s' := ∀ iv m, H.Repr iv s.mem (State.addr (s.gpr .r0)) m → count s = BitVec.ofNat 64 m.length →
     H.Repr iv s'.mem (State.addr (s.gpr .r0))
@@ -469,14 +535,14 @@ def updK : Contract isa where
 `count` bytes, writes its final hash value to `out` (`N` bytes). -/
 def finK : Contract isa where
   pre s :=
-    let state : Region := ⟨State.addr (s.gpr .r0), P.N + 64⟩
+    let state : Region := ⟨State.addr (s.gpr .r0), P.N + P.B⟩
     let out : Region := ⟨State.addr (stackArg s 0), P.N⟩
     let scratch : Region := ⟨State.addr (stackArg s 1), P.so + 48⟩
     let args : Region := ⟨stackArgAddr s 0, 8⟩
     s.rd = [args] ∧ s.wr = [state, out, scratch] ∧
     state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
     args.Disjoint state ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
-    (s.gpr .r0).toNat + (P.N + 64) ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + P.N ≤ 2 ^ 32 ∧
+    (s.gpr .r0).toNat + (P.N + P.B) ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + P.N ≤ 2 ^ 32 ∧
     (stackArg s 1).toNat + (P.so + 48) ≤ 2 ^ 32 ∧ s.sp.toNat + 8 ≤ 2 ^ 32
   post s s' := ∀ iv m, H.Repr iv s.mem (State.addr (s.gpr .r0)) m → H.lenOk m.length →
     count s = BitVec.ofNat 64 m.length → bytesAt s'.mem (State.addr (stackArg s 0)) P.N = H.hash iv m
@@ -489,25 +555,26 @@ end
 /-! ## What each hash function's own code must do -/
 
 /-- The length field and the digest: `P.len` stores the length field for the
-byte count in `r4:r5` at `r0 + N + 56`, and `P.out` writes the digest of the
-hash value at `r0` to `r6`; both write only `r9`. -/
-structure Shape {P : Params} (H : Md 64 P.N 8) : Prop where
-  len : ∀ s : State, (s.gpr .r0).toNat + (P.N + 64) ≤ 2 ^ 32 →
-    InRegions s.wr (State.addr (s.gpr .r0) + BitVec.ofNat 64 (P.N + 56)) 8 →
+byte count in `r4:r5` at `r0 + N + B - L`, writing only `r9`, and `P.out`
+writes the digest of the hash value at `r0` to `r6`, writing only `r9` and
+`r10`. -/
+structure Shape {P : Params} (H : Md P.B P.N P.L) : Prop where
+  len : ∀ s : State, (s.gpr .r0).toNat + (P.N + P.B) ≤ 2 ^ 32 →
+    InRegions s.wr (State.addr (s.gpr .r0) + BitVec.ofNat 64 (P.N + (P.B - P.L))) P.L →
     WP isa (.block P.len) s fun s' => (∀ r, r ≠ .r9 → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧
       s'.wr = s.wr ∧ s'.sp = s.sp ∧
-      s'.mem = writeBytes s.mem (State.addr (s.gpr .r0) + BitVec.ofNat 64 (P.N + 56))
+      s'.mem = writeBytes s.mem (State.addr (s.gpr .r0) + BitVec.ofNat 64 (P.N + (P.B - P.L)))
         (H.lenOf (s.gpr .r5 ++ s.gpr .r4))
   out : ∀ s : State, (s.gpr .r0).toNat + P.N ≤ 2 ^ 32 → (s.gpr .r6).toNat + P.N ≤ 2 ^ 32 →
     InRegions (s.rd ++ s.wr) (State.addr (s.gpr .r0)) P.N → InRegions s.wr (State.addr (s.gpr .r6)) P.N →
     Region.Disjoint ⟨State.addr (s.gpr .r0), P.N⟩ ⟨State.addr (s.gpr .r6), P.N⟩ →
-    WP isa (.block P.out) s fun s' => (∀ r, r ≠ .r9 → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧
+    WP isa (.block P.out) s fun s' => (∀ r, r ≠ .r9 → r ≠ .r10 → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧
       s'.wr = s.wr ∧ s'.sp = s.sp ∧
       s'.mem = writeBytes s.mem (State.addr (s.gpr .r6)) (H.digest (H.stateAt s.mem (State.addr (s.gpr .r0))))
 
 /-- What `compressAt` needs of the compression function it calls: that it is
 correct, makes no calls, and never writes `r0` or `r3`. -/
-structure CalleeOk {P : Params} (H : Md 64 P.N 8) (code : Prog isa) : Prop where
+structure CalleeOk {P : Params} (H : Md P.B P.N P.L) (code : Prog isa) : Prop where
   verified : ∀ s, (compressK H).pre s →
     ∃ t s', Exec isa code s t s' ∧ abiPreserved s s' ∧ (compressK H).post s s'
   noCalls : code.noCalls = true
@@ -526,15 +593,15 @@ theorem setsN_r7 (s : State) : SetsN (.mov .r2 (.reg .r7)) s (s.gpr .r7) := fun 
 
 /-- Compressing the `k` blocks at `r1` (their number set in `r2` by `n`) into
 the hash value at `r0`, with scratch space at `r3`. -/
-theorem compressWith_ok {P : Params} {H : Md 64 P.N 8} {n : Instr} {s : State} {v : BitVec 32}
+theorem compressWith_ok {P : Params} {H : Md P.B P.N P.L} {n : Instr} {s : State} {v : BitVec 32}
     (hn : SetsN n s v) {k : Nat} (hkv : v.toNat = k) {name : String} {code : Prog isa} (hf : CalleeOk H code)
     {st scr src : BitVec 32}
     (h0 : s.gpr .r0 = st) (h3 : s.gpr .r3 = scr) (h1 : s.gpr .r1 = src)
-    (f₀ : st.toNat + P.N ≤ 2 ^ 32) (f₁ : src.toNat + 64 * k ≤ 2 ^ 32) (f₃ : scr.toNat + P.so ≤ 2 ^ 32)
+    (f₀ : st.toNat + P.N ≤ 2 ^ 32) (f₁ : src.toNat + P.B * k ≤ 2 ^ 32) (f₃ : scr.toNat + P.so ≤ 2 ^ 32)
     (d₁ : Region.Disjoint ⟨State.addr st, P.N⟩ ⟨State.addr scr, P.so⟩)
-    (d₂ : Region.Disjoint ⟨State.addr src, 64 * k⟩ ⟨State.addr st, P.N⟩)
-    (d₃ : Region.Disjoint ⟨State.addr src, 64 * k⟩ ⟨State.addr scr, P.so⟩)
-    (hc : Covers [⟨State.addr src, 64 * k⟩, ⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] (s.rd ++ s.wr))
+    (d₂ : Region.Disjoint ⟨State.addr src, P.B * k⟩ ⟨State.addr st, P.N⟩)
+    (d₃ : Region.Disjoint ⟨State.addr src, P.B * k⟩ ⟨State.addr scr, P.so⟩)
+    (hc : Covers [⟨State.addr src, P.B * k⟩, ⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] (s.rd ++ s.wr))
     (hw : Covers [⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, r ≠ .lr → s'.gpr r = s.gpr r) →
       s'.gpr .r0 = st → s'.gpr .r3 = scr → s'.sp = s.sp →
@@ -555,7 +622,7 @@ theorem compressWith_ok {P : Params} {H : Md 64 P.N 8} {n : Instr} {s : State} {
   have e3 : s₁.gpr .r3 = scr := by rw [u₁.other _ (by decide), h3]
   have c : ∀ r, r ∉ linkRegs → s₁.callEntry.gpr r = s₁.gpr r := fun r h => State.callEntry_gpr s₁ h
   refine WP.call (k := compressK H) hf.verified
-    (rd := [⟨State.addr src, 64 * k⟩]) (wr := [⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩]) ?_ ?_ ?_ ?_
+    (rd := [⟨State.addr src, P.B * k⟩]) (wr := [⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩]) ?_ ?_ ?_ ?_
     hf.noCalls
   · simp only [compressK, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, c _ (show Reg.r0 ∉ linkRegs by decide), c _ (show Reg.r1 ∉ linkRegs by decide),
@@ -577,22 +644,24 @@ theorem compressWith_ok {P : Params} {H : Md 64 P.N 8} {n : Instr} {s : State} {
 
 /-- Compressing the block at `r1` into the hash value at `r0`, with scratch
 space at `r3`. -/
-theorem compressAt_ok {P : Params} {H : Md 64 P.N 8} {name : String} {code : Prog isa} (hf : CalleeOk H code)
+theorem compressAt_ok {P : Params} {H : Md P.B P.N P.L} {name : String} {code : Prog isa} (hf : CalleeOk H code)
     {s : State} {st scr src : BitVec 32}
     (h0 : s.gpr .r0 = st) (h3 : s.gpr .r3 = scr) (h1 : s.gpr .r1 = src)
-    (f₀ : st.toNat + P.N ≤ 2 ^ 32) (f₁ : src.toNat + 64 ≤ 2 ^ 32) (f₃ : scr.toNat + P.so ≤ 2 ^ 32)
+    (f₀ : st.toNat + P.N ≤ 2 ^ 32) (f₁ : src.toNat + P.B ≤ 2 ^ 32) (f₃ : scr.toNat + P.so ≤ 2 ^ 32)
     (d₁ : Region.Disjoint ⟨State.addr st, P.N⟩ ⟨State.addr scr, P.so⟩)
-    (d₂ : Region.Disjoint ⟨State.addr src, 64⟩ ⟨State.addr st, P.N⟩)
-    (d₃ : Region.Disjoint ⟨State.addr src, 64⟩ ⟨State.addr scr, P.so⟩)
-    (hc : Covers [⟨State.addr src, 64⟩, ⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] (s.rd ++ s.wr))
+    (d₂ : Region.Disjoint ⟨State.addr src, P.B⟩ ⟨State.addr st, P.N⟩)
+    (d₃ : Region.Disjoint ⟨State.addr src, P.B⟩ ⟨State.addr scr, P.so⟩)
+    (hc : Covers [⟨State.addr src, P.B⟩, ⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] (s.rd ++ s.wr))
     (hw : Covers [⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, r ≠ .lr → s'.gpr r = s.gpr r) →
       s'.gpr .r0 = st → s'.gpr .r3 = scr → s'.sp = s.sp →
       Frame [⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] s.mem s'.mem →
       H.stateAt s'.mem (State.addr st) =
         H.compress (H.stateAt s.mem (State.addr st)) (H.blockAt s.mem (State.addr src)) → Q s') :
-    WP isa (compressAt name code) s Q :=
-  compressWith_ok (setsN_one s) (k := 1) rfl hf h0 h3 h1 f₀ f₁ f₃ d₁ d₂ d₃ hc hw
+    WP isa (compressAt name code) s Q := by
+  have e : P.B * 1 = P.B := Nat.mul_one _
+  refine compressWith_ok (setsN_one s) (k := 1) rfl hf h0 h3 h1 f₀ (by rw [e]; exact f₁) f₃ d₁
+    (by rw [e]; exact d₂) (by rw [e]; exact d₃) (by rw [e]; exact hc) hw
     fun s' hrd hwr hcs h0' h3' hsp hf' hs => hQ s' hrd hwr hcs h0' h3' hsp hf' (by rw [hs, Md.compressBlocks_one])
 
 end VG.Proof.MdStream.Arm
