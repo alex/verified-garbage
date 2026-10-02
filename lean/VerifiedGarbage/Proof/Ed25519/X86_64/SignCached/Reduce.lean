@@ -44,7 +44,8 @@ theorem reduce_pre (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) (ha : Reduce
   exact ⟨trivial, trivial,
     by simpa using hL.stk_scr (d := 144) (n := 64) (e := 0) (k := 8192) (by omega) (by omega),
     Offset.disjoint _ (by omega) (by omega) (by omega),
-    by simpa using hL.stk_scr (d := 8) (n := 8) (e := 0) (k := 8192) (by omega) (by omega)⟩
+    by simpa using hL.stk_scr (d := 8) (n := 8) (e := 0) (k := 8192) (by omega) (by omega),
+    by simpa using hL.stk_scr (d := 16 + out) (n := 32) (e := 0) (k := 8192) (by omega) (by omega)⟩
 
 theorem reduce_call (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) (ha : ReduceArgs L out t) (ho : out + 32 ≤ 128)
     {digest : List Byte} (hh : Spec.Sha512.bytesAt t.mem (L.B + BitVec.ofNat 64 144) 64 = digest) :

@@ -32,7 +32,7 @@ def artifacts : List Artifact := [
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.ChaCha20.xorApi with
     target := X86_64.target
-    doc := Spec.ChaCha20.xorApi.doc
+    doc := Spec.ChaCha20.xorApi.doc (notes := ["Calls `vg_chacha20_block` for each 64 bytes."])
     code := Impl.ChaCha20.X86_64.Xor.xor
     contract := Spec.ChaCha20.xorContract X86_64.abi 8
     stack := 8
@@ -41,15 +41,9 @@ def artifacts : List Artifact := [
   { Spec.ChaCha20.xorApi with
     name := "vg_chacha20_xor_avx2"
     target := X86_64.target
-    doc := "XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` \
-      (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced \
-      by 0, 1, … modulo 2³²) into the `len` bytes at `data`, with AVX2: eight blocks at a time \
-      while at least 512 bytes remain, then `vg_chacha20_xor` for the rest.\n\n\
-      Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may \
-      affect timing, not the state or the data.\n\n\
-      # Safety\n\n\
-      * The contents of `state` on return are unspecified.\n\
-      * The contents of `buf` on return are unspecified."
+    doc := Spec.ChaCha20.xorApi.doc
+      (notes := ["Uses AVX2: eight blocks at a time while at least 512 bytes remain, then \
+        `vg_chacha20_xor` for the rest."])
     code := Impl.ChaCha20.X86_64.Avx2.xor
     contract := Spec.ChaCha20.xorContract X86_64.abi 16
     writeArgs := true
@@ -60,15 +54,9 @@ def artifacts : List Artifact := [
   { Spec.ChaCha20.xorApi with
     name := "vg_chacha20_xor_avx512"
     target := X86_64.target
-    doc := "XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` \
-      (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced \
-      by 0, 1, … modulo 2³²) into the `len` bytes at `data`, with AVX-512: sixteen blocks at a \
-      time while at least 1024 bytes remain, then `vg_chacha20_xor` for the rest.\n\n\
-      Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may \
-      affect timing, not the state or the data.\n\n\
-      # Safety\n\n\
-      * The contents of `state` on return are unspecified.\n\
-      * The contents of `buf` on return are unspecified."
+    doc := Spec.ChaCha20.xorApi.doc
+      (notes := ["Uses AVX-512: sixteen blocks at a time while at least 1024 bytes remain, then \
+        `vg_chacha20_xor` for the rest."])
     code := Impl.ChaCha20.X86_64.Avx512.xor
     contract := Spec.ChaCha20.xorContract X86_64.abi 16
     writeArgs := true

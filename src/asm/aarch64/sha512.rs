@@ -3728,6 +3728,8 @@ pub(crate) const VG_SHA512_COMPRESS_SHA3_FEATURES: &[&str] = &["sha3"];
 ///
 /// Contract: `VG.Spec.Sha512.compressContract`. Constant time: only the pointers and `n` may affect timing, not the hash value or the blocks.
 ///
+/// Uses the AArch64 SHA-512 instructions (FEAT_SHA512).
+///
 /// # Safety
 ///
 /// * `state` must be valid for reads and writes of 64 bytes.

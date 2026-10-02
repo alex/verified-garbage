@@ -36,7 +36,6 @@ def artifacts (v : Proof.Pbkdf2.Md.AArch64.MdHash) : List Artifact := [
     code := v.H.iterate
     contract := v.I.iterateContract AArch64.abi
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
-    writeArgs := true
     verified := v.iterate
     spSafe := Code.all_of_forall (fun _ => rfl) _
     features := v.features },
@@ -47,7 +46,6 @@ def artifacts (v : Proof.Pbkdf2.Md.AArch64.MdHash) : List Artifact := [
     code := v.H.pbkdf2
     contract := v.I.pbkdf2Contract AArch64.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.pbkdf2Contract; rfl⟩
-    writeArgs := true
     stack := 16
     verified := v.pbkdf2
     spSafe := Code.all_of_forall (fun _ => rfl) _

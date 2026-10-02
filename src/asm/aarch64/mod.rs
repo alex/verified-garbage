@@ -20,6 +20,9 @@ pub(crate) mod chacha20poly1305;
 pub(crate) mod cmac_aes;
 
 #[rustfmt::skip]
+pub(crate) mod cmac_triple_des;
+
+#[rustfmt::skip]
 pub(crate) mod ct;
 
 #[rustfmt::skip]
@@ -33,6 +36,9 @@ pub(crate) mod hmac_md5;
 
 #[rustfmt::skip]
 pub(crate) mod hmac_sha1;
+
+#[rustfmt::skip]
+pub(crate) mod hmac_sha224;
 
 #[rustfmt::skip]
 pub(crate) mod hmac_sha256;
@@ -78,6 +84,9 @@ pub(crate) mod pbkdf2_md5;
 
 #[rustfmt::skip]
 pub(crate) mod pbkdf2_sha1;
+
+#[rustfmt::skip]
+pub(crate) mod pbkdf2_sha224;
 
 #[rustfmt::skip]
 pub(crate) mod pbkdf2_sha256;
