@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.Sha3.Lanes
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
@@ -418,60 +419,29 @@ end Pre
 
 /-! ## The scratch space -/
 
+theorem saved_bound : ∀ p ∈ saved, 392 ≤ p.2 ∧ p.2 + 8 ≤ 440 := by decide
+
 /-- The saved registers, and the round constants. -/
 def Aux (s₀ : State) (m : Mem) : Prop :=
-  (∀ k < 6, m.readW (off s₀ (392 + 8 * k)) 64 = s₀.gpr ((saved.getD k (.rax, 0)).1)) ∧
-  ∀ j < 24, m.readW (off s₀ (200 + 8 * j)) 64 = RC j
+  Spill.Saved m (scr s₀) s₀.gpr saved ∧ ∀ j < 24, m.readW (off s₀ (200 + 8 * j)) 64 = RC j
 
 /-- Writes outside the constants and the saved registers keep them. -/
 theorem Aux.frame {s₀ : State} {m m' : Mem} (h : Aux s₀ m) {R : Region}
     (hR : ∀ d, 200 ≤ d → d + 8 ≤ 440 → Region.Disjoint ⟨off s₀ d, 8⟩ R) (hf : Frame [R] m m') :
     Aux s₀ m' := by
-  refine ⟨fun k hk => ?_, fun j hj => ?_⟩
-  · rw [hf.readW (Region.contains_self _ _) (by simpa using hR _ (by omega) (by omega)) (by decide)]
-    exact h.1 k hk
+  refine ⟨Spill.Saved.frame h.1 hf fun p hp r hr => ?_, fun j hj => ?_⟩
+  · rw [List.mem_singleton.mp hr]
+    have := saved_bound p hp
+    exact hR _ (by omega) (by omega)
   · rw [hf.readW (Region.contains_self _ _) (by simpa using hR _ (by omega) (by omega)) (by decide)]
     exact h.2 j hj
 
 /-! ## The prologue -/
 
-theorem save_eq : saved.map (fun (r, d) => Instr.store (at_ .rsi d) r) =
-    (List.range 6).flatMap fun k =>
-      [.store (at_ .rsi (392 + 8 * k)) ((saved.getD k (.rax, 0)).1)] := by decide
-
-theorem setup_eq : setup = (List.range 6).flatMap (fun k =>
-      ([.store (at_ .rsi (392 + 8 * k)) ((saved.getD k (.rax, 0)).1)] : List Instr)) ++
+theorem setup_eq : setup = Spill.saveCode .rsi saved ++
     (List.range 24).flatMap (fun k =>
       ([.movImm64 .rax (RC k), .store (at_ .rsi (200 + 8 * k)) .rax] : List Instr)) ++
-    ([.mov .r15 (.imm (-192))] : List Instr) := by
-  rw [setup, save_eq]
-
-/-- During the saves. -/
-def SaveInv (s₀ : State) (k : Nat) (s : State) : Prop :=
-  s.gpr = s₀.gpr ∧ s.rd = s₀.rd ∧ s.wr = s₀.wr ∧ Frame [⟨off s₀ 392, 48⟩] s₀.mem s.mem ∧
-    ∀ j < k, s.mem.readW (off s₀ (392 + 8 * j)) 64 = s₀.gpr ((saved.getD j (.rax, 0)).1)
-
-theorem saves_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block ((List.range 6).flatMap fun k =>
-      [.store (at_ .rsi (392 + 8 * k)) ((saved.getD k (.rax, 0)).1)])) s₀ (SaveInv s₀ 6) := by
-  refine wp_range_flatMap (M := isa) (SaveInv s₀) (fun k s hk ⟨hg, hrd, hwr, hf, hv⟩ => ?_) 6 (Nat.le_refl _) s₀
-    ⟨rfl, rfl, rfl, Frame.refl _ _, fun _ h => absurd h (by omega)⟩
-  refine wp_store (a := off s₀ (392 + 8 * k)) (by rw [ea_at, hg])
-    (by rw [hwr]; exact hp.off_in (by omega)) fun s' g' m' r' w' => wp_nil ?_
-  refine ⟨g'.trans hg, r'.trans hrd, w'.trans hwr, ?_, fun j hj => ?_⟩
-  · rw [m']
-    refine hf.writeW (List.mem_singleton_self _) _ ?_
-    rw [show off s₀ (392 + 8 * k) = off s₀ 392 + BitVec.ofNat 64 (8 * k) by
-      simp only [off]; rw [BitVec.ofNat_add]; ac_rfl]
-    exact contains_offset (by omega) (by omega)
-  · rw [m', hg]
-    by_cases e : j = k
-    · subst e; rw [Mem.readW_writeW_self64]
-    · rw [Mem.readW_writeW_sep ?_ (by decide)]
-      · exact hv j (by omega)
-      · have := off_disjoint (scr s₀) (a := 392 + 8 * j) (n := 8) (b := 392 + 8 * k) (k := 8)
-          (by omega) (by omega) (by omega)
-        exact this.sep (Region.contains_self _ _) (Region.contains_self _ _)
+    ([.mov .r15 (.imm (-192))] : List Instr) := rfl
 
 /-- During the stores of the round constants, from memory `m₁`. -/
 def RcInv (s₀ : State) (m₁ : Mem) (k : Nat) (s : State) : Prop :=
@@ -532,7 +502,11 @@ theorem lanes₀ (s₀ : State) : Lanes s₀.mem (st s₀) (A₀ s₀) := by
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (setup ++ complement ++ loadRow)) s₀ (LInv s₀ 0) := by
   rw [setup_eq, List.append_assoc, List.append_assoc, WP.block_append_iff, WP.block_append_iff]
-  refine WP.mono (saves_ok hp) fun s₁ ⟨g₁, rd₁, wr₁, f₁, v₁⟩ => ?_
+  refine WP.mono (Spill.save_ok .rsi saved s₀ fun p hp' => hp.off_in (by have := saved_bound p hp'; omega))
+    fun s₁ ⟨g₁, rd₁, wr₁, m₁⟩ => ?_
+  have f₁ : Frame [⟨off s₀ 392, 48⟩] s₀.mem s₁.mem := m₁ ▸ Spill.saveMem_frame _ _ _ _ fun p hp' => by
+    have := saved_bound p hp'; exact Offset.contains _ (by omega) (by omega) (by omega)
+  have v₁ := m₁ ▸ Spill.saveMem_saved s₀.mem (scr s₀) s₀.gpr saved (by decide)
   refine WP.mono (rcs_ok hp s₁ ⟨by rw [g₁], by rw [g₁], by rw [g₁], rd₁, wr₁, Frame.refl _ _,
     fun _ h => absurd h (by omega)⟩) fun s₂ ⟨di₂, si₂, sp₂, rd₂, wr₂, f₂, v₂⟩ => ?_
   rw [List.singleton_append]
@@ -546,12 +520,10 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   have hA : Lanes s₂.mem (st s₀) (A₀ s₀) := fun i hi => by
     rw [hf.readW (lane_contains _ hi) (by simpa using hd₂) (by decide)]; exact lanes₀ s₀ i hi
   have haux : Aux s₀ s₂.mem := by
-    refine ⟨fun j hj => ?_, fun j hj => ?_⟩
-    · rw [f₂.readW (Region.contains_self _ _) ?_ (by decide)]
-      · exact v₁ j hj
-      · simpa using off_disjoint (scr s₀) (a := 392 + 8 * j) (n := 8) (b := 200) (k := 192)
-          (by omega) (by omega) (by omega)
-    · exact v₂ j hj
+    refine ⟨Spill.Saved.frame v₁ f₂ fun p hp' r hr => ?_, v₂⟩
+    rw [List.mem_singleton.mp hr]
+    have := saved_bound p hp'
+    exact Offset.disjoint _ (by omega) (by omega) (by omega)
   let s₃ := s₂.setReg .r15 ((-192 : BitVec 32).signExtend 64)
   have hwr : (stR s₀) ∈ s₃.wr := by
     show stR s₀ ∈ s₂.wr; rw [wr₂, hp.wr]; simp
@@ -648,16 +620,6 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < 12) {s : Stat
 
 /-! ## The epilogue -/
 
-theorem restore_eq : restore = (List.range 6).flatMap fun k =>
-    [.mov ((saved.getD k (.rax, 0)).1) (.mem (at_ .rsi (392 + 8 * k)))] := by decide
-
-theorem saved_ne : ∀ j < 6, ∀ k < 6, j ≠ k → (saved.getD j (.rax, 0)).1 ≠ (saved.getD k (.rax, 0)).1 := by
-  decide
-
-theorem saved_ne_rsi : ∀ k < 6, (saved.getD k (.rax, 0)).1 ≠ .rsi ∧ (saved.getD k (.rax, 0)).1 ≠ .rsp ∧
-    (saved.getD k (.rax, 0)).1 ≠ .rdi := by
-  decide
-
 /-- After the rounds and the complementing back. -/
 structure EInv (s₀ s : State) : Prop where
   rdi : s.gpr .rdi = st s₀
@@ -669,44 +631,21 @@ structure EInv (s₀ s : State) : Prop where
   aux : Aux s₀ s.mem
   frame : Frame [stR s₀, scrR s₀] s₀.mem s.mem
 
-/-- During the restores. -/
-def ResInv (s₀ s₁ : State) (k : Nat) (s : State) : Prop :=
-  s.gpr .rsi = scr s₀ ∧ s.gpr .rdi = st s₀ ∧ s.gpr .rsp = s₀.gpr .rsp ∧ s.mem = s₁.mem ∧ s.rd = s₁.rd ∧ s.wr = s₁.wr ∧
-    ∀ j < k, s.gpr ((saved.getD j (.rax, 0)).1) = s₀.gpr ((saved.getD j (.rax, 0)).1)
-
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hE : EInv s₀ s) :
     WP isa (.block restore) s fun s' =>
       gprPreserved s₀ s' ∧ Proof.Sha3.permuteX86_64.post s₀ s' := by
-  rw [restore_eq]
-  refine WP.mono (wp_range_flatMap (M := isa) (ResInv s₀ s) (fun k s' hk ⟨si, di, sp, m, rd, wr, v⟩ => ?_) 6
-    (Nat.le_refl _) s ⟨hE.rsi, hE.rdi, hE.rsp, rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩)
-    fun s' ⟨si, di, sp, m, _, _, v⟩ => ?_
-  · refine wp_movm (a := off s₀ (392 + 8 * k)) (by rw [ea_at, si])
-      (by rw [rd, wr, hE.rd, hE.wr]; exact hp.in_all (hp.off_in (by omega))) fun s'' h => wp_nil ?_
-    have ne := saved_ne_rsi k hk
-    refine ⟨by rw [h.other _ (Ne.symm ne.1), si], by rw [h.other _ (Ne.symm ne.2.2), di],
-      by rw [h.other _ (Ne.symm ne.2.1), sp],
-      by rw [h.mem, m], by rw [h.rd, rd], by rw [h.wr, wr], fun j hj => ?_⟩
-    by_cases e : j = k
-    · subst e; rw [h.gpr, m]; exact hE.aux.1 j hk
-    · rw [h.other _ (saved_ne j (by omega) k hk e), v j (by omega)]
-  · refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-    · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
-      · exact v 0 (by omega)
-      · exact v 1 (by omega)
-      · exact sp
-      · exact v 2 (by omega)
-      · exact v 3 (by omega)
-      · exact v 4 (by omega)
-      · exact v 5 (by omega)
-    · rw [m]
-      exact hE.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr⟩) (by decide)
-    · refine ⟨?_, di, si⟩
-      apply Vector.ext
-      intro i hi
-      simp only [Spec.Sha3.stateAt, Vector.getElem_ofFn, m]
-      exact hE.state i hi
+  refine WP.mono (Spill.restore_ok .rsi saved s₀.gpr s (by decide) (fun p hp' => ?_)
+    (by rw [hE.rsi]; exact hE.aux.1)) fun s' ⟨h₁, h₂, m, _⟩ => ?_
+  · rw [hE.rsi, hE.rd, hE.wr]
+    exact hp.in_all (hp.off_in (by have := saved_bound p hp'; omega))
+  refine ⟨⟨Spill.calleeSaved_ok h₁ h₂ (by decide) hE.rsp, ?_⟩, ?_, by rw [h₂ _ (by decide), hE.rdi],
+    by rw [h₂ _ (by decide), hE.rsi]⟩
+  · rw [m]
+    exact hE.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr⟩) (by decide)
+  · apply Vector.ext
+    intro i hi
+    simp only [Spec.Sha3.stateAt, Vector.getElem_ofFn, m]
+    exact hE.state i hi
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hL : LInv s₀ 12 s) :
     WP isa (.block (complement ++ restore)) s fun s' =>
