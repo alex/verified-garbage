@@ -1,5 +1,6 @@
 import VerifiedGarbage.Spec.Rc2.Contract
 import VerifiedGarbage.Proof.Rc2.CbcMemory
+import VerifiedGarbage.Proof.Framework.WriteBytes
 
 /-!
 # Streaming RC2-CBC: the contracts from memory facts
@@ -47,6 +48,16 @@ theorem bytesAt_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') (p : 
   apply List.map_congr_left
   intro i hi
   exact hf.bytes hd hn (List.mem_range.mp hi)
+
+/-- Bytes written with `writeBytes` read back. -/
+theorem bytesAt_writeBytes_self (m : Mem) (q : Addr) (xs : List Byte) (h : xs.length < 2 ^ 64) :
+    Spec.Rc2.bytesAt (WriteBytes.writeBytes m q xs) q xs.length = xs := by
+  apply List.ext_getElem
+  · simp [Spec.Rc2.bytesAt]
+  · intro i h₁ h₂
+    simp only [Spec.Rc2.bytesAt, List.getElem_map, List.getElem_range, WriteBytes.writeBytes,
+      Offset.add_sub_cancel_left, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show i < 2 ^ 64 by omega), h₂, ite_true]
+    rw [getD_of_lt _ _ h₂]
 
 theorem bytesAt_eight (m : Mem) (p : Addr) :
     Spec.Rc2.bytesAt m p 8 = (Spec.Rc2.blockAt m p).toList := by
