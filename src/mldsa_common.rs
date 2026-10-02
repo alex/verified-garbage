@@ -90,10 +90,10 @@ macro_rules! ml_dsa {
         use $crate::zeroize::zeroize;
         use $crate::mldsa_common::Backend;
 
-        /// The implementation to call: the Keccak backend, followed only
-        /// when all generated callers' feature requirements are met (the
-        /// draft's default stays scalar), and AVX2 for the polynomial
-        /// arithmetic on x86-64 when the CPU has what its callers need.
+        /// The implementation to call: the Keccak implementation the SHA-3
+        /// functions use, if the CPU has the features of every instance
+        /// calling it, and AVX2 for the polynomial arithmetic on x86-64 if
+        /// the CPU has what its callers need.
         fn backend() -> Backend {
             #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
             if !$crate::cpu::detected().contains($crate::cpu::Features::all(&[
@@ -182,7 +182,8 @@ macro_rules! ml_dsa {
                 // for reads (and, for `scratch`, writes) of their sizes; they
                 // are distinct Rust objects, so they do not overlap each other
                 // or the stack, or wrap around the end of the address space.
-                // Backend selection checks the generated CPU feature requirements.
+                // `backend()` chose an implementation whose features the CPU
+                // has.
                 let r = unsafe {
                     match backend() {
                         Backend::Scalar => $verify(&self.bytes, mu, sig, &mut scratch),
@@ -240,7 +241,8 @@ macro_rules! ml_dsa {
                 // sizes; they are distinct Rust objects, so they do not
                 // overlap each other or the stack, or wrap around the end of
                 // the address space. `seed` is the caller's seed.
-                // Backend selection checks the generated CPU feature requirements.
+                // `backend()` chose an implementation whose features the CPU
+                // has.
                 let r = unsafe {
                     match backend() {
                         Backend::Scalar => $keygen(seed, &mut key.vk.bytes, &mut key.sk, &mut scratch),
@@ -320,7 +322,8 @@ macro_rules! ml_dsa {
                 // overlap each other or the stack, or wrap around the end of
                 // the address space. `self.sk` was written by the key
                 // generation.
-                // Backend selection checks the generated CPU feature requirements.
+                // `backend()` chose an implementation whose features the CPU
+                // has.
                 let r = unsafe {
                     match backend() {
                         Backend::Scalar => $sign(&self.sk, mu, rnd, &mut sig, &mut scratch),
