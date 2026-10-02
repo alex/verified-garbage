@@ -186,9 +186,6 @@ theorem save_eq : save ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .
     .mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
     .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)] := rfl
 
-theorem bR_contains (s₀ : State) {d n : Nat} (h : d + n ≤ 320) : (bR s₀).Contains (off (bp s₀) d) n :=
-  contains_off h (by lit_omega)
-
 theorem prologue_ok {s₀ : State} (hp : XPre s₀) :
     WP isa (.block (save ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
       .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)] : List Instr))) s₀ fun s =>

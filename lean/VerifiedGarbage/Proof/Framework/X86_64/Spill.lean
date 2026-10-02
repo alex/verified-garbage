@@ -87,17 +87,6 @@ theorem save_then (b : Reg) (l : List (Reg × Nat)) {s : State} {rest : List Ins
 
 /-! ## The saved memory -/
 
-theorem saveMem_congr (m : Mem) (B : Addr) {g g' : Reg → BitVec 64} :
-    ∀ l : List (Reg × Nat), (∀ p ∈ l, g p.1 = g' p.1) → saveMem m B g l = saveMem m B g' l := by
-  intro l
-  induction l generalizing m with
-  | nil => intro _; rfl
-  | cons p l ih =>
-    intro h
-    simp only [saveMem]
-    rw [h p List.mem_cons_self]
-    exact ih _ fun q hq => h q (List.mem_cons_of_mem _ hq)
-
 /-- `saveMem` writes only inside `r`, if `r` contains every slot. -/
 theorem saveMem_frame {r : Region} (m : Mem) (B : Addr) (g : Reg → BitVec 64) :
     ∀ l : List (Reg × Nat), (∀ p ∈ l, r.Contains (slot B p.2) 8) →
@@ -155,22 +144,11 @@ theorem frame (h : Saved m B g l) {rs : List Region} (hf : Frame rs m m')
     (hd : ∀ p ∈ l, ∀ r ∈ rs, Region.Disjoint ⟨slot B p.2, 8⟩ r) : Saved m' B g l :=
   fun p hp => (hf.readW (Region.contains_self _ _) (hd p hp) (by decide)).trans (h p hp)
 
-/-- The slots keep their values outside a frame of `[B + e, B + e + k)`. -/
-theorem frame_offset (h : Saved m B g l) {e k : Nat} (hf : Frame [⟨slot B e, k⟩] m m')
-    (hd : ∀ p ∈ l, p.2 + 8 ≤ e ∨ e + k ≤ p.2) (hb : ∀ p ∈ l, p.2 + 8 ≤ 2 ^ 64)
-    (he : e + k ≤ 2 ^ 64) : Saved m' B g l :=
-  h.frame hf fun p hp r hr => by
-    rw [List.mem_singleton.mp hr]; exact Offset.disjoint B (hd p hp) (hb p hp) he
-
 /-- The slots keep their values across a write of 8 bytes that misses them. -/
 theorem writeW (h : Saved m B g l) {e : Nat} (v : BitVec 64)
     (hd : ∀ p ∈ l, p.2 + 8 ≤ e ∨ e + 8 ≤ p.2) (hb : ∀ p ∈ l, p.2 + 8 ≤ 2 ^ 64)
     (he : e + 8 ≤ 2 ^ 64) : Saved (m.writeW (slot B e) v) B g l :=
   fun p hp => (Mem.readW_writeW_sep (Offset.sep B (hd p hp) (hb p hp) he) (by decide)).trans (h p hp)
-
-theorem congr (h : Saved m B g l) {g' : Reg → BitVec 64} (hg : ∀ p ∈ l, g p.1 = g' p.1) :
-    Saved m B g' l :=
-  fun p hp => (h p hp).trans (hg p hp)
 
 end Saved
 
@@ -204,22 +182,6 @@ theorem restoreState_mem (s : State) :
   induction l generalizing s with
   | nil => exact ⟨rfl, rfl, rfl⟩
   | cons p l ih => exact ih _
-
-/-- `restoreState` sets the registers of `l` and nothing else. -/
-theorem restoreState_eq (s : State) :
-    ∀ l : List (Reg × Nat),
-      restoreState s g l = { s with gpr := fun r => if r ∈ l.map Prod.fst then g r else s.gpr r } := by
-  intro l
-  induction l generalizing s with
-  | nil => simp [restoreState]
-  | cons p l ih =>
-    rw [restoreState, ih]
-    congr 1
-    funext r
-    simp only [gpr_setReg, List.map_cons, List.mem_cons]
-    by_cases h : r = p.1
-    · subst h; simp
-    · simp only [h, false_or, ite_false]
 
 end
 
