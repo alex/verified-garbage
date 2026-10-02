@@ -65,6 +65,54 @@ theorem mu_sScrV {p : Params} (hp : p ∈ params) (s : State) :
 theorem mu_withinV (p : Params) (s : State) : Within ⟨(vlay p s).MU, 64⟩ ⟨s.gpr .x6, mScrLen p⟩ :=
   (within_off (vlay p s).X (d := 840) (n := 64) (k := 1024) (by omega)).trans (vlay_X p s)
 
+/-- The regions the verification function on `μ` reads and writes. -/
+abbrev verifyRd (p : Params) (s : State) : List Region :=
+  [⟨s.gpr .x0, p.pkLen⟩, ⟨(vlay p s).MU, 64⟩, ⟨s.gpr .x5, p.sigLen⟩]
+abbrev verifyWr (p : Params) (s : State) : List Region := [⟨s.gpr .x6, sScr p⟩]
+
+/-- The registers after the moves of the arguments. -/
+theorem verifyRegs_of {g : Reg → BitVec 64} {vv : VReg → BitVec 128} {m₀ : Mem} {t t1 : State}
+    (hc : Ctx (vlay p s) g vv m₀ t) (hm : (∀ da ∈ verifyArgs, t1.gpr da.1 = da.2.val t)) :
+    t1.gpr .x0 = s.gpr .x0 ∧ t1.gpr .x1 = (vlay p s).MU ∧ t1.gpr .x2 = s.gpr .x5 ∧ t1.gpr .x3 = s.gpr .x6 := by
+  have e0 := hm (.x0, .slot fKey) (by simp)
+  have e1 := hm (.x1, .off oMU) (by simp)
+  have e2 := hm (.x2, .slot fSig) (by simp)
+  have e3 := hm (.x3, .slot fScr) (by simp)
+  rw [hc.slotV (f := fKey) (j := 0) rfl (by omega)] at e0
+  rw [hc.off] at e1
+  rw [hc.slotV (f := fSig) (j := 6) rfl (by omega)] at e2
+  rw [hc.slotV (f := fScr) (j := 7) rfl (by omega)] at e3
+  simp only [Lay.vals, vlay, List.getD_cons_zero, List.getD_cons_succ] at e0 e2 e3
+  exact ⟨e0, e1, e2, e3⟩
+
+/-- The precondition of the verification function on `μ`, on entry to it. -/
+theorem verifyK_pre (hp : p ∈ params) (h : VPre p s) (h8 : (s.gpr .x4).toNat < 256) {g : Reg → BitVec 64}
+    {vv : VReg → BitVec 128} {m₀ : Mem} {t t1 : State} (hc : Ctx (vlay p s) g vv m₀ t)
+    (hA : ∀ da ∈ verifyArgs, t1.gpr da.1 = da.2.val t) (hsp1 : t1.sp = s.sp) :
+    (verifyContract p AArch64.abi 16).pre (t1.callEntry.withRegions (verifyRd p s) (verifyWr p s)) := by
+  have hL := vlay_ok hp h h8
+  obtain ⟨e0, e1, e2, e3⟩ := verifyRegs_of hc hA
+  have hsub := sScrV_sub p s
+  have hstk : ∀ {rd wr : List Region} {r : Region}, (rStk s).Disjoint r →
+      (rStk (t1.callEntry.withRegions rd wr)).Disjoint r := by
+    intro rd wr r hr; simpa [rStk, hsp1] using hr
+  refine verifyC_pre ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ <;>
+    try simp only [gpr_ce t1 (r := .x0), gpr_ce t1 (r := .x1), gpr_ce t1 (r := .x2), gpr_ce t1 (r := .x3),
+      e0, e1, e2, e3, State.withRegions_rd, State.withRegions_wr]
+  · simp only [State.withRegions_sp, State.callEntry_sp, hsp1]; exact h.sp
+  · exact h.pkScr.sub_right hsub
+  · exact mu_sScrV hp s
+  · exact h.sigScr.sub_right hsub
+  · exact hstk h.stkPk
+  · have km := k_mu hL
+    exact hstk km
+  · exact hstk h.stkSig
+  · exact hstk (h.stkScr.sub_right hsub)
+  · exact h.nPk
+  · exact mu_nowrap hL
+  · exact h.nSig
+  · have := h.nScr; simp only [mScrLen, sScr, messageScratchWords] at this ⊢; omega
+
 /-- The call of the verification function on `μ`. -/
 theorem verifyCall_ok {n : String} {c : Prog isa} (hV : VerifyFn p c) (hp : p ∈ params) (h : VPre p s)
     (h8 : (s.gpr .x4).toNat < 256) {g : Reg → BitVec 64} {vv : VReg → BitVec 128} {m₀ : Mem} {t : State}
@@ -78,41 +126,10 @@ theorem verifyCall_ok {n : String} {c : Prog isa} (hV : VerifyFn p c) (hp : p �
   refine WP.seq (WP.mono (setArgs_ok verifyArgs (by decide) t (hc.xOk hL)) fun t1 ⟨hA, o⟩ => ?_)
   have hc1 : Ctx (vlay p s) g vv m₀ t1 :=
     hc.regs o.rd o.wr o.sp o.mem o.vcs fun r hr _ => o.gpr r (by simp only [List.map_cons, List.map_nil]; exact not_pres hr _)
-  have e0 := hA (.x0, .slot fKey) (by simp)
-  have e1 := hA (.x1, .off oMU) (by simp)
-  have e2 := hA (.x2, .slot fSig) (by simp)
-  have e3 := hA (.x3, .slot fScr) (by simp)
-  rw [hc.slotV (f := fKey) (j := 0) rfl (by omega)] at e0
-  rw [hc.off] at e1
-  replace e1 : t1.gpr .x1 = (vlay p s).MU := e1
-  rw [hc.slotV (f := fSig) (j := 6) rfl (by omega)] at e2
-  rw [hc.slotV (f := fScr) (j := 7) rfl (by omega)] at e3
-  simp only [Lay.vals, vlay, List.getD_cons_zero, List.getD_cons_succ] at e0 e2 e3
+  obtain ⟨e0, e1, e2, _⟩ := verifyRegs_of hc hA
   have hsp1 : t1.sp = s.sp := hc1.sp
-  have hmu := (mu_withinV p s).sub
-  have hsub := sScrV_sub p s
   have hd := hV.dle.1
-  have hstk : ∀ {rd wr : List Region} {r : Region}, (rStk s).Disjoint r →
-      (rStk (t1.callEntry.withRegions rd wr)).Disjoint r := by
-    intro rd wr r hr; simpa [rStk, hsp1] using hr
-  have hpre : (verifyContract p AArch64.abi 16).pre (t1.callEntry.withRegions
-      [⟨s.gpr .x0, p.pkLen⟩, ⟨(vlay p s).MU, 64⟩, ⟨s.gpr .x5, p.sigLen⟩] [⟨s.gpr .x6, sScr p⟩]) := by
-    refine verifyC_pre ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ <;>
-      try simp only [gpr_ce t1 (r := .x0), gpr_ce t1 (r := .x1), gpr_ce t1 (r := .x2), gpr_ce t1 (r := .x3),
-        e0, e1, e2, e3, State.withRegions_rd, State.withRegions_wr]
-    · simp only [State.withRegions_sp, State.callEntry_sp, hsp1]; exact h.sp
-    · exact h.pkScr.sub_right hsub
-    · exact mu_sScrV hp s
-    · exact h.sigScr.sub_right hsub
-    · exact hstk h.stkPk
-    · have km := k_mu hL
-      exact hstk km
-    · exact hstk h.stkSig
-    · exact hstk (h.stkScr.sub_right hsub)
-    · exact h.nPk
-    · exact mu_nowrap hL
-    · exact h.nSig
-    · have := h.nScr; simp only [mScrLen, sScr, messageScratchWords] at this ⊢; omega
+  have hpre := verifyK_pre hp h h8 hc hA hsp1
   refine WP.callFV hV.ver.1 hpre ?_ ?_ (fun s' hrd hwr hsp hf hcs hvs hpost => ?_) (by omega)
   · rw [hc1.rd, hc1.wr]
     refine covers_of_within fun r hr => ?_
