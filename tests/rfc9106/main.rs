@@ -2,7 +2,9 @@
 
 #![cfg(all(target_arch = "x86_64", feature = "alloc"))]
 
-use verified_garbage::argon2::{Error, Params, Variant, derive, derive_keyed};
+use verified_garbage::argon2::{
+    Error, Params, Variant, derive, derive_keyed, verify, verify_keyed,
+};
 
 fn bytes(text: &str, label: &str, length: usize) -> Vec<u8> {
     text.split_once(label)
@@ -167,9 +169,118 @@ fn errors() {
             Error::AllocationFailed,
             "could not allocate Argon2's memory",
         ),
+        (Error::KeyMismatch, "Argon2 derived key does not match"),
     ] {
         assert_eq!(error.to_string(), message);
         let _: &dyn std::error::Error = &error;
         assert!(!format!("{error:?}").is_empty());
     }
+}
+
+/// `check` accepts `key` and rejects any other: with a bit flipped in its
+/// first, a middle or its last byte, truncated, and with a byte appended
+/// (Argon2's keys of different lengths share no prefix).
+fn check_verify(key: &[u8], check: impl Fn(&[u8]) -> Result<(), Error>) {
+    assert_eq!(check(key), Ok(()));
+    for i in [0, key.len() / 2, key.len() - 1] {
+        let mut bad = key.to_vec();
+        bad[i] ^= 1;
+        assert_eq!(check(&bad), Err(Error::KeyMismatch));
+    }
+    assert_eq!(check(&key[..key.len() - 1]), Err(Error::KeyMismatch));
+    let mut longer = key.to_vec();
+    longer.push(0);
+    assert_eq!(check(&longer), Err(Error::KeyMismatch));
+}
+
+/// `verify_keyed` accepts the RFC's tags and rejects any other, or a
+/// password other than the RFC's.
+#[test]
+fn rfc9106_verify_keyed() {
+    let text = include_str!("../../vectors/rfc9106/rfc9106.txt");
+    for (variant, name) in [
+        (Variant::Argon2d, "Argon2d"),
+        (Variant::Argon2i, "Argon2i"),
+        (Variant::Argon2id, "Argon2id"),
+    ] {
+        let text = text
+            .split_once(&format!("{name} version number 19"))
+            .unwrap()
+            .1;
+        let expected = bytes(text, "Tag:", number(text, "Tag length:") as usize);
+        let p = Params {
+            variant,
+            iterations: number(text, "Passes:"),
+            memory_kib: number(text, "Memory:"),
+            lanes: number(text, "Parallelism:"),
+        };
+        let (salt, secret, ad) = (
+            input(text, "Salt"),
+            input(text, "Secret"),
+            input(text, "Associated data"),
+        );
+        let password = input(text, "Password");
+        check_verify(&expected, |e| {
+            verify_keyed(&p, &password, &salt, &secret, &ad, usize::MAX, e)
+        });
+        let mut other = password.clone();
+        other[0] ^= 1;
+        assert_eq!(
+            verify_keyed(&p, &other, &salt, &secret, &ad, usize::MAX, &expected),
+            Err(Error::KeyMismatch),
+            "{variant:?}"
+        );
+    }
+}
+
+/// `verify` checks the unkeyed key `derive` derives.
+#[test]
+fn verify_is_unkeyed() {
+    for variant in [Variant::Argon2d, Variant::Argon2i, Variant::Argon2id] {
+        let p = params(variant, 2, 32, 2);
+        let mut key = [0; 32];
+        derive(&p, b"password", b"saltsalt", 32 << 10, &mut key).unwrap();
+        check_verify(&key, |e| verify(&p, b"password", b"saltsalt", 32 << 10, e));
+        assert_eq!(
+            verify(&p, b"passwore", b"saltsalt", 32 << 10, &key),
+            Err(Error::KeyMismatch)
+        );
+    }
+}
+
+/// `verify` and `verify_keyed` refuse what `derive_keyed` refuses: a key
+/// shorter than 4 bytes (an empty one included), invalid parameters and
+/// more memory than the limit.
+#[test]
+fn verify_errors() {
+    let p = params(Variant::Argon2id, 1, 8, 1);
+    let mut key = [0; 4];
+    derive(&p, b"", b"", 8 << 10, &mut key).unwrap();
+    for len in 0..4 {
+        assert_eq!(
+            verify(&p, b"", b"", 8 << 10, &key[..len]),
+            Err(Error::InvalidParameters)
+        );
+    }
+    assert_eq!(
+        verify(&params(Variant::Argon2id, 0, 8, 1), b"", b"", 8 << 10, &key),
+        Err(Error::InvalidParameters)
+    );
+    assert_eq!(
+        verify_keyed(
+            &params(Variant::Argon2id, 1, 7, 1),
+            b"",
+            b"",
+            b"",
+            b"",
+            8 << 10,
+            &key
+        ),
+        Err(Error::InvalidParameters)
+    );
+    assert_eq!(
+        verify(&p, b"", b"", (8 << 10) - 1, &key),
+        Err(Error::MemoryLimitExceeded)
+    );
+    assert_eq!(verify(&p, b"", b"", 8 << 10, &key), Ok(()));
 }
