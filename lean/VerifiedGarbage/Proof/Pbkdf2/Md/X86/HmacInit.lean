@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Block
-import VerifiedGarbage.Proof.Pbkdf2.MdInit
+import VerifiedGarbage.Proof.Pbkdf2.MdKeys
 
 /-!
 # HMAC over a Merkle–Damgård hash function on x86 (32-bit): `init`, correct
@@ -47,7 +47,7 @@ theorem fillW_ok {dst : Reg} {y : BitVec 32} {o : Nat} {b : Byte} (n : Nat) :
     refine wp_store (a := addr y (o + 4 * n)) (by rw [ea_at, g₁, hy]) (by rw [wr₁]; exact hout n (by omega))
       fun s₂ u₂ => ?_
     refine k s₂ (by rw [u₂.gpr, g₁]) (by rw [u₂.rd, rd₁]) (by rw [u₂.wr, wr₁]) ?_
-    rw [u₂.mem, m₁, g₁, hc, addr_word fy (by omega : n < n + 1), MdInit.writeW_rep,
+    rw [u₂.mem, m₁, g₁, hc, addr_word fy (by omega : n < n + 1), MdKeys.writeW_rep,
       Memory.writeBytes_append' _ _ _ (by rw [List.length_replicate]) (by simp; omega), List.replicate_append_replicate,
       show 4 * n + 4 = 4 * (n + 1) by omega]
 
@@ -92,7 +92,7 @@ theorem opadW_ok (H : Hash) {x y : BitVec 32} (n : Nat) :
       exact (hsep.sub_left (Offset.sub_base _ (by omega))).sub_right (Region.sub_prefix (by omega))
     rw [u₄.mem, u₃.gpr, u₂.gpr, u₃.mem, u₂.mem, addr_word fx (by omega : n < n + 1),
       addr_word fy (by omega : n < n + 1),
-      f₁.readW (r := ⟨_, 4⟩) (Region.contains_self _ _) dX (by decide), MdInit.c6a, MdInit.writeW_xorRep, m₁,
+      f₁.readW (r := ⟨_, 4⟩) (Region.contains_self _ _) dX (by decide), MdKeys.c6a, MdKeys.writeW_xorRep, m₁,
       Memory.writeBytes_append' _ _ _ (by rw [hl]) (by simp [bytesAt_length]; omega), ← List.map_append,
       ← bytesAt_add, show 4 * n + 4 = 4 * (n + 1) by omega]
 
@@ -138,7 +138,7 @@ theorem key_step {s : State} {kp p : BitVec 32} {kl : Nat} (hkp : kp.toNat + kl 
       h.ecx]
   have v : (t₂.gpr Reg8.al.reg).setWidth 8 = s.mem (kp.setWidth 64 + BitVec.ofNat 64 j) ^^^ Spec.Hmac.ipad := by
     show (t₂.gpr .eax).setWidth 8 = _
-    rw [u₂.gpr, u₁.gpr, MdInit.xor_byte, hbyte]; rfl
+    rw [u₂.gpr, u₁.gpr, MdKeys.xor_byte, hbyte]; rfl
   refine ⟨⟨by rw [u₆.rd, u₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd, h.rd],
     by rw [u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr, h.wr],
     fun r h1 h2 h3 h4 => by
@@ -629,7 +629,7 @@ theorem keys_ok {s : State} (hk : KR (H := H) sc s₀ s) (hbx : s.gpr .ebx = inn
         exact (hp.i_s.symm.sub_left (save_sub hz hp)).sub_right sB)
       (by simp only [List.mem_singleton]; rintro r rfl; exact ⟨_, by simp, sB⟩),
     by rw [ht.other _ (by decide) (by decide) (by decide) (by decide), hbx], ft, ?_⟩
-  rw [ht.mem, ap, MdInit.bytes_over (by rw [hl]; omega) (by omega) hm, hl, hk.key hp]
+  rw [ht.mem, ap, MdKeys.bytes_over (by rw [hl]; omega) (by omega) hm, hl, hk.key hp]
   rfl
 
 
@@ -772,7 +772,7 @@ theorem correct :
   -- The key.
   have hK : xorPad (blockKey hO.hH.SH.H (bytesAt s₀.mem ((kp s₀).setWidth 64) (kl s₀))) ipad =
       bytesAt s₅.mem ((inn s₀).setWidth 64 + BitVec.ofNat 64 H.N) H.B := by
-    rw [bI₅, MdInit.blockKey_short _ (by rw [bytesAt_length, hO.hH.hB]; exact hkl), MdInit.xorPad_short,
+    rw [bI₅, MdKeys.blockKey_short _ (by rw [bytesAt_length, hO.hH.hB]; exact hkl), MdKeys.xorPad_short,
       bytesAt_length, hO.hH.hB]
   have hKl : (xorPad (blockKey hO.hH.SH.H (bytesAt s₀.mem ((kp s₀).setWidth 64) (kl s₀))) ipad).length = H.B := by
     rw [hK, bytesAt_length]
@@ -799,7 +799,7 @@ theorem correct :
     rw [m₈, keep_st hO f₇ (by have := d₇ (a := 0) (n := H.N) (by omega); rwa [BitVec.add_zero] at this), vO₆]
   have bO₈ : bytesAt s₈.mem ((out s₀).setWidth 64 + BitVec.ofNat 64 H.N) H.B =
       xorPad (blockKey hO.hH.SH.H (bytesAt s₀.mem ((kp s₀).setWidth 64) (kl s₀))) opad := by
-    rw [m₈, Memory.frame_bytesAt f₇ (d₇ (by omega)) (by omega), bO₆, ← hK, MdInit.xorPad_6a]
+    rw [m₈, Memory.frame_bytesAt f₇ (d₇ (by omega)) (by omega), bO₆, ← hK, MdKeys.xorOpad_ipad]
   have rO₉ := Md.repr_block (H := hO.md) (iv := hO.iv) (by omega) (by rw [xorPad_length, ← xorPad_length _ ipad, hKl])
     bO₈ (by rw [e₉, vO₈])
   -- The end.
