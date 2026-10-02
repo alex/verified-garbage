@@ -397,10 +397,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   have hsaved : Saved s₀ s₇.mem := by
     have s₆' : Saved s₀ s₆.mem :=
       hp.saved_frame (hp.saved_frame hL.saved (.inl h₄.frame)) (.inr f₆)
-    obtain ⟨a1, a2, a3⟩ := s₆'
-    exact ⟨(rA 80 (by omega) (by decide) (by decide) (by decide) rfl).trans a1,
-      (rA 84 (by omega) (by decide) (by decide) (by decide) rfl).trans a2,
-      (rA 88 (by omega) (by decide) (by decide) (by decide) rfl).trans a3⟩
+    exact s₆'.of_readW fun p h => rA _ (by have := saved_bound p h; omega) (by revert p h; decide)
+      (by revert p h; decide) (by revert p h; decide) (by revert p h; decide)
   have k₆ : ∀ d, 64 ≤ d → d + 4 ≤ 512 → s₆.mem.readW (addr (scr s₀) d) 32 = s.mem.readW (addr (scr s₀) d) 32 :=
     fun d h1 h2 => by
       rw [hp.high_frame (.inr f₆) h1 h2, hp.high_frame (.inl h₄.frame) h1 h2]

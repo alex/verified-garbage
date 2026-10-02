@@ -44,7 +44,8 @@ theorem Saved.scalarEngine {s₀ s t : State} {x : BitVec 32} (h : Saved s₀ x 
       exact sub_sub hx (by decide) (by decide) (by decide)
   · have hR : scalarR = 64 := rfl
     have hT : T = 864 := rfl
-    intro j hj r hr
+    intro p hp r hr
+    have hj := savedSlots_bound p hp
     simp only [scalarBodyFrame, scalarFrame, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl <;>
       exact sub_disj (by omega_using [hx, hj]) (by omega_using [hx, hR, hT])

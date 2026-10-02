@@ -47,23 +47,20 @@ theorem finish_ok {s₀ s : State} (hp : Pre s₀) (hb : Base (arg s₀ 3) (kOf 
   have w₃ : s₃.wr = s₀.wr := by rw [u₃.wr, b₂.wr]
   refine WP.block_append (WP.mono (outWords_ok hp w₃ 8 (Nat.le_refl _) s₃ o₃) fun s₄ o₄ => ?_)
   have c₄ : Ctx (arg s₀ 3) s₄ := ⟨o₄.edi, hfit, by rw [o₄.wr, w₃]; exact hp.sc_in⟩
-  refine WP.mono (restore_ok c₄) fun s₅ ⟨m₅, esp₅, ebx₅, esi₅, ebp₅, edi₅⟩ => ⟨?_, ?_⟩
-  · -- The saved words, unchanged by the stores to `out`.
-    have sv : ∀ j < 4, wd s₄.mem (arg s₀ 3) (4 * j) = s₀.gpr (savedReg j) := fun j hj => by
-      rw [wd_frame o₄.frame fun r hr => by
-        rw [List.mem_singleton.mp hr]
-        refine Region.Disjoint.symm (hp.out_sc.sub_right ?_)
-        rw [scR_eq]; exact sub_sub hfit (Nat.zero_le _) (by omega_using [hj]) (by omega_using [hj]),
-        u₃.mem]
-      exact b₂.saved j hj
-    refine ⟨fun r hr => ?_, ?_⟩
-    · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl
-      · rw [ebx₅]; exact sv 0 (by decide)
-      · rw [esi₅]; exact sv 1 (by decide)
-      · rw [edi₅]; exact sv 2 (by decide)
-      · rw [ebp₅]; exact sv 3 (by decide)
-      · rw [esp₅, o₄.esp, u₃.other _ (by decide), b₂.esp]
+  -- The saved words, unchanged by the stores to `out`.
+  have sv : Spill.Saved s₄.mem (addr (arg s₀ 3)) s₀.gpr savedSlots := b₂.saved.of_readW fun p hq => by
+    have := savedSlots_bound p hq
+    show wd s₄.mem (arg s₀ 3) p.2 = wd s₂.mem (arg s₀ 3) p.2
+    rw [wd_frame o₄.frame fun r hr => by
+      rw [List.mem_singleton.mp hr]
+      refine Region.Disjoint.symm (hp.out_sc.sub_right ?_)
+      rw [scR_eq]; exact sub_sub hfit (Nat.zero_le _) (by omega_using [this]) (by omega_using [this]),
+      u₃.mem]
+  refine WP.mono (restore_ok c₄ sv) fun s₅ ⟨m₅, esp₅, g₅⟩ => ⟨?_, ?_⟩
+  · refine ⟨fun r hr => ?_, ?_⟩
+    · by_cases h : r = .esp
+      · subst h; rw [esp₅, o₄.esp, u₃.other _ (by decide), b₂.esp]
+      · exact g₅ r hr h
     · rw [m₅]
       have r₄ : s₄.mem.readW ((s₀.gpr .esp).setWidth 64) 32 = s₃.mem.readW ((s₀.gpr .esp).setWidth 64) 32 :=
         o₄.frame.readW (Region.contains_self _ _) (by simp only [List.mem_singleton]; rintro r rfl; exact hp.ret_out)

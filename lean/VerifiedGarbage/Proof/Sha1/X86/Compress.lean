@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Framework.X86.RegUpd
 import VerifiedGarbage.Proof.Framework.Offset
 import VerifiedGarbage.Proof.Framework.X86.Exec
+import VerifiedGarbage.Proof.Framework.X86.Spill
 import VerifiedGarbage.Proof.Framework.X86.Taint
 import VerifiedGarbage.Proof.Sha1.Spec
 import VerifiedGarbage.Impl.Sha1.X86
@@ -483,10 +484,13 @@ theorem readW_writeW_st_scr {s₀ : State} (hp : Pre s₀) (m : Mem) (v : Word) 
 
 /-! ## The loop invariant -/
 
+/-- The callee-saved registers and their slots in the scratch buffer. -/
+def compressSaved : Spill.Slots := [(.ebx, 64), (.esi, 68), (.edi, 72), (.ebp, 76)]
+
+theorem compressSaved_fits : Spill.Fits 80 compressSaved := by decide
+
 /-- The callee-saved registers are saved in the scratch buffer. -/
-def Saved (s₀ : State) (m : Mem) : Prop :=
-  m.readW (addr (scr s₀) 64) 32 = s₀.gpr .ebx ∧ m.readW (addr (scr s₀) 68) 32 = s₀.gpr .esi ∧
-  m.readW (addr (scr s₀) 72) 32 = s₀.gpr .edi ∧ m.readW (addr (scr s₀) 76) 32 = s₀.gpr .ebp
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (addr (scr s₀)) s₀.gpr compressSaved
 
 /-- What holds between blocks, after `i` of them. -/
 structure Common (s₀ : State) (i : Nat) (s : State) : Prop where
@@ -743,12 +747,10 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     rfl
   have hcommon : ∀ j, j = i + 1 → Common s₀ j s₄ := by
     rintro j rfl
-    obtain ⟨g0, g1, g2, g3⟩ := hL.saved
     refine ⟨by rw [hpub₄ _ (by decide), hebp₃], by rw [hpub₄ _ (by decide), hpub₃ _ (by decide),
       pub₂ _ (by decide), hL.esp], by rw [hrd₄, hrd₃, hR.rd, hrd₁, hL.rd],
       by rw [hwr₄, hwr₃, hR.wr, hwr₁, hL.wr], hframe, hstate, ?_⟩
-    exact ⟨(hsv 64 (by omega) (by omega)).trans g0, (hsv 68 (by omega) (by omega)).trans g1,
-      (hsv 72 (by omega) (by omega)).trans g2, (hsv 76 (by omega) (by omega)).trans g3⟩
+    exact hL.saved.of_readW fun p h => hsv _ (by revert p h; decide) (compressSaved_fits.1 p h)
   have hev : eval .ne s₄ = some (!(BitVec.ofNat 32 (nb s₀ - (i + 1)) == 0)) := by
     simp only [eval, hz₄, Option.map_some]
   by_cases hlast : i + 1 = nb s₀
@@ -771,13 +773,13 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
 
 /-! ## Prologue and epilogue -/
 
-theorem prologue_eq : prologue = [.mov .eax (.mem ⟨.esp, 16⟩), .store ⟨.eax, 64⟩ .ebx,
-    .store ⟨.eax, 68⟩ .esi, .store ⟨.eax, 72⟩ .edi, .store ⟨.eax, 76⟩ .ebp,
-    .mov .ebp (.reg .eax), .mov .ecx (.mem ⟨.esp, 8⟩), .store ⟨.ebp, 80⟩ .ecx,
-    .mov .ecx (.mem ⟨.esp, 12⟩), .store ⟨.ebp, 84⟩ .ecx, .alu .test .ecx (.reg .ecx)] := rfl
+theorem prologue_eq : prologue = .mov .eax (.mem ⟨.esp, 16⟩) :: (Spill.saveCode .eax compressSaved ++
+    ([.mov .ebp (.reg .eax), .mov .ecx (.mem ⟨.esp, 8⟩), .store ⟨.ebp, 80⟩ .ecx,
+      .mov .ecx (.mem ⟨.esp, 12⟩), .store ⟨.ebp, 84⟩ .ecx, .alu .test .ecx (.reg .ecx)] : List Instr)) :=
+  rfl
 
-theorem epilogue_eq : epilogue = [.mov .ebx (.mem ⟨.ebp, 64⟩), .mov .esi (.mem ⟨.ebp, 68⟩),
-    .mov .edi (.mem ⟨.ebp, 72⟩), .mov .ebp (.mem ⟨.ebp, 76⟩)] := rfl
+theorem epilogue_eq :
+    epilogue = Spill.restoreCode .ebp ([(.ebx, 64), (.esi, 68), (.edi, 72)] ++ [(.ebp, 76)]) ++ [] := rfl
 
 /-- Reading an argument after writing the scratch buffer. -/
 theorem readW_writeW_scr_arg {s₀ : State} (hp : Pre s₀) (m : Mem) (v : Word) {d e : Nat}
@@ -788,44 +790,69 @@ theorem readW_writeW_scr_arg {s₀ : State} (hp : Pre s₀) (m : Mem) (v : Word)
 
 /-- The memory after the prologue. -/
 def saveMem (s₀ : State) : Mem :=
-  (((((s₀.mem.writeW (addr (scr s₀) 64) (s₀.gpr .ebx)).writeW (addr (scr s₀) 68) (s₀.gpr .esi)).writeW
-    (addr (scr s₀) 72) (s₀.gpr .edi)).writeW (addr (scr s₀) 76) (s₀.gpr .ebp)).writeW
-    (addr (scr s₀) 80) (bp s₀)).writeW (addr (scr s₀) 84) (arg s₀ 2)
+  ((Spill.saveMem s₀.mem (addr (scr s₀)) s₀.gpr compressSaved).writeW (addr (scr s₀) 80) (bp s₀)).writeW
+    (addr (scr s₀) 84) (arg s₀ 2)
+
+theorem compressSaved_contains {s₀ : State} (hp : Pre s₀) : ∀ p ∈ compressSaved, (scrR s₀).Contains (addr (scr s₀) p.2) 4 :=
+  fun p h => have := compressSaved_fits.1 p h; contains_sub (by omega) (by omega) (hp.scr_eq (by omega))
+
+/-- Reading an argument after saving the registers. -/
+theorem spill_arg {s₀ : State} (hp : Pre s₀) {d : Nat} (hd : 4 ≤ d) (hd' : d + 4 ≤ 20) :
+    (Spill.saveMem s₀.mem (addr (scr s₀)) s₀.gpr compressSaved).readW (addr (esp₀ s₀) d) 32 =
+      s₀.mem.readW (addr (esp₀ s₀) d) 32 :=
+  Spill.saveMem_readW_of_sep _ _ (by decide) _ _ fun p h =>
+    hp.arg_scr.sep (hp.arg_contains hd hd') (compressSaved_contains hp p h)
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block prologue) s₀ fun s₁ =>
       s₁.gpr .ebp = scr s₀ ∧ s₁.gpr .esp = esp₀ s₀ ∧ s₁.rd = s₀.rd ∧ s₁.wr = s₀.wr ∧
       s₁.mem = saveMem s₀ ∧ s₁.zf = some (arg s₀ 2 &&& arg s₀ 2 == 0) := by
-  have hsa := readW_writeW_scr_arg hp
-  have i8 := hp.in_arg (d := 8) (by omega) (by omega)
-  have i12 := hp.in_arg (d := 12) (by omega) (by omega)
-  have i16 := hp.in_arg (d := 16) (by omega) (by omega)
-  have a8 : s₀.mem.readW (addr (esp₀ s₀) 8) 32 = bp s₀ := rfl
-  have a12 : s₀.mem.readW (addr (esp₀ s₀) 12) 32 = arg s₀ 2 := rfl
-  have a16 : s₀.mem.readW (addr (esp₀ s₀) 16) 32 = scr s₀ := rfl
-  have hout := fun d (hd : d + 4 ≤ 112) => hp.out_scr hd
-  apply WP.of_runBlock
   rw [prologue_eq]
-  simp (config := {decide := true}) (disch := decide) only [runBlock_cons,
-    runBlock_nil, runStep_some, exec, execAlu, readSrc, ea_mk, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.zf_setReg, RegUpd.cf_setReg, RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags, RegUpd.zf_arithFlags,
-    State.load32, State.store32, i8, i12, i16, a8, a12, a16, hout, hsa, ite_true,
-    ite_false, Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> trivial
+  refine Wp.wp_ldm rfl (hp.in_arg (d := 16) (by omega) (by omega)) fun s₁ u₁ => ?_
+  refine Spill.save_ok compressSaved (fun p h => by rw [u₁.gpr, u₁.wr]; exact hp.out_scr (by
+    have := compressSaved_fits.1 p h; omega)) fun s₂ u₂ => ?_
+  have hm : s₂.mem = Spill.saveMem s₀.mem (addr (scr s₀)) s₀.gpr compressSaved := by
+    rw [u₂.mem, u₁.gpr, u₁.mem]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p h => u₁.other _ (by revert p h; decide)
+  have hesp : s₂.gpr .esp = esp₀ s₀ := by rw [u₂.gpr, u₁.other _ (by decide)]
+  have hrd : s₂.rd = s₀.rd := by rw [u₂.rd, u₁.rd]
+  have hwr : s₂.wr = s₀.wr := by rw [u₂.wr, u₁.wr]
+  refine Wp.wp_mov fun s₃ u₃ => ?_
+  have hebp : s₃.gpr .ebp = scr s₀ := by rw [u₃.gpr, u₂.gpr, u₁.gpr]; rfl
+  refine Wp.wp_ldm (by rw [u₃.other _ (by decide), hesp])
+    (by rw [u₃.rd, u₃.wr, hrd, hwr]; exact hp.in_arg (d := 8) (by omega) (by omega)) fun s₄ u₄ => ?_
+  refine Wp.wp_stm (by rw [u₄.other _ (by decide), hebp])
+    (by rw [u₄.wr, u₃.wr, hwr]; exact hp.out_scr (by omega)) fun s₅ u₅ => ?_
+  refine Wp.wp_ldm (by rw [u₅.gpr, u₄.other _ (by decide), u₃.other _ (by decide), hesp])
+    (by rw [u₅.rd, u₅.wr, u₄.rd, u₄.wr, u₃.rd, u₃.wr, hrd, hwr]; exact hp.in_arg (d := 12) (by omega) (by omega))
+    fun s₆ u₆ => ?_
+  refine Wp.wp_stm (by rw [u₆.other _ (by decide), u₅.gpr, u₄.other _ (by decide), hebp])
+    (by rw [u₆.wr, u₅.wr, u₄.wr, u₃.wr, hwr]; exact hp.out_scr (by omega)) fun s₇ u₇ => ?_
+  have h12 : s₆.gpr .ecx = arg s₀ 2 := by
+    rw [u₆.gpr, u₅.mem, u₄.gpr, u₄.mem, u₃.mem, hm, readW_writeW_scr_arg hp _ _ (by omega) (by omega) (by omega),
+      spill_arg hp (by omega) (by omega)]; rfl
+  refine Wp.wp_test fun s₈ f₈ z₈ => WP.block_nil ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [f₈.gpr, u₇.gpr, u₆.other _ (by decide), u₅.gpr, u₄.other _ (by decide), hebp]
+  · rw [f₈.gpr, u₇.gpr, u₆.other _ (by decide), u₅.gpr, u₄.other _ (by decide), u₃.other _ (by decide),
+      hesp]
+  · rw [f₈.rd, u₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd, hrd]
+  · rw [f₈.wr, u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, hwr]
+  · rw [f₈.mem, u₇.mem, u₆.mem, u₅.mem, u₄.gpr, u₄.mem, u₃.mem, hm, h12, spill_arg hp (by omega) (by omega)]
+    rfl
+  · rw [z₈, u₇.gpr, h12]
 
-theorem saveMem_saved {s₀ : State} (hp : Pre s₀) : Saved s₀ (saveMem s₀) := by
-  have hrw := readW_writeW_scr hp
-  simp only [Saved, saveMem]
-  refine ⟨?_, ?_, ?_, ?_⟩ <;>
-  simp (config := {decide := true}) (disch := decide) only [Mem.readW_writeW_self32, hrw]
+theorem saveMem_saved {s₀ : State} (hp : Pre s₀) : Saved s₀ (saveMem s₀) :=
+  (Spill.saveMem_saved_addr _ _ compressSaved_fits (by have := hp.scr_fits; omega)).of_readW fun p h => by
+    have := compressSaved_fits.1 p h
+    rw [saveMem, readW_writeW_scr hp _ _ (by omega) (by omega) (by omega),
+      readW_writeW_scr hp _ _ (by omega) (by omega) (by omega)]
 
 theorem saveMem_frame {s₀ : State} (hp : Pre s₀) : Frame [scrR s₀] s₀.mem (saveMem s₀) := by
   have c : ∀ d : Nat, d + 4 ≤ 112 → (scrR s₀).Contains (addr (scr s₀) d) (32 / 8) :=
     fun d hd => contains_sub hd (by omega) (hp.scr_eq (by omega))
-  simp only [saveMem]
   have m := List.mem_singleton_self (scrR s₀)
-  exact ((((((Frame.refl _ _).writeW m _ (c 64 (by omega))).writeW m _ (c 68 (by omega))).writeW
-    m _ (c 72 (by omega))).writeW m _ (c 76 (by omega))).writeW m _ (c 80 (by omega))).writeW m _
-    (c 84 (by omega))
+  exact ((Spill.saveMem_frame m _ _ _ _ (compressSaved_contains hp)).writeW
+    m _ (c 80 (by omega))).writeW m _ (c 84 (by omega))
 
 theorem linv_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hebp : s₁.gpr .ebp = scr s₀)
     (hesp : s₁.gpr .esp = esp₀ s₀) (hrd : s₁.rd = s₀.rd) (hwr : s₁.wr = s₀.wr)
@@ -850,20 +877,10 @@ theorem linv_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hebp : s₁.gpr
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block epilogue) s fun s' =>
       (∀ r ∈ calleeSaved, s'.gpr r = s₀.gpr r) ∧ s'.mem = s.mem := by
-  have hin : ∀ d, d + 4 ≤ 112 → InRegions (s.rd ++ s.wr) (addr (scr s₀) d) 4 := by
-    rw [hc.rd, hc.wr]; exact fun d hd => hp.in_scr hd
-  obtain ⟨g0, g1, g2, g3⟩ := hc.saved
-  have hebp := hc.ebp
-  have hesp := hc.esp
-  apply WP.of_runBlock
   rw [epilogue_eq]
-  simp (config := {decide := true}) (disch := decide) only [runBlock_cons,
-    runBlock_nil, runStep_some, exec, readSrc, ea_mk, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, State.load32, hebp, hin,
-    g0, g1, g2, g3, ite_true, ite_false, Option.map_some, Option.some.injEq,
-    exists_eq_left']
-  refine ⟨fun r hr => ?_, trivial⟩
-  simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hesp]
+  refine Spill.restoreBase_ok _ (by decide)
+    (fun p h => by rw [hc.ebp, hc.rd, hc.wr]; exact hp.in_scr (by have := compressSaved_fits.1 p h; omega))
+    (by rw [hc.ebp]; exact hc.saved) fun s' u => WP.block_nil ⟨u.abi (by decide) (by decide) hc.esp, u.mem⟩
 
 /-! ## The whole function -/
 

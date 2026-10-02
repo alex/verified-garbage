@@ -24,33 +24,15 @@ theorem arg_exec {s₀ s : State} (hp : CPre s₀) (hs : Setup s₀ s)
         subst r; exact hp.aB) (by decide)
   simp only [exec, readSrc, State.load32, he, hin, ite_true, hm, Option.map_some]
 
-def saveMem (s : State) : Mem :=
-  (((s.mem.writeW (addr (scrP s) 0) (s.gpr .ebx)).writeW (addr (scrP s) 4)
-    (s.gpr .esi)).writeW (addr (scrP s) 8) (s.gpr .edi)).writeW
-    (addr (scrP s) 12) (s.gpr .ebp)
+/-- The memory after saving the registers. -/
+abbrev saveMem (s : State) : Mem := Spill.saveMem s.mem (addr (scrP s)) s.gpr savedRegs
 
-theorem saveMem_saved (s : State) (hp : CPre s) : Saved s (saveMem s) := by
-  constructor <;> simp only [saveMem]
-  · rw [Mem.readW_writeW_sep (scratch_sep hp (by decide) (by decide) (by decide)) (by decide),
-      Mem.readW_writeW_sep (scratch_sep hp (by decide) (by decide) (by decide)) (by decide),
-      Mem.readW_writeW_sep (scratch_sep hp (by decide) (by decide) (by decide)) (by decide),
-      Mem.readW_writeW_self32]
-  · rw [Mem.readW_writeW_sep (scratch_sep hp (by decide) (by decide) (by decide)) (by decide),
-      Mem.readW_writeW_sep (scratch_sep hp (by decide) (by decide) (by decide)) (by decide),
-      Mem.readW_writeW_self32]
-  · rw [Mem.readW_writeW_sep (scratch_sep hp (by decide) (by decide) (by decide)) (by decide),
-      Mem.readW_writeW_self32]
-  · exact Mem.readW_writeW_self32 _ _ _
+theorem saveMem_saved (s : State) (hp : CPre s) : Saved s (saveMem s) :=
+  Spill.saveMem_saved_addr _ _ (n := 16) (by decide) (by have := hp.fB; omega)
 
-theorem saveMem_frame (s : State) (hp : CPre s) : Frame [scrR s] s.mem (saveMem s) := by
-  have f0 := (Frame.refl [scrR s] s.mem).writeW (v := s.gpr .ebx)
-    (List.mem_singleton_self _) (scratch_contains hp (d := 0) (n := 4) (by decide))
-  have f4 := f0.writeW (v := s.gpr .esi) (List.mem_singleton_self _)
-    (scratch_contains hp (d := 4) (n := 4) (by decide))
-  have f8 := f4.writeW (v := s.gpr .edi) (List.mem_singleton_self _)
-    (scratch_contains hp (d := 8) (n := 4) (by decide))
-  exact f8.writeW (v := s.gpr .ebp) (List.mem_singleton_self _)
-    (scratch_contains hp (d := 12) (n := 4) (by decide))
+theorem saveMem_frame (s : State) (hp : CPre s) : Frame [scrR s] s.mem (saveMem s) :=
+  Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p h =>
+    scratch_contains hp (by have := savedRegs_bound p h; omega)
 
 def saveHead : List Instr := [.mov .eax (.mem (argOp 5))] ++
   savedRegs.map (fun (r, d) => .store (at_ .eax d) r)
@@ -60,22 +42,17 @@ theorem saveHead_ok (s₀ : State) (hp : CPre s₀) :
       Setup s₀ s ∧ s.gpr .eax = scrP s₀ ∧
       (∀ r, r ≠ .eax → s.gpr r = s₀.gpr r) ∧ s.mem = saveMem s₀ := by
   have hs : Setup s₀ s₀ := ⟨rfl, rfl, rfl, Frame.refl _ _⟩
-  have h0 := scratch_in hp (d := 0) (n := 4) (by decide)
-  have h4 := scratch_in hp (d := 4) (n := 4) (by decide)
-  have h8 := scratch_in hp (d := 8) (n := 4) (by decide)
-  have h12 := scratch_in hp (d := 12) (n := 4) (by decide)
-  dsimp only [addr, scrP] at h0 h4 h8 h12
-  apply WP.of_runBlock
-  simp only [saveHead, List.cons_append, List.nil_append]
-  rw [runBlock_cons, arg_exec hp hs (i := 5) (by decide) .eax, runStep_some]
-  simp (config := {decide := true}) only [savedRegs, List.map_cons, List.map_nil,
-    runBlock_cons, runStep_some, runBlock_nil, exec, State.store32, State.ea, at_,
-    gpr_setReg, mem_setReg, wr_setReg, ite_true, ite_false, h0, h4, h8, h12,
-    Option.some.injEq, exists_eq_left']
-  refine ⟨?_, trivial, ?_, rfl⟩
-  · exact ⟨rfl, rfl, rfl, saveMem_frame _ hp⟩
-  · intro r hr
-    simp only [hr, ite_false]
+  rw [show saveHead = .mov .eax (.mem (argOp 5)) :: (Spill.saveCode .eax savedRegs ++ []) from rfl]
+  refine Wp.cons (arg_exec hp hs (i := 5) (by decide) .eax) ?_
+  have e : (s₀.setReg .eax (arg s₀ 5)).gpr .eax = scrP s₀ := gpr_setReg_self _ _ _
+  refine Spill.save_ok savedRegs (fun p h => by
+    rw [e, wr_setReg]; exact scratch_in hp (by have := savedRegs_bound p h; omega)) fun s u => ?_
+  have hm : s.mem = saveMem s₀ := by
+    rw [u.mem, e, mem_setReg]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p h => gpr_setReg_of_ne _ _ (by revert p h; decide)
+  refine WP.block_nil ⟨⟨by rw [u.gpr, gpr_setReg_of_ne _ _ (by decide)], by rw [u.rd, rd_setReg],
+    by rw [u.wr, wr_setReg], by rw [hm]; exact saveMem_frame _ hp⟩, by rw [u.gpr, e], fun r hr => ?_, hm⟩
+  rw [u.gpr, gpr_setReg_of_ne _ _ hr]
 
 
 structure Loaded (s₀ s : State) : Prop extends Setup s₀ s where
@@ -125,16 +102,8 @@ theorem loadArgs_ok {s₀ s : State} (hp : CPre s₀) (hs : Setup s₀ s)
 
 
 theorem Saved.writePrefix {s₀ : State} {m : Mem} (hp : CPre s₀) (h : Saved s₀ m)
-    (v : BitVec 128) : Saved s₀ (m.writeW (addr (scrP s₀) 16) v) := by
-  constructor
-  · rw [Mem.readW_writeW_sep (scratch_sep hp (by decide) (by decide) (by decide)) (by decide)]
-    exact h.ebx
-  · rw [Mem.readW_writeW_sep (scratch_sep hp (by decide) (by decide) (by decide)) (by decide)]
-    exact h.esi
-  · rw [Mem.readW_writeW_sep (scratch_sep hp (by decide) (by decide) (by decide)) (by decide)]
-    exact h.edi
-  · rw [Mem.readW_writeW_sep (scratch_sep hp (by decide) (by decide) (by decide)) (by decide)]
-    exact h.ebp
+    (v : BitVec 128) : Saved s₀ (m.writeW (addr (scrP s₀) 16) v) :=
+  h.writeW_addr (n := 2048) hp.fB (fun p h => by have := savedRegs_bound p h; omega) (by decide) (by decide) v
 
 def counterSetup : List Instr :=
   [.mov .ebx (.mem (at_ .edx 12)), .bswap .ebx,

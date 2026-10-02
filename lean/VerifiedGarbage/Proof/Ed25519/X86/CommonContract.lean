@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.ScalarBody
 import VerifiedGarbage.TCB.X86.Target
+import VerifiedGarbage.Proof.Framework.X86.Spill
 
 /-! Untrusted cdecl facts shared by the Ed25519 primitives. No particular
 argument list or output is assumed by scratch setup and register saving. -/
@@ -31,11 +32,10 @@ theorem ScratchPre.arg_same {s : State} {scidx argc i : Nat} (hp : ScratchPre s 
   hf.readW (hp.arg_contains hi)
     (by simp only [List.mem_singleton]; rintro r rfl; exact hp.args_sc) (by decide)
 
-def savedReg : Nat → Reg
-  | 0 => .ebx
-  | 1 => .esi
-  | 2 => .edi
-  | _ => .ebp
+/-- The callee-saved registers and their slots in the scratch space. -/
+def savedSlots : Spill.Slots := [(.ebx, 0), (.esi, 4), (.edi, 8), (.ebp, 12)]
+
+theorem savedSlots_bound : ∀ p ∈ savedSlots, p.2 + 4 ≤ 16 := by decide
 
 structure Saved (s₀ : State) (x : BitVec 32) (s : State) : Prop where
   edi : s.gpr .edi = x
@@ -43,7 +43,7 @@ structure Saved (s₀ : State) (x : BitVec 32) (s : State) : Prop where
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
   frame : Frame [scR x] s₀.mem s.mem
-  saved : ∀ j < 4, wd s.mem x (4 * j) = s₀.gpr (savedReg j)
+  saved : Spill.Saved s.mem (addr x) s₀.gpr savedSlots
 
 theorem Saved.ctx {s₀ s : State} {x : BitVec 32} (h : Saved s₀ x s)
     (hfit : x.toNat + 8192 ≤ 2 ^ 32) (hw : scR x ∈ s₀.wr) : Ctx x s :=
@@ -54,10 +54,10 @@ theorem Saved.of_frame {s₀ s t : State} {x : BitVec 32} (h : Saved s₀ x s)
     (hk : ScalarKeep s t) {rs : List Region}
     (hf : Frame rs s.mem t.mem)
     (hsub : ∀ r ∈ rs, r.Sub (scR x))
-    (hsep : ∀ j < 4, ∀ r ∈ rs, (sub x (4 * j) 4).Disjoint r) : Saved s₀ x t := by
-  refine ⟨hk.edi.trans h.edi, hk.esp.trans h.esp, hk.rd.trans h.rd, hk.wr.trans h.wr,
-    h.frame.trans (hf.sub fun r hr => ⟨_, List.mem_singleton_self _, hsub r hr⟩), fun j hj => ?_⟩
-  rw [wd_frame hf (hsep j hj)]; exact h.saved j hj
+    (hsep : ∀ p ∈ savedSlots, ∀ r ∈ rs, (sub x p.2 4).Disjoint r) : Saved s₀ x t :=
+  ⟨hk.edi.trans h.edi, hk.esp.trans h.esp, hk.rd.trans h.rd, hk.wr.trans h.wr,
+    h.frame.trans (hf.sub fun r hr => ⟨_, List.mem_singleton_self _, hsub r hr⟩),
+    h.saved.of_readW fun p hp => wd_frame hf (hsep p hp)⟩
 
 theorem Saved.of_offset {s₀ s t : State} {x : BitVec 32} (h : Saved s₀ x s)
     (hx : x.toNat + 8192 ≤ 2 ^ 32) (hk : ScalarKeep s t) {o n : Nat}
@@ -66,7 +66,8 @@ theorem Saved.of_offset {s₀ s t : State} {x : BitVec 32} (h : Saved s₀ x s)
   apply h.of_frame hk hf
   · intro r hr; rw [List.mem_singleton.mp hr, scR_eq]
     exact sub_sub hx (Nat.zero_le _) hn ho'
-  · intro j hj r hr; rw [List.mem_singleton.mp hr]
-    exact sub_disj (by omega_using [hx, hj]) (by omega_using [hx, hn]) (Or.inl (by omega_using [hj, ho]))
+  · intro p hp r hr; rw [List.mem_singleton.mp hr]
+    have := savedSlots_bound p hp
+    exact sub_disj (by omega_using [hx, this]) (by omega_using [hx, hn]) (Or.inl (by omega_using [this, ho]))
 
 end VG.Proof.Ed25519.X86

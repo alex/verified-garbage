@@ -81,8 +81,7 @@ abbrev tP : Addr := scA s₀ + BitVec.ofNat 64 192
 abbrev tP32 : BitVec 32 := sc s₀ + BitVec.ofNat 32 192
 
 /-- Our caller's `ebx`, `esi`, `edi` and `ebp` are saved in the scratch space. -/
-def Saved (m : Mem) : Prop :=
-  ∀ p ∈ rmSaved, m.readW (scA s₀ + BitVec.ofNat 64 p.2) 32 = s₀.gpr p.1
+abbrev Saved (m : Mem) : Prop := Spill.Saved m (scA s₀ + BitVec.ofNat 64 ·) s₀.gpr rmSaved
 
 /-- The regions the function writes, and the stack its calls use. -/
 abbrev frs : List Region := [bR s₀, vR s₀, scR s₀, stkR s₀]

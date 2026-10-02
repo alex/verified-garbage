@@ -106,10 +106,10 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · intro r hr
       simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl
-      · exact restored 0 (by decide)
-      · exact restored 1 (by decide)
-      · exact restored 2 (by decide)
-      · exact restored 3 (by decide)
+      · exact restored (.ebx, 0) (by decide)
+      · exact restored (.esi, 4) (by decide)
+      · exact restored (.edi, 8) (by decide)
+      · exact restored (.ebp, 12) (by decide)
       · exact kall.1 _ (by decide)
     · have frame : Frame [scR (arg s₀ 3), outR s₀] s₀.mem s'.mem := by
         rw [← hbase] at fm o₆

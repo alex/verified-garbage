@@ -45,7 +45,7 @@ theorem loadSlicePointer_ok {s₀ s : State} {scidx argc i skip : Nat}
   refine Wp.wp_addi fun t ht => WP.block_nil ?_
   refine ⟨⟨(ht.other _ (by decide)).trans hu.edi, (ht.other _ (by decide)).trans hu.esp,
     ht.rd.trans hu.rd, ht.wr.trans hu.wr, by rw [ht.mem]; exact hu.frame,
-    fun j hj => by rw [ht.mem]; exact hu.saved j hj⟩, ?_, ht.mem.trans mu⟩
+    by rw [ht.mem]; exact hu.saved⟩, ?_, ht.mem.trans mu⟩
   rw [ht.gpr, eu]
 
 theorem inputSliceWords_ok {s₀ s : State} {scidx argc i skip n dst : Nat}

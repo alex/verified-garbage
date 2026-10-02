@@ -4,49 +4,26 @@ import VerifiedGarbage.Impl.Ed25519.X86.CommonMemory
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.X25519.X86 VG.Impl.Ed25519.X86
 
-theorem abiSave_ok {s₀ : State} {scidx argc : Nat} (hp : ScratchPre s₀ scidx argc) : WP isa (.block (abiSave scidx)) s₀ (Saved s₀ (arg s₀ scidx)) := by
+theorem abiSave_ok {s₀ : State} {scidx argc : Nat} (hp : ScratchPre s₀ scidx argc) :
+    WP isa (.block (abiSave scidx)) s₀ (Saved s₀ (arg s₀ scidx)) := by
   have hfit := hp.fit
-  unfold abiSave
+  rw [show abiSave scidx = .mov .eax (.mem (at_ .esp (4 + 4 * scidx))) :: (Spill.saveCode .eax savedSlots ++
+    ([.mov .edi (.reg .eax)] : List Instr)) from rfl]
   refine Wp.wp_ldm (B := s₀.gpr .esp) (o := 4 + 4 * scidx) rfl (hp.argIn hp.index) fun s₁ u₁ => ?_
   have ea : s₁.gpr .eax = arg s₀ scidx := u₁.gpr
-  have inW : ∀ {s : State} {d : Nat}, s.wr = s₀.wr → d + 4 ≤ 8192 → InRegions s.wr (addr (arg s₀ scidx) d) 4 :=
-    fun hw hd => ⟨_, hw ▸ hp.wr, scR_contains hfit hd (by decide)⟩
-  refine Wp.wp_stm ea (inW u₁.wr (by decide)) fun s₂ u₂ => ?_
-  refine Wp.wp_stm (by rw [u₂.gpr]; exact ea) (inW (by rw [u₂.wr, u₁.wr]) (by decide)) fun s₃ u₃ => ?_
-  refine Wp.wp_stm (by rw [u₃.gpr, u₂.gpr]; exact ea) (inW (by rw [u₃.wr, u₂.wr, u₁.wr]) (by decide))
-    fun s₄ u₄ => ?_
-  refine Wp.wp_stm (by rw [u₄.gpr, u₃.gpr, u₂.gpr]; exact ea)
-    (inW (by rw [u₄.wr, u₃.wr, u₂.wr, u₁.wr]) (by decide)) fun s₅ u₅ => ?_
+  refine Spill.save_ok savedSlots (fun p h => by
+    rw [ea, u₁.wr]; exact ⟨_, hp.wr, scR_contains hfit (by have := savedSlots_bound p h; omega_using [this])
+      (by decide)⟩) fun s₅ u₅ => ?_
   refine Wp.wp_mov fun s₆ u₆ => WP.block_nil ?_
-  have g₅ : s₅.gpr = s₁.gpr := by rw [u₅.gpr, u₄.gpr, u₃.gpr, u₂.gpr]
-  have hr : ∀ r, r ≠ .eax → s₁.gpr r = s₀.gpr r := fun r h => u₁.other r h
-  have w : ∀ {m : Mem} {d : Nat} (v : BitVec 32), d + 4 ≤ 8192 →
-      Frame [scR (arg s₀ scidx)] s₀.mem m → Frame [scR (arg s₀ scidx)] s₀.mem (m.writeW (addr (arg s₀ scidx) d) v) :=
-    fun v hd hf => hf.writeW (List.mem_singleton_self _) _ (scR_contains hfit hd (by decide))
-  refine ⟨by rw [u₆.gpr, g₅, ea], by rw [u₆.other _ (by decide), g₅, hr _ (by decide)],
-    by rw [u₆.rd, u₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd], by rw [u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr],
-    ?_, fun j hj => ?_⟩
-  · rw [u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
-    exact w _ (by decide) (w _ (by decide) (w _ (by decide) (w _ (by decide) (Frame.refl _ _))))
-  · rw [u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
-    have hne : ∀ a b : Nat, a < 4 → b < 4 → a ≠ b → 4 * a + 4 ≤ 4 * b ∨ 4 * b + 4 ≤ 4 * a :=
-      fun a b ha hb h => by omega_using [ha, hb, h]
-    have ne : ∀ (m : Mem) (v : BitVec 32) (a : Nat), a < 4 → a ≠ j →
-        wd (m.writeW (addr (arg s₀ scidx) (4 * a)) v) (arg s₀ scidx) (4 * j) = wd m (arg s₀ scidx) (4 * j) :=
-      fun m v a ha h => wd_write_ne m v (by omega_using [hfit, hj]) (by omega_using [hfit, ha])
-        (hne j a hj ha (Ne.symm h))
-    rcases (by omega_using [hj] : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3) with rfl | rfl | rfl | rfl
-    · rw [ne _ _ 3 (by decide) (by decide), ne _ _ 2 (by decide) (by decide),
-        ne _ _ 1 (by decide) (by decide), show 4 * 0 = 0 from rfl, wd_write_self, hr _ (by decide)]
-      rfl
-    · rw [ne _ _ 3 (by decide) (by decide), ne _ _ 2 (by decide) (by decide),
-        show 4 * 1 = 4 from rfl, wd_write_self, u₂.gpr, hr _ (by decide)]
-      rfl
-    · rw [ne _ _ 3 (by decide) (by decide), show 4 * 2 = 8 from rfl, wd_write_self, u₃.gpr, u₂.gpr,
-        hr _ (by decide)]
-      rfl
-    · rw [show 4 * 3 = 12 from rfl, wd_write_self, u₄.gpr, u₃.gpr, u₂.gpr, hr _ (by decide)]
-      rfl
+  have hm : s₆.mem = Spill.saveMem s₀.mem (addr (arg s₀ scidx)) s₀.gpr savedSlots := by
+    rw [u₆.mem, u₅.mem, ea, u₁.mem]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p h => u₁.other _ (by revert p h; decide)
+  refine ⟨by rw [u₆.gpr, u₅.gpr, ea], by rw [u₆.other _ (by decide), u₅.gpr, u₁.other _ (by decide)],
+    by rw [u₆.rd, u₅.rd, u₁.rd], by rw [u₆.wr, u₅.wr, u₁.wr], ?_, ?_⟩
+  · rw [hm]
+    exact Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p h =>
+      scR_contains hfit (by have := savedSlots_bound p h; omega_using [this]) (by decide)
+  · rw [hm]; exact Spill.saveMem_saved_addr _ _ (n := 16) (by decide) (by omega_using [hfit])
 
 
 structure CopyInv (x p : BitVec 32) (dst : Nat) (s₀ : State) (n : Nat) (s : State) : Prop where
@@ -92,45 +69,25 @@ theorem copyWords_ok {x p : BitVec 32} {s₀ : State} (hc : Ctx x s₀)
           (by have := hc.fit; omega_using [this, hd, hn]) (by omega_using [hj, e])]
         exact hu.words j (by omega_using [hj, e])
 
-theorem restore_eq : restore = [.mov .eax (.reg .edi), .mov .ebx (.mem (at_ .eax 0)), .mov .esi (.mem (at_ .eax 4)),
-    .mov .ebp (.mem (at_ .eax 12)), .mov .edi (.mem (at_ .eax 8))] := rfl
+theorem restore_eq : restore =
+    .mov .eax (.reg .edi) :: (Spill.restoreCode .eax [(.ebx, 0), (.esi, 4), (.ebp, 12), (.edi, 8)] ++ []) := rfl
 
 /-- The saved registers restored. -/
-theorem abiRestore_regs_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
-    WP isa (.block restore) s fun s' => s'.mem = s.mem ∧ s'.gpr .esp = s.gpr .esp ∧
-      s'.gpr .ebx = wd s.mem x 0 ∧ s'.gpr .esi = wd s.mem x 4 ∧ s'.gpr .ebp = wd s.mem x 12 ∧
-      s'.gpr .edi = wd s.mem x 8 ∧ s'.gpr .edx = s.gpr .edx ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+theorem abiRestore_ok {x : BitVec 32} {s : State} {g : Reg → BitVec 32} (hc : Ctx x s)
+    (hs : Spill.Saved s.mem (addr x) g savedSlots) :
+    WP isa (.block restore) s fun s' => (∀ r ∈ calleeSaved, r ≠ .esp → s'.gpr r = g r) ∧
+      s'.gpr .esp = s.gpr .esp ∧ s'.gpr .edx = s.gpr .edx ∧ s'.mem = s.mem := by
   rw [restore_eq]
   refine Wp.wp_mov fun s₁ u₁ => ?_
   have ea : s₁.gpr .eax = x := by rw [u₁.gpr, hc.edi]
-  have inr : ∀ {s' : State} (d : Nat), s'.rd = s.rd → s'.wr = s.wr → d + 4 ≤ 8192 →
-      InRegions (s'.rd ++ s'.wr) (addr x d) 4 := fun d h1 h2 hd => by rw [h1, h2]; exact hc.inRW hd (by decide)
-  refine Wp.wp_ldm ea (inr 0 u₁.rd u₁.wr (by decide)) fun s₂ u₂ => ?_
-  refine Wp.wp_ldm (by rw [u₂.other _ (by decide), ea]) (inr 4 (by rw [u₂.rd, u₁.rd]) (by rw [u₂.wr, u₁.wr])
-    (by decide)) fun s₃ u₃ => ?_
-  refine Wp.wp_ldm (by rw [u₃.other _ (by decide), u₂.other _ (by decide), ea])
-    (inr 12 (by rw [u₃.rd, u₂.rd, u₁.rd]) (by rw [u₃.wr, u₂.wr, u₁.wr]) (by decide)) fun s₄ u₄ => ?_
-  refine Wp.wp_ldm (by rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), ea])
-    (inr 8 (by rw [u₄.rd, u₃.rd, u₂.rd, u₁.rd]) (by rw [u₄.wr, u₃.wr, u₂.wr, u₁.wr]) (by decide))
-    fun s₅ u₅ => WP.block_nil ?_
-  refine ⟨by rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem],
-    by rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide),
-      u₁.other _ (by decide)], ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, u₁.mem]
-  · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.mem, u₁.mem]
-  · rw [u₅.other _ (by decide), u₄.gpr, u₃.mem, u₂.mem, u₁.mem]
-  · rw [u₅.gpr, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
-
-  · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide),
-      u₂.other _ (by decide), u₁.other _ (by decide)]
-  · rw [u₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd]
-  · rw [u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr]
-
-theorem abiRestore_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
-    WP isa (.block restore) s fun s' => s'.mem = s.mem ∧ s'.gpr .esp = s.gpr .esp ∧
-      s'.gpr .ebx = wd s.mem x 0 ∧ s'.gpr .esi = wd s.mem x 4 ∧ s'.gpr .ebp = wd s.mem x 12 ∧
-      s'.gpr .edi = wd s.mem x 8 :=
-  WP.mono (abiRestore_regs_ok hc) fun _ h => ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, h.2.2.2.2.2.1⟩
+  refine Spill.restore_ok (g := g) [(.ebx, 0), (.esi, 4), (.ebp, 12), (.edi, 8)] (by decide)
+    (fun p h => by
+      rw [ea, u₁.rd, u₁.wr]
+      exact hc.inRW (by have := savedSlots_bound p (by revert p h; decide); omega_using [this]) (by decide))
+    (by rw [ea, u₁.mem]; exact hs.sub (by decide)) fun s' r => WP.block_nil
+      ⟨fun q hq hsp => r.regs q (by revert hsp; revert hq; revert q; decide),
+        by rw [r.other _ (by decide), u₁.other _ (by decide)],
+        by rw [r.other _ (by decide), u₁.other _ (by decide)], by rw [r.mem, u₁.mem]⟩
 
 theorem loadArg_ok {s₀ s : State} {scidx argc i : Nat} (hp : ScratchPre s₀ scidx argc)
     (h : Saved s₀ (arg s₀ scidx) s) (hi : i < argc) :
@@ -139,7 +96,7 @@ theorem loadArg_ok {s₀ s : State} {scidx argc i : Nat} (hp : ScratchPre s₀ s
   refine Wp.wp_ldm h.esp (by rw [h.rd, h.wr]; exact hp.argIn hi) fun t ht => WP.block_nil ?_
   refine ⟨⟨(ht.other _ (by decide)).trans h.edi, (ht.other _ (by decide)).trans h.esp,
     ht.rd.trans h.rd, ht.wr.trans h.wr, by rw [ht.mem]; exact h.frame,
-    fun j hj => by rw [ht.mem]; exact h.saved j hj⟩, ?_, ht.mem⟩
+    by rw [ht.mem]; exact h.saved⟩, ?_, ht.mem⟩
   rw [ht.gpr]; exact hp.arg_same h.frame hi
 
 end VG.Proof.Ed25519.X86

@@ -63,7 +63,7 @@ theorem decodedThen_ok {s₀ s : State} {p : Option Spec.Ed25519.Point} {next : 
   refine WP.seq (Wp.wp_test fun t ht zt => WP.block_nil ?_)
   have ht' : Saved s₀ (arg s₀ 3) t := ⟨by rw [ht.gpr]; exact hs.edi,
     by rw [ht.gpr]; exact hs.esp, ht.rd.trans hs.rd, ht.wr.trans hs.wr,
-    by rw [ht.mem]; exact hs.frame, fun j hj => by rw [ht.mem]; exact hs.saved j hj⟩
+    by rw [ht.mem]; exact hs.frame, by rw [ht.mem]; exact hs.saved⟩
   cases he : p with
   | none =>
     rw [he] at hr

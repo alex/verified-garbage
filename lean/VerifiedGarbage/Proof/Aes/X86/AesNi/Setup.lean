@@ -1,15 +1,15 @@
 import VerifiedGarbage.Proof.Aes.X86.AesNi.Context
+import VerifiedGarbage.Proof.Framework.X86.Spill
 
 namespace VG.Proof.Aes.X86.AesNi
 open VG VG.X86 VG.X86.RegUpd
 open VG.Proof.Aes.X86 (CPre schP nRounds ctrP datP nBlk scrP scrR ctrR argR)
 open VG.Impl.Aes.X86.AesNi (at_ argOp savedRegs)
 
-structure Saved (s₀ : State) (m : Mem) : Prop where
-  ebx : m.readW (addr (scrP s₀) 0) 32 = s₀.gpr .ebx
-  esi : m.readW (addr (scrP s₀) 4) 32 = s₀.gpr .esi
-  edi : m.readW (addr (scrP s₀) 8) 32 = s₀.gpr .edi
-  ebp : m.readW (addr (scrP s₀) 12) 32 = s₀.gpr .ebp
+/-- The callee-saved registers are saved in the scratch buffer. -/
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (addr (scrP s₀)) s₀.gpr savedRegs
+
+theorem savedRegs_bound : ∀ p ∈ savedRegs, p.2 + 4 ≤ 16 := by decide
 
 structure Setup (s₀ s : State) : Prop where
   esp : s.gpr .esp = s₀.gpr .esp
