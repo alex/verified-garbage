@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.CmacAes.Stream.X86_64.Call
 import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
+import VerifiedGarbage.Proof.Framework.WriteBytes
 
 /-!
 # Streaming AES-CMAC on x86-64: arithmetic and memory
@@ -48,6 +49,10 @@ theorem toNat_add_lt (p : Addr) {d k : Nat} (h : p.toNat + k ≤ 2 ^ 64) (hd : d
   rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : d < 2 ^ 64)]
   exact Nat.mod_eq_of_lt (by omega)
 
+theorem rsi_ofNat {s₀ : State} {R : Nat} (h : (s₀.gpr .rsi).toNat = R) (_hR : R = 10 ∨ R = 12 ∨ R = 14) :
+    s₀.gpr .rsi = BitVec.ofNat 64 R :=
+  BitVec.eq_of_toNat_eq (by rw [h, toNat_ofNat (by omega)])
+
 /-! ## Copying a block a word at a time -/
 
 /-- The memory after copying the block at `p` to `o`, a word at a time. -/
@@ -69,5 +74,36 @@ theorem copyMem_bytes (m : Mem) {o p : Addr} (h : (⟨o, 16⟩ : Region).Disjoin
         exact (h.sub_left (Region.sub_prefix (by decide))).sub_right
           (Offset.sub_base p (d := 8) (n := 8) (k := 16) (by decide)) |>.symm) (by decide),
     Proof.Cmac.le8_readW, Proof.Cmac.le8_readW, ← Proof.Cmac.bytesAt_split]
+
+/-! ## Bytes written -/
+
+section
+open VG.WriteBytes
+
+theorem writeBytes_at (m : Mem) (q : Addr) (xs : List Byte) {i : Nat} (hi : i < 2 ^ 64) :
+    writeBytes m q xs (q + BitVec.ofNat 64 i) =
+      if i < xs.length then xs.getD i 0 else m (q + BitVec.ofNat 64 i) := by
+  simp only [writeBytes, Mem.sub_ofNat_toNat q hi]
+
+theorem bytesAt_writeBytes_self (m : Mem) (q : Addr) {xs : List Byte} (h : xs.length < 2 ^ 64) :
+    Spec.Aes.bytesAt (writeBytes m q xs) q xs.length = xs := by
+  apply List.ext_getElem (by simp [Spec.Aes.bytesAt])
+  intro i h1 _
+  simp only [Spec.Aes.bytesAt, List.length_map, List.length_range] at h1
+  simp only [Spec.Aes.bytesAt, List.getElem_map, List.getElem_range, writeBytes_at m q xs (by omega : i < 2 ^ 64),
+    h1, ↓reduceIte, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h1, Option.getD_some]
+
+/-- Bytes `[0, r)` from `p` stay, and the bytes `xs` follow them. -/
+theorem bytesAt_writeBytes (m : Mem) (p : Addr) (r : Nat) (xs : List Byte) (h : r + xs.length < 2 ^ 64) :
+    Spec.Aes.bytesAt (writeBytes m (p + BitVec.ofNat 64 r) xs) p (r + xs.length) =
+      Spec.Aes.bytesAt m p r ++ xs := by
+  rw [Proof.Cmac.Stream.bytesAt_append, bytesAt_writeBytes_self _ _ (by omega)]
+  congr 1
+  simp only [Spec.Aes.bytesAt]
+  apply List.map_congr_left
+  intro i hi
+  exact writeBytes_before m p xs (List.mem_range.mp hi) (by omega)
+
+end
 
 end VG.Proof.CmacAes.Stream.X86_64

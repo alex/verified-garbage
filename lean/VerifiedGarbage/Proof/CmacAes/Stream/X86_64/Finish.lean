@@ -49,10 +49,6 @@ theorem HPre.of {s₀ : State} (h : finishX86_64.pre s₀) :
   let ⟨a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p⟩ := h
   ⟨rfl, rfl, rfl, rfl, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p⟩
 
-theorem rsi_ofNat {s₀ : State} {R : Nat} (h : (s₀.gpr .rsi).toNat = R) (_hR : R = 10 ∨ R = 12 ∨ R = 14) :
-    s₀.gpr .rsi = BitVec.ofNat 64 R :=
-  BitVec.eq_of_toNat_eq (by rw [h, toNat_ofNat (by omega)])
-
 /-! ## Before the call -/
 
 theorem finishPre_ok {s₀ : State} {St O S : Addr} {R : Nat} (hp : HPre s₀ St O S R) :
