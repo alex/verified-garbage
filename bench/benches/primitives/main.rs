@@ -50,6 +50,7 @@ mod pbkdf2_sha512_224;
 mod pbkdf2_sha512_256;
 mod poly1305;
 mod rc2_cbc;
+mod rc4;
 mod scrypt;
 mod sha1;
 mod sha224;
@@ -266,6 +267,7 @@ const BENCHES: &[Bench] = &[
     (pbkdf2_sha512_256::USES, pbkdf2_sha512_256::bench),
     (poly1305::USES, poly1305::bench),
     (rc2_cbc::USES, rc2_cbc::bench),
+    (rc4::USES, rc4::bench),
     (triple_des_ecb::USES, triple_des_ecb::bench),
     (argon2::USES, argon2::bench),
     (scrypt::USES, scrypt::bench),
