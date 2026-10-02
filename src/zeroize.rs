@@ -9,7 +9,8 @@
 //!   when they are dropped: [`AesGcm`](crate::aes_gcm::AesGcm) its key
 //!   schedule and hash subkey, [`AesGcmStream`](crate::aes_gcm::AesGcmStream)
 //!   also its keystream, partial block and GHASH state,
-//!   [`ChaCha20`](crate::chacha20::ChaCha20) its state and keystream,
+//!   [`ChaCha20`](crate::chacha20::ChaCha20) its streaming state (which holds
+//!   the key and the buffered keystream),
 //!   [`ChaCha20Poly1305`](crate::chacha20poly1305::ChaCha20Poly1305) its
 //!   key, [`Poly1305`](crate::poly1305::Poly1305) its state (which holds its
 //!   key), and the

@@ -1,13 +1,15 @@
 //! ChaCha20 (RFC 8439), with the 16-byte nonce of OpenSSL and
 //! pyca/cryptography.
 //!
-//! The block function is the verified assembly primitive `vg_chacha20_block`
-//! for the target architecture (contract `VG.Spec.ChaCha20.blockContract`);
-//! this module builds the state
-//! (RFC 8439 §2.3), XORs the keystream into the data (§2.4) and advances the
-//! block counter. Whole blocks of data are XORed with the verified
-//! `vg_chacha20_xor` (contract `VG.Spec.ChaCha20.xorContract`), which calls
-//! the block function.
+//! The cipher is the verified assembly of the target architecture, on an
+//! opaque streaming state that holds the key, the position in the keystream
+//! and a partly used block: `vg_chacha20_init` (contract
+//! `VG.Spec.ChaCha20.initContract`) starts the keystream of a key and nonce,
+//! `vg_chacha20_set_nonce` (`VG.Spec.ChaCha20.setNonceContract`) restarts it
+//! for another nonce, and `vg_chacha20_apply`
+//! (`VG.Spec.ChaCha20.applyContract`) XORs the next bytes of it into data,
+//! calling the verified `vg_chacha20_xor` for whole blocks and
+//! `vg_chacha20_block` for a block it starts.
 //!
 //! The 16-byte nonce is the initial block counter (4 bytes, little-endian)
 //! followed by the 12-byte RFC 8439 nonce, i.e. state words 12–15. As in
@@ -16,13 +18,15 @@
 //! applying more of it panics, rather than wrapping the counter around or
 //! carrying it into word 13, the first word of the nonce, as OpenSSL does
 //! (the keystream past that point would be another nonce's, e.g. after
-//! 64 bytes from `c = 0xffffffff`).
+//! 64 bytes from `c = 0xffffffff`). `vg_chacha20_apply` checks this itself,
+//! and leaves the data and the keystream unchanged if it fails.
 //!
-//! On x86-64, CPUs with AVX-512F run `vg_chacha20_xor_avx512` instead, which
-//! has the same contract and XORs sixteen blocks at a time, and other CPUs
-//! with AVX2 run `vg_chacha20_xor_avx2`, which XORs eight.
-//! On AArch64, the NEON backend computes four quarter rounds in parallel
-//! within each block, including buffered partial blocks.
+//! On x86-64, CPUs with AVX-512F run `vg_chacha20_apply_avx512` instead, which
+//! has the same contract and XORs sixteen blocks at a time
+//! (`vg_chacha20_xor_avx512`), and other CPUs with AVX2 run
+//! `vg_chacha20_apply_avx2`, which XORs eight. On AArch64,
+//! `vg_chacha20_apply_neon` XORs whole blocks with the NEON backend, which
+//! computes four blocks in AdvSIMD lanes alongside one in integer registers.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -32,46 +36,18 @@
 ))]
 
 #[cfg(target_arch = "aarch64")]
-use crate::arch::chacha20::vg_chacha20_xor_neon;
+use crate::arch::chacha20::vg_chacha20_apply_neon;
+use crate::arch::chacha20::{vg_chacha20_apply, vg_chacha20_init, vg_chacha20_set_nonce};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::chacha20::{
-    VG_CHACHA20_XOR_AVX2_FEATURES, VG_CHACHA20_XOR_AVX512_FEATURES, vg_chacha20_xor_avx2,
-    vg_chacha20_xor_avx512,
+    VG_CHACHA20_APPLY_AVX2_FEATURES, VG_CHACHA20_APPLY_AVX512_FEATURES, vg_chacha20_apply_avx2,
+    vg_chacha20_apply_avx512,
 };
-use crate::arch::chacha20::{vg_chacha20_block, vg_chacha20_xor};
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
 
-/// The constants `"expand 32-byte k"` (RFC 8439 §2.3).
-const CONSTANTS: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
-
-/// The 64 bytes of keystream for `state`.
-fn block(state: &[u32; 16], backend: Backend) -> [u8; 64] {
-    let mut buf = [0u32; 64];
-    let f = match backend {
-        Backend::Scalar => vg_chacha20_block,
-        #[cfg(target_arch = "aarch64")]
-        Backend::Neon => vg_chacha20_block,
-        #[cfg(target_arch = "x86_64")]
-        Backend::Avx2 | Backend::Avx512 => vg_chacha20_block,
-    };
-    // SAFETY: `state` is valid for reads of 64 bytes and `buf` for reads and
-    // writes of 256 bytes; they are distinct objects, so they do not overlap
-    // each other or the return address.
-    unsafe { f(state, &mut buf) };
-    let mut out = [0u8; 64];
-    for (o, word) in out.as_chunks_mut::<4>().0.iter_mut().zip(&buf[..16]) {
-        *o = word.to_le_bytes();
-    }
-    out
-}
-
-/// The little-endian words of `bytes`.
-fn words<const N: usize>(bytes: &[u8]) -> [u32; N] {
-    core::array::from_fn(|i| u32::from_le_bytes(bytes[4 * i..4 * i + 4].try_into().unwrap()))
-}
-
-/// The implementations of `vg_chacha20_xor`, which ChaCha20-Poly1305 follows
+/// The implementations of `vg_chacha20_xor` (and of `vg_chacha20_apply`,
+/// which calls them), which ChaCha20-Poly1305 follows
 /// (`crate::chacha20poly1305`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Backend {
@@ -105,15 +81,15 @@ impl Backend {
     pub(crate) fn select(f: Features) -> Backend {
         Backend::select_for(
             f,
-            VG_CHACHA20_XOR_AVX512_FEATURES,
-            VG_CHACHA20_XOR_AVX2_FEATURES,
+            VG_CHACHA20_APPLY_AVX512_FEATURES,
+            VG_CHACHA20_APPLY_AVX2_FEATURES,
         )
     }
 
     /// The best implementation a CPU with the features `f` can run, for
     /// functions whose instances for AVX-512 and AVX2 need the features
     /// `avx512` and `avx2` (ChaCha20-Poly1305's, which also call Poly1305
-    /// with AVX2, need more than `vg_chacha20_xor`'s).
+    /// with AVX2, need more than `vg_chacha20_apply`'s).
     #[cfg(target_arch = "x86_64")]
     pub(crate) fn select_for(f: Features, avx512: &[&str], avx2: &[&str]) -> Backend {
         if f.contains(Features::of(avx512)) {
@@ -135,22 +111,17 @@ impl Backend {
 
 /// A ChaCha20 keystream, applied incrementally.
 pub struct ChaCha20 {
-    state: [u32; 16],
-    keystream: [u8; 64],
-    /// How many bytes of `keystream` have been used.
-    used: usize,
-    /// How many bytes of keystream are left before the block counter would
-    /// wrap around: those left in `keystream` and in the blocks from the
-    /// counter in word 12 to the last one, `0xffffffff`.
-    remaining: u64,
+    /// The streaming state of `vg_chacha20_init` and `vg_chacha20_apply`
+    /// (`VG.Spec.ChaCha20.restAt`): the key, the position in the keystream
+    /// and the partly used block.
+    state: [u64; 96],
     backend: Backend,
 }
 
 impl Drop for ChaCha20 {
-    /// Wipes the state, which holds the key, and the buffered keystream.
+    /// Wipes the state, which holds the key and the buffered keystream.
     fn drop(&mut self) {
         zeroize(&mut self.state);
-        zeroize(&mut self.keystream);
     }
 }
 
@@ -163,25 +134,22 @@ impl ChaCha20 {
     /// Starts the keystream for `key` and `nonce` (the initial block counter,
     /// little-endian, followed by the 12-byte RFC 8439 nonce).
     pub fn new(key: &[u8; 32], nonce: &[u8; 16]) -> Self {
-        let mut state = [0u32; 16];
-        state[..4].copy_from_slice(&CONSTANTS);
-        state[4..12].copy_from_slice(&words::<8>(key));
         let mut c = ChaCha20 {
-            state,
-            keystream: [0; 64],
-            used: 64,
-            remaining: 0,
+            state: [0; 96],
             backend: Backend::select(detected()),
         };
-        c.reset_nonce(nonce);
+        // SAFETY: `state` is valid for reads and writes of 768 bytes, `key`
+        // for reads of 32 bytes and `nonce` for reads of 16 bytes; they are
+        // distinct objects, so they do not overlap each other or the return
+        // address, and do not wrap around the end of the address space.
+        unsafe { vg_chacha20_init(&mut c.state, key, nonce) };
         c
     }
 
     /// Restarts the keystream, with the same key, for `nonce`.
     pub fn reset_nonce(&mut self, nonce: &[u8; 16]) {
-        self.state[12..].copy_from_slice(&words::<4>(nonce));
-        self.used = 64;
-        self.remaining = 64 * ((1 << 32) - u64::from(self.state[12]));
+        // SAFETY: as in `new`, for `state` and `nonce`.
+        unsafe { vg_chacha20_set_nonce(&mut self.state, nonce) };
     }
 
     /// XORs the next `data.len()` bytes of the keystream into `data`
@@ -194,66 +162,23 @@ impl ChaCha20 {
     /// have been applied since the nonce (with initial block counter `c`) was
     /// set. `data` is then left unchanged.
     pub fn apply_keystream(&mut self, data: &mut [u8]) {
-        self.remaining = self
-            .remaining
-            .checked_sub(data.len() as u64)
-            .expect("ChaCha20 block counter would overflow");
-        let (head, rest) = data.split_at_mut((64 - self.used).min(data.len()));
-        self.xor_bytes(head);
-        let rest = self.xor_blocks(rest);
-        self.xor_bytes(rest);
-    }
-
-    /// Advances the block counter in word 12 by `n`. `remaining` keeps it
-    /// from passing `0xffffffff` (it wraps around to 0 only after the last
-    /// block, and is not used again).
-    fn advance(&mut self, n: u64) {
-        self.state[12] = self.state[12].wrapping_add(n as u32);
-    }
-
-    /// XORs the keystream into `data` a byte at a time, from the buffered
-    /// block and then from new ones.
-    fn xor_bytes(&mut self, data: &mut [u8]) {
-        for byte in data {
-            if self.used == 64 {
-                self.keystream = block(&self.state, self.backend);
-                self.used = 0;
-                self.advance(1);
-            }
-            *byte ^= self.keystream[self.used];
-            self.used += 1;
-        }
-    }
-
-    /// XORs the keystream into the whole blocks at the start of `data`, from
-    /// the current counter (no block may be buffered), and returns the rest.
-    fn xor_blocks<'a>(&mut self, data: &'a mut [u8]) -> &'a mut [u8] {
-        let (blocks, rest) = data.split_at_mut(data.len() / 64 * 64);
-        if !blocks.is_empty() {
-            // `remaining` (checked by `apply_keystream`) keeps the blocks
-            // within those left before word 12 wraps around.
-            let mut state = self.state;
-            let mut buf = [0u32; 80];
-            let f = match self.backend {
-                Backend::Scalar => vg_chacha20_xor,
-                #[cfg(target_arch = "aarch64")]
-                Backend::Neon => vg_chacha20_xor_neon,
-                #[cfg(target_arch = "x86_64")]
-                Backend::Avx2 => vg_chacha20_xor_avx2,
-                #[cfg(target_arch = "x86_64")]
-                Backend::Avx512 => vg_chacha20_xor_avx512,
-            };
-            // SAFETY: `state` is valid for reads and writes of 64 bytes,
-            // `blocks` for reads and writes of `blocks.len()` bytes and `buf` for
-            // reads and writes of 320 bytes; they are distinct objects, so
-            // they do not overlap each other, the stack frame of the call
-            // (the return address and any arguments on the stack) or the
-            // stack below it, and do not wrap around the end of the address
-            // space. The CPU has the features of the implementation selected.
-            unsafe { f(&mut state, blocks.as_mut_ptr(), blocks.len(), &mut buf) };
-            self.advance((blocks.len() / 64) as u64);
-        }
-        rest
+        let f = match self.backend {
+            Backend::Scalar => vg_chacha20_apply,
+            #[cfg(target_arch = "aarch64")]
+            Backend::Neon => vg_chacha20_apply_neon,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Avx2 => vg_chacha20_apply_avx2,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Avx512 => vg_chacha20_apply_avx512,
+        };
+        // SAFETY: `state` is valid for reads and writes of 768 bytes and
+        // `data` for reads and writes of `data.len()` bytes; they are
+        // distinct objects, so they do not overlap each other, the stack
+        // frame of the call (the return address) or the stack below it, and
+        // do not wrap around the end of the address space. The CPU has the
+        // features of the implementation selected.
+        let ok = unsafe { f(&mut self.state, data.as_mut_ptr(), data.len()) };
+        assert!(ok == 1, "ChaCha20 block counter would overflow");
     }
 }
 
@@ -377,6 +302,24 @@ mod tests {
         overflow(0xffff_ffff, 10, 55);
     }
 
+    /// Applying more keystream than is left leaves the data unchanged, and
+    /// what is left of the keystream can still be applied.
+    #[test]
+    fn overflow_unchanged() {
+        extern crate std;
+        let n = nonce(0xffff_ffff, &[7; 12]);
+        let ks = keystream::<64>(&key(), &n);
+        let mut c = ChaCha20::new(&key(), &n);
+        let mut data = [0u8; 64];
+        c.apply_keystream(&mut data[..10]);
+        let mut more = [0x5au8; 55];
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.apply_keystream(&mut more)));
+        assert!(r.is_err());
+        assert_eq!(more, [0x5a; 55]);
+        c.apply_keystream(&mut data[10..]);
+        assert_eq!(data, ks);
+    }
+
     /// The implementation chosen gives the same keystream as the scalar one,
     /// for lengths around multiples of eight and sixteen blocks, in one call
     /// and split,
@@ -445,17 +388,17 @@ mod tests {
         #[cfg(target_arch = "x86_64")]
         {
             use crate::arch::chacha20::{
-                VG_CHACHA20_XOR_AVX2_FEATURES, VG_CHACHA20_XOR_AVX512_FEATURES,
+                VG_CHACHA20_APPLY_AVX2_FEATURES, VG_CHACHA20_APPLY_AVX512_FEATURES,
             };
             use crate::cpu::Features;
-            let avx2 = Features::of(VG_CHACHA20_XOR_AVX2_FEATURES);
-            let avx512 = Features::of(VG_CHACHA20_XOR_AVX512_FEATURES);
+            let avx2 = Features::of(VG_CHACHA20_APPLY_AVX2_FEATURES);
+            let avx512 = Features::of(VG_CHACHA20_APPLY_AVX512_FEATURES);
             assert_eq!(Backend::select(avx2), Backend::Avx2);
             assert_eq!(Backend::select(avx512), Backend::Avx512);
             assert_eq!(
                 Backend::select(Features::all(&[
-                    VG_CHACHA20_XOR_AVX2_FEATURES,
-                    VG_CHACHA20_XOR_AVX512_FEATURES
+                    VG_CHACHA20_APPLY_AVX2_FEATURES,
+                    VG_CHACHA20_APPLY_AVX512_FEATURES
                 ])),
                 Backend::Avx512
             );

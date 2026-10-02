@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.ChaCha20.Keystream
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # The streaming state of ChaCha20
@@ -311,6 +312,19 @@ theorem xor_getD {m m' : Mem} {p : Addr} {n : Nat} {ks : List Byte} (hks : ks.le
   simp only [Option.getD_some]
   rw [getElem_eq_getD' _ (by rw [length_bytesAt]; exact hj), bytesAt_getD _ _ hj,
     getElem_eq_getD' _ (show j < ks.length by omega)]
+
+/-- Reading a word after writing one elsewhere, at offsets from `p`. -/
+theorem readW_writeW_ofNat (m : Mem) (p : Addr) {w w' : Nat} (v : BitVec w') {d e : Nat}
+    (h : d + w / 8 ≤ e ∨ e + w' / 8 ≤ d) (hd : d + w / 8 ≤ 2 ^ 64) (he : e + w' / 8 ≤ 2 ^ 64)
+    (hw : w / 8 < 2 ^ 64) :
+    (m.writeW (p + BitVec.ofNat 64 e) v).readW (p + BitVec.ofNat 64 d) w = m.readW (p + BitVec.ofNat 64 d) w :=
+  Mem.readW_writeW_sep (Offset.sep p h hd he) hw
+
+/-- A byte outside a write, at offsets from `p`. -/
+theorem byte_writeW_ofNat (m : Mem) (p : Addr) {w : Nat} (v : BitVec w) {i e : Nat}
+    (h : i + 1 ≤ e ∨ e + w / 8 ≤ i) (hi : i + 1 ≤ 2 ^ 64) (he : e + w / 8 ≤ 2 ^ 64) :
+    (m.writeW (p + BitVec.ofNat 64 e) v) (p + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i) :=
+  Mem.write_apply (Offset.sep p h hi he _ (by simp))
 
 /-! ## Applying the keystream -/
 
