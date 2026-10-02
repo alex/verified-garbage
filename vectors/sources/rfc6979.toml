@@ -1,0 +1,5 @@
+name = "RFC 6979, Deterministic Usage of the Digital Signature Algorithm (DSA) and Elliptic Curve Digital Signature Algorithm (ECDSA), ECDSA vectors in Appendix A.2"
+directories = ["rfc6979"]
+url = "https://www.rfc-editor.org/rfc/rfc6979.txt"
+sha256 = "456e8f17558fdbd206f968b96fc6f1b4a71ea331ab30ad17f711ab3adaa7d701"
+retrieved = 2026-10-02

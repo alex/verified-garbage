@@ -1,0 +1,5 @@
+name = "ECDSA P-256"
+family = "Signatures"
+specs = ["Weierstrass", "P256", "Ecdsa"]
+modules = ["src/ecdsa/p256.rs"]
+asm = ["ecdsa_p256"]
