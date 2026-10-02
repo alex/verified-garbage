@@ -2,8 +2,9 @@
 //!
 //! A valid vector must encrypt to exactly its ciphertext and tag, and
 //! decrypt back, both at once and streaming. An invalid vector must be
-//! rejected: by decryption (a modified tag, ciphertext or additional data),
-//! or already by the nonce check (an empty nonce).
+//! rejected, at once and streaming: by decryption (a modified tag,
+//! ciphertext or additional data), or already by the nonce check (an empty
+//! nonce).
 //!
 //! Every vector has a full 16-byte tag; the CAVP vectors
 //! (`tests/cavp/aes_gcm.rs`) test truncated ones.
@@ -16,7 +17,7 @@
 ))]
 
 use serde::Deserialize;
-use verified_garbage::aes_gcm::{AesGcm, AesGcmStream, Direction, Error};
+use verified_garbage::aes_gcm::{AesGcm, Error};
 
 use crate::harness::{self, Expectation, Hex};
 use crate::require_vectors;
@@ -42,14 +43,14 @@ fn tag(c: &Case) -> &[u8; 16] {
     c.tag.0.as_slice().try_into().unwrap()
 }
 
-/// Streaming decryption of `c`: the plaintext, if the tag matched.
-fn stream_decrypt(c: &Case) -> Result<Vec<u8>, Error> {
-    let mut d = AesGcmStream::new(&c.key.0, &c.iv.0, Direction::Decrypt)?;
+/// Streaming decryption of `c` under `key`: the plaintext, if the tag
+/// matched.
+fn stream_decrypt(key: &AesGcm, c: &Case) -> Result<Vec<u8>, Error> {
+    let mut d = key.decryptor(&c.iv.0)?;
     d.update_aad(&c.aad.0)?;
     let mut buf = c.ct.0.clone();
     d.update(&mut buf)?;
-    d.set_tag(tag(c))?;
-    d.finalize()?;
+    d.finalize(tag(c))?;
     Ok(buf)
 }
 
@@ -75,19 +76,20 @@ fn aes_gcm() {
                 assert_eq!(buf, c.ct.0, "tcId {id}");
                 assert_eq!(tag[..], c.tag.0, "tcId {id}");
 
-                let mut e = AesGcmStream::new(&c.key.0, &c.iv.0, Direction::Encrypt).unwrap();
+                let mut e = key.encryptor(&c.iv.0).unwrap();
                 e.update_aad(&c.aad.0).unwrap();
                 let mut buf = c.msg.0.clone();
                 e.update(&mut buf).unwrap();
                 assert_eq!(buf, c.ct.0, "tcId {id}");
-                assert_eq!(e.finalize(), Ok(tag), "tcId {id}");
-                assert_eq!(stream_decrypt(c), Ok(c.msg.0.clone()), "tcId {id}");
+                assert_eq!(e.finalize(), tag, "tcId {id}");
+                assert_eq!(stream_decrypt(&key, c), Ok(c.msg.0.clone()), "tcId {id}");
                 valid += 1;
             }
             // The file has no acceptable vectors.
             _ => {
                 assert!(matches!(test.result, Expectation::Invalid), "tcId {id}");
                 assert!(decrypted.is_err(), "tcId {id}");
+                assert!(stream_decrypt(&key, c).is_err(), "tcId {id}");
                 assert_eq!(buf, c.ct.0, "tcId {id}: rejected ciphertext was modified");
                 invalid += 1;
             }

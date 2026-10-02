@@ -10,14 +10,22 @@
 //! matches. This module checks the lengths of §5.2.1.1, which the assembly
 //! does not, and holds the key context and the state.
 //!
+//! An [`AesGcm`] is a key: it encrypts and decrypts whole messages at once,
+//! and starts incremental ones with [`AesGcm::encryptor`] and
+//! [`AesGcm::decryptor`], which borrow it. **An [`AesGcmDecryptor`]'s
+//! `update` returns plaintext that has not been authenticated yet**: nothing
+//! may act on it before its `finalize` has succeeded. When the whole message
+//! fits in memory, [`AesGcm::decrypt_in_place`] checks the tag before it
+//! decrypts.
+//!
 //! # Tags
 //!
 //! Encryption returns the full 16-byte tag; a protocol that sends a shorter
 //! one sends its first bytes. Decryption takes a `&[u8; 16]`
-//! ([`AesGcm::decrypt_in_place`], [`AesGcmStream::set_tag`]), or, for a
+//! ([`AesGcm::decrypt_in_place`], [`AesGcmDecryptor::finalize`]), or, for a
 //! protocol that truncates the tag, a `&[u8; N]` whose length `N` is a type
 //! parameter ([`AesGcm::decrypt_in_place_truncated`],
-//! [`AesGcmStream::set_tag_truncated`]): one of the lengths SP 800-38D
+//! [`AesGcmDecryptor::finalize_truncated`]): one of the lengths SP 800-38D
 //! §5.2.1.2 allows, 4, 8, 12, 13, 14, 15 or 16 bytes, checked at compile
 //! time. The length is never taken from a slice, because a slice's length
 //! often comes from the message: a protocol that splits a message with
@@ -178,17 +186,10 @@ pub enum Error {
     /// The tag does not match: the ciphertext, the additional data or the
     /// nonce is not what was authenticated under this key.
     TagMismatch,
-    /// [`AesGcmStream::update_aad`] was called after
-    /// [`AesGcmStream::update`]: GCM authenticates all of the additional
+    /// [`AesGcmEncryptor::update_aad`] or [`AesGcmDecryptor::update_aad`]
+    /// was called after `update`: GCM authenticates all of the additional
     /// data before the text.
     AadAfterText,
-    /// [`AesGcmStream::set_tag`] or [`AesGcmStream::set_tag_truncated`] was
-    /// called when encrypting.
-    TagWhenEncrypting,
-    /// [`AesGcmStream::finalize`] was called when decrypting, without a tag
-    /// from [`AesGcmStream::set_tag`] or [`AesGcmStream::set_tag_truncated`]
-    /// to check.
-    MissingTag,
 }
 
 /// `len + n`, if it is at most `max`.
@@ -256,7 +257,8 @@ unsafe fn tag_of(work: &MaybeUninit<[u64; 320]>) -> Block {
 /// subkey `H`). Its [`encrypt_in_place`](Self::encrypt_in_place) and
 /// [`decrypt_in_place`](Self::decrypt_in_place) (or
 /// [`decrypt_in_place_truncated`](Self::decrypt_in_place_truncated)) are the
-/// one-shot AEAD; [`AesGcmStream`] encrypts or decrypts incrementally.
+/// one-shot AEAD; [`encryptor`](Self::encryptor) and
+/// [`decryptor`](Self::decryptor) start incremental ones.
 #[derive(Clone)]
 pub struct AesGcm {
     /// The key context `vg_aes_gcm_init` writes (`VG.Spec.Gcm.KeyRepr`).
@@ -424,35 +426,33 @@ impl AesGcm {
             Err(Error::TagMismatch)
         }
     }
+
+    /// Starts encrypting a message under this key and `nonce` (of any
+    /// nonzero length; 12 bytes is the recommended one). A nonce must never
+    /// be used twice with the same key.
+    pub fn encryptor(&self, nonce: &[u8]) -> Result<AesGcmEncryptor<'_>, Error> {
+        Ok(AesGcmEncryptor {
+            stream: Stream::new(self, nonce)?,
+        })
+    }
+
+    /// Starts decrypting a message under this key and `nonce`. Its
+    /// [`update`](AesGcmDecryptor::update) returns plaintext that has not
+    /// been authenticated until its [`finalize`](AesGcmDecryptor::finalize)
+    /// succeeds.
+    pub fn decryptor(&self, nonce: &[u8]) -> Result<AesGcmDecryptor<'_>, Error> {
+        Ok(AesGcmDecryptor {
+            stream: Stream::new(self, nonce)?,
+        })
+    }
 }
 
-/// Whether a streaming cipher encrypts or decrypts: an [`AesGcmStream`], or
-/// an `rc2_cbc::Rc2Cbc` (`rc2_cbc` re-exports this type).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Direction {
-    /// Plaintext in, ciphertext out.
-    Encrypt,
-    /// Ciphertext in, plaintext out.
-    Decrypt,
-}
-
-/// An incremental AES-GCM encryption or decryption: the additional data
-/// with [`update_aad`](Self::update_aad), then the text with
-/// [`update`](Self::update), in pieces of any length.
-///
-/// **When decrypting, [`update`](Self::update) returns plaintext that has
-/// not been authenticated yet.** Nothing may act on it before
-/// [`finalize`](Self::finalize) has succeeded. When the whole message fits
-/// in memory, [`AesGcm::decrypt_in_place`] checks the tag before it
-/// decrypts.
-///
-/// The tag to check when decrypting is given to [`set_tag`](Self::set_tag)
-/// (16 bytes) or [`set_tag_truncated`](Self::set_tag_truncated) (a length
-/// fixed at compile time: see the [module documentation](self#tags)).
+/// The state of an incremental encryption or decryption (`DECRYPT`), which
+/// [`AesGcmEncryptor`] and [`AesGcmDecryptor`] wrap: the key, the streaming
+/// state, and the lengths absorbed so far.
 #[derive(Clone)]
-pub struct AesGcmStream {
-    key: AesGcm,
-    direction: Direction,
+struct Stream<'a, const DECRYPT: bool> {
+    key: &'a AesGcm,
     /// The streaming state `vg_aes_gcm_stream_init` writes and the other
     /// functions update (`VG.Spec.Gcm.StreamRepr`).
     state: [u64; 10],
@@ -460,44 +460,32 @@ pub struct AesGcmStream {
     text_len: u64,
     /// Whether [`update`](Self::update) has been called.
     in_text: bool,
-    /// The tag from [`set_tag_truncated`](Self::set_tag_truncated), padded
-    /// to 16 bytes, and its length.
-    tag: Option<(Block, usize)>,
 }
 
-impl Drop for AesGcmStream {
+impl<const DECRYPT: bool> Drop for Stream<'_, DECRYPT> {
     /// Wipes the streaming state (the key wipes itself).
     fn drop(&mut self) {
         zeroize(&mut self.state);
     }
 }
 
-impl AesGcmStream {
-    /// Starts encrypting or decrypting a message under `key` (16, 24 or 32
-    /// bytes long) and `nonce` (of any nonzero length; 12 bytes is the
-    /// recommended one). A nonce must never be used twice with the same key.
-    ///
-    /// When encrypting, [`finalize`](Self::finalize) returns the tag; when
-    /// decrypting, it checks the tag given to [`set_tag`](Self::set_tag) or
-    /// [`set_tag_truncated`](Self::set_tag_truncated).
-    pub fn new(key: &[u8], nonce: &[u8], direction: Direction) -> Result<Self, Error> {
-        let key = AesGcm::new(key)?;
+impl<'a, const DECRYPT: bool> Stream<'a, DECRYPT> {
+    /// Starts a message under `key` and `nonce`.
+    fn new(key: &'a AesGcm, nonce: &[u8]) -> Result<Self, Error> {
         check_nonce(nonce)?;
-        let mut s = AesGcmStream {
+        let mut s = Stream {
             key,
-            direction,
             state: [0; 10],
             aad_len: 0,
             text_len: 0,
             in_text: false,
-            tag: None,
         };
-        let init = instance!(s.key.backend, vg_aes_gcm_stream_init,
+        let init = instance!(key.backend, vg_aes_gcm_stream_init,
             x86_64: [vg_aes_gcm_stream_init_aesni, vg_aes_gcm_stream_init_pclmul,
                 vg_aes_gcm_stream_init_aesni_pclmul],
             aarch64: [vg_aes_gcm_stream_init_aes]);
         let mut scratch = MaybeUninit::<[u64; 320]>::uninit();
-        // SAFETY: `s.key.ctx` is a key context (as in
+        // SAFETY: `key.ctx` is a key context (as in
         // `AesGcm::encrypt_in_place`), valid for reads of 256 bytes, `nonce`
         // for reads of `nonce.len()`, and `s.state` and `scratch`
         // (uninitialized working space, as in `AesGcm::new`) for reads and
@@ -507,7 +495,7 @@ impl AesGcmStream {
         // selected.
         unsafe {
             init(
-                &s.key.ctx,
+                &key.ctx,
                 nonce.as_ptr(),
                 nonce.len(),
                 &mut s.state,
@@ -517,8 +505,8 @@ impl AesGcmStream {
         Ok(s)
     }
 
-    /// Absorbs more additional data. All of it must come before the text.
-    pub fn update_aad(&mut self, aad: &[u8]) -> Result<(), Error> {
+    /// Absorbs more additional data, which must all come before the text.
+    fn update_aad(&mut self, aad: &[u8]) -> Result<(), Error> {
         if self.in_text {
             return Err(Error::AadAfterText);
         }
@@ -545,22 +533,22 @@ impl AesGcmStream {
         Ok(())
     }
 
-    /// Encrypts or decrypts the next `data.len()` bytes of the text in place.
-    /// When decrypting, the result is not authenticated until
-    /// [`finalize`](Self::finalize) succeeds.
-    pub fn update(&mut self, data: &mut [u8]) -> Result<(), Error> {
+    /// Encrypts (or, if `DECRYPT`, decrypts) the next `data.len()` bytes of
+    /// the text in place.
+    fn update(&mut self, data: &mut [u8]) -> Result<(), Error> {
         let text_len =
             add_len(self.text_len, data.len(), MAX_TEXT).map_err(|()| Error::InvalidTextLength)?;
         self.in_text = true;
-        let f = match self.direction {
-            Direction::Encrypt => instance!(self.key.backend, vg_aes_gcm_stream_encrypt,
-                x86_64: [vg_aes_gcm_stream_encrypt_aesni, vg_aes_gcm_stream_encrypt_pclmul,
-                    vg_aes_gcm_stream_encrypt_aesni_pclmul],
-                aarch64: [vg_aes_gcm_stream_encrypt_aes]),
-            Direction::Decrypt => instance!(self.key.backend, vg_aes_gcm_stream_decrypt,
+        let f = if DECRYPT {
+            instance!(self.key.backend, vg_aes_gcm_stream_decrypt,
                 x86_64: [vg_aes_gcm_stream_decrypt_aesni, vg_aes_gcm_stream_decrypt_pclmul,
                     vg_aes_gcm_stream_decrypt_aesni_pclmul],
-                aarch64: [vg_aes_gcm_stream_decrypt_aes]),
+                aarch64: [vg_aes_gcm_stream_decrypt_aes])
+        } else {
+            instance!(self.key.backend, vg_aes_gcm_stream_encrypt,
+                x86_64: [vg_aes_gcm_stream_encrypt_aesni, vg_aes_gcm_stream_encrypt_pclmul,
+                    vg_aes_gcm_stream_encrypt_aesni_pclmul],
+                aarch64: [vg_aes_gcm_stream_encrypt_aes])
         };
         let mut scratch = MaybeUninit::<[u64; 320]>::uninit();
         // SAFETY: as in `new`, with `data` valid for reads and writes of
@@ -582,100 +570,161 @@ impl AesGcmStream {
         self.text_len = text_len;
         Ok(())
     }
+}
 
-    /// Sets the 16-byte tag that decryption must end with, which
-    /// [`finalize`](Self::finalize) checks. Fails when encrypting.
+impl Stream<'_, false> {
+    /// Finishes the message and returns its 16-byte tag.
+    fn finish(mut self) -> Block {
+        let f = instance!(self.key.backend, vg_aes_gcm_stream_finish,
+            x86_64: [vg_aes_gcm_stream_finish_aesni, vg_aes_gcm_stream_finish_pclmul,
+                vg_aes_gcm_stream_finish_aesni_pclmul],
+            aarch64: [vg_aes_gcm_stream_finish_aes]);
+        let mut work = MaybeUninit::<[u64; 320]>::uninit();
+        // SAFETY: as in `update`, with `work` (a local: working space, but
+        // for the tag written to it) valid for reads and writes of 2560
+        // bytes. `update_aad` and `update` checked the lengths (§5.2.1.1).
+        unsafe {
+            f(
+                &self.key.ctx,
+                self.key.rounds,
+                &mut self.state,
+                self.aad_len,
+                self.text_len,
+                work.as_mut_ptr(),
+            )
+        };
+        // SAFETY: `stream_finish` wrote the tag to the first 16 bytes of
+        // `work`.
+        unsafe { tag_of(&work) }
+    }
+}
+
+impl Stream<'_, true> {
+    /// Finishes the message and checks that `tag` (of a length §5.2.1.2
+    /// allows, which the callers check at compile time;
+    /// `vg_aes_gcm_stream_verify` rejects any other) is the first
+    /// `tag.len()` bytes of its tag.
+    fn verify(mut self, tag: &[u8]) -> Result<(), Error> {
+        let f = instance!(self.key.backend, vg_aes_gcm_stream_verify,
+            x86_64: [vg_aes_gcm_stream_verify_aesni, vg_aes_gcm_stream_verify_pclmul,
+                vg_aes_gcm_stream_verify_aesni_pclmul],
+            aarch64: [vg_aes_gcm_stream_verify_aes]);
+        let mut work = MaybeUninit::<[u64; 320]>::uninit();
+        put_tag(&mut work, tag);
+        // SAFETY: as in `finish`, with the received tag in the first
+        // `tag.len()` bytes of `work`.
+        let ok = unsafe {
+            f(
+                &self.key.ctx,
+                self.key.rounds,
+                &mut self.state,
+                self.aad_len,
+                self.text_len,
+                work.as_mut_ptr(),
+                tag.len(),
+            )
+        };
+        if ok == 1 {
+            Ok(())
+        } else {
+            Err(Error::TagMismatch)
+        }
+    }
+}
+
+/// An incremental AES-GCM encryption, from [`AesGcm::encryptor`]: the
+/// additional data with [`update_aad`](Self::update_aad), then the plaintext
+/// with [`update`](Self::update), in pieces of any length, and the tag from
+/// [`finalize`](Self::finalize).
+///
+/// It borrows its [`AesGcm`], so a key encrypts many messages without
+/// expanding it again.
+#[derive(Clone)]
+pub struct AesGcmEncryptor<'a> {
+    stream: Stream<'a, false>,
+}
+
+impl AesGcmEncryptor<'_> {
+    /// Absorbs more additional data. All of it must come before the
+    /// plaintext.
+    pub fn update_aad(&mut self, aad: &[u8]) -> Result<(), Error> {
+        self.stream.update_aad(aad)
+    }
+
+    /// Encrypts the next `data.len()` bytes of the plaintext in place.
+    pub fn update(&mut self, data: &mut [u8]) -> Result<(), Error> {
+        self.stream.update(data)
+    }
+
+    /// Finishes the message and returns its full 16-byte tag. A protocol
+    /// that sends a shorter tag sends its first bytes. GCM leaves no
+    /// buffered text to return.
+    pub fn finalize(self) -> Block {
+        self.stream.finish()
+    }
+}
+
+/// An incremental AES-GCM decryption, from [`AesGcm::decryptor`]: the
+/// additional data with [`update_aad`](Self::update_aad), then the
+/// ciphertext with [`update`](Self::update), in pieces of any length, and
+/// the tag checked by [`finalize`](Self::finalize) (16 bytes) or
+/// [`finalize_truncated`](Self::finalize_truncated) (a length fixed at
+/// compile time: see the [module documentation](self#tags)).
+///
+/// **[`update`](Self::update) returns plaintext that has not been
+/// authenticated yet.** Nothing may act on it before
+/// [`finalize`](Self::finalize) (or
+/// [`finalize_truncated`](Self::finalize_truncated)) has succeeded. When the
+/// whole message fits in memory, [`AesGcm::decrypt_in_place`] checks the tag
+/// before it decrypts.
+#[derive(Clone)]
+pub struct AesGcmDecryptor<'a> {
+    stream: Stream<'a, true>,
+}
+
+impl AesGcmDecryptor<'_> {
+    /// Absorbs more additional data. All of it must come before the
+    /// ciphertext.
+    pub fn update_aad(&mut self, aad: &[u8]) -> Result<(), Error> {
+        self.stream.update_aad(aad)
+    }
+
+    /// Decrypts the next `data.len()` bytes of the ciphertext in place. The
+    /// result is not authenticated until [`finalize`](Self::finalize) (or
+    /// [`finalize_truncated`](Self::finalize_truncated)) succeeds.
+    pub fn update(&mut self, data: &mut [u8]) -> Result<(), Error> {
+        self.stream.update(data)
+    }
+
+    /// Finishes the message and checks that `tag` is its 16-byte tag. If
+    /// they differ, this fails, and nothing may act on the plaintext
+    /// [`update`](Self::update) returned.
     ///
     /// A protocol that truncates the tag uses
-    /// [`set_tag_truncated`](Self::set_tag_truncated).
-    pub fn set_tag(&mut self, tag: &[u8; 16]) -> Result<(), Error> {
-        self.set_tag_truncated(tag)
+    /// [`finalize_truncated`](Self::finalize_truncated).
+    pub fn finalize(self, tag: &[u8; 16]) -> Result<(), Error> {
+        self.finalize_truncated(tag)
     }
 
-    /// Sets the tag that decryption must end with, truncated to `N` bytes:
-    /// [`finalize`](Self::finalize) checks that it is the first `N` bytes of
-    /// the message's tag. Fails when encrypting.
+    /// Finishes the message and checks that `tag` is the first `N` bytes of
+    /// its tag. If they differ, this fails, and nothing may act on the
+    /// plaintext [`update`](Self::update) returned.
     ///
     /// `N` must be 4, 8, 12, 13, 14, 15 or 16 (SP 800-38D §5.2.1.2); any
-    /// other length is an error when the call is compiled. It is a type parameter, fixed
-    /// in the caller's code, so that it cannot come from the message: see
-    /// the [module documentation](self#tags). SP 800-38D Appendix C
-    /// restricts 4- and 8-byte tags to applications that bound the length of
-    /// the messages and the number of decryptions under one key.
-    pub fn set_tag_truncated<const N: usize>(&mut self, tag: &[u8; N]) -> Result<(), Error> {
+    /// other length is an error when the call is compiled. It is a type
+    /// parameter, fixed in the caller's code, so that it cannot come from the
+    /// message: see the [module documentation](self#tags). SP 800-38D
+    /// Appendix C restricts 4- and 8-byte tags to applications that bound the
+    /// length of the messages and the number of decryptions under one key.
+    pub fn finalize_truncated<const N: usize>(self, tag: &[u8; N]) -> Result<(), Error> {
         assert_tag_length!(N);
-        if self.direction == Direction::Encrypt {
-            return Err(Error::TagWhenEncrypting);
-        }
-        let mut t = [0u8; 16];
-        t[..N].copy_from_slice(tag);
-        self.tag = Some((t, N));
-        Ok(())
-    }
-
-    /// Finishes the message and returns its full 16-byte tag. When
-    /// decrypting, this first checks it against the tag given to
-    /// [`set_tag`](Self::set_tag) or
-    /// [`set_tag_truncated`](Self::set_tag_truncated), and fails if they
-    /// differ. GCM leaves no buffered text to return.
-    pub fn finalize(mut self) -> Result<Block, Error> {
-        let mut work = MaybeUninit::<[u64; 320]>::uninit();
-        match self.direction {
-            Direction::Encrypt => {
-                let f = instance!(self.key.backend, vg_aes_gcm_stream_finish,
-                    x86_64: [vg_aes_gcm_stream_finish_aesni, vg_aes_gcm_stream_finish_pclmul,
-                        vg_aes_gcm_stream_finish_aesni_pclmul],
-                    aarch64: [vg_aes_gcm_stream_finish_aes]);
-                // SAFETY: as in `update`, with `work` (a local: working space,
-                // but for the tag written to it) valid for reads and writes of
-                // 2560 bytes.
-                unsafe {
-                    f(
-                        &self.key.ctx,
-                        self.key.rounds,
-                        &mut self.state,
-                        self.aad_len,
-                        self.text_len,
-                        work.as_mut_ptr(),
-                    )
-                };
-            }
-            Direction::Decrypt => {
-                let (tag, len) = self.tag.ok_or(Error::MissingTag)?;
-                put_tag(&mut work, &tag[..len]);
-                let f = instance!(self.key.backend, vg_aes_gcm_stream_verify,
-                    x86_64: [vg_aes_gcm_stream_verify_aesni, vg_aes_gcm_stream_verify_pclmul,
-                        vg_aes_gcm_stream_verify_aesni_pclmul],
-                    aarch64: [vg_aes_gcm_stream_verify_aes]);
-                // SAFETY: as for `vg_aes_gcm_stream_finish`, with the
-                // received tag in the first `len` bytes of `work`.
-                let ok = unsafe {
-                    f(
-                        &self.key.ctx,
-                        self.key.rounds,
-                        &mut self.state,
-                        self.aad_len,
-                        self.text_len,
-                        work.as_mut_ptr(),
-                        len,
-                    )
-                };
-                if ok != 1 {
-                    return Err(Error::TagMismatch);
-                }
-            }
-        }
-        // SAFETY: `stream_finish` and `stream_verify` (when it returns 1)
-        // write the tag to the first 16 bytes of `work`.
-        Ok(unsafe { tag_of(&work) })
+        self.stream.verify(tag)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        AesGcm, AesGcmStream, Backend, Direction, Error, MAX_AAD, MAX_TEXT, add_len, select,
-    };
+    use super::{AesGcm, Backend, Error, MAX_AAD, MAX_TEXT, add_len, select};
     use crate::cpu::{Features, detected};
 
     /// The implementation chosen for each set of features: AES's and
@@ -855,7 +904,7 @@ mod tests {
 
     /// Streaming, with the additional data or the text split at every
     /// point (around block boundaries), agrees with the one-shot functions,
-    /// in both directions.
+    /// in both directions, with one key for every message.
     #[test]
     fn stream() {
         let key = [7u8; 16];
@@ -870,7 +919,7 @@ mod tests {
             .map(|a| (a, msg.len() / 2))
             .chain((0..=msg.len()).map(|m| (aad.len() / 2, m)));
         for (a, m) in splits {
-            let mut e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
+            let mut e = k.encryptor(&nonce).unwrap();
             e.update_aad(&aad[..a]).unwrap();
             e.update_aad(&aad[a..]).unwrap();
             let mut buf = msg;
@@ -878,20 +927,19 @@ mod tests {
             e.update(x).unwrap();
             e.update(y).unwrap();
             assert_eq!(buf, ct);
-            assert_eq!(e.finalize(), Ok(tag));
+            assert_eq!(e.finalize(), tag);
 
-            let mut d = AesGcmStream::new(&key, &nonce, Direction::Decrypt).unwrap();
+            let mut d = k.decryptor(&nonce).unwrap();
             d.update_aad(&aad[..a]).unwrap();
             d.update_aad(&aad[a..]).unwrap();
             let (x, y) = buf.split_at_mut(m);
             d.update(x).unwrap();
             d.update(y).unwrap();
             assert_eq!(buf, msg);
-            d.set_tag(&tag).unwrap();
-            assert_eq!(d.finalize(), Ok(tag));
+            assert_eq!(d.finalize(&tag), Ok(()));
         }
         // A byte at a time.
-        let mut e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
+        let mut e = k.encryptor(&nonce).unwrap();
         for b in aad.chunks(1) {
             e.update_aad(b).unwrap();
         }
@@ -900,16 +948,47 @@ mod tests {
             e.update(b).unwrap();
         }
         assert_eq!(buf, ct);
-        assert_eq!(e.finalize(), Ok(tag));
+        assert_eq!(e.finalize(), tag);
         // Without text, or without either.
         let mut t = [0u8; 0];
         let tag = k.encrypt_in_place(&nonce, &aad[..5], &mut t).unwrap();
-        let mut e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
+        let mut e = k.encryptor(&nonce).unwrap();
         e.update_aad(&aad[..5]).unwrap();
-        assert_eq!(e.finalize(), Ok(tag));
+        assert_eq!(e.finalize(), tag);
         let tag = k.encrypt_in_place(&nonce, &[], &mut t).unwrap();
-        let e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
-        assert_eq!(e.finalize(), Ok(tag));
+        let e = k.encryptor(&nonce).unwrap();
+        assert_eq!(e.finalize(), tag);
+        let d = k.decryptor(&nonce).unwrap();
+        assert_eq!(d.finalize(&tag), Ok(()));
+    }
+
+    /// A clone continues the message independently of the original.
+    #[test]
+    fn stream_clone() {
+        let k = AesGcm::new(&[1; 24]).unwrap();
+        let nonce = [2u8; 12];
+        let msg = [3u8; 20];
+        let mut ct = msg;
+        let tag = k.encrypt_in_place(&nonce, &[4; 8], &mut ct).unwrap();
+
+        let mut e = k.encryptor(&nonce).unwrap();
+        e.update_aad(&[4; 8]).unwrap();
+        let mut other = e.clone();
+        other.update(&mut [0; 1]).unwrap();
+        let mut buf = msg;
+        e.update(&mut buf).unwrap();
+        assert_eq!((buf, e.finalize()), (ct, tag));
+        assert_ne!(other.finalize(), tag);
+
+        let mut d = k.decryptor(&nonce).unwrap();
+        d.update_aad(&[4; 8]).unwrap();
+        let mut other = d.clone();
+        other.update(&mut [0; 1]).unwrap();
+        let mut buf = ct;
+        d.update(&mut buf).unwrap();
+        assert_eq!(buf, msg);
+        assert_eq!(d.finalize(&tag), Ok(()));
+        assert_eq!(other.finalize(&tag), Err(Error::TagMismatch));
     }
 
     /// A tag truncated to `N` bytes: its first `N` bytes are accepted, one
@@ -929,14 +1008,14 @@ mod tests {
             .unwrap();
         assert_eq!(buf, msg);
         let stream = |tag: &[u8; N]| {
-            let mut d = AesGcmStream::new(&key, &nonce, Direction::Decrypt).unwrap();
+            let mut d = k.decryptor(&nonce).unwrap();
             d.update_aad(&aad).unwrap();
             let mut buf = ct;
             d.update(&mut buf).unwrap();
-            d.set_tag_truncated(tag).unwrap();
-            d.finalize()
+            assert_eq!(buf, msg);
+            d.finalize_truncated(tag)
         };
-        assert_eq!(stream(&tag), Ok(full));
+        assert_eq!(stream(&tag), Ok(()));
         for i in 0..N {
             let mut bad = tag;
             bad[i] ^= 0x80;
@@ -981,24 +1060,15 @@ mod tests {
         );
         assert_eq!(buf, [0; 3]);
 
-        let new = |d| AesGcmStream::new(&[0; 16], &[0; 12], d).unwrap();
-        assert_eq!(
-            AesGcmStream::new(&[0; 17], &[0; 12], Direction::Encrypt).err(),
-            Some(Error::InvalidKeyLength)
-        );
-        assert_eq!(
-            AesGcmStream::new(&[0; 16], &[], Direction::Decrypt).err(),
-            Some(Error::InvalidNonceLength)
-        );
-        let mut e = new(Direction::Encrypt);
+        assert_eq!(k.encryptor(&[]).err(), Some(Error::InvalidNonceLength));
+        assert_eq!(k.decryptor(&[]).err(), Some(Error::InvalidNonceLength));
+        let mut e = k.encryptor(&[0; 12]).unwrap();
         e.update(&mut buf).unwrap();
         assert_eq!(e.update_aad(&[1]), Err(Error::AadAfterText));
-        assert_eq!(e.set_tag(&[0; 16]), Err(Error::TagWhenEncrypting));
-        assert_eq!(e.set_tag_truncated(&[0; 4]), Err(Error::TagWhenEncrypting));
-        let mut d = new(Direction::Decrypt);
-        assert_eq!(d.clone().finalize(), Err(Error::MissingTag));
-        d.set_tag(&[0; 16]).unwrap();
-        assert_eq!(d.finalize(), Err(Error::TagMismatch));
+        let mut d = k.decryptor(&[0; 12]).unwrap();
+        d.update(&mut buf).unwrap();
+        assert_eq!(d.update_aad(&[1]), Err(Error::AadAfterText));
+        assert_eq!(d.finalize(&[0; 16]), Err(Error::TagMismatch));
 
         // The length limits (§5.2.1.1), which no test can reach with real
         // buffers.
@@ -1006,11 +1076,16 @@ mod tests {
         assert_eq!(add_len(MAX_TEXT, 1, MAX_TEXT), Err(()));
         assert_eq!(add_len(MAX_AAD, 0, MAX_AAD), Ok(MAX_AAD));
         assert_eq!(add_len(u64::MAX, 1, MAX_AAD), Err(()));
-        let mut e = new(Direction::Encrypt);
-        e.text_len = MAX_TEXT;
+        let mut e = k.encryptor(&[0; 12]).unwrap();
+        e.stream.text_len = MAX_TEXT;
         assert_eq!(e.update(&mut buf), Err(Error::InvalidTextLength));
-        e.aad_len = MAX_AAD;
-        e.in_text = false;
+        e.stream.aad_len = MAX_AAD;
+        e.stream.in_text = false;
         assert_eq!(e.update_aad(&[1]), Err(Error::InvalidAadLength));
+        let mut d = k.decryptor(&[0; 12]).unwrap();
+        d.stream.text_len = MAX_TEXT;
+        assert_eq!(d.update(&mut buf), Err(Error::InvalidTextLength));
+        d.stream.aad_len = MAX_AAD;
+        assert_eq!(d.update_aad(&[1]), Err(Error::InvalidAadLength));
     }
 }
