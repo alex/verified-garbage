@@ -32,6 +32,13 @@ theorem WP.forall_det {c : Prog isa} {s : State} {ι : Sort _} {P : ι → Prop}
   obtain ⟨-, rfl⟩ := Exec.det e e'
   exact q
 
+theorem WP.seq_assoc {a b c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa (.seq (.seq a b) c) s Q) :
+    WP isa (.seq a (.seq b c)) s Q := by
+  obtain ⟨t, s', e, q⟩ := h
+  cases e with
+  | seq e₁ e₂ => cases e₁ with
+    | seq ea eb => exact ⟨_, _, .seq ea (.seq eb e₂), q⟩
+
 /-- Code never changes the permissions. -/
 theorem WP.with_rdwr {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) :
     WP isa c s fun s' => Q s' ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
