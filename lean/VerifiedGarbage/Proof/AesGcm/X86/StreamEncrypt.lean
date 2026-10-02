@@ -18,7 +18,7 @@ open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt StreamRepr ctxH ctxCiph gctr inc32 j0)
 open VG.Proof.Gcm (Absorbed Ctr xorKs)
 
-theorem streamEncrypt_eq : streamEncrypt = .seq (entry 9 ([.mov .esi (argOp 2)] ++
+theorem streamEncrypt_eq : streamEncrypt = .seq (entry 9 (([.mov .esi (argOp 2)] : List Instr) ++
     (crKeeps.flatMap (fun p => keep p.1 p.2) ++ [])))
     (.seq (.block setText) (.seq crypt (.seq textAbsorb (.block restore)))) := rfl
 

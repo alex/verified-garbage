@@ -73,9 +73,9 @@ variable {R : Nat} {icb : Block} {D : BitVec 32} {n P : Nat}
 
 /-- The keystream block zeroed, and the arguments of `vg_aes_ctr32` for it. -/
 theorem tail1_ok {s : State} (he : Env Ctx St W SP s) (hR : RoundsAt s.mem W R) :
-    WP isa (.block ([.mov .eax (imm 0), .store (at_ .esi 64) .eax, .store (at_ .esi 68) .eax,
+    WP isa (.block (([.mov .eax (imm 0), .store (at_ .esi 64) .eax, .store (at_ .esi 68) .eax,
           .store (at_ .esi 72) .eax, .store (at_ .esi 76) .eax, .mov .ebx (.reg .esi), .alu .add .ebx (imm 64),
-          .mov .edi (imm 1)] ++ ctrArgs)) s fun s' =>
+          .mov .edi (imm 1)] : List Instr) ++ ctrArgs)) s fun s' =>
       s'.mem = Cmac.zero4 s.mem (w64 St + BitVec.ofNat 64 64) ∧ s'.gpr .eax = Ctx ∧
       s'.gpr .ecx = BitVec.ofNat 32 R ∧ s'.gpr .edx = St + BitVec.ofNat 32 48 ∧
       s'.gpr .ebp = W + BitVec.ofNat 32 512 ∧ s'.gpr .ebx = St + BitVec.ofNat 32 64 ∧

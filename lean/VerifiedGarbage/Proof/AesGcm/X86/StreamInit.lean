@@ -20,7 +20,7 @@ open VG.Proof.Gcm (Absorbed Ctr)
 abbrev siTail : List Instr := [.mov .eax (imm 0), .store (at_ .ebp zO) .eax]
 abbrev siKeeps : List (Nat × Nat) := [(0, ctxO), (1, dO), (2, nO), (2, nlO)]
 
-theorem streamInit_eq : streamInit = .seq (entry 4 ([.mov .esi (argOp 3)] ++
+theorem streamInit_eq : streamInit = .seq (entry 4 (([.mov .esi (argOp 3)] : List Instr) ++
     (siKeeps.flatMap (fun p => keep p.1 p.2) ++ siTail))) (.seq j0 (.block restore)) := rfl
 
 theorem streamInit_lay {s : State} (h : streamInitPre s) :
@@ -43,7 +43,7 @@ structure SiIn (p : BitVec 32 × (Nat → BitVec 32)) (s₀ s : State) : Prop wh
 
 theorem siEntry_pc (p : BitVec 32 × (Nat → BitVec 32)) :
     Pc (fun (s₀ : State) s => streamInitPre s₀ ∧ pubOf 5 s₀ = p ∧ s = s₀)
-      (entry 4 ([.mov .esi (argOp 3)] ++ (siKeeps.flatMap (fun p => keep p.1 p.2) ++ siTail)))
+      (entry 4 (([.mov .esi (argOp 3)] : List Instr) ++ (siKeeps.flatMap (fun p => keep p.1 p.2) ++ siTail)))
       (SiIn p) := by
   refine ⟨fun s₀ s ⟨hpre, hpub, hs⟩ => ?_, ?_⟩
   · subst s

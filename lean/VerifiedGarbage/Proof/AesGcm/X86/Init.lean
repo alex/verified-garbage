@@ -65,7 +65,7 @@ abbrev initMid : List Instr :=
       [.mov .eax (.reg .esi), .mov .ecx (.reg .ebx), .mov .edx (.reg .ebp), .alu .add .edx (imm tO),
         .mov .ebx (.reg .esi), .alu .add .ebx (imm 240), .mov .edi (imm 1), .alu .add .ebp (imm scrO)]
 
-theorem init_eq : init = .seq (entry 3 ([.mov .esi (argOp 2)] ++
+theorem init_eq : init = .seq (entry 3 (([.mov .esi (argOp 2)] : List Instr) ++
     (([] : List (Nat × Nat)).flatMap (fun p => keep p.1 p.2) ++ initTail)))
     (.seq keyCall (.seq (.block initMid) (.seq ctrCall (.block (unscr ++ restore))))) := rfl
 
@@ -84,7 +84,7 @@ structure IEnt (p : BitVec 32 × (Nat → BitVec 32)) (s₀ s : State) : Prop wh
 
 theorem iEntry_pc (p : BitVec 32 × (Nat → BitVec 32)) :
     Pc (fun (s₀ : State) s => initPre s₀ ∧ pubOf 4 s₀ = p ∧ s = s₀)
-      (entry 3 ([.mov .esi (argOp 2)] ++ (([] : List (Nat × Nat)).flatMap (fun p => keep p.1 p.2) ++ initTail)))
+      (entry 3 (([.mov .esi (argOp 2)] : List Instr) ++ (([] : List (Nat × Nat)).flatMap (fun p => keep p.1 p.2) ++ initTail)))
       (IEnt p) := by
   refine ⟨fun s₀ s ⟨hpre, hpub, hs⟩ => ?_, ?_⟩
   · subst s

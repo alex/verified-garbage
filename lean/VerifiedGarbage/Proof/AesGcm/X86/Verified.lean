@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.AesGcm.X86.StreamInit
 import VerifiedGarbage.Proof.AesGcm.X86.StreamDecrypt
 import VerifiedGarbage.Proof.AesGcm.X86.StreamFinish
 import VerifiedGarbage.Proof.AesGcm.X86.StreamVerify
+import VerifiedGarbage.Proof.AesGcm.X86.Seal
+import VerifiedGarbage.Proof.AesGcm.X86.Open
 import VerifiedGarbage.Proof.AesGcm.X86.Init
 import VerifiedGarbage.Proof.Framework.Contract
 
@@ -183,6 +185,95 @@ theorem streamVerify_verified : Verified X86.target streamVerify (Spec.Gcm.strea
     sig_implies [Spec.Gcm.streamVerifyContract, Spec.Gcm.streamVerifySig, streamVerifyX86, verifyPre, pubN,
       roundsOk, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
       [a0, a1, a2, a3, a4, a5, a6, a7, a8, e, esp] using verSat)
+
+/-- A state satisfying `vg_aes_gcm_seal`'s precondition (with no nonce,
+additional data or data): the context at `0x1000`, 10 rounds, the nonce at
+`0x2000`, the additional data at `0x2100`, the data at `0x3000` and `work`
+at `0x4000`. -/
+def sealSat : State where
+  gpr r := match r with | .esp => 0x8000 | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem a := if a = 0x8005 then 0x10 else if a = 0x8008 then 10 else if a = 0x800d then 0x20
+    else if a = 0x8015 then 0x21 else if a = 0x801d then 0x30 else if a = 0x8025 then 0x40 else 0
+  rd := [⟨0x1000, 256⟩, ⟨0x2000, 0⟩, ⟨0x2100, 0⟩]
+  wr := [⟨0x3000, 0⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 36⟩]
+
+theorem seal_verified : Verified X86.target «seal» (Spec.Gcm.sealContract X86.abi 28) :=
+  Verified.of_correct seal_correct seal_ct (by
+    have a0 : arg sealSat 0 = 0x1000 := by decide
+    have a1 : arg sealSat 1 = 10 := by decide
+    have a2 : arg sealSat 2 = 0x2000 := by decide
+    have a3 : arg sealSat 3 = 0 := by decide
+    have a4 : arg sealSat 4 = 0x2100 := by decide
+    have a5 : arg sealSat 5 = 0 := by decide
+    have a6 : arg sealSat 6 = 0x3000 := by decide
+    have a7 : arg sealSat 7 = 0 := by decide
+    have a8 : arg sealSat 8 = 0x4000 := by decide
+    have e : argAddr sealSat 0 = 0x8004 := by decide
+    have esp : sealSat.gpr .esp = 0x8000 := rfl
+    sig_implies [Spec.Gcm.sealContract, Spec.Gcm.sealSig, sealX86, onePre, pubN, roundsOk,
+      X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      [a0, a1, a2, a3, a4, a5, a6, a7, a8, e, esp] using sealSat)
+
+/-- A state satisfying `vg_aes_gcm_open`'s precondition: as `sealSat`, with
+a `tag_len` of 0. -/
+def openSat : State where
+  gpr r := match r with | .esp => 0x8000 | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem a := if a = 0x8005 then 0x10 else if a = 0x8008 then 10 else if a = 0x800d then 0x20
+    else if a = 0x8015 then 0x21 else if a = 0x801d then 0x30 else if a = 0x8025 then 0x40 else 0
+  rd := [⟨0x1000, 256⟩, ⟨0x2000, 0⟩, ⟨0x2100, 0⟩]
+  wr := [⟨0x3000, 0⟩, ⟨0x4000, 2560⟩, ⟨0x8004, 40⟩]
+
+/-- The leak `open` may have: whether it succeeds. -/
+theorem leak_bool {a b : Bool} (h : [if a = true then 1 else 0] = [if b = true then 1 else 0]) : a = b := by
+  cases a <;> cases b <;> simp_all
+
+/-- `open`'s public data include its leak, from which `pub` has whether it
+succeeds. -/
+theorem open_verified : Verified X86.target «open» (Spec.Gcm.openContract X86.abi 28) :=
+  Verified.of_correct open_correct open_ct
+    { pre := by sig_implies_pre [Spec.Gcm.openContract, Spec.Gcm.openSig, openX86, onePre, pubN, roundsOk,
+        X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      post := by sig_implies_post [Spec.Gcm.openContract, Spec.Gcm.openSig, openX86, onePre, pubN, roundsOk,
+        X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      pub := by
+        intro s₁ s₂ _ _ h
+        sig_pub [Spec.Gcm.openContract, Spec.Gcm.openSig, openX86, onePre, pubN, roundsOk,
+          X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at h
+        sig_split h
+        sig_reduce [Spec.Gcm.openContract, Spec.Gcm.openSig, openX86, onePre, pubN, roundsOk,
+          X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+        sig_simp [Spec.Gcm.openContract, Spec.Gcm.openSig, openX86, onePre, pubN, roundsOk,
+          X86.abi, X86.argSlots, X86.argVal, X86.argBytes] [Nat.forall_lt_succ_right, Nat.not_lt_zero,
+          false_imp_iff, forall_const, true_and]
+        sig_and_intros
+        sig_close
+        all_goals first
+          | with_reducible assumption
+          | (apply leak_bool; with_reducible assumption)
+      sat := by
+        have a0 : arg openSat 0 = 0x1000 := by decide
+        have a1 : arg openSat 1 = 10 := by decide
+        have a2 : arg openSat 2 = 0x2000 := by decide
+        have a3 : arg openSat 3 = 0 := by decide
+        have a4 : arg openSat 4 = 0x2100 := by decide
+        have a5 : arg openSat 5 = 0 := by decide
+        have a6 : arg openSat 6 = 0x3000 := by decide
+        have a7 : arg openSat 7 = 0 := by decide
+        have a8 : arg openSat 8 = 0x4000 := by decide
+        have a9 : arg openSat 9 = 0 := by decide
+        have e : argAddr openSat 0 = 0x8004 := by decide
+        have esp : openSat.gpr .esp = 0x8000 := rfl
+        sig_implies_sat [Spec.Gcm.openContract, Spec.Gcm.openSig, openX86, onePre, pubN, roundsOk,
+          X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+          [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, e, esp] using openSat }
 
 /-- A state satisfying `vg_aes_gcm_init`'s precondition: a 16-byte key at
 `0x1000`, the context at `0x2000` and `scratch` at `0x4000`. -/

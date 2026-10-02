@@ -289,7 +289,7 @@ theorem entry_ok {s : State} {w k nA : Nat} (ps : List (Nat × Nat)) (tail : Lis
     (rA : Covers [argsR (s.gpr .esp) nA] (s.rd ++ s.wr)) (aw : (argsR (s.gpr .esp) nA).Disjoint ⟨w64 W, 2560⟩)
     (fa : (s.gpr .esp).toNat + 4 + 4 * nA ≤ 2 ^ 32) (fw : W.toNat + 2560 ≤ 2 ^ 32) {Q : State → Prop}
     (ht : ∀ s₂, Entered s W St nA ps s₂ → ∃ s₃, runBlock isa tail s₂ = some s₃ ∧ Q s₃) :
-    WP isa (entry w ([.mov .esi (argOp k)] ++ (ps.flatMap (fun p => keep p.1 p.2) ++ tail))) s Q := by
+    WP isa (entry w (([.mov .esi (argOp k)] : List Instr) ++ (ps.flatMap (fun p => keep p.1 p.2) ++ tail))) s Q := by
   refine entry_gen _ ps tail hw hps hnd hW wW rA aw fa fw (fun s₁ bp sp rd wr ha => ?_) ht
   have i₁ : InRegions (s₁.rd ++ s₁.wr) (argA (s.gpr .esp) k) 4 := by
     rw [rd, wr]; exact rA _ _ ⟨_, List.mem_singleton_self _, argA_contains hk fa⟩

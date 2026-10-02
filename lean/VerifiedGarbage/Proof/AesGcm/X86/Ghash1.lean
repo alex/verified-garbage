@@ -166,7 +166,7 @@ theorem ghash1Pre_ok {s : State} (he : Env Ctx St W SP s) (b : Reg) (o : Nat) (h
     (py : (⟨w64 St + BitVec.ofNat 64 yo, 16⟩ : Region).Disjoint ⟨w64 P, 16⟩)
     (pw : (⟨w64 P, 16⟩ : Region).Disjoint ⟨w64 W + BitVec.ofNat 64 512, 256⟩)
     (pk : (below SP K).Disjoint ⟨w64 P, 16⟩) :
-    WP isa (.block ([.mov .ebx (.reg b), .alu .add .ebx (imm o), .mov .edi (imm 1)] ++ ghArgs yo)) s
+    WP isa (.block (([.mov .ebx (.reg b), .alu .add .ebx (imm o), .mov .edi (imm 1)] : List Instr) ++ ghArgs yo)) s
       fun s' => GhReady Ctx St W SP K yo P 1 s' ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   obtain ⟨s₁, run₁, bx, di, g₁, m₁, rd₁, wr₁⟩ : ∃ s₁, runBlock isa
       [.mov .ebx (.reg b), .alu .add .ebx (imm o), .mov .edi (imm 1)] s = some s₁ ∧

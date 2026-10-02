@@ -107,8 +107,8 @@ theorem env_tFrame (hyo : yo = 0 ∨ yo = 16) {s s' : State} (he : Env Ctx St W 
 
 /-- `T` zeroed, and the pointers of the copy into it. -/
 theorem zeroT_ok {s : State} (he : Env Ctx St W SP s) :
-    ∃ s', runBlock isa (zero4 tO ++ [.mov .edi (.reg .esi), .alu .add .edi (imm 32), .mov .edx (.reg .ebp),
-        .alu .add .edx (imm tO)]) s = some s' ∧
+    ∃ s', runBlock isa (zero4 tO ++ ([.mov .edi (.reg .esi), .alu .add .edi (imm 32), .mov .edx (.reg .ebp),
+        .alu .add .edx (imm tO)] : List Instr)) s = some s' ∧
       s'.mem = Cmac.zero4 s.mem (w64 W + BitVec.ofNat 64 96) ∧ s'.gpr .edi = St + BitVec.ofNat 32 32 ∧
       s'.gpr .edx = W + BitVec.ofNat 32 96 ∧
       (∀ r, r ≠ .eax → r ≠ .edi → r ≠ .edx → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by

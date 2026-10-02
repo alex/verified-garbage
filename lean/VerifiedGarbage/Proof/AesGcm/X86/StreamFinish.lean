@@ -19,7 +19,7 @@ open VG.Spec.Gcm (Block blockAt StreamRepr ctxH ctxCiph)
 
 abbrev finKeeps : List (Nat × Nat) := [(0, ctxO), (1, roundsO), (3, alO), (4, ahO), (5, xlO), (6, xhO)]
 
-theorem streamFinish_eq : streamFinish = .seq (entry 7 ([.mov .esi (argOp 2)] ++
+theorem streamFinish_eq : streamFinish = .seq (entry 7 (([.mov .esi (argOp 2)] : List Instr) ++
     ((finKeeps ++ []).flatMap (fun (p : Nat × Nat) => keep p.1 p.2) ++ []))) (.seq (finTag 0) (.block restore)) := rfl
 
 /-- What the precondition of `finish` and `verify` (with `nA` arguments) gives. -/
@@ -74,10 +74,10 @@ theorem finEntry_pc (nA : Nat) (hnA : 8 ≤ nA) (ex : List (Nat × Nat))
     (hnd : ((finKeeps ++ ex).map (·.2)).Nodup) (Pre : State → Prop) (hPre : ∀ s, Pre s → FinPre nA s)
     (p : BitVec 32 × (Nat → BitVec 32))
     {hh : Taint.Hint VG.X86.taint.T}
-    (ht : (VG.X86.taint.check (τr [.eax, .esp]) (.block (saveAt ++ ([.mov .esi (argOp 2)] ++
+    (ht : (VG.X86.taint.check (τr [.eax, .esp]) (.block (saveAt ++ (([.mov .esi (argOp 2)] : List Instr) ++
       ((finKeeps ++ ex).flatMap (fun p => keep p.1 p.2) ++ [])))) hh).isSome = true) :
     Pc (fun (s₀ : State) s => Pre s₀ ∧ pubOf nA s₀ = p ∧ s = s₀)
-      (entry 7 ([.mov .esi (argOp 2)] ++ ((finKeeps ++ ex).flatMap (fun p => keep p.1 p.2) ++ [])))
+      (entry 7 (([.mov .esi (argOp 2)] : List Instr) ++ ((finKeeps ++ ex).flatMap (fun p => keep p.1 p.2) ++ [])))
       (fun s₀ s => FinEnt nA p s₀ s ∧ ∀ q ∈ ex, slotv s.mem (p.2 7) q.2 = arg s₀ q.1) := by
   refine ⟨fun s₀ s ⟨hpre, hpub, hs⟩ => ?_, ?_⟩
   · subst s

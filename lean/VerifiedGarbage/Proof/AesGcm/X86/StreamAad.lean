@@ -21,7 +21,7 @@ open VG.Proof.Gcm (Absorbed Ctr)
 abbrev aadTail : List Instr := [.mov .eax (argOp 2), .alu .and .eax (imm 15), .store (at_ .ebp bO) .eax]
 abbrev aadKeeps : List (Nat × Nat) := [(0, ctxO), (4, dO), (5, nO)]
 
-theorem streamAad_eq : streamAad = .seq (entry 6 ([.mov .esi (argOp 1)] ++
+theorem streamAad_eq : streamAad = .seq (entry 6 (([.mov .esi (argOp 1)] : List Instr) ++
     (aadKeeps.flatMap (fun p => keep p.1 p.2) ++ aadTail))) (.seq (absorb 16) (.block restore)) := rfl
 
 theorem streamAad_lay {s : State} (h : streamAadPre s) :
@@ -44,7 +44,7 @@ structure AadIn (p : BitVec 32 × (Nat → BitVec 32)) (s₀ s : State) : Prop w
 
 theorem aadEntry_pc (p : BitVec 32 × (Nat → BitVec 32)) :
     Pc (fun (s₀ : State) s => streamAadPre s₀ ∧ pubOf 7 s₀ = p ∧ s = s₀)
-      (entry 6 ([.mov .esi (argOp 1)] ++ (aadKeeps.flatMap (fun p => keep p.1 p.2) ++ aadTail)))
+      (entry 6 (([.mov .esi (argOp 1)] : List Instr) ++ (aadKeeps.flatMap (fun p => keep p.1 p.2) ++ aadTail)))
       (AadIn p) := by
   refine ⟨fun s₀ s ⟨hpre, hpub, hs⟩ => ?_, ?_⟩
   · subst s

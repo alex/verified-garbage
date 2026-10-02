@@ -63,7 +63,7 @@ structure CEnt (p : BitVec 32 × (Nat → BitVec 32)) (s₀ s : State) : Prop wh
 
 theorem crEntry_pc (p : BitVec 32 × (Nat → BitVec 32)) :
     Pc (fun (s₀ : State) s => streamCryptPre s₀ ∧ pubOf 10 s₀ = p ∧ s = s₀)
-      (entry 9 ([.mov .esi (argOp 2)] ++ (crKeeps.flatMap (fun p => keep p.1 p.2) ++ []))) (CEnt p) := by
+      (entry 9 (([.mov .esi (argOp 2)] : List Instr) ++ (crKeeps.flatMap (fun p => keep p.1 p.2) ++ []))) (CEnt p) := by
   refine ⟨fun s₀ s ⟨hpre, hpub, hs⟩ => ?_, ?_⟩
   · subst s
     have hp := hpre

@@ -284,7 +284,7 @@ theorem lt_ofNat {a b : Nat} (ha : a < 2 ^ 32) (hb : b < 2 ^ 32) :
 theorem runBlock_app (a b : List Instr) (s : State) :
     runBlock isa (a ++ b) s = (runBlock isa a s).bind (runBlock isa b) := by
   induction a generalizing s with
-  | nil => simp [runBlock]
+  | nil => rfl
   | cons i is ih =>
     show (isa.exec i s).bind (runBlock isa (is ++ b)) =
       ((isa.exec i s).bind (runBlock isa is)).bind (runBlock isa b)

@@ -83,6 +83,22 @@ def artifacts : List Artifact := [
     contract := Spec.Gcm.streamVerifyContract X86.abi 28
     stack := 28
     verified := streamVerify_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Gcm.sealApi with
+    target := X86.target
+    doc := Spec.Gcm.sealApi.doc (notes := [callNote])
+    code := Impl.AesGcm.X86.«seal»
+    contract := Spec.Gcm.sealContract X86.abi 28
+    stack := 28
+    verified := seal_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Gcm.openApi with
+    target := X86.target
+    doc := Spec.Gcm.openApi.doc (notes := [callNote])
+    code := Impl.AesGcm.X86.«open»
+    contract := Spec.Gcm.openContract X86.abi 28
+    stack := 28
+    verified := open_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.AesGcm.X86

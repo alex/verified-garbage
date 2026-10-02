@@ -21,7 +21,7 @@ open VG VG.X86 VG.X86.RegUpd VG.Impl.AesGcm.X86 VG.WriteBytes
 open VG.Spec.Aes (bytesAt)
 open VG.Spec.Gcm (Block blockAt StreamRepr ctxH ctxCiph fullTag zeros)
 
-theorem streamVerify_eq : streamVerify = .seq (entry 7 ([.mov .esi (argOp 2)] ++
+theorem streamVerify_eq : streamVerify = .seq (entry 7 (([.mov .esi (argOp 2)] : List Instr) ++
     ((finKeeps ++ [(8, tglO)]).flatMap (fun (p : Nat × Nat) => keep p.1 p.2) ++ [])))
     (.seq tagLenOk (.seq (.ite .e (.block (zero4 0))
       (.seq recv (.seq (finTag 0) (.seq (cmp 0) (.block mask))))) (.block restore))) := rfl
