@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Ed25519.AArch64.MulAddSetup
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarMain
 
-/-! Untrusted: full-width multiply-add followed by subgroup reduction. -/
+/-! Full-width multiply-add followed by subgroup reduction. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

@@ -8,10 +8,9 @@ import VerifiedGarbage.Spec.Md5.Contract
 /-!
 # MD5 on x86: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Md5/X86/Contract.lean`); these theorems move
-them to the shared contracts of `Spec/Md5/Contract.lean`, which the
-artifacts are emitted with.
+The proofs are written against per-target contracts
+(`Proof/Md5/X86/Contract.lean`); these theorems move them to the shared
+contracts of `Spec/Md5/Contract.lean`, which the artifacts are emitted with.
 
 The shared contract of `update` lets it write its arguments: the per-target
 contract, under which it only reads them, is first widened to writable

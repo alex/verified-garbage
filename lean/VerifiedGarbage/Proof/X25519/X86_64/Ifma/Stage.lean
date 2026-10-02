@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Carry
 /-!
 # X25519 on x86-64 with AVX512_IFMA: the stages' operands
 
-Untrusted: everything here is checked by Lean. The blocks between the
-carries and the products of an iteration, run symbolically: each output
-limb, lane by lane, as a number (`rfl`), and its bounds (`decide`).
+The blocks between the carries and the products of an iteration, run
+symbolically: each output limb, lane by lane, as a number (`rfl`), and its
+bounds (`decide`).
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

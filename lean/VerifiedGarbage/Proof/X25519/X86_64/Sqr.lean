@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ops
 /-!
 # X25519 on x86-64: squaring
 
-Untrusted: everything here is checked by Lean. `sqr o a` in parts: the
-products `a_i a_j` (`i < j`) as rows of `mul` (`sq1`–`sq3`), doubled
-(`sqDbl`), the squares added (`diag`, for any two registers), and reduced as
-in `mul`.
+`sqr o a` in parts: the products `a_i a_j` (`i < j`) as rows of `mul`
+(`sq1`–`sq3`), doubled (`sqDbl`), the squares added (`diag`, for any two
+registers), and reduced as in `mul`.
 -/
 
 namespace VG.Proof.X25519.X86_64

@@ -7,11 +7,11 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.Ops
 /-!
 # The comb's digits, signs and masks
 
-Untrusted. Step `j` reads the nibbles `2j + 1` and `2j` of the scalar from
-its bits, expanded one per byte at byte 768 of the workspace, by Horner's
-rule; `combSign` turns each into the magnitude `|n - 8|` and the mask of its
-sign; `combMasks` sets the register for `k` to all ones exactly if the
-magnitude is `k`, for `k = 1 … 8`, and another to `1` exactly if it is `0`.
+Step `j` reads the nibbles `2j + 1` and `2j` of the scalar from its bits,
+expanded one per byte at byte 768 of the workspace, by Horner's rule;
+`combSign` turns each into the magnitude `|n - 8|` and the mask of its sign;
+`combMasks` sets the register for `k` to all ones exactly if the magnitude is
+`k`, for `k = 1 … 8`, and another to `1` exactly if it is `0`.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

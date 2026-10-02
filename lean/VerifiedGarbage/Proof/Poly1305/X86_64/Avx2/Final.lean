@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Powers
 /-!
 # Poly1305 on x86-64 with AVX2: the accumulator in and out
 
-Untrusted: everything here is checked by Lean. `loadH` splits the
-accumulator into lane 0 of `H`; after the last group, `sumLanes` adds the
-lanes into lane 0 and carries, `fullCarry` and `reduce` reduce it modulo
-`p`, and `storeH` joins its limbs into words.
+`loadH` splits the accumulator into lane 0 of `H`; after the last group,
+`sumLanes` adds the lanes into lane 0 and carries, `fullCarry` and `reduce`
+reduce it modulo `p`, and `storeH` joins its limbs into words.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx2

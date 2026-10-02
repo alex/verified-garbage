@@ -8,12 +8,11 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM-1024 on x86 (32-bit): `vg_mlkem1024_compress_encode`
 
-Untrusted: everything here is checked by Lean. The branch on `d` depends
-only on `d`; each branch is a loop over the 32 groups of 8 coefficients,
-packed with `accSs` (`Pack.lean`) into words whose bytes are those of
-`compressEncode5_*` and `compressEncode11_*` (`Encode1024.lean`), stored by
-`st4` and `st3` (`st4_spec`, `st3_spec`). `G b t k` is the state within group
-`t` of `b` bytes, after its first `k` bytes.
+The branch on `d` depends only on `d`; each branch is a loop over the 32
+groups of 8 coefficients, packed with `accSs` (`Pack.lean`) into words whose
+bytes are those of `compressEncode5_*` and `compressEncode11_*`
+(`Encode1024.lean`), stored by `st4` and `st3` (`st4_spec`, `st3_spec`). `G b
+t k` is the state within group `t` of `b` bytes, after its first `k` bytes.
 -/
 
 namespace VG.Proof.MlKem1024.X86.CompressEncode

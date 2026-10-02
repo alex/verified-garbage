@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CallArith
 /-!
 # ML-DSA verification on x86-64: calls of the samplers
 
-Untrusted: everything here is checked by Lean. The calls of
-`vg_mldsa_rej_ntt_poly` (seed at `SB`) and `vg_mldsa_sample_in_ball`: what
-they need of the layout (`…Chk`), what they do (`…_ok`: the result in
-`eax`, and the sampled polynomial, as `Outcome`), and that two runs whose
-layout registers and seeds agree leak the same (`…_tr`).
+The calls of `vg_mldsa_rej_ntt_poly` (seed at `SB`) and
+`vg_mldsa_sample_in_ball`: what they need of the layout (`…Chk`), what they do
+(`…_ok`: the result in `eax`, and the sampled polynomial, as `Outcome`), and
+that two runs whose layout registers and seeds agree leak the same (`…_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -91,6 +90,96 @@ theorem rejNttAt_tr {P : Prims} (C : CalleeOk P.rejNtt (rejNTTContract X86_64.ab
   simp only [rejChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨⟨_, c4⟩, c5⟩, c6⟩, _⟩, _⟩ := hc'
   sig_pub [rejNTTContract, rejNTTSig, X86_64.abi, VG.X86_64.argRegs]
+  rw [h1.r0, h1.r1, h1.r2, h2.r0, h2.r1, h2.r2, h1.1.2, h2.1.2, h1.rsp, h2.rsp]
+  simp only [Arg.val]
+  rw [Lx.wbytesAt c4, Ly.wbytesAt c4, eb]
+  exact ⟨by rw [e.2], rfl, e.pa (ptr_bs hS c4), e.pa (ptr_bs hS c5), e.pa (ptr_bs hS c6)⟩
+
+/-! ## `RejNTTPoly` four times -/
+
+def rej4Chk (bs wbs : List (Reg × Nat)) (a w : Ptr) : Bool :=
+  sepB bs (sc oSB4) 136 a 4096 && sepB bs (sc oSB4) 136 w 8192 && sepB bs a 4096 w 8192 &&
+    inB bs (sc oSB4) 136 && inB bs a 4096 && inB bs w 8192 && inB wbs a 4096 && inB wbs w 8192
+
+abbrev rej4Args (a w : Ptr) : List (Reg × Arg) := [(.rdi, .ptr (sc oSB4)), (.rsi, .ptr a), (.rdx, .ptr w)]
+
+theorem rej4_args {bs wbs : List (Reg × Nat)} (L : LayOk bs) {a w : Ptr} (hc : rej4Chk bs wbs a w = true) :
+    ∀ x ∈ rej4Args a w, x.2.Ok ∧ x.1 ∈ argRegs := by
+  simp only [rej4Chk, Bool.and_eq_true] at hc
+  obtain ⟨⟨⟨⟨⟨_, c4⟩, c5⟩, c6⟩, _⟩, _⟩ := hc
+  simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
+  exact ⟨⟨ptr_ok L c4, by decide⟩, ⟨ptr_ok L c5, by decide⟩, ⟨ptr_ok L c6, by decide⟩⟩
+
+section
+variable {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {a w : Ptr}
+  (hc : rej4Chk (rbs ++ wbs) wbs a w = true)
+include L hc
+
+theorem rej4_cov : Covers ([⟨pa s (sc oSB4), 136⟩] ++ [⟨pa s a, 4096⟩, ⟨pa s w, 8192⟩]) (s.rd ++ s.wr) ∧
+    Covers [⟨pa s a, 4096⟩, ⟨pa s w, 8192⟩] s.wr := by
+  simp only [rej4Chk, Bool.and_eq_true] at hc
+  obtain ⟨⟨⟨⟨⟨_, c4⟩, _⟩, _⟩, c7⟩, c8⟩ := hc
+  exact ⟨covers_append (L.cR c4) (covers_wr (covers_cons (L.cW c7) (L.cW c8))), covers_cons (L.cW c7) (L.cW c8)⟩
+
+theorem rej4_pre {s1 : State} (h1 : Args (rej4Args a w) s s1) :
+    (rejNTT4Contract X86_64.abi 24).pre
+      (s1.callEntry.withRegions [⟨pa s (sc oSB4), 136⟩] [⟨pa s a, 4096⟩, ⟨pa s w, 8192⟩]) := by
+  simp only [rej4Chk, Bool.and_eq_true] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨c1, c2⟩, c3⟩, c4⟩, c5⟩, c6⟩, _⟩, _⟩ := hc
+  have g1 : s1.gpr .rdi = pa s (sc oSB4) := h1.r0
+  have g2 : s1.gpr .rsi = pa s a := h1.r1
+  have g3 : s1.gpr .rdx = pa s w := h1.r2
+  sig_pre [rejNTT4Contract, rejNTT4Sig, X86_64.abi, VG.X86_64.argRegs]
+  rw [g1, g2, g3, h1.rsp]
+  exact ⟨L.sp24, rfl, rfl, L.disj c1, L.disj c2, L.disj c3, L.ret8 c4, L.ret8 c5, L.ret8 c6, L.stk24 c4,
+    L.stk24 c5, L.stk24 c6, L.nwp c4, L.nwp c5, L.nwp c6⟩
+
+end
+
+theorem Lay.wseed4 {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
+    (h : inB (rbs ++ wbs) (sc oSB4) 136 = true) (v : BitVec 64) {k : Nat} (hk : k < 4) :
+    seed4 (s.mem.writeW (s.gpr .rsp - 8) v) (pa s (sc oSB4)) k = seed4 s.mem (pa s (sc oSB4)) k := by
+  unfold seed4
+  refine Proof.MlKem.bytesAt_congr fun i hi => ?_
+  rw [BitVec.add_assoc, ← BitVec.ofNat_add]
+  exact L.wbytes h v (34 * k + i) (by omega)
+
+theorem rej4At_ok {P : Prims} (C : CalleeOk P.rej4 (rejNTT4Contract X86_64.abi 24)) {rbs wbs : List (Reg × Nat)}
+    {s : State} (L : Lay rbs wbs s) {a w : Ptr} (hc : rej4Chk (rbs ++ wbs) wbs a w = true) :
+    WP isa (rej4At P a w) s fun s' => PPostB s s' [(a, 4096), (w, 8192)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
+      (res s' = 1 → ∀ k < 4, Reduced s'.mem (poly4 (pa s a) k)) ∧
+      ((res s' = 1 ∧ ∀ k < 4, ∃ b : Bounds, rejNTTPoly b.rejNTT (seed4 s.mem (pa s (sc oSB4)) k) =
+          some (polyAt s'.mem (poly4 (pa s a) k))) ∨
+        (res s' = 0 ∧ ∃ k < 4, rejNTTPoly minBounds.rejNTT (seed4 s.mem (pa s (sc oSB4)) k) = none)) := by
+  refine WP.mono (callAt_ok C.correct C.nosp C.depth (rej4_args L.ok hc)
+    (by simp only [List.map_cons, List.map_nil]; decide)
+    (fun s1 h1 => rej4_pre L hc h1) (rej4_cov L hc).1 (rej4_cov L hc).2)
+    fun s' ⟨hP, s1, h1, s₂, hm, hg, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
+  simp only [rej4Chk, Bool.and_eq_true] at hc
+  obtain ⟨⟨⟨⟨⟨_, c4⟩, _⟩, _⟩, _⟩, _⟩ := hc
+  sig_post [rejNTT4Contract, rejNTT4Sig, X86_64.abi, VG.X86_64.argRegs] at hq
+  rw [h1.r0, h1.r1, hm, h1.rsp, h1.1.2, hg _ (by decide)] at hq
+  simp only [Arg.val] at hq
+  obtain ⟨hr, ho⟩ := hq
+  refine ⟨hr, ?_⟩
+  rcases ho with ⟨h1', hb⟩ | ⟨h0, k, hk, hn⟩
+  · exact .inl ⟨h1', fun k hk => by rw [← L.wseed4 c4 _ hk]; exact hb k hk⟩
+  · exact .inr ⟨h0, k, hk, by rw [← L.wseed4 c4 _ hk]; exact hn⟩
+
+theorem rej4At_tr {P : Prims} (C : CalleeOk P.rej4 (rejNTT4Contract X86_64.abi 24)) {rbs wbs : List (Reg × Nat)}
+    (hS : LayOk (rbs ++ wbs)) {a w : Ptr} (hc : rej4Chk (rbs ++ wbs) wbs a w = true) {Q : State → State → Prop}
+    (hQ : ∀ x y, Q x y → Lay rbs wbs x ∧ Lay rbs wbs y ∧ SameB x y ∧
+      bytesAt x.mem (pa x (sc oSB4)) 136 = bytesAt y.mem (pa y (sc oSB4)) 136) :
+    RelCT isa Q (rej4At P a w) fun _ _ => True := by
+  refine callAt_tr C.correct C.ct (rej4_args hS hc) (by simp only [List.map_cons, List.map_nil]; decide) ?_
+  intro x y x1 y1 hp h1 h2
+  obtain ⟨Lx, Ly, e, eb⟩ := hQ x y hp
+  refine ⟨_, _, _, _, rej4_pre Lx hc h1, rej4_pre Ly hc h2, ?_, (rej4_cov Lx hc).1, (rej4_cov Lx hc).2,
+    (rej4_cov Ly hc).1, (rej4_cov Ly hc).2, e.2⟩
+  have hc' := hc
+  simp only [rej4Chk, Bool.and_eq_true] at hc'
+  obtain ⟨⟨⟨⟨⟨_, c4⟩, c5⟩, c6⟩, _⟩, _⟩ := hc'
+  sig_pub [rejNTT4Contract, rejNTT4Sig, X86_64.abi, VG.X86_64.argRegs]
   rw [h1.r0, h1.r1, h1.r2, h2.r0, h2.r1, h2.r2, h1.1.2, h2.1.2, h1.rsp, h2.rsp]
   simp only [Arg.val]
   rw [Lx.wbytesAt c4, Ly.wbytesAt c4, eb]

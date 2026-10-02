@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Setup
 /-!
 # ML-DSA signing on ARMv7: `ExpandA`
 
-Untrusted: everything here is checked by Lean. `ρ` to `RS`, then entry
-`e = ℓi + j` of `Â` by `vg_mldsa_rej_ntt_poly` from the seed
-`ρ ‖ j ‖ i`, with `r11` the AND of the results (`IA`): if it is 1, every
-entry so far is `RejNTTPoly`'s within `maxBounds`; if it is 0, one entry's
-`RejNTTPoly` does not finish within `minBounds` (`expandA_ok`).
+`ρ` to `RS`, then entry `e = ℓi + j` of `Â` by `vg_mldsa_rej_ntt_poly` from
+the seed `ρ ‖ j ‖ i`, with `r11` the AND of the results (`IA`): if it is 1,
+every entry so far is `RejNTTPoly`'s within `maxBounds`; if it is 0, one
+entry's `RejNTTPoly` does not finish within `minBounds` (`expandA_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

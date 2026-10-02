@@ -19,11 +19,11 @@ section
 /-!
 # Poly1305 on 32-bit ARM: the arithmetic in radix `2¹³`
 
-Untrusted: everything here is checked by Lean. The numbers the code computes
-(see `Impl/Poly1305/Arm.lean`), as natural numbers: a number is ten limbs
-`f 0, …, f 9` of 13 bits (`val`), possibly larger; the columns of a product
-modulo `p` (`col`); the carries (`carryN`); the limbs of four 32-bit words
-(`mlimb`) and back (`toWords`); and the final reduction.
+The numbers the code computes (see `Impl/Poly1305/Arm.lean`), as natural
+numbers: a number is ten limbs `f 0, …, f 9` of 13 bits (`val`), possibly
+larger; the columns of a product modulo `p` (`col`); the carries (`carryN`);
+the limbs of four 32-bit words (`mlimb`) and back (`toWords`); and the final
+reduction.
 -/
 
 open VG.PowLit
@@ -543,9 +543,9 @@ end
 /-!
 # Poly1305 on 32-bit ARM: common lemmas
 
-Untrusted: everything here is checked by Lean. Facts about the registers the
-code uses, which registers a piece of code may change (`Keeps`), and WP
-rules for one instruction at a time that expose only what changes.
+Facts about the registers the code uses, which registers a piece of code may
+change (`Keeps`), and WP rules for one instruction at a time that expose only
+what changes.
 -/
 
 open VG.PowLit
@@ -805,9 +805,9 @@ section
 /-!
 # Poly1305 on 32-bit ARM: adding the limbs of four words to the columns
 
-Untrusted: everything here is checked by Lean. `addWords` adds limbs 0–8 of
-the 16 bytes at `r1` to `r3`–`r11`, piece by piece (`piece_ok`), and leaves
-the last word in `r2` (`addWords_ok`); as numbers, the limbs are `mlimb`.
+`addWords` adds limbs 0–8 of the 16 bytes at `r1` to `r3`–`r11`, piece by
+piece (`piece_ok`), and leaves the last word in `r2` (`addWords_ok`); as
+numbers, the limbs are `mlimb`.
 -/
 
 namespace VG.Proof.Poly1305.Arm
@@ -986,10 +986,10 @@ section
 /-!
 # Poly1305 on 32-bit ARM: carrying and the final reduction
 
-Untrusted: everything here is checked by Lean. The columns (or limbs) are in
-`r3`–`r11` and `r1` (`Cols`); `carryStep` moves a column's bits from 13 up
-to the next column (`carries_ok`), `carryFold` carries them all into `fold`
-(`carryFold_ok`), and `reduce` reduces them fully (`reduceRegs_ok`).
+The columns (or limbs) are in `r3`–`r11` and `r1` (`Cols`); `carryStep` moves
+a column's bits from 13 up to the next column (`carries_ok`), `carryFold`
+carries them all into `fold` (`carryFold_ok`), and `reduce` reduces them fully
+(`reduceRegs_ok`).
 -/
 
 open VG.PowLit
@@ -1060,8 +1060,6 @@ end
 
 /-!
 # Poly1305 on 32-bit ARM: carrying all columns, the final reduction, and words
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -1281,10 +1279,9 @@ section
 /-!
 # Poly1305 on 32-bit ARM: the columns of `h r`
 
-Untrusted: everything here is checked by Lean. `multiply` computes the
-columns `col h r` (`Arith.lean`) into `r3`–`r12`, row by row: row `j` loads
-`h j` (two limbs are packed in each word at `[0, 20)`) and adds its products
-with the limbs of `r` (at `rOff i`) to the columns (`mac_step`).
+`multiply` computes the columns `col h r` (above) into `r3`–`r12`, row by row:
+row `j` loads `h j` (two limbs are packed in each word at `[0, 20)`) and adds
+its products with the limbs of `r` (at `rOff i`) to the columns (`mac_step`).
 -/
 
 open VG.PowLit
@@ -1488,10 +1485,10 @@ end
 /-!
 # Poly1305 on 32-bit ARM: absorbing a block
 
-Untrusted: everything here is checked by Lean. `absorb pad` adds the 16
-bytes at `r1` (and `2¹²⁸` if `pad`) to the columns `D` (`D 0`–`D 8` in
-`r3`–`r11`, `D 9` at `[16, 20)` of the state: `ColsD`), carries them into
-`h`, packs `h` into `[0, 20)` and multiplies it by `r` (`absorb_ok`).
+`absorb pad` adds the 16 bytes at `r1` (and `2¹²⁸` if `pad`) to the columns
+`D` (`D 0`–`D 8` in `r3`–`r11`, `D 9` at `[16, 20)` of the state: `ColsD`),
+carries them into `h`, packs `h` into `[0, 20)` and multiplies it by `r`
+(`absorb_ok`).
 -/
 
 open VG.PowLit
@@ -1737,9 +1734,8 @@ section
 /-!
 # Poly1305 on 32-bit ARM: runs of stores and loads
 
-Untrusted: everything here is checked by Lean. A run of stores of registers
-(words, or bytes) at distinct offsets from a base register (`stores_ok`),
-and a run of loads (`loads_ok`).
+A run of stores of registers (words, or bytes) at distinct offsets from a base
+register (`stores_ok`), and a run of loads (`loads_ok`).
 -/
 
 open VG.PowLit
@@ -1842,8 +1838,6 @@ end
 
 /-!
 # Poly1305 on 32-bit ARM: saving registers, the limbs of `r`, and loading the accumulator
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -2198,10 +2192,9 @@ section
 /-!
 # Poly1305 on 32-bit ARM: bytes and words in memory
 
-Untrusted: everything here is checked by Lean. Byte strings in memory as
-32-bit little-endian words (`bytesAt_eq_of_words`, `leNum_bytesAt_words`),
-the clamped `r` of a stored key as limbs (`val_rlimb`), and regions of the
-state.
+Byte strings in memory as 32-bit little-endian words (`bytesAt_eq_of_words`,
+`leNum_bytesAt_words`), the clamped `r` of a stored key as limbs
+(`val_rlimb`), and regions of the state.
 -/
 
 open VG.PowLit
@@ -2211,9 +2204,7 @@ namespace VG.Proof.Poly1305
 open Spec.Poly1305
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
+/-- `vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
 def initArm : Contract Arm.isa where
   pre s :=
     let state : Region := ⟨State.addr (s.gpr .r0), 128⟩
@@ -2224,9 +2215,8 @@ def initArm : Contract Arm.isa where
   pub s₁ s₂ := s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n: usize)`. -/
+/-- `vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n:
+usize)`. -/
 def blocksArm : Contract Arm.isa where
   pre s :=
     let state : Region := ⟨State.addr (s.gpr .r0), 128⟩
@@ -2239,19 +2229,14 @@ def blocksArm : Contract Arm.isa where
   pub s₁ s₂ := s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧ s₁.gpr .r2 = s₂.gpr .r2
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-The 64-bit `count` argument of `update`/`finalize`, in `r2:r3` (AAPCS: the
+/-- The 64-bit `count` argument of `update`/`finalize`, in `r2:r3` (AAPCS: the
 low word in `r2`). -/
 def countArm (s : Arm.State) : BitVec 64 := s.gpr .r3 ++ s.gpr .r2
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len: usize, scratch: *mut
-    [u64; 16])`:
-`state` in `r0`, `count` in `r2:r3`, and `data`, `len` and `scratch` the stack
-arguments 0, 1 and 2. -/
+/-- `vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len:
+usize, scratch: *mut [u64; 16])`: `state` in `r0`, `count` in `r2:r3`, and
+`data`, `len` and `scratch` the stack arguments 0, 1 and 2. -/
 def updateArm : Contract Arm.isa where
   pre s :=
     let state : Region := ⟨State.addr (s.gpr .r0), 128⟩
@@ -2272,12 +2257,9 @@ def updateArm : Contract Arm.isa where
     stackArg s₁ 0 = stackArg s₂ 0 ∧ stackArg s₁ 1 = stackArg s₂ 1 ∧ stackArg s₁ 2 = stackArg s₂ 2
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], scratch: *mut [u64;
-    16])`:
-`state` in `r0`, `count` in `r2:r3`, and `out` and `scratch` the stack
-arguments 0 and 1. -/
+/-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16],
+scratch: *mut [u64; 16])`: `state` in `r0`, `count` in `r2:r3`, and `out` and
+`scratch` the stack arguments 0 and 1. -/
 def finalizeArm : Contract Arm.isa where
   pre s :=
     let state : Region := ⟨State.addr (s.gpr .r0), 128⟩

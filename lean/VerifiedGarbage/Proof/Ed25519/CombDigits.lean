@@ -7,11 +7,10 @@ import Mathlib.Algebra.Module.NatInt
 /-!
 # The comb's digits and partial sums
 
-Untrusted. The scalar `S < 2^256` has 64 nibbles `n_i`; the comb's digits are
-`d_i = n_i - 8`, from `-8` to `7`. Step `j < 32` adds `d_{2j+1} 256^j` to one
-accumulator and `d_{2j} 256^j` to another, both starting at `G = combGVal`;
-16 times the first plus the second is `S` (`comb_total`), since
-`G = 8 Σ_{j < 32} 256^j`.
+The scalar `S < 2^256` has 64 nibbles `n_i`; the comb's digits are `d_i = n_i -
+8`, from `-8` to `7`. Step `j < 32` adds `d_{2j+1} 256^j` to one accumulator
+and `d_{2j} 256^j` to another, both starting at `G = combGVal`; 16 times the
+first plus the second is `S` (`comb_total`), since `G = 8 Σ_{j < 32} 256^j`.
 
 A negative digit adds the negation of the table entry `|d|`: the cached
 negation `negCached` swaps `Y - X` and `Y + X` and negates `2dT`.

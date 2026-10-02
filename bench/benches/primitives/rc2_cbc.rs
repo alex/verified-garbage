@@ -2,7 +2,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run.
 pub const USES: &[&str] = &["rc2_cbc", "rc2"];
 
 #[cfg(any(
@@ -38,9 +37,9 @@ pub fn bench(c: &mut Criterion) {
                 b.iter(|| {
                     let mut ctx = match direction {
                         Direction::Encrypt => {
-                            Rc2Cbc::init(black_box(&key), black_box(&iv), direction)
+                            Rc2Cbc::new(black_box(&key), black_box(&iv), direction)
                         }
-                        Direction::Decrypt => Rc2Cbc::init_with_effective_bits(
+                        Direction::Decrypt => Rc2Cbc::new_with_effective_bits(
                             black_box(&key),
                             black_box(&iv),
                             direction,

@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Arith.Ntt
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_inv_ntt`
 
-Untrusted: everything here is checked by Lean. As `vg_mldsa_ntt`
-(`Ntt.lean`), with the negated zetas, from the last, and `bflyInv_spec`:
-the eight layers are those of `NTT⁻¹` (`nttInvLayer`); then every
-coefficient is multiplied by `8347681 = 256⁻¹ mod q` (`scale_ok`), which
+As `vg_mldsa_ntt` (`Ntt.lean`), with the negated zetas, from the last, and
+`bflyInv_spec`: the eight layers are those of `NTT⁻¹` (`nttInvLayer`); then
+every coefficient is multiplied by `8347681 = 256⁻¹ mod q` (`scale_ok`), which
 `nttInv_eq_layers` says is `NTT⁻¹`.
 -/
 

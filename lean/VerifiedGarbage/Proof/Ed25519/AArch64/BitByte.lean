@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.Bits
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointPowers
 
-/-! Untrusted: byte stores and expansion of one scalar byte into eight bits. -/
+/-! Byte stores and expansion of one scalar byte into eight bits. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 

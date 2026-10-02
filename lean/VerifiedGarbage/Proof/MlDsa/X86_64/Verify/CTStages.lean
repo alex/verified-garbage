@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CTBase
 /-!
 # ML-DSA verification on x86-64: constant time, the hint and `z`
 
-Untrusted: everything here is checked by Lean. Two runs with the same
-public data (`RV`) run the same code: each piece's invariant holds of each
-run from its own inputs (`relInv`), which gives what each call's trace
-needs (the pointers, reduced inputs, and the public bytes it reads); the
-branches test results that are functions of the signature alone (the hint
-is well formed, `z` is small: `ifOk_rel`).
+Two runs with the same public data (`RV`) run the same code: each piece's
+invariant holds of each run from its own inputs (`relInv`), which gives what
+each call's trace needs (the pointers, reduced inputs, and the public bytes it
+reads); the branches test results that are functions of the signature alone
+(the hint is well formed, `z` is small: `ifOk_rel`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -43,7 +42,12 @@ theorem and15_post (x : State) : WP isa (.block and15) x fun x' => ∃ W, PostB 
 theorem sampledTail_tr {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) :
     RelCT isa (fun x y => SameB x y) (.seq (.block and15) (mask a)) fun _ _ => True :=
   RelCT.seq (RelCT.sameB and15_tr (fun x y _ => ⟨and15_post x, and15_post y⟩) fun _ _ h => h)
-    (mask_tr hok hb fun _ _ h => h)
+    (mask_tr hok hb (N := 256) (by decide) fun _ _ h => h)
+
+theorem sampledTail4_tr {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) :
+    RelCT isa (fun x y => SameB x y) (.seq (.block and15) (mask a 1024)) fun _ _ => True :=
+  RelCT.seq (RelCT.sameB and15_tr (fun x y _ => ⟨and15_post x, and15_post y⟩) fun _ _ h => h)
+    (mask_tr hok hb (N := 1024) (by decide) fun _ _ h => h)
 
 theorem flag_ne {P : Prop} [Decidable P] (h : (flag P).setWidth 32 ≠ 0) : P := by
   by_contra hn

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseMemory
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarMain
 
-/-! Untrusted: base-point multiplication satisfies its memory and ABI obligations. -/
+/-! Base-point multiplication satisfies its memory and ABI obligations. -/
 
 namespace VG.Proof.Ed25519.X86_64
 
@@ -103,9 +103,5 @@ theorem scalarBase_correct_of_engine (engine : Prog isa) (engine_ok : BaseEngine
       kd.1 .r8 (by decide), kd.1 .r9 (by decide), kd.1 .r10 (by decide), kd.1 .r11 (by decide)]
     change val4 (c.gpr .r8) (c.gpr .r9) (c.gpr .r10) (c.gpr .r11) = _
     rw [vc, input]
-
-theorem scalarBase_correct {s : State} (hs : scalarBaseLocal.pre s) :
-    WP isa (scalarBase fld) s fun t => gprPreserved s t ∧ scalarBaseLocal.post s t :=
-  scalarBase_correct_of_engine (scalarBaseEngine fld) scalarBaseEngine_ok hs
 
 end VG.Proof.Ed25519.X86_64

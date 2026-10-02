@@ -5,8 +5,6 @@ import Mathlib.Tactic.SplitIfs
 /-!
 # Bitsliced AES in 32-bit words: the layout and the round transformations
 
-Untrusted: everything here is checked by Lean.
-
 As `Proof/Aes/Bitsliced.lean`, for two AES states in eight 32-bit words,
 as in BearSSL's `aes_ct` (Thomas Pornin, MIT licence): bit `j` of byte
 `i = r + 4c` of block `b` is bit `pos b i = 8r + 2c + b` of word `j`.
@@ -15,8 +13,9 @@ what each layer of the code does to the bits (as its proof states it) into
 the transformation of FIPS 197 it computes on the states; the byte-level
 facts about `xtimes` are shared with the 64-bit layout.
 
-The last section gives each linear layer as atoms (as `Proof/Aes/Layers.lean`
-does), for the checks by evaluation (`Framework/Arm/Linear.lean`): bit `t`
+The last section gives each linear layer as atoms (as the last section of
+`Proof/Aes/Bitsliced.lean` does), for the checks by evaluation
+(`Framework/Arm/Linear.lean`): bit `t`
 of input word `i` is atom `32 i + t`.
 -/
 

@@ -4,10 +4,10 @@ import VerifiedGarbage.TCB.X86_64.Avx
 /-!
 # SHA-512 with the SHA512 extension: the values in the AVX registers
 
-Untrusted: everything here is checked by Lean. How the working variables and
-the message schedule are laid out in the 128-bit lanes of the AVX registers,
-and that `vsha512rnds2` and `vsha512msg1`/`vsha512msg2` compute rounds and
-schedule words of `Spec/Sha512.lean`.
+How the working variables and the message schedule are laid out in the 128-bit
+lanes of the AVX registers, and that `vsha512rnds2` and
+`vsha512msg1`/`vsha512msg2` compute rounds and schedule words of
+`Spec/Sha512.lean`.
 -/
 
 namespace VG.Proof.Sha512.X86_64.ShaNi

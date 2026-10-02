@@ -9,8 +9,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # The AES key expansion on AArch64
 
-Untrusted: everything here is checked by Lean.
-
 `subAll` (`toBs`, the S-box, `fromBs`) applies the S-box to every byte of
 the eight words (`subAll_wp`, from the bitsliced layers' lemmas); each
 word of the schedule is then a few scalar instructions around it

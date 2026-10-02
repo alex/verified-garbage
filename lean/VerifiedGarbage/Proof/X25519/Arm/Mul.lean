@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.X25519.Arm.AddSub
 /-!
 # X25519 on 32-bit ARM: multiplication
 
-Untrusted: everything here is checked by Lean. `mul o x y` computes the 32
-limbs of `[x] · [y]` in `ACC`, row by row (`row_ok`, the loop invariant
-`RowInv`: after `i` rows, `ACC[0, i + 16)` holds the limbs of
-`x_{<i} · y`), then stores at `o` a number congruent to it, with limbs below
-`2¹⁶` (`mul_ok`).
+`mul o x y` computes the 32 limbs of `[x] · [y]` in `ACC`, row by row
+(`row_ok`, the loop invariant `RowInv`: after `i` rows, `ACC[0, i + 16)` holds
+the limbs of `x_{<i} · y`), then stores at `o` a number congruent to it, with
+limbs below `2¹⁶` (`mul_ok`).
 -/
 
 namespace VG.Proof.X25519.Arm

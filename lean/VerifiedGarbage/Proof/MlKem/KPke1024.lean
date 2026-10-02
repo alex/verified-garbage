@@ -3,12 +3,12 @@ import VerifiedGarbage.Proof.MlKem.KPke
 /-!
 # ML-KEM-1024: K-PKE and the internal algorithms as polynomial steps
 
-Untrusted: everything here is checked by Lean. The analog of `KPke.lean` for
-ML-KEM-1024 (`k = 4`, `η₁ = η₂ = 2`, `d_u = 11`, `d_v = 5`): K-PKE.KeyGen,
-K-PKE.Encrypt, K-PKE.Decrypt (Algorithms 13–15) and the internal algorithms
-(Algorithms 16–18) restated as the sequence of calls of the polynomial
-primitives (`Spec/MlKem/Poly.lean`, and `Spec/MlKem/Contract1024.lean` for
-the compression to 11 and 5 bits) an implementation makes:
+The analog of `KPke.lean` for ML-KEM-1024 (`k = 4`, `η₁ = η₂ = 2`, `d_u = 11`,
+`d_v = 5`): K-PKE.KeyGen, K-PKE.Encrypt, K-PKE.Decrypt (Algorithms 13–15) and
+the internal algorithms (Algorithms 16–18) restated as the sequence of calls
+of the polynomial primitives (`Spec/MlKem/Poly.lean`, and
+`Spec/MlKem/Contract1024.lean` for the compression to 11 and 5 bits) an
+implementation makes:
 
 * `dot4 a b = ((a₀ ×_T b₀ + a₁ ×_T b₁) + a₂ ×_T b₂) + a₃ ×_T b₃`,
   accumulated left to right with `add` (`dot_eq_dot4`);
@@ -31,7 +31,7 @@ the compression to 11 and 5 bits) an implementation makes:
 The polynomials that do not depend on `k` are those of `KPke.lean`: `cbd`,
 `matSeed`, `matrix`, `ekT`, `encY` and `dcS`. That a bigger bound on the
 iterations of `SampleNTT` gives the same result, and `Outcome`, are
-`Sample.lean`'s, for any parameter set (`keyGenInternal_mono`, …,
+`KPke.lean`'s, for any parameter set (`keyGenInternal_mono`, …,
 `outcome_of_min`).
 -/
 

@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # Streaming Merkle–Damgård hash functions on x86-64: `finalize`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`finalize`, for any hash function (`Md`) whose code stores the length field
-and writes the digest as `Shape` says, and any correct compression function
-(`CalleeOk`).
+The functional correctness of `finalize`, for any hash function (`Md`) whose
+code stores the length field and writes the digest as `Shape` says, and any
+correct compression function (`CalleeOk`).
 -/
 
 namespace VG.Proof.MdStream.X86_64.Finalize
@@ -727,8 +726,6 @@ end VG.Proof.MdStream.X86_64.Finalize
 
 /-!
 # Streaming Merkle–Damgård hash functions on x86-64: `finalize` is constant time
-
-Untrusted: everything here is checked by Lean.
 
 This holds for any compression function (`CalleeOk`), so it is proven once
 for every implementation, by relating two runs (`RelCT`) as for `update`

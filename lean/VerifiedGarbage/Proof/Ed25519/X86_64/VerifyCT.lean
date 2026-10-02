@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyCTBody
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyMain
 
-/-! Untrusted: complete verification leaks only the inputs declared public by its contract. -/
+/-! Complete verification leaks only the inputs declared public by its contract. -/
 
 namespace VG.Proof.Ed25519.X86_64
 
@@ -10,6 +10,7 @@ open VG.Proof.X25519.X86_64 (off)
 open VG.Spec.Ed25519 (bytesAt)
 
 variable {fld : Arith} [EdArith fld]
+variable {dbl : Prog isa} [EdDouble dbl]
 
 theorem VerifyStarted.public {s t : State} (hs : verifyLocal.pre s) (h : VerifyStarted s t) :
     VerifyPublic (s.gpr .rcx) (s.gpr .rdi) (s.gpr .rsi) (s.gpr .rdx)
@@ -46,16 +47,16 @@ theorem verifyFinish_ct (base : Addr) :
 theorem verifyBody_rdi_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte) :
     RelCT isa (fun s t => VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
       VerifyPublic base pk sig challenge pkbs rbs sbs kbs t)
-      (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld) recoverInvalid))
+      (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld dbl) recoverInvalid))
       (fun s t => s.gpr .rdi = base ∧ t.gpr .rdi = base) := by
   have hw (s : State) (h : VerifyPublic base pk sig challenge pkbs rbs sbs kbs s) :
-      WP isa (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld) recoverInvalid)) s
+      WP isa (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld dbl) recoverInvalid)) s
         (fun t => t.gpr .rdi = base) :=
     WP.mono (verifyBody_ok h.context) fun _ kt => (kt.1.scratch h.context.scratch).rdi
   exact (VG.RelCT.wp (verifyBody_ct base pk sig challenge pkbs rbs sbs kbs)
     (fun s t h => ⟨hw s h.1, hw t h.2⟩)).mono (fun _ _ h => h) (fun _ _ h => h.2)
 
-theorem verify_ct : ConstantTime isa verifyLocal.pre verifyLocal.pub (verifyEquation fld) := by
+theorem verify_ct : ConstantTime isa verifyLocal.pre verifyLocal.pub (verifyEquation fld dbl) := by
   have setupCT : RelCT isa (fun s t => verifyLocal.pre s ∧ verifyLocal.pre t ∧ verifyLocal.pub s t)
       (.block verifySetup) (fun _ _ => True) := by
     apply taintFld (Taint.ofRegs [.rcx]) _ (by fld_taint_decide)

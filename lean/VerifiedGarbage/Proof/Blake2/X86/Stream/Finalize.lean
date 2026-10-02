@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # Streaming BLAKE2 on x86 (32-bit): `finalize`
 
-Untrusted: everything here is checked by Lean. `finalize` saves the
-callee-saved registers (`prologue_ok`), computes the number of buffered
-bytes (`bufLen_val`), zeroes the rest of the buffer (`pad_ok`), compresses
-it as the last block (`call_ok`), copies the hash value out (`output_ok`)
-and restores the registers (`epilogue_ok`), for either word size and any
-correct compression function (`CalleeOk`).
+`finalize` saves the callee-saved registers (`prologue_ok`), computes the
+number of buffered bytes (`bufLen_val`), zeroes the rest of the buffer
+(`pad_ok`), compresses it as the last block (`call_ok`), copies the hash value
+out (`output_ok`) and restores the registers (`epilogue_ok`), for either word
+size and any correct compression function (`CalleeOk`).
 -/
 
 namespace VG.Proof.Blake2.X86.Stream.Finalize

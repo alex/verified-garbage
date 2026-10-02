@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.MlKem1024.AArch64.DecodeDecompress
 /-!
 # ML-KEM-1024 on AArch64: buffers of the top-level functions, and calls
 
-Untrusted: everything here is checked by Lean. As `TopArgs.lean` of
-ML-KEM-768 (whose `R`, `R.sub` and `R.cov` serve here), for arguments of
-up to 64 KiB, as ML-KEM-1024's 48 KiB `scratch` (`Args`, `Args.rdisj`,
-`Args.rstk`); and the calls of ML-KEM-1024's compression functions, from
-their proofs (as `PrimCall.lean` of ML-KEM-768).
+As `TopArgs.lean` of ML-KEM-768 (whose `R`, `R.sub` and `R.cov` serve here),
+for arguments of up to 64 KiB, as ML-KEM-1024's 48 KiB `scratch` (`Args`,
+`Args.rdisj`, `Args.rstk`); and the calls of ML-KEM-1024's compression
+functions, from their proofs (as `PrimCall.lean` of ML-KEM-768).
 -/
 
 namespace VG.Proof.MlKem1024.AArch64

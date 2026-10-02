@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.X448.Arm.Normalize
 
 /-!
 # X448 on ARMv7: field operations and their frame
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X448.Arm

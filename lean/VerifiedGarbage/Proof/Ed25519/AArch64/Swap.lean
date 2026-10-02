@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Ops
 import VerifiedGarbage.Proof.Ed25519.Canonical64
 
-/-! Untrusted: swapping four limbs with a mask and writing the two field elements. -/
+/-! Swapping four limbs with a mask and writing the two field elements. -/
 namespace VG.Proof.Ed25519.AArch64
 variable {large : Bool}
 

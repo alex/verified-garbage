@@ -8,8 +8,6 @@ import VerifiedGarbage.Impl.CmacAes.Arm
 /-!
 # AES-CMAC on ARMv7: calling `vg_aes_ctr32` on one block
 
-Untrusted: everything here is checked by Lean.
-
 `ctr_call`: the frame that pushes `vg_aes_ctr32`'s stack arguments (`n = 1`
 in `ra` and the working space `S` in `rb`) around its call, with the counter
 block `C` and one data block `D` holding zeros: `D` then holds `CIPH_K(C)`, as

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyLhs
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyRhs
 
-/-! Untrusted: compose both sides of the exact, uncofactored verification equation. -/
+/-! Compose both sides of the exact, uncofactored verification equation. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.Framework.AddrArith
 /-!
 # ML-KEM on x86-64: the layers of the NTT and its inverse with `len ≥ 8`
 
-Untrusted: everything here is checked by Lean. For any butterfly code `bf`
-that does what `op` does to the words of two registers (`VBflyOk`), and any
-block of the specification whose butterflies do `op` (`BlkOk`): eight
-butterflies of a block (`vstep`), the `len / 8` of them of a block
-(`vblock_ok`), and the `128 / len` blocks of a layer (`vlay_ok`), from the
-words of the polynomial at `Sp`.
+For any butterfly code `bf` that does what `op` does to the words of two
+registers (`VBflyOk`), and any block of the specification whose butterflies do
+`op` (`BlkOk`): eight butterflies of a block (`vstep`), the `len / 8` of them
+of a block (`vblock_ok`), and the `128 / len` blocks of a layer (`vlay_ok`),
+from the words of the polynomial at `Sp`.
 -/
 
 namespace VG.Proof.MlKem.X86_64

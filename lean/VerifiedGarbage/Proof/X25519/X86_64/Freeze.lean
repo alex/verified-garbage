@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Inv
 /-!
 # X25519 on x86-64: the full reduction
 
-Untrusted: everything here is checked by Lean. `freeze a` leaves in
-`r8–r11` the residue of `[a]` below `p`: bit 255 folded in as 19 gives
-`x < 2²⁵⁵ + 19`, then `x + 19 - 2²⁵⁵` (which is `x - p`) is selected if it is
-not negative.
+`freeze a` leaves in `r8–r11` the residue of `[a]` below `p`: bit 255 folded
+in as 19 gives `x < 2²⁵⁵ + 19`, then `x + 19 - 2²⁵⁵` (which is `x - p`) is
+selected if it is not negative.
 -/
 
 namespace VG.Proof.X25519.X86_64

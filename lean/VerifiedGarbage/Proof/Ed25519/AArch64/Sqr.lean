@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.SqrRows
 import VerifiedGarbage.Proof.Ed25519.AArch64.Mul
 import Mathlib.Tactic.Ring
 
-/-! Untrusted: four-word field squaring. -/
+/-! Four-word field squaring. -/
 namespace VG.Proof.Ed25519.AArch64
 variable {large : Bool}
 

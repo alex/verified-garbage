@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.RecoverAdjust
 
-/-! Untrusted: reject the negative encoding of zero and otherwise return the selected sign. -/
+/-! Reject the negative encoding of zero and otherwise return the selected sign. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

@@ -6,9 +6,8 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Bytes
 /-!
 # ML-DSA on x86-64: the loop of `vg_mldsa_rej_ntt_poly`
 
-Untrusted: everything here is checked by Lean. An iteration of the loop does
-what `rnStep` does to the coefficients sampled so far, stored at `a`
-(`Stored`) and counted in `rdi` (`rnBody_ok`).
+An iteration of the loop does what `rnStep` does to the coefficients sampled
+so far, stored at `a` (`Stored`) and counted in `rdi` (`rnBody_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample
@@ -68,14 +67,21 @@ theorem storeJ_ok (r : Reg) (s : State) {a : Addr} (ha : s.ea aJ = a) (hw : InRe
   refine WP.keep _ ?_ (by rfl)
   xrun [ha, hw]
 
+/-- Each coefficient of the polynomial at `aP` lies in one of the writable
+regions `wr`. -/
+def CoeffsWr (wr : List Region) (aP : Addr) : Prop := ∀ i < 256, InRegions wr (coeffAddr aP i) 4
+
+theorem CoeffsWr.of_mem {wr : List Region} {aP : Addr} (h : pR aP ∈ wr) : CoeffsWr wr aP :=
+  fun _ hi => ⟨_, h, coeff_contains _ hi⟩
+
 /-- Storing the word `v` (less than `q`) as the next coefficient. -/
 theorem store_next {s : State} {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
-    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length < 256) (hw : pR aP ∈ s.wr)
+    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length < 256) (hw : CoeffsWr s.wr aP)
     (hst : Stored s.mem aP L) (r : Reg) {v : BitVec 32} (hv : (s.gpr r).setWidth 32 = v) (hq : v.toNat < q) :
     WP isa (.block [.store32 aJ r, .alu .add .rdi (.imm 1)]) s fun s' =>
       s'.gpr .rdi = BitVec.ofNat 64 (L ++ [Fin.ofNat q v.toNat]).length ∧
         Stored s'.mem aP (L ++ [Fin.ofNat q v.toNat]) ∧ Frame [pR aP] s.mem s'.mem ∧ Keep [.rdi] s s' := by
-  refine WP.mono (storeJ_ok r s (ea_aJ s hbp hdi) ⟨_, hw, coeff_contains _ hL⟩) fun s' ⟨⟨hm, hdi'⟩, k⟩ => ?_
+  refine WP.mono (storeJ_ok r s (ea_aJ s hbp hdi) (hw _ hL)) fun s' ⟨⟨hm, hdi'⟩, k⟩ => ?_
   have hz : zw (Fin.ofNat q v.toNat) = v := by
     apply BitVec.eq_of_toNat_eq
     rw [zw_toNat, Fin.val_ofNat, Nat.mod_eq_of_lt hq]
@@ -90,7 +96,7 @@ structure TryPre (s : State) (aP : Addr) (L : List Zq) : Prop where
   rbp : s.gpr .rbp = aP
   rdi : s.gpr .rdi = BitVec.ofNat 64 L.length
   len : L.length < 256
-  wr : pR aP ∈ s.wr
+  wr : CoeffsWr s.wr aP
   st : Stored s.mem aP L
 
 /-- The coefficients after a try of the value `v`. -/
@@ -124,7 +130,7 @@ theorem rnStep_eq (L : List Zq) (b₀ b₁ b₂ : Byte) : rnStep L b₀ b₁ b�
 
 /-- The try, if `j < 256`. -/
 theorem rnMid_ok (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
-    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : pR aP ∈ s.wr)
+    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : CoeffsWr s.wr aP)
     (hst : Stored s.mem aP L) (hcf : s.cf = some (decide ((s.gpr .rdi).toNat < 256))) :
     WP isa (.ite .b rnTry (.block [])) s fun s' =>
       s'.gpr .rdi = BitVec.ofNat 64 (rnMid L ((s.gpr .r8).setWidth 32).toNat).length ∧
@@ -147,7 +153,7 @@ theorem sx3 : BitVec.signExtend 64 (3 : BitVec 32) = BitVec.ofNat 64 3 := by dec
 
 /-- An iteration: what `rnStep` does to the coefficients `L`. -/
 theorem rnBody_ok (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
-    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : pR aP ∈ s.wr)
+    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : CoeffsWr s.wr aP)
     (hst : Stored s.mem aP L) (h0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi) 1)
     (h1 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 1) 1)
     (h2 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 2) 1) :

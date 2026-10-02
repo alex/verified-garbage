@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNttLoop
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_ntt_poly`, correctness
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `G(ρ, 1008)` (`J6`), and
-the loop, iteration `t` of which starts from `LAt σ t` with the coefficients
-`rnFold` samples from the first `3t` bytes of output stored.
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`G(ρ, 1008)` (`J6`), and the loop, iteration `t` of which starts from `LAt σ
+t` with the coefficients `rnFold` samples from the first `3t` bytes of output
+stored.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample
@@ -112,7 +112,7 @@ theorem Lt_length_le (t : Nat) : (Lt σ t).length ≤ 256 := rnFold_length_le (b
 theorem lat_step {t : Nat} {s : State} (ht : t < 336) (h : LAt σ t s) :
     WP isa rnBody s fun s' => LAt σ (t + 1) s' ∧ s'.zf = some (BitVec.ofNat 64 (336 - t) - 1 == 0) := by
   have hw : pR (σ.gpr .rsi) ∈ s.wr := by rw [h.env.wr, hp.2.1]; simp
-  refine WP.mono (rnBody_ok s (aP := σ.gpr .rsi) h.env.rbp h.rdi (Lt_length_le t) hw h.stored
+  refine WP.mono (rnBody_ok s (aP := σ.gpr .rsi) h.env.rbp h.rdi (Lt_length_le t) (.of_mem hw) h.stored
     (by simpa using lat_regions hp h (k := 0) (by omega)) (lat_regions hp h (by omega))
     (lat_regions hp h (by omega))) fun s' ⟨hdi, hst, hf, hsi, hcx, hz, hk⟩ => ?_
   have e0 := out_byte h (k := 0) (by omega)

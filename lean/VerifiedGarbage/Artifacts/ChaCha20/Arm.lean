@@ -3,18 +3,7 @@ import VerifiedGarbage.Proof.ChaCha20.Arm.Xor
 import VerifiedGarbage.Impl.ChaCha20.Arm.Xor
 import VerifiedGarbage.Proof.ChaCha20.Arm.Lit
 
-/-!
-# The ChaCha20 block function (RFC 8439) on ARMv7
-
-A registration file (see `TCB/Emit.lean`): the artifacts it lists are
-emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`. An
-artifact made from a function's `Api` (in `Spec/`, reviewed with the
-contract) takes them from there, and this file adds only notes on the
-implementation. The emitter adds the `# Safety` items that depend on the
-target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract.
--/
+/-! # The ChaCha20 block function (RFC 8439) on ARMv7 -/
 
 namespace VG.Artifacts.ChaCha20.Arm
 
@@ -28,7 +17,7 @@ def artifacts : List Artifact := [
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.ChaCha20.xorApi with
     target := Arm.target
-    doc := Spec.ChaCha20.xorApi.doc
+    doc := Spec.ChaCha20.xorApi.doc (notes := ["Calls `vg_chacha20_block` for each 64 bytes."])
     code := Impl.ChaCha20.Arm.Xor.xor
     contract := Spec.ChaCha20.xorContract Arm.abi
     verified := Proof.ChaCha20.Arm.Xor.xor_verified

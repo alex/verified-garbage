@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # BLAKE2s on x86 (32-bit): the compression function's precondition
 
-Untrusted: everything here is checked by Lean. `Pre` unpacks the
-precondition of `compressX86 Spec.Blake2.s`; its lemmas locate the words the
-code reads and writes. Also `V0` and `F_eq`: `F` in the order of the code.
+`Pre` unpacks the precondition of `compressX86 Spec.Blake2.s`; its lemmas
+locate the words the code reads and writes. Also `V0` and `F_eq`: `F` in the
+order of the code.
 -/
 
 namespace VG.Proof.Blake2.X86.CompressS

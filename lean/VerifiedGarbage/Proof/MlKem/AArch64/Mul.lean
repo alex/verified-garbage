@@ -4,22 +4,20 @@ import Mathlib.Tactic.Set
 /-!
 # ML-KEM on AArch64: `vg_mlkem_multiply_ntts`
 
-Untrusted: everything here is checked by Lean. Four pairs of coefficients
-per iteration (`multiplyNTTs_even`, `multiplyNTTs_odd`), in the lanes of
-vectors (`vpair_ok`), with the `γᵢ` read from the table in `scratch`.
+Four pairs of coefficients per iteration (`multiplyNTTs_even`,
+`multiplyNTTs_odd`), in the lanes of vectors (`vpair_ok`), with the `γᵢ` read
+from the table in `scratch`.
 -/
 
 namespace VG.Proof.MlKem
 
 open VG VG.AArch64 VG.Spec.MlKem
 
-/-- The contract the proof is written against (and verified callers use);
-the artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_mlkem_multiply_ntts(h = x0, f = x1, g = x2,
+/-- AArch64 contract for `vg_mlkem_multiply_ntts(h = x0, f = x1, g = x2,
 scratch = x3)`: if the polynomials at `f` and `g` are reduced, writes
-`MultiplyNTTs(f, g)` to `h`, reduced. The code may read `f` and `g` (which
-may overlap) and read and write `h` and `scratch` (1024 bytes), which
-overlap nothing. -/
+`MultiplyNTTs(f, g)` to `h`, reduced. The code may read `f` and `g` (which may
+overlap) and read and write `h` and `scratch` (1024 bytes), which overlap
+nothing. -/
 def mulAArch64 : Contract AArch64.isa where
   pre s :=
     s.rd = [⟨s.gpr .x1, 1024⟩, ⟨s.gpr .x2, 1024⟩] ∧ s.wr = [⟨s.gpr .x0, 1024⟩, ⟨s.gpr .x3, 1024⟩] ∧

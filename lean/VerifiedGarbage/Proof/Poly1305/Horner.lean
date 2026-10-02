@@ -5,12 +5,12 @@ import VerifiedGarbage.Proof.Poly1305.Spec
 /-!
 # Poly1305: Horner's rule in four lanes
 
-Untrusted: everything here is checked by Lean. A vector implementation can
-absorb four blocks at a time in four lanes: lane `k` holds `V_k`, and a group
-of blocks `m₀ … m₃` makes it `(V_k + m_k) r⁴`; at the end, the last group
-makes it `(V_k + m_k) r^(4-k)` and the lanes are summed. With
-`S = r⁴ V₀ + r³ V₁ + r² V₂ + r V₃`, the invariant is `S ≡ r⁴ a` for the
-accumulator `a` of the blocks so far (starting with `V₀ = a`, the others 0).
+A vector implementation can absorb four blocks at a time in four lanes: lane
+`k` holds `V_k`, and a group of blocks `m₀ … m₃` makes it `(V_k + m_k) r⁴`; at
+the end, the last group makes it `(V_k + m_k) r^(4-k)` and the lanes are
+summed. With `S = r⁴ V₀ + r³ V₁ + r² V₂ + r V₃`, the invariant is `S ≡ r⁴ a`
+for the accumulator `a` of the blocks so far (starting with `V₀ = a`, the
+others 0).
 -/
 
 namespace VG.Proof.Poly1305

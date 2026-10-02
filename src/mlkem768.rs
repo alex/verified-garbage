@@ -73,9 +73,9 @@ pub enum Error {
     Randomness,
 }
 
-/// The implementations of `vg_mlkem_sample_ntt4`, which key generation,
-/// encapsulation and decapsulation (of ML-KEM-768 and ML-KEM-1024) follow:
-/// each has an instance calling each of them.
+/// The implementations key generation, encapsulation and decapsulation (of
+/// ML-KEM-768 and ML-KEM-1024) follow: each has an instance calling each of
+/// them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Backend {
     /// The target's baseline ISA (on x86-64, `SampleNTT` on one seed at a
@@ -84,7 +84,7 @@ pub(crate) enum Backend {
     /// AVX2: four instances of SHAKE128 at once.
     #[cfg(target_arch = "x86_64")]
     Avx2,
-    /// The shared, CPU-checked Keccak selection on ARM64.
+    /// The Keccak implementation the SHA-3 functions use (AArch64).
     #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
     Keccak(KeccakBackend),
 }
@@ -108,7 +108,10 @@ impl Backend {
         }
     }
 
-    /// The best implementation the CPU can run: there is only one here.
+    /// The scalar implementation. It is the only one on 32-bit ARM and x86;
+    /// on AArch64 the `_sha3` instances are only selected with the
+    /// `cpu-features-env` feature, when `VG_CPU_FEATURES` asks for `sha3`
+    /// (see `crate::hashes::sha3::Backend::detected`).
     #[cfg(not(any(
         target_arch = "x86_64",
         all(target_arch = "aarch64", feature = "cpu-features-env")
@@ -116,8 +119,9 @@ impl Backend {
     pub(crate) fn select() -> Backend {
         Backend::Scalar
     }
-    /// Keep the draft's default scalar selection; an explicit SHA-3 request
-    /// follows the shared sponge backend after checking every KEM's features.
+    /// The Keccak implementation the SHA-3 functions use
+    /// (`crate::hashes::sha3::Backend::detected`), if the CPU has the
+    /// features of every instance calling it.
     #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
     pub(crate) fn select() -> Backend {
         use crate::arch::{mlkem768, mlkem1024};
@@ -212,7 +216,8 @@ impl EncapsulationKey768 {
         // stack, or wrap around the end of the address space. `self.bytes`
         // passed `vg_mlkem768_check_ek`. `Backend::select` chose AVX2 only
         // if the CPU has `VG_MLKEM768_ENCAPS_AVX2_FEATURES`.
-        // ARM64 Keccak selection checks the generated SHA-3 feature requirements.
+        // On AArch64, `Backend::select` chose the `_sha3` instance only if the
+        // CPU has its features.
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => {

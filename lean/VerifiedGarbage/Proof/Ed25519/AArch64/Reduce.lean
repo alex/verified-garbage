@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Ops
 import VerifiedGarbage.Proof.Ed25519.AArch64.RowAcc
 
-/-! Untrusted: reduction of an eight-word field product. -/
+/-! Reduction of an eight-word field product. -/
 namespace VG.Proof.Ed25519.AArch64
 variable {large : Bool}
 

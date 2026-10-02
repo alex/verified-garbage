@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNtt
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_bounded_poly`, correctness
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `H(ρ, 544)` (`J6`), the
-branch on `η`, and the loop for `η`, iteration `t` of which starts from
-`LAt σ t` with the coefficients `rbFold` samples from the first `t` bytes of
-output stored.
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`H(ρ, 544)` (`J6`), the branch on `η`, and the loop for `η`, iteration `t` of
+which starts from `LAt σ t` with the coefficients `rbFold` samples from the
+first `t` bytes of output stored.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample
@@ -117,7 +116,7 @@ theorem lat_step {t : Nat} {s : State} (ht : t < 544) (h : LAt σ t s) :
     WP isa (rbBody (etaOf σ)) s fun s' => LAt σ (t + 1) s' ∧ s'.zf = some (BitVec.ofNat 64 (544 - t) - 1 == 0) := by
   have hw : pR (σ.gpr .rdx) ∈ s.wr := by rw [h.env.wr, hp.2.1]; simp
   have hp' := spOk hp
-  refine WP.mono (rbBody_ok (eta hp) s (aP := σ.gpr .rdx) h.env.rbp h.rdi (Lt_length_le t) hw h.stored
+  refine WP.mono (rbBody_ok (eta hp) s (aP := σ.gpr .rdx) h.env.rbp h.rdi (Lt_length_le t) (.of_mem hw) h.stored
     (by rw [h.rsi, at_add]; exact inScrRd hp' h.env (by omega))) fun s' ⟨hdi, hst, hf, hsi, hcx, hz, hk⟩ => ?_
   have ht1 : Lt σ (t + 1) = rbStep (etaOf σ) (Lt σ t) ((X σ).getD t 0) := by
     simp only [Lt]

@@ -5,11 +5,10 @@ import VerifiedGarbage.Impl.MlKem1024.X86_64.KeyGen
 /-!
 # ML-KEM-1024 on x86-64: `vg_mlkem1024_keygen`, its contract, layout and entry
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (`keyGen1024K`, which the shared contract implies), the layout
-of the function's buffers (`seed` in `rbp`; `scratch`, `ek`, `dk` in `rbx`,
-`r12`, `r13`), what holds throughout (`KC`: `Top`, and `d ‖ z` at `seed`),
-and the prologue.
+The contract the proof is written against (`keyGen1024K`, which the shared
+contract implies), the layout of the function's buffers (`seed` in `rbp`;
+`scratch`, `ek`, `dk` in `rbx`, `r12`, `r13`), what holds throughout (`KC`:
+`Top`, and `d ‖ z` at `seed`), and the prologue.
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

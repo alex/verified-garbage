@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.X25519.AArch64.Ladder
 import VerifiedGarbage.Proof.X25519.Invert
 
 /-! Kernel-checked ref10 inversion chain, reusing the ladder's dead slots. -/
+
 namespace VG.Proof.X25519.AArch64
 open VG VG.AArch64 VG.Impl.X25519.AArch64 VG.Spec.X25519
 

@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNttCT
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_bounded_poly`, constant time but for which half-bytes it accepts
 
-Untrusted: everything here is checked by Lean. Two runs whose leaks agree
-(which half-bytes of the first 1088 bytes of output are accepted,
-`rejBoundedLeak`) and whose pointers and `η` agree leak the same: the
-prologue and the blocks around the loop by the taint analysis, the sponge by
-`sponge_ct`, and the loop by relating the two runs iteration by iteration.
-At iteration `t`, both runs have sampled as many coefficients (the number
-depends only on which half-bytes were accepted, `rbFold_length_congr`), and
-the byte to read has its half-bytes accepted alike (`leak_hbOks`): so each
+Two runs whose leaks agree (which half-bytes of the first 1088 bytes of output
+are accepted, `rejBoundedLeak`) and whose pointers and `η` agree leak the
+same: the prologue and the blocks around the loop by the taint analysis, the
+sponge by `sponge_ct`, and the loop by relating the two runs iteration by
+iteration. At iteration `t`, both runs have sampled as many coefficients (the
+number depends only on which half-bytes were accepted, `rbFold_length_congr`),
+and the byte to read has its half-bytes accepted alike (`leak_hbOks`): so each
 branch goes the same way, and each store goes to the same address. The
 coefficients themselves are computed and stored by code that the taint
 analysis proves leaks nothing of them (`tryTrace`).
@@ -117,7 +116,7 @@ structure BPre (s : State) (aP : Addr) (L : List Zq) : Prop where
   rbp : s.gpr .rbp = aP
   rdi : s.gpr .rdi = BitVec.ofNat 64 L.length
   len : L.length ≤ 256
-  wr : pR aP ∈ s.wr
+  wr : CoeffsWr s.wr aP
   st : Stored s.mem aP L
   r0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi) 1
 
@@ -132,7 +131,7 @@ structure MPre (s : State) (aP : Addr) (L : List Zq) (z : Byte) : Prop where
   rbp : s.gpr .rbp = aP
   rdi : s.gpr .rdi = BitVec.ofNat 64 L.length
   len : L.length ≤ 256
-  wr : pR aP ∈ s.wr
+  wr : CoeffsWr s.wr aP
   st : Stored s.mem aP L
   cf : s.cf = some (decide (L.length < 256))
   rax : s.gpr .rax = BitVec.setWidth 64 z
@@ -167,7 +166,7 @@ theorem load_ct (η : Nat) : RelCT isa (BRel η) (.block rbLoad) (R1 η) := by
 def R2 (η : Nat) (s₁ s₂ : State) : Prop :=
   ∃ (aP : Addr) (L₁ L₂ : List Zq) (z₁ z₂ : Byte), L₁.length = L₂.length ∧ L₁.length ≤ 256 ∧ L₂.length ≤ 256 ∧
     s₁.gpr .rbp = aP ∧ s₂.gpr .rbp = aP ∧ s₁.gpr .rdi = BitVec.ofNat 64 L₁.length ∧
-    s₂.gpr .rdi = BitVec.ofNat 64 L₂.length ∧ pR aP ∈ s₁.wr ∧ pR aP ∈ s₂.wr ∧ Stored s₁.mem aP L₁ ∧
+    s₂.gpr .rdi = BitVec.ofNat 64 L₂.length ∧ CoeffsWr s₁.wr aP ∧ CoeffsWr s₂.wr aP ∧ Stored s₁.mem aP L₁ ∧
     Stored s₂.mem aP L₂ ∧ s₁.gpr .rax = BitVec.setWidth 64 z₁ ∧ s₂.gpr .rax = BitVec.setWidth 64 z₂ ∧
     halfByteOk η (z₁.toNat / 16) = halfByteOk η (z₂.toNat / 16) ∧ s₁.gpr .rcx = s₂.gpr .rcx ∧
     s₁.gpr .rsi = s₂.gpr .rsi
@@ -176,7 +175,7 @@ def R2 (η : Nat) (s₁ s₂ : State) : Prop :=
 def R3 (η : Nat) (s₁ s₂ : State) : Prop :=
   ∃ aP L₁ L₂ b₁ b₂, L₁.length = L₂.length ∧ L₁.length ≤ 256 ∧
     s₁.gpr .rbp = aP ∧ s₂.gpr .rbp = aP ∧ s₁.gpr .rdi = BitVec.ofNat 64 L₁.length ∧
-    s₂.gpr .rdi = BitVec.ofNat 64 L₂.length ∧ pR aP ∈ s₁.wr ∧ pR aP ∈ s₂.wr ∧ Stored s₁.mem aP L₁ ∧
+    s₂.gpr .rdi = BitVec.ofNat 64 L₂.length ∧ CoeffsWr s₁.wr aP ∧ CoeffsWr s₂.wr aP ∧ Stored s₁.mem aP L₁ ∧
     Stored s₂.mem aP L₂ ∧ b₁ < 16 ∧ b₂ < 16 ∧ (s₁.gpr .rdx).setWidth 32 = BitVec.ofNat 32 b₁ ∧
     (s₂.gpr .rdx).setWidth 32 = BitVec.ofNat 32 b₂ ∧ halfByteOk η b₁ = halfByteOk η b₂ ∧
     s₁.cf = some (decide (L₁.length < 256)) ∧ s₂.cf = some (decide (L₂.length < 256)) ∧
@@ -333,7 +332,7 @@ def LI (η n : Nat) (s₁ s₂ : State) : Prop :=
 
 theorem bpre {σ : State} (hp : rbK.pre σ) {t : Nat} (ht : t < 544) {s : State} (h : LAt σ t s) :
     BPre s (σ.gpr .rdx) (Lt σ t) :=
-  ⟨h.env.rbp, h.rdi, Lt_length_le t, by rw [h.env.wr, hp.2.1]; simp, h.stored,
+  ⟨h.env.rbp, h.rdi, Lt_length_le t, .of_mem (by rw [h.env.wr, hp.2.1]; simp), h.stored,
     by rw [h.rsi, at_add]; exact inScrRd (spOk hp) h.env (by omega)⟩
 
 theorem li_brel {η n : Nat} {s₁ s₂ : State} (h : LI η n s₁ s₂) : BRel η s₁ s₂ := by

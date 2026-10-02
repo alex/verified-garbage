@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.CombLoop
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointEncode
 import VerifiedGarbage.Proof.Ed25519.AArch64.Bits
 
-/-! Untrusted: the scalar bits, base-point multiplication, and canonical encoding compose. -/
+/-! The scalar bits, base-point multiplication, and canonical encoding compose. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

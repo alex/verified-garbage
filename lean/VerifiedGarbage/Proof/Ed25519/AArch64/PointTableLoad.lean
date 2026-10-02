@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointTable
 
-/-! Untrusted: copying point tables back into the arithmetic workspace. -/
+/-! Copying point tables back into the arithmetic workspace. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

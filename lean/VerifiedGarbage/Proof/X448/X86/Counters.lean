@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Ops
 /-!
 # X448 on x86 (32-bit): public loop counters
 
-Untrusted: everything here is checked by Lean. Counters preserve memory
-and every other register; the zero flag controls loop termination.
+Counters preserve memory and every other register; the zero flag controls loop
+termination.
 -/
 
 namespace VG.Proof.X448.X86

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Ops
 
-/-! Untrusted: four-word field subtraction. -/
+/-! Four-word field subtraction. -/
 namespace VG.Proof.Ed25519.AArch64
 variable {large : Bool}
 

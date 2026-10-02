@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Lay
 /-!
 # ML-KEM-768 on x86-64: the calls, in a layout
 
-Untrusted: everything here is checked by Lean. What each call of the
-top-level functions needs (`IpH`, `MulH`, …) from a layout (`Lay`) and a
-check of its pointers that evaluates to `true` (`ipChk`, `mulChk`, …), and
-two runs in the same layout (`LRel`), with the same addresses in its
-registers, which every call keeps.
+What each call of the top-level functions needs (`IpH`, `MulH`, …) from a
+layout (`Lay`) and a check of its pointers that evaluates to `true` (`ipChk`,
+`mulChk`, …), and two runs in the same layout (`LRel`), with the same
+addresses in its registers, which every call keeps.
 -/
 
 namespace VG.Proof.MlKem.X86_64

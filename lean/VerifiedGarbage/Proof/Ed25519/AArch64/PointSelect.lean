@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.AArch64.PointSelect
 import VerifiedGarbage.Proof.Ed25519.AArch64.Points
 import VerifiedGarbage.Proof.Ed25519.AArch64.Swap
 
-/-! Untrusted: point selection reuses the verified constant-time field swaps. -/
+/-! Point selection reuses the verified constant-time field swaps. -/
 
 namespace VG.Proof.Ed25519.AArch64
 
@@ -41,22 +41,5 @@ theorem swapFields_ok {s : State} {base : Addr} (hs : Scr s base) (ops : List (S
       fun u ⟨ku, cu, vu⟩ => ?_
     refine ⟨hk.trans ku, cu.trans hc, ?_⟩
     rw [vu, hv]; rfl
-
-theorem pointSelect_eval (e : Env) (sw : Bool) :
-    point (swapEnvs pointSelectPairs sw e) 0 1 2 3 =
-      if sw then point e 17 18 19 20 else point e 0 1 2 3 := by
-  cases sw <;> rfl
-
-theorem pointSelect_d (e : Env) (sw : Bool) : swapEnvs pointSelectPairs sw e 16 = e 16 := by
-  cases sw <;> rfl
-
-theorem pointSelect_ok {s : State} {base : Addr} (hs : Scr s base) {sw : Bool}
-    (hm : s.gpr .x3 = mask sw) :
-    WP isa (.block pointSelect) s fun t => Keep base s t ∧
-      point (env t.mem base) 0 1 2 3 =
-        (if sw then point (env s.mem base) 17 18 19 20 else point (env s.mem base) 0 1 2 3) ∧
-      env t.mem base 16 = env s.mem base 16 := by
-  refine WP.mono (swapFields_ok hs pointSelectPairs (by decide) hm) fun t ⟨hk, _, hv⟩ => ?_
-  exact ⟨hk, by rw [hv, pointSelect_eval], by rw [hv, pointSelect_d]⟩
 
 end VG.Proof.Ed25519.AArch64

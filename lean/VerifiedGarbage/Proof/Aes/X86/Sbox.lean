@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.X86.Straight
 /-!
 # The bitsliced S-box on x86 (32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 `sboxCode` only combines words bitwise, so it computes the same Boolean
 function at each of the 32 bit positions: the kernel evaluates it once on
 truth tables of the 256 inputs (`Bitslice.table`) and compares the result

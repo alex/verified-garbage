@@ -5,13 +5,12 @@ import VerifiedGarbage.Impl.MlKem1024.X86_64.Encaps
 /-!
 # ML-KEM-1024 on x86-64: `vg_mlkem1024_encaps`, its contract, layout, entry and hashes
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (`encaps1024K`, which the shared contract implies), the layout
-of the function's buffers (`ek` and `m` in `r14` and `rbp`, which may
-overlap each other; `scratch`, `key`, `ct` in `rbx`, `r12`, `r13`), what
-holds throughout (`EC`: `Top`, and `ek` and `m` at their pointers), the
-prologue, `H(ek)` and `G(m ‖ H(ek))` (`hashes_ok`), and the context
-`K-PKE.Encrypt` runs in (`ecC`, which also keeps `K`).
+The contract the proof is written against (`encaps1024K`, which the shared
+contract implies), the layout of the function's buffers (`ek` and `m` in `r14`
+and `rbp`, which may overlap each other; `scratch`, `key`, `ct` in `rbx`,
+`r12`, `r13`), what holds throughout (`EC`: `Top`, and `ek` and `m` at their
+pointers), the prologue, `H(ek)` and `G(m ‖ H(ek))` (`hashes_ok`), and the
+context `K-PKE.Encrypt` runs in (`ecC`, which also keeps `K`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

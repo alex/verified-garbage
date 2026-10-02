@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlKem.X86_64.ArithOk
 /-!
 # ML-KEM-768 on x86-64: the calls of the polynomial primitives
 
-Untrusted: everything here is checked by Lean. For each call of a
-polynomial primitive from a top-level function: what it needs of the state
-(`…H`), what it does (`…_ok`), and that two runs that agree on its public
-data leak the same (`…_tr`).
+For each call of a polynomial primitive from a top-level function: what it
+needs of the state (`…H`), what it does (`…_ok`), and that two runs that agree
+on its public data leak the same (`…_tr`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

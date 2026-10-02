@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.Sha3.Arm.Permute
 /-!
 # The SHA-3 sponge on ARMv7: `absorb`
 
-Untrusted: everything here is checked by Lean. The same structure as the
-AArch64 proof (`VG.Proof.Sha3.AArch64.Stream.Absorb`), with the return
-address saved in the scratch space instead of a frame, and the callee-saved
-registers the code does not save (`r8`–`r11`) kept by the permutation.
+The same structure as the AArch64 proof
+(`VG.Proof.Sha3.AArch64.Stream.Absorb`), with the return address saved in the
+scratch space instead of a frame, and the callee-saved registers the code does
+not save (`r8`–`r11`) kept by the permutation.
 -/
 
 namespace VG.Proof.Sha3.Arm.Stream.Absorb

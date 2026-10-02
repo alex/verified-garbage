@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.PointMul
 import VerifiedGarbage.Proof.Ed25519.Arm.PointKeep
 import VerifiedGarbage.Proof.Ed25519.Bytes
 
-/-! Untrusted: scalar multiplication reads either all 256 or all 512 input bits. -/
+/-! Scalar multiplication reads either all 256 or all 512 input bits. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PointBatch
 import VerifiedGarbage.Proof.Ed25519.X86.AccumulateLoop
 
-/-! Untrusted: one scalar batch preserves checkpoints, bits and saved API pointers. -/
+/-! One scalar batch preserves checkpoints, bits and saved API pointers. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Dom
 /-!
 # AArch64: straight-line bitwise code, by evaluation
 
-Untrusted: everything here is checked by Lean.
-
 As `Framework/X86_64/Straight.lean`, for AArch64: a block of 64-bit `and`,
 `orr`, `eor`, `ror`, `lsr`, `movz`, `movk`, `add`/`sub` of an immediate,
 `ldr` and `str` instructions on registers and on two memory areas

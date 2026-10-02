@@ -6,11 +6,11 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # X25519 on AArch64: the whole function
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (the facts of `Spec.X25519.x25519Contract` it uses, stated
-for AArch64), and the correctness of `vg_x25519` against it: every write is
-in the working space but the result's, so the arguments are read unchanged,
-and the callee-saved registers it uses are restored from the working space.
+The contract the proof is written against (the facts of
+`Spec.X25519.x25519Contract` it uses, stated for AArch64), and the correctness
+of `vg_x25519` against it: every write is in the working space but the
+result's, so the arguments are read unchanged, and the callee-saved registers
+it uses are restored from the working space.
 -/
 
 namespace VG.Proof.X25519

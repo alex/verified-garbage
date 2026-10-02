@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.Verify
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyContext
 
-/-! Untrusted: load a public argument pointer from the protected header area. -/
+/-! Load a public argument pointer from the protected header area. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

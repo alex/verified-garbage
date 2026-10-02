@@ -4,17 +4,15 @@ import VerifiedGarbage.Impl.MlKem1024.AArch64.Kem
 /-!
 # ML-KEM-1024 on AArch64: what the proofs of `encaps` and `decaps` share
 
-Untrusted: everything here is checked by Lean. A function's buffers
-(`Layout`): its `nb` pointer arguments (`kA`), the first `nrd` read and the
-others written, and the four it keeps in `x25`–`x28` (`slot`, with
-`scratch` in `x28`). What holds from the prologue to the epilogue (`KB`):
-the pointers, our caller's registers saved in `scratch`, the other
-callee-saved registers, and the buffers the function only reads. Then the
-region facts the calls need, reduced to arithmetic on offsets, and the
-prologue and epilogue.
-The proofs are ML-KEM-768's (`Proof/MlKem/AArch64/Kem*.lean`, `Encaps.lean`,
-`Decaps*.lean`) for `k = 4`, `d_u = 11` and `d_v = 5`, and ML-KEM-1024's
-sizes and offsets.
+A function's buffers (`Layout`): its `nb` pointer arguments (`kA`), the first
+`nrd` read and the others written, and the four it keeps in `x25`–`x28`
+(`slot`, with `scratch` in `x28`). What holds from the prologue to the
+epilogue (`KB`): the pointers, our caller's registers saved in `scratch`, the
+other callee-saved registers, and the buffers the function only reads. Then
+the region facts the calls need, reduced to arithmetic on offsets, and the
+prologue and epilogue. The proofs are ML-KEM-768's
+(`Proof/MlKem/AArch64/Kem*.lean`, `Encaps.lean`, `Decaps*.lean`) for `k = 4`,
+`d_u = 11` and `d_v = 5`, and ML-KEM-1024's sizes and offsets.
 -/
 
 namespace VG.Proof.MlKem1024.AArch64.Kem

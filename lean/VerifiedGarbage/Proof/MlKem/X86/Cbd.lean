@@ -9,9 +9,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_cbd2`
 
-Untrusted: everything here is checked by Lean. Byte `k` holds the nibbles of
-coefficients `2k` and `2k+1` (`samplePolyCBD2_val`); `cbdNibble` computes
-`x + q - y` of a nibble with masks and shifts (`nib_spec`) and reduces it.
+Byte `k` holds the nibbles of coefficients `2k` and `2k+1`
+(`samplePolyCBD2_val`); `cbdNibble` computes `x + q - y` of a nibble with
+masks and shifts (`nib_spec`) and reduces it.
 -/
 
 namespace VG.Proof.MlKem.X86.Cbd

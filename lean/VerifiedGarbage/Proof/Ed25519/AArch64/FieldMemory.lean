@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.Field
 import VerifiedGarbage.Proof.Ed25519.AArch64.Ops
 
-/-! Untrusted: constants and copies in the field workspace. -/
+/-! Constants and copies in the field workspace. -/
 namespace VG.Proof.Ed25519.AArch64
 variable {large : Bool}
 

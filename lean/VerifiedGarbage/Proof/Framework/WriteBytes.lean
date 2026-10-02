@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.Framework.Mem
 /-!
 # Writing a list of bytes
 
-Untrusted: everything here is checked by Lean. `writeBytes m q xs` is `m`
-with the bytes `xs` written from `q` on, for the streaming proofs of the
-hash functions (which export these names into their own namespaces).
+`writeBytes m q xs` is `m` with the bytes `xs` written from `q` on, for the
+streaming proofs of the hash functions (which export these names into their
+own namespaces).
 -/
 
 namespace VG.WriteBytes

@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Lit
 /-!
 # ML-DSA on AArch64: `vg_mldsa_ntt`
 
-Untrusted: everything here is checked by Lean. The butterfly's code does
-what `bfly` does (`bfly_spec`), so each layer is `nttLayer` (`lay_ok`), and
-the eight layers are `NTT` (`ntt_eq_layers`). `Ntt.LI`, `Ntt.pro_ok` and
-`inPlaceSat` serve `NTT⁻¹` too.
+The butterfly's code does what `bfly` does (`bfly_spec`), so each layer is
+`nttLayer` (`lay_ok`), and the eight layers are `NTT` (`ntt_eq_layers`).
+`Ntt.LI`, `Ntt.pro_ok` and `inPlaceSat` serve `NTT⁻¹` too.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Arith

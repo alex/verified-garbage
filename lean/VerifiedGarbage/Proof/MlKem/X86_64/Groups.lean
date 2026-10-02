@@ -6,13 +6,12 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-KEM on x86-64: groups of values and their bytes
 
-Untrusted: everything here is checked by Lean. The pieces of
-`compressEncode` and `decodeDecompress` that move a group between values
-and bytes, for any width `d`, group of `c` values and `b` bytes: the
-values accumulated in `r10` from the last (`ceCoefs_ok`, the number whose
-base-`2ᵈ` digits they are), stored as bytes (`ceStores_ok`); bytes loaded
-from the last (`ddBytes_ok`, the number whose bytes they are), and values
-taken from the bottom (`ddCoefs_ok`).
+The pieces of `compressEncode` and `decodeDecompress` that move a group
+between values and bytes, for any width `d`, group of `c` values and `b`
+bytes: the values accumulated in `r10` from the last (`ceCoefs_ok`, the number
+whose base-`2ᵈ` digits they are), stored as bytes (`ceStores_ok`); bytes
+loaded from the last (`ddBytes_ok`, the number whose bytes they are), and
+values taken from the bottom (`ddCoefs_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

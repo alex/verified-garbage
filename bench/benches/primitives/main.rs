@@ -22,21 +22,30 @@ mod blake2s;
 mod chacha20;
 mod chacha20poly1305;
 mod cmac_aes;
+mod cmac_triple_des;
 mod ed25519;
 mod hmac_md5;
 mod hmac_sha1;
+mod hmac_sha224;
 mod hmac_sha256;
 mod hmac_sha384;
 mod hmac_sha512;
+mod hmac_sha512_224;
+mod hmac_sha512_256;
 mod md5;
 mod mldsa44;
 mod mldsa65;
 mod mldsa87;
 mod mlkem1024;
 mod mlkem768;
+mod pbkdf2_md5;
 mod pbkdf2_sha1;
+mod pbkdf2_sha224;
 mod pbkdf2_sha256;
+mod pbkdf2_sha384;
 mod pbkdf2_sha512;
+mod pbkdf2_sha512_224;
+mod pbkdf2_sha512_256;
 mod poly1305;
 mod rc2_cbc;
 mod scrypt;
@@ -44,7 +53,10 @@ mod sha1;
 mod sha224;
 mod sha256;
 mod sha3;
+mod sha384;
 mod sha512;
+mod sha512_224;
+mod sha512_256;
 mod x25519;
 mod x448;
 
@@ -186,7 +198,8 @@ pub(crate) fn pbkdf2_group(
     g.finish();
 }
 
-/// Each algorithm's `bench`, with the library modules whose code it runs.
+/// Each algorithm's `bench`, with the library modules whose code it runs
+/// (its `USES`, which `ci/bench_arches.py` reads).
 type Bench = (&'static [&'static str], fn(&mut Criterion));
 
 const BENCHES: &[Bench] = &[
@@ -196,20 +209,29 @@ const BENCHES: &[Bench] = &[
     (chacha20::USES, chacha20::bench),
     (chacha20poly1305::USES, chacha20poly1305::bench),
     (cmac_aes::USES, cmac_aes::bench),
+    (cmac_triple_des::USES, cmac_triple_des::bench),
     (hmac_md5::USES, hmac_md5::bench),
     (hmac_sha1::USES, hmac_sha1::bench),
+    (hmac_sha224::USES, hmac_sha224::bench),
     (hmac_sha256::USES, hmac_sha256::bench),
     (hmac_sha384::USES, hmac_sha384::bench),
     (hmac_sha512::USES, hmac_sha512::bench),
+    (hmac_sha512_224::USES, hmac_sha512_224::bench),
+    (hmac_sha512_256::USES, hmac_sha512_256::bench),
     (md5::USES, md5::bench),
     (mldsa44::USES, mldsa44::bench),
     (mldsa65::USES, mldsa65::bench),
     (mldsa87::USES, mldsa87::bench),
     (mlkem1024::USES, mlkem1024::bench),
     (mlkem768::USES, mlkem768::bench),
+    (pbkdf2_md5::USES, pbkdf2_md5::bench),
     (pbkdf2_sha1::USES, pbkdf2_sha1::bench),
+    (pbkdf2_sha224::USES, pbkdf2_sha224::bench),
     (pbkdf2_sha256::USES, pbkdf2_sha256::bench),
+    (pbkdf2_sha384::USES, pbkdf2_sha384::bench),
     (pbkdf2_sha512::USES, pbkdf2_sha512::bench),
+    (pbkdf2_sha512_224::USES, pbkdf2_sha512_224::bench),
+    (pbkdf2_sha512_256::USES, pbkdf2_sha512_256::bench),
     (poly1305::USES, poly1305::bench),
     (rc2_cbc::USES, rc2_cbc::bench),
     (scrypt::USES, scrypt::bench),
@@ -217,7 +239,10 @@ const BENCHES: &[Bench] = &[
     (sha224::USES, sha224::bench),
     (sha256::USES, sha256::bench),
     (sha3::USES, sha3::bench),
+    (sha384::USES, sha384::bench),
     (sha512::USES, sha512::bench),
+    (sha512_224::USES, sha512_224::bench),
+    (sha512_256::USES, sha512_256::bench),
     (x25519::USES, x25519::bench),
     (x448::USES, x448::bench),
     (ed25519::USES, ed25519::bench),

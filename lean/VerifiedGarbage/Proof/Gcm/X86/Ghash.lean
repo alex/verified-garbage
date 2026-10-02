@@ -7,8 +7,6 @@ import VerifiedGarbage.Spec.Gcm.Contract
 /-!
 # GHASH on x86 (32-bit): the whole function
 
-Untrusted: everything here is checked by Lean.
-
 Each block loads `Y ⊕ X` (big-endian words, `bswap`) into the scratch
 buffer, `Z := 0` and `V := H`, runs the 128 steps (`Step.lean`), and
 stores `Z` as the new `Y`. The prologue saves the callee-saved registers

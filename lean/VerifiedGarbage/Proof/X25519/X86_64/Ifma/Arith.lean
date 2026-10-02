@@ -6,10 +6,9 @@ import Mathlib.Tactic.Zify
 /-!
 # X25519 on x86-64 with AVX512_IFMA: the arithmetic of the lanes
 
-Untrusted: everything here is checked by Lean. A field element is five limbs
-`x₀ + 2⁵¹ x₁ + … + 2²⁰⁴ x₄` (`lv`), standing for its residue modulo `p`.
-The identities between limbs are polynomial identities in `R = 2⁵¹`
-(`2⁵² = 2R`, `2²⁵⁵ = R⁵`), proved as such.
+A field element is five limbs `x₀ + 2⁵¹ x₁ + … + 2²⁰⁴ x₄` (`lv`), standing for
+its residue modulo `p`. The identities between limbs are polynomial identities
+in `R = 2⁵¹` (`2⁵² = 2R`, `2²⁵⁵ = R⁵`), proved as such.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

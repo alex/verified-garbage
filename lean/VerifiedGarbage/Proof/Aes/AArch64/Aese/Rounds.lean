@@ -6,13 +6,12 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # The Armv8 AES instructions are FIPS 197's rounds
 
-Untrusted: everything here is checked by Lean. A vector register holds an
-AES state as its 16 bytes in memory order (`st`): byte `r + 4c` is
-`s[r, c]`, as FIPS 197 §3.4 lays the state out and as the Arm ARM's AES
-instructions read it. On such registers `eor` is `AddRoundKey` (`eor_st`),
-`aese` is `AddRoundKey`, `SubBytes` and `ShiftRows` (`aese_st`), and `aesmc`
-is `MixColumns` (`aesmc_st`); the S-box of the ISA model, computed by
-repeated squaring, is the one of `Spec/Aes.lean` (`sbox_eq`).
+A vector register holds an AES state as its 16 bytes in memory order (`st`):
+byte `r + 4c` is `s[r, c]`, as FIPS 197 §3.4 lays the state out and as the Arm
+ARM's AES instructions read it. On such registers `eor` is `AddRoundKey`
+(`eor_st`), `aese` is `AddRoundKey`, `SubBytes` and `ShiftRows` (`aese_st`),
+and `aesmc` is `MixColumns` (`aesmc_st`); the S-box of the ISA model, computed
+by repeated squaring, is the one of `Spec/Aes.lean` (`sbox_eq`).
 
 `aes_ok`: `Impl.Aes.AArch64.Aese.aes regs` encrypts each register of `regs`
 with the round keys in `v16`–`v30`, whatever the list of registers.

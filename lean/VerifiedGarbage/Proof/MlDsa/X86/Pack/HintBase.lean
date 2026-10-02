@@ -8,8 +8,6 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on x86 (32-bit): what the proofs of the hint encodings share
 
-Untrusted: everything here is checked by Lean.
-
 * Loops whose number of iterations depends on the leaked data
   (`loopC`, which ends when a condition that correctness determines from
   public data fails, and `loopN`, with a public number of iterations), for

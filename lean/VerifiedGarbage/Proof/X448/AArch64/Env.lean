@@ -7,9 +7,9 @@ import VerifiedGarbage.Proof.X448.AArch64.Swap
 /-!
 # X448 on AArch64: the working space as field-element slots
 
-Untrusted: everything here is checked by Lean. Field operations update one
-of twenty-two slots, preserving bounded limbs in every slot. The frame
-excludes saved registers, the swap bit and the scalar's decoded bits.
+Field operations update one of twenty-two slots, preserving bounded limbs in
+every slot. The frame excludes saved registers, the swap bit and the scalar's
+decoded bits.
 -/
 
 namespace VG.Proof.X448.AArch64

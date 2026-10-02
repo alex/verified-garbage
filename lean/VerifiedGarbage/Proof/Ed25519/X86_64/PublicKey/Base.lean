@@ -6,9 +6,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.CombLit
 /-!
 # Ed25519 public-key derivation on x86-64: pruning and the base point
 
-Untrusted: everything here is checked by Lean. The first half of the digest,
-pruned, is stored in the frame (`prune_ok`), `[s]B` is encoded into `out`
-(`base_ok`), and the frame's copy of `s` is cleared (`wipe_ok`).
+The first half of the digest, pruned, is stored in the frame (`prune_ok`),
+`[s]B` is encoded into `out` (`base_ok`), and the frame's copy of `s` is
+cleared (`wipe_ok`).
 -/
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey
@@ -76,7 +76,7 @@ theorem Ctx.store {t t' : State} (hc : Ctx L g mx m₀ t) (hrd : t'.rd = t.rd) (
 abbrev dw (t : State) (L : Lay) (k : Nat) : BitVec 64 :=
   t.mem.readW (L.scr + BitVec.ofNat 64 (1568 + 8 * k)) 64
 
-/-- The arguments of `scalar_base_precomputed`. -/
+/-- The arguments of `vg_ed25519_scalar_base`. -/
 def BaseArgs (L : Lay) (t : State) : Prop :=
   t.gpr .rdi = L.out ∧ t.gpr .rsi = L.B + BitVec.ofNat 64 16 ∧ t.gpr .rdx = L.scr
 

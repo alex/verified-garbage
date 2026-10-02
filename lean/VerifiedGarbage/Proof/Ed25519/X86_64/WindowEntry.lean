@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.PointTableAddr
 /-!
 # Adding a table entry
 
-Untrusted. An addition `add` adds `q` to the accumulator when slots 4–7 hold
-`f q` (`AddSpec`): `pointAdd` with `f = id`, `pointAddCached` with
-`f = cache`. `pointFromTableQ` copies a table entry to slots 4–7.
+An addition `add` adds `q` to the accumulator when slots 4–7 hold `f q`
+(`AddSpec`): `pointAdd` with `f = id`, `pointAddCached` with `f = cache`.
+`pointFromTableQ` copies a table entry to slots 4–7.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

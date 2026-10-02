@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Framework.Mem
 /-!
 # Streaming BLAKE2: target-independent lemmas
 
-Untrusted: everything here is checked by Lean. The streaming code keeps `r`
-bytes of the data `d` in the buffer (`ReprR`): `Repr` is `ReprR` with `r =
-bufLen w |d|` (the last 1 to `bb` bytes), and within `update` the buffer may
-also be full or empty. Each step of the code is one lemma here: copying
-bytes into the buffer (`reprR_append`), compressing the full buffer
-(`reprR_flush`), compressing blocks straight from the data (`reprR_blocks`),
-and the final compression (`finalHash_eq`).
+The streaming code keeps `r` bytes of the data `d` in the buffer (`ReprR`):
+`Repr` is `ReprR` with `r = bufLen w |d|` (the last 1 to `bb` bytes), and
+within `update` the buffer may also be full or empty. Each step of the code is
+one lemma here: copying bytes into the buffer (`reprR_append`), compressing
+the full buffer (`reprR_flush`), compressing blocks straight from the data
+(`reprR_blocks`), and the final compression (`finalHash_eq`).
 -/
 
 namespace VG.Proof.Blake2

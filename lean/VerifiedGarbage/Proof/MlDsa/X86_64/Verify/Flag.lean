@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CallPack
 /-!
 # ML-DSA verification on x86-64: the result in `r15`, and the samplers
 
-Untrusted: everything here is checked by Lean. The result so far is kept in
-`r15` as 1 or 0 (`flag`); `and15` and `mov32 r15, eax` update it from a
-callee's result. A sampler's call, its result ANDed into `r15` and its
-output masked with it (`sampled`) leaves a reduced polynomial either way,
-the sampled one if the sampler succeeded (`sampledRej_ok`, `sampledBall_ok`).
+The result so far is kept in `r15` as 1 or 0 (`flag`); `and15` and `mov32 r15,
+eax` update it from a callee's result. A sampler's call, its result ANDed into
+`r15` and its output masked with it (`sampled`) leaves a reduced polynomial
+either way, the sampled one if the sampler succeeded (`sampled_ok`, and
+`sampled4_ok` for four polynomials).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -107,6 +107,59 @@ theorem sampled_ok {call : Prog isa} {rbs wbs : List (Reg × Nat)} {s : State} (
   · rcases ho₁ with ⟨_, b, hb⟩ | ⟨h0, _⟩
     · refine ⟨b, ?_⟩
       rw [hb, polyAt_eq_of_coeffAt fun i hi => by rw [hc₃ i hi, mask_one _ h1 i hi]]
+    · rw [h1] at h0; cases h0
+  · rcases ho₁ with ⟨h1, _⟩ | ⟨_, hn⟩
+    · rw [h1] at h0; cases h0
+    · exact hn
+
+theorem coeffAt_poly4 (m : Mem) (p : Addr) (k j : Nat) : coeffAt m (poly4 p k) j = coeffAt m p (256 * k + j) := by
+  unfold coeffAt poly4
+  rw [BitVec.add_assoc, ← BitVec.ofNat_add, show 1024 * k + 4 * j = 4 * (256 * k + j) by omega]
+
+/-- `sampled_ok` for a call that samples the four polynomials from `a`, each
+from `F k`. -/
+theorem sampled4_ok {call : Prog isa} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {a : Ptr}
+    (hi : inB (rbs ++ wbs) a 4096 = true) (hw : inB wbs a 4096 = true) {p : Prop} [Decidable p]
+    (h15 : s.gpr .r15 = flag p) {ws : List (Ptr × Nat)} (haw : (a, 4096) ∈ ws)
+    {F : Nat → Bounds → Option Poly}
+    (hcall : WP isa call s fun s' => PPostB s s' ws ∧ s'.gpr .r15 = s.gpr .r15 ∧
+      (res s' = 1 → ∀ k < 4, Reduced s'.mem (poly4 (pa s a) k)) ∧
+      ((res s' = 1 ∧ ∀ k < 4, ∃ b, F k b = some (polyAt s'.mem (poly4 (pa s a) k))) ∨
+        (res s' = 0 ∧ ∃ k < 4, F k minBounds = none))) :
+    WP isa (sampled4 call a) s fun s' => PPostB s s' ws ∧ (∀ k < 4, Reduced s'.mem (poly4 (pa s a) k)) ∧
+      ∃ r : BitVec 32, (r = 1 ∨ r = 0) ∧ s'.gpr .r15 = flag (p ∧ r = 1) ∧
+        (r = 1 → ∀ k < 4, ∃ b, F k b = some (polyAt s'.mem (poly4 (pa s a) k))) ∧
+        (r = 0 → ∃ k < 4, F k minBounds = none) := by
+  unfold sampled4
+  refine WP.seq (WP.mono hcall fun s₁ ⟨hP₁, h15₁, hr₁, ho₁⟩ => ?_)
+  have L₁ := L.post hP₁
+  have hab := ptr_bs L.ok hi
+  have e₁ : pa s₁ a = pa s a := hP₁.pa hab
+  have hr : res s₁ = 1 ∨ res s₁ = 0 := by rcases ho₁ with ⟨h, _⟩ | ⟨h, _⟩ <;> [exact .inl h; exact .inr h]
+  refine WP.seq (WP.mono (and15_ok s₁) fun s₂ ⟨⟨h15₂, hm₂⟩, k₂⟩ => ?_)
+  have hP₂ : PPostB s₁ s₂ [] := postB_of_keep k₂ (by decide) (by rw [hm₂]; exact Frame.refl _ _)
+  have L₂ := L₁.post hP₂
+  have e₂ : pa s₂ a = pa s₁ a := hP₂.pa hab
+  have hax : (s₂.gpr .rax).setWidth 32 = res s₁ := by rw [k₂.gpr (by decide)]
+  refine WP.mono (maskN_ok L₂ (N := 1024) (by decide) (by decide) hi hw) fun s₃ ⟨hP₃, h15₃, hc₃⟩ => ?_
+  have hsub : ∀ w ∈ [(a, 4 * 1024)], w ∈ ws := by simp only [List.mem_singleton, forall_eq]; exact haw
+  have hcs : ∀ w ∈ [(a, 4 * 1024)], w.1.1 ∈ bases := by simp only [List.mem_singleton, forall_eq]; exact hab
+  have hP₁₂ : PPostB s s₂ ws := PPostB.trans hP₁ hP₂ (fun _ h => absurd h List.not_mem_nil) (fun w hw => hw)
+    (fun _ h => absurd h List.not_mem_nil)
+  have hP : PPostB s s₃ ws := PPostB.trans hP₁₂ hP₃ hcs (fun w hw => hw) hsub
+  rw [e₂, e₁, hax, hm₂] at hc₃
+  have hc : ∀ k < 4, ∀ j < n, coeffAt s₃.mem (poly4 (pa s a) k) j =
+      coeffAt s₁.mem (poly4 (pa s a) k) j &&& (0 - res s₁) := fun k hk j hj => by
+    rw [coeffAt_poly4, coeffAt_poly4, hc₃ _ (by simp only [n] at hj; omega)]
+  refine ⟨hP, fun k hk => ?_, res s₁, hr, by rw [h15₃, h15₂, h15₁, h15, and_flag hr], fun h1 k hk => ?_,
+    fun h0 => ?_⟩
+  · rcases hr with h1 | h0
+    · exact reduced_of_coeffAt (fun i hi => by rw [hc k hk i hi, mask_one _ h1 i hi]) (hr₁ h1 k hk)
+    · exact (Proof.MlDsa.Verify.polyIs_zero fun i hi => by rw [hc k hk i hi, mask_zero _ h0 i hi]).1
+  · rcases ho₁ with ⟨_, hb⟩ | ⟨h0, _⟩
+    · obtain ⟨b, hb⟩ := hb k hk
+      refine ⟨b, ?_⟩
+      rw [hb, polyAt_eq_of_coeffAt fun i hi => by rw [hc k hk i hi, mask_one _ h1 i hi]]
     · rw [h1] at h0; cases h0
   · rcases ho₁ with ⟨h1, _⟩ | ⟨_, hn⟩
     · rw [h1] at h0; cases h0

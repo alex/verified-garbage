@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC over any streaming hash function on x86-64: `finalize`, correct
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86_64.Finalize

@@ -5,8 +5,8 @@ import Mathlib.Tactic.Conv
 /-!
 # The SHA-3 sponge: arithmetic and bytes, for every target
 
-Untrusted: everything here is checked by Lean. Facts about counters, byte
-stores and the rates that the streaming proofs of every target use.
+Facts about counters, byte stores and the rates that the streaming proofs of
+every target use.
 -/
 
 namespace VG.Proof.Sha3

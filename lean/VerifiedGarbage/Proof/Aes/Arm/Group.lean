@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.MdStream.Arm.Common
 /-!
 # One group of counter-mode blocks on ARMv7
 
-Untrusted: everything here is checked by Lean.
-
 A group stores the data pointer, the blocks left and the first round key
 in slots 45–47 of the scratch buffer (`groupSave`), `ctrBlocks` builds the
 counter blocks `c + b` (`b < 2`) from the slots of the counter block

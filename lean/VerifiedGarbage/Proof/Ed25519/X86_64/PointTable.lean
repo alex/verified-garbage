@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.PointTable
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointLoop
 import VerifiedGarbage.Proof.X25519.X86_64.Setup
 
-/-! Untrusted: point table accesses remain within the caller's scratch argument. -/
+/-! Point table accesses remain within the caller's scratch argument. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

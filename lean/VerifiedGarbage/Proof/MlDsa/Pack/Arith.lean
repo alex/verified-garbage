@@ -3,11 +3,10 @@ import VerifiedGarbage.Spec.MlDsa
 /-!
 # ML-DSA: the coefficients of `BitPack` and `BitUnpack` modulo `q`, for every target
 
-Untrusted: everything here is checked by Lean. `BitPack(f mod± q, a, b)`
-packs `b - (x mod± q)` for each reduced coefficient `x` of `f`, and
-`BitUnpack` gives `b - y` for each field `y`, cast to `ℤ_q`. Both are
-`(b + q - x) mod q`, which an implementation computes without branches as
-`b - x`, plus `q` if that borrows (`sub_modPm`, `ofInt_sub`).
+`BitPack(f mod± q, a, b)` packs `b - (x mod± q)` for each reduced coefficient
+`x` of `f`, and `BitUnpack` gives `b - y` for each field `y`, cast to `ℤ_q`.
+Both are `(b + q - x) mod q`, which an implementation computes without
+branches as `b - x`, plus `q` if that borrows (`sub_modPm`, `ofInt_sub`).
 -/
 
 namespace VG.Proof.MlDsa.Pack

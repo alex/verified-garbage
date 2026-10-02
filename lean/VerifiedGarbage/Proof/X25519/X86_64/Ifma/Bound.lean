@@ -4,16 +4,15 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Bound
 /-!
 # X25519 on x86-64 with AVX512_IFMA: terms as numbers
 
-Untrusted: everything here is checked by Lean. The limbs the ladder computes
-stay below `2⁶⁴`, and its differences never go negative, so its additions,
-subtractions, multiply-adds and shifts never wrap. `T.bnd` and `T.lb` bound
-each term from above and below, from bounds on the registers and memory a
-block starts from; `T.ok` checks that nothing wraps under those bounds (and
-that every blend picks whole quadwords); and `T.nat` is its value as a
-number, with the reductions modulo `2⁶⁴` left out. `nat_ok` proves that a
-term is `T.nat` and within its bounds where the kernel evaluates `T.ok` of
-concrete terms to `true`, so the number a block computes is `nat` of its
-term, which unfolds to the arithmetic of the ladder by definition.
+The limbs the ladder computes stay below `2⁶⁴`, and its differences never go
+negative, so its additions, subtractions, multiply-adds and shifts never wrap.
+`T.bnd` and `T.lb` bound each term from above and below, from bounds on the
+registers and memory a block starts from; `T.ok` checks that nothing wraps
+under those bounds (and that every blend picks whole quadwords); and `T.nat`
+is its value as a number, with the reductions modulo `2⁶⁴` left out. `nat_ok`
+proves that a term is `T.nat` and within its bounds where the kernel evaluates
+`T.ok` of concrete terms to `true`, so the number a block computes is `nat` of
+its term, which unfolds to the arithmetic of the ladder by definition.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

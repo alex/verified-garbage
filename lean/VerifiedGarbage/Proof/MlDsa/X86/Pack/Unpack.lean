@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Pack.BitPack
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_bit_unpack` and `vg_mldsa_unpack_t1`
 
-Untrusted: everything here is checked by Lean. `bitUnpack(v, len, a, b, f)`
-loads `v` into `esi`, `f` into `edi` and `b` into `eax`, and branches on `b`
-to the unpack loop for its width (`unpackLoop_piece`); `unpackT1(v, f)` is
-the loop for 10-bit fields. The coefficient of a field `y` is `b - y`, plus
-`q` if that borrows (`subModQ`), which is `b - y` in `ℤ_q`
-(`Pack/Arith.lean`), or `y · 2¹³`.
+`bitUnpack(v, len, a, b, f)` loads `v` into `esi`, `f` into `edi` and `b` into
+`eax`, and branches on `b` to the unpack loop for its width
+(`unpackLoop_piece`); `unpackT1(v, f)` is the loop for 10-bit fields. The
+coefficient of a field `y` is `b - y`, plus `q` if that borrows (`subModQ`),
+which is `b - y` in `ℤ_q` (`Pack/Arith.lean`), or `y · 2¹³`.
 -/
 
 namespace VG.Proof.MlDsa.X86.Pack.Unpack

@@ -3,14 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNtt
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_ntt_poly`, constant time but for the seed
 
-Untrusted: everything here is checked by Lean. Two runs whose seeds (the
-declared leak) and pointers agree leak the same: the prologue and the
-blocks around the loop by the taint analysis, the sponge by `sponge_ct`,
-and the loop, whose branches and stores depend on the XOF output, by
-relating the two runs iteration by iteration (`body_ct`): both are at the
-same iteration with the same coefficients sampled and the same bytes to
-read, so each branch goes the same way and each store goes to the same
-address.
+Two runs whose seeds (the declared leak) and pointers agree leak the same: the
+prologue and the blocks around the loop by the taint analysis, the sponge by
+`sponge_ct`, and the loop, whose branches and stores depend on the XOF output,
+by relating the two runs iteration by iteration (`body_ct`): both are at the
+same iteration with the same coefficients sampled and the same bytes to read,
+so each branch goes the same way and each store goes to the same address.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample
@@ -57,7 +55,7 @@ structure MPre (s : State) (aP : Addr) (L : List Zq) : Prop where
   rbp : s.gpr .rbp = aP
   rdi : s.gpr .rdi = BitVec.ofNat 64 L.length
   len : L.length ≤ 256
-  wr : pR aP ∈ s.wr
+  wr : CoeffsWr s.wr aP
   st : Stored s.mem aP L
   cf : s.cf = some (decide ((s.gpr .rdi).toNat < 256))
 
@@ -127,7 +125,7 @@ structure BPre (s : State) (aP : Addr) (L : List Zq) : Prop where
   rbp : s.gpr .rbp = aP
   rdi : s.gpr .rdi = BitVec.ofNat 64 L.length
   len : L.length ≤ 256
-  wr : pR aP ∈ s.wr
+  wr : CoeffsWr s.wr aP
   st : Stored s.mem aP L
   r0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi) 1
   r1 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 1) 1
@@ -196,7 +194,7 @@ def LI (n : Nat) (s₁ s₂ : State) : Prop :=
 
 theorem bpre {σ : State} (hp : rnK.pre σ) {t : Nat} (ht : t < 336) {s : State} (h : LAt σ t s) :
     BPre s (σ.gpr .rsi) (Lt σ t) :=
-  ⟨h.env.rbp, h.rdi, Lt_length_le t, by rw [h.env.wr, hp.2.1]; simp, h.stored,
+  ⟨h.env.rbp, h.rdi, Lt_length_le t, .of_mem (by rw [h.env.wr, hp.2.1]; simp), h.stored,
     by simpa using lat_regions hp h (k := 0) (by omega), lat_regions hp h (by omega), lat_regions hp h (by omega)⟩
 
 theorem li_brel {n : Nat} {s₁ s₂ : State} (h : LI n s₁ s₂) : BRel s₁ s₂ := by

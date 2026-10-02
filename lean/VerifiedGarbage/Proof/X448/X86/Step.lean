@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Instr
 /-!
 # X448 on x86 (32-bit): carry steps
 
-Untrusted: everything here is checked by Lean. A bounded sum splits into
-a 16-bit digit and a carry before the next coefficient is added.
+A bounded sum splits into a 16-bit digit and a carry before the next
+coefficient is added.
 -/
 
 namespace VG.Proof.X448.X86

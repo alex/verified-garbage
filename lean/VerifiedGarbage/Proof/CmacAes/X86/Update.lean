@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.CmacAes.X86.Save
 /-!
 # AES-CMAC on x86: `vg_cmac_aes_update`, the blocks before and in the loop
 
-Untrusted: everything here is checked by Lean. The invariant after `k`
-blocks (`LInv`): `esi` points at the next block, `esp` is unchanged, only
-the state, the first 2064 bytes of the scratch buffer and the 28 bytes below
-`esp` have changed since the registers were saved, and the state is the
-chaining value after the first `k` blocks. Everything else is reloaded from
-the stack arguments, which nothing writes.
+The invariant after `k` blocks (`LInv`): `esi` points at the next block, `esp`
+is unchanged, only the state, the first 2064 bytes of the scratch buffer and
+the 28 bytes below `esp` have changed since the registers were saved, and the
+state is the chaining value after the first `k` blocks. Everything else is
+reloaded from the stack arguments, which nothing writes.
 -/
 
 namespace VG.Proof.CmacAes.X86

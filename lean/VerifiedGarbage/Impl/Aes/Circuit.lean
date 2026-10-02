@@ -10,8 +10,9 @@ https://eprint.iacr.org/2009/191.pdf), with 32 AND gates, 83 XOR gates and
 Applied to 64-bit words bit by bit, it computes 64 S-boxes at once: bit
 `j` of every byte of the input is in word `j`. Its inputs are numbered from
 the most significant bit: `x₀` is bit 7 and `x₇` bit 0; likewise for the
-outputs `s₀ … s₇`. The proof checks it on all 256 inputs
-(`Proof/Aes/Sbox.lean`); nothing here needs to be trusted.
+outputs `s₀ … s₇`. Each target's proof checks the code made from it on
+all 256 inputs (e.g. `Proof/Aes/X86/Sbox.lean`); nothing here needs to be
+trusted.
 -/
 
 namespace VG.Impl.Aes.Circuit

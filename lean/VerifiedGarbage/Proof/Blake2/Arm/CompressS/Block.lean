@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Blake2.Arm.CompressS.Rounds
 /-!
 # BLAKE2s on ARMv7: one block
 
-Untrusted: everything here is checked by Lean. Setting up the work vector
-(`init_ok`): copying the block to `scratch`, loading the state into
-registers and the IV words; and XORing the work vector into the state
-(`fin_ok`).
+Setting up the work vector (`init_ok`): copying the block to `scratch`,
+loading the state into registers and the IV words; and XORing the work vector
+into the state (`fin_ok`).
 -/
 
 namespace VG.Proof.Blake2.ArmS

@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.X25519.AArch64.Limbwise
 /-!
 # X25519 on AArch64: the field elements in their slots
 
-Untrusted: everything here is checked by Lean. The elements live in the
-slots of the working space (`slot n`, `n < 15`); `Inv b s₀ s vals bnds` says
-that each slot `n` with a bound `bnds n = some k` stands for the field
-element `vals n` with limbs below `2^k`, and that since `s₀` only the
-registers of the field operations and the slots have changed. Each field
-operation updates `vals` and `bnds` at its result's slot.
+The elements live in the slots of the working space (`slot n`, `n < 15`); `Inv
+b s₀ s vals bnds` says that each slot `n` with a bound `bnds n = some k`
+stands for the field element `vals n` with limbs below `2^k`, and that since
+`s₀` only the registers of the field operations and the slots have changed.
+Each field operation updates `vals` and `bnds` at its result's slot.
 -/
 
 namespace VG.Proof.X25519.AArch64

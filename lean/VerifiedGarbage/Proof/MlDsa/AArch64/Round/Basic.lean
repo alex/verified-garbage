@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.MlDsa.Round.Decompose
 /-!
 # ML-DSA on AArch64: what the rounding proofs share
 
-Untrusted: everything here is checked by Lean.
-
 * For each function, a contract with the facts of its shared contract
   (`Spec/MlDsa/Poly.lean`) spelled out for AArch64: the arguments in their
   registers, the permitted regions, their disjointness, and the

@@ -4,11 +4,10 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 /-!
 # scryptROMix: facts about the specification
 
-Untrusted: everything here is checked by Lean. Target-independent facts
-about `Spec.Scrypt.roMix`: the blocks `V[i]` step 2 writes (`vList`), step 3
-one iteration at a time (`mixLoop_succ_fst`, `mixLoop_succ_snd`), the
-lengths of the blocks, and `Integerify (X) mod 2^e` as a little-endian word
-read from memory (`integerify_mod`).
+Target-independent facts about `Spec.Scrypt.roMix`: the blocks `V[i]` step 2
+writes (`vList`), step 3 one iteration at a time (`mixLoop_succ_fst`,
+`mixLoop_succ_snd`), the lengths of the blocks, and `Integerify (X) mod 2^e`
+as a little-endian word read from memory (`integerify_mod`).
 -/
 
 namespace VG.Proof.Scrypt

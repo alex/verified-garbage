@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.X86.Pack
 /-!
 # X448 on x86 (32-bit): the output buffer
 
-Untrusted: everything here is checked by Lean. Output stores cover exactly
-56 bytes and preserve the disjoint working space.
+Output stores cover exactly 56 bytes and preserve the disjoint working space.
 -/
 
 namespace VG.Proof.X448.X86

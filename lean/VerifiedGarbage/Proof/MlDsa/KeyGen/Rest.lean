@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Poly
 /-!
 # ML-DSA key generation: the keys from the sampled polynomials
 
-Untrusted: everything here is checked by Lean. Lines 5–10 of Algorithm 6
-(`kgRest`) on the entries `A (ℓr + s)` of `Â` and `S r` of `s₁ ‖ s₂`, row by row
-of `t` (`tK`), as the keys are computed: `t[i]` is `NTT⁻¹` of the sum of the
-products `Â[i, j] ŝ₁[j]` (`dotK`, from `j = 0`) plus `s₂[i]`, the public key
-is `ρ` followed by the packed `t₁[i]` (`pkK`), and the private key `ρ ‖ K ‖ tr`
-followed by the packed `s₁ ‖ s₂` and `t₀[i]` (`skK`) (`kgRest_eq`).
+Lines 5–10 of Algorithm 6 (`kgRest`) on the entries `A (ℓr + s)` of `Â` and `S
+r` of `s₁ ‖ s₂`, row by row of `t` (`tK`), as the keys are computed: `t[i]` is
+`NTT⁻¹` of the sum of the products `Â[i, j] ŝ₁[j]` (`dotK`, from `j = 0`) plus
+`s₂[i]`, the public key is `ρ` followed by the packed `t₁[i]` (`pkK`), and the
+private key `ρ ‖ K ‖ tr` followed by the packed `s₁ ‖ s₂` and `t₀[i]` (`skK`)
+(`kgRest_eq`).
 -/
 
 namespace VG.Proof.MlDsa.KeyGen

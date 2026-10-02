@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Clamp
 /-!
 # X448 on x86 (32-bit): decoding the scalar bits
 
-Untrusted: everything here is checked by Lean. The unrolled expansion
-reads exactly 56 bytes, then clears bits zero and one and sets bit 447.
+The unrolled expansion reads exactly 56 bytes, then clears bits zero and one
+and sets bit 447.
 -/
 
 namespace VG.Proof.X448.X86

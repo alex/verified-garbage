@@ -8,11 +8,11 @@ import VerifiedGarbage.Spec.Sha512.Contract
 /-!
 # Sha512 on X86_64: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha512/X86_64/Compress.lean`); these theorems move
-them to the shared contracts of `Spec/Sha512/Contract.lean`, which the
-artifacts are emitted with. `update` and `finalize` hold for any
-implementation `f` of the compression function.
+The proofs are written against per-target contracts
+(`Proof/Sha512/X86_64/Compress.lean`); these theorems move them to the shared
+contracts of `Spec/Sha512/Contract.lean`, which the artifacts are emitted with.
+`update` and `finalize` hold for any implementation `f` of the compression
+function.
 
 The scalar compression function's own contract has less scratch than the
 shared one; it is widened first (`Proof/Sha512/X86_64/Wide.lean`).

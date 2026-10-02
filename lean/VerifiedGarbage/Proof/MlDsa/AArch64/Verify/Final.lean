@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Rest
 /-!
 # ML-DSA verification on AArch64: `vg_mldsa44_verify`, `vg_mldsa65_verify`, `vg_mldsa87_verify`
 
-Untrusted: everything here is checked by Lean. `c̃′ = H(μ ‖ w1Encode(w′₁))`
-(`hash_vpiece`) and its comparison with `c̃` (`cmp_vpiece`); the function,
-piece by piece (`verify_vpiece`): a malformed hint returns 0 at once, a `z`
-too large after the norms, and otherwise `x24` holds the result of the
-samplers and then of the comparison. For primitives `P` that meet their
-contracts (`PrimsOk`), `verify P p` meets `verifyContract p`
-(`verify_verified`): it is correct, and leaks only its inputs, which the
+`c̃′ = H(μ ‖ w1Encode(w′₁))` (`hash_vpiece`) and its comparison with `c̃`
+(`cmp_vpiece`); the function, piece by piece (`verify_vpiece`): a malformed
+hint returns 0 at once, a `z` too large after the norms, and otherwise `x24`
+holds the result of the samplers and then of the comparison. For primitives
+`P` that meet their contracts (`PrimsOk`), `verify P p` meets `verifyContract
+p` (`verify_verified`): it is correct, and leaks only its inputs, which the
 contract makes public.
 -/
 

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.PointMul
 import VerifiedGarbage.Proof.Ed25519.Arm.MulKeep
 
-/-! Untrusted: the public descending batch counter is saved across field operations. -/
+/-! The public descending batch counter is saved across field operations. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

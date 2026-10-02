@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Mem
 import VerifiedGarbage.Proof.Ed25519.AArch64.Carry
 
-/-! Untrusted: memory and register frames for field operations. -/
+/-! Memory and register frames for field operations. -/
 namespace VG.Proof.Ed25519.AArch64
 variable {large : Bool}
 

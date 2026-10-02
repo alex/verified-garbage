@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Rel
 /-!
 # ML-DSA verification on x86-64: constant time, the pieces without calls
 
-Untrusted: everything here is checked by Lean. Two runs from inputs with
-the same public data (`RV`) keep the same pointers (`T.lrel`). A block
-that accesses no memory, followed by code that the taint analysis checks
-from the registers it sets (`blockLoop_tr`), leaks the same in both: the
-copy (`copy_tr`), the mask of a sampler's output (`mask_tr`) and the
+Two runs from inputs with the same public data (`RV`) keep the same pointers
+(`T.lrel`). A block that accesses no memory, followed by code that the taint
+analysis checks from the registers it sets (`blockLoop_tr`), leaks the same in
+both: the copy (`copy_tr`), the mask of a sampler's output (`mask_tr`) and the
 comparison (`cmpAnd_tr`). The rest is checked by the taint analysis.
 -/
 
@@ -67,13 +66,13 @@ theorem copy_tr {dst src : Ptr} {n : Nat} (hok : ∀ a ∈ copyArgs dst src n, a
   · rw [hx.1.1 _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self ..))),
       hy.1.1 _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self ..)))]; rfl
 
-theorem maskPre_wp {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) (s : State) :
+theorem maskPre_wp {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) {N : Nat} (hN : N < 2 ^ 31) (s : State) :
     WP isa (.block (([.mov32 .rdx (.imm 0), .alu32 .sub .rdx (.reg .rax)] : List Instr) ++
-      glue [(.rdi, .ptr a), (.rcx, .imm 256)])) s
-      fun s' => s'.gpr .rdi = (Arg.ptr a).val s ∧ s'.gpr .rcx = BitVec.ofNat 64 256 := by
-  have hok' : ∀ x ∈ ([(.rdi, .ptr a), (.rcx, .imm 256)] : List (Reg × Arg)), x.2.Ok ∧ x.1 ∈ argRegs := by
+      glue [(.rdi, .ptr a), (.rcx, .imm N)])) s
+      fun s' => s'.gpr .rdi = (Arg.ptr a).val s ∧ s'.gpr .rcx = BitVec.ofNat 64 N := by
+  have hok' : ∀ x ∈ ([(.rdi, .ptr a), (.rcx, .imm N)] : List (Reg × Arg)), x.2.Ok ∧ x.1 ∈ argRegs := by
     simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-    exact ⟨⟨hok, by decide⟩, ⟨show 256 < 2 ^ 31 by decide, by decide⟩⟩
+    exact ⟨⟨hok, by decide⟩, ⟨hN, by decide⟩⟩
   rw [WP.block_append_iff]
   refine WP.mono (maskPre_ok s) fun s₀ ⟨_, k₀⟩ => ?_
   refine WP.mono (glue_ok _ hok' (by simp only [List.map_cons, List.map_nil]; decide) s₀) fun s1 ⟨⟨hv1, _⟩, _⟩ =>
@@ -84,10 +83,11 @@ theorem maskPre_wp {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) (s : St
   simp only [Arg.val, pa]
   rw [k₀.gpr nb]
 
-theorem mask_tr {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) {P : State → State → Prop}
-    (hP : ∀ x y, P x y → SameB x y) : RelCT isa P (mask a) fun _ _ => True := by
+theorem mask_tr {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) {N : Nat} (hN : N < 2 ^ 31)
+    {P : State → State → Prop} (hP : ∀ x y, P x y → SameB x y) : RelCT isa P (mask a N) fun _ _ => True := by
   unfold mask
-  refine blockLoop_tr (fun i hi s => ?_) (fun x y _ => ⟨maskPre_wp hok hb x, maskPre_wp hok hb y⟩) [.rdi, .rcx]
+  refine blockLoop_tr (fun i hi s => ?_) (fun x y _ => ⟨maskPre_wp hok hb hN x, maskPre_wp hok hb hN y⟩)
+    [.rdi, .rcx]
     (fun x y x' y' hp hx hy r hr => ?_) (by taint_decide)
   · rcases List.mem_append.mp hi with h | h
     · simp only [List.mem_cons, List.not_mem_nil, or_false] at h; rcases h with rfl | rfl <;> rfl

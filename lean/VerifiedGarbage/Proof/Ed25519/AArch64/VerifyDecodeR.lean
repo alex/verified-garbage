@@ -1,10 +1,10 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyContext
 
-/-! Untrusted: reject an invalid R encoding or evaluate the complete equation. -/
+/-! Reject an invalid R encoding or evaluate the complete equation. -/
 
 namespace VG.Proof.Ed25519.AArch64
 
-open VG VG.AArch64 VG.Impl.Ed25519.AArch64
+open VG VG.AArch64 VG.Impl.Ed25519.AArch64 VG.Proof.Ed25519 Edwards
 
 def equationWithR (r : Option Spec.Ed25519.Point) (a : Spec.Ed25519.Point) (scalar challenge : Nat) : Bool :=
   match r with
@@ -13,7 +13,8 @@ def equationWithR (r : Option Spec.Ed25519.Point) (a : Spec.Ed25519.Point) (scal
       (Spec.Ed25519.pointAdd r (Spec.Ed25519.pointMul challenge a))
 
 theorem verifyDecodeR_ok {s : State} {base pk sig challenge : Addr}
-    (h : VerifyContext s base pk sig challenge) :
+    {Aa : EPoint dZ} (h : VerifyContext s base pk sig challenge)
+    (hA : Rep (tablePoint s.mem base 7424) Aa) :
     WP isa verifyDecodeR s fun t => VerifyKeep base s t ∧
       t.gpr .x8 = signWord (equationWithR
         (Spec.Ed25519.decodePoint (Spec.Ed25519.bytesAt s.mem sig 32))
@@ -47,8 +48,10 @@ theorem verifyDecodeR_ok {s : State} {base pk sig challenge : Addr}
     have da : tablePoint d.mem base 7424 = tablePoint s.mem base 7424 := by
       rw [kd.mem.point (by decide) (Or.inl (by decide)) (by decide), kc.mem,
         workspace_tablePoint kb.mem (by decide) (by decide), ka.mem]
+    obtain ⟨Ra, hRa⟩ := decodePoint_rep (hp.trans hy)
     refine WP.mono (verifyEquationPoints_ok hd.scratch hd.sigHeader hd.challengeHeader
-      hd.scalarBytes hd.scalarFar hd.challengeRead hd.challengeWords hd.challengeFar) fun t ⟨kt, tv⟩ => ?_
+      hd.scalarBytes hd.scalarFar hd.challengeRead hd.challengeFar (by rw [da]; exact hA)
+      (by rw [dp, cp]; exact hRa)) fun t ⟨kt, tv⟩ => ?_
     refine ⟨kabcd.trans kt, ?_⟩
     rw [tv, dp, cp, da, verifyKeep_bytes kabcd h.scalarFar, verifyKeep_bytes kabcd h.challengeFar,
       hp, hy, equationWithR]

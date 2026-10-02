@@ -12,7 +12,8 @@ import VerifiedGarbage.Spec.Sha512.Contract
 # Known-answer tests for HMAC, and the generic contracts at SHA-256
 
 The HMAC-MD5 and HMAC-SHA-1 test cases of RFC 2202 (Sections 2 and 3) and
-the HMAC-SHA-256, HMAC-SHA-384 and HMAC-SHA-512 ones of RFC 4231 (Section 4),
+the HMAC-SHA-224, HMAC-SHA-256, HMAC-SHA-384 and HMAC-SHA-512 ones of RFC 4231
+(Section 4),
 read from the vendored `vectors/rfc2202/rfc2202.txt` and
 `vectors/rfc4231/rfc4231.txt` (see `vectors/sources/`) when this file is
 built and checked against `VG.Spec.Hmac.hmac` with the hash functions of
@@ -21,21 +22,23 @@ fails the build. (Section 3 of RFC 2202, as published, repeats parts of
 its test cases 5 to 7 after test case 7; the first occurrence of each test
 case is used.) The cases cover keys shorter than, equal to and longer than
 a block, and messages of more than a block. A truncated MAC is compared with
-the start of the computed one. (RFC 4231's HMAC-SHA-224 results are skipped:
-there is no SHA-224 spec.)
+the start of the computed one.
 
 It also checks that the generic contracts of `Spec/Hmac/Generic.lean` and
 `Spec/Pbkdf2/Generic.lean`, at SHA-256, are the HMAC-SHA-256 ones where they
 have the same working space (`init` at 76 words, and the iteration, also at
 `sha256I`), that `sha256I`'s functions have the names and modules of the
 existing SHA-256 ones, and that each `Instance` names its own record and its
-hash's `update` function, and has at least that function's working space.
+hash's `update` function, and has at least that function's working space
+and its `finalize`'s. `init` for a key of any length (`initAnyKeyApi`) is
+checked to be the same Rust function as `initApi`, with the same arguments
+but for its working space.
 -/
 
 namespace VG.Test.Hmac
 
 open Lean Elab Command
-open Spec.Hmac (HashFunction hmac md5 sha1 sha256 sha384 sha512)
+open Spec.Hmac (HashFunction hmac md5 sha1 sha224 sha256 sha384 sha512)
 
 def ascii (s : String) : List Byte := s.toList.map fun c => BitVec.ofNat 8 c.toNat
 
@@ -181,6 +184,7 @@ run_cmd do
     "3. Test Cases for HMAC-SHA-1"))
   check "HMAC-SHA-1" sha1 20 (← ok "rfc2202.txt" (cases2202 t2202 "3. Test Cases for HMAC-SHA-1"
     "4. Security Considerations"))
+  check "HMAC-SHA-224" sha224 28 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-224"))
   check "HMAC-SHA-256" sha256 32 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-256"))
   check "HMAC-SHA-384" sha384 48 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-384"))
   check "HMAC-SHA-512" sha512 64 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-512"))
@@ -200,7 +204,7 @@ example {M : ISA} (A : Abi M) (stack : Nat) :
 open Spec.Hmac in
 run_cmd do
   -- `sha256I`'s functions have the names and modules of the existing ones.
-  for (a, b) in [(sha256I.initApi, initSha256Api), (sha256I.finalizeApi, finalizeSha256Api),
+  for (a, b) in [(sha256I.initApi, initSha256Api), (sha256I.finalizeApi, finalizeSha256OutApi),
       (sha256I.iterateApi, Spec.Pbkdf2.iterateSha256Api)] do
     unless a.name == b.name && a.module == b.module do
       throwError "{a.module}::{a.name} is not {b.module}::{b.name}"
@@ -215,7 +219,7 @@ example : Spec.Pbkdf2.pbkdf2Hmac Spec.Hmac.sha256S = Spec.Pbkdf2.pbkdf2HmacSha25
 open Spec.Hmac in
 /-- Each instance, with its Lean name and the `Api` of its hash's `update`. -/
 def instances : List (Spec.Hmac.Instance × String × Api) :=
-  [(sha256I, "sha256I", Spec.Sha256.updateApi),
+  [(sha256I, "sha256I", Spec.Sha256.updateApi), (sha224I, "sha224I", Spec.Sha256.updateApi),
     (sha1I, "sha1I", Spec.Sha1.updateApi), (md5I, "md5I", Spec.Md5.updateApi),
     (sha384I, "sha384I", Spec.Sha512.updateApi), (sha512I, "sha512I", Spec.Sha512.updateApi),
     (sha512_224I, "sha512_224I", Spec.Sha512.updateApi),
@@ -237,5 +241,37 @@ run_cmd do
   let names := instances.flatMap fun (I, _, _) =>
     [I.initApi.name, I.finalizeApi.name, I.iterateApi.name, I.pbkdf2Api.name]
   unless names.eraseDups.length == names.length do throwError "duplicate names: {names}"
+
+/-! ## `init` for a key of any length -/
+
+open Spec.Hmac in
+/-- Each instance, with the `Api` of its hash's `finalize`. -/
+def finalizes : List (Spec.Hmac.Instance × Api) :=
+  [(sha256I, Spec.Sha256.finalizeApi), (sha224I, Spec.Sha256.finalizeApi),
+    (sha1I, Spec.Sha1.finalizeApi),
+    (md5I, Spec.Md5.finalizeApi), (sha384I, Spec.Sha512.finalizeApi),
+    (sha512I, Spec.Sha512.finalizeApi), (sha512_224I, Spec.Sha512.finalizeApi),
+    (sha512_256I, Spec.Sha512.finalizeApi)]
+
+run_cmd do
+  unless finalizes.map (·.1.lean) == instances.map (·.1.lean) do
+    throwError "`finalizes` does not list the instances"
+  for (I, finalize) in finalizes do
+    -- `initAnyKeyApi` replaces `initApi`: the same Rust function, with the
+    -- same arguments but for more working space, which also holds that of
+    -- the hash's `finalize` (and, as `scratch` does, of its `update`), and
+    -- a word for each byte of the streaming state.
+    let a := I.initAnyKeyApi
+    let b := I.initApi
+    unless a.name == b.name && a.module == b.module do
+      throwError "{a.module}::{a.name} is not {b.module}::{b.name}"
+    unless a.sig.params.dropLast == b.sig.params.dropLast do
+      throwError "{a.name}: the arguments differ from `initApi`'s"
+    unless scratchWords a.sig == some (I.scratch + I.S.stateBytes) do
+      throwError "{a.name}: working space is not {I.scratch + I.S.stateBytes} words"
+    let some w := scratchWords finalize.sig | throwError "{finalize.name} has no working space"
+    unless w ≤ I.scratch do throwError "{I.lean}: {finalize.name} needs {w} words of working space"
+    unless finalize.name.replace "_finalize" "_update" == I.update do
+      throwError "{I.lean}: {finalize.name} is not the `finalize` of {I.update}"
 
 end VG.Test.Hmac

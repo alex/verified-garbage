@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.WideMul
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarMemory
 
-/-! Untrusted: loading scalar operands and saving the caller's registers. -/
+/-! Loading scalar operands and saving the caller's registers. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 

@@ -3,14 +3,14 @@ import VerifiedGarbage.Proof.MlKem.X86.SampleCalls
 /-!
 # ML-KEM on x86 (32-bit): the loop of `vg_mlkem_sample_ntt`
 
-Untrusted: everything here is checked by Lean. After `t` iterations of the
-loop on the XOF output at `scratch`, the coefficients accepted,
-`LA B t = sampleAfter [] (xofByte B) t` (`Proof/MlKem/Sample.lean`), are at
-`a`, `edi` points after them and `ecx` counts them (`Loop`). An iteration
-computes the candidates `d₁` in `eax` and `d₂` in `ebx` (`chunk_ok`), and,
-while there are fewer than 256 coefficients, accepts each that is less than
-`q` (`accept_piece`); its branches depend on the XOF output, which is a
-function of the seed, and so agree in two runs from the same seed.
+After `t` iterations of the loop on the XOF output at `scratch`, the
+coefficients accepted, `LA B t = sampleAfter [] (xofByte B) t`
+(`Proof/MlKem/KPke.lean`), are at `a`, `edi` points after them and `ecx`
+counts them (`Loop`). An iteration computes the candidates `d₁` in `eax` and
+`d₂` in `ebx` (`chunk_ok`), and, while there are fewer than 256 coefficients,
+accepts each that is less than `q` (`accept_piece`); its branches depend on
+the XOF output, which is a function of the seed, and so agree in two runs from
+the same seed.
 -/
 
 namespace VG.Proof.MlKem.X86.Sample

@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarBaseMemory
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarMain
 
-/-! Untrusted: base-point multiplication satisfies its memory and ABI obligations. -/
+/-! Base-point multiplication satisfies its memory and ABI obligations. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

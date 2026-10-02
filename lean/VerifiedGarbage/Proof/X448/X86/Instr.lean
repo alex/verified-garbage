@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.Framework.X86.RegUpd
 /-!
 # X448 on x86 (32-bit): instruction rules
 
-Untrusted: everything here is checked by Lean. Single-step rules expose
-register and memory updates while keeping the rest of each state folded.
+Single-step rules expose register and memory updates while keeping the rest of
+each state folded.
 -/
 
 namespace VG.Proof.X448.X86

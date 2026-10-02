@@ -6,11 +6,10 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024 on 32-bit ARM: `vg_mlkem1024_check_ek`
 
-Untrusted: everything here is checked by Lean. The loop of
-`vg_mlkem768_check_ek` (`Proof/MlKem/Arm/CheckEk.lean`, whose body and
-counting this uses) over the 512 groups of a 1568-byte key: it counts the
-12-bit fields that are at least `q` (`badCount`), and the key passes the
-check exactly when there are none (`ekCheck1024`, `badCount_eq_zero`).
+The loop of `vg_mlkem768_check_ek` (`Proof/MlKem/Arm/CheckEk.lean`, whose body
+and counting this uses) over the 512 groups of a 1568-byte key: it counts the
+12-bit fields that are at least `q` (`badCount`), and the key passes the check
+exactly when there are none (`ekCheck1024`, `badCount_eq_zero`).
 -/
 
 namespace VG.Proof.MlKem1024.Arm.CheckEk

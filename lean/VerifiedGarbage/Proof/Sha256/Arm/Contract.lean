@@ -4,12 +4,14 @@ import VerifiedGarbage.TCB.Arm.Target
 /-!
 # SHA-256: the 32-bit ARM contract
 
-**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the 32-bit ARM
-implementations of the compression function and of the streaming functions
-(`init`, `update`, `finalize`; see `VG.Spec.Sha256.Repr`), in terms of
-`Spec/Sha256.lean`. The streaming contracts are those of x86-64 and AArch64
-(`Spec/Sha256/X86_64.lean`, `Spec/Sha256/AArch64.lean`), with the arguments
-where AAPCS passes them.
+The contracts the proofs are written against; the artifacts are emitted with the
+shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the 32-bit ARM implementations of the compression function and of
+the streaming functions (`init`, `update`, `finalize`; see
+`VG.Spec.Sha256.Repr`), in terms of `Spec/Sha256.lean`. The streaming contracts
+are those of x86-64 and AArch64 (`Proof/Sha256/X86_64/Contract.lean`,
+`Proof/Sha256/AArch64/Contract.lean`), with the arguments where AAPCS passes
+them.
 -/
 
 namespace VG.Proof.Sha256

@@ -5,11 +5,10 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Sample
 /-!
 # ML-KEM on AArch64: the loop of `SampleNTT`
 
-Untrusted: everything here is checked by Lean. `N` iterations of the
-loop of `SampleNTT` on the SHAKE128 output `xofByte B` at `bP` compute
-`sampleAfter [] (xofByte B) N` (`Proof/MlKem/Sample.lean`) into `a`, which
-starts as zeros (`iters_ok`); after 280 of them, `sampleLoop` returns
-whether it has 256 coefficients (`loop_ok`). The loop reads only the
+`N` iterations of the loop of `SampleNTT` on the SHAKE128 output `xofByte B`
+at `bP` compute `sampleAfter [] (xofByte B) N` (`Proof/MlKem/KPke.lean`) into
+`a`, which starts as zeros (`iters_ok`); after 280 of them, `sampleLoop`
+returns whether it has 256 coefficients (`loop_ok`). The loop reads only the
 output, and writes only `a`.
 -/
 

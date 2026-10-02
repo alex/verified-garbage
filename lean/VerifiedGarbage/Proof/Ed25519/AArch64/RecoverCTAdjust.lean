@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.RecoverCTBlocks
 
-/-! Untrusted: sign adjustment branches only on the shared public coordinate and sign. -/
+/-! Sign adjustment branches only on the shared public coordinate and sign. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

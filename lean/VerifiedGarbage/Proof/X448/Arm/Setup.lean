@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.X448.Arm.Save
 /-!
 # X448 on ARMv7: reading the arguments
 
-Untrusted: everything here is checked by Lean. Setup saves the callee-saved
-registers, decodes the coordinate, and initializes the ladder.
+Setup saves the callee-saved registers, decodes the coordinate, and
+initializes the ladder.
 -/
 
 namespace VG.Proof.X448.Arm

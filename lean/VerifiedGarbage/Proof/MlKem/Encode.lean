@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlKem.Compress
 /-!
 # ML-KEM: encoding, decoding and sampling byte by byte, for every target
 
-Untrusted: everything here is checked by Lean. The functions of §4.2 on
-bytes, restated group by group as the arithmetic an implementation does
-(with `Bits.lean`), for reduced inputs:
+The functions of §4.2 on bytes, restated group by group as the arithmetic an
+implementation does (with `Bits.lean`), for reduced inputs:
 
 * `ByteEncode₁₂`: 2 coefficients `f₀, f₁` per 3 bytes,
   `[f₀ mod 256, ⌊f₀/256⌋ + 16(f₁ mod 16), ⌊f₁/16⌋]` (`encode12_eq`);

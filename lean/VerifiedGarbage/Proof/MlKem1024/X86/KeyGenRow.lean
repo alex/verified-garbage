@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.X86.TopSeq2
 /-!
 # ML-KEM-1024 on x86 (32-bit): `t̂` in `vg_mlkem1024_keygen`
 
-Untrusted: everything here is checked by Lean. Row `i` of `Â` (`kg4Row i`):
-each entry `Â[i, j]` is sampled from `ρ ‖ j ‖ i`, masked by the value
-`vg_mlkem_sample_ntt` returned, which is ANDed into `kg4ACC`
-(`entry0_piece`, `entry_piece`), and multiplied by `ŝ[j]` into `t̂[i]`; then
-`ê[i]` is added and `t̂[i]` encoded into `ek` (`row_piece`).
+Row `i` of `Â` (`kg4Row i`): each entry `Â[i, j]` is sampled from `ρ ‖ j ‖ i`,
+masked by the value `vg_mlkem_sample_ntt` returned, which is ANDed into
+`kg4ACC` (`entry0_piece`, `entry_piece`), and multiplied by `ŝ[j]` into
+`t̂[i]`; then `ê[i]` is added and `t̂[i]` encoded into `ek` (`row_piece`).
 
 `B k e` is what holds after `k` entries and `e` rows: `kg4ACC` is 0 or 1; if
 1, the first `k` samples succeeded, and the first `e` rows of `ek` are those

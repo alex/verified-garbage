@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.X25519.AArch64.Setup
 
 /-!
 # X25519 on AArch64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X25519.AArch64

@@ -7,8 +7,6 @@ import VerifiedGarbage.Proof.Gcm.Spec
 /-!
 # AES counter mode on x86 (32-bit): the whole function
 
-Untrusted: everything here is checked by Lean.
-
 The prologue saves the callee-saved registers in the scratch buffer, copies
 the counter block's words to it and writes back the final counter; the key
 loop (`Keys.lean`) and the group loop (`Group.lean`) do the rest, and the

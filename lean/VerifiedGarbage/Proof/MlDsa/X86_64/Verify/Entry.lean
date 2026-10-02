@@ -6,13 +6,13 @@ import VerifiedGarbage.Proof.Framework.X86_64.Mxcsr
 /-!
 # ML-DSA verification on x86-64: entry to a callee
 
-Untrusted: everything here is checked by Lean. What a callee's contract
-needs on its entry, from the layout of the caller: that its buffers are
-apart from its return address and the 16 bytes of stack below it, and from
-each other, and that they read on entry as they did before the call
-(`Ent`). And what the callees must be (`CalleeOk`): correct and constant
-time under their contracts with 16 bytes of stack, not writing the stack
-pointer, calling at most two deep, and never loading MXCSR.
+What a callee's contract needs on its entry, from the layout of the caller:
+that its buffers are apart from its return address and the 16 bytes of stack
+below it, and from each other, and that they read on entry as they did before
+the call (`Ent`). And what the callees must be (`CalleeOk`): correct and
+constant time under their contracts with 16 bytes of stack (24 for
+`vg_mldsa_rej_ntt_poly4`), not writing the stack pointer, calling at most
+three deep, and never loading MXCSR.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -25,14 +25,14 @@ open VG.Spec.Sha3 (bytesAt)
 /-! ## Callees -/
 
 /-- A callee: correct and constant time under the contract `k` (a shared
-contract with 16 bytes of stack), not writing `rsp`, calling at most two
-deep, loading MXCSR only to restore it (`ctlOk`), and never writing the
-stack pointer (which its callers' artifacts check). -/
+contract), not writing `rsp`, calling at most three deep, loading MXCSR only
+to restore it (`ctlOk`), and never writing the stack pointer (which its
+callers' artifacts check). -/
 structure CalleeOk (c : Prog isa) (k : Contract isa) : Prop where
   correct : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s'
   ct : ConstantTime isa k.pre k.pub c
   nosp : NoSp c
-  depth : c.depth ≤ 2
+  depth : c.depth ≤ 3
   ctl : ctlOk c = true
   spSafe : c.all (fun i => !isa.writesSp i) = true
 
@@ -41,7 +41,7 @@ theorem CalleeOk.of_verified {c : Prog isa} {sig : Sig} {pre : Curry (sig.words 
     {post : sig.Post X86_64.abi.ptrBits} {wa : Bool}
     {leak : Option (Curry (sig.words X86_64.abi.ptrBits) (Mem → List Nat))} {n : Nat}
     (h : Verified X86_64.target c (sig.contract X86_64.abi pre post wa n leak)) (hn : n ≤ 16)
-    (hsp : NoSp c) (hd : c.depth ≤ 2) (hmx : ctlOk c = true)
+    (hsp : NoSp c) (hd : c.depth ≤ 3) (hmx : ctlOk c = true)
     (hss : c.all (fun i => !isa.writesSp i) = true) :
     CalleeOk c (sig.contract X86_64.abi pre post wa 16 leak) :=
   ⟨fun s hs => h.1 s (pre_stack hn hs),
@@ -59,7 +59,7 @@ variable {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
 include L
 
 theorem Lay.sp16 : 16 ≤ (s.gpr .rsp - 8).toNat := by
-  have := L.sp24
+  have := L.sp32
   rw [BitVec.toNat_sub, show (8 : BitVec 64).toNat = 8 from rfl]
   omega
 
@@ -68,8 +68,8 @@ theorem Lay.ret8 {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) :
   refine (L.stkD h).sub_left ?_
   intro x hx
   simp only [Region.Contains] at hx ⊢
-  rw [show x - (s.gpr .rsp - BitVec.ofNat 64 24) = (x - (s.gpr .rsp - 8)) + 16 by bv_omega, BitVec.toNat_add]
-  have : (16 : BitVec 64).toNat = 16 := rfl
+  rw [show x - (s.gpr .rsp - BitVec.ofNat 64 32) = (x - (s.gpr .rsp - 8)) + 24 by bv_omega, BitVec.toNat_add]
+  have : (24 : BitVec 64).toNat = 24 := rfl
   omega
 
 theorem Lay.stk16 {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) :
@@ -77,7 +77,21 @@ theorem Lay.stk16 {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) :
   refine (L.stkD h).sub_left ?_
   intro x hx
   simp only [Region.Contains] at hx ⊢
-  rw [show x - (s.gpr .rsp - BitVec.ofNat 64 24) = x - (s.gpr .rsp - 8 - 16) by bv_omega]
+  rw [show x - (s.gpr .rsp - BitVec.ofNat 64 32) = (x - (s.gpr .rsp - 8 - 16)) + 8 by bv_omega, BitVec.toNat_add]
+  have : (8 : BitVec 64).toNat = 8 := rfl
+  omega
+
+theorem Lay.sp24 : 24 ≤ (s.gpr .rsp - 8).toNat := by
+  have := L.sp32
+  rw [BitVec.toNat_sub, show (8 : BitVec 64).toNat = 8 from rfl]
+  omega
+
+theorem Lay.stk24 {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) :
+    Region.Disjoint ⟨s.gpr .rsp - 8 - 24, 24⟩ ⟨pa s p, l⟩ := by
+  refine (L.stkD h).sub_left ?_
+  intro x hx
+  simp only [Region.Contains] at hx ⊢
+  rw [show x - (s.gpr .rsp - BitVec.ofNat 64 32) = x - (s.gpr .rsp - 8 - 24) by bv_omega]
   omega
 
 theorem Lay.wbytes {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) (v : BitVec 64) :

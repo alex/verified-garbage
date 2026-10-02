@@ -8,15 +8,15 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function on x86 (32-bit): `init`, correct
 
-Untrusted: everything here is checked by Lean. The byte loops, our caller's
-registers, then `init` (one module, as nothing else imports the first two).
+The byte loops, our caller's registers, then `init` (one module, as nothing
+else imports the first two).
 -/
 
 /-!
 ## The byte loops
 
 As on the other targets
-(`Proof/Hmac/Generic/Arm/Loops.lean`, whose byte-list lemmas from x86-64
+(`Proof/Hmac/Generic/Arm/Init.lean`, whose byte-list lemmas from x86-64
 are reused): the byte copy (`copy`), the exclusive-or of `U` into `T`, and
 `init`'s loops that write `K₀ ⊕ ipad` and `K₀ ⊕ opad`. Each counts an index
 up from 0 and compares it with its bound. The model has no index registers,
@@ -481,7 +481,7 @@ end VG.Proof.Hmac.Generic.X86
 ## Our caller's registers
 
 As on the other targets
-(`Proof/Hmac/Generic/Arm/Save.lean`): the callee-saved registers we use
+(`Proof/Hmac/Generic/Arm/Init.lean`): the callee-saved registers we use
 (`ebx`, `esi`, `edi`, `ebp`) are stored in `scratch` after the working
 space of the functions we call (`Hash.saved`), with `scratch` in `eax`, and
 loaded back at the end, with `scratch` copied from `ebp` into `eax` first.

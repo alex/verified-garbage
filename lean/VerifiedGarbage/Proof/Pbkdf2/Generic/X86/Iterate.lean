@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86.Finalize
 /-!
 # PBKDF2-HMAC over any streaming hash function on x86 (32-bit): `iterate`, correct
 
-Untrusted: everything here is checked by Lean. As on the other targets
-(`Proof/Pbkdf2/Generic/Arm/Iterate.lean`). The arguments are on the stack:
-`scratch`, `n` and `u` are loaded first (after our caller's registers are
-saved in `scratch`), and `key` and `t` again in each step, when needed. The
-loop counts the steps left in `edi` down with `sub`, and branches on its
-result.
+As on 32-bit ARM (`Proof/Pbkdf2/Generic/Arm/Instances.lean`). The arguments
+are on the stack: `scratch`, `n` and `u` are loaded first (after our caller's
+registers are saved in `scratch`), and `key` and `t` again in each step, when
+needed. The loop counts the steps left in `edi` down with `sub`, and branches
+on its result.
 -/
 
 namespace VG.Proof.Pbkdf2.Generic.X86

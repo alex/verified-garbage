@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Framework.X86.RegUpd
 /-!
 # BLAKE2b compression function on x86 (32-bit): one block and the loop
 
-Untrusted: everything here is checked by Lean. `body_ok`: one block, from
-the invariant `Common` after `i` blocks to `Common` after `i + 1`; `correct`:
-the whole function.
+`body_ok`: one block, from the invariant `Common` after `i` blocks to `Common`
+after `i + 1`; `correct`: the whole function.
 -/
 
 namespace VG.Proof.Blake2.X86.CompressB

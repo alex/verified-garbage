@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.Arm.Field
 /-!
 # X448 on ARMv7: copying field elements
 
-Untrusted: everything here is checked by Lean. Equal or disjoint source
-and destination slots preserve the original limbs.
+Equal or disjoint source and destination slots preserve the original limbs.
 -/
 
 namespace VG.Proof.X448.Arm

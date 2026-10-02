@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.CounterKeep
 /-!
 # The comb's constant-time selection, for two digits at once
 
-Untrusted. With `oddReg k` (`evenReg k`) all ones exactly for `k` the odd
-(even) digit's magnitude, and `x22` (`x8`) the bit of a zero magnitude,
-`selectWord` builds every candidate's word once, ANDs it with both digits'
-masks and ORs it into `x4` and `x5`, so only each digit's candidate
-survives, and stores them.
+With `oddReg k` (`evenReg k`) all ones exactly for `k` the odd (even) digit's
+magnitude, and `x22` (`x8`) the bit of a zero magnitude, `selectWord` builds
+every candidate's word once, ANDs it with both digits' masks and ORs it into
+`x4` and `x5`, so only each digit's candidate survives, and stores them.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.CmacAes.AArch64.UpdateLoop
 
 /-!
 # AES-CMAC on AArch64: `vg_cmac_aes_update` is correct
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.CmacAes.AArch64

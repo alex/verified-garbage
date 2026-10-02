@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.X25519.X86_64.Sqr
 /-!
 # X25519 on x86-64: the working space as slots
 
-Untrusted: everything here is checked by Lean. The working space as 128
-slots of 32 bytes (`E`), each read as a field element: each field operation
-updates one slot (`Function.update`) and the swap two, so that a sequence
-of operations is a chain of updates that `simp` evaluates at any slot. The
-ladder's variables and temporaries are in the slots 2–19 (bytes 64–639), so
-the field operations change no byte outside `[64, 640)`.
+The working space as 128 slots of 32 bytes (`E`), each read as a field
+element: each field operation updates one slot (`Function.update`) and the
+swap two, so that a sequence of operations is a chain of updates that `simp`
+evaluates at any slot. The ladder's variables and temporaries are in the slots
+2–19 (bytes 64–639), so the field operations change no byte outside `[64,
+640)`.
 -/
 
 namespace VG.Proof.X25519.X86_64

@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlKem1024.X86_64.KgCT
 /-!
 # ML-KEM-1024 on x86-64: `vg_mlkem1024_keygen`
 
-Untrusted: everything here is checked by Lean. The function, piece by
-piece (`KeyGen4.*_ok`): it returns 1 with `KeyGen_internal(d, z)` in `ek`
-and `dk` if every `SampleNTT` succeeded within 280 iterations (`allOk4`),
-and 0 otherwise (`keyGen1024_correct`); it leaks only the pointers and `ρ`
-(`keyGen1024_ct`); so it meets the shared contract (`keyGen1024_verified`).
+The function, piece by piece (`KeyGen4.*_ok`): it returns 1 with
+`KeyGen_internal(d, z)` in `ek` and `dk` if every `SampleNTT` succeeded within
+280 iterations (`allOk4`), and 0 otherwise (`keyGen1024_correct`); it leaks
+only the pointers and `ρ` (`keyGen1024_ct`); so it meets the shared contract
+(`keyGen1024_verified`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

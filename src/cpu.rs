@@ -4,7 +4,7 @@
 //! checks which CPU features those need, and the emitter lists them in a
 //! generated `<NAME>_FEATURES` constant next to the function (and in its
 //! `# Safety` section): the function may only be called on a CPU that has
-//! all of them. They are detected once: with `cpuid` on x86-64; on AArch64,
+//! all of them. They are detected once: with `cpuid` on x86 and x86-64; on AArch64,
 //! by asking the operating system with the `cpu-features-env` feature (which
 //! links `std`), and otherwise from the target features the code was
 //! compiled for. Each object that can use such a function chooses its
@@ -17,7 +17,8 @@
 //! Unset or empty, it restricts nothing. It can only remove features, so it
 //! can never choose code the CPU cannot run, and it names only features
 //! this library knows: anything else panics, rather than quietly testing
-//! another configuration.
+//! another configuration. (On AArch64, FEAT_SHA3's Keccak, which is not
+//! faster, is chosen only when it names `sha3`.)
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -52,7 +53,7 @@ pub(crate) struct Features(pub(crate) u32);
 impl Features {
     /// The features named in `names` (a generated `_FEATURES` constant).
     #[cfg_attr(
-        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
         allow(dead_code)
     )]
     pub(crate) fn of(names: &[&str]) -> Features {
@@ -65,9 +66,8 @@ impl Features {
     }
 
     /// The features named in any of `lists`.
-    // Only the x86-64 and AArch64 artifacts need features so far.
     #[cfg_attr(
-        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
         allow(dead_code)
     )]
     pub(crate) fn all(lists: &[&[&str]]) -> Features {
@@ -80,7 +80,7 @@ impl Features {
 
     /// Whether every feature of `other` is in `self`.
     #[cfg_attr(
-        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
         allow(dead_code)
     )]
     pub(crate) fn contains(self, other: Features) -> bool {
@@ -137,26 +137,27 @@ fn parse(names: &str) -> Option<u32> {
 
 /// Asks the CPU (Intel SDM Vol. 2A, CPUID: leaf 1 ECX bit 9 is SSSE3, bit 25
 /// AES, bit 1 PCLMULQDQ, bit 27 OSXSAVE and bit 28 AVX; leaf 7 sub-leaf 0 EBX
-/// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1, bit 8 BMI2, bit 16 AVX512F, bit
-/// 19 ADX, bit 21 AVX512_IFMA and bit 31 AVX512VL, and
-/// its EAX the highest sub-leaf; leaf 7 sub-leaf 1 EAX bit 0 is SHA512; AMD
-/// reports them in the same bits). AVX, AVX2
-/// and SHA512 (whose instructions are VEX.256-encoded, so also need AVX,
-/// Intel SDM Vol. 2, "VSHA512RNDS2") also need the operating system to save
-/// the `ymm` registers: XCR0
-/// bits 1 and 2, read with `xgetbv` only if OSXSAVE says it may be (Intel SDM
-/// Vol. 1, §14.3, "Detection of Intel AVX Instructions"); AVX512F,
-/// AVX512_IFMA and AVX512VL (whose instructions are EVEX-encoded) also need
-/// the opmask and `zmm` state, XCR0 bits 5, 6 and 7 (§15.2, "Detection of
-/// AVX-512 Foundation Instructions", and §15.4 for the other AVX-512
-/// instruction groups).
-#[cfg(target_arch = "x86_64")]
+/// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1, bit 8 BMI2, bit 16 AVX512F, bit 19
+/// ADX, bit 21 AVX512_IFMA and bit 31 AVX512VL, and its EAX the highest
+/// sub-leaf; leaf 7 sub-leaf 1 EAX bit 0 is SHA512; AMD reports them in the
+/// same bits). AVX, AVX2 and SHA512 (whose instructions are VEX.256-encoded, so
+/// also need AVX, Intel SDM Vol. 2, "VSHA512RNDS2") also need the operating
+/// system to save the `ymm` registers: XCR0 bits 1 and 2, read with `xgetbv`
+/// only if OSXSAVE says it may be (Intel SDM Vol. 1, §14.3, "Detection of Intel
+/// AVX Instructions"); AVX512F, AVX512_IFMA and AVX512VL (whose instructions
+/// are EVEX-encoded) also need the opmask and `zmm` state, XCR0 bits 5, 6 and 7
+/// (§15.2, "Detection of AVX-512 Foundation Instructions", and §15.4 for the
+/// other AVX-512 instruction groups).
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 fn runtime() -> u32 {
+    #[cfg(target_arch = "x86")]
+    use core::arch::x86::{__cpuid, __cpuid_count, _xgetbv};
+    #[cfg(target_arch = "x86_64")]
     use core::arch::x86_64::{__cpuid, __cpuid_count, _xgetbv};
-    // SAFETY: every x86-64 CPU has `cpuid`, and leaves 0 and 1; leaf 7 is
-    // read only if leaf 0 says it exists (and its sub-leaf 1 only if
-    // sub-leaf 0 says that exists), and `xgetbv` only if OSXSAVE says the
-    // operating system has enabled it.
+    // SAFETY: the i686 and x86-64 target baselines have `cpuid`, and leaves
+    // 0 and 1; leaf 7 is read only if leaf 0 says it exists (and its
+    // sub-leaf 1 only if sub-leaf 0 says that exists), and `xgetbv` only if
+    // OSXSAVE says the operating system has enabled it.
     #[allow(unused_unsafe)]
     unsafe {
         let max = __cpuid(0).eax;
@@ -258,7 +259,7 @@ fn aarch64_sha3() -> bool {
 }
 
 /// No features are detected on the other targets yet.
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
 fn runtime() -> u32 {
     0
 }

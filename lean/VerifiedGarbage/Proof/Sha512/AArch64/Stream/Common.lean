@@ -8,9 +8,8 @@ import VerifiedGarbage.Proof.Sha512.AArch64.Lit
 /-!
 # Streaming SHA-512 on AArch64: common lemmas
 
-Untrusted: everything here is checked by Lean. Weakest-precondition rules for
-the instruction forms used, and the inlined compression function
-(`compressAt`).
+Weakest-precondition rules for the instruction forms used, and the inlined
+compression function (`compressAt`).
 -/
 
 namespace VG.Proof.Sha512.AArch64.Stream

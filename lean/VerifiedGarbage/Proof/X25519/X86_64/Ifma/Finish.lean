@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Step
 /-!
 # X25519 on x86-64 with AVX512_IFMA: after the loop
 
-Untrusted: everything here is checked by Lean. `vfinish` carries the lanes
-twice, then from the lowest limb up, and stores each lane as four 64-bit
-words: the same number modulo `p`, below `2²⁵⁶`.
+`vfinish` carries the lanes twice, then from the lowest limb up, and stores
+each lane as four 64-bit words: the same number modulo `p`, below `2²⁵⁶`.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma
@@ -112,12 +111,12 @@ theorem vfinish_wp {s : State} {base : Addr} {x1 : Nat → Nat} (hs : Scr s base
   have hr := hs.rdi
   simp only [vfinish, List.append_assoc]
   rw [WP.block_append_iff]
-  refine WP.mono (carryI_wp hr (scr_ctx hs) hk fun l hl i hi => by have := hy l hl i hi; omega)
+  refine WP.mono (carryI_wp hr (scr_ctx hs) hk.c fun l hl i hi => by have := hy l hl i hi; omega)
     fun s₁ ⟨v₁, m₁, u₁, _⟩ => ?_
   have hs₁ := scr_of hs (vm_gpr v₁) (vm_wr v₁)
   have hk₁ : Consts s₁.mem base x1 := by rw [m₁]; exact hk
   rw [WP.block_append_iff]
-  refine WP.mono (carryI_wp hs₁.rdi (scr_ctx hs₁) hk₁ fun l hl i hi => by have := (u₁ l hl i hi).2; omega)
+  refine WP.mono (carryI_wp hs₁.rdi (scr_ctx hs₁) hk₁.c fun l hl i hi => by have := (u₁ l hl i hi).2; omega)
     fun s₂ ⟨v₂, m₂, u₂, _⟩ => ?_
   have hs₂ := scr_of hs₁ (vm_gpr v₂) (vm_wr v₂)
   have hk₂ : Consts s₂.mem base x1 := by rw [m₂]; exact hk₁

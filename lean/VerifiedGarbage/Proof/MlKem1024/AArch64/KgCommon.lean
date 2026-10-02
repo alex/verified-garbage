@@ -6,13 +6,12 @@ import VerifiedGarbage.Impl.MlKem1024.AArch64.KeyGen
 /-!
 # ML-KEM-1024 on AArch64: what the proof of `vg_mlkem1024_keygen` shares
 
-Untrusted: everything here is checked by Lean. The per-target contract, the
-arguments as buffers (`kA`, `kL`: 0 `seed`, 1 `ek`, 2 `dk`, 3 `scratch`),
-and what holds from the prologue to the epilogue (`KB`): the pointers in
-`x25`–`x28`, our caller's registers saved in `scratch`, the other
-callee-saved registers, and the seed.
-The proof is ML-KEM-768's (`Proof/MlKem/AArch64/Kg*.lean`, `KeyGen.lean`)
-for `k = 4` and ML-KEM-1024's sizes and offsets.
+The per-target contract, the arguments as buffers (`kA`, `kL`: 0 `seed`, 1
+`ek`, 2 `dk`, 3 `scratch`), and what holds from the prologue to the epilogue
+(`KB`): the pointers in `x25`–`x28`, our caller's registers saved in
+`scratch`, the other callee-saved registers, and the seed. The proof is
+ML-KEM-768's (`Proof/MlKem/AArch64/Kg*.lean`, `KeyGen.lean`) for `k = 4` and
+ML-KEM-1024's sizes and offsets.
 -/
 
 namespace VG.Proof.MlKem1024
@@ -20,9 +19,8 @@ namespace VG.Proof.MlKem1024
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against; the artifact's is the
-shared contract of `Spec/`, which implies it. AArch64 contract for
-`keyGen(seed = x0, ek = x1, dk = x2, scratch = x3) -> w0`. -/
+/-- AArch64 contract for `keyGen(seed = x0, ek = x1, dk = x2, scratch = x3) ->
+w0`. -/
 def keyGen1024AArch64 : Contract AArch64.isa where
   pre s :=
     let seed : Region := ⟨s.gpr .x0, 64⟩

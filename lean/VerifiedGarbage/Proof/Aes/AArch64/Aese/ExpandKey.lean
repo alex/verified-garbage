@@ -7,10 +7,9 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # AES key expansion with the Armv8 Cryptographic Extension
 
-Untrusted: everything here is checked by Lean. `expandKey_verified` proves
-`Impl.Aes.AArch64.Aese.expandKey` against `Proof.Aes.expandKeyAArch64` (the
-contract `vg_aes_expand_key` is proven against), and so against the shared
-contract.
+`expandKey_verified` proves `Impl.Aes.AArch64.Aese.expandKey` against
+`Proof.Aes.expandKeyAArch64` (the contract `vg_aes_expand_key` is proven
+against), and so against the shared contract.
 
 `W m kp nk i` is word `w[i]` of the key schedule of the `nk`-word key at
 `kp`, as the 32-bit value whose bytes, least significant first, are the

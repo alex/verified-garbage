@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Small
 /-!
 # X25519 on x86-64 with AVX512_IFMA: the blocks of an iteration
 
-Untrusted: everything here is checked by Lean. Each block of `vstep` as a
-fact about states: the limbs it leaves in registers and slots (`lanes`,
-`slotv`), as numbers, from those it starts with, and what it keeps.
+Each block of `vstep` as a fact about states: the limbs it leaves in registers
+and slots (`lanes`, `slotv`), as numbers, from those it starts with, and what
+it keeps.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma
@@ -34,6 +34,16 @@ structure Consts (m : Mem) (base : Addr) (x1 : Nat → Nat) : Prop where
   k13 : ∀ l < 4, (mq m base (K13 + 8 * l)).toNat = 2 ^ 13 - 1
   k26 : ∀ l < 4, (mq m base (K26 + 8 * l)).toNat = 2 ^ 26 - 1
   k39 : ∀ l < 4, (mq m base (K39 + 8 * l)).toNat = 2 ^ 39 - 1
+
+/-- The constants the carries and the differences read. -/
+structure CConsts (m : Mem) (base : Addr) : Prop where
+  km : ∀ l < 4, (mq m base (KM + 8 * l)).toNat = 2 ^ 51 - 1
+  k19 : ∀ l < 4, (mq m base (K19 + 8 * l)).toNat = 19
+  kb0 : ∀ l < 4, (mq m base (KB0 + 8 * l)).toNat = 2 ^ 62 - 38912
+  kb1 : ∀ l < 4, (mq m base (KB1 + 8 * l)).toNat = 2 ^ 62 - 2048
+
+theorem Consts.c {m : Mem} {base : Addr} {x1 : Nat → Nat} (hk : Consts m base x1) : CConsts m base :=
+  ⟨hk.km, hk.k19, hk.kb0, hk.kb1⟩
 
 theorem envOf_m {s : State} {base : Addr} (hs : s.gpr .rdi = base) (d l : Nat) :
     (envOf s).m d l = (mq s.mem base (d + 8 * l)).toNat := by
@@ -77,7 +87,7 @@ def CarryPost (r0 : Nat) (s s' : State) : Prop :=
     (∀ r < 16, ¬ (r0 ≤ r ∧ r < r0 + 5) → ¬ (10 ≤ r ∧ r < 13) → ∀ l < 4, qw s' (xr r) l = qw s (xr r) l)
 
 theorem carry_env {r : Nat → Nat} {r0 : Nat} (hr : ∀ i, r i = r0 + i) {s : State} {base : Addr}
-    {x1 : Nat → Nat} (hs : s.gpr .rdi = base) (hk : Consts s.mem base x1)
+    (hs : s.gpr .rdi = base) (hk : CConsts s.mem base)
     (hx : ∀ l < 4, ∀ i < 5, lanes s r0 l i < 2 ^ 63) : EnvOK s (carryB r) := by
   refine envOK_of hs (fun r' l hl => ?_) (fun _ => rfl) (fun d l hl => ?_) (fun _ _ _ => Nat.zero_le _)
   · simp only [carryB, hr]
@@ -94,8 +104,8 @@ theorem carry_env {r : Nat → Nat} {r0 : Nat} (hr : ∀ i, r i = r0 + i) {s : S
       · subst_vars; rw [hk.k19 l hl]
       · exact lt64 _
 
-theorem carryI_wp {s : State} {base : Addr} {x1 : Nat → Nat}
-    (hs : s.gpr .rdi = base) (hc : Ctx s) (hk : Consts s.mem base x1)
+theorem carryI_wp {s : State} {base : Addr}
+    (hs : s.gpr .rdi = base) (hc : Ctx s) (hk : CConsts s.mem base)
     (hx : ∀ l < 4, ∀ i < 5, lanes s 0 l i < 2 ^ 63) :
     WP isa (.block (carry id)) s (CarryPost 0 s) := by
   have hE := carry_env (r := id) (fun i => (Nat.zero_add i).symm) hs hk hx
@@ -111,8 +121,8 @@ theorem carryI_wp {s : State} {base : Addr} {x1 : Nat → Nat}
     rw [e, carryI_nat _ _ i hi, envOf_m hs, envOf_m hs, hk.km l hl, hk.k19 l hl, ← hs']
   · exact h.keep hr hl (carryI_keep r hr (by omega))
 
-theorem carryF_wp {s : State} {base : Addr} {x1 : Nat → Nat}
-    (hs : s.gpr .rdi = base) (hc : Ctx s) (hk : Consts s.mem base x1)
+theorem carryF_wp {s : State} {base : Addr}
+    (hs : s.gpr .rdi = base) (hc : Ctx s) (hk : CConsts s.mem base)
     (hx : ∀ l < 4, ∀ i < 5, lanes s 5 l i < 2 ^ 63) :
     WP isa (.block (carry (5 + ·))) s (CarryPost 5 s) := by
   have hE := carry_env (r := (5 + ·)) (fun i => rfl) hs hk hx
@@ -221,7 +231,7 @@ theorem mul4_wp {a : Nat} (ha : a % 32 = 0) {σ : Sym}
 /-- The bias's limb `j`. -/
 def kbv (j : Nat) : Nat := if j = 0 then 2 ^ 62 - 38912 else 2 ^ 62 - 2048
 
-theorem kb_m {m : Mem} {base : Addr} {x1 : Nat → Nat} (hk : Consts m base x1) {j l : Nat} (hl : l < 4) :
+theorem kb_m {m : Mem} {base : Addr} (hk : CConsts m base) {j l : Nat} (hl : l < 4) :
     (mq m base (kb j + 8 * l)).toNat = kbv j := by
   simp only [kb, kbv]; split
   · exact hk.kb0 l hl
@@ -271,8 +281,8 @@ theorem s1a_wp {s : State} {base : Addr} {x1 : Nat → Nat} (hs : s.gpr .rdi = b
   have kbe : (envOf s).m (kb i) = fun l => (mq s.mem base (kb i + 8 * l)).toNat := by
     funext l; rw [envOf_m hs]
   rcases VG.X86_64.cases4 hl with rfl | rfl | rfl | rfl <;>
-    simp only [s1aNat, sumDiff, lanes, Nat.zero_add, envOf_v, kbe, kb_m hk (show 1 < 4 by decide),
-      kb_m hk (show 3 < 4 by decide)]
+    simp only [s1aNat, sumDiff, lanes, Nat.zero_add, envOf_v, kbe, kb_m hk.c (show 1 < 4 by decide),
+      kb_m hk.c (show 3 < 4 by decide)]
 
 /-- What `stage1b` leaves: `(A, B, D, C)` in `OPL`, `(A, B, A, B)` in `ymm5–ymm9`. -/
 theorem s1b_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base) (hc : Ctx s) :
@@ -354,11 +364,11 @@ theorem s2a_wp {s : State} {base : Addr} {x1 : Nat → Nat} (hs : s.gpr .rdi = b
   refine ⟨?_, by omega, ?_, by omega⟩
   · rw [e1, n1]
     rcases VG.X86_64.cases4 hl with rfl | rfl | rfl | rfl <;>
-      simp only [s2aV, opV, lanes, Nat.zero_add, envOf_v, envOf_m hs, kb_m hk (show 1 < 4 by decide),
-        kb_m hk (show 3 < 4 by decide)]
+      simp only [s2aV, opV, lanes, Nat.zero_add, envOf_v, envOf_m hs, kb_m hk.c (show 1 < 4 by decide),
+        kb_m hk.c (show 3 < 4 by decide)]
   · rw [e2, n2]
     rcases VG.X86_64.cases4 hl with rfl | rfl | rfl | rfl <;>
-      simp only [s2aW, opW, lanes, Nat.zero_add, envOf_v, envOf_m hs, kb_m hk (show 1 < 4 by decide)]
+      simp only [s2aW, opW, lanes, Nat.zero_add, envOf_v, envOf_m hs, kb_m hk.c (show 1 < 4 by decide)]
     have := hk.a24 i hi 3 (by decide)
     simp only [slotv] at this
     rw [this]

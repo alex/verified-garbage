@@ -1,0 +1,45 @@
+import VerifiedGarbage.TCB.Arm.Target
+import VerifiedGarbage.Proof.Pbkdf2.Generic.Arm.Sha224
+import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Sha224
+
+/-!
+# PBKDF2-HMAC-SHA-224 (RFC 8018) on ARMv7: the iteration and the whole derivation
+
+The code is the one PBKDF2 iteration for every streaming hash function
+(`Impl/Pbkdf2/Generic/Arm.lean`), calling SHA-256's verified `update` and
+`finalize`.
+
+The whole derivation, `pbkdf2`, is the one for every streaming hash function
+(`Impl/Pbkdf2/Whole/Arm.lean`), calling the hash function's streaming
+functions, HMAC's `init` and `finalize` and the iteration above. `stack` is
+that of the shared contracts: 16 bytes for the iteration, and 24 for
+`pbkdf2`, which pushes `update`'s 16 bytes of stack arguments, or 8 bytes
+around a call of a function that uses 16.
+-/
+
+namespace VG.Artifacts.Pbkdf2Sha224.Arm
+
+open VG.Proof.Hmac.Generic.Arm
+
+def artifacts : List Artifact := [
+  { Spec.Hmac.sha224I.iterateApi with
+    target := Arm.target
+    doc := Spec.Hmac.sha224I.iterateApi.doc
+    code := Impl.Pbkdf2.Generic.Arm.iterate sha224H
+    contract := Spec.Hmac.sha224I.iterateContract Arm.abi 16
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
+    writeArgs := true
+    stack := 16
+    verified := Proof.Pbkdf2.Generic.Arm.Instances.sha224
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.Hmac.sha224I.pbkdf2Api with
+    target := Arm.target
+    doc := Spec.Hmac.sha224I.pbkdf2Api.doc
+    code := Proof.Pbkdf2.Whole.Arm.sha224F.pbkdf2
+    contract := Spec.Hmac.sha224I.pbkdf2Contract Arm.abi 24
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.pbkdf2Contract; rfl⟩
+    stack := 24
+    verified := Proof.Pbkdf2.Whole.Arm.sha224
+    spSafe := Code.all_of_forall (fun _ => rfl) _ }]
+
+end VG.Artifacts.Pbkdf2Sha224.Arm

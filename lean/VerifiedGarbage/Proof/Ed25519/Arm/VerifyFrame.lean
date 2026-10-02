@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.PointTableIO
 import VerifiedGarbage.Proof.Ed25519.Arm.PointEqual
 import VerifiedGarbage.Proof.Ed25519.Arm.ScalarCompare
 
-/-! Untrusted: verification preserves the ABI saves and all public input headers. -/
+/-! Verification preserves the ABI saves and all public input headers. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

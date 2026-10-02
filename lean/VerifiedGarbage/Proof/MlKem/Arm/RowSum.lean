@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem.Arm.Prf
 /-!
 # ML-KEM-768 on 32-bit ARM: a row of `Â ∘ v̂`
 
-Untrusted: everything here is checked by Lean. `rowSum transpose` sums, in
-polynomial 11, the products of the entries `j < 3` of row `i` (in `r9`) of
-`Â` (or of `Â^⊺`, `transpose`) with polynomials `3 + j`, sampling each
-entry into polynomial 13 from the seed `ρ ‖ j ‖ i` (`ρ ‖ i ‖ j`) at 1216. If a
-`SampleNTT` does not finish, the product uses polynomial `3 + j` in its
-place (`effA`), and the flag in `r11` becomes 0 (`rowSum_ok`).
+`rowSum transpose` sums, in polynomial 11, the products of the entries `j < 3`
+of row `i` (in `r9`) of `Â` (or of `Â^⊺`, `transpose`) with polynomials `3 +
+j`, sampling each entry into polynomial 13 from the seed `ρ ‖ j ‖ i` (`ρ ‖ i ‖
+j`) at 1216. If a `SampleNTT` does not finish, the product uses polynomial `3 +
+j` in its place (`effA`), and the flag in `r11` becomes 0 (`rowSum_ok`).
 -/
 
 namespace VG.Proof.MlKem.Arm

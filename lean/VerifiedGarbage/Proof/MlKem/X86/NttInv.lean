@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlKem.X86.Ntt
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_inv_ntt`
 
-Untrusted: everything here is checked by Lean. The seven layers of
-Algorithm 10 (`nttInv_eq_layers`), each a `layer_piece` (`NttLoop.lean`)
-of the inverse butterfly `ibflyBody` (`ibfly_spec`), with the zetas from
-`zetas[127]` down; then every coefficient times 3303 (`scaleBody`).
+The seven layers of Algorithm 10 (`nttInv_eq_layers`), each a `layer_piece`
+(`NttLoop.lean`) of the inverse butterfly `ibflyBody` (`ibfly_spec`), with the
+zetas from `zetas[127]` down; then every coefficient times 3303 (`scaleBody`).
 -/
 
 namespace VG.Proof.MlKem.X86.NttInvP

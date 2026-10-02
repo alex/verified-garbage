@@ -6,10 +6,10 @@ import VerifiedGarbage.Proof.X25519.Bytes
 /-!
 # X25519 on x86 (32-bit): reading the arguments
 
-Untrusted: everything here is checked by Lean. `save` stores the callee-saved
-registers in the working space, `loadPoint` the u-coordinate (its top bit
-masked) in `X1`, `loadScalar` the bits of the scalar in `BITS` (clamped), and
-`initLadder` the ladder's initial state; so the ladder starts with `LInv 255`.
+`save` stores the callee-saved registers in the working space, `loadPoint` the
+u-coordinate (its top bit masked) in `X1`, `loadScalar` the bits of the scalar
+in `BITS` (clamped), and `initLadder` the ladder's initial state; so the
+ladder starts with `LInv 255`.
 -/
 
 namespace VG.Proof.X25519.X86

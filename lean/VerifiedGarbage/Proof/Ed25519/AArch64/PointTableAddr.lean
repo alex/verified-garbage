@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointTableLoad
 
-/-! Untrusted: public point-table addresses are a base plus a bounded entry offset. -/
+/-! Public point-table addresses are a base plus a bounded entry offset. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 

@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.S4Loop
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, correctness
 
-Untrusted: everything here is checked by Lean. The pieces, in order: the
-prologue, the round constants and the padded seeds (`S4Absorb.lean`), three
-squeezes (`S4Squeeze.lean`), the table (`S4Tab.lean`), the four polynomials
-(`S4Loop.lean`), and the epilogue, which returns whether every seed sampled its polynomial.
+The pieces, in order: the prologue, the round constants and the padded seeds
+(`S4Absorb.lean`), three squeezes (`S4Squeeze.lean`), the table (`S4Tab.lean`),
+the four polynomials (`S4Loop.lean`), and the epilogue, which returns whether
+every seed sampled its polynomial.
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4

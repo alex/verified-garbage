@@ -37,7 +37,7 @@ import subprocess
 import sys
 
 # Criterion filters (regexes over benchmark ids, which are
-# `<primitive>/<library>/<bytes>`, see bench/benches/primitives.rs).
+# `<primitive>/<library>/<bytes>`, see bench/benches/primitives/main.rs).
 VG = "verified-garbage"
 OPENSSL = "openssl"
 

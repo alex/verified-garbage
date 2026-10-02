@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlKem.AArch64.KgA
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_keygen`, the matrix `Â`
 
-Untrusted: everything here is checked by Lean. `Â[i, j]` for the nine
-`(i, j)` (entry `e = 3i + j`), each with `sample_ntt`'s stronger contract:
-it is reduced, and the result is 1 exactly when `SampleNTT` with 280
-iterations succeeds; `x24` is the AND of the results.
+`Â[i, j]` for the nine `(i, j)` (entry `e = 3i + j`), each with `sample_ntt`'s
+stronger contract: it is reduced, and the result is 1 exactly when `SampleNTT`
+with 280 iterations succeeds; `x24` is the AND of the results.
 -/
 
 namespace VG.Proof.MlKem.AArch64.KeyGen
