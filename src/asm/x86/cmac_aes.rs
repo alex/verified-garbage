@@ -371,9 +371,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_finalize(key: *const [u8; 272], roun
 ///
 /// Contract: `VG.Spec.Cmac.aesInitContract`. Constant time: only the pointers and `key_len` may affect timing, not the key.
 ///
-/// This implementation calls the CMAC functions above (e.g. `vg_cmac_aes_update`).
-///
-/// It expands the key with `vg_aes_expand_key`.
+/// This implementation expands the key with `vg_aes_expand_key` and derives the subkeys with `vg_cmac_aes_subkeys`.
 ///
 /// # Safety
 ///
@@ -442,7 +440,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_init(state: *mut [u64; 38], key: *co
 ///
 /// Contract: `VG.Spec.Cmac.aesAbsorbContract`. Constant time: only the pointers, `rounds`, `count` and `len` may affect timing, not the state or the data.
 ///
-/// This implementation calls the CMAC functions above (e.g. `vg_cmac_aes_update`).
+/// This implementation chains the blocks with `vg_cmac_aes_update`.
 ///
 /// # Safety
 ///
@@ -594,7 +592,7 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb(state: *mut [u64; 38], rounds
 ///
 /// Contract: `VG.Spec.Cmac.aesFinishContract`. Constant time: only the pointers, `rounds` and `count` may affect timing, not the state.
 ///
-/// This implementation calls the CMAC functions above (e.g. `vg_cmac_aes_update`).
+/// This implementation computes the MAC with `vg_cmac_aes_finalize`.
 ///
 /// # Safety
 ///

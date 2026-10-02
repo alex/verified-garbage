@@ -27,10 +27,6 @@ open VG.Proof.CmacAes.X86
 /-- How the functions encrypt a block. -/
 def ctrNote : String := "This implementation encrypts each block with `vg_aes_ctr32`."
 
-/-- Which functions the streaming functions call. -/
-def streamNote : String :=
-  "This implementation calls the CMAC functions above (e.g. `" ++ Spec.Cmac.aesUpdateApi.name ++ "`)."
-
 def artifacts : List Artifact := [
   { Spec.Cmac.aesSubkeysApi with
     target := X86.target
@@ -58,7 +54,9 @@ def artifacts : List Artifact := [
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Cmac.aesInitApi with
     target := X86.target
-    doc := Spec.Cmac.aesInitApi.doc (notes := [streamNote, "It expands the key with `vg_aes_expand_key`."])
+    doc := Spec.Cmac.aesInitApi.doc (notes := [
+      "This implementation expands the key with `vg_aes_expand_key` and derives the subkeys with \
+        `vg_cmac_aes_subkeys`."])
     code := Impl.CmacAes.Stream.X86.init
     contract := Spec.Cmac.aesInitContract X86.abi 48
     stack := 48
@@ -66,7 +64,8 @@ def artifacts : List Artifact := [
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Cmac.aesAbsorbApi with
     target := X86.target
-    doc := Spec.Cmac.aesAbsorbApi.doc (notes := [streamNote])
+    doc := Spec.Cmac.aesAbsorbApi.doc (notes := [
+      "This implementation chains the blocks with `vg_cmac_aes_update`."])
     code := Impl.CmacAes.Stream.X86.absorb
     contract := Spec.Cmac.aesAbsorbContract X86.abi 56
     stack := 56
@@ -74,7 +73,8 @@ def artifacts : List Artifact := [
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Cmac.aesFinishApi with
     target := X86.target
-    doc := Spec.Cmac.aesFinishApi.doc (notes := [streamNote])
+    doc := Spec.Cmac.aesFinishApi.doc (notes := [
+      "This implementation computes the MAC with `vg_cmac_aes_finalize`."])
     code := Impl.CmacAes.Stream.X86.finish
     contract := Spec.Cmac.aesFinishContract X86.abi 56
     stack := 56
