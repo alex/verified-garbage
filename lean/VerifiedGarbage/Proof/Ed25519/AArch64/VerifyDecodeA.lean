@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyDecodeR
 
 namespace VG.Proof.Ed25519.AArch64
 
-open VG VG.AArch64 VG.Impl.Ed25519.AArch64
+open VG VG.AArch64 VG.Impl.Ed25519.AArch64 VG.Proof.Ed25519 Edwards
 
 def decodedEquation (a r : Option Spec.Ed25519.Point) (scalar challenge : Nat) : Bool :=
   match a with
@@ -42,7 +42,9 @@ theorem verifyDecodeA_ok {s : State} {base pk sig challenge : Addr}
     refine WP.seq (WP.mono (pointTableWrite_ok (kabc.scratch h.scratch) 7424 (by decide) (by decide))
       fun d ⟨kd, dp, _⟩ => ?_)
     have kabcd := kabc.trans (kd.mono (by decide) (by decide))
-    refine WP.mono (verifyDecodeR_ok (h.of_keep kabcd)) fun t ⟨kt, tv⟩ => ?_
+    obtain ⟨Aa, hAa⟩ := decodePoint_rep (hp.trans hy)
+    refine WP.mono (verifyDecodeR_ok (h.of_keep kabcd) (by rw [dp, cp]; exact hAa))
+      fun t ⟨kt, tv⟩ => ?_
     refine ⟨kabcd.trans kt, ?_⟩
     rw [tv, dp, cp, verifyKeep_bytes kabcd h.rFar, verifyKeep_bytes kabcd h.scalarFar,
       verifyKeep_bytes kabcd h.challengeFar, hp, hy, decodedEquation]

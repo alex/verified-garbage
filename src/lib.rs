@@ -78,6 +78,7 @@ compile_error!("AArch64 needs a target with NEON (not, e.g., aarch64-unknown-non
 #[cfg(all(target_arch = "arm", target_vendor = "apple"))]
 compile_error!("32-bit ARM needs an AAPCS target (not Apple's armv7s or armv7k)");
 
+mod aes;
 pub mod aes_gcm;
 pub mod chacha20;
 pub mod chacha20poly1305;

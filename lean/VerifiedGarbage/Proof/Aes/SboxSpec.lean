@@ -12,8 +12,9 @@ multiply with `mul`, then the affine transformation) is transcribed on
 *truth tables*: a byte is eight natural numbers, the `j`-th holding bit `j`
 of the byte on each of 256 inputs, so that one evaluation computes the
 S-box of every byte. `row_sboxT` proves the transcription right, input by
-input; the kernel then evaluates it on the 256 bytes at once
-(`Proof/Aes/Sbox.lean`) in a fraction of a second.
+input; the kernel then evaluates it on the 256 bytes at once (in each
+target's proof of its S-box, e.g. `Proof/Aes/X86/Sbox.lean`) in a fraction
+of a second.
 -/
 
 namespace VG.Proof.Aes

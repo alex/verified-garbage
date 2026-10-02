@@ -163,7 +163,7 @@ end
 
 Untrusted: everything here is checked by Lean. `SampleNTT` (Algorithm 7) as
 the loop an implementation runs over the 3-byte chunks of the XOF output
-(`xofByte`, `Hash.lean`): `sampleAfter a out t` is the list of coefficients
+(`xofByte`, above): `sampleAfter a out t` is the list of coefficients
 accepted after the first `t` chunks, which stops growing once it has 256
 (`sampleStepCap`). An implementation that bounds the loop by `iters`
 iterations and stops after `t ≤ iters` chunks with 256 coefficients

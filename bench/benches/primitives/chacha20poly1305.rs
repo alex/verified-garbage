@@ -29,11 +29,9 @@ pub fn bench(c: &mut Criterion) {
         let mut data = vec![0u8; size];
         g.bench_function(BenchmarkId::new(VG, size), |b| {
             b.iter(|| {
-                ChaCha20Poly1305::new(black_box(&key)).encrypt_in_place(
-                    black_box(&nonce),
-                    black_box(&aad),
-                    black_box(&mut data),
-                )
+                ChaCha20Poly1305::new(black_box(&key))
+                    .encrypt_in_place(black_box(&nonce), black_box(&aad), black_box(&mut data))
+                    .unwrap()
             })
         });
         let mut tag = [0u8; 16];
@@ -57,7 +55,9 @@ pub fn bench(c: &mut Criterion) {
     for size in SIZES {
         g.throughput(Throughput::Bytes(size as u64));
         let mut ciphertext = vec![0u8; size];
-        let tag = ChaCha20Poly1305::new(&key).encrypt_in_place(&nonce, &aad, &mut ciphertext);
+        let tag = ChaCha20Poly1305::new(&key)
+            .encrypt_in_place(&nonce, &aad, &mut ciphertext)
+            .unwrap();
         let mut data = ciphertext.clone();
         g.bench_function(BenchmarkId::new(VG, size), |b| {
             b.iter(|| {

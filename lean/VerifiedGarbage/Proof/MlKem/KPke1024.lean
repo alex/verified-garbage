@@ -31,7 +31,7 @@ the compression to 11 and 5 bits) an implementation makes:
 The polynomials that do not depend on `k` are those of `KPke.lean`: `cbd`,
 `matSeed`, `matrix`, `ekT`, `encY` and `dcS`. That a bigger bound on the
 iterations of `SampleNTT` gives the same result, and `Outcome`, are
-`Sample.lean`'s, for any parameter set (`keyGenInternal_mono`, …,
+`KPke.lean`'s, for any parameter set (`keyGenInternal_mono`, …,
 `outcome_of_min`).
 -/
 

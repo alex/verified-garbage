@@ -15,12 +15,20 @@ A 128-bit block is a `BitVec 128` whose most significant bit is the
 leftmost bit of the string (§4.2.2, "the leftmost bit … is the most
 significant"): the first byte of a block is its most significant byte.
 
-The primitives implemented in assembly are the multiplication-and-add
-steps of `GHASH` over whole blocks (`ghashFrom`), and counter mode over
-whole blocks with `inc₃₂` (`ctr32`, the core of `GCTR`). Everything else
-(`J₀`, padding the blocks, the length block, the final partial block, and
-comparing tags) is the caller's (Rust's) job. Their contracts are in
-`Spec/Gcm/Contract.lean`.
+Two kinds of functions are implemented in assembly; their contracts are in
+`Spec/Gcm/Contract.lean`:
+
+* the primitives: the multiplication-and-add steps of `GHASH` over whole
+  blocks (`ghashFrom`), and counter mode over whole blocks with `inc₃₂`
+  (`ctr32`, the core of `GCTR`);
+* the whole of AES-GCM: the key setup (the key schedule and the hash subkey,
+  "The key context" below), one-shot GCM-AE and GCM-AD (`encryptWith`,
+  `decryptWith`), and the same over a message given in pieces ("Streaming"
+  below).
+
+The tag lengths GCM supports (§5.2.1.2) are `tagLenOk`. The limits on the
+other lengths (§5.2.1.1, `supported`) concern a whole message, which a
+streaming caller gives in pieces; the caller checks them.
 -/
 
 namespace VG.Spec.Gcm
@@ -157,6 +165,53 @@ def decrypt (ciph : Block → Block) (t : Nat) (iv c a tag : List Byte) : Option
     let s := ghash h (authBlocks a c)
     if (gctr ciph j (toBytes s)).take t = tag then some p else none
 
+/-! ## With the hash subkey given
+
+An implementation computes the hash subkey `H = CIPH_K(0¹²⁸)` (§7.1 step 1,
+§7.2 step 2) once per key, stores it, and uses the stored value: GCM-AE and
+GCM-AD for a given `H` are `encryptWith` and `decryptWith`, and `encrypt`
+and `decrypt` are those with `H = CIPH_K(0¹²⁸)` (`encrypt_eq`,
+`decrypt_eq`, which hold by definition). -/
+
+/-- §7.1 steps 2 and 4–6 (§7.2 steps 3 and 5–7), before the truncation
+`MSB_t`, for the hash subkey `h`: the 16-byte block `GCTR_K(J₀, S)`, where
+`S = GHASH_H(A ‖ 0ᵛ ‖ C ‖ 0ᵘ ‖ [len(A)]₆₄ ‖ [len(C)]₆₄)`, of the ciphertext
+`c` and the additional data `a` under the IV `iv`. The tag of `t` bytes is
+its first `t` bytes. -/
+def fullTag (ciph : Block → Block) (h : Block) (iv a c : List Byte) : List Byte :=
+  gctr ciph (j0 h iv) (toBytes (ghash h (authBlocks a c)))
+
+/-- §7.1 steps 2–6, `GCM-AE_K(IV, P, A)` for the hash subkey `h` and a tag
+of `t` bytes: `C = GCTR_K(inc₃₂(J₀), P)` and `T = MSB_t(GCTR_K(J₀, S))`. -/
+def encryptWith (ciph : Block → Block) (h : Block) (t : Nat) (iv p a : List Byte) :
+    List Byte × List Byte :=
+  let c := gctr ciph (inc32 (j0 h iv)) p
+  (c, (fullTag ciph h iv a c).take t)
+
+/-- GCM-AE is `encryptWith` for the hash subkey `CIPH_K(0¹²⁸)`. -/
+theorem encrypt_eq (ciph : Block → Block) (t : Nat) (iv p a : List Byte) :
+    encrypt ciph t iv p a = encryptWith ciph (ciph 0) t iv p a := rfl
+
+/-- §7.2 steps 3–8, `GCM-AD_K(IV, C, A, T)` for the hash subkey `h` and a
+tag length of `t` bytes, once step 1 has accepted the lengths: the plaintext
+`P = GCTR_K(inc₃₂(J₀), C)` if `T' = MSB_t(GCTR_K(J₀, S))` is `tag`, and
+`none` (FAIL) if not. -/
+def decryptWith (ciph : Block → Block) (h : Block) (t : Nat) (iv c a tag : List Byte) :
+    Option (List Byte) :=
+  if (fullTag ciph h iv a c).take t = tag then some (gctr ciph (inc32 (j0 h iv)) c) else none
+
+/-- GCM-AD is step 1 (the lengths) followed by `decryptWith` for the hash
+subkey `CIPH_K(0¹²⁸)`. -/
+theorem decrypt_eq (ciph : Block → Block) (t : Nat) (iv c a tag : List Byte) :
+    decrypt ciph t iv c a tag =
+      if !supported iv.length c.length a.length || tag.length ≠ t then none
+      else decryptWith ciph (ciph 0) t iv c a tag := rfl
+
+/-- §5.2.1.2: whether GCM supports a tag of `t` bytes: 128, 120, 112, 104 or
+96 bits, or, "for certain applications", 64 or 32 bits (whose use Appendix C
+restricts further). -/
+def tagLenOk (t : Nat) : Bool := t == 4 || t == 8 || (12 ≤ t && t ≤ 16)
+
 /-! ## AES-GCM -/
 
 /-- `CIPH_K` for AES with `nr` rounds and the key schedule `w` (as bytes). -/
@@ -183,5 +238,117 @@ def blockAt (m : Mem) (p : Addr) : Block := ofBytes (Aes.bytesAt m p 16)
 /-- The `n` blocks at `p`. -/
 def blocksAt (m : Mem) (p : Addr) (n : Nat) : List Block :=
   (List.range n).map fun i => blockAt m (p + BitVec.ofNat 64 (16 * i))
+
+/-! ## The key context
+
+`vg_aes_gcm_init` stores what AES-GCM needs of a key in a 256-byte key
+context, which the other AES-GCM functions read:
+
+* bytes 0 to `16 (Nr + 1) − 1`: the AES key schedule for `Nr` rounds, as
+  `vg_aes_expand_key` writes it (`Aes.expandKey`);
+* bytes 240–255: the hash subkey `H = CIPH_K(0¹²⁸)` (§7.1 step 1).
+
+The bytes between them (for 10 or 12 rounds) are unspecified. The functions
+that read a key context compute with the hash subkey stored in it (`ctxH`)
+and, those that need the cipher, with the cipher it stores for the number of
+rounds `Nr` they take as an argument, which is public (`ctxCiph`), whatever
+the context holds: for a context that
+`vg_aes_gcm_init` wrote for `key` (`KeyRepr`), that is AES-GCM with `key`
+(`encryptWith_ctx`, `decryptWith_ctx`). -/
+
+/-- The cipher of the key context at `p` for `nr` rounds: AES with `nr`
+rounds and the key schedule in its first `16 (nr + 1)` bytes. -/
+def ctxCiph (m : Mem) (p : Addr) (nr : Nat) : Block → Block :=
+  aesWith nr (Aes.bytesAt m p (16 * (nr + 1)))
+
+/-- The hash subkey of the key context at `p`: its bytes 240–255. -/
+def ctxH (m : Mem) (p : Addr) : Block := blockAt m (p + 240)
+
+/-- The key context at `p` is that of the AES key `key`: it holds the key
+schedule of `key` and the hash subkey `CIPH_K(0¹²⁸)`. -/
+def KeyRepr (m : Mem) (p : Addr) (key : List Byte) : Prop :=
+  Aes.bytesAt m p (16 * (Aes.rounds (key.length / 4) + 1)) = Aes.expandKey key ∧
+    ctxH m p = aes key 0
+
+/-- GCM-AE with the key context of `key`, for its number of rounds, is
+AES-GCM's with `key`. -/
+theorem encryptWith_ctx {m : Mem} {p : Addr} {key : List Byte} (hk : KeyRepr m p key)
+    (t : Nat) (iv pt a : List Byte) :
+    encryptWith (ctxCiph m p (Aes.rounds (key.length / 4))) (ctxH m p) t iv pt a =
+      aesGcmEncrypt key t iv pt a := by
+  unfold ctxCiph
+  rw [hk.1, hk.2]
+  rfl
+
+/-- GCM-AD with the key context of `key`, for its number of rounds, is
+AES-GCM's with `key`, for lengths that step 1 accepts. -/
+theorem decryptWith_ctx {m : Mem} {p : Addr} {key : List Byte} (hk : KeyRepr m p key)
+    (t : Nat) (iv c a tag : List Byte)
+    (hs : supported iv.length c.length a.length = true) (ht : tag.length = t) :
+    decryptWith (ctxCiph m p (Aes.rounds (key.length / 4))) (ctxH m p) t iv c a tag =
+      aesGcmDecrypt key t iv c a tag := by
+  unfold ctxCiph
+  rw [hk.1, hk.2, aesGcmDecrypt, decrypt_eq, hs, ht]
+  simp only [Bool.not_true, Bool.false_or, ne_eq, not_true_eq_false, decide_false,
+    Bool.false_eq_true, ↓reduceIte]
+  rfl
+
+/-! ## Streaming
+
+The streaming functions encrypt or decrypt a message given in pieces: all of
+its additional data `A`, then its text, each in pieces of any length. Their
+state, 80 bytes, holds everything secret that GCM-AE or GCM-AD keeps from
+one piece to the next (`StreamRepr`). What is public, the lengths of `A` and
+of the text so far, the caller keeps and passes to each function, as it does
+the key context.
+
+GHASH absorbs `A ‖ 0ᵛ ‖ C` (§7.1 step 5) as it arrives (`ghashInput`), whole
+blocks into the accumulator `Y` and the rest buffered; the zero padding `0ᵛ`
+follows `A` once the ciphertext `C` has begun. Counter mode (§6.5) XORs the
+keystream `CIPH_K(CB₁) ‖ CIPH_K(CB₂) ‖ …`, from `CB₁ = inc₃₂(J₀)`, into the
+text: the state holds the next counter block, and the keystream block of
+the last block of `C` if that is partial, whose bytes not used yet the next
+piece of text uses.
+
+A state that represents the message with the IV `iv`, the additional data
+`a` and the ciphertext `c` so far gives the tag `fullTag ciph h iv a c` (§7.1
+steps 5–6, §7.2 steps 6–7, untruncated): that of GCM-AE (`encryptWith`)
+when `c` is the encryption `gctr ciph (inc32 (j0 h iv)) p` of the plaintext
+`p` given so far, and the one GCM-AD compares (`decryptWith`). -/
+
+/-- The string GHASH absorbs (§7.1 step 5) for the additional data `a` and
+the ciphertext `c` so far, before the last zero padding and the lengths:
+`A` alone while there is no ciphertext, and `A ‖ 0ᵛ ‖ C` once there is.
+(`authBlocks a c` is the blocks of `ghashInput a c`, padded with zeros to a
+whole number of blocks, followed by `[len(A)]₆₄ ‖ [len(C)]₆₄`.) -/
+def ghashInput (a c : List Byte) : List Byte :=
+  if c = [] then a else a ++ zeros (padLen a.length) ++ c
+
+/-- The streaming state at `p` represents a message with the IV `iv`, the
+additional data `a` and the ciphertext `c` so far, for the cipher `ciph`
+and the hash subkey `h`. With `x = ghashInput a c`, of which GHASH has
+absorbed the whole blocks, and `ICB = inc₃₂(J₀)` the first counter block
+(§7.1 step 3):
+
+* bytes 0–15: `J₀` (§7.1 step 2);
+* bytes 16–31: `GHASH_H` of the whole blocks of `x`;
+* bytes 32–47: the last `len(x) mod 16` bytes of `x`, which do not fill a
+  block, followed by unspecified bytes;
+* bytes 48–63: the next counter block, `inc₃₂ᵏ(ICB)` for the number
+  `k = ⌈len(C)/128⌉` of counter blocks used;
+* bytes 64–79: if `c` ends in a partial block, the keystream block
+  `CIPH_K(inc₃₂ʲ(ICB))` of that block, `j = ⌊len(C)/128⌋` (the block of
+  `keystream ciph ICB` that `gctr` XORs into it); unspecified otherwise. -/
+def StreamRepr (m : Mem) (p : Addr) (ciph : Block → Block) (h : Block) (iv a c : List Byte) :
+    Prop :=
+  let j := j0 h iv
+  let icb := inc32 j
+  let x := ghashInput a c
+  let n := 16 * (x.length / 16)
+  blockAt m p = j ∧
+    blockAt m (p + 16) = ghash h (blocks (x.take n)) ∧
+    Aes.bytesAt m (p + 32) (x.length % 16) = x.drop n ∧
+    blockAt m (p + 48) = Nat.repeat inc32 ((c.length + 15) / 16) icb ∧
+    (c.length % 16 ≠ 0 → blockAt m (p + 64) = ciph (Nat.repeat inc32 (c.length / 16) icb))
 
 end VG.Spec.Gcm
