@@ -169,16 +169,14 @@ theorem save_eq : save = .ldrSp .r12 8 :: (saved.map (fun p => Instr.str p.1 .r1
 /-- The memory after saving the registers. -/
 def aMem (s₀ : State) (S : BitVec 32) : Mem := saveMem s₀.mem (State.addr S) s₀.gpr saved
 
-set_option simprocs false in
+theorem saved_slots : Spill.Slots 2176 2208 saved := by decide
+
 theorem aMem_slot (s₀ : State) (S : BitVec 32) {r : Reg} {d : Nat} (h : (r, d) ∈ saved) :
-    (aMem s₀ S).readW (State.addr S + BitVec.ofNat 64 d) 32 = s₀.gpr r := by
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at h
-  rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ |
-    ⟨rfl, rfl⟩ <;>
-  simp (disch := decide) only [aMem, saved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+    (aMem s₀ S).readW (State.addr S + BitVec.ofNat 64 d) 32 = s₀.gpr r :=
+  Spill.saveMem_saved (State.addr S) s₀.gpr s₀.mem saved saved_slots (r, d) h
 
 theorem aMem_frame (s₀ : State) (S : BitVec 32) : Frame [⟨State.addr S, 2304⟩] s₀.mem (aMem s₀ S) :=
-  saveMem_frame _ _ _ (by decide) saved fun p hp => by have := saved_bound p hp; omega
+  Spill.saveMem_frame _ _ _ (by decide) saved (by decide)
 
 /-- What the saves leave. -/
 structure ASave (s₀ : State) (St D S : BitVec 32) (L : Nat) (s : State) : Prop where

@@ -18,7 +18,7 @@ open VG VG.Arm VG.Impl.CmacAes.Stream.Arm
 open VG.Impl.CmacAes.Arm (mov)
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd op2_imm op2_reg op2_lsr wp_mov wp_add wp_ldr wp_str saveMem
   saveList_ok saveMem_frame readW_writeW_save)
-open VG.Proof.CmacAes.Arm (zeroBlk zeroBlk_ok restoreB_ok)
+open VG.Proof.CmacAes.Arm (zeroBlk zeroBlk_ok)
 
 /-- The precondition, by name: the state `St`, the key `Kp` of `KL` bytes
 and the scratch buffer `S`. -/
@@ -265,7 +265,7 @@ theorem initPost_wp {s : State} {St S : BitVec 32} (hSt : St.toNat + 304 ≤ 2 ^
     (by rw [u₁.wr, u₁.other _ (by decide), h4]; exact w) fun s₂ g₂ m₂ rd₂ wr₂ sp₂ => ?_
   have e5 : s₂.gpr .r5 = S := by rw [g₂, u₁.other _ (by decide), h5]
   have mm : s₂.mem = zcv s.mem St := by rw [m₂, u₁.mem, u₁.other _ (by decide), h4]
-  refine restoreB_ok [(.r4, 2176), (.r6, 2184), (.lr, 2188)] s₂ _ (by decide) (fun p hp' => ?_) fun s₃ ld₃ ho₃ m₃ rd₃ wr₃ sp₃ => ?_
+  refine Spill.restoreList_ok [(.r4, 2176), (.r6, 2184), (.lr, 2188)] s₂ _ (by decide) (fun p hp' => ?_) fun s₃ ld₃ ho₃ m₃ rd₃ wr₃ sp₃ => ?_
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hp'
     rw [e5, rd₂, wr₂, u₁.rd, u₁.wr]
     rcases hp' with rfl | rfl | rfl
