@@ -146,4 +146,32 @@ theorem normalize_ok {f : Nat → Nat} {x : Fe}
     (h : Within (2 ^ 118) f) (hx : Represents f x) : Weak (normalized f) x :=
   ⟨(VG.Proof.X448.toFe_congr (normalized_mod h)).trans hx, normalize_within_weak f⟩
 
+/-- The second serial carry pass has at most one carry-out. -/
+theorem second_carry {f : Nat → Nat} (h : Within (2 ^ 118) f) :
+    carry (folded f) 8 ≤ 1 := by
+  have c0 := carry_bound h
+  have v0 := valN_lt (n := 8) (fun i _ => digit_lt f i)
+  have e1 := pass_eq (folded f) 8
+  rw [folded_val] at e1
+  change valN (digit f) 8 < full at v0
+  change valN (digit (folded f)) 8 + full * carry (folded f) 8 = _ at e1
+  have small : (half + 1) * (2 ^ 63 + 1) < full := by decide +kernel
+  by_contra hc
+  have hb := Nat.mul_le_mul_left (half + 1) (Nat.le_of_lt c0)
+  have hp := Nat.mul_le_mul_left full (show 2 ≤ carry (folded f) 8 from by omega)
+  omega
+
+/-- Two carry passes and folds suffice for a weak field representative. -/
+theorem twice_weak {f : Nat → Nat} (h : Within (2 ^ 118) f) :
+    Within weakBound (folded (folded f)) := by
+  have hc := second_carry h
+  intro i _
+  have hd := digit_lt (folded f) i
+  simp only [folded, weakBound]
+  split <;> omega
+
+theorem twice_mod (f : Nat → Nat) :
+    valN (folded (folded f)) 8 % P = valN f 8 % P := by
+  rw [folded_mod, folded_mod]
+
 end VG.Proof.X448.Wide.Representation
