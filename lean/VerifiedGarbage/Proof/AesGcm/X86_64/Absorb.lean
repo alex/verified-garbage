@@ -220,15 +220,16 @@ theorem head_ok {H : Block} {x : List Byte} {D : Addr} {n : Nat} {s : State}
     exact Proof.Gcm.absorb_fill ha (by rw [hdk]; exact h16) hY (by rw [hdk]; exact hB)
 
 omit L hyo in
-/-- The whole blocks split off: `rdx` and `rcx` hold them, `r12` and `rbp` the rest. -/
-theorem wholeSplit_ok {D : Addr} {n j : Nat} {s : State} (hn' : n < 2 ^ 64) (hj : j ≤ n)
+/-- The whole blocks split off: `p` and `k` hold them, `r12` and `rbp` the rest. -/
+theorem wholeSplit_ok (p k : Reg) (hpk : (p = .rdx ∧ k = .rcx) ∨ (p = .rcx ∧ k = .r8)) {D : Addr} {n j : Nat}
+    {s : State} (hn' : n < 2 ^ 64) (hj : j ≤ n)
     (h12 : s.gpr .r12 = D + BitVec.ofNat 64 j) (h13 : s.gpr .rbp = BitVec.ofNat 64 (n - j)) :
-    ∃ s₁, runBlock isa (splitWhole .rdx .rcx ++ [.alu .test .rcx (.reg .rcx)]) s = some s₁ ∧
-      s₁.gpr .rdx = D + BitVec.ofNat 64 j ∧ s₁.gpr .rcx = BitVec.ofNat 64 ((n - j) / 16) ∧
+    ∃ s₁, runBlock isa (splitWhole p k ++ [.alu .test k (.reg k)]) s = some s₁ ∧
+      s₁.gpr p = D + BitVec.ofNat 64 j ∧ s₁.gpr k = BitVec.ofNat 64 ((n - j) / 16) ∧
       s₁.gpr .r12 = D + BitVec.ofNat 64 (j + 16 * ((n - j) / 16)) ∧
       s₁.gpr .rbp = BitVec.ofNat 64 (n - (j + 16 * ((n - j) / 16))) ∧
       s₁.zf = some (decide ((n - j) / 16 = 0)) ∧
-      (∀ r, r ≠ .rdx → r ≠ .rcx → r ≠ .rax → r ≠ .r12 → r ≠ .rbp → s₁.gpr r = s.gpr r) ∧
+      (∀ r, r ≠ p → r ≠ k → r ≠ .rax → r ≠ .r12 → r ≠ .rbp → s₁.gpr r = s.gpr r) ∧
       s₁.mem = s.mem ∧ s₁.rd = s.rd ∧ s₁.wr = s.wr := by
   generalize hnb : (n - j) / 16 = nb
   have h16 : 16 * nb ≤ n - j := by omega
@@ -236,19 +237,21 @@ theorem wholeSplit_ok {D : Addr} {n j : Nat} {s : State} (hn' : n < 2 ^ 64) (hj 
   rw [toNat_ofNat_of_lt (by omega), imm_eq (by decide)] at hand
   have hsub : BitVec.ofNat 64 (n - j) - BitVec.ofNat 64 ((n - j) % 16) = BitVec.ofNat 64 (16 * nb) := by
     rw [ofNat_sub (Nat.mod_le _ _) (by omega)]; congr 1; omega
-  refine ⟨_, by simp only [splitWhole]; xrun [], ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [gpr_setReg, gpr_setFlags, h12]
-  · simp [gpr_setReg, gpr_setFlags, h13, shr4 _ (show n - j < 2 ^ 64 by omega), hnb]
-  · simp only [gpr_setReg, gpr_arithFlags, gpr_setFlags, ite_true, ite_false, reduceCtorEq, h12, h13,
-      hand, hsub, BitVec.add_assoc, ofNat_add_ofNat]
-  · simp only [gpr_setReg, gpr_arithFlags, gpr_setFlags, ite_true, ite_false, reduceCtorEq, h13, hand]
-    congr 1
-    omega
-  · simp only [zf_arithFlags, gpr_setReg, gpr_arithFlags, gpr_setFlags, ite_true, ite_false, reduceCtorEq,
-      h13, shr4 _ (show n - j < 2 ^ 64 by omega), hnb]
-    rw [and_self_beq (by omega)]
-  · intro r h₁ h₂ h₃ h₄ h₅; simp [gpr_setReg, gpr_setFlags, h₁, h₂, h₃, h₄, h₅]
-  all_goals rfl
+  rcases hpk with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+  all_goals
+    refine ⟨_, by simp only [splitWhole]; xrun [], ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp [gpr_setReg, gpr_setFlags, h12]
+    · simp [gpr_setReg, gpr_setFlags, h13, shr4 _ (show n - j < 2 ^ 64 by omega), hnb]
+    · simp only [gpr_setReg, gpr_arithFlags, gpr_setFlags, ite_true, ite_false, reduceCtorEq, h12, h13,
+        hand, hsub, BitVec.add_assoc, ofNat_add_ofNat]
+    · simp only [gpr_setReg, gpr_arithFlags, gpr_setFlags, ite_true, ite_false, reduceCtorEq, h13, hand]
+      congr 1
+      omega
+    · simp only [zf_arithFlags, gpr_setReg, gpr_arithFlags, gpr_setFlags, ite_true, ite_false, reduceCtorEq,
+        h13, shr4 _ (show n - j < 2 ^ 64 by omega), hnb]
+      rw [and_self_beq (by omega)]
+    · intro r h₁ h₂ h₃ h₄ h₅; simp [gpr_setReg, gpr_setFlags, h₁, h₂, h₃, h₄, h₅]
+    all_goals rfl
 
 /-- The whole blocks. -/
 theorem whole_ok {H : Block} {x : List Byte} {D : Addr} {n : Nat} {m₀ : Mem} {j : Nat} {s : State}
@@ -257,7 +260,7 @@ theorem whole_ok {H : Block} {x : List Byte} {D : Addr} {n : Nat} {m₀ : Mem} {
       (AbsMid Ctx St W SP yo H x D n m₀ (j + 16 * ((n - j) / 16))) := by
   have hn' := h.data.lt
   have he := h.env
-  obtain ⟨s₁, run₁, hdx, hcx, h12, hbp, hzf, hg₁, hm₁, hrd₁, hwr₁⟩ := wholeSplit_ok hn' h.le h.r12 h.rbp
+  obtain ⟨s₁, run₁, hdx, hcx, h12, hbp, hzf, hg₁, hm₁, hrd₁, hwr₁⟩ := wholeSplit_ok .rdx .rcx (.inl ⟨rfl, rfl⟩) hn' h.le h.r12 h.rbp
   generalize hnb : (n - j) / 16 = nb at *
   have h16 : 16 * nb ≤ n - j := by omega
   refine WP.seq (WP.of_runBlock ⟨s₁, run₁, ?_⟩)

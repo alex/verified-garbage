@@ -33,6 +33,18 @@ structure TagOut (Ctx St W SP : Addr) (o R : Nat) (H Y J : Block) (aLen cLen : N
     toBytes (ghashFrom H Y [ofBytes (lensBlock aLen cLen)] ^^^ ciphOf m₀ Ctx R J)
   frame : Frame (tagFrame St W SP o) m₀ s.mem
 
+/-- `tag o` before the call of `vg_aes_ctr32`, from `m₀`: its arguments, and
+the accumulator with the lengths block at `W + o`. -/
+structure TagMid (Ctx St W SP : Addr) (o R : Nat) (H Y J : Block) (aLen cLen : Nat) (m₀ : Mem) (s : State) :
+    Prop where
+  env : Env Ctx St W SP s
+  call : CtrCall s Ctx St (W + BitVec.ofNat 64 o) (W + BitVec.ofNat 64 512) R 1
+  rounds : RoundsAt s.mem W R
+  ciph : ciphOf s.mem Ctx R = ciphOf m₀ Ctx R
+  j : blockAt s.mem St = J
+  y : blockAt s.mem (W + BitVec.ofNat 64 o) = ghashFrom H Y [ofBytes (lensBlock aLen cLen)]
+  frame : Frame (tagFrame St W SP o) m₀ s.mem
+
 section
 variable (v : GcmImpl) {Ctx St W SP : Addr} (L : Lay Ctx St W SP)
 include L
@@ -48,10 +60,13 @@ theorem bytesAt_copy2 (m : Mem) {p q : Addr} (hd : (⟨p, 8⟩ : Region).Disjoin
   rw [Cmac.bytesAt_store2, Mem.readW_writeW_sep (Region.Disjoint.sep hd.symm (Region.contains_self _ _)
     (Region.contains_self _ _)) (by decide), Cmac.le8_readW, Cmac.le8_readW, ← Cmac.bytesAt_split]
 
-/-- `tag o`, for `o` of 0 or 112. -/
-theorem tag_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {H J : Block} {s : State} (he : Env Ctx St W SP s)
+/-- `tag o` up to the call of `vg_aes_ctr32`. -/
+theorem tagMid_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {H J : Block} {s : State} (he : Env Ctx St W SP s)
     (hH : blockAt s.mem (Ctx + BitVec.ofNat 64 240) = H) (hR : RoundsAt s.mem W R) (hJ : blockAt s.mem St = J) :
-    WP isa (tag v.callees o) s (TagOut Ctx St W SP o R H (blockAt s.mem (St + BitVec.ofNat 64 16)) J
+    WP isa (.seq (lens v.callees 16) (.block ([.mov .rax (.mem (at_ .r14 16)), .store (at_ .r15 o) .rax,
+        .mov .rax (.mem (at_ .r14 24)), .store (at_ .r15 (o + 8)) .rax, .mov .rdi (.reg .r13),
+        .mov .rsi (.mem (at_ .r15 roundsO)), .mov .rdx (.reg .r14)] ++ ptr .rcx .r15 o ++ [.mov32 .r8 (imm 1)] ++
+        ptr .r9 .r15 scrO))) s (TagMid Ctx St W SP o R H (blockAt s.mem (St + BitVec.ofNat 64 16)) J
       (s.gpr .rbx).toNat (s.gpr .rbp).toNat s.mem) := by
   have hoW : o + 16 ≤ 16 ∨ (96 ≤ o ∧ o + 16 ≤ 2560) := by omega
   refine WP.seq (WP.mono (lens_ok v L (yo := 16) (.inr rfl) he hH) fun s₁ ⟨he₁, hH₁, hY₁, f₁⟩ => ?_)
@@ -121,7 +136,7 @@ theorem tag_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {H J : Block} {s : State} (h
     · intro r a b c d e f g; simp [gpr_setReg, a, b, c, d, e, f, g]
     · simp [rd_setReg, rd_arithFlags]
     · simp [wr_setReg, wr_arithFlags]
-  refine WP.seq (WP.of_runBlock ⟨s₂, run₂, ?_⟩)
+  refine WP.of_runBlock ⟨s₂, run₂, ?_⟩
   have he₂ : Env Ctx St W SP s₂ := he₁.keep (fun r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;>
@@ -159,21 +174,8 @@ theorem tag_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {H J : Block} {s : State} (h
       · simpa using covers_left (he₂.perm.stC (d := 0) (n := 16) (by decide))
     · exact covers_cons (by simpa using he₂.perm.stC (d := 0) (n := 16) (by decide))
         (covers_cons (he₂.perm.wC (by omega)) (he₂.perm.wC (by decide)))
-  refine WP.mono (ctr_call v.ctr hcall) fun s₃ g => ?_
-  have gout := g.out
-  rw [blocksAt_one, blocksAt_one, ctr32_single, List.cons.injEq] at gout
-  refine ⟨he₂.of_saved g.saved g.rd g.wr, ?_, ?_, ?_⟩
-  · refine rounds_frame g.frame (fun r hr => ?_) hR₂
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
-    · simpa using (L.st_w (a := 0) (n := 16) (d := 176) (k := 8) (by decide) (.inr ⟨by decide, by decide⟩)).symm
-    · exact L.w_w (by omega) (by decide) (by omega)
-    · exact L.w_w (.inl (by decide)) (by decide) (by decide)
-    · rw [hk]; exact (L.stk_w (by decide)).symm
-  · rw [Cmac.bytesAt_blockAt, gout.1, hJ₂,
-      show Spec.Gcm.aesWith R (bytesAt s₂.mem Ctx (16 * (R + 1))) = ciphOf s₂.mem Ctx R from rfl, hc₂]
-    congr 2
-    rw [blockAt, hT, ← blockAt, hY₁]
+  refine ⟨he₂, hcall, hR₂, hc₂, hJ₂, ?_, ?_⟩
+  · rw [blockAt, hT, ← blockAt, hY₁]
   · have fA : Frame (tagFrame St W SP o) s.mem s₁.mem := f₁.sub fun r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl
@@ -181,14 +183,37 @@ theorem tag_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {H J : Block} {s : State} (h
       · exact ⟨_, List.mem_cons_of_mem _ (List.mem_cons_self ..), fun _ h => h⟩
       · exact ⟨⟨W + BitVec.ofNat 64 512, 2048⟩, by simp, Offset.sub _ (by decide) (by decide)⟩
       · exact ⟨_, by simp, fun _ h => h⟩
-    refine (fA.trans (f₂.sub fun r hr => ?_)).trans (g.frame.sub fun r hr => ?_)
-    · simp only [List.mem_singleton] at hr; subst hr; exact ⟨_, by simp, fun _ h => h⟩
-    · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl
-      · exact ⟨_, List.mem_cons_self .., by simpa using Region.sub_prefix (base := St) (show 16 ≤ 32 by decide)⟩
-      · exact ⟨_, by simp, fun _ h => h⟩
-      · exact ⟨_, by simp, fun _ h => h⟩
-      · rw [hk]; exact ⟨_, by simp, fun _ h => h⟩
+    exact fA.trans (f₂.sub fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; exact ⟨_, by simp, fun _ h => h⟩)
+
+/-- `tag o`, for `o` of 0 or 112. -/
+theorem tag_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {H J : Block} {s : State} (he : Env Ctx St W SP s)
+    (hH : blockAt s.mem (Ctx + BitVec.ofNat 64 240) = H) (hR : RoundsAt s.mem W R) (hJ : blockAt s.mem St = J) :
+    WP isa (tag v.callees o) s (TagOut Ctx St W SP o R H (blockAt s.mem (St + BitVec.ofNat 64 16)) J
+      (s.gpr .rbx).toNat (s.gpr .rbp).toNat s.mem) := by
+  have hoW : o + 16 ≤ 16 ∨ (96 ≤ o ∧ o + 16 ≤ 2560) := by omega
+  refine WP.assoc (WP.seq (WP.mono (tagMid_ok v L ho he hH hR hJ) fun s₂ M => ?_))
+  have hk := M.env.rsp
+  refine WP.mono (ctr_call v.ctr M.call) fun s₃ g => ?_
+  have gout := g.out
+  rw [blocksAt_one, blocksAt_one, ctr32_single, List.cons.injEq] at gout
+  refine ⟨M.env.of_saved g.saved g.rd g.wr, ?_, ?_, ?_⟩
+  · refine rounds_frame g.frame (fun r hr => ?_) M.rounds
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · simpa using (L.st_w (a := 0) (n := 16) (d := 176) (k := 8) (by decide) (.inr ⟨by decide, by decide⟩)).symm
+    · exact L.w_w (by omega) (by decide) (by omega)
+    · exact L.w_w (.inl (by decide)) (by decide) (by decide)
+    · rw [hk]; exact (L.stk_w (by decide)).symm
+  · rw [Cmac.bytesAt_blockAt, gout.1, M.j,
+      show Spec.Gcm.aesWith R (bytesAt s₂.mem Ctx (16 * (R + 1))) = ciphOf s₂.mem Ctx R from rfl, M.ciph, M.y]
+  · refine M.frame.trans (g.frame.sub fun r hr => ?_)
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · exact ⟨_, List.mem_cons_self .., by simpa using Region.sub_prefix (base := St) (show 16 ≤ 32 by decide)⟩
+    · exact ⟨_, by simp, fun _ h => h⟩
+    · exact ⟨_, by simp, fun _ h => h⟩
+    · rw [hk]; exact ⟨_, by simp, fun _ h => h⟩
 
 end
 

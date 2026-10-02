@@ -61,6 +61,22 @@ theorem rel_env {Ctx St W SP : Addr} {P Q : State → State → Prop} {c : Prog 
   exact ⟨ht, hq, (hP _ _ hp).1.keep (fun r hr => Exec.gpr (hc r hr) e₁) r₁ w₁,
     (hP _ _ hp).2.keep (fun r hr => Exec.gpr (hc r hr) e₂) r₂ w₂⟩
 
+/-- Two runs with the same environment, agreeing on the registers `rs`. -/
+def EnvAgree (Ctx St W SP : Addr) (rs : List Reg) (s₁ s₂ : State) : Prop :=
+  Env Ctx St W SP s₁ ∧ Env Ctx St W SP s₂ ∧ ∀ r ∈ rs, s₁.gpr r = s₂.gpr r
+
+theorem EnvAgree.regs {Ctx St W SP : Addr} {rs : List Reg} {s₁ s₂ : State} (h : EnvAgree Ctx St W SP rs s₁ s₂) :
+    ∀ r ∈ rs ++ [.r13, .r14, .r15, .rsp], s₁.gpr r = s₂.gpr r := by
+  intro r hr
+  rcases List.mem_append.mp hr with hr | hr
+  · exact h.2.2 r hr
+  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · rw [h.1.r13, h.2.1.r13]
+    · rw [h.1.r14, h.2.1.r14]
+    · rw [h.1.r15, h.2.1.r15]
+    · rw [h.1.rsp, h.2.1.rsp]
+
 /-- A branch on ZF, which agrees in the two runs. -/
 theorem rel_ite_e {P Q : State → State → Prop} {t e : Prog isa} (hc : ∀ s₁ s₂, P s₁ s₂ → s₁.zf = s₂.zf)
     (ht : RelCT isa (fun s₁ s₂ => P s₁ s₂ ∧ s₁.zf = some true) t Q)

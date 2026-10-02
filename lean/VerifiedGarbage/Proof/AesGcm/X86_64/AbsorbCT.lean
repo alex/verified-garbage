@@ -71,7 +71,7 @@ theorem whole_rel {H₁ H₂ : Block} {x₁ x₂ : List Byte} {D : Addr} {n : Na
     s₁.gpr .rdx = D + BitVec.ofNat 64 j ∧ s₁.gpr .rcx = BitVec.ofNat 64 ((n - j) / 16)
   have hS : ∀ {H : Block} {x : List Byte} {m : Mem} (s : State), AbsMid Ctx St W SP yo H x D n m j s →
       WP isa (.block (splitWhole .rdx .rcx ++ [.alu .test .rcx (.reg .rcx)])) s Sp := fun s h => by
-    obtain ⟨s₁, run₁, hdx, hcx, -, -, -, hg₁, -, hrd₁, hwr₁⟩ := wholeSplit_ok h.data.lt h.le h.r12 h.rbp
+    obtain ⟨s₁, run₁, hdx, hcx, -, -, -, hg₁, -, hrd₁, hwr₁⟩ := wholeSplit_ok .rdx .rcx (.inl ⟨rfl, rfl⟩) h.data.lt h.le h.r12 h.rbp
     refine WP.of_runBlock ⟨s₁, run₁, h.env.keep (fun r hr => ?_) hrd₁ hwr₁, h.data.of_eq hrd₁ hwr₁, h.le, hdx, hcx⟩
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> exact hg₁ _ (by decide) (by decide) (by decide) (by decide) (by decide)
