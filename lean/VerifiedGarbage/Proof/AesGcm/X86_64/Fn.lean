@@ -39,6 +39,14 @@ theorem WP.seq_assoc {a b c : Prog isa} {s : State} {Q : State → Prop} (h : WP
   | seq e₁ e₂ => cases e₁ with
     | seq ea eb => exact ⟨_, _, .seq ea (.seq eb e₂), q⟩
 
+/-- A run of five programs, then one more. -/
+theorem WP.seq5 {a b c d e T : Prog isa} {s : State} {P Q : State → Prop}
+    (h : WP isa (.seq a (.seq b (.seq c (.seq d e)))) s P) (k : ∀ s', P s' → WP isa T s' Q) :
+    WP isa (.seq a (.seq b (.seq c (.seq d (.seq e T))))) s Q := by
+  refine WP.seq (WP.mono (WP.seq_iff.mp h) fun _ h => WP.seq (WP.mono (WP.seq_iff.mp h) fun _ h =>
+    WP.seq (WP.mono (WP.seq_iff.mp h) fun _ h => WP.seq (WP.mono (WP.seq_iff.mp h) fun _ h =>
+      WP.seq (WP.mono h k)))))
+
 /-- Code never changes the permissions. -/
 theorem WP.with_rdwr {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) :
     WP isa c s fun s' => Q s' ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
