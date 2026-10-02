@@ -79,19 +79,13 @@ impl core::error::Error for Error {}
 /// chunks `vg_scrypt` takes.
 const PBKDF2_CHUNKS: usize = 14;
 
-/// A vector of `len` copies of `zero` (a zero byte or 128-byte chunk), or
-/// `AllocationFailed`.
-fn zeroed<T: Clone>(len: usize, zero: T) -> Result<Vec<T>, Error> {
+/// A zeroed vector of `len` 128-byte chunks, or `AllocationFailed`.
+fn chunks(len: usize) -> Result<Vec<[u8; 128]>, Error> {
     let mut v = Vec::new();
     v.try_reserve_exact(len)
         .map_err(|_| Error::AllocationFailed)?;
-    v.resize(len, zero);
+    v.resize(len, [0; 128]);
     Ok(v)
-}
-
-/// A vector of `len` zeroed 128-byte chunks, or `AllocationFailed`.
-fn chunks(len: usize) -> Result<Vec<[u8; 128]>, Error> {
-    zeroed(len, [0; 128])
 }
 
 /// Fills `out` with the key derived from `password` and `salt` by scrypt
@@ -123,40 +117,40 @@ pub fn scrypt(
     Ok(())
 }
 
-/// Checks a password against a stored derived key: derives a key of
-/// `expected.len()` bytes from `password` and `salt` by scrypt with
-/// parameters `n`, `r` and `p` (as [`scrypt`] does), if that needs at most
-/// `max_memory` bytes, and compares it with `expected`.
+/// Checks a password against a stored derived key: derives a key of `N`
+/// bytes from `password` and `salt` by scrypt with parameters `n`, `r` and
+/// `p` (as [`scrypt`] does), if that needs at most `max_memory` bytes, and
+/// compares it with `expected`.
 ///
 /// The comparison is constant time: the time taken does not depend on
 /// where, or whether, the keys differ. The derivation is [`scrypt`]'s, whose
 /// memory accesses depend on the password (see the module's documentation).
-/// `expected.len()` is public (it decides how much is derived). The derived
-/// key is wiped before returning.
+/// `N` is public. The derived key is wiped before returning.
 ///
-/// `expected` is the whole stored key: its length is the derived key's,
-/// and scrypt's keys of different lengths share their prefixes, so any
-/// prefix of the stored key matches too. The memory limit counts what
-/// [`scrypt`] needs, not the `expected.len()` bytes allocated for the
-/// derived key.
+/// `N` is a type parameter, at least 16 (a smaller one is an error when the
+/// call is compiled), so that the length checked is fixed in the caller's
+/// code: scrypt's keys of different lengths share their prefixes, so a key
+/// checked at a length taken from a slice (a truncated stored key, or one an
+/// attacker sent) would match a password on as few bytes as it has. A caller
+/// with the stored key in a slice converts it (`stored.try_into()`), which
+/// fails if it does not have the length the code expects.
 ///
 /// # Errors
 ///
 /// [`Error::KeyMismatch`] if the derived key is not `expected`; otherwise
-/// as [`scrypt`], with `expected` in place of `out`: in particular
-/// [`Error::InvalidParameters`] if `expected` is empty (no password is
-/// checked against a key of zero bytes).
-pub fn verify(
+/// as [`scrypt`], with `expected` in place of `out`.
+pub fn verify<const N: usize>(
     password: &[u8],
     salt: &[u8],
     n: u64,
     r: u32,
     p: u32,
     max_memory: usize,
-    expected: &[u8],
+    expected: &[u8; N],
 ) -> Result<(), Error> {
-    let mut memory = Memory::new(n, r, p, max_memory, expected.len())?;
-    let mut key = zeroed(expected.len(), 0u8)?;
+    crate::ct::assert_verify_len!(N);
+    let mut memory = Memory::new(n, r, p, max_memory, N)?;
+    let mut key = [0u8; N];
     memory.derive(password, salt, &mut key);
     let matches = crate::ct::eq(&key, expected);
     crate::zeroize::zeroize(&mut key);

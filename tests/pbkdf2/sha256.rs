@@ -15,12 +15,11 @@ fn pbkdf2_hmac_sha256() {
     super::check::<Sha256>(pbkdf2_hmac::<Sha256>);
 }
 
-/// `pbkdf2_hmac_verify` accepts the derived key, and a key derived with a
-/// length of its own (each is a prefix of the longer ones), and rejects any
-/// other: with a bit flipped in its first, a middle or its last byte, with a
-/// byte appended that is not the next one derived, from another password,
-/// and an empty one.
-#[cfg(feature = "alloc")]
+/// `pbkdf2_hmac_verify` accepts the key derived at the length it checks
+/// (40 bytes, and 16: PBKDF2's keys of different lengths share prefixes, so
+/// each length checks its own), and rejects any other: with a bit flipped in
+/// its first, a middle or its last byte, with a byte appended that is not the
+/// next one derived, and from another password.
 #[test]
 fn pbkdf2_hmac_sha256_verify() {
     use core::num::NonZeroU32;
@@ -28,25 +27,33 @@ fn pbkdf2_hmac_sha256_verify() {
     use verified_garbage::pbkdf2::{KeyMismatch, pbkdf2_hmac_verify};
 
     let c = NonZeroU32::new(3).unwrap();
-    let verify = |expected: &[u8]| pbkdf2_hmac_verify::<Sha256>(b"password", b"salt", c, expected);
     let mut dk = [0u8; 41];
     pbkdf2_hmac::<Sha256>(b"password", b"salt", c, &mut dk);
-    let mut longer = dk;
-    let dk = &dk[..40];
-    assert_eq!(verify(dk), Ok(()));
+    let key: [u8; 40] = dk[..40].try_into().unwrap();
+    let verify =
+        |expected: &[u8; 40]| pbkdf2_hmac_verify::<Sha256, 40>(b"password", b"salt", c, expected);
+    assert_eq!(verify(&key), Ok(()));
     for i in [0, 20, 39] {
-        let mut bad = dk.to_vec();
+        let mut bad = key;
         bad[i] ^= 1;
         assert_eq!(verify(&bad), Err(KeyMismatch));
     }
-    assert_eq!(verify(&dk[..1]), Ok(()));
-    assert_eq!(verify(&dk[..39]), Ok(()));
-    assert_eq!(verify(&longer), Ok(()));
-    longer[40] ^= 1;
-    assert_eq!(verify(&longer), Err(KeyMismatch));
-    assert_eq!(verify(&[]), Err(KeyMismatch));
+    let short: [u8; 16] = dk[..16].try_into().unwrap();
     assert_eq!(
-        pbkdf2_hmac_verify::<Sha256>(b"passwore", b"salt", c, dk),
+        pbkdf2_hmac_verify::<Sha256, 16>(b"password", b"salt", c, &short),
+        Ok(())
+    );
+    assert_eq!(
+        pbkdf2_hmac_verify::<Sha256, 41>(b"password", b"salt", c, &dk),
+        Ok(())
+    );
+    dk[40] ^= 1;
+    assert_eq!(
+        pbkdf2_hmac_verify::<Sha256, 41>(b"password", b"salt", c, &dk),
+        Err(KeyMismatch)
+    );
+    assert_eq!(
+        pbkdf2_hmac_verify::<Sha256, 40>(b"passwore", b"salt", c, &key),
         Err(KeyMismatch)
     );
     assert_eq!(KeyMismatch.to_string(), "PBKDF2 derived key does not match");

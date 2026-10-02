@@ -51,61 +51,52 @@ pub fn pbkdf2_hmac<H: Pbkdf2Hash>(
 /// The key derived from a password did not match the expected one: the
 /// password (or the salt or iteration count) is not the one it was derived
 /// from. Returned by [`pbkdf2_hmac_verify`].
-#[cfg(feature = "alloc")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyMismatch;
 
-#[cfg(feature = "alloc")]
 impl core::fmt::Display for KeyMismatch {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("PBKDF2 derived key does not match")
     }
 }
 
-#[cfg(feature = "alloc")]
 impl core::error::Error for KeyMismatch {}
 
-/// Checks a password against a stored derived key: derives a key of
-/// `expected.len()` bytes from `password` and `salt` with `iterations`
-/// iterations of PBKDF2 with HMAC over the hash function `H` (as
-/// [`pbkdf2_hmac`] does), and compares it with `expected`.
+/// Checks a password against a stored derived key: derives a key of `N`
+/// bytes from `password` and `salt` with `iterations` iterations of PBKDF2
+/// with HMAC over the hash function `H` (as [`pbkdf2_hmac`] does), and
+/// compares it with `expected`.
 ///
 /// The comparison is constant time: the time taken does not depend on
 /// where, or whether, the keys differ. The derivation is
 /// [`pbkdf2_hmac`]'s, whose verified implementation leaks only the lengths
-/// of the password and the salt and the iteration count. `expected.len()`
-/// is public too (it decides how much is derived). The derived key is wiped
-/// before returning.
+/// of the password and the salt and the iteration count. `N` is public too.
+/// The derived key is wiped before returning.
 ///
-/// `expected` is the whole stored key: its length is the derived key's,
-/// and PBKDF2's keys of different lengths share their prefixes, so any
-/// prefix of the stored key matches too. An empty `expected` never matches
-/// (every password derives the same key of zero bytes).
+/// `N` is a type parameter, at least 16 (a smaller one is an error when the
+/// call is compiled), so that the length checked is fixed in the caller's
+/// code: PBKDF2's keys of different lengths share their prefixes, so a key
+/// checked at a length taken from a slice (a truncated stored key, or one an
+/// attacker sent) would match a password on as few bytes as it has. A caller
+/// with the stored key in a slice converts it (`stored.try_into()`), which
+/// fails if it does not have the length the code expects.
 ///
 /// # Errors
 ///
-/// [`KeyMismatch`] if the derived key is not `expected`, or `expected` is
-/// empty.
+/// [`KeyMismatch`] if the derived key is not `expected`.
 ///
 /// # Panics
 ///
-/// If `expected` is longer than (2³² − 1) times the digest size ("derived
-/// key too long" in RFC 8018), as [`pbkdf2_hmac`] does. (Allocating the
-/// derived key, of `expected.len()` bytes, aborts if it fails, as `Vec`
-/// does.)
-#[cfg(feature = "alloc")]
-pub fn pbkdf2_hmac_verify<H: Pbkdf2Hash>(
+/// If `N` is more than (2³² − 1) times the digest size ("derived key too
+/// long" in RFC 8018), as [`pbkdf2_hmac`] does.
+pub fn pbkdf2_hmac_verify<H: Pbkdf2Hash, const N: usize>(
     password: &[u8],
     salt: &[u8],
     iterations: NonZeroU32,
-    expected: &[u8],
+    expected: &[u8; N],
 ) -> Result<(), KeyMismatch> {
-    if expected.is_empty() {
-        return Err(KeyMismatch);
-    }
-    // Before allocating it.
-    check_len(expected.len(), H::OUTPUT_SIZE);
-    let mut key = alloc::vec![0u8; expected.len()];
+    crate::ct::assert_verify_len!(N);
+    let mut key = [0u8; N];
     H::pbkdf2_derive(password, salt, iterations, &mut key);
     let matches = crate::ct::eq(&key, expected);
     crate::zeroize::zeroize(&mut key);

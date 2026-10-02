@@ -141,53 +141,57 @@ pub fn derive_keyed(
 /// # Errors
 ///
 /// As [`verify_keyed`].
-pub fn verify(
+pub fn verify<const N: usize>(
     params: &Params,
     password: &[u8],
     salt: &[u8],
     max_memory: usize,
-    expected: &[u8],
+    expected: &[u8; N],
 ) -> Result<(), Error> {
     verify_keyed(params, password, salt, b"", b"", max_memory, expected)
 }
 
-/// Checks a password against a stored derived key: derives a key of
-/// `expected.len()` bytes from `password`, `salt`, `secret` and
-/// `associated_data` with the costs `params` (as [`derive_keyed`] does), if
-/// that needs at most `max_memory` bytes, and compares it with `expected`.
+/// Checks a password against a stored derived key: derives a key of `N`
+/// bytes from `password`, `salt`, `secret` and `associated_data` with the
+/// costs `params` (as [`derive_keyed`] does), if that needs at most
+/// `max_memory` bytes, and compares it with `expected`.
 ///
 /// The comparison is constant time: the time taken does not depend on
 /// where, or whether, the keys differ. The derivation is
 /// [`derive_keyed`]'s: Argon2i's leaks no input contents, while Argon2d's
 /// and Argon2id's memory accesses depend on the password (see the module's
-/// documentation). `expected.len()` is public (it decides how much is
-/// derived). The derived key is wiped before returning.
+/// documentation). `N` is public. The derived key is wiped before returning.
 ///
-/// The memory limit counts what [`derive_keyed`] needs, not the
-/// `expected.len()` bytes allocated for the derived key.
+/// `N` is a type parameter, at least 16 (a smaller one is an error when the
+/// call is compiled), so that the length checked is fixed in the caller's
+/// code, as for PBKDF2's and scrypt's `verify`. (Argon2's keys of different
+/// lengths do not share prefixes, as the length is an input to H₀, but a
+/// short key would still be checked on only that many bytes.) A caller with
+/// the stored key in a slice converts it (`stored.try_into()`), which fails
+/// if it does not have the length the code expects.
 ///
 /// # Errors
 ///
 /// [`Error::KeyMismatch`] if the derived key is not `expected`; otherwise
-/// as [`derive_keyed`], with `expected` in place of `out`: in particular
-/// [`Error::InvalidParameters`] if `expected` is shorter than 4 bytes.
-pub fn verify_keyed(
+/// as [`derive_keyed`], with `expected` in place of `out`.
+pub fn verify_keyed<const N: usize>(
     params: &Params,
     password: &[u8],
     salt: &[u8],
     secret: &[u8],
     associated_data: &[u8],
     max_memory: usize,
-    expected: &[u8],
+    expected: &[u8; N],
 ) -> Result<(), Error> {
+    crate::ct::assert_verify_len!(N);
     let inputs = Inputs {
         password,
         salt,
         secret,
         associated_data,
     };
-    let mut derivation = Derivation::new(params, inputs, max_memory, expected.len())?;
-    let mut key = allocate(expected.len(), 0u8)?;
+    let mut derivation = Derivation::new(params, inputs, max_memory, N)?;
+    let mut key = [0u8; N];
     derivation.run(&mut key);
     let matches = crate::ct::eq(&key, expected);
     crate::zeroize::zeroize(&mut key);

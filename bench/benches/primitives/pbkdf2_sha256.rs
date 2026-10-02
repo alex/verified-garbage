@@ -43,7 +43,7 @@ pub fn bench(c: &mut Criterion) {
         pbkdf2_hmac::<Sha256>(&password, &salt, n, &mut expected);
         g.bench_function(BenchmarkId::new(VG, iterations), |b| {
             b.iter(|| {
-                pbkdf2_hmac_verify::<Sha256>(
+                pbkdf2_hmac_verify::<Sha256, 32>(
                     black_box(&password),
                     black_box(&salt),
                     n,
