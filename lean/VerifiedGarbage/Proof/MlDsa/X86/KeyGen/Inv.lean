@@ -3,13 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.Base
 /-!
 # ML-DSA key generation on x86 (32-bit): what holds between the pieces
 
-Untrusted: everything here is checked by Lean. After the seeds, `scratch`
-holds `(ρ, ρ′, K)` and the seeds of the samplers (`KB`); after the first `e`
-entries of `Â` and `r` of `s₁ ‖ s₂`, the polynomials sampled, reduced (and
-small), and the AND of the samplers' results, which is 1 if they are those
-of the standard for some bounds, and 0 if key generation fails within the
-least bounds (`Good`, `KSamp`). Each is kept by a piece that writes only
-buffers apart from those it describes (`KB.keep`, `KSamp.keep`).
+After the seeds, `scratch` holds `(ρ, ρ′, K)` and the seeds of the samplers
+(`KB`); after the first `e` entries of `Â` and `r` of `s₁ ‖ s₂`, the
+polynomials sampled, reduced (and small), and the AND of the samplers'
+results, which is 1 if they are those of the standard for some bounds, and 0
+if key generation fails within the least bounds (`Good`, `KSamp`). Each is
+kept by a piece that writes only buffers apart from those it describes
+(`KB.keep`, `KSamp.keep`).
 -/
 
 namespace VG.Proof.MlDsa.X86.KeyGen

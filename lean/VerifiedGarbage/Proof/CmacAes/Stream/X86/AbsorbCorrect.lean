@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.CmacAes.Stream.X86.Absorb
 /-!
 # Streaming AES-CMAC on x86: `vg_cmac_aes_absorb` is correct
 
-Untrusted: everything here is checked by Lean. After `absorbPre`, the
-first call chains the block held back if data is left (`b1`), the second
-the whole blocks of the data left but its last 1 to 16 bytes (`nb`), and
-the last copy holds those back. If no data is left (`len ≤ 16 - h`), the
-calls chain nothing and the copy copies nothing, and the data is appended
-to the bytes held back (`repr_fill`); otherwise `repr_chain`.
+After `absorbPre`, the first call chains the block held back if data is left
+(`b1`), the second the whole blocks of the data left but its last 1 to 16
+bytes (`nb`), and the last copy holds those back. If no data is left (`len ≤
+16 - h`), the calls chain nothing and the copy copies nothing, and the data is
+appended to the bytes held back (`repr_fill`); otherwise `repr_chain`.
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86

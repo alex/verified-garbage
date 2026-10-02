@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Block
 /-!
 # PBKDF2-HMAC's iteration over a Merkle–Damgård hash function on x86 (32-bit): correct
 
-Untrusted: everything here is checked by Lean. The iteration
-(`Impl/Pbkdf2/Md/X86.lean`) is correct for any hash function whose code the
-proofs know (`MdOk`): `Md.hmac_step` says that its two compressions per step
-compute HMAC. The arguments are on the stack: `scratch`, `key`, `n` and `u`
-are loaded first (after our caller's registers are saved in `scratch`), and
-`t` in each step. The loop counts the steps left in `edi` down with `sub`,
-and branches on its result.
+The iteration (`Impl/Pbkdf2/Md/X86.lean`) is correct for any hash function
+whose code the proofs know (`MdOk`): `Md.hmac_step` says that its two
+compressions per step compute HMAC. The arguments are on the stack: `scratch`,
+`key`, `n` and `u` are loaded first (after our caller's registers are saved in
+`scratch`), and `t` in each step. The loop counts the steps left in `edi` down
+with `sub`, and branches on its result.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86.Iterate

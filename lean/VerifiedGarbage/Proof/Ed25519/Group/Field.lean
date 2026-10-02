@@ -6,11 +6,11 @@ import Mathlib.FieldTheory.Finite.Basic
 /-!
 # The specification's field as `ZMod P`, and the curve's parameters
 
-Untrusted. `Fe = Fin P` and `ZMod P` are the same type with the same
-operations, so `toZ` is the identity; `ZMod P` is a field because `P` is
-prime (`Prime.lean`). The specification's `d` is not a square (its power
-`(P - 1) / 2` is `-1`) and `sqrtM1` squares to `-1`, so the Edwards addition
-law over `ZMod P` is complete.
+`Fe = Fin P` and `ZMod P` are the same type with the same operations, so `toZ`
+is the identity; `ZMod P` is a field because `P` is prime (`Prime.lean`). The
+specification's `d` is not a square (its power `(P - 1) / 2` is `-1`) and
+`sqrtM1` squares to `-1`, so the Edwards addition law over `ZMod P` is
+complete.
 -/
 
 namespace VG.Proof.Ed25519

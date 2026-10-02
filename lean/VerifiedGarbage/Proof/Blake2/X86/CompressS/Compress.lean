@@ -5,10 +5,9 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # BLAKE2s on x86 (32-bit): the compression function
 
-Untrusted: everything here is checked by Lean. `correct`: the prologue, the
-final block flag, the loop over the blocks (`body_ok`) and the epilogue meet
-`compressX86 Spec.Blake2.s`; `τ₀`, `agree₀`: the start of its taint
-analysis.
+`correct`: the prologue, the final block flag, the loop over the blocks
+(`body_ok`) and the epilogue meet `compressX86 Spec.Blake2.s`; `τ₀`, `agree₀`:
+the start of its taint analysis.
 -/
 
 namespace VG.Proof.Blake2.X86.CompressS

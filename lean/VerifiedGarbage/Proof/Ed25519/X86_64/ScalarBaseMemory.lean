@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseEngine
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarMemory
 import VerifiedGarbage.Proof.Ed25519.X86_64.MulAddCodec
 
-/-! Untrusted: keep the output pointer and saved registers outside the point workspace. -/
+/-! Keep the output pointer and saved registers outside the point workspace. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

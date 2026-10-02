@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Gcm.AArch64.Ghash
 /-!
 # AES-CMAC on AArch64: doubling a block in two 64-bit words
 
-Untrusted: everything here is checked by Lean. `subkeys` loads a block as
-two byte-reversed words (`rev`), the high and low halves of the block as a
-big-endian integer (`Proof.Gcm.AArch64.blockAt_rev`), doubles the integer a
-word at a time (`dbl_words`), and stores the halves byte-reversed again
-(`le8_rev`).
+`subkeys` loads a block as two byte-reversed words (`rev`), the high and low
+halves of the block as a big-endian integer (`Proof.Gcm.AArch64.blockAt_rev`),
+doubles the integer a word at a time (`dbl_words`), and stores the halves
+byte-reversed again (`le8_rev`).
 -/
 
 namespace VG.Proof.CmacAes.AArch64

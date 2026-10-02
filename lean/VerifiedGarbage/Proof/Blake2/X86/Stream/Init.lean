@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.Sha512.Word64
 /-!
 # Streaming BLAKE2 on x86 (32-bit): `init`
 
-Untrusted: everything here is checked by Lean. `init` copies the key, if
-any, into the zeroed buffer (`keyBlock_ok`), keeping our caller's `ebx` in
-the first word of the hash value meanwhile, then stores the initial hash
-value (`initState_ok`), for either word size.
+`init` copies the key, if any, into the zeroed buffer (`keyBlock_ok`), keeping
+our caller's `ebx` in the first word of the hash value meanwhile, then stores
+the initial hash value (`initState_ok`), for either word size.
 -/
 
 namespace VG.Proof.Blake2.X86.Stream.Init

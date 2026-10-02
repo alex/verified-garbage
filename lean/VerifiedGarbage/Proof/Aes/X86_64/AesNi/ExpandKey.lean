@@ -15,12 +15,11 @@ section
 /-!
 # AES key expansion as 32-bit words
 
-Untrusted: everything here is checked by Lean. `W m kp nk i` is word `w[i]`
-of the key schedule of the `nk`-word key at `kp`, as the 32-bit value whose
-bytes, least significant first, are the word's bytes (`wv`), which is how a
-doubleword of an SSE register holds it. `expandKey_eq`: FIPS 197's
-`KEYEXPANSION` is these words, in order; `bytesAt_eq`: memory holding them
-as little-endian doublewords holds the schedule.
+`W m kp nk i` is word `w[i]` of the key schedule of the `nk`-word key at `kp`,
+as the 32-bit value whose bytes, least significant first, are the word's bytes
+(`wv`), which is how a doubleword of an SSE register holds it. `expandKey_eq`:
+FIPS 197's `KEYEXPANSION` is these words, in order; `bytesAt_eq`: memory
+holding them as little-endian doublewords holds the schedule.
 -/
 
 namespace VG.Proof.Aes.X86_64.AesNi
@@ -181,11 +180,10 @@ end
 /-!
 # AES-NI key expansion: the steps
 
-Untrusted: everything here is checked by Lean. What `kstep` and `kstepB6`
-compute, as doublewords (one symbolic execution of each, for any registers
-and offsets), and `good_store`: storing a register whose first `n`
-doublewords are the next `n` words of the schedule extends the stored
-prefix of the schedule by `n` words.
+What `kstep` and `kstepB6` compute, as doublewords (one symbolic execution of
+each, for any registers and offsets), and `good_store`: storing a register
+whose first `n` doublewords are the next `n` words of the schedule extends the
+stored prefix of the schedule by `n` words.
 -/
 
 namespace VG.Proof.Aes.X86_64.AesNi
@@ -318,11 +316,10 @@ end
 /-!
 # AES-NI key expansion: the whole function
 
-Untrusted: everything here is checked by Lean. `expandKey_verified` proves
-`Impl.Aes.X86_64.AesNi.expandKey` against `expandKeyX86_64`. After each
-step, the first `K` words of the schedule are stored (`KS`) and the
-registers hold the last words computed; the steps are composed by
-induction (`wp_range_flatMap`), each proved once for any index
+`expandKey_verified` proves `Impl.Aes.X86_64.AesNi.expandKey` against
+`expandKeyX86_64`. After each step, the first `K` words of the schedule are
+stored (`KS`) and the registers hold the last words computed; the steps are
+composed by induction (`wp_range_flatMap`), each proved once for any index
 (`kstepK`, `kstepB6K`).
 -/
 

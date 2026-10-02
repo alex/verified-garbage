@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.FieldMemory
 import VerifiedGarbage.Proof.Ed25519.AArch64.Field
 
-/-! Untrusted: exact extended-coordinate operations and the slots they preserve. -/
+/-! Exact extended-coordinate operations and the slots they preserve. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

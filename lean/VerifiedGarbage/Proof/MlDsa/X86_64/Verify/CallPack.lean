@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CallSample
 /-!
 # ML-DSA verification on x86-64: calls of the rounding and encoding primitives
 
-Untrusted: everything here is checked by Lean. The calls of
-`vg_mldsa_use_hint`, `vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_unpack`,
-`vg_mldsa_unpack_t1`, `vg_mldsa_hint_bit_unpack` and `vg_mldsa_norm_lt`:
-what they need of the layout (`…Chk`), what they do (`…_ok`), and that two
-runs whose layout registers agree (and, for `vg_mldsa_hint_bit_unpack`, the
-encoded hint) leak the same (`…_tr`).
+The calls of `vg_mldsa_use_hint`, `vg_mldsa_simple_bit_pack`,
+`vg_mldsa_bit_unpack`, `vg_mldsa_unpack_t1`, `vg_mldsa_hint_bit_unpack` and
+`vg_mldsa_norm_lt`: what they need of the layout (`…Chk`), what they do
+(`…_ok`), and that two runs whose layout registers agree (and, for
+`vg_mldsa_hint_bit_unpack`, the encoded hint) leak the same (`…_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

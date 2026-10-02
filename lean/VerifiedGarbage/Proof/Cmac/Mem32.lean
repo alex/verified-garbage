@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Cmac.Frame
 /-!
 # CMAC: blocks in memory as 32-bit words
 
-Untrusted: everything here is checked by Lean.
-
 On the 32-bit targets a 16-byte block is loaded and stored as four
 little-endian 32-bit words: `le4 w` is the bytes of the word `w`, and storing
 `w₀ … w₃` at `p`, `p + 4`, `p + 8` and `p + 12` (`store4`) leaves

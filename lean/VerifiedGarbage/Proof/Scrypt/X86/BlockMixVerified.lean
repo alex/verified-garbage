@@ -5,14 +5,14 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 /-!
 # scryptBlockMix on x86 (32-bit): verified
 
-Untrusted: everything here is checked by Lean. `SalsaSpec` of the verified
-Salsa20/8 Core, from its proof by `WP.callWith`; then the `Verified` proof of
-`vg_scrypt_blockmix`. Only `esp` and the arguments are public, and the taint
-analysis checks that nothing else reaches an address or a branch: the words
-holding `y` and `scratch` are the bases of the two writable regions, and the
-code reads the pointers and `r` from the arguments, which it never writes.
-The proof is written against a contract under which the code only reads its
-arguments, and moved to the shared contract with `Verified.narrowTo`.
+`SalsaSpec` of the verified Salsa20/8 Core, from its proof by `WP.callWith`;
+then the `Verified` proof of `vg_scrypt_blockmix`. Only `esp` and the
+arguments are public, and the taint analysis checks that nothing else reaches
+an address or a branch: the words holding `y` and `scratch` are the bases of
+the two writable regions, and the code reads the pointers and `r` from the
+arguments, which it never writes. The proof is written against a contract
+under which the code only reads its arguments, and moved to the shared
+contract with `Verified.narrowTo`.
 -/
 
 namespace VG.Proof.Scrypt.X86.BlockMix

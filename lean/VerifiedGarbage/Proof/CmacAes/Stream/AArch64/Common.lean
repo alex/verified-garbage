@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # Streaming AES-CMAC on AArch64: arithmetic, memory and copying bytes
 
-Untrusted: everything here is checked by Lean. The number of bytes held
-back, as the code computes it from `count` (`held_bv`); immediates; branch
-conditions; bytes written (`writeBytes`); and `copy`, which copies the `x8`
-bytes at `x7` to `x6`, a byte at a time (none if `x8` is 0), changing only
-`x6` to `x9`.
+The number of bytes held back, as the code computes it from `count`
+(`held_bv`); immediates; branch conditions; bytes written (`writeBytes`); and
+`copy`, which copies the `x8` bytes at `x7` to `x6`, a byte at a time (none if
+`x8` is 0), changing only `x6` to `x9`.
 -/
 
 namespace VG.Proof.CmacAes.Stream.AArch64

@@ -3,15 +3,14 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sample.Sponge
 /-!
 # ML-DSA on 32-bit ARM: the sampling functions' prologue and epilogue
 
-Untrusted: everything here is checked by Lean. The prologue (`pro`) saves
-our caller's `r4`–`r11` and `lr` in the working space and sets up the
-layout: from what it leaves, `J0` holds (`pro_ok`, for any registers, and
-`pro_rn`, `pro_rb`, `pro_ball` for the three ways the functions call it).
-The epilogue (`epi`) restores them: with `Env`, the calling convention's
-obligations hold at the end (`epi_ok`, `retEpi_ok`, which also returns
-`j >> 8`). The pieces of the loops: `storeJ` stores the next coefficient
-`a[j]` (`storeJ_ok`), `jFull` tests `j ≥ 256` (`jFull_ok`), `step` advances
-(`step_ok`).
+The prologue (`pro`) saves our caller's `r4`–`r11` and `lr` in the working
+space and sets up the layout: from what it leaves, `J0` holds (`pro_ok`, for
+any registers, and `pro_rn`, `pro_rb`, `pro_ball` for the three ways the
+functions call it). The epilogue (`epi`) restores them: with `Env`, the
+calling convention's obligations hold at the end (`epi_ok`, `retEpi_ok`, which
+also returns `j >> 8`). The pieces of the loops: `storeJ` stores the next
+coefficient `a[j]` (`storeJ_ok`), `jFull` tests `j ≥ 256` (`jFull_ok`), `step`
+advances (`step_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sample

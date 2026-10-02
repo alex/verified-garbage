@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlKem.Arm.Prf
 /-!
 # ML-DSA on 32-bit ARM: the buffers of the top-level functions
 
-Untrusted: everything here is checked by Lean. The top-level functions work
-on five buffers (a `Lay`, as ML-KEM's): `scratch` (buffer 0), the `STK`
-bytes of stack below the stack pointer (buffer 1), and their arguments
-(buffers 2, 3 and 4, whose pointers they keep in `r4`, `r5` and `r6`; `r7`
-holds `scratch`): `ix` maps each register to the buffer it points into. A
-state where they run their parts is a `Site`.
+The top-level functions work on five buffers (a `Lay`, as ML-KEM's): `scratch`
+(buffer 0), the `STK` bytes of stack below the stack pointer (buffer 1), and
+their arguments (buffers 2, 3 and 4, whose pointers they keep in `r4`, `r5`
+and `r6`; `r7` holds `scratch`): `ix` maps each register to the buffer it
+points into. A state where they run their parts is a `Site`.
 
 A pointer `q` (a register and an offset) is the address `lpa L q`, and the
 region of `l` bytes there the triple `tri q l`, so that what a part writes

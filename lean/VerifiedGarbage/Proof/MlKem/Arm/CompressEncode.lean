@@ -6,11 +6,10 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_compress_encode`
 
-Untrusted: everything here is checked by Lean. A loop for each width `d`,
-over the output. A byte of several fields is built in the output: its
-first field stored, each next one added (`addB`). The body is symbolically
-executed once for any pointers (`body4_ok`, `body10_ok`; for `d = 1`, each
-of the eight bits once for any bit, `bit_ok`). The values are
+A loop for each width `d`, over the output. A byte of several fields is built
+in the output: its first field stored, each next one added (`addB`). The body
+is symbolically executed once for any pointers (`body4_ok`, `body10_ok`; for
+`d = 1`, each of the eight bits once for any bit, `bit_ok`). The values are
 `compress_eq`, with the product in 32 bits (`cmpV_toNat`), and the bytes
 `compressEncode1`, `compressEncode4` and `compressEncode10_0`–`_4`.
 -/

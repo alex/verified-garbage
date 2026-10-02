@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarLit
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 
-/-! Untrusted: scalar reduction satisfies the merged specification, ABI, and constant-time contract. -/
+/-! Scalar reduction satisfies the merged specification, ABI, and constant-time contract. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 

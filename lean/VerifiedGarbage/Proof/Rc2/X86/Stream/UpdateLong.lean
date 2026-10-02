@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.Rc2.X86.Stream.UpdateCopy
 /-!
 # Streaming RC2-CBC on x86 (32-bit): the copies before CBC
 
-Untrusted: everything here is checked by Lean. With `out_len ≠ 0`: the
-pending bytes and the first `out_len - pending_len` bytes of data to `out`,
-and the rest of the data to the pending block (`long_ok`).
+With `out_len ≠ 0`: the pending bytes and the first `out_len - pending_len`
+bytes of data to `out`, and the rest of the data to the pending block
+(`long_ok`).
 -/
 
 namespace VG.Proof.Rc2.X86.Stream.Update

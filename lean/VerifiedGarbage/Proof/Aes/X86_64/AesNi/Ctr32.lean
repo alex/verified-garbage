@@ -9,10 +9,10 @@ section
 /-!
 # AES-NI counter mode: the counter blocks and the data
 
-Untrusted: everything here is checked by Lean. `ctrs_ok`: `ctrs regs` puts
-the counter blocks `CB`, `inc₃₂(CB)`, … into the registers `regs`, as bytes;
-`xorData_ok`: `xorData regs j` XORs the registers into the data blocks
-`j`, `j + 1`, …; both for any list of registers, by induction.
+`ctrs_ok`: `ctrs regs` puts the counter blocks `CB`, `inc₃₂(CB)`, … into the
+registers `regs`, as bytes; `xorData_ok`: `xorData regs j` XORs the registers
+into the data blocks `j`, `j + 1`, …; both for any list of registers, by
+induction.
 -/
 
 namespace VG.Proof.Aes.X86_64.AesNi
@@ -209,11 +209,10 @@ end
 /-!
 # AES-NI counter mode: the whole function
 
-Untrusted: everything here is checked by Lean. `ctr32_verified` proves
-`Impl.Aes.X86_64.AesNi.ctr32` against `ctr32X86_64`. The loops keep, after
-`c` blocks, the counter block `inc₃₂ᶜ(CB)` in `xmm9` and the first `c` data
-blocks encrypted; the eight-block and one-block bodies are the same code
-for different lists of registers (`blocks_ok`).
+`ctr32_verified` proves `Impl.Aes.X86_64.AesNi.ctr32` against `ctr32X86_64`.
+The loops keep, after `c` blocks, the counter block `inc₃₂ᶜ(CB)` in `xmm9` and
+the first `c` data blocks encrypted; the eight-block and one-block bodies are
+the same code for different lists of registers (`blocks_ok`).
 -/
 
 namespace VG.Proof.Aes.X86_64.AesNi

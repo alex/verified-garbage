@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.FieldMemory
 import Mathlib.Data.ZMod.Defs
 import Mathlib.Tactic.Ring
 
-/-! Untrusted: compositional field programs and the extended Edwards formulas. -/
+/-! Compositional field programs and the extended Edwards formulas. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 open Fin.CommRing

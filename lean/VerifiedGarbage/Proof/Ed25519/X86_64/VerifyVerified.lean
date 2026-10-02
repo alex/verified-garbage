@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyLit
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Mxcsr
 
-/-! Untrusted: the complete verifier satisfies the merged specification and leakage contract. -/
+/-! The complete verifier satisfies the merged specification and leakage contract. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

@@ -3,13 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.Inst
 /-!
 # ML-DSA signing on ARMv7: verified
 
-Untrusted: everything here is checked by Lean. `vg_mldsa{44,65,87}_sign`
-(`sign prims p`) is verified against `signContractT`: `signContract` with
-`signLeakT` (`Proof/MlDsa/Sign/Leak.lean`) for `signLeak`, which tags what
-each iteration of the loop leaks after its `c̃` with whether it was
-rejected. The contract's `signLeak` tags the iterations the same way
-(`signLeakT_eq_signLeak`), so `signContractT` is `signContract`
-(`signContractT_eq`), against which `sign*_verified'` state it.
+`vg_mldsa{44,65,87}_sign` (`sign prims p`) is verified against
+`signContractT`: `signContract` with `signLeakT`
+(`Proof/MlDsa/Sign/Leak.lean`) for `signLeak`, which tags what each iteration
+of the loop leaks after its `c̃` with whether it was rejected. The contract's
+`signLeak` tags the iterations the same way (`signLeakT_eq_signLeak`), so
+`signContractT` is `signContract` (`signContractT_eq`), against which
+`sign*_verified'` state it.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

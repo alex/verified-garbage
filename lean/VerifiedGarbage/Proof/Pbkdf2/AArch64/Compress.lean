@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.Framework.AArch64.Taint
 /-!
 # A Merkle–Damgård compression function on AArch64, called on one block
 
-Untrusted: everything here is checked by Lean. The contract of a
-compression function with blocks of any size `B` (`compK`, which is that of
-the streaming proofs, `Proof/MdStream/AArch64/Common.lean`, for any block
-size), what its callers need of an implementation (`CompOk`: correct,
-constant time, without frames), and the call of it on one block through the
-streaming code's `compressAt`, in one run (`compressAt_ok`) and in two
-(`compressAt_rel`).
+The contract of a compression function with blocks of any size `B` (`compK`,
+which is that of the streaming proofs, `Proof/MdStream/AArch64/Common.lean`,
+for any block size), what its callers need of an implementation (`CompOk`:
+correct, constant time, without frames), and the call of it on one block
+through the streaming code's `compressAt`, in one run (`compressAt_ok`) and in
+two (`compressAt_rel`).
 -/
 
 namespace VG.Proof.Pbkdf2.AArch64

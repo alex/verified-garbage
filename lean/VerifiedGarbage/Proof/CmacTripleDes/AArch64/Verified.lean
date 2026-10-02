@@ -7,10 +7,9 @@ import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 /-!
 # TDEA-CMAC on AArch64: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness and constant
-time under this target's contracts (`Contract.lean`), and the shared
-contracts of `Spec/Cmac/TripleDesContract.lean`, which imply them, with no
-stack: the functions call nothing, and write only `x0`–`x17`.
+Correctness and constant time under this target's contracts (`Contract.lean`),
+and the shared contracts of `Spec/Cmac/TripleDesContract.lean`, which imply
+them, with no stack: the functions call nothing, and write only `x0`–`x17`.
 -/
 
 namespace VG.Proof.CmacTripleDes.AArch64

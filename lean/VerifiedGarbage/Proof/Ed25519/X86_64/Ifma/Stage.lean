@@ -4,10 +4,9 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.Ifma
 /-!
 # Ed25519 doublings with AVX512_IFMA: the blocks, run symbolically
 
-Untrusted: everything here is checked by Lean. The vector blocks of
-`Ifma.double4` but X25519's products and carries, run symbolically
-(`Proof/X25519/X86_64/Ifma/Sym.lean`): each output limb, lane by lane, as a
-number (`rfl`), and its bounds (`decide`).
+The vector blocks of `Ifma.double4` but X25519's products and carries, run
+symbolically (`Proof/X25519/X86_64/Ifma/Sym.lean`): each output limb, lane by
+lane, as a number (`rfl`), and its bounds (`decide`).
 -/
 
 namespace VG.Proof.Ed25519.X86_64.Ifma

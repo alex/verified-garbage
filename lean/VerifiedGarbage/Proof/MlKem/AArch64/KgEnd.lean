@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_keygen`, the end
 
-Untrusted: everything here is checked by Lean. The copies of `ρ` into `ek`
-and `dk`, `H(ek)` into `dk`, the copy of `z`, and our caller's registers
-back (`end_ok`); then the bytes of `ek` and `dk` as the standard puts them
-together (`ek_at`, `dk_at`).
+The copies of `ρ` into `ek` and `dk`, `H(ek)` into `dk`, the copy of `z`, and
+our caller's registers back (`end_ok`); then the bytes of `ek` and `dk` as the
+standard puts them together (`ek_at`, `dk_at`).
 -/
 
 namespace VG.Proof.MlKem.AArch64.KeyGen

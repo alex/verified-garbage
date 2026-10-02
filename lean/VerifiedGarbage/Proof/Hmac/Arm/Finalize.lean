@@ -8,13 +8,13 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC-SHA-256 on ARMv7: `finalize`
 
-Untrusted: everything here is checked by Lean. The same structure as the
-generic x86-64 and AArch64 proofs (`VG.Proof.Hmac.Generic.X86_64.Finalize`,
+The same structure as the generic x86-64 and AArch64 proofs
+(`VG.Proof.Hmac.Generic.X86_64.Finalize`,
 `VG.Proof.Hmac.Generic.AArch64.Finalize`). The two SHA-256 finalizations are the
-inlined `vg_sha256_finalize` (which calls `vg_sha256_compress`), used as a
-black box through its proof, together with the fact that it never writes
-`r0` (`WP.inlineCalls`); their stack
-arguments (`out`, `scratch`) are ours, which they never write.
+inlined `vg_sha256_finalize` (which calls `vg_sha256_compress`), used as a black
+box through its proof, together with the fact that it never writes `r0`
+(`WP.inlineCalls`); their stack arguments (`out`, `scratch`) are ours, which
+they never write.
 -/
 
 namespace VG.Proof.Hmac.Arm.Finalize

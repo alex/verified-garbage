@@ -13,10 +13,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.SampleCT
 /-!
 # ML-KEM-768 on x86-64: the calls of the top-level functions
 
-Untrusted: everything here is checked by Lean. A call, with the moves of
-its arguments before it (`glueCall_ok`), leaves the permissions and the
-callee-saved registers as they were, and changes memory only within the
-buffers it writes and the 32 bytes of stack below `rsp` (`Post`).
+A call, with the moves of its arguments before it (`glueCall_ok`), leaves the
+permissions and the callee-saved registers as they were, and changes memory
+only within the buffers it writes and the 32 bytes of stack below `rsp`
+(`Post`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

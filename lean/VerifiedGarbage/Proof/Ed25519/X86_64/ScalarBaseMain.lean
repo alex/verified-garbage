@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseMemory
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarMain
 
-/-! Untrusted: base-point multiplication satisfies its memory and ABI obligations. -/
+/-! Base-point multiplication satisfies its memory and ABI obligations. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

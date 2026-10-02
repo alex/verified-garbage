@@ -6,9 +6,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.CombLit
 /-!
 # Ed25519 public-key derivation on x86-64: pruning and the base point
 
-Untrusted: everything here is checked by Lean. The first half of the digest,
-pruned, is stored in the frame (`prune_ok`), `[s]B` is encoded into `out`
-(`base_ok`), and the frame's copy of `s` is cleared (`wipe_ok`).
+The first half of the digest, pruned, is stored in the frame (`prune_ok`),
+`[s]B` is encoded into `out` (`base_ok`), and the frame's copy of `s` is
+cleared (`wipe_ok`).
 -/
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey

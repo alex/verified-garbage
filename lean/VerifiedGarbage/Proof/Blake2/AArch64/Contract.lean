@@ -5,9 +5,9 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # BLAKE2 compression function on AArch64: the contract
 
-Untrusted: everything here is checked by Lean. The contract the streaming
-functions use for their calls of the compression function; the artifacts'
-contract is the shared one of `Spec/Blake2/Contract.lean`, which implies it.
+The contract the streaming functions use for their calls of the compression
+function; the artifacts' contract is the shared one of
+`Spec/Blake2/Contract.lean`, which implies it.
 -/
 
 namespace VG.Proof.Blake2

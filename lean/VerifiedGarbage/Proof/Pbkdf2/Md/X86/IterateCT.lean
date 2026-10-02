@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Iterate
 /-!
 # PBKDF2-HMAC's iteration over a Merkle–Damgård hash function on x86 (32-bit): constant time
 
-Untrusted: everything here is checked by Lean. As for the streaming-level
-functions (`Proof/Hmac/Generic/X86/`): the pieces between the calls are
-checked by the taint analysis, those that read the arguments on the stack
-(the prologue, and the end of a step, which loads `t`) with the arguments
-public (`argTaint`); the calls of the compression function are related by
-`cmp_rel`, from its contract. Then `iterate` is verified against the
-contract with the arguments read only (`iterG`), and with them writable
-(`iterW`).
+As for the streaming-level functions (`Proof/Hmac/Generic/X86/`): the pieces
+between the calls are checked by the taint analysis, those that read the
+arguments on the stack (the prologue, and the end of a step, which loads `t`)
+with the arguments public (`argTaint`); the calls of the compression function
+are related by `cmp_rel`, from its contract. Then `iterate` is verified
+against the contract with the arguments read only (`iterG`), and with them
+writable (`iterW`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86.Iterate

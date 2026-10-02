@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.X86.Counters
 /-!
 # X448 on x86 (32-bit): the Montgomery ladder
 
-Untrusted: everything here is checked by Lean. Each iteration consumes one
-scalar bit and updates the five field slots according to `ladderStep`.
+Each iteration consumes one scalar bit and updates the five field slots
+according to `ladderStep`.
 -/
 
 namespace VG.Proof.X448.X86

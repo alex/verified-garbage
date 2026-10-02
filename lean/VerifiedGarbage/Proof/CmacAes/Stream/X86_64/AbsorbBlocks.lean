@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.CmacAes.Stream.X86_64.Save
 /-!
 # Streaming AES-CMAC on x86-64: `vg_cmac_aes_absorb`'s straight-line code
 
-Untrusted: everything here is checked by Lean. What each piece of code
-between the copies and calls computes, in terms of `count` (`c`) and `len`
-(`L`): the bytes held back `h = held c`, the bytes copied after them
-`f = min L (16 - h)`, the data left `L - f`, whether to chain the block held
-back (`b1`), the blocks chained after it (`nb`), and the rest (`rest`).
+What each piece of code between the copies and calls computes, in terms of
+`count` (`c`) and `len` (`L`): the bytes held back `h = held c`, the bytes
+copied after them `f = min L (16 - h)`, the data left `L - f`, whether to
+chain the block held back (`b1`), the blocks chained after it (`nb`), and the
+rest (`rest`).
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86_64

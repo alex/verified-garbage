@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem1024.X86_64.CompressEncode
 /-!
 # ML-KEM-1024 on x86-64: `vg_mlkem1024_decode_decompress`
 
-Untrusted: everything here is checked by Lean. A segment of a group's bytes
-holds values of the decoding (`dd_seg`); a group's segments write its 8
-coefficients (`dgrp5_ok`, `dgrp11_ok`); the loop is proven once for both
-widths, from what its group does (`DD4.loop_ok`), and the function by its
-two cases.
+A segment of a group's bytes holds values of the decoding (`dd_seg`); a
+group's segments write its 8 coefficients (`dgrp5_ok`, `dgrp11_ok`); the loop
+is proven once for both widths, from what its group does (`DD4.loop_ok`), and
+the function by its two cases.
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

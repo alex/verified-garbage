@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.MlDsa.Pack.Hint2
 /-!
 # ML-DSA on x86 (32-bit): calls of the primitives verification calls
 
-Untrusted: everything here is checked by Lean. As `KeyGen/Prim.lean`, for
-the signatures of `vg_mldsa_sample_in_ball`, `vg_mldsa_use_hint`,
-`vg_mldsa_bit_unpack`, `vg_mldsa_unpack_t1`, `vg_mldsa_hint_bit_unpack` and
-`vg_mldsa_norm_lt` (which may not write its arguments: `callPR_pieceRO`).
+As `KeyGen/Prim.lean`, for the signatures of `vg_mldsa_sample_in_ball`,
+`vg_mldsa_use_hint`, `vg_mldsa_bit_unpack`, `vg_mldsa_unpack_t1`,
+`vg_mldsa_hint_bit_unpack` and `vg_mldsa_norm_lt` (which may not write its
+arguments: `callPR_pieceRO`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

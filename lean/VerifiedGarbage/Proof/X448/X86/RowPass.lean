@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Field
 /-!
 # X448 on x86 (32-bit): multiplication-row carry propagation
 
-Untrusted: everything here is checked by Lean. A pass stores one digit at
-a time and preserves the remaining coefficients for the next step.
+A pass stores one digit at a time and preserves the remaining coefficients for
+the next step.
 -/
 
 namespace VG.Proof.X448.X86

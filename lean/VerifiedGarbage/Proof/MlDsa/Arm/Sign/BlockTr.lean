@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.Call
 /-!
 # ML-DSA signing on ARMv7: blocks that leak only their pointers
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/MlDsa/X86_64/Sign/BlockTr.lean`): a block whose memory accesses are
-`[b, #off]` with `b` among registers `rs` that it never writes leaks the
-same from two states that agree on `rs` (`block_tr`). Unlike the taint
-analysis, which evaluates the code, this holds for code with immediates and
-offsets that are variables, such as the pieces of the function indexed by a
-polynomial or an entry of `Â`; `blockOk` is checked by `decide`.
+As on x86-64 (`Proof/MlDsa/X86_64/Sign/BlockTr.lean`): a block whose memory
+accesses are `[b, #off]` with `b` among registers `rs` that it never writes
+leaks the same from two states that agree on `rs` (`block_tr`). Unlike the
+taint analysis, which evaluates the code, this holds for code with immediates
+and offsets that are variables, such as the pieces of the function indexed by
+a polynomial or an entry of `Â`; `blockOk` is checked by `decide`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

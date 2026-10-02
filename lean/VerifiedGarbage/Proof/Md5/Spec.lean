@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # MD5: lemmas about the specification
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Md5

@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Poly1305.Spec
 /-!
 # Poly1305 in 26-bit limbs
 
-Untrusted: everything here is checked by Lean. The arithmetic of vector
-implementations that keep numbers modulo `p` in five limbs of 26 bits
-(`x₀ + 2²⁶ x₁ + … + 2¹⁰⁴ x₄`), as Nat identities with no bounds: the
-products `d_j` of two such numbers, with the terms that pass `2¹³⁰` folded
-back times 5, and their carrying; how a block's two words split into
-limbs; the final reduction; and the interleaved Horner evaluation of four
+The arithmetic of vector implementations that keep numbers modulo `p` in five
+limbs of 26 bits (`x₀ + 2²⁶ x₁ + … + 2¹⁰⁴ x₄`), as Nat identities with no
+bounds: the products `d_j` of two such numbers, with the terms that pass
+`2¹³⁰` folded back times 5, and their carrying; how a block's two words split
+into limbs; the final reduction; and the interleaved Horner evaluation of four
 lanes. Each function sums in the order the code does, so that the terms the
 code computes are these functions by definition.
 -/

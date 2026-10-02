@@ -4,11 +4,10 @@ import VerifiedGarbage.Impl.MlDsa.X86.Pack.Hint
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_hint_bit_pack`
 
-Untrusted: everything here is checked by Lean. The code follows the fold
-form of `HintBitPack` (`Pack/Hint.lean`, `hpS` and `hpT` of
-`Pack/Hint2.lean`) step by step: the bytes of `y` are the array of the spec,
-and `eax` its index, which stays below `ω` because it counts the 1s before
-the current coefficient (`hpT_idx_lt`).
+The code follows the fold form of `HintBitPack` (`Pack/Hint.lean`, `hpS` and
+`hpT` of `Pack/Hint2.lean`) step by step: the bytes of `y` are the array of
+the spec, and `eax` its index, which stays below `ω` because it counts the 1s
+before the current coefficient (`hpT_idx_lt`).
 
 Constant time but for the hint: the invariants state every register the
 code branches on or addresses memory with as a function of the entry state

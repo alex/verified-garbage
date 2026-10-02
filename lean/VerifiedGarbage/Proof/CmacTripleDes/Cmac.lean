@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Cmac.Block
 /-!
 # TDEA-CMAC: the specification with 8-byte blocks
 
-Untrusted: everything here is checked by Lean.
-
 `Proof/Cmac/Spec.lean` and `Proof/Cmac/Block.lean` for 8-byte blocks: the
 MAC of whole blocks and the last bytes (`macFull_split8`), the padded last
 block in memory (`padded_bytes8`), and TDEA's subkeys as 64-bit integers

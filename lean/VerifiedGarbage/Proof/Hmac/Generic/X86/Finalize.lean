@@ -5,14 +5,13 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC on x86 (32-bit): the start of `finalize`
 
-Untrusted: everything here is checked by Lean. HMAC's `finalize`
-(`Impl/Pbkdf2/Md/X86.lean`) starts by finalizing the inner state with the
-hash function's streaming `finalize`, called with the code of the
-streaming-level design (`Impl/Hmac/Generic/X86.lean`): the prologue
+HMAC's `finalize` (`Impl/Pbkdf2/Md/X86.lean`) starts by finalizing the inner
+state with the hash function's streaming `finalize`, called with the code of
+the streaming-level design (`Impl/Hmac/Generic/X86.lean`): the prologue
 (`pro_ok`) loads `scratch`, `inner`, `outer` and `out` (after our caller's
-registers are saved in `scratch`), and the count just before the call,
-which passes it on (`fin1Args_ok`, `finCall_ok`). What the rest keeps is
-`KR`; `Proof/Pbkdf2/Md/X86/HmacFin.lean` continues from there.
+registers are saved in `scratch`), and the count just before the call, which
+passes it on (`fin1Args_ok`, `finCall_ok`). What the rest keeps is `KR`;
+`Proof/Pbkdf2/Md/X86/HmacFin.lean` continues from there.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86.Finalize

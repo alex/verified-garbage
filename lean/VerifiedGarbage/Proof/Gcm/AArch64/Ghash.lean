@@ -20,9 +20,8 @@ section
 /-!
 # GHASH on AArch64: one step of Algorithm 1
 
-Untrusted: everything here is checked by Lean. What the instructions of a
-step (`Impl.Gcm.AArch64.step`) compute on the two halves of a 128-bit value,
-stated on the whole value, and the 128 steps.
+What the instructions of a step (`Impl.Gcm.AArch64.step`) compute on the two
+halves of a 128-bit value, stated on the whole value, and the 128 steps.
 -/
 
 open VG.PowLit
@@ -252,8 +251,6 @@ section
 
 /-!
 # GHASH on AArch64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -263,12 +260,10 @@ namespace VG.Proof.Gcm
 open Spec.Gcm
 
 open VG.AArch64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for
-`vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32])`:
-replaces the block `Y` at `y` with `GHASH_H` continued from `Y` over the `n`
-blocks at `data`, where `H` is the block at `h`.
+/-- AArch64 contract for `vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], data:
+*const [u8; 16], n: usize, scratch: *mut [u64; 32])`: replaces the block `Y` at
+`y` with `GHASH_H` continued from `Y` over the `n` blocks at `data`, where `H`
+is the block at `h`.
 
 The code may read `h` (16 bytes) and `data` (`16 * n` bytes), and read and
 write `y` (16 bytes) and `scratch` (256 bytes, whose contents on exit are

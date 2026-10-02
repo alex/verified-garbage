@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Hmac.Common
 /-!
 # HMAC over a Merkle–Damgård hash function: the outer hash as one compression
 
-Untrusted: everything here is checked by Lean. HMAC's outer hash, of a key's
-outer block (`K₀ ⊕ opad`, one block) and an inner digest of `D` bytes, is one
-compression, of the hash value of the outer block with the block of the
-digest and the padding of a `B + D`-byte message (`Link.hmac_outer`), for any
-hash function the streaming proofs describe (`Md`), whatever the target. A
-block in memory made of `D` bytes followed by that padding is the padded
-block of those bytes (`blockAt_tailPad`).
+HMAC's outer hash, of a key's outer block (`K₀ ⊕ opad`, one block) and an
+inner digest of `D` bytes, is one compression, of the hash value of the outer
+block with the block of the digest and the padding of a `B + D`-byte message
+(`Link.hmac_outer`), for any hash function the streaming proofs describe
+(`Md`), whatever the target. A block in memory made of `D` bytes followed by
+that padding is the padded block of those bytes (`blockAt_tailPad`).
 -/
 
 namespace VG.Proof.MdStream.Md

@@ -8,8 +8,6 @@ import VerifiedGarbage.Spec.Gcm.Contract
 /-!
 # AES counter mode on ARMv7: the whole function
 
-Untrusted: everything here is checked by Lean.
-
 The prologue saves the callee-saved registers (checked by evaluation in the
 naming domain, as is the epilogue restoring them), copies the counter block
 to its slots and writes back the final counter; the key loop
@@ -21,12 +19,10 @@ namespace VG.Proof.Aes
 open Spec.Gcm
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for `vg_aes_ctr32(schedule = r0, rounds = r1,
-counter = r2, data = r3, n = [sp], scratch = [sp, #4])`: XORs the AES
-counter-mode keystream from the counter block at `counter` into the `n`
-blocks at `data`, and advances the counter block by `n`.
+/-- 32-bit ARM contract for `vg_aes_ctr32(schedule = r0, rounds = r1, counter =
+r2, data = r3, n = [sp], scratch = [sp, #4])`: XORs the AES counter-mode
+keystream from the counter block at `counter` into the `n` blocks at `data`,
+and advances the counter block by `n`.
 
 The code may read `schedule` (240 bytes) and the arguments on the stack (8
 bytes at `sp`), and read and write `counter` (16 bytes), `data` (`16 n`

@@ -6,14 +6,14 @@ import VerifiedGarbage.Proof.Sha512.X86.Stream.Finalize
 /-!
 # HMAC and PBKDF2-HMAC on x86 (32-bit): the Merkle–Damgård hash functions
 
-Untrusted: everything here is checked by Lean. MD5, SHA-1 and the SHA-512
-family as `Hash`es of `Impl/Pbkdf2/Md/X86.lean`: their streaming functions
-(`Proof/Hmac/Generic/X86/Hashes.lean`), their compression functions and the
-code writing their digests (`Impl.MdStream.X86.out32` for MD5 and SHA-1,
-SHA-512's `outW`), and what the proofs know of them (`MdOk`), from their own
-proofs: the `Md` of the generic streaming proofs (`Proof/Md5/Md.lean` and
-the others), the digests their code writes (`out512_ok` for the SHA-512
-family), and their compression functions' contracts, which are `cmpK`.
+MD5, SHA-1 and the SHA-512 family as `Hash`es of `Impl/Pbkdf2/Md/X86.lean`:
+their streaming functions (`Proof/Hmac/Generic/X86/Hashes.lean`), their
+compression functions and the code writing their digests
+(`Impl.MdStream.X86.out32` for MD5 and SHA-1, SHA-512's `outW`), and what the
+proofs know of them (`MdOk`), from their own proofs: the `Md` of the generic
+streaming proofs (`Proof/Md5/Md.lean` and the others), the digests their code
+writes (`out512_ok` for the SHA-512 family), and their compression functions'
+contracts, which are `cmpK`.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86

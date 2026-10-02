@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Rc2.X86.Stream.UpdateCT
 /-!
 # Streaming RC2-CBC on x86 (32-bit): `Verified`
 
-Untrusted: everything here is checked by Lean. `init` and the updates meet
-`initContract` and `updateContract`, with their arguments only read; the
-shared contracts let the code write them too (`wideInit`, `wideUpdate`),
-which `Verified.narrowTo` allows, and `init_implies` and `update_implies`
-take the proofs to the shared contracts.
+`init` and the updates meet `initContract` and `updateContract`, with their
+arguments only read; the shared contracts let the code write them too
+(`wideInit`, `wideUpdate`), which `Verified.narrowTo` allows, and
+`init_implies` and `update_implies` take the proofs to the shared contracts.
 -/
 
 namespace VG.Proof.Rc2.X86.Stream

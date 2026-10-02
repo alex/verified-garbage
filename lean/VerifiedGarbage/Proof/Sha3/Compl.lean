@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Anf
 /-!
 # Keccak-f[1600]: a round on complemented lanes, as polynomials
 
-Untrusted: everything here is checked by Lean.
-
 Implementations that keep the lanes `complLanes` complemented (the "lane
 complementing" transform) store `A[i] ⊕ msk i` for lane `i` of a state `A`
 (`cmpl A`). A round of such an implementation is checked by evaluating its

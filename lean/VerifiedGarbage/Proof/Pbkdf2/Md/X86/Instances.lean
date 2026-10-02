@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86.HmacFinCT
 /-!
 # HMAC's `finalize` and PBKDF2's `iterate` on x86 (32-bit): the instances
 
-Untrusted: everything here is checked by Lean. The generic proofs
-(`IterateCT.lean`, `HmacFinCT.lean`) at each hash function of `Hashes.lean`,
-with the taint checks of their blocks, which the kernel evaluates for each
-hash function, moved to the shared contracts of `Spec/Hmac/Generic.lean` and
-`Spec/Pbkdf2/Generic.lean` (`sig_implies`), which the artifacts are emitted
-with.
+The generic proofs (`IterateCT.lean`, `HmacFinCT.lean`) at each hash function
+of `Hashes.lean`, with the taint checks of their blocks, which the kernel
+evaluates for each hash function, moved to the shared contracts of
+`Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean` (`sig_implies`), which
+the artifacts are emitted with.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86.Instances

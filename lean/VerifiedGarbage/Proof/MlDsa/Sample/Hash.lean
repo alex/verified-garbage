@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.Sha3.Stream
 /-!
 # ML-DSA: `H` and `G` through the streaming sponge
 
-Untrusted: everything here is checked by Lean. `H` and `G` (SHAKE256 and
-SHAKE128) are the output of `squeezeFrom` from position 0 of the state that
-padding the message leaves (`H_eq`, `G_eq`), which is what a caller of
-`vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze` computes; and
-a shorter output is a prefix of a longer one (`H_take`, `G_take`), so a
-bound larger than another draws the same first bytes.
+`H` and `G` (SHAKE256 and SHAKE128) are the output of `squeezeFrom` from
+position 0 of the state that padding the message leaves (`H_eq`, `G_eq`),
+which is what a caller of `vg_keccak_absorb`, `vg_keccak_pad` and
+`vg_keccak_squeeze` computes; and a shorter output is a prefix of a longer one
+(`H_take`, `G_take`), so a bound larger than another draws the same first
+bytes.
 -/
 
 namespace VG.Proof.MlDsa.Sample

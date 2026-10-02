@@ -5,11 +5,10 @@ import VerifiedGarbage.Impl.CmacAes.Stream.X86_64
 /-!
 # Streaming AES-CMAC on x86-64: the contracts the proofs are written against
 
-Untrusted: everything here is checked by Lean. The artifacts' contracts are
-the shared ones of `Spec/Cmac/Contract.lean`, which imply these
-(`Verified.lean`). Each function calls functions that call
-`vg_aes_ctr32`: the two return addresses are in the 16 bytes below the
-stack pointer, which may not overlap any buffer.
+The artifacts' contracts are the shared ones of `Spec/Cmac/Contract.lean`,
+which imply these (`Verified.lean`). Each function calls functions that call
+`vg_aes_ctr32`: the two return addresses are in the 16 bytes below the stack
+pointer, which may not overlap any buffer.
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86_64

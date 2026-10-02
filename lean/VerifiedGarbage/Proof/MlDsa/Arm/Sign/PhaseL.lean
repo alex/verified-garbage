@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.PhaseK
 /-!
 # ML-DSA signing on ARMv7: the rejection sampling loop
 
-Untrusted: everything here is checked by Lean. An iteration (`iter_ok`)
-either continues, with the next iteration's head (`IL`), or ends the loop
-(`XS`): with `r11 = 1` when it passed, as `signIteration` does within
-`maxBounds` after the iterations before were rejected; with `r11 = 0`
-when `signLoop` returns nothing within `minBounds` (its `SampleInBall`
-did not finish, or it was the 814th rejected). So the loop (`signLoop_ok`)
-ends in `XS`.
+An iteration (`iter_ok`) either continues, with the next iteration's head
+(`IL`), or ends the loop (`XS`): with `r11 = 1` when it passed, as
+`signIteration` does within `maxBounds` after the iterations before were
+rejected; with `r11 = 0` when `signLoop` returns nothing within `minBounds`
+(its `SampleInBall` did not finish, or it was the 814th rejected). So the loop
+(`signLoop_ok`) ends in `XS`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

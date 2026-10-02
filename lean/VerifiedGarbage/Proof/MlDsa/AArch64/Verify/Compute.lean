@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Verify.Samp
 /-!
 # ML-DSA verification on AArch64: `w′₁`, row by row
 
-Untrusted: everything here is checked by Lean. With the entries `A'` of `Â`
-and `c = c0` as the samplers left them, and `x24` their result `q` (`SC`):
-`ẑ[i] = NTT(z[i])` (`nttZ_vpiece`), `ĉ` (`nttC_vpiece`), and each row `r`
-of `w′₁`, packed to `w1Encode(w′₁)` (`row_vpiece`).
+With the entries `A'` of `Â` and `c = c0` as the samplers left them, and `x24`
+their result `q` (`SC`): `ẑ[i] = NTT(z[i])` (`nttZ_vpiece`), `ĉ`
+(`nttC_vpiece`), and each row `r` of `w′₁`, packed to `w1Encode(w′₁)`
+(`row_vpiece`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Verify

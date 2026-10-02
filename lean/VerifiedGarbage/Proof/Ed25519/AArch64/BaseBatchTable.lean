@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.PointPowers
 /-!
 # Writing a batch's cached powers into the local table
 
-Untrusted. Each constant field is four immediate words stored at a constant
-offset of `x0`; the batch is chosen by subtracting each index from the public
-counter `x19` and testing the difference for zero.
+Each constant field is four immediate words stored at a constant offset of
+`x0`; the batch is chosen by subtracting each index from the public counter
+`x19` and testing the difference for zero.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

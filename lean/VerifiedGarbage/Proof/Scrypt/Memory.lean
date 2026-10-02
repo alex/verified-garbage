@@ -5,10 +5,9 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 /-!
 # scrypt: memory lemmas
 
-Untrusted: everything here is checked by Lean. Addresses and regions, bytes
-of memory (`Spec.Scrypt.bytesAt`) read and written, words copied, and the
-exclusive-or of words, which the proofs of every target share, so that none
-imports another target's proof.
+Addresses and regions, bytes of memory (`Spec.Scrypt.bytesAt`) read and
+written, words copied, and the exclusive-or of words, which the proofs of
+every target share, so that none imports another target's proof.
 -/
 
 namespace VG.Proof.Scrypt.Memory

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointPowers
 
-/-! Untrusted: termination and table contents for the checkpoint loop. -/
+/-! Termination and table contents for the checkpoint loop. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

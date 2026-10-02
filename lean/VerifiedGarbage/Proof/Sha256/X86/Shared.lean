@@ -14,8 +14,6 @@ import VerifiedGarbage.Proof.Sha256.X86.Lit
 
 /-!
 # Streaming SHA-256 on x86 (32-bit): `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha256.X86.Stream
@@ -166,15 +164,14 @@ end VG.Proof.Sha256.X86.Stream
 /-!
 # Streaming SHA-256 on x86 (32-bit): `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/X86.lean`) for SHA-256's sizes,
-length field and digest (`params`), instruction for instruction
-(`update_eq`, `finalize_eq`), so they are verified by the generic proofs
-(`Proof/MdStream/X86/`) for SHA-256's instance (`Proof/Sha256/Md.lean`) with
-160 bytes of scratch space, given what SHA-256's own pieces do: its length
-field and digest (`shape`), that its compression function is verified
-(`callee`), and that the taint analysis accepts its code (which it checks
-together with the compression function's).
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/X86.lean`) for SHA-256's sizes, length field and digest
+(`params`), instruction for instruction (`update_eq`, `finalize_eq`), so they
+are verified by the generic proofs (`Proof/MdStream/X86/`) for SHA-256's
+instance (`Proof/Sha256/Md.lean`) with 160 bytes of scratch space, given what
+SHA-256's own pieces do: its length field and digest (`shape`), that its
+compression function is verified (`callee`), and that the taint analysis
+accepts its code (which it checks together with the compression function's).
 -/
 
 namespace VG.Proof.Sha256.X86.Stream
@@ -250,10 +247,10 @@ end VG.Proof.Sha256.X86.Stream
 /-!
 # Sha256 on X86: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha256/X86/Contract.lean`); these theorems move
-them to the shared contracts of `Spec/Sha256/Contract.lean`, which the
-artifacts are emitted with.
+The proofs are written against per-target contracts
+(`Proof/Sha256/X86/Contract.lean`); these theorems move them to the shared
+contracts of `Spec/Sha256/Contract.lean`, which the artifacts are emitted
+with.
 
 The shared contracts give the functions more scratch than these ones use (560
 bytes for `compress`, 608 for `update` and `finalize`, sized for the x86-64

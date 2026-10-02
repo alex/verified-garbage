@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.MlDsa.Sample.RejNtt
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_rej_ntt_poly`, correctness
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `G(ρ, 1008)` (`J6`), and
-the loop, iteration `t` of which starts from `LAt σ t`, with the
-coefficients `rnFold` samples from the first `3t` bytes of output stored.
-An iteration loads the value of its 3 bytes and tests `j ≥ 256`
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`G(ρ, 1008)` (`J6`), and the loop, iteration `t` of which starts from `LAt σ
+t`, with the coefficients `rnFold` samples from the first `3t` bytes of output
+stored. An iteration loads the value of its 3 bytes and tests `j ≥ 256`
 (`pieceA`), stores it if `j < 256` and it is less than `q` (`pieceB`, what
 `rnStep` does), and steps (`pieceC`).
 -/

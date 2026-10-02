@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86.HmacFin
 /-!
 # HMAC over a Merkle–Damgård hash function on x86 (32-bit): `finalize`, constant time
 
-Untrusted: everything here is checked by Lean. As for the streaming-level
-functions (`Proof/Hmac/Generic/X86/`): the pieces between the calls are
-checked by the taint analysis, the prologue and the arguments of the first
-call, which read the arguments on the stack, with them public (`argTaint`);
-the call of the streaming `finalize` is related by `fin_rel`, that of the
-compression function by `cmp_rel`. Then `finalize` is verified against the
-contract with the arguments read only (`finG`), and with them writable
-(`finW`).
+As for the streaming-level functions (`Proof/Hmac/Generic/X86/`): the pieces
+between the calls are checked by the taint analysis, the prologue and the
+arguments of the first call, which read the arguments on the stack, with them
+public (`argTaint`); the call of the streaming `finalize` is related by
+`fin_rel`, that of the compression function by `cmp_rel`. Then `finalize` is
+verified against the contract with the arguments read only (`finG`), and with
+them writable (`finW`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86.HmacFin

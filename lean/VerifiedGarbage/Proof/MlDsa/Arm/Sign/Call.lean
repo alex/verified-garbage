@@ -6,21 +6,20 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA signing on ARMv7: calls of verified code
 
-Untrusted: everything here is checked by Lean. `setArgs as` moves each
-argument (a pointer or an immediate) into its register (`r0`–`r3`, `r12`,
-`lr`): afterwards each holds the argument's value in the state before the
-moves, and nothing else changed but those registers (`setArgs_ok`). A
-primitive the function calls is any code verified against its shared
-contract (`Spec/MlDsa/Poly.lean`) for some stack of `S` bytes that, with
-the `F` bytes of the frame the call pushes, fits in the `D` bytes the
+`setArgs as` moves each argument (a pointer or an immediate) into its register
+(`r0`–`r3`, `r12`, `lr`): afterwards each holds the argument's value in the
+state before the moves, and nothing else changed but those registers
+(`setArgs_ok`). A primitive the function calls is any code verified against
+its shared contract (`Spec/MlDsa/Poly.lean`) for some stack of `S` bytes that,
+with the `F` bytes of the frame the call pushes, fits in the `D` bytes the
 function gives its calls, and whose own frames use at most `S` bytes
-(`Callee`). A call with at most four arguments (`callR_ok`), or with its
-fifth and sixth pushed in a frame (`callS_ok`), leaves the permissions and
-the callee-saved registers as they were, and changes memory only within the
-buffers it writes and the `D` bytes of stack below the stack pointer. Two
-runs of it leak the same when the callee's public data agree
-(`callR_tr`, `callS_tr`), and a callee whose result is public in its own
-runs (`RetPub`) returns the same in both (`callRRet_tr`, `callSRet_tr`).
+(`Callee`). A call with at most four arguments (`callR_ok`), or with its fifth
+and sixth pushed in a frame (`callS_ok`), leaves the permissions and the
+callee-saved registers as they were, and changes memory only within the
+buffers it writes and the `D` bytes of stack below the stack pointer. Two runs
+of it leak the same when the callee's public data agree (`callR_tr`,
+`callS_tr`), and a callee whose result is public in its own runs (`RetPub`)
+returns the same in both (`callRRet_tr`, `callSRet_tr`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

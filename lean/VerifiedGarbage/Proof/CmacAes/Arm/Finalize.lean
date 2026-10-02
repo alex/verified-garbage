@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # AES-CMAC on ARMv7: `vg_cmac_aes_finalize`, the last block
 
-Untrusted: everything here is checked by Lean. The steps that form the last
-block `Mₙ` (§6.2 step 4) in the counter block, before the chaining value is
-XORed in: `Mₙ* ⊕ K1` for a complete block (`full_wp`), else `Mₙ*` copied a
-byte at a time onto zeros (`copy_wp`), `0x80` after it, and the block XORed
-with `K2` (`partial_wp`).
+The steps that form the last block `Mₙ` (§6.2 step 4) in the counter block,
+before the chaining value is XORed in: `Mₙ* ⊕ K1` for a complete block
+(`full_wp`), else `Mₙ*` copied a byte at a time onto zeros (`copy_wp`), `0x80`
+after it, and the block XORed with `K2` (`partial_wp`).
 -/
 
 namespace VG.Proof.CmacAes.Arm

@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.Framework.X86_64.Mxcsr
 /-!
 # ML-KEM on x86-64: code with MXCSR `0x1FBF`
 
-Untrusted: everything here is checked by Lean. `withMxcsr r 768 c` (see
-`Impl/MlKem/X86_64/Vec.lean`) runs `c` from a state that differs from its
-own only in `rax`, `r11` and the eight bytes `mxR` of `scratch`, and after
-it changes only those bytes and MXCSR (`withMxcsr_ok`). That it keeps
-MXCSR's control bits is `ctlOk` (`Proof/Framework/X86_64/Mxcsr.lean`).
+`withMxcsr r 768 c` (see `Impl/MlKem/X86_64/Vec.lean`) runs `c` from a state
+that differs from its own only in `rax`, `r11` and the eight bytes `mxR` of
+`scratch`, and after it changes only those bytes and MXCSR (`withMxcsr_ok`).
+That it keeps MXCSR's control bits is `ctlOk`
+(`Proof/Framework/X86_64/Mxcsr.lean`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

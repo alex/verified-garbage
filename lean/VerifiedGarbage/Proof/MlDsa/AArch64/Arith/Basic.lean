@@ -8,9 +8,9 @@ import VerifiedGarbage.Proof.MlDsa.Round.Mem
 /-!
 # ML-DSA on AArch64: symbolic execution, and reduction modulo `q`
 
-Untrusted: everything here is checked by Lean. It uses the weakest
-preconditions and loops of ML-KEM's AArch64 proofs (`Keep`, `count_loop`,
-`Proof/MlKem/AArch64/Wp.lean`), which are about the ISA, not ML-KEM.
+It uses the weakest preconditions and loops of ML-KEM's AArch64 proofs
+(`Keep`, `count_loop`, `Proof/MlKem/AArch64/Wp.lean`), which are about the
+ISA, not ML-KEM.
 
 * `arun`: a block run by `simp`, one instruction at a time (`runBlock_cons`,
   `runStep_some`), with the state a chain of `State.write`s and memory

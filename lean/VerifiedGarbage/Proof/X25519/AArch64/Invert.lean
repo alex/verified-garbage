@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.X25519.AArch64.Ladder
 /-!
 # X25519 on AArch64: the inversion
 
-Untrusted: everything here is checked by Lean. `invert` computes
-`z^(p-2)` left to right over the bits of `p - 2`: at the counter `n` (from
-254 down to 0), `T = z^⌊(p-2) / 2ⁿ⌋`.
+`invert` computes `z^(p-2)` left to right over the bits of `p - 2`: at the
+counter `n` (from 254 down to 0), `T = z^⌊(p-2) / 2ⁿ⌋`.
 -/
 
 namespace VG.Proof.X25519.AArch64

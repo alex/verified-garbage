@@ -2,8 +2,6 @@ import VerifiedGarbage.Proof.MlKem1024.AArch64.KgCommon
 
 /-!
 # ML-KEM-1024 on AArch64: `vg_mlkem1024_keygen`, the prologue and `G(d ‖ 4)`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.MlKem1024.AArch64.KeyGen

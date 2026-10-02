@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyHeaders
 import VerifiedGarbage.Proof.Ed25519.Arm.ScalarCodec
 
-/-! Untrusted: the signature's scalar is checked canonically, before point decoding. -/
+/-! The signature's scalar is checked canonically, before point decoding. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

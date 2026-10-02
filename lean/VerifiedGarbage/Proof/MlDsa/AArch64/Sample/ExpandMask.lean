@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.RejNttCT
 /-!
 # ML-DSA on AArch64: `vg_mldsa_expand_mask_poly`
 
-Untrusted: everything here is checked by Lean. Correctness: the prologue,
-the sponge (640 bytes of SHAKE256 of the seed), the branch on `γ₁` to the
-loop for `c = 18` or `20` (`ExpandMaskLoop.lean`), and the epilogue.
-Constant time: the prologue, and then everything else, by the taint
-analysis (the second from registers that correctness makes equal: the
+Correctness: the prologue, the sponge (640 bytes of SHAKE256 of the seed), the
+branch on `γ₁` to the loop for `c = 18` or `20` (`ExpandMaskLoop.lean`), and
+the epilogue. Constant time: the prologue, and then everything else, by the
+taint analysis (the second from registers that correctness makes equal: the
 pointers and `γ₁`, which the prologue zero-extends from `w1`).
 -/
 

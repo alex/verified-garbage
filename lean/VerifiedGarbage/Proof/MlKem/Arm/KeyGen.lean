@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem.Arm.RowSum
 /-!
 # ML-KEM-768 on 32-bit ARM: `vg_mlkem768_keygen`, correctness
 
-Untrusted: everything here is checked by Lean. The buffers of the function
-(`lay`): `scratch`, the stack, `seed`, `ek` and `dk`; what every phase keeps
-(`KEnv`: the pointers, our caller's registers in `scratch`, the seed); and
-the phases: the setup, `G(d ‖ 3)` into `ρ` and `σ`, the `PRF`s into `ŝ` and
-`ê`, the rows of `t̂ = Â ∘ ŝ + ê` encoded into `ek`, `ŝ` encoded into `dk`,
-the copies of `ρ`, `ek` and `z`, and `H(ek)`.
+The buffers of the function (`lay`): `scratch`, the stack, `seed`, `ek` and
+`dk`; what every phase keeps (`KEnv`: the pointers, our caller's registers in
+`scratch`, the seed); and the phases: the setup, `G(d ‖ 3)` into `ρ` and `σ`,
+the `PRF`s into `ŝ` and `ê`, the rows of `t̂ = Â ∘ ŝ + ê` encoded into `ek`,
+`ŝ` encoded into `dk`, the copies of `ρ`, `ek` and `z`, and `H(ek)`.
 -/
 
 namespace VG.Proof.MlKem.Arm.KeyGen

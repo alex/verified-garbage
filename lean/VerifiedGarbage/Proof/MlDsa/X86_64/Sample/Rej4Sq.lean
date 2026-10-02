@@ -4,9 +4,8 @@ import VerifiedGarbage.Impl.MlDsa.X86_64.Sample.RejNtt4
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_ntt_poly4_avx2`, squeezing
 
-Untrusted: everything here is checked by Lean. `vg_mldsa_rej_ntt_poly4_avx2`
-absorbs the seeds and squeezes three blocks of each as
-`vg_mlkem_sample_ntt4_avx2` does (`Proof/MlKem/X86_64/S4*.lean`, whose
+`vg_mldsa_rej_ntt_poly4_avx2` absorbs the seeds and squeezes three blocks of
+each as `vg_mlkem_sample_ntt4_avx2` does (`Proof/MlKem/X86_64/S4*.lean`, whose
 precondition, layout and invariants it shares), then three more to the same
 buffers. `SqT σ t n` is `SqInv σ n` (`S4Squeeze.lean`) after `t` blocks
 squeezed before: the states are permuted `t + n` times, and the buffers hold

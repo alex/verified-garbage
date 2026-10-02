@@ -10,12 +10,11 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function on x86 (32-bit): the functions we call
 
-Untrusted: everything here is checked by Lean. As on the other targets
-(`Proof/Hmac/Generic/Arm/Hash.lean`): `HashOK H` is what the proofs know of
-the hash function `H`: its streaming functions are verified against
-`initK`, `updK` and `finK`, never write `esp` and use at most 20 bytes of
-stack, the representation of its streaming state is determined by the
-state's bytes, and its sizes are small.
+As on the other targets (`Proof/Hmac/Generic/Arm/Hash.lean`): `HashOK H` is
+what the proofs know of the hash function `H`: its streaming functions are
+verified against `initK`, `updK` and `finK`, never write `esp` and use at most
+20 bytes of stack, the representation of its streaming state is determined by
+the state's bytes, and its sizes are small.
 
 Each call is in a frame of its arguments (`WP.callWith`): `init_frame`,
 `upd_frame` and `fin_frame` run one, from the state before its push, given

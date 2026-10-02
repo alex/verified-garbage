@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Dom
 /-!
 # The naming domain: moves of words
 
-Untrusted: everything here is checked by Lean.
-
 Code that only moves words between registers and memory (loads, stores,
 register copies) is tracked by naming each word: an abstract value `a` is
 the word `V a`. No operation is supported, so the evaluator accepts only

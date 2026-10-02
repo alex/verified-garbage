@@ -7,13 +7,13 @@ import VerifiedGarbage.Proof.Framework.X86_64.Mxcsr
 /-!
 # ML-DSA on x86-64: `vg_mldsa_multiply_ntt` and `vg_mldsa_multiply_add_ntt`
 
-Untrusted: everything here is checked by Lean. A doubleword of `mulV x y`
-is the product of those of `x` and `y` (`mul_lane`): `mont` of `mont` of
-their product by `2⁶⁴ mod q` (`mont_mont_R2`). The loop stores four of them
-at a time to the first 252 coefficients of `h` (`Mul.step`, `Mul.loop_ok`),
-inside `withMxcsr` through the last 8 bytes of `h`; the last four are
-computed from the coefficients of `h` loaded before (`Mul.last`), and stored
-after MXCSR is loaded back (`Mul.fn_ok`).
+A doubleword of `mulV x y` is the product of those of `x` and `y`
+(`mul_lane`): `mont` of `mont` of their product by `2⁶⁴ mod q`
+(`mont_mont_R2`). The loop stores four of them at a time to the first 252
+coefficients of `h` (`Mul.step`, `Mul.loop_ok`), inside `withMxcsr` through
+the last 8 bytes of `h`; the last four are computed from the coefficients of
+`h` loaded before (`Mul.last`), and stored after MXCSR is loaded back
+(`Mul.fn_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

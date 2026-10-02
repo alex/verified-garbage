@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Zero
 /-!
 # ML-DSA verification on x86-64: `H(a ‖ b)` through the sponge
 
-Untrusted: everything here is checked by Lean. `hash2 a la b lb out len`
-zeroes the Keccak state at `scratch`, absorbs the `la` bytes at `a` and the
-`lb` bytes at `b`, pads with SHAKE's suffix and squeezes `len` bytes to
-`out`: `H(a ‖ b, len)` (`hash2_ok`), leaking only the addresses
-(`hash2_tr`).
+`hash2 a la b lb out len` zeroes the Keccak state at `scratch`, absorbs the
+`la` bytes at `a` and the `lb` bytes at `b`, pads with SHAKE's suffix and
+squeezes `len` bytes to `out`: `H(a ‖ b, len)` (`hash2_ok`), leaking only the
+addresses (`hash2_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

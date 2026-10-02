@@ -6,11 +6,10 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86.Hashes
 /-!
 # HMAC over the streaming hash functions on x86 (32-bit): the instances of `init`
 
-Untrusted: everything here is checked by Lean. The generic proof of `init`
-(`InitCT.lean`) at each hash function of `Hashes.lean`, moved to the shared
-contract of `Spec/Hmac/Generic.lean` (`sig_implies`), which the artifacts
-are emitted with. `finalize` is written over the compression function
-instead: `Proof/Pbkdf2/Md/X86/Instances.lean`.
+The generic proof of `init` (`InitCT.lean`) at each hash function of
+`Hashes.lean`, moved to the shared contract of `Spec/Hmac/Generic.lean`
+(`sig_implies`), which the artifacts are emitted with. `finalize` is written
+over the compression function instead: `Proof/Pbkdf2/Md/X86/Instances.lean`.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86.Instances

@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulCT
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseEngine
 
-/-! Untrusted: expand secret scalar bits, multiply, and encode with a public trace. -/
+/-! Expand secret scalar bits, multiply, and encode with a public trace. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

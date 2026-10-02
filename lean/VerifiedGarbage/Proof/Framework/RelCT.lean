@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Taint
 /-!
 # Constant time by relating two runs
 
-Untrusted: everything here is checked by Lean.
-
 The taint analysis (`Taint.lean`) proves constant time from the code alone,
 so it forgets any public value that makes a round trip through memory it
 cannot track, e.g. a callee-saved register saved and restored by a callee

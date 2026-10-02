@@ -7,14 +7,14 @@ import VerifiedGarbage.Impl.Pbkdf2.Md.X86
 /-!
 # HMAC and PBKDF2-HMAC over a Merkle–Damgård hash function on x86 (32-bit): the block
 
-Untrusted: everything here is checked by Lean. What HMAC's `finalize` and
-PBKDF2's iteration (`Impl/Pbkdf2/Md/X86.lean`) share: a hash value at `ebx`
-with a block right after it, which they pad (`pad_ok`), compress into the
-hash value with any verified compression function (`cmp_ok`, against the
-compression contract of the hash function's `Md`, `cmpK`; `cmp_rel` relates
-two runs of the call) and write the digest into (`digest_ok`, from the hash
-function's own `out`, `OutOk`); and the copies of words (`copyW_ok`) and
-stores of constant words (`storeW_ok`) they are made of.
+What HMAC's `finalize` and PBKDF2's iteration (`Impl/Pbkdf2/Md/X86.lean`)
+share: a hash value at `ebx` with a block right after it, which they pad
+(`pad_ok`), compress into the hash value with any verified compression
+function (`cmp_ok`, against the compression contract of the hash function's
+`Md`, `cmpK`; `cmp_rel` relates two runs of the call) and write the digest
+into (`digest_ok`, from the hash function's own `out`, `OutOk`); and the
+copies of words (`copyW_ok`) and stores of constant words (`storeW_ok`) they
+are made of.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86

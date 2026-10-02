@@ -4,17 +4,10 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function on x86 (32-bit): `init`, constant time
 
-Untrusted: everything here is checked by Lean.
--/
-
-/-!
-## `init`
-
-As on the other targets
-(`Proof/Hmac/Generic/Arm/Instances.lean`): the pieces between the calls are
-checked by the taint analysis, from the registers that hold our variables
-and, where they read them, the arguments on the stack (`argTaint`); the
-calls are related by `init_rel` and `upd_rel`.
+As on the other targets (`Proof/Hmac/Generic/Arm/Instances.lean`): the pieces
+between the calls are checked by the taint analysis, from the registers that
+hold our variables and, where they read them, the arguments on the stack
+(`argTaint`); the calls are related by `init_rel` and `upd_rel`.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86.Init

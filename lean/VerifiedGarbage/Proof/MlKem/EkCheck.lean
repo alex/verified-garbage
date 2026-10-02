@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.Encode
 /-!
 # ML-KEM-768: the encapsulation key check, for every target
 
-Untrusted: everything here is checked by Lean. The modulus check of §7.2,
-`ByteEncode₁₂(ByteDecode₁₂(ek[0 : 384k])) = ek[0 : 384k]`, holds exactly
-when both 12-bit fields of every 3-byte group of `ek[0 : 384k]` are less
-than `q` (`encode12_decode12`, `ekCheck768`): what a constant-time
-implementation checks, without encoding anything.
+The modulus check of §7.2, `ByteEncode₁₂(ByteDecode₁₂(ek[0 : 384k])) = ek[0 :
+384k]`, holds exactly when both 12-bit fields of every 3-byte group of `ek[0 :
+384k]` are less than `q` (`encode12_decode12`, `ekCheck768`): what a
+constant-time implementation checks, without encoding anything.
 -/
 
 namespace VG.Proof.MlKem

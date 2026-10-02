@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.PrimC
 /-!
 # ML-DSA signing on x86 (32-bit): the commitment of an iteration
 
-Untrusted: everything here is checked by Lean. Iteration `t` of the loop
-(`IT`: the setup, `κ = ℓt` at `KAP` and `814 - t` at `CNT`) computes
-`y = ExpandMask(ρ″, κ)` and `ŷ = NTT(y)` (`maskR_piece`), `w = NTT⁻¹(Â ŷ)`
-(`rowW_piece`), the encoding of `w₁ = HighBits(w)` at `W1` (`w1R_piece`),
-and `c̃ = H(μ ‖ w1Encode(w₁), λ/4)` at `CT` (`commit_piece`).
+Iteration `t` of the loop (`IT`: the setup, `κ = ℓt` at `KAP` and `814 - t` at
+`CNT`) computes `y = ExpandMask(ρ″, κ)` and `ŷ = NTT(y)` (`maskR_piece`), `w =
+NTT⁻¹(Â ŷ)` (`rowW_piece`), the encoding of `w₁ = HighBits(w)` at `W1`
+(`w1R_piece`), and `c̃ = H(μ ‖ w1Encode(w₁), λ/4)` at `CT` (`commit_piece`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

@@ -4,9 +4,9 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Encaps
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_encaps`
 
-Untrusted: everything here is checked by Lean. Correctness is the prologue,
-`m`, `H(ek)`, `G(m ‖ H(ek))` and `ρ` (`a_ok`), the matrix (`matrix_ok`),
-then `ŷ`, `u` and `v` (`encrypt_ok`) and the epilogue (`c_ok`).
+Correctness is the prologue, `m`, `H(ek)`, `G(m ‖ H(ek))` and `ρ` (`a_ok`),
+the matrix (`matrix_ok`), then `ŷ`, `u` and `v` (`encrypt_ok`) and the
+epilogue (`c_ok`).
 
 Constant time up to `ρ`, relating two runs from states that agree on the
 pointers and on `ρ`: the first and last phases by the taint analysis, the
@@ -18,9 +18,8 @@ namespace VG.Proof.MlKem
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against; the artifact's is the
-shared contract of `Spec/`, which implies it. AArch64 contract for
-`(encapsWith keccak.callee)(ek = x0, m = x1, key = x2, ct = x3, scratch = x4) -> w0`. -/
+/-- AArch64 contract for `(encapsWith keccak.callee)(ek = x0, m = x1, key = x2,
+ct = x3, scratch = x4) -> w0`. -/
 def encapsAArch64 : Contract AArch64.isa where
   pre s :=
     let ek : Region := ⟨s.gpr .x0, 1184⟩

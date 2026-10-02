@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Base
 /-!
 # ML-DSA signing on x86 (32-bit): calls
 
-Untrusted: everything here is checked by Lean. A call (`callP`, `callPR`):
-the moves of its arguments (`setup_piece'`), then the call in a frame of
-its arguments (`Piece.callWith`, `callRet`), as ML-KEM's `call_piece` makes
-it but with the runs related by `SPub`, so that a callee may leak what
-signing may (`callP_piece`, `callPR_piece`). What the callee sees on entry:
-its arguments (`ent_arg`), the stack below `esp` (`ent_esp`, `ent_arg0`),
-and the buffers apart from its stack (`ent_rgn`).
+A call (`callP`, `callPR`): the moves of its arguments (`setup_piece'`), then
+the call in a frame of its arguments (`Piece.callWith`, `callRet`), as
+ML-KEM's `call_piece` makes it but with the runs related by `SPub`, so that a
+callee may leak what signing may (`callP_piece`, `callPR_piece`). What the
+callee sees on entry: its arguments (`ent_arg`), the stack below `esp`
+(`ent_esp`, `ent_arg0`), and the buffers apart from its stack (`ent_rgn`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

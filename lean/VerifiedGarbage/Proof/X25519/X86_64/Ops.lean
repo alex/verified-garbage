@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.X25519.X86_64.Mul
 /-!
 # X25519 on x86-64: the field operations
 
-Untrusted: everything here is checked by Lean. Each field operation on the
-working space (`mul`, `mulSmall`, `add`, `sub`, and `cswap`), as a change of
-the field elements `F` it reads and writes: the element at `o` becomes the
-result, every byte outside it is unchanged, and so are the registers but
-those the arithmetic uses (`Op`).
+Each field operation on the working space (`mul`, `mulSmall`, `add`, `sub`,
+and `cswap`), as a change of the field elements `F` it reads and writes: the
+element at `o` becomes the result, every byte outside it is unchanged, and so
+are the registers but those the arithmetic uses (`Op`).
 -/
 
 namespace VG.Proof.X25519.X86_64

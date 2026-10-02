@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Atoms
 /-!
 # AArch64: linear layers of bitsliced code, by evaluation
 
-Untrusted: everything here is checked by Lean.
-
 Straight-line code that only moves and XORs bits of 64-bit words, and masks
 them with constants, is checked by evaluating it (`Straight.check`) over
 the lane domain (`Bitslice.lanes`), on input words given as atoms: bit `t`

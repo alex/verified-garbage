@@ -10,9 +10,9 @@ section
 /-!
 # Poly1305 on 32-bit ARM: which parts of the state the code writes
 
-Untrusted: everything here is checked by Lean. Lists of ranges of the state
-(`offR`), the frames of writes into them, and what they leave unchanged: the
-key, the saved registers, the limbs of `r` and the stored accumulator.
+Lists of ranges of the state (`offR`), the frames of writes into them, and
+what they leave unchanged: the key, the saved registers, the limbs of `r` and
+the stored accumulator.
 -/
 
 open VG.PowLit
@@ -148,12 +148,12 @@ end
 /-!
 # Poly1305 on 32-bit ARM: `blocks`
 
-Untrusted: everything here is checked by Lean. After saving the registers,
-storing the block pointer and count in the state, computing the limbs of `r`
-and loading the accumulator as columns (`prologue_ok`), each block is
-absorbed into the columns (`body_ok`); then the columns are reduced and
-stored as the accumulator (`epilogue_ok`). Between blocks (`Common`), the
-columns are congruent modulo `p` to the accumulator of the blocks so far.
+After saving the registers, storing the block pointer and count in the state,
+computing the limbs of `r` and loading the accumulator as columns
+(`prologue_ok`), each block is absorbed into the columns (`body_ok`); then the
+columns are reduced and stored as the accumulator (`epilogue_ok`). Between
+blocks (`Common`), the columns are congruent modulo `p` to the accumulator of
+the blocks so far.
 -/
 
 open VG.PowLit

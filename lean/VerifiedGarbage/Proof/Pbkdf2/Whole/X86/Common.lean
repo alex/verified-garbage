@@ -6,13 +6,12 @@ import VerifiedGarbage.Proof.Hmac.Generic.Common
 /-!
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: the functions it calls, and its parts
 
-Untrusted: everything here is checked by Lean. `FnsOK F` is what the proof
-knows of the functions `pbkdf2` calls: the hash function's streaming
-functions (`VG.Proof.Hmac.Generic.X86.HashOK`), and HMAC's `init` and
-`finalize` and PBKDF2's `iterate`, sound for their shared contracts with 48
-bytes of stack (`Sound`), with some working space each, at most the `8 W`
-bytes they get. Then the precondition of `pbkdf2` (`Pre`), the parts of its
-`scratch`, and what every piece of it keeps (`KR`).
+`FnsOK F` is what the proof knows of the functions `pbkdf2` calls: the hash
+function's streaming functions (`VG.Proof.Hmac.Generic.X86.HashOK`), and
+HMAC's `init` and `finalize` and PBKDF2's `iterate`, sound for their shared
+contracts with 48 bytes of stack (`Sound`), with some working space each, at
+most the `8 W` bytes they get. Then the precondition of `pbkdf2` (`Pre`), the
+parts of its `scratch`, and what every piece of it keeps (`KR`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.X86

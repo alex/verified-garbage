@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 /-!
 # Scalar reduction: the complete function
 
-Untrusted. The small target-specific contract below is implied by the
-merged signature contract. It records the separation needed to preserve
-the input and return address while saving registers, and the output's address
-while the loop keeps it in the scratch.
+The small target-specific contract below is implied by the merged signature
+contract. It records the separation needed to preserve the input and return
+address while saving registers, and the output's address while the loop keeps
+it in the scratch.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

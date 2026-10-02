@@ -5,8 +5,8 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Basic
 /-!
 # ML-KEM on AArch64: reductions modulo `q`
 
-Untrusted: everything here is checked by Lean. The conditional subtraction
-`csub` (`Impl/MlKem/AArch64/Basic.lean`), for any registers.
+The conditional subtraction `csub` (`Impl/MlKem/AArch64/Basic.lean`), for any
+registers.
 -/
 
 namespace VG.Proof.MlKem.AArch64

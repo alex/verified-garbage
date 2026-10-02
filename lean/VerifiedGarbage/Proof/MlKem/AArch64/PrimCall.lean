@@ -13,10 +13,9 @@ import VerifiedGarbage.Proof.Framework.AArch64.RelCT
 /-!
 # ML-KEM-768 on AArch64: calling the primitives
 
-Untrusted: everything here is checked by Lean. Each call of a verified
-polynomial primitive, from its proof (with `WP.call`; `sample_ntt` with
-`WP.callF`, as its Keccak calls have frames): what it needs of the state it
-is called from, and what holds when it returns (`Kept`).
+Each call of a verified polynomial primitive, from its proof (with `WP.call`;
+`sample_ntt` with `WP.callF`, as its Keccak calls have frames): what it needs
+of the state it is called from, and what holds when it returns (`Kept`).
 -/
 
 namespace VG.Proof.MlKem.AArch64

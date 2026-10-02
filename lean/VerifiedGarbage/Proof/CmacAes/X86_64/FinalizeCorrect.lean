@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.CmacAes.X86_64.Finalize
 /-!
 # AES-CMAC on x86-64: `vg_cmac_aes_finalize` is correct
 
-Untrusted: everything here is checked by Lean. Before the call, the
-counter block (at `S + 2048`) holds `Mₙ ⊕ C`, for the last block `Mₙ` of
-§6.2 step 4 and the chaining value `C` at `state`, and the state is
-zeroed; the call leaves `CIPH_K(C ⊕ Mₙ)` there, the MAC (`macFull_split`).
+Before the call, the counter block (at `S + 2048`) holds `Mₙ ⊕ C`, for the
+last block `Mₙ` of §6.2 step 4 and the chaining value `C` at `state`, and the
+state is zeroed; the call leaves `CIPH_K(C ⊕ Mₙ)` there, the MAC
+(`macFull_split`).
 -/
 
 namespace VG.Proof.CmacAes.X86_64

@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86.Hashes
 /-!
 # HMAC over every hash on X86: `init` as literals
 
-Untrusted: everything here is checked by Lean. HMAC's `init` at each hash
-function, as literals (`materialize_code`, `Proof/Framework/Lit.lean`) that
-refer to the hash functions' literals: the registration files' `spSafe`
-checks evaluate them. `finalize` and PBKDF2's `iterate`, written over the
-compression function, are in `Proof/Pbkdf2/Md/X86/Lit.lean`.
+HMAC's `init` at each hash function, as literals (`materialize_code`,
+`Proof/Framework/Lit.lean`) that refer to the hash functions' literals: the
+registration files' `spSafe` checks evaluate them. `finalize` and PBKDF2's
+`iterate`, written over the compression function, are in
+`Proof/Pbkdf2/Md/X86/Lit.lean`.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86

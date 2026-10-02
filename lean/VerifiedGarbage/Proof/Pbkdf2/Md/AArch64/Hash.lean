@@ -6,14 +6,14 @@ import VerifiedGarbage.Proof.Pbkdf2.AArch64.IterateCT
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: the hash function
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Md/X86_64/Hash.lean`), `HashOK H` is what the proofs know of
-the hash function whose code `H` describes: it is a Merkle–Damgård hash
-function `md` (`Md`) whose length field and digest code do what they should
-(`Shape`), with a verified compression function (`CompOk`); its streaming
-functions are verified against the contracts HMAC's generic proofs call
-them with (`stream`); its specification is `md` from the initial hash value
-`iv`, with the digest the first `D` bytes of `md`'s; and its sizes fit.
+As on x86-64 (`Proof/Pbkdf2/Md/X86_64/Hash.lean`), `HashOK H` is what the
+proofs know of the hash function whose code `H` describes: it is a
+Merkle–Damgård hash function `md` (`Md`) whose length field and digest code do
+what they should (`Shape`), with a verified compression function (`CompOk`);
+its streaming functions are verified against the contracts HMAC's generic
+proofs call them with (`stream`); its specification is `md` from the initial
+hash value `iv`, with the digest the first `D` bytes of `md`'s; and its sizes
+fit.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64

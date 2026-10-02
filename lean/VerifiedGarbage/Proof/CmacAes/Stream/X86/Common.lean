@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.X86.ArgTaint
 /-!
 # Streaming AES-CMAC on x86: arithmetic, copies and saved registers
 
-Untrusted: everything here is checked by Lean. The number of bytes held
-back, as the code computes it from `count`'s two words (`held_ok`); the copy
-of `ecx` bytes from `esi` to `edi` (`copy_wp`); and the registers saved in
-the scratch buffer (`slot_read`, `restore_wp`).
+The number of bytes held back, as the code computes it from `count`'s two
+words (`held_ok`); the copy of `ecx` bytes from `esi` to `edi` (`copy_wp`);
+and the registers saved in the scratch buffer (`slot_read`, `restore_wp`).
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86

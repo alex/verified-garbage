@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.Power
 import VerifiedGarbage.Proof.Ed25519.Arm.PointAffine
 import VerifiedGarbage.Proof.Ed25519.Recover
 
-/-! Untrusted: candidate root and its square check agree with the decoding specification. -/
+/-! Candidate root and its square check agree with the decoding specification. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm
 

@@ -4,8 +4,7 @@ import VerifiedGarbage.Proof.X448.Ladder
 /-!
 # X448 on ARMv7: reading a scalar bit
 
-Untrusted: everything here is checked by Lean. Only the public loop
-counter selects an address; the bit affects an XOR mask.
+Only the public loop counter selects an address; the bit affects an XOR mask.
 -/
 
 namespace VG.Proof.X448.Arm

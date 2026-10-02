@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.X86_64.Mxcsr
 /-!
 # ML-DSA verification on x86-64: entry to a callee
 
-Untrusted: everything here is checked by Lean. What a callee's contract
-needs on its entry, from the layout of the caller: that its buffers are
-apart from its return address and the 16 bytes of stack below it, and from
-each other, and that they read on entry as they did before the call
-(`Ent`). And what the callees must be (`CalleeOk`): correct and constant
-time under their contracts with 16 bytes of stack (24 for
+What a callee's contract needs on its entry, from the layout of the caller:
+that its buffers are apart from its return address and the 16 bytes of stack
+below it, and from each other, and that they read on entry as they did before
+the call (`Ent`). And what the callees must be (`CalleeOk`): correct and
+constant time under their contracts with 16 bytes of stack (24 for
 `vg_mldsa_rej_ntt_poly4`), not writing the stack pointer, calling at most
 three deep, and never loading MXCSR.
 -/

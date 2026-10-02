@@ -4,10 +4,8 @@ import VerifiedGarbage.Proof.MlKem.KPke
 /-!
 # ML-KEM-768 on x86-64: the input of `PRF`, and sums of products
 
-Untrusted: everything here is checked by Lean. In a layout: the input of
-`PRF₂(σ, N)` (`prf_pieces`, for `Prfs.lean`), and
-`a₀ ×_T b₀ + a₁ ×_T b₁ + a₂ ×_T b₂` to polynomial 15 (`dotAt_ok`,
-`dotAt_tr`).
+In a layout: the input of `PRF₂(σ, N)` (`prf_pieces`, for `Prfs.lean`), and
+`a₀ ×_T b₀ + a₁ ×_T b₁ + a₂ ×_T b₂` to polynomial 15 (`dotAt_ok`, `dotAt_tr`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

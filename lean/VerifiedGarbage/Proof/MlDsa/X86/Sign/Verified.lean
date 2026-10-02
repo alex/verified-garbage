@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Inst
 /-!
 # ML-DSA signing on x86 (32-bit): verified
 
-Untrusted: everything here is checked by Lean. `vg_mldsa{44,65,87}_sign`
-(`sign prims p`) with the x86 primitives, verified against `signContract`
-(`verified`, with `prims_ok`).
+`vg_mldsa{44,65,87}_sign` (`sign prims p`) with the x86 primitives, verified
+against `signContract` (`verified`, with `prims_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

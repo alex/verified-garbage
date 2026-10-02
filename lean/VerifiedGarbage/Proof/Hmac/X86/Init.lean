@@ -8,16 +8,15 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC-SHA-256 on x86 (32-bit): `init`
 
-Untrusted: everything here is checked by Lean. The compressor-dependent
-correctness proof is generic in `Proof/Hmac/Sha256/X86/Init.lean`; this module keeps
-the shared memory, state and scalar constant-time facts. The prologue saves our
-caller's registers in `scratch[112..128)` and stores `H⁽⁰⁾` in both states;
-the key loop and the pad loop then fill the inner buffer with `K₀ ⊕ ipad`
-a byte at a time (invariant `Buf`: `j` bytes written, `edx` at byte `j`),
-the outer buffer is computed from it a word at a time (`xorWords_ok`), and
-each buffer is compressed by calling the compression function
-through the generic proof, using the 20 bytes below `esp`. Each state then
-represents its block (`Common.repr_block`).
+The compressor-dependent correctness proof is generic in
+`Proof/Hmac/Sha256/X86/Init.lean`; this module keeps the shared memory, state
+and scalar constant-time facts. The prologue saves our caller's registers in
+`scratch[112..128)` and stores `H⁽⁰⁾` in both states; the key loop and the pad
+loop then fill the inner buffer with `K₀ ⊕ ipad` a byte at a time (invariant
+`Buf`: `j` bytes written, `edx` at byte `j`), the outer buffer is computed from
+it a word at a time (`xorWords_ok`), and each buffer is compressed by calling
+the compression function through the generic proof, using the 20 bytes below
+`esp`. Each state then represents its block (`Common.repr_block`).
 -/
 
 namespace VG.Proof.Hmac.X86.Init

@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86.Finalize
 /-!
 # HMAC over a Merkle–Damgård hash function on x86 (32-bit): `finalize`, correct
 
-Untrusted: everything here is checked by Lean. HMAC's `finalize`
-(`Impl/Pbkdf2/Md/X86.lean`) starts as in the streaming-level design: the
-prologue and the call of the hash function's streaming `finalize` on the
-inner state, which writes the inner digest to `scratch`
-(`Proof/Hmac/Generic/X86/Finalize.lean`, whose `KR` the rest keeps). Then
-the inner state gets the outer hash value and, in its buffer, the digest and
-the padding (`mid_ok`); one compression (`cmpF_ok`) gives the outer hash
-value, whose digest is the MAC (`out_ok`): `Md.Link.hmac_outer`.
+HMAC's `finalize` (`Impl/Pbkdf2/Md/X86.lean`) starts as in the streaming-level
+design: the prologue and the call of the hash function's streaming `finalize`
+on the inner state, which writes the inner digest to `scratch`
+(`Proof/Hmac/Generic/X86/Finalize.lean`, whose `KR` the rest keeps). Then the
+inner state gets the outer hash value and, in its buffer, the digest and the
+padding (`mid_ok`); one compression (`cmpF_ok`) gives the outer hash value,
+whose digest is the MAC (`out_ok`): `Md.Link.hmac_outer`.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86.HmacFin

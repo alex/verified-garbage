@@ -9,9 +9,9 @@ import VerifiedGarbage.Proof.Framework.Arm.RegUpd
 /-!
 # ML-DSA on 32-bit ARM: what the proofs of `HintBitPack` and `HintBitUnpack` share
 
-Untrusted: everything here is checked by Lean. The comparisons of small
-numbers (`ltBit`), pointers that do not wrap around, the parameters, and the
-frames: the words a push stores, which the body and the pop reload.
+The comparisons of small numbers (`ltBit`), pointers that do not wrap around,
+the parameters, and the frames: the words a push stores, which the body and
+the pop reload.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Pack.Hint

@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # x86-64: the calling-convention obligations
 
-Untrusted: everything here is checked by Lean.
-
 `abiPreserved` asks that MXCSR's control bits be restored. Code that never
 loads MXCSR keeps it, so its proofs show only the other obligations
 (`gprPreserved`), and `abiPreserved_of_exec` adds MXCSR's.

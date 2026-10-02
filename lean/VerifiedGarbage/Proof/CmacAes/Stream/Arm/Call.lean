@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.Framework.OffsetBelow
 /-!
 # Streaming AES-CMAC on ARMv7: the calls
 
-Untrusted: everything here is checked by Lean. A call of each function the
-streaming functions call (`vg_aes_expand_key`, `vg_cmac_aes_subkeys`, and
-`vg_cmac_aes_update` and `vg_cmac_aes_finalize` in the frame that pushes
-their two stack arguments), from its contract: what it needs (`…Args`),
-what it leaves (`…Post`, in terms of the memory before the call), and that
-two calls with the same arguments leak the same (`…_rel`).
+A call of each function the streaming functions call (`vg_aes_expand_key`,
+`vg_cmac_aes_subkeys`, and `vg_cmac_aes_update` and `vg_cmac_aes_finalize` in
+the frame that pushes their two stack arguments), from its contract: what it
+needs (`…Args`), what it leaves (`…Post`, in terms of the memory before the
+call), and that two calls with the same arguments leak the same (`…_rel`).
 
 `vg_cmac_aes_subkeys`, `vg_cmac_aes_update` and `vg_cmac_aes_finalize` have
 frames of their own (`WP.callF`), 8 bytes below their stack pointer; with

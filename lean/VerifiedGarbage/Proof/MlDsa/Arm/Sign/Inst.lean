@@ -16,15 +16,14 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sample.BallCT
 /-!
 # ML-DSA signing on ARMv7: the primitives it calls
 
-Untrusted: everything here is checked by Lean. The verified ARMv7
-implementations of the primitives (`prims`), and what the proofs of signing
-need of them (`prims_ok`), with 28 bytes of stack below the function's stack
-pointer: their contracts with the stack of their registrations (at most 28
-bytes, or 20 for the four whose fifth argument signing pushes), that their
-frames fit in it, and, of the two samplers whose result signing branches on,
-that it depends only on their public data and that they succeed only if the
-algorithm finishes within `maxBounds` (from what their own proofs say they
-return).
+The verified ARMv7 implementations of the primitives (`prims`), and what the
+proofs of signing need of them (`prims_ok`), with 28 bytes of stack below the
+function's stack pointer: their contracts with the stack of their
+registrations (at most 28 bytes, or 20 for the four whose fifth argument
+signing pushes), that their frames fit in it, and, of the two samplers whose
+result signing branches on, that it depends only on their public data and that
+they succeed only if the algorithm finishes within `maxBounds` (from what
+their own proofs say they return).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

@@ -12,14 +12,13 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Leak
 /-!
 # ML-DSA verification on x86 (32-bit): the setting
 
-Untrusted: everything here is checked by Lean. Verification is proven for
-any implementations of the primitives it calls that are verified against
-their contracts (`PrimsOk`), as key generation (`Proof/MlDsa/X86/KeyGen/`):
-the contract's precondition gives the layout of the arguments (`YV p`:
-`pk`, `mu`, `sig` and `scratch`, and 96 bytes of stack; `pre_of`), and its
-public data the pointers and the inputs, as bytes (`lkV`, `pub_of`). What
-the proof uses of a parameter set is `VFacts`; `layv` proves the checks of
-buffers against the layout.
+Verification is proven for any implementations of the primitives it calls that
+are verified against their contracts (`PrimsOk`), as key generation
+(`Proof/MlDsa/X86/KeyGen/`): the contract's precondition gives the layout of
+the arguments (`YV p`: `pk`, `mu`, `sig` and `scratch`, and 96 bytes of stack;
+`pre_of`), and its public data the pointers and the inputs, as bytes (`lkV`,
+`pub_of`). What the proof uses of a parameter set is `VFacts`; `layv` proves
+the checks of buffers against the layout.
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

@@ -6,10 +6,9 @@ import VerifiedGarbage.Impl.Scrypt.X86.BlockMix
 /-!
 # scrypt on x86 (32-bit): common lemmas
 
-Untrusted: everything here is checked by Lean. The target-independent lemmas
-about addresses and bytes are in `Proof/Scrypt/Memory.lean`; here are
-32-bit pointers as addresses, `mul`, the 64-byte exclusive-or, and saving and
-restoring registers.
+The target-independent lemmas about addresses and bytes are in
+`Proof/Scrypt/Memory.lean`; here are 32-bit pointers as addresses, `mul`, the
+64-byte exclusive-or, and saving and restoring registers.
 -/
 
 namespace VG.Proof.Scrypt.X86

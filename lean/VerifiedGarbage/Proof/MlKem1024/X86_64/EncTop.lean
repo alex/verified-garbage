@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlKem1024.X86_64.EncRest
 /-!
 # ML-KEM-1024 on x86-64: K-PKE.Encrypt
 
-Untrusted: everything here is checked by Lean. `encrypt1024`, from its inputs
-and `r15 = 1`: `r15` is 1 exactly when every `SampleNTT` succeeded, and then
-the ciphertext is `K-PKE.Encrypt(ek, m, r)` (`encrypt_ok`); for a given `ρ`,
-it leaks the same in two runs (`encrypt_tr`). Every check of the pieces is
-one Boolean (`encChk`), which the callers evaluate in their layouts.
+`encrypt1024`, from its inputs and `r15 = 1`: `r15` is 1 exactly when every
+`SampleNTT` succeeded, and then the ciphertext is `K-PKE.Encrypt(ek, m, r)`
+(`encrypt_ok`); for a given `ρ`, it leaks the same in two runs (`encrypt_tr`).
+Every check of the pieces is one Boolean (`encChk`), which the callers
+evaluate in their layouts.
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

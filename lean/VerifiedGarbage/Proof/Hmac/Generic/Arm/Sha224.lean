@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Sha256.Arm.Shared
 /-!
 # HMAC-SHA-224 on 32-bit ARM
 
-Untrusted: everything here is checked by Lean. `HashOK` for SHA-224
-(`sha224OK`): SHA-256's streaming functions from SHA-224's initial hash value
-(`vg_sha224_init`, then `vg_sha256_update` and `vg_sha256_finalize`, whose
-contracts hold from any initial hash value), with the digest the first 28
-bytes of the final hash value; and the generic HMAC proofs at it, moved to
-the shared contracts of `Spec.Hmac.sha224I` (as for the hash functions of
-`Hashes.lean` in `Instances.lean`).
+`HashOK` for SHA-224 (`sha224OK`): SHA-256's streaming functions from
+SHA-224's initial hash value (`vg_sha224_init`, then `vg_sha256_update` and
+`vg_sha256_finalize`, whose contracts hold from any initial hash value), with
+the digest the first 28 bytes of the final hash value; and the generic HMAC
+proofs at it, moved to the shared contracts of `Spec.Hmac.sha224I` (as for the
+hash functions of `Hashes.lean` in `Instances.lean`).
 -/
 
 namespace VG.Proof.Hmac.Generic.Arm

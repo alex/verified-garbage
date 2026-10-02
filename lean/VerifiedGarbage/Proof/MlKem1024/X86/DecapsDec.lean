@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlKem1024.X86.DecapsPre
 /-!
 # ML-KEM-1024 on x86 (32-bit): K-PKE.Decrypt in `vg_mlkem1024_decaps`
 
-Untrusted: everything here is checked by Lean. `w = Σ ŝ[i] ×_T NTT(u'[i])`,
-with `u'[i]` decoded and decompressed from `ct` and `ŝ[i]` decoded from `dk`
-(`term0_piece`, `term_piece`), then `m' = ByteEncode₁(Compress₁(v' -
-NTT⁻¹(w)))` (`decrypt_piece`), which is `mD`.
+`w = Σ ŝ[i] ×_T NTT(u'[i])`, with `u'[i]` decoded and decompressed from `ct`
+and `ŝ[i]` decoded from `dk` (`term0_piece`, `term_piece`), then `m' =
+ByteEncode₁(Compress₁(v' - NTT⁻¹(w)))` (`decrypt_piece`), which is `mD`.
 -/
 
 namespace VG.Proof.MlKem1024.X86.Decaps

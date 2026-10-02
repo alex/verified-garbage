@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Sha3.Stream
 /-!
 # ML-DSA key generation: larger bounds give the same result
 
-Untrusted: everything here is checked by Lean. The XOF output a sampler
-draws within a larger bound extends the output within a smaller one
-(`H_take`, `G_take`), so a sampler that finishes within a bound finishes
-with the same result within any larger one (`rejNTTPoly_mono`,
+The XOF output a sampler draws within a larger bound extends the output within
+a smaller one (`H_take`, `G_take`), so a sampler that finishes within a bound
+finishes with the same result within any larger one (`rejNTTPoly_mono`,
 `rejBoundedPoly_mono`), and so does `ML-DSA.KeyGen_internal`
 (`keyGenInternal_mono`).
 -/

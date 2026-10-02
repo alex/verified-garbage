@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointTable
 import VerifiedGarbage.Proof.Ed25519.X86_64.MulAddMemory
 
-/-! Untrusted: copying point tables back into the arithmetic workspace. -/
+/-! Copying point tables back into the arithmetic workspace. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

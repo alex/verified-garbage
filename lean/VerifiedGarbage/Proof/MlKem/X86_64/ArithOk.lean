@@ -7,14 +7,14 @@ import VerifiedGarbage.Proof.Framework.X86_64.Call
 /-!
 # The polynomial arithmetic a top-level function of ML-KEM calls on x86-64
 
-Untrusted: everything here is checked by Lean. What the top-level functions
-need of the implementations of `vg_mlkem_multiply_ntts`, `vg_mlkem_ntt`
-and `vg_mlkem_inv_ntt` they call (`Impl.MlKem.X86_64.Arith`): each meets its
-contract, is constant time, never writes the stack pointer, makes no calls,
-and keeps MXCSR's control bits (`ArithOk`). Both `Arith.sse` and
-`Arith.avx2` do (`ArithOk.sse`, `ArithOk.avx2`); the top-level functions
-call the one that goes with their implementation of
-`vg_mlkem_sample_ntt4` (`Callee4.arith`, `Sample4Impl.arith`).
+What the top-level functions need of the implementations of
+`vg_mlkem_multiply_ntts`, `vg_mlkem_ntt` and `vg_mlkem_inv_ntt` they call
+(`Impl.MlKem.X86_64.Arith`): each meets its contract, is constant time, never
+writes the stack pointer, makes no calls, and keeps MXCSR's control bits
+(`ArithOk`). Both `Arith.sse` and `Arith.avx2` do (`ArithOk.sse`,
+`ArithOk.avx2`); the top-level functions call the one that goes with their
+implementation of `vg_mlkem_sample_ntt4` (`Callee4.arith`,
+`Sample4Impl.arith`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

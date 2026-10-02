@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Hashes
 /-!
 # HMAC's `finalize` and PBKDF2's `iterate` on x86 (32-bit): the code as literals
 
-Untrusted: everything here is checked by Lean. `Hash.hmacFin` and
-`Hash.iterate` (`Impl/Pbkdf2/Md/X86.lean`) at each hash function of
-`Hashes.lean`, as literals (`materialize_code`, `Proof/Framework/Lit.lean`)
-that refer to the literals of the functions they call (the compression
-functions, and the streaming `finalize`): the registration files' `spSafe`
-checks evaluate them.
+`Hash.hmacFin` and `Hash.iterate` (`Impl/Pbkdf2/Md/X86.lean`) at each hash
+function of `Hashes.lean`, as literals (`materialize_code`,
+`Proof/Framework/Lit.lean`) that refer to the literals of the functions they
+call (the compression functions, and the streaming `finalize`): the
+registration files' `spSafe` checks evaluate them.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86

@@ -3,8 +3,6 @@ import VerifiedGarbage.TCB.Artifact
 /-!
 # Unfolding a contract's postcondition, for the kernel
 
-Untrusted: everything here is checked by Lean.
-
 A postcondition that matches on a function of the entry state (`match
 decrypt … with`) is expensive to reach by conversion (`show match … with`,
 `dsimp only [c]`): the kernel, comparing `c.post s s'` with the `match`,

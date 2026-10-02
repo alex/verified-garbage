@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.PhaseO
 /-!
 # ML-DSA signing on x86 (32-bit): the body
 
-Untrusted: everything here is checked by Lean. After `ExpandA`, the rest
-(`rest_piece`: the private key, the loop, and the signature if the last
-iteration passed) leaves `OK`, and `sig` if it is 1, as `Sign_internal`
-says (`Outcome`, `rest_outcome`): 1 with the signature within `maxBounds`
-if the last iteration passed, and 0 with `Sign_internal` failing within
-`minBounds` if `SampleInBall` failed or the 814 iterations were rejected;
-and 0 at once if an entry of `Â` failed (`body_piece`).
+After `ExpandA`, the rest (`rest_piece`: the private key, the loop, and the
+signature if the last iteration passed) leaves `OK`, and `sig` if it is 1, as
+`Sign_internal` says (`Outcome`, `rest_outcome`): 1 with the signature within
+`maxBounds` if the last iteration passed, and 0 with `Sign_internal` failing
+within `minBounds` if `SampleInBall` failed or the 814 iterations were
+rejected; and 0 at once if an entry of `Â` failed (`body_piece`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign
