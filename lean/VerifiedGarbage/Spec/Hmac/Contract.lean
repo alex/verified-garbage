@@ -30,7 +30,8 @@ These contracts are SHA-256's alone, for its existing implementations:
 `VG.Spec.Hmac.sha256I`'s generic ones (`Spec/Hmac/Generic.lean`), as every
 hash function's, give `init` more working space and have `finalize` write
 the MAC to `out` on every target. They are removed once SHA-256 is
-implemented through `sha256I` on every target.
+implemented through `sha256I` on every target, whose `init` then takes a key
+of any length (`VG.Spec.Hmac.Instance.initAnyKeyContract`).
 
 `init` and `finalize` take the number of bytes of stack below the stack pointer that
 an implementation's calls use (`stack`, see `Sig.contract`), 0 for one that

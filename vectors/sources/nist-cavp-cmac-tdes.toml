@@ -1,0 +1,5 @@
+name = "NIST CAVP CMAC test vectors (the TDES .rsp files: generation and verification for two- and three-key TDEA)"
+directories = ["nist-cavp/cmac-tdes"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/mac/cmactestvectors.zip"
+sha256 = "bdda4edade394c9a2ae74d9cd0921caa120c911a5e735e37abf39d0d5f062be1"
+retrieved = 2026-10-01

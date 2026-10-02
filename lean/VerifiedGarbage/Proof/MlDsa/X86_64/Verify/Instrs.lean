@@ -21,7 +21,7 @@ open VG.Spec.MlDsa
 
 /-- The primitives, each empty. -/
 def P0 : Prims := ⟨.block [], .block [], .block [], .block [], .block [], .block [], .block [], .block [], .block [],
-  .block [], .block [], .block [], .block [], ""⟩
+  .block [], .block [], .block [], .block [], .block [], ""⟩
 
 /-- `q` holds of every instruction of the primitives `P`. -/
 structure PrimsQ (q : Instr → Bool) (P : Prims) : Prop where
@@ -38,6 +38,7 @@ structure PrimsQ (q : Instr → Bool) (P : Prims) : Prop where
   unpackT1 : P.unpackT1.allInstrs q = true
   hintUnpack : P.hintUnpack.allInstrs q = true
   normLt : P.normLt.allInstrs q = true
+  rej4 : P.rej4.allInstrs q = true
 
 /-- `q` holds of every instruction of `c` exactly when it does of `c'`. -/
 def SameQ (q : Instr → Bool) (c c' : Prog isa) : Prop := c.allInstrs q = c'.allInstrs q
@@ -68,6 +69,9 @@ theorem SameQ.ifOk {c c' : Prog isa} (h : SameQ q c c') : SameQ q (ifOk c) (ifOk
 theorem SameQ.sampled {c c' : Prog isa} (h : SameQ q c c') (a : Ptr) : SameQ q (sampled c a) (sampled c' a) :=
   h.seq rfl
 
+theorem SameQ.sampled4 {c c' : Prog isa} (h : SameQ q c c') (a : Ptr) : SameQ q (sampled4 c a) (sampled4 c' a) :=
+  h.seq rfl
+
 variable {P : Prims} (hP : PrimsQ q P) (p : Params)
 include hP
 
@@ -80,7 +84,14 @@ omit p in
 theorem aOne_q (e : Nat) : SameQ q (aOne P e) (aOne P0 e) :=
   SameQ.seq rfl (SameQ.sampled (SameQ.call hP.rejNtt _) _)
 
-theorem aRow_q (r : Nat) : SameQ q (aRow P p r) (aRow P0 p r) := SameQ.seqR (aOne_q hP) _ _
+theorem aGrp_q (r c : Nat) : SameQ q (aGrp P p r c) (aGrp P0 p r c) :=
+  SameQ.seq rfl (SameQ.seq rfl (SameQ.seq rfl (SameQ.seq rfl (SameQ.sampled4 (SameQ.call hP.rej4 _) _))))
+
+theorem aRow_q (r : Nat) : SameQ q (aRow P p r) (aRow P0 p r) := by
+  refine (aGrp_q hP p r 0).seq ?_
+  by_cases h : p.ℓ = 7
+  · rw [ite_eq_left h, ite_eq_left h]; exact aGrp_q hP p r 3
+  · rw [ite_eq_right h, ite_eq_right h]; exact SameQ.seqR (aOne_q hP) _ _
 
 theorem samples_q : SameQ q (samples P p) (samples P0 p) :=
   SameQ.seq rfl ((SameQ.seqR (aRow_q hP p) _ _).seq (SameQ.sampled (SameQ.call hP.ball _) _))
@@ -123,6 +134,7 @@ structure PrimsC (P : Prims) : Prop where
   unpackT1 : ctlOk P.unpackT1 = true
   hintUnpack : ctlOk P.hintUnpack = true
   normLt : ctlOk P.normLt = true
+  rej4 : ctlOk P.rej4 = true
 
 /-- `ctlC` holds of `c` exactly when it does of `c'`. -/
 def SameC (c c' : Prog isa) : Prop := ctlC c = ctlC c'
@@ -148,6 +160,9 @@ theorem SameC.ifOk {c c' : Prog isa} (h : SameC c c') : SameC (ifOk c) (ifOk c')
 theorem SameC.sampled {c c' : Prog isa} (h : SameC c c') (a : Ptr) : SameC (sampled c a) (sampled c' a) :=
   h.seq rfl
 
+theorem SameC.sampled4 {c c' : Prog isa} (h : SameC c c') (a : Ptr) : SameC (sampled4 c a) (sampled4 c' a) :=
+  h.seq rfl
+
 section
 variable {P : Prims} (hP : PrimsC P) (p : Params)
 include hP
@@ -161,8 +176,15 @@ theorem verify_c : SameC (verify P p) (verify P0 p) := by
     (dot r).seq ((SameC.call hP.unpackT1 _).seq ((SameC.call hP.ntt _).seq ((SameC.call hP.mul _).seq
       ((SameC.call hP.sub _).seq ((SameC.call hP.invNtt _).seq ((SameC.call hP.useHint _).seq
         (SameC.call hP.simpleBitPack _)))))))
+  have aGrp : ∀ r c, SameC (aGrp P p r c) (aGrp P0 p r c) := fun r c =>
+    SameC.seq rfl (SameC.seq rfl (SameC.seq rfl (SameC.seq rfl (SameC.sampled4 (SameC.call hP.rej4 _) _))))
+  have aRow : ∀ r, SameC (aRow P p r) (aRow P0 p r) := fun r => by
+    refine (aGrp r 0).seq ?_
+    by_cases h : p.ℓ = 7
+    · rw [ite_eq_left h, ite_eq_left h]; exact aGrp r 3
+    · rw [ite_eq_right h, ite_eq_right h]; exact SameC.seqR aOne _ _
   have samples : SameC (samples P p) (samples P0 p) :=
-    SameC.seq rfl ((SameC.seqR (fun r => SameC.seqR aOne _ _) _ _).seq
+    SameC.seq rfl ((SameC.seqR aRow _ _).seq
       (SameC.sampled (SameC.call hP.ball _) _))
   have compute : SameC (compute P p) (compute P0 p) :=
     (SameC.seqR (fun _ => SameC.call hP.ntt _) _ _).seq ((SameC.call hP.ntt _).seq
@@ -183,7 +205,7 @@ include C hp
 theorem verify_ctl : ctlOk (verify P p) = true :=
   ctlOk_of_ctlC ((verify_c ⟨C.ntt.ctl, C.invNtt.ctl, C.mul.ctl, C.mulAdd.ctl, C.sub.ctl, C.rejNtt.ctl, C.ball.ctl,
     C.useHint.ctl, C.simpleBitPack.ctl, C.bitUnpack.ctl, C.unpackT1.ctl, C.hintUnpack.ctl,
-    C.normLt.ctl⟩ p).trans (verify0_ctlC p hp))
+    C.normLt.ctl, C.rej4.ctl⟩ p).trans (verify0_ctlC p hp))
 
 theorem verify_spSafe : (verify P p).all (fun i => !isa.writesSp i) = true :=
   Code.all_of_allInstrs ((verify_q ⟨Code.allInstrs_of_all C.ntt.spSafe, Code.allInstrs_of_all C.invNtt.spSafe,
@@ -191,6 +213,7 @@ theorem verify_spSafe : (verify P p).all (fun i => !isa.writesSp i) = true :=
     Code.allInstrs_of_all C.rejNtt.spSafe, Code.allInstrs_of_all C.ball.spSafe,
     Code.allInstrs_of_all C.useHint.spSafe, Code.allInstrs_of_all C.simpleBitPack.spSafe,
     Code.allInstrs_of_all C.bitUnpack.spSafe, Code.allInstrs_of_all C.unpackT1.spSafe,
-    Code.allInstrs_of_all C.hintUnpack.spSafe, Code.allInstrs_of_all C.normLt.spSafe⟩ p).trans (verify0_sp p hp))
+    Code.allInstrs_of_all C.hintUnpack.spSafe, Code.allInstrs_of_all C.normLt.spSafe,
+    Code.allInstrs_of_all C.rej4.spSafe⟩ p).trans (verify0_sp p hp))
 
 end VG.Proof.MlDsa.X86_64.Verify

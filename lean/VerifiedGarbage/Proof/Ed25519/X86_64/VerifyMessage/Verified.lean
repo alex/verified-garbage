@@ -6,6 +6,7 @@ import VerifiedGarbage.Proof.Sha512.X86_64.Shared
 namespace VG.Proof.Ed25519.X86_64.VerifyMessage
 
 variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+variable {dbl : VG.Prog VG.X86_64.isa} [VG.Proof.Ed25519.X86_64.EdDouble dbl]
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64 (scalarReduce verifyEquation callWith)
 open VG.Impl.Ed25519.X86_64.VerifyMessage
@@ -55,16 +56,17 @@ theorem implies : verifyMessageLocal.Implies (Spec.Ed25519.verifyContract X86_64
     sig_implies_sat [Spec.Ed25519.verifyContract, Spec.Ed25519.verifySig,
       Spec.Ed25519.scratchWords, X86_64.abi, X86_64.argRegs] [satState] using satState
 
-theorem verified (v : Compress) :
-    Verified X86_64.target (code fld fs v.callee v.suffix) (Spec.Ed25519.verifyContract X86_64.abi 184) :=
-  Verified.of_correct (fun _ h => verifyMessage_ok v h) (verifyMessage_ct v) implies
+theorem verified (hq : EqCode (VG.Impl.Ed25519.X86_64.verifyEquation fld dbl)) (v : Compress) :
+    Verified X86_64.target (code fld dbl fs v.callee v.suffix) (Spec.Ed25519.verifyContract X86_64.abi 184) :=
+  Verified.of_correct (fun _ h => verifyMessage_ok hq v h) (verifyMessage_ct hq v) implies
 
-theorem spSafe (v : Compress) :
-    (code fld fs v.callee v.suffix).all (fun i => !isa.writesSp i) = true := by
+omit [VG.Proof.Ed25519.X86_64.EdArith fld] [VG.Proof.Ed25519.X86_64.EdDouble dbl] in
+theorem spSafe (hq : EqCode (VG.Impl.Ed25519.X86_64.verifyEquation fld dbl)) (v : Compress) :
+    (code fld dbl fs v.callee v.suffix).all (fun i => !isa.writesSp i) = true := by
   have hu := Proof.Sha512.X86_64.Shared.update_spSafe v.spSafe
   have hf := Proof.Sha512.X86_64.Shared.finalize_spSafe v.spSafe
   have hr : scalarReduce.all (fun i => !isa.writesSp i) = true := Code.all_of_allInstrs (by lit_decide)
-  have he : (verifyEquation fld).all (fun i => !isa.writesSp i) = true := Code.all_of_allInstrs (by fld_lit_decide)
+  have he := hq.spSafe
   have hi : (Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_512).all (fun i => !isa.writesSp i) = true := by
     decide +kernel
   simp only [code, body, Impl.Ed25519.X86_64.VerifyMessage.hash, callWith, Code.all, hu, hf, hr, he, hi, Bool.and_true]

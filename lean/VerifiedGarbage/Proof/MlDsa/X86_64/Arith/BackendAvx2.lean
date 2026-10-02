@@ -39,7 +39,9 @@ def ArithImpl.avx2 : ArithImpl where
       normLt := FnOk.of Round.normLtY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       makeHint := FnOk.of Round.makeHintY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
-        (by decide +kernel) }
+        (by decide +kernel)
+      rej4 := ⟨Rej4.rejNTT4Avx2_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
+        by decide +kernel, Code.all_of_allInstrs (by decide +kernel)⟩ }
   features := ["avx", "avx2"]
 
 end VG.Proof.MlDsa.X86_64
