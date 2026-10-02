@@ -2,12 +2,44 @@ import VerifiedGarbage.Proof.Rc2.X86.Cbc.Lit
 import VerifiedGarbage.Proof.Rc2.X86.Block
 import VerifiedGarbage.Proof.Rc2.X86.Key
 import VerifiedGarbage.Proof.Rc2.X86.Cbc.Verified
+import VerifiedGarbage.Proof.Rc2.X86.Stream.Lit
+import VerifiedGarbage.Proof.Rc2.X86.Stream.Verified
 
 /-! # RC2 artifacts on baseline x86 -/
 
 namespace VG.Artifacts.Rc2.X86
 
 def artifacts : List Artifact := [
+  { Spec.Rc2.cbcInitApi with
+    target := X86.target
+    doc := Spec.Rc2.cbcInitApi.doc (notes := ["Baseline x86: copies the IV and calls the verified \
+      RC2 key expansion, saving `ebx` and `esi` in the scratch space beyond its own."])
+    code := Impl.Rc2.X86.Stream.init
+    contract := Spec.Rc2.cbcInitContract X86.abi 24
+    stack := 24
+    ofSig := ⟨_, _, _, by unfold Spec.Rc2.cbcInitContract; rfl⟩
+    verified := Proof.Rc2.X86.Stream.init_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Rc2.cbcEncryptUpdateApi with
+    target := X86.target
+    doc := Spec.Rc2.cbcEncryptUpdateApi.doc (notes := ["Baseline x86: copies bytes one at a time and \
+      calls the verified RC2-CBC encryption on the output in place."])
+    code := Impl.Rc2.X86.Stream.encryptUpdate
+    contract := Spec.Rc2.cbcEncryptUpdateContract X86.abi 40
+    stack := 40
+    ofSig := ⟨_, _, _, by unfold Spec.Rc2.cbcEncryptUpdateContract Spec.Rc2.cbcUpdateContract; rfl⟩
+    verified := Proof.Rc2.X86.Stream.encryptUpdate_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Rc2.cbcDecryptUpdateApi with
+    target := X86.target
+    doc := Spec.Rc2.cbcDecryptUpdateApi.doc (notes := ["Baseline x86: copies bytes one at a time and \
+      calls the verified RC2-CBC decryption on the output in place."])
+    code := Impl.Rc2.X86.Stream.decryptUpdate
+    contract := Spec.Rc2.cbcDecryptUpdateContract X86.abi 40
+    stack := 40
+    ofSig := ⟨_, _, _, by unfold Spec.Rc2.cbcDecryptUpdateContract Spec.Rc2.cbcUpdateContract; rfl⟩
+    verified := Proof.Rc2.X86.Stream.decryptUpdate_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Rc2.cbcEncryptApi with
     target := X86.target
     doc := Spec.Rc2.cbcEncryptApi.doc
