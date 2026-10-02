@@ -10,7 +10,6 @@ import merge_queue_run as mq
 
 REPO = "pyca/verified-garbage"
 SHA = "a" * 40
-BEFORE = "b" * 40
 WORKFLOW_ID = 42
 
 
@@ -21,7 +20,7 @@ def run(**changes) -> dict:
         "status": "completed",
         "conclusion": "success",
         "head_sha": SHA,
-        "head_branch": f"gh-readonly-queue/main/pr-7-{BEFORE}",
+        "head_branch": "gh-readonly-queue/main/pr-7-" + "b" * 40,
         "workflow_id": WORKFLOW_ID,
         "path": ".github/workflows/ci.yml",
         "repository": {"full_name": REPO},
@@ -85,53 +84,10 @@ class FinalArtifact(unittest.TestCase):
                 self.assertFalse(mq.has_final_artifact(artifacts))
 
 
-class RustInputs(unittest.TestCase):
-    def test_feeds_rust_cache(self):
-        for path in [
-            "Cargo.toml",
-            "Cargo.lock",
-            "bench/Cargo.toml",
-            "rust-toolchain",
-            "rust-toolchain.toml",
-            ".cargo/config.toml",
-            "sub/.cargo/config",
-            ".github/workflows/ci.yml",
-        ]:
-            with self.subTest(path=path):
-                self.assertTrue(mq.feeds_rust_cache(path))
-        for path in ["src/lib.rs", "src/asm/x86_64/sha256.rs", "lean/lakefile.toml", "MyCargo.toml", "", "x.cargo/y"]:
-            with self.subTest(path=path):
-                self.assertFalse(mq.feeds_rust_cache(path))
-
-    def compare(self, *files, status="ahead"):
-        return {"status": status, "files": [{"filename": f} for f in files]}
-
-    def test_unchanged(self):
-        self.assertFalse(mq.rust_inputs_changed(self.compare("src/lib.rs", "lean/VerifiedGarbage/Spec/Foo.lean")))
-
-    def test_changed(self):
-        self.assertTrue(mq.rust_inputs_changed(self.compare("src/lib.rs", "Cargo.lock")))
-
-    def test_renamed_from_an_input(self):
-        c = {"status": "ahead", "files": [{"filename": "old.toml", "previous_filename": "Cargo.toml"}]}
-        self.assertTrue(mq.rust_inputs_changed(c))
-
-    def test_in_doubt(self):
-        for c in [
-            self.compare("src/lib.rs", status="diverged"),
-            self.compare(status="identical"),
-            self.compare(*[f"src/{i}.rs" for i in range(mq.MAX_COMPARE_FILES)]),
-            {"status": "ahead"},
-            {},
-        ]:
-            with self.subTest(c=c):
-                self.assertTrue(mq.rust_inputs_changed(c))
-
-
 class Find(unittest.TestCase):
     """`find` against fake API responses."""
 
-    def responses(self, runs=None, artifacts=None, compare=None):
+    def responses(self, runs=None, artifacts=None):
         def fake(path):
             if path == f"repos/{REPO}/actions/runs/5":
                 return {"workflow_id": WORKFLOW_ID}
@@ -139,54 +95,39 @@ class Find(unittest.TestCase):
                 return {"workflow_runs": [run()] if runs is None else runs}
             if path.startswith(f"repos/{REPO}/actions/runs/100/artifacts"):
                 return {"artifacts": [{"name": "lean-build-final", "expired": False}] if artifacts is None else artifacts}
-            if path == f"repos/{REPO}/compare/{BEFORE}...{SHA}":
-                if isinstance(compare, Exception):
-                    raise compare
-                return compare or {"status": "ahead", "files": [{"filename": "src/lib.rs"}]}
             raise subprocess.CalledProcessError(1, ["gh", "api", path])
 
         return mock.patch.object(mq, "gh", side_effect=fake)
 
-    def find(self, before=BEFORE):
+    def find(self):
         with mock.patch("sys.stderr"):
-            return mq.find(REPO, SHA, "5", before)
+            return mq.find(REPO, SHA, "5")
 
-    def test_reuse_and_skip_rust(self):
+    def test_reuse(self):
         with self.responses():
-            self.assertEqual(self.find(), (100, True))
-
-    def test_reuse_with_rust(self):
-        with self.responses(compare={"status": "ahead", "files": [{"filename": "Cargo.lock"}]}):
-            self.assertEqual(self.find(), (100, False))
-        with self.responses():
-            self.assertEqual(self.find(before=mq.ZERO_SHA), (100, False))
-        with self.responses(compare=subprocess.CalledProcessError(1, "gh")):
-            self.assertEqual(self.find(), (100, False))
+            self.assertEqual(self.find(), 100)
 
     def test_no_run(self):
         with self.responses(runs=[]):
-            self.assertEqual(self.find(), (None, False))
+            self.assertIsNone(self.find())
         with self.responses(runs=[run(conclusion="failure")]):
-            self.assertEqual(self.find(), (None, False))
+            self.assertIsNone(self.find())
 
     def test_no_artifact(self):
         with self.responses(artifacts=[]):
-            self.assertEqual(self.find(), (None, False))
+            self.assertIsNone(self.find())
 
     def test_api_failure(self):
         with mock.patch.object(mq, "gh", side_effect=subprocess.CalledProcessError(1, "gh")):
-            self.assertEqual(self.find(), (None, False))
+            self.assertIsNone(self.find())
         with mock.patch.object(mq, "gh", side_effect=json.JSONDecodeError("x", "", 0)):
-            self.assertEqual(self.find(), (None, False))
+            self.assertIsNone(self.find())
         with mock.patch.object(mq, "gh", return_value={}):
-            self.assertEqual(self.find(), (None, False))
+            self.assertIsNone(self.find())
 
     def test_outputs(self):
-        env = {"GITHUB_REPOSITORY": REPO, "GITHUB_SHA": SHA, "GITHUB_RUN_ID": "5", "BEFORE": BEFORE}
-        for result, out in [
-            ((100, True), "run-id=100\nskip-rust=true\n"),
-            ((None, False), "run-id=\nskip-rust=false\n"),
-        ]:
+        env = {"GITHUB_REPOSITORY": REPO, "GITHUB_SHA": SHA, "GITHUB_RUN_ID": "5"}
+        for result, out in [(100, "run-id=100\n"), (None, "run-id=\n")]:
             with (
                 self.subTest(result=result),
                 mock.patch.dict("os.environ", env),
@@ -194,7 +135,7 @@ class Find(unittest.TestCase):
                 mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
             ):
                 self.assertEqual(mq.main(), 0)
-                find.assert_called_once_with(REPO, SHA, "5", BEFORE)
+                find.assert_called_once_with(REPO, SHA, "5")
                 self.assertEqual(stdout.getvalue(), out)
 
 

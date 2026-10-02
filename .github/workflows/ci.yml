@@ -21,14 +21,14 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
-  # A push to main runs only to save main's caches: the merge queue already
+  # A push to main runs mostly to save main's caches: the merge queue already
   # ran this workflow on the same commit, restoring only main's caches (and
   # its own new branch's, which start empty), so its outputs are what this
   # run would compute. This finds that run (see ci/merge_queue_run.py), whose
-  # Lean outputs `lean` then reuses instead of running the shards, and the
-  # jobs that only re-test are skipped. Without one (a push that bypassed
-  # the queue), the push runs everything. Skipped outside pushes, so the jobs
-  # that need it check `!cancelled()` instead of its success.
+  # Lean outputs `lean` then reuses instead of running the shards. Without
+  # one (a push that bypassed the queue), the push builds everything.
+  # Skipped outside pushes, so the jobs that need it check `!cancelled()`
+  # instead of its success.
   reuse:
     name: Find the merge queue's run
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -38,7 +38,6 @@ jobs:
       contents: read
     outputs:
       run-id: ${{ steps.find.outputs.run-id }}
-      skip-rust: ${{ steps.find.outputs.skip-rust }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,7 +45,6 @@ jobs:
       - id: find
         env:
           GH_TOKEN: ${{ github.token }}
-          BEFORE: ${{ github.event.before }}
         run: python3 ci/merge_queue_run.py >> "$GITHUB_OUTPUT"
 
   # The Lean build is split into shards that build in parallel (see
@@ -277,11 +275,8 @@ jobs:
       - name: Check the generated Rust is up to date
         run: lake env lean --run Emit.lean --check
 
-  # These only re-test, so a push reusing the merge queue's run skips them.
   lean-imports:
     name: Lean import discipline
-    needs: reuse
-    if: ${{ !cancelled() && needs.reuse.outputs.run-id == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -297,8 +292,6 @@ jobs:
 
   vectors:
     name: Test vector provenance
-    needs: reuse
-    if: ${{ !cancelled() && needs.reuse.outputs.run-id == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -306,16 +299,7 @@ jobs:
           persist-credentials: false
       - run: python3 ci/check_vectors.py
 
-  # The Rust jobs only re-test too, but on main they also save their
-  # dependencies' caches, which Swatinem/rust-cache saves only when its key
-  # misses. So a push reusing the merge queue's run skips them unless it
-  # changed a file the key hashes (ci/merge_queue_run.py). The key also
-  # hashes the compiler's version, which no commit changes: a new stable,
-  # beta or nightly is cached at the next push that runs these jobs, and
-  # until then a pull request builds the few dependencies itself.
   rust:
-    needs: reuse
-    if: ${{ !cancelled() && needs.reuse.outputs.skip-rust != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -427,8 +411,6 @@ jobs:
   # no profiler runtime, and its Rust code is the ARMv7 job's, which is
   # covered there.
   rust-thumb:
-    needs: reuse
-    if: ${{ !cancelled() && needs.reuse.outputs.skip-rust != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -487,8 +469,6 @@ jobs:
   # combinations of SHA-512 and field multiplication, is chosen somewhere;
   # the coverage, merged with the rest, checks that every one was.
   rust-cpu-features:
-    needs: reuse
-    if: ${{ !cancelled() && needs.reuse.outputs.skip-rust != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -648,12 +628,8 @@ jobs:
           path: "*.lcov"
           if-no-files-found: error
 
-  # Skipped with the jobs it merges. The condition must be explicit: the
-  # default, `success()`, is false when any job before it in the chain was
-  # skipped, and `reuse` is skipped outside pushes.
   coverage:
     needs: [rust, rust-cpu-features]
-    if: ${{ !cancelled() && needs.rust.result == 'success' && needs.rust-cpu-features.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -691,40 +667,16 @@ jobs:
 
   # The one check to require in branch protection (and so for the merge queue),
   # so the required checks don't have to track every job and matrix entry.
-  # Every job must succeed, except that `reuse` is skipped outside pushes,
-  # and a push reusing the merge queue's run skips the jobs that only
-  # re-test (the Rust jobs only if it may: `skip-rust`).
   all-green:
     if: ${{ always() }}
-    needs: [reuse, lean, lean-imports, vectors, rust, rust-thumb, rust-cpu-features, coverage]
+    needs: [lean, lean-imports, vectors, rust, rust-thumb, rust-cpu-features, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Check every job succeeded
         env:
-          PUSH: ${{ github.event_name == 'push' }}
-          REUSED: ${{ needs.reuse.outputs.run-id != '' }}
-          SKIP_RUST: ${{ needs.reuse.outputs.skip-rust == 'true' }}
-          REUSE: ${{ needs.reuse.result }}
-          LEAN: ${{ needs.lean.result }}
-          LEAN_IMPORTS: ${{ needs.lean-imports.result }}
-          VECTORS: ${{ needs.vectors.result }}
-          RUST: ${{ needs.rust.result }}
-          RUST_THUMB: ${{ needs.rust-thumb.result }}
-          RUST_CPU_FEATURES: ${{ needs.rust-cpu-features.result }}
-          COVERAGE: ${{ needs.coverage.result }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          ok=true
-          # A job's name, its result, and whether it may have been skipped.
-          check() {
-            echo "$1: $2"
-            [ "$2" = success ] || { [ "$3" = true ] && [ "$2" = skipped ]; } || ok=false
-          }
-          if [ "$PUSH" = true ]; then check reuse "$REUSE" false; else check reuse "$REUSE" true; fi
-          check lean "$LEAN" false
-          check lean-imports "$LEAN_IMPORTS" "$REUSED"
-          check vectors "$VECTORS" "$REUSED"
-          check rust "$RUST" "$SKIP_RUST"
-          check rust-thumb "$RUST_THUMB" "$SKIP_RUST"
-          check rust-cpu-features "$RUST_CPU_FEATURES" "$SKIP_RUST"
-          check coverage "$COVERAGE" "$SKIP_RUST"
-          "$ok"
+          echo "$RESULTS"
+          for r in $RESULTS; do
+            [ "$r" = success ] || exit 1
+          done
