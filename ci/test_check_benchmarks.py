@@ -17,9 +17,14 @@ class Selection(unittest.TestCase):
                 mock.patch.object(planner, 'registrations', return_value={'triple_des_ecb'}):
             return planner.arches(paths, base='base')
 
+    def full_matrix(self):
+        """The number of rows of the full matrix: every platform, without and
+        with each of its CPU-feature configurations."""
+        return sum(1 + len(planner.CPU_FEATURES.get(a, [])) for a in planner.PLATFORMS)
+
     def test_registration_addition_selects_modules_and_preserves_feature_matrix(self):
         rows = self.rows(['src/lib.rs', 'src/triple_des_ecb.rs', 'bench/benches/primitives/main.rs'])
-        self.assertEqual(len(rows), 12)
+        self.assertEqual(len(rows), self.full_matrix())
         self.assertEqual({r['modules'] for r in rows}, {'triple_des triple_des_ecb'})
         for arch in planner.PLATFORMS:
             self.assertEqual([r['cpu-features'] for r in rows if r['arch'] == arch],
@@ -29,7 +34,7 @@ class Selection(unittest.TestCase):
         for path in ['Cargo.lock', 'src/cpu.rs', 'src/unknown.rs']:
             with self.subTest(path=path):
                 rows = self.rows([path])
-                self.assertEqual(len(rows), 12)
+                self.assertEqual(len(rows), self.full_matrix())
                 self.assertTrue(all(r['modules'] == '' for r in rows))
 
     def test_registration_edits_only(self):
