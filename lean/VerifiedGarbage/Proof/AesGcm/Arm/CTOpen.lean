@@ -63,7 +63,7 @@ theorem openRes_isSome {t : State} (hok : Spec.Gcm.tagLenOk (arg t 5).toNat = tr
   · rw [ite_eq_right_of_eq_false _ _ (eq_false h), decide_eq_false h]; rfl
 
 theorem open1_wp {t₀ : State} (h : onePre 6 t₀) :
-    WP isa (.block (oneEntry ++ [.ldrSp .r6 20])) t₀ fun s =>
+    WP isa (.block (oneEntry ++ ([.ldrSp .r6 20] : List Instr))) t₀ fun s =>
       SO1 6 t₀ s ∧ s.gpr .r6 = BitVec.ofNat 32 (arg t₀ 5).toNat := by
   have spf := h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1
   have hin : args t₀ 6 ∈ t₀.rd := by rw [h.1]; simp
