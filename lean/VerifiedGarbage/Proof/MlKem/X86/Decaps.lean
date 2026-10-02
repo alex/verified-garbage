@@ -97,7 +97,7 @@ theorem fin_piece :
       List.take_of_length_le (l := ct s₀) (by rw [ct_eq, bytesAt_length]),
       show (BitVec.ofNat 32 0x1f).setWidth 8 = shakeSuffix from shakeSuffix32, ← padded, ← J_eq]
     show _ = J (dkZ (dk s₀) ++ ct s₀)
-    rw [dkZ]
+    rfl
   refine Piece.seq (B := J2) (cmp_piece (fun _ _ _ h => h.ctx) fun s₀ s s' hp h h' m' e =>
     ⟨⟨done_keep hp (bs := []) (M := 0) (by decide) (by decide) (by decide) (m' ▸ Frame.refl _ _) h.toDone h',
       by rw [m']; exact h.kb⟩, by rw [e, m']⟩) ?_

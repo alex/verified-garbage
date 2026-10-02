@@ -95,6 +95,6 @@ theorem pub_of {s₀ s₀' : State} (h : (keyGenContract X86.abi 88).pub s₀ s�
     obtain rfl | rfl | rfl | rfl : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 := by omega
     exacts [e₃, e₄, e₅, e₆]
   · simp only [lk, d, addr0]
-    exact Sample.map_toNat_inj e₂
+    exact map_toNat_inj e₂
 
 end VG.Proof.MlKem.X86.KeyGen

@@ -134,7 +134,7 @@ theorem u_step {s₀ : State} (hp : Pre deL s₀) {i : Nat} (hi : i < 4) {s : St
 theorem dcS_eq (s₀ : State) {j : Nat} (hj : j < 4) :
     ((bytesAt s₀.mem (kA s₀ 0) (deL.len 0)).drop (384 * j)).take 384 =
       ((dkPke1024 (dkD s₀)).drop (384 * j)).take 384 := by
-  rw [dkPke1024, slice_take _ (show 384 * j + 384 ≤ 1536 by omega)]
+  rw [dkPke1024, KPke.dkPke, slice_take _ (show 384 * j + 384 ≤ 384 * mlKem1024.k by show _ ≤ 1536; omega)]
   rfl
 
 theorem fw {s₀ : State} (hp : Pre deL s₀) {o : Nat} (h1 : YH + 4096 ≤ o) (h2 : o + 1024 ≤ 49152) :
@@ -269,7 +269,7 @@ theorem m_ok {s₀ : State} (hp : Pre deL s₀) {s : State} (h : DInv s₀ 0 s) 
     (by decide) (.inr ⟨by decide, .inl (by decide)⟩) kb₇ p₇.1) fun s₈ ⟨kb₈, f₈, b₈, x₈⟩ => ?_
   refine ⟨kb₈, by rw [x₈, x₇, x₆, x₅, h₄.x24], ?_⟩
   rw [show sA deL s₀ MB = kA s₀ (deL.slot 3) + BitVec.ofNat 64 MB from rfl, b₈, p₇.2, mD, decM1024,
-    kpkeDecrypt1024]
+    KPke.decM, kpkeDecrypt1024]
   rfl
 
 /-! ## `G(m' ‖ h)` and `ρ` -/

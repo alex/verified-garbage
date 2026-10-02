@@ -22,7 +22,7 @@ variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 open VG VG.AArch64 VG.Impl.MlKem.AArch64 VG.Impl.MlKem.AArch64.KEM VG.Proof.MlKem.AArch64
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
-open VG.Proof.MlKem.AArch64.KeyGen (and_acc seed_eq)
+open VG.Proof.MlKem.AArch64.KeyGen (and_acc)
 
 variable {L : Layout}
 

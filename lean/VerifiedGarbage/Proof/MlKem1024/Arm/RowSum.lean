@@ -20,7 +20,7 @@ open VG.Spec.Sha3 (bytesAt)
 open VG.Proof.MlKem VG.Proof.MlKem.Arm
 
 theorem rowAcc_four (a v : Nat → Poly) : rowAcc a v 4 = VG.Proof.MlKem.dot4 a v := by
-  simp only [rowAcc, VG.Proof.MlKem.zero_add_poly, VG.Proof.MlKem.dot4]
+  simp only [rowAcc, VG.Proof.MlKem.zero_add_poly]; rfl
 
 /-! ## The blocks -/
 

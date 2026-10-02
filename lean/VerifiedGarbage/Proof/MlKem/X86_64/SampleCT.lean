@@ -393,14 +393,6 @@ namespace VG.Proof.MlKem.X86_64
 
 open VG VG.X86_64
 
-theorem map_toNat_inj : ∀ {a b : List Byte}, a.map (fun x => x.toNat) = b.map (fun x => x.toNat) → a = b
-  | [], [], _ => rfl
-  | x :: a, y :: b, h => by
-    simp only [List.map_cons, List.cons.injEq] at h
-    rw [BitVec.eq_of_toNat_eq h.1, map_toNat_inj h.2]
-  | [], _ :: _, h => by simp at h
-  | _ :: _, [], h => by simp at h
-
 /-- A state satisfying the precondition. -/
 def sampleSat : State where
   gpr r := match r with

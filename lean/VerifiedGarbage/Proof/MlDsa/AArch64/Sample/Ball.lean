@@ -286,7 +286,7 @@ theorem sampleInBall_verifiedWith (v : Proof.Sha3.AArch64.Permutation) : Verifie
         sig_pub [Spec.MlDsa.sampleInBallContract, Spec.MlDsa.sampleInBallSig, sbK, AArch64.abi,
           AArch64.argRegs] at h
         obtain ⟨hsp, hb, hx0, hx1, hx2, hx3, hx4⟩ := h
-        exact ⟨hx0, hx1, hx2, hx3, hx4, hsp, Proof.MlKem.AArch64.Sample.map_toNat_inj hb⟩
+        exact ⟨hx0, hx1, hx2, hx3, hx4, hsp, VG.Proof.MlKem.map_toNat_inj hb⟩
       sat := by sig_implies_sat [Spec.MlDsa.sampleInBallContract, Spec.MlDsa.sampleInBallSig, sbK,
         AArch64.abi, AArch64.argRegs] [sbSat] using sbSat }
 
