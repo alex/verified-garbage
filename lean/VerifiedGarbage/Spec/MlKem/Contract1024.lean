@@ -18,6 +18,8 @@ ciphertext of 1568 bytes. The same outcome (`Outcome`: 1, or 0 only if some
 particular, not whether decapsulation rejected the ciphertext implicitly),
 and the same keys: a decapsulation key is kept as the seed `d ‖ z` and
 expanded by `vg_mlkem1024_keygen`, so there is no decapsulation key check.
+Their documentation is that of `Contract.lean` (`Params.keyGenApi`, …), for
+`mlKem1024`.
 
 The working space `scratch` is 48 KiB, for the 16 entries of `Â` (the
 matrix is 4 × 4) besides what ML-KEM-768 needs.
@@ -155,19 +157,6 @@ def decapsContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
 
 /-! ## The functions on every target -/
 
-/-- What the documentation says of the return value of a function whose
-`SampleNTT` is bounded. -/
-private def outcomeDoc : String :=
-  "Returns 1 on success. Returns 0 if a `SampleNTT` (FIPS 203 Algorithm 7) reaches the bound \
-    on its loop's iterations, which is at least 280 (FIPS 203 Appendix B; this happens with \
-    probability less than 2^-261): the outputs are then unspecified, and the caller must \
-    destroy them and treat the operation as failed."
-
-/-- What the documentation says of the working space. -/
-private def scratchSafety : String :=
-  "`scratch` is working space: on return it holds intermediate values, which the caller must \
-    destroy (FIPS 203 §3.3)."
-
 /-- `vg_mlkem1024_compress_encode` on every target. -/
 def compressEncodeApi : Api where
   module := "mlkem1024"
@@ -198,72 +187,19 @@ def decodeDecompressApi : Api where
   safety := ["`d` must be 5 or 11, and `len` must be `32 * d`."]
 
 /-- `vg_mlkem1024_keygen` on every target. -/
-def keyGenApi : Api where
-  module := "mlkem1024"
-  name := "vg_mlkem1024_keygen"
-  sig := keyGenSig
-  writeArgs := true
-  contracts := some fun A stack => keyGenContract A stack
-  summary := "ML-KEM-1024 key generation from a seed, `ML-KEM.KeyGen_internal(d, z)` (FIPS 203 \
-    Algorithm 16): with `d` in bytes 0–31 of `*seed` and `z` in bytes 32–63, writes the \
-    encapsulation key to `*ek` and the decapsulation key to `*dk`. " ++ outcomeDoc ++ "\n\n\
-    Contract: `VG.Spec.MlKem1024.keyGenContract`. Constant time but for `ρ`: timing may depend \
-    on the pointers and on `ρ` (the last 32 bytes of the encapsulation key), but not on \
-    anything else of the seed or the keys."
-  safety := [
-    "`seed` must be random bytes from an approved RBG (FIPS 203 §3.3), or a seed so generated \
-      before.",
-    scratchSafety]
+def keyGenApi : Api :=
+  mlKem1024.keyGenApi "VG.Spec.MlKem1024" keyGenSig fun A stack => keyGenContract A stack
 
 /-- `vg_mlkem1024_check_ek` on every target. -/
-def checkEkApi : Api where
-  module := "mlkem1024"
-  name := "vg_mlkem1024_check_ek"
-  sig := checkEkSig
-  contracts := some fun A stack => checkEkContract A stack
-  summary := "The ML-KEM-1024 encapsulation key check (FIPS 203 §7.2): returns 1 if every \
-    12-bit integer that the first 1536 bytes of `*ek` encode is less than `q` = 3329 (the \
-    modulus check), and 0 otherwise. An encapsulation key must pass it before it is given to \
-    `vg_mlkem1024_encaps`.\n\n\
-    Contract: `VG.Spec.MlKem1024.checkEkContract`. Constant time: only the pointer may affect \
-    timing."
-  safety := []
+def checkEkApi : Api :=
+  mlKem1024.checkEkApi "VG.Spec.MlKem1024" checkEkSig fun A stack => checkEkContract A stack
 
 /-- `vg_mlkem1024_encaps` on every target. -/
-def encapsApi : Api where
-  module := "mlkem1024"
-  name := "vg_mlkem1024_encaps"
-  sig := encapsSig
-  writeArgs := true
-  contracts := some fun A stack => encapsContract A stack
-  summary := "ML-KEM-1024 encapsulation with given randomness, `ML-KEM.Encaps_internal(ek, m)` \
-    (FIPS 203 Algorithm 17): with the encapsulation key `*ek` and the randomness `*m`, writes \
-    the shared secret key to `*key` and the ciphertext to `*ct`. " ++ outcomeDoc ++ "\n\n\
-    Contract: `VG.Spec.MlKem1024.encapsContract`. Constant time but for `ρ`: timing may depend \
-    on the pointers and on `ρ` (the last 32 bytes of `*ek`), but not on anything else of the \
-    key, on the randomness or on the outputs."
-  safety := [
-    "`ek` must have passed `vg_mlkem1024_check_ek` (FIPS 203 §7.2).",
-    "`m` must be fresh random bytes from an approved RBG (FIPS 203 §3.3).",
-    scratchSafety]
+def encapsApi : Api :=
+  mlKem1024.encapsApi "VG.Spec.MlKem1024" encapsSig fun A stack => encapsContract A stack
 
 /-- `vg_mlkem1024_decaps` on every target. -/
-def decapsApi : Api where
-  module := "mlkem1024"
-  name := "vg_mlkem1024_decaps"
-  sig := decapsSig
-  writeArgs := true
-  contracts := some fun A stack => decapsContract A stack
-  summary := "ML-KEM-1024 decapsulation, `ML-KEM.Decaps_internal(dk, c)` (FIPS 203 Algorithm \
-    18): with the decapsulation key `*dk` and the ciphertext `*ct`, writes the shared secret key \
-    to `*key`, which is the implicit rejection key `J(z ‖ c)` if the ciphertext does not \
-    re-encrypt to itself. " ++ outcomeDoc ++ "\n\n\
-    Contract: `VG.Spec.MlKem1024.decapsContract`. Constant time but for `ρ`: timing may depend \
-    on the pointers and on `ρ` (bytes 3072–3103 of `*dk`), but not on anything else of the key, \
-    on the ciphertext, or on whether it was rejected."
-  safety := [
-    "`dk` must have been written by `vg_mlkem1024_keygen` (so that it passes the checks of \
-      FIPS 203 §7.3).",
-    scratchSafety]
+def decapsApi : Api :=
+  mlKem1024.decapsApi "VG.Spec.MlKem1024" decapsSig fun A stack => decapsContract A stack
 
 end VG.Spec.MlKem1024
