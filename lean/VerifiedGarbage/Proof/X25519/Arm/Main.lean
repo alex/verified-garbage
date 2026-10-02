@@ -50,10 +50,12 @@ theorem lastSwap_ok {s : State} (hc : Ctx b s) {sw : Nat} (hsw : sw ≤ 1)
     rw [u2.gpr]; show s1.gpr .r9 - s1.gpr .r10 = _
     rw [u1.gpr, u1.other _ (by decide), h10]
   have hm2 : s2.mem = s.mem := by rw [u2.mem, u1.mem]
-  refine WP.append (cswapS (qs := LQ) (v := v) (by decide) (by decide) (by decide) (by decide) (by decide) hc2
+  refine WP.append (cswapS (acc := ACC) (qs := LQ) (v := v) (by decide) (by decide) (by decide) (by decide)
+    (by decide) (by decide) hc2
     hsw e9 (by rw [hm2]; exact hS)) fun s3 ⟨hr3, hf3, hS3⟩ => ?_
   have hc3 : Ctx b s3 := hc2.of_rest hr3 (by decide)
-  refine WP.mono (cswapS (qs := LQ) (by decide) (by decide) (by decide) (by decide) (by decide) hc3 hsw
+  refine WP.mono (cswapS (acc := ACC) (qs := LQ) (by decide) (by decide) (by decide) (by decide) (by decide)
+    (by decide) hc3 hsw
     (by rw [hr3.gpr _ (by decide), e9]) hS3) fun s4 ⟨hr4, hf4, hS4⟩ =>
     ⟨⟨(hr2.mono (by decide)).trans ((hr3.mono (by decide)).trans (hr4.mono (by decide))),
       by rw [← hm2]; exact hf3.trans hf4⟩, hc3.of_rest hr4 (by decide), hS4⟩
@@ -82,8 +84,8 @@ theorem Saved.frame {g : Reg → BitVec 32} {m m' : Mem} (hs : Saved (State.addr
   rw [hf.readW (Region.contains_self _ _) (fun r hr => hd r hr i hi) (by decide)]; exact hs i hi
 
 theorem FA_saved (i : Nat) (hi : i < 8) :
-    Region.Disjoint ⟨State.addr b + BitVec.ofNat 64 (4 * i), 4⟩ (FA b) :=
-  Offset.disjoint _ (.inl (by omega)) (by omega) (by omega)
+    Region.Disjoint ⟨State.addr b + BitVec.ofNat 64 (4 * i), 4⟩ (FA ACC b) :=
+  Offset.disjoint _ (.inl (by omega)) (by omega) (by rw [ACC_eq]; omega)
 
 /-- The slots stay through a write of `BITS`. -/
 theorem SlotsOk.bits {m m' : Mem} {qs : List Nat} {v : Nat → Fe} (hS : SlotsOk m (State.addr b) qs v)
@@ -120,7 +122,8 @@ theorem x25519_correct {s : State} (hp : XPre s) :
   refine WP.seq (WP.mono (lastSwap_ok hc3 (ladderAfter_swap_le _ _ (by decide)) h10 hS3)
     fun s4 ⟨hst4, hc4, hS4⟩ => ?_)
   refine WP.seq (WP.mono (invert_ok hc4 (hS4.mono (by decide)) rfl) fun s5 ⟨hst5, hc5, hS5⟩ => ?_)
-  refine WP.seq (WP.mono (mulS (o := X2) (x := X2) (y := R) (by decide) (by decide) (by decide) (by decide) hc5 hS5)
+  refine WP.seq (WP.mono (mulS (acc := ACC) (o := X2) (x := X2) (y := R) (by decide) (by decide) (by decide)
+    (by decide) (by decide) hc5 hS5)
     fun s6 ⟨hr6, hf6, hS6⟩ => ?_)
   -- The registers and regions along the way.
   have hst6 : Stp (s.gpr .r3) s2 s6 := hst3.trans (hst4.trans (hst5.trans ⟨hr6.mono (by decide), hf6⟩))

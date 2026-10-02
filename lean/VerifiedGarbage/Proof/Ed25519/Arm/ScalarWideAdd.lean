@@ -6,9 +6,9 @@ namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 
 theorem scalarWide_split (m : Mem) (b : BitVec 32) :
-    val16 (accw m (State.addr b)) 32 = V m (State.addr b) ACC + 2 ^ 256 * V m (State.addr b) (ACC + 64) := by
+    val16 (accw ACC m (State.addr b)) 32 = V m (State.addr b) ACC + 2 ^ 256 * V m (State.addr b) (ACC + 64) := by
   rw [show (32 : Nat) = 16 + 16 from rfl, val16_append]
-  have he : val16 (fun k => accw m (State.addr b) (16 + k)) 16 = V m (State.addr b) (ACC + 64) := by
+  have he : val16 (fun k => accw ACC m (State.addr b) (16 + k)) 16 = V m (State.addr b) (ACC + 64) := by
     apply val16_congr
     intro k _
     unfold accw limb
@@ -18,18 +18,18 @@ theorem scalarWide_split (m : Mem) (b : BitVec 32) :
 
 theorem scalarWideAdd_ok {b : BitVec 32} {r : Nat} (hr : r + 64 ≤ ACC) {s : State}
     (hc : Ctx b s) (lr : Lim s.mem (State.addr b) r)
-    (la : ∀ k < 32, accw s.mem (State.addr b) k < 65536) :
+    (la : ∀ k < 32, accw ACC s.mem (State.addr b) k < 65536) :
     WP isa (.block (scalarWideAdd r)) s fun t =>
       Rest [.r2, .r3, .r4, .r5, .r6] s t ∧
       Frame [⟨State.addr b + BitVec.ofNat 64 ACC, 128⟩] s.mem t.mem ∧
-      (∀ k < 32, accw t.mem (State.addr b) k < 65536) ∧
-      val16 (accw t.mem (State.addr b)) 32 + 2 ^ 512 * (t.gpr .r5).toNat =
-        val16 (accw s.mem (State.addr b)) 32 + V s.mem (State.addr b) r := by
+      (∀ k < 32, accw ACC t.mem (State.addr b) k < 65536) ∧
+      val16 (accw ACC t.mem (State.addr b)) 32 + 2 ^ 512 * (t.gpr .r5).toNat =
+        val16 (accw ACC s.mem (State.addr b)) 32 + V s.mem (State.addr b) r := by
   have hA : ACC = 1472 := rfl
   have ll : Lim s.mem (State.addr b) ACC := fun k hk => la k (by omega)
   have lh : Lim s.mem (State.addr b) (ACC + 64) := by
     intro k hk
-    have he : limb s.mem (State.addr b) (ACC + 64) k = accw s.mem (State.addr b) (16 + k) := by
+    have he : limb s.mem (State.addr b) (ACC + 64) k = accw ACC s.mem (State.addr b) (16 + k) := by
       unfold limb accw; rw [show ACC + 64 + 4 * k = ACC + 4 * (16 + k) by omega]
     rw [he]; exact la _ (by omega)
   rw [scalarWideAdd, List.append_assoc]
@@ -73,9 +73,9 @@ theorem scalarWideAdd_ok {b : BitVec 32} {r : Nat} (hr : r + 64 ≤ ACC) {s : St
       rw [List.mem_singleton.mp hz]; exact Offset.sub _ (by decide) (by decide)⟩)
   · intro k hk
     rcases Nat.lt_or_ge k 16 with hk16 | hk16
-    · rw [show accw t.mem (State.addr b) k = limb t.mem (State.addr b) ACC k from rfl, lrt k hk16]
+    · rw [show accw ACC t.mem (State.addr b) k = limb t.mem (State.addr b) ACC k from rfl, lrt k hk16]
       exact l3 k hk16
-    · have he : accw t.mem (State.addr b) k = limb t.mem (State.addr b) (ACC + 64) (k - 16) := by
+    · have he : accw ACC t.mem (State.addr b) k = limb t.mem (State.addr b) (ACC + 64) (k - 16) := by
         unfold accw limb; rw [show ACC + 4 * k = ACC + 64 + 4 * (k - 16) by omega]
       rw [he]; exact lt _ (by omega)
   · rw [val16_add, Nat.add_zero, m2] at v3

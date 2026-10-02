@@ -7,7 +7,7 @@ open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 abbrev accClob : List Reg := .r12 :: clob
 structure AccKeep (b : BitVec 32) (s t : State) : Prop where
   rest : Rest accClob s t
-  frame : Frame [FA b] s.mem t.mem
+  frame : Frame [FA ACC b] s.mem t.mem
 
 theorem AccKeep.ctx {b : BitVec 32} {s t : State} (h : AccKeep b s t) (hc : Ctx b s) : Ctx b t :=
   hc.of_rest h.rest (by decide)

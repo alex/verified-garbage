@@ -7,7 +7,7 @@ namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 
 abbrev mulRegions (b : BitVec 32) (o n : Nat) : List Region :=
-  [⟨State.addr b + BitVec.ofNat 64 32, 16⟩, ⟨State.addr b + BitVec.ofNat 64 56, 4⟩, FA b,
+  [⟨State.addr b + BitVec.ofNat 64 32, 16⟩, ⟨State.addr b + BitVec.ofNat 64 56, 4⟩, FA ACC b,
     ⟨State.addr b + BitVec.ofNat 64 o, n⟩]
 
 structure MulKeep (b : BitVec 32) (o n : Nat) (s t : State) : Prop where
