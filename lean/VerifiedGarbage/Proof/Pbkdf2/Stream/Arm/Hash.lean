@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Frame
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.MdStream.Arm.Common
-import VerifiedGarbage.Impl.Hmac.Generic.Arm
+import VerifiedGarbage.Impl.Pbkdf2.Stream.Arm
 import VerifiedGarbage.Proof.Framework.Offset
 import VerifiedGarbage.Proof.Framework.OffsetBelow
 import VerifiedGarbage.Proof.Framework.OmegaLit
@@ -29,7 +29,7 @@ The contracts the proofs are written against, as on x86-64 and AArch64
   (`Contract.Implies`).
 -/
 
-namespace VG.Proof.Hmac.Generic.Arm
+namespace VG.Proof.Pbkdf2.Stream.Arm
 
 open VG.Arm
 open Spec.Hmac (StreamingHash xorPad ipad opad blockKey hmacBlockKey)
@@ -175,7 +175,7 @@ def iterG : Contract isa where
     s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧
     s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0
 
-end VG.Proof.Hmac.Generic.Arm
+end VG.Proof.Pbkdf2.Stream.Arm
 
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: the functions we call
@@ -194,10 +194,10 @@ before its push. A frame writes the 16 bytes below the stack pointer, which
 them (`RelCT.call`, `RelCT.frame`).
 -/
 
-namespace VG.Proof.Hmac.Generic.Arm
+namespace VG.Proof.Pbkdf2.Stream.Arm
 
 open VG.Arm
-open VG.Impl.Hmac.Generic.Arm (Hash)
+open VG.Impl.Pbkdf2.Stream.Arm (Hash)
 open VG.Proof.MdStream.Arm (Upd WP.cons op2_imm op2_reg)
 open Spec.Hmac (StreamingHash)
 open Spec.Sha256 (bytesAt)
@@ -787,4 +787,4 @@ theorem rel_wp {F F' G G' : State → Prop} {c : Prog isa}
     RelCT isa (fun s s' => F s ∧ F' s') c fun s s' => G s ∧ G' s' :=
   (hct.wp fun s s' h => ⟨hw s h.1, hw' s' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
 
-end VG.Proof.Hmac.Generic.Arm
+end VG.Proof.Pbkdf2.Stream.Arm

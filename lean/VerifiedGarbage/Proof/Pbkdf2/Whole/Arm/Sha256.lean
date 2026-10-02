@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Sha256
 # PBKDF2-HMAC-SHA-256 on 32-bit ARM, the whole derivation
 
 The generic proof (`CT.lean`) at SHA-256
-(`Proof/Hmac/Generic/Arm/Sha256.lean`), as for the other hash functions
+(`Proof/Pbkdf2/Stream/Arm/Sha256.lean`), as for the other hash functions
 (`Instances.lean`).
 -/
 
@@ -13,7 +13,7 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 
 open VG.Arm
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
-open VG.Proof.Hmac.Generic.Arm (sha256OK)
+open VG.Proof.Pbkdf2.Stream.Arm (sha256OK)
 
 def sha256F : Fns := fnsOf Spec.Hmac.sha256I Md.Arm.sha256Md
 
@@ -25,7 +25,7 @@ def sha256OKF : FnsOK sha256F where
   Wi := 104
   Wf := 104
   Wt := 104
-  hi := .of_verified Proof.Hmac.Generic.Arm.Instances.sha256_init
+  hi := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha256_init
   hf := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha256_finalize
   it := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha256_iterate
   hiSt := by decide +kernel

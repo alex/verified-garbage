@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Init
+import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Common
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.Proof.Framework.OmegaLit
 
@@ -7,19 +7,18 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 
 HMAC's `finalize` (`Impl/Pbkdf2/Md/X86.lean`) starts by finalizing the inner
 state with the hash function's streaming `finalize`, called with the code of
-the streaming-level design (`Impl/Hmac/Generic/X86.lean`): the prologue
-(`pro_ok`) loads `scratch`, `inner`, `outer` and `out` (after our caller's
-registers are saved in `scratch`), and the count just before the call, which
-passes it on (`fin1Args_ok`, `finCall_ok`). What the rest keeps is `KR`;
+`Impl/Pbkdf2/Stream/X86.lean`: the prologue (`pro_ok`) loads `scratch`,
+`inner`, `outer` and `out` (after our caller's registers are saved in
+`scratch`), and the count just before the call, which passes it on
+(`fin1Args_ok`, `finCall_ok`). What the rest keeps is `KR`;
 `Proof/Pbkdf2/Md/X86/HmacFin.lean` continues from there.
 -/
 
-namespace VG.Proof.Hmac.Generic.X86.Finalize
+namespace VG.Proof.Pbkdf2.Stream.X86.Finalize
 
 open VG.X86
-open VG.Impl.Hmac.Generic.X86 (Hash copy at_)
-open VG.Proof.Hmac.Generic.X86
-open VG.Proof.Hmac.Generic.X86.Init (argW argIn)
+open VG.Impl.Pbkdf2.Stream.X86 (Hash copy at_)
+open VG.Proof.Pbkdf2.Stream.X86
 open VG.Proof.Hmac.Generic.Common (inRegions_of_sub off_disj off_disj0 sub_of_off sub_of_self bytes_keep
   bytesAt_take bytesAt_writeBytes_self')
 open VG.Proof.Sha256.X86 (contains_offset)
@@ -317,10 +316,10 @@ theorem finArgs {t : State} (hk : KR (H := H) sc s₀ t) {lo hi : BitVec 32} (ha
 
 /-- The first call's arguments: the count from the stack. -/
 theorem fin1Args_ok {s : State} (hk : KR (H := H) sc s₀ s) :
-    WP isa (.block ([] ++ Hash.count1 ++ Impl.Hmac.Generic.X86.scr .edx H.buf)) s fun t =>
+    WP isa (.block ([] ++ Hash.count1 ++ Impl.Pbkdf2.Stream.X86.scr .edx H.buf)) s fun t =>
       KR (H := H) sc s₀ t ∧ FinArgs hH t .ebx (inn s₀) (tO (H := H) s₀) (scr s₀) (arg s₀ 2) (arg s₀ 3) ∧
         t.gpr .esi = s.gpr .esi ∧ t.mem = s.mem := by
-  simp only [Hash.count1, Impl.Hmac.Generic.X86.scr, List.cons_append, List.nil_append]
+  simp only [Hash.count1, Impl.Pbkdf2.Stream.X86.scr, List.cons_append, List.nil_append]
   refine wp_movm (a := argAddr s₀ 2) (by rw [ea_at, hk.esp]; rfl) (argIn hp hk.rd hk.wr (by decide))
     fun s₁ u₁ => ?_
   refine wp_movm (a := argAddr s₀ 3) (by rw [ea_at, u₁.other _ (by decide), hk.esp]; rfl)
@@ -361,4 +360,4 @@ theorem finCall_ok {t : State} (hk : KR (H := H) sc s₀ t) {lo hi : BitVec 32}
 
 end
 
-end VG.Proof.Hmac.Generic.X86.Finalize
+end VG.Proof.Pbkdf2.Stream.X86.Finalize

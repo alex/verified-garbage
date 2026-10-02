@@ -1,21 +1,28 @@
-import VerifiedGarbage.Impl.Hmac.Generic.Arm
+import VerifiedGarbage.Impl.Pbkdf2.Stream.Arm
 import VerifiedGarbage.Impl.MdStream.Arm
 
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function: 32-bit ARM implementation
 
 The design of x86-64 and AArch64 (`Impl/Pbkdf2/Md/X86_64.lean`,
-`Impl/Pbkdf2/Md/AArch64.lean`): one implementation of HMAC's `finalize` and
-of PBKDF2's iteration for every Merkle–Damgård hash function (MD5, SHA-1,
-SHA-224, SHA-256 and the SHA-512 family), calling its compression function directly
-on blocks laid out at fixed offsets. A `Hash` is what the code needs of one
-of them: its streaming functions as HMAC's `init` calls them (`st`, with the
+`Impl/Pbkdf2/Md/AArch64.lean`): one implementation of HMAC's `init` and
+`finalize` and of PBKDF2's iteration for every Merkle–Damgård hash function
+(MD5, SHA-1, SHA-224, SHA-256 and the SHA-512 family), calling its
+compression function directly on blocks laid out at fixed offsets. A `Hash`
+is what the code needs of one of them: its streaming functions as the code
+calls them (`st`, `Impl/Pbkdf2/Stream/Arm.lean`, with the
 block size `B`, the digest size `D` and their working space), the size `N`
 of its hash value and `L` of its length field and the byte order of the
 latter, the code writing its digest, and its compression function.
 
-* HMAC's `init` is the code of `Impl/Hmac/Generic/Arm.lean`, for the hash
-  function's streaming `init` and `update` (`st`).
+* `init(inner = r0, outer = r1, key = r2, key_len = r3, scratch = [sp])`,
+  for a key of at most a block, sets both states' hash values with the
+  streaming `init`, and makes each absorb its block with one compression, in
+  its own buffer: `K₀ ⊕ ipad` is written into the inner state's buffer as
+  words of `0x36` in every byte, then the key's bytes XORed in with a byte
+  loop over the key alone (its length is public); `K₀ ⊕ opad` is that block
+  XORed with `0x6a` in every byte (`ipad ⊕ opad`), word by word, into the
+  outer state's buffer.
 * `finalize(inner = r0, outer = r1, count = r2:r3, out = [sp],
   scratch = [sp, #4])` finalizes the inner state with the hash function's
   streaming `finalize`, into the block (its message has a length only known
@@ -38,24 +45,25 @@ latter, the code writing its digest, and its compression function.
 
 `scratch` holds the working space of the functions we call (`8 W` bytes, the
 streaming functions' and the compression function's), then our caller's
-`r4`–`r11` and our return address, which each call replaces (where HMAC's
-`init` keeps them, `Impl.Hmac.Generic.Arm.Hash.saved`), then the hash value
-being compressed (`N` bytes, at `hvO`) and right after it the block (`B`
-bytes, at `blkO`). The compression function is called with the hash value
-at `r0`, the block at `r1` (copied from `r6`), one block in `r2` and
-`scratch` in `r3`; it never writes `r0` or `r3` and preserves `r4`–`r11`, so
-our variables live there: `r11` is `scratch`, `r6` the block, and, in
-`iterate`, `r4` = `key`, `r5` = the steps left and `r7` = `t`; in
-`finalize`, `r5` = `outer` and `r7` = `out`. `r1`, `r9`, `r10` and `r12` are
-temporaries. `iterate` uses no stack; `finalize` pushes the streaming
-`finalize`'s two stack arguments around its call (`push {r1, r12}`), 8
-bytes. Every address and branch depends only on the pointers and `n`.
+`r4`–`r11` and our return address, which each call replaces
+(`Impl.Pbkdf2.Stream.Arm.Hash.saved`), then `finalize`'s and `iterate`'s hash
+value being compressed (`N` bytes, at `hvO`) and right after it the block (`B`
+bytes, at `blkO`); `init` compresses in the states. The compression function
+is called with the hash value at `r0`, the block at `r1` (copied from `r6`),
+one block in `r2` and `scratch` in `r3`; it never writes `r0` or `r3` and
+preserves `r4`–`r11`, so our variables live there: `r11` is `scratch`, `r6`
+the block, and, in `iterate`, `r4` = `key`, `r5` = the steps left and `r7` =
+`t`; in `finalize`, `r5` = `outer` and `r7` = `out`. `r1`, `r9`, `r10` and
+`r12` are temporaries (`init`'s registers are listed with its code). `init`
+and `iterate` use no stack; `finalize` pushes the streaming `finalize`'s two
+stack arguments around its call (`push {r1, r12}`), 8 bytes. Every address and
+branch depends only on the pointers, `key_len` and `n`.
 -/
 
 namespace VG.Impl.Pbkdf2.Md.Arm
 
 open VG.Arm
-open VG.Impl.Hmac.Generic.Arm (scrAt)
+open VG.Impl.Pbkdf2.Stream.Arm (scrAt)
 open VG.Impl.MdStream.Arm (compressAt)
 
 /-- A Merkle–Damgård hash function's 32-bit ARM functions, as HMAC and
@@ -65,7 +73,7 @@ structure Hash where
   block size `B`, the sizes of the streaming state and of the digest `D`,
   the words of working space `W` of `update` and `finalize` (which the
   layout of `scratch` starts with), and the functions. -/
-  st : Impl.Hmac.Generic.Arm.Hash
+  st : Impl.Pbkdf2.Stream.Arm.Hash
   /-- The size of the hash value. -/
   N : Nat
   /-- The size of the length field. -/
@@ -140,10 +148,62 @@ def compressBlock : Prog isa := .seq (.block [.mov .r1 (.reg .r6)]) (compressAt 
 /-- `r0` at the hash value and `r6` at the block. -/
 def atHv : List Instr := scrAt .r0 H.hvO ++ scrAt .r6 H.blkO
 
-/-! ## HMAC's `init` and `finalize` -/
+/-! ## HMAC's `init`
 
-/-- HMAC's `init`. -/
-def hmacInit : Prog isa := H.st.init
+Registers: `r4` = `inner`, `r5` = `outer`, `r11` = `scratch`; in the key
+loop, `r6` = the next key byte, `r8` + `N` = where it goes, `r7` = the bytes
+left; for each compression, `r0` = the state, `r6` = its buffer and `r3` =
+`scratch`. -/
+
+/-- Saving our caller's registers and our return address, and setting up
+ours. -/
+def initPrologue : List Instr :=
+  [.ldrSp .r12 0] ++ H.st.save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
+    .mov .r7 (.reg .r3), .mov .r11 (.reg .r12)]
+
+/-- `ipad` in every byte of the inner state's buffer, a word at a time; then
+the flags of `key_len = 0`, which skip the key loop for an empty key. -/
+def fillIpad : List Instr :=
+  [.movw .r1 0x3636, .movt .r1 0x3636] ++ (List.range (H.B / 4)).map (fun k => .str .r1 .r4 (H.N + 4 * k)) ++
+    [.mov .r8 (.reg .r4), .cmp .r7 (.imm 0)]
+
+/-- The key bytes, XORed with `ipad`, over the start of the buffer. -/
+def keyLoop : Prog isa :=
+  .loop (.block [.ldrb .r12 .r6 0, .dp .eor .r12 .r12 (.imm 0x36), .strb .r12 .r8 H.N,
+    .dp .add .r6 .r6 (.imm 1), .dp .add .r8 .r8 (.imm 1), .subs .r7 .r7 (.imm 1)]) .ne
+
+/-- Word `k` of the outer state's buffer, from the inner one's (`r1` =
+`0x6a6a6a6a`): `K₀ ⊕ opad = (K₀ ⊕ ipad) ⊕ (ipad ⊕ opad)`. -/
+def opadW (k : Nat) : List Instr :=
+  [.ldr .r12 .r4 (H.N + 4 * k), .dp .eor .r12 .r12 (.reg .r1), .str .r12 .r5 (H.N + 4 * k)]
+
+/-- The outer state's buffer, and the inner state's compression set up. -/
+def fillOpad : List Instr :=
+  [.movw .r1 0x6a6a, .movt .r1 0x6a6a] ++ (List.range (H.B / 4)).flatMap H.opadW ++
+    [.mov .r0 (.reg .r4), .dp .add .r6 .r4 (.imm (BitVec.ofNat 32 H.N)), .mov .r3 (.reg .r11)]
+
+/-- The two blocks: `K₀ ⊕ ipad` in the inner state's buffer and `K₀ ⊕ opad`
+in the outer one's, the part of `init` between the calls of the streaming
+`init` and the compressions. -/
+def blocks : Prog isa :=
+  .seq (.block H.fillIpad) (.seq (.ite .eq (.block []) H.keyLoop) (.block H.fillOpad))
+
+/-- The outer state's compression set up (`r3` is still `scratch`). -/
+def toOuter : List Instr := [.mov .r0 (.reg .r5), .dp .add .r6 .r5 (.imm (BitVec.ofNat 32 H.N))]
+
+/-- HMAC's `init`: the streaming `init` of both states, then each state's
+block compressed into its hash value. -/
+def hmacInit : Prog isa :=
+  .seq (.block H.initPrologue)
+  (.seq (H.st.callInit .r4)
+  (.seq (H.st.callInit .r5)
+  (.seq H.blocks
+  (.seq H.compressBlock
+  (.seq (.block H.toOuter)
+  (.seq H.compressBlock
+    (.block H.st.restore)))))))
+
+/-! ## HMAC's `finalize` -/
 
 /-- Saving our caller's registers, with `outer` in `r5`, `out` in `r7` and
 `scratch` in `r11`. -/

@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Block
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Hashes
+import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Hashes
 import VerifiedGarbage.Proof.Sha512.Md
 import VerifiedGarbage.Proof.Sha512.X86.Stream.Finalize
 
@@ -7,7 +7,7 @@ import VerifiedGarbage.Proof.Sha512.X86.Stream.Finalize
 # HMAC and PBKDF2-HMAC on x86 (32-bit): the Merkle–Damgård hash functions
 
 MD5, SHA-1 and the SHA-512 family as `Hash`es of `Impl/Pbkdf2/Md/X86.lean`:
-their streaming functions (`Proof/Hmac/Generic/X86/Hashes.lean`), their
+their streaming functions (`Proof/Pbkdf2/Stream/X86/Hashes.lean`), their
 compression functions and the code writing their digests
 (`Impl.MdStream.X86.out32` for MD5 and SHA-1, SHA-512's `outW`), and what the
 proofs know of them (`MdOk`), from their own proofs: the `Md` of the generic
@@ -22,7 +22,7 @@ namespace VG.Proof.Pbkdf2.Md.X86
 open VG.X86
 open VG.Impl.Pbkdf2.Md.X86 (Hash)
 open VG.Proof.MdStream (Md)
-open VG.Proof.Hmac.Generic.X86 (md5H sha1H sha512H md5OK sha1OK sha384OK sha512OK sha512_224OK sha512_256OK)
+open VG.Proof.Pbkdf2.Stream.X86 (md5H sha1H sha512H md5OK sha1OK sha384OK sha512OK sha512_224OK sha512_256OK)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_append writeBytes_frame)
 
 /-! ## The hash functions -/
@@ -185,6 +185,7 @@ def md5Ok : MdOk md5M where
     show Spec.Md5.hash m = _
     rw [Proof.Md5.hash_eq]
     exact (List.take_of_length_le (Nat.le_of_eq (Proof.Md5.md.digest_length _))).symm, by decide, by decide⟩
+  back _ _ _ h := h
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj
@@ -203,6 +204,7 @@ def sha1Ok : MdOk sha1M where
     show Spec.Sha1.hash m = _
     rw [Proof.Sha1.hash_eq]
     exact (List.take_of_length_le (Nat.le_of_eq (Proof.Sha1.md.digest_length _))).symm, by decide, by decide⟩
+  back _ _ _ h := h
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj
@@ -216,7 +218,7 @@ def sha1Ok : MdOk sha1M where
 /-- `MdOk` for a member of the SHA-512 family, whose digest is the first `D`
 bytes of the final hash value. -/
 def sha512Ok {D : Nat} {initN : String} {iv : Spec.Sha512.HashValue}
-    (hO : VG.Proof.Hmac.Generic.X86.HashOK (sha512H D initN iv)) (hR : hO.SH.Repr = Spec.Sha512.Repr iv)
+    (hO : VG.Proof.Pbkdf2.Stream.X86.HashOK (sha512H D initN iv)) (hR : hO.SH.Repr = Spec.Sha512.Repr iv)
     (hh : ∀ m, hO.SH.H.hash m = (Spec.Sha512.finalHash iv m).take D) (hB : hO.SH.H.blockSize = 128)
     (hS : hO.SH.stateBytes = 192) (hD : hO.SH.digestBytes = D) (hD64 : D ≤ 64)
     (tail : Proof.Sha512.md.tailPad D = (sha512M D initN iv).tailB) (sizes : Sizes (sha512M D initN iv)) :
@@ -225,6 +227,7 @@ def sha512Ok {D : Nat} {initN : String} {iv : Spec.Sha512.HashValue}
   md := Proof.Sha512.md
   iv := iv
   link := ⟨hB, hS, hD, fun _ _ _ h => by rw [hR] at h; exact h, hh, hD64, by have := sizes.DL; omega⟩
+  back _ _ _ h := by rw [hR]; exact h
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj

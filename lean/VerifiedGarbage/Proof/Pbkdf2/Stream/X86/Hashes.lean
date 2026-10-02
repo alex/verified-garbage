@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Hash
+import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Hash
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.Proof.Sha512.X86.Stream.Init
 import VerifiedGarbage.Proof.Sha512.X86.Stream.Update
@@ -12,7 +12,7 @@ import VerifiedGarbage.Proof.Md5.X86.Stream.Md
 # HMAC over any streaming hash function on x86 (32-bit): the hash functions
 
 `HashOK` for SHA-1, MD5 and the SHA-512 family, from their own proofs, as on
-the other targets (`Proof/Hmac/Generic/Arm/Hashes.lean`). Their contracts are
+the other targets (`Proof/Pbkdf2/Stream/Arm/Hashes.lean`). Their contracts are
 `initK`, `updK` and `finK` at their sizes, but for the SHA-512 family's
 `update` and `finalize`, which hold from any initial hash value, and whose
 `finalize` only reads its arguments (`finKr`). Another hash function with
@@ -21,10 +21,10 @@ registration file for each of its functions. SHA-256's, for each of its
 backends, are in `Sha256.lean`.
 -/
 
-namespace VG.Proof.Hmac.Generic.X86
+namespace VG.Proof.Pbkdf2.Stream.X86
 
 open VG.X86
-open VG.Impl.Hmac.Generic.X86 (Hash)
+open VG.Impl.Pbkdf2.Stream.X86 (Hash)
 open VG.Proof.Hmac.Generic.Common (sha1_repr md5_repr sha512_repr finalHash_length)
 
 /-- No instruction of `c` writes `esp`, from a check that runs in the kernel. -/
@@ -219,4 +219,4 @@ def sha512_256OK : HashOK sha512_256H := sha512FamOK Spec.Hmac.sha512_256S 32 "v
   Spec.Sha512.H0_512_256 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide) (nosp_of (by lit_decide))
   (by lit_decide)
 
-end VG.Proof.Hmac.Generic.X86
+end VG.Proof.Pbkdf2.Stream.X86

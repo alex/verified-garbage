@@ -1,13 +1,12 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.CT
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Instances
 import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Instances
 
 /-!
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: the instances
 
 The generic proof (`CT.lean`) at each hash function of
-`Proof/Hmac/Generic/Arm/Hashes.lean`: the functions it calls are verified by
+`Proof/Pbkdf2/Stream/Arm/Hashes.lean`: the functions it calls are verified by
 their own registration files (with 16 bytes of stack, the most their frames
 use: `armStack`), the taint checks are evaluated by the kernel, and a state
 satisfies the shared contract (`pbkSat`).
@@ -18,7 +17,7 @@ namespace VG.Proof.Pbkdf2.Whole.Arm
 open VG.Arm
 open VG.Arm.FrameStack
 open VG.Impl.Pbkdf2.Whole.Arm (Fns)
-open VG.Proof.Hmac.Generic.Arm (sha1H md5H sha384H sha512H' sha512_224H sha512_256H sha1OK md5OK sha384OK
+open VG.Proof.Pbkdf2.Stream.Arm (sha1H md5H sha384H sha512H' sha512_224H sha512_256H sha1OK md5OK sha384OK
   sha512OK sha512_224OK sha512_256OK)
 
 /-- The functions `pbkdf2` calls for the hash function `M` of the instance
@@ -28,7 +27,7 @@ def fnsOf (I : Spec.Hmac.Instance) (M : Impl.Pbkdf2.Md.Arm.Hash) : Fns where
   H := M.st
   W := I.scratch
   hiN := I.initApi.name
-  hiC := M.st.init
+  hiC := M.hmacInit
   hfN := I.finalizeApi.name
   hfC := M.hmacFin
   itN := I.iterateApi.name
@@ -65,7 +64,7 @@ def sha1OKF : FnsOK sha1F where
   Wi := 56
   Wf := 56
   Wt := 56
-  hi := .of_verified Proof.Hmac.Generic.Arm.Instances.sha1_init
+  hi := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha1_init
   hf := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha1_finalize
   it := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha1_iterate
   hiSt := by decide +kernel
@@ -104,7 +103,7 @@ def md5OKF : FnsOK md5F where
   Wi := 48
   Wf := 48
   Wt := 48
-  hi := .of_verified Proof.Hmac.Generic.Arm.Instances.md5_init
+  hi := .of_verified Proof.Pbkdf2.Md.Arm.Instances.md5_init
   hf := .of_verified Proof.Pbkdf2.Md.Arm.Instances.md5_finalize
   it := .of_verified Proof.Pbkdf2.Md.Arm.Instances.md5_iterate
   hiSt := by decide +kernel
@@ -143,7 +142,7 @@ def sha384OKF : FnsOK sha384F where
   Wi := 234
   Wf := 234
   Wt := 234
-  hi := .of_verified Proof.Hmac.Generic.Arm.Instances.sha384_init
+  hi := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha384_init
   hf := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha384_finalize
   it := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha384_iterate
   hiSt := by decide +kernel
@@ -182,7 +181,7 @@ def sha512OKF : FnsOK sha512F where
   Wi := 234
   Wf := 234
   Wt := 234
-  hi := .of_verified Proof.Hmac.Generic.Arm.Instances.sha512_init
+  hi := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha512_init
   hf := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha512_finalize
   it := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha512_iterate
   hiSt := by decide +kernel
@@ -221,7 +220,7 @@ def sha512_224OKF : FnsOK sha512_224F where
   Wi := 234
   Wf := 234
   Wt := 234
-  hi := .of_verified Proof.Hmac.Generic.Arm.Instances.sha512_224_init
+  hi := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha512_224_init
   hf := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha512_224_finalize
   it := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha512_224_iterate
   hiSt := by decide +kernel
@@ -260,7 +259,7 @@ def sha512_256OKF : FnsOK sha512_256F where
   Wi := 234
   Wf := 234
   Wt := 234
-  hi := .of_verified Proof.Hmac.Generic.Arm.Instances.sha512_256_init
+  hi := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha512_256_init
   hf := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha512_256_finalize
   it := .of_verified Proof.Pbkdf2.Md.Arm.Instances.sha512_256_iterate
   hiSt := by decide +kernel

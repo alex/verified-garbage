@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.Hmac.Generic.Arm
+import VerifiedGarbage.Impl.Pbkdf2.Stream.Arm
 
 /-!
 # PBKDF2-HMAC over any streaming hash function: 32-bit ARM implementation of the whole derivation
@@ -16,7 +16,7 @@ output still needs is copied to `out`.
 
 `scratch` starts with the working space of the functions we call (`8 W`
 bytes); then our caller's registers and our return address (as in HMAC's
-code, `VG.Impl.Hmac.Generic.Arm.Hash.saved`), the key's two states, the
+code, `VG.Impl.Pbkdf2.Stream.Arm.Hash.saved`), the key's two states, the
 salted inner state, a working state, `U`, `T`, the hashed password (the `F`
 bytes `finalize` writes) and `INT (i)`. The functions we call preserve
 `r4`–`r11`: `r11` is always `scratch`, `r5` and `r6` the salt and its
@@ -36,7 +36,7 @@ Every address and branch depends only on the pointers, the lengths and `c`.
 namespace VG.Impl.Pbkdf2.Whole.Arm
 
 open VG.Arm
-open VG.Impl.Hmac.Generic.Arm (Hash copy scrAt)
+open VG.Impl.Pbkdf2.Stream.Arm (Hash copy scrAt)
 
 /-- The functions PBKDF2 calls, for one hash function: its streaming
 functions (`H`, with their sizes), the words of working space every function

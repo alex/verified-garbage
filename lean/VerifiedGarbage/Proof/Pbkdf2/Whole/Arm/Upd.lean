@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Calls
 /-!
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: `update`, in its frame, of any length
 
-`VG.Proof.Hmac.Generic.Arm.UpdArgs` and `upd_frame`, for data of any length
+`VG.Proof.Pbkdf2.Stream.Arm.UpdArgs` and `upd_frame`, for data of any length
 that fits the address space (HMAC's functions only absorb constants of fewer
 than 2¹⁶ bytes, which `movw` sets; we absorb the password and the salt).
 -/
@@ -11,8 +11,8 @@ than 2¹⁶ bytes, which `movw` sets; we absorb the password and the salt).
 namespace VG.Proof.Pbkdf2.Whole.Arm
 
 open VG.Arm
-open VG.Impl.Hmac.Generic.Arm (Hash)
-open VG.Proof.Hmac.Generic.Arm (HashOK updK below count ce0 ce1 ce2 ce3 addr_sub addr_sub_add sep_off
+open VG.Impl.Pbkdf2.Stream.Arm (Hash)
+open VG.Proof.Pbkdf2.Stream.Arm (HashOK updK below count ce0 ce1 ce2 ce3 addr_sub addr_sub_add sep_off
   contains_off frame_app after_frame push_eq)
 open Spec.Sha256 (bytesAt)
 
@@ -157,7 +157,7 @@ end UpdL
 
 theorem upd_frame {s : State} {st d sc : BitVec 32} {len : Nat} (h : UpdL hH s st d sc len)
     {Q : State → Prop}
-    (hQ : ∀ s', Hmac.Generic.Arm.After s [⟨State.addr st, H.S⟩, ⟨State.addr sc, hH.Wb⟩] s' →
+    (hQ : ∀ s', Pbkdf2.Stream.Arm.After s [⟨State.addr st, H.S⟩, ⟨State.addr sc, hH.Wb⟩] s' →
       (∀ m, hH.SH.Repr s.mem (State.addr st) m → count s = BitVec.ofNat 64 m.length →
         hH.SH.Repr s'.mem (State.addr st) (m ++ bytesAt s.mem (State.addr d) len)) → Q s') :
     WP isa (.frame (.push upd4) (.call H.updN H.updC) (.pop .r1 16)) s Q := by

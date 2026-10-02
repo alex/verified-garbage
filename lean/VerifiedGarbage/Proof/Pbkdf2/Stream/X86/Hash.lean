@@ -1,16 +1,16 @@
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Contract
+import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Contract
 import VerifiedGarbage.Proof.Framework.OffsetBelow
 import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.X86.RelCT
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Common
-import VerifiedGarbage.Impl.Hmac.Generic.X86
+import VerifiedGarbage.Impl.Pbkdf2.Stream.X86
 import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC over any streaming hash function on x86 (32-bit): the functions we call
 
-As on the other targets (`Proof/Hmac/Generic/Arm/Hash.lean`): `HashOK H` is
+As on the other targets (`Proof/Pbkdf2/Stream/Arm/Hash.lean`): `HashOK H` is
 what the proofs know of the hash function `H`: its streaming functions are
 verified against `initK`, `updK` and `finK`, never write `esp` and use at most
 20 bytes of stack, the representation of its streaming state is determined by
@@ -24,10 +24,10 @@ callee's precondition, `CallPre`). A call writes the 48 bytes below `esp`
 relate two runs of them (`RelCT.callWith`).
 -/
 
-namespace VG.Proof.Hmac.Generic.X86
+namespace VG.Proof.Pbkdf2.Stream.X86
 
 open VG.X86
-open VG.Impl.Hmac.Generic.X86 (Hash)
+open VG.Impl.Pbkdf2.Stream.X86 (Hash)
 open VG.Proof.Sha256.X86.Stream (Upd WP.cons)
 open Spec.Hmac (StreamingHash)
 open Spec.Sha256 (bytesAt)
@@ -571,4 +571,4 @@ theorem rel_wp {F F' G G' : State → Prop} {c : Prog isa}
     RelCT isa (fun s s' => F s ∧ F' s') c fun s s' => G s ∧ G' s' :=
   (hct.wp fun s s' h => ⟨hw s h.1, hw' s' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
 
-end VG.Proof.Hmac.Generic.X86
+end VG.Proof.Pbkdf2.Stream.X86

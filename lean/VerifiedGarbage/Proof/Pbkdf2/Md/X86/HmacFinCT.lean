@@ -3,13 +3,13 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86.HmacFin
 /-!
 # HMAC over a Merkle–Damgård hash function on x86 (32-bit): `finalize`, constant time
 
-As for the streaming-level functions (`Proof/Hmac/Generic/X86/`): the pieces
-between the calls are checked by the taint analysis, the prologue and the
-arguments of the first call, which read the arguments on the stack, with them
-public (`argTaint`); the call of the streaming `finalize` is related by
-`fin_rel`, that of the compression function by `cmp_rel`. Then `finalize` is
-verified against the contract with the arguments read only (`finG`), and with
-them writable (`finW`).
+As for HMAC's `init` (`HmacInitCT.lean`): the pieces between the calls are
+checked by the taint analysis, the prologue and the arguments of the first
+call, which read the arguments on the stack, with them public (`argTaint`);
+the call of the streaming `finalize` is related by `fin_rel`, that of the
+compression function by `cmp_rel`. Then `finalize` is verified against the
+contract with the arguments read only (`finG`), and with them writable
+(`finW`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86.HmacFin
@@ -17,16 +17,16 @@ namespace VG.Proof.Pbkdf2.Md.X86.HmacFin
 open VG.X86
 open VG.Impl.Pbkdf2.Md.X86 (Hash)
 open VG.Proof.Pbkdf2.Md.X86
-open VG.Proof.Hmac.Generic.X86 (HashOK finG finW argTaint ArgsOut agree_argTaint rel_agree rel_wp stk fin_rel
+open VG.Proof.Pbkdf2.Stream.X86 (HashOK finG finW argTaint ArgsOut agree_argTaint rel_agree rel_wp stk fin_rel
   FinArgs fin5)
-open VG.Proof.Hmac.Generic.X86.Finalize (Pre KR E inn outer op scr tO pre_of pro_ok fin1Args_ok finCall_ok
+open VG.Proof.Pbkdf2.Stream.X86.Finalize (Pre KR E inn outer op scr tO pre_of pro_ok fin1Args_ok finCall_ok
   stk_eq)
 
 /-- The taint checks of the pieces of `finalize` between its calls. -/
 structure Checks (H : Hash) : Prop where
   pro : ∃ hc, (VG.Taint.check taint (argTaint [] (4 + 4 * 6)) (.block H.st.finPrologue) hc).isSome = true
   fin1 : ∃ hc, (VG.Taint.check taint (argTaint [.ebp, .ebx, .edi] (4 + 4 * 6))
-    (.block ([] ++ Impl.Hmac.Generic.X86.Hash.count1 ++ Impl.Hmac.Generic.X86.scr .edx H.st.buf)) hc).isSome = true
+    (.block ([] ++ Impl.Pbkdf2.Stream.X86.Hash.count1 ++ Impl.Pbkdf2.Stream.X86.scr .edx H.st.buf)) hc).isSome = true
   mid : ∃ hc, (VG.Taint.check taint (τr [.esp, .ebp, .ebx, .edi, .esi]) (.block H.finMid) hc).isSome = true
   out : ∃ hc, (VG.Taint.check taint (τr [.esp, .ebp, .ebx, .edi]) (.block H.finOut) hc).isSome = true
 
@@ -86,7 +86,7 @@ theorem ct : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.hmacFin fun _ _ =
   -- The call of the streaming `finalize`.
   have a1 : RelCT isa (fun s s' => (KR (H := H.st) sc s₀ s ∧ s.gpr .esi = outer s₀) ∧
         (KR (H := H.st) sc s₀' s' ∧ s'.gpr .esi = outer s₀'))
-      (.block ([] ++ Impl.Hmac.Generic.X86.Hash.count1 ++ Impl.Hmac.Generic.X86.scr .edx H.st.buf))
+      (.block ([] ++ Impl.Pbkdf2.Stream.X86.Hash.count1 ++ Impl.Pbkdf2.Stream.X86.scr .edx H.st.buf))
       fun s s' => (KR (H := H.st) sc s₀ s ∧
           FinArgs hH s .ebx (inn s₀) (tO (H := H.st) s₀) (scr s₀) (arg s₀ 2) (arg s₀ 3) ∧ s.gpr .esi = outer s₀) ∧
         (KR (H := H.st) sc s₀' s' ∧
@@ -149,8 +149,8 @@ namespace VG.Proof.Pbkdf2.Md.X86.HmacFin
 open VG.X86
 open VG.Impl.Pbkdf2.Md.X86 (Hash)
 open VG.Proof.Pbkdf2.Md.X86
-open VG.Proof.Hmac.Generic.X86 (finG finW)
-open VG.Proof.Hmac.Generic.X86.Finalize (pre_of)
+open VG.Proof.Pbkdf2.Stream.X86 (finG finW)
+open VG.Proof.Pbkdf2.Stream.X86.Finalize (pre_of)
 
 /-- `finalize` is verified against `finG`, given the taint checks, which the
 kernel evaluates for each hash function. -/

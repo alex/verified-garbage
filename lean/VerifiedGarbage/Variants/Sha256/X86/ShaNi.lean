@@ -14,7 +14,7 @@ open VG VG.X86
 open VG.Proof.Sha256.X86.Stream (params dims)
 open VG.Proof.Sha256 (md)
 open VG.Proof.MdStream VG.Proof.MdStream.X86
-open VG.Proof.Hmac.Generic.X86 (Sha256Stream sha256H)
+open VG.Proof.Pbkdf2.Stream.X86 (Sha256Stream)
 open VG.Proof.Pbkdf2.Md.X86 (sha256M)
 open VG.Proof.Sha256.X86.Variants (pbkdf2Fns)
 
@@ -67,7 +67,7 @@ def stream : Sha256Stream where
   updSU := by lit_decide
   finSU := by lit_decide
 
-materialize_code sha256HInit := (sha256H stream).init
+materialize_code sha256HInit := (sha256M stream cmpN cmpC).hmacInit
 materialize_code sha256HFinalize := (sha256M stream cmpN cmpC).hmacFin
 materialize_code sha256HIterate := (sha256M stream cmpN cmpC).iterate
 materialize_code sha256HPbkdf2 := (pbkdf2Fns stream cmpN cmpC).pbkdf2

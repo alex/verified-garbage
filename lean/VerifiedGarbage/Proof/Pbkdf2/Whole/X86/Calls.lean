@@ -1,5 +1,5 @@
 import VerifiedGarbage.Spec.Pbkdf2.Generic
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Hash
+import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Hash
 import VerifiedGarbage.Proof.Framework.Sig
 import VerifiedGarbage.Proof.Framework.OmegaLit
 
@@ -60,10 +60,10 @@ structure After (s : State) (ws : List Region) (s' : State) : Prop where
 theorem After.esp {s s' : State} {ws : List Region} (h : After s ws s') : s'.gpr .esp = s.gpr .esp :=
   h.cs .esp (by simp [calleeSaved])
 
-/-- A call of a hash function's streaming function (`Proof/Hmac/Generic/X86/Hash.lean`),
+/-- A call of a hash function's streaming function (`Proof/Pbkdf2/Stream/X86/Hash.lean`),
 which writes only the 48 bytes below `esp`. -/
 theorem After.of_hmac {s s' : State} {ws : List Region} (h76 : 76 ≤ (s.gpr .esp).toNat)
-    (h : Hmac.Generic.X86.After s ws s') : After s ws s' :=
+    (h : Pbkdf2.Stream.X86.After s ws s') : After s ws s' :=
   ⟨h.rd, h.wr, h.cs, Frame.below_mono h.frame (by decide) h76⟩
 
 theorem below_eq {E : BitVec 32} {k : Nat} (h : k ≤ E.toNat) :
