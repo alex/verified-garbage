@@ -14,7 +14,7 @@ Untrusted: everything here is checked by Lean.
 The key loop of `vg_aes_ctr32` bitslices each round key (loaded as four
 identical blocks) with `toBs` and stores it in the scratch buffer. The
 loads and stores are checked by evaluation over the naming domain
-(`Bitslice.names`), `toBs` by its proof (`Linear.lean`).
+(`Bitslice.names`), `toBs` by its proof (`Encrypt.lean`).
 -/
 
 namespace VG.Proof.Aes.X86_64

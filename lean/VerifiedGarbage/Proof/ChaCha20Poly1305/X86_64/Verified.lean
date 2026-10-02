@@ -5,9 +5,9 @@ import VerifiedGarbage.Spec.ChaCha20Poly1305.Contract
 /-!
 # ChaCha20-Poly1305 on x86-64: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness (from
-`Correct.lean`), constant time (from `CT.lean`), and a state satisfying the
-precondition, for any implementation `v` of `vg_chacha20_xor`.
+Untrusted: everything here is checked by Lean. Correctness and constant
+time (both from `CT.lean`), and a state satisfying the precondition, for any
+implementation `v` of `vg_chacha20_xor`.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64

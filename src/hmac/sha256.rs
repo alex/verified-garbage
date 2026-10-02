@@ -13,8 +13,8 @@
 //! variants use the SHA-256 instructions through the same generic code.
 //!
 //! On ARMv7 and x86, their contracts are `VG.Spec.Hmac.initSha256Contract`
-//! and `VG.Spec.Hmac.finalizeSha256Contract` (or `finalizeSha256OutContract`
-//! on the 32-bit targets), with `VG.Spec.Sha256.updateContract`.
+//! and `VG.Spec.Hmac.finalizeSha256OutContract`, with
+//! `VG.Spec.Sha256.updateContract`.
 
 #![cfg(any(
     target_arch = "x86_64",
