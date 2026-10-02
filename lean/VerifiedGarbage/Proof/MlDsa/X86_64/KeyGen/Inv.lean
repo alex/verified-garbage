@@ -43,7 +43,9 @@ def kcChk (p : Params) (ws : List (Ptr × Nat)) : Bool := topChk (kgB p) ws && k
 /-- A piece that writes `ws` keeps `K1`. -/
 def k1Chk (p : Params) (ws : List (Ptr × Nat)) : Bool :=
   kcChk p ws && keepB (kgB p) ws (sc oHX) 128 && keepB (kgB p) ws (sc oSA) 32 && keepB (kgB p) ws (sc oSB) 64 &&
-    keepB (kgB p) ws (sc (oSB + 65)) 1
+    keepB (kgB p) ws (sc (oSB + 65)) 1 && keepB (kgB p) ws (sc (oSA4 + 34 * 0)) 32 &&
+    keepB (kgB p) ws (sc (oSA4 + 34 * 1)) 32 && keepB (kgB p) ws (sc (oSA4 + 34 * 2)) 32 &&
+    keepB (kgB p) ws (sc (oSA4 + 34 * 3)) 32
 
 section
 variable {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ)
