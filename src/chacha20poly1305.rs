@@ -60,14 +60,24 @@ fn select(f: Features) -> Backend {
 /// 64 bytes, as the block counter starts at 1.
 const P_MAX: u64 = (1 << 38) - 64;
 
-/// Whether `len` bytes exceed `P_MAX`.
-fn too_long(len: usize) -> bool {
-    len as u64 > P_MAX
+/// Checks that a text of `len` bytes is at most `P_MAX` long.
+fn check_len(len: usize) -> Result<(), Error> {
+    if len as u64 > P_MAX {
+        return Err(Error::InvalidTextLength);
+    }
+    Ok(())
 }
 
-/// The tag did not authenticate the message.
+/// Why a ChaCha20-Poly1305 operation failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InvalidTag;
+pub enum Error {
+    /// The plaintext or ciphertext is longer than `2^38 − 64` bytes (RFC
+    /// 8439's `P_MAX`, §2.8).
+    InvalidTextLength,
+    /// The tag does not match: the ciphertext, the additional data or the
+    /// nonce is not what was authenticated under this key.
+    TagMismatch,
+}
 
 /// The AEAD with a key.
 #[derive(Clone)]
@@ -118,12 +128,14 @@ impl ChaCha20Poly1305 {
 
     /// Encrypts `data` in place, with the nonce `nonce` and the additional
     /// data `aad`, and returns the tag.
-    ///
-    /// # Panics
-    ///
-    /// If `data` is longer than RFC 8439's `P_MAX` (2³⁸ − 64 bytes).
-    pub fn encrypt_in_place(&self, nonce: &[u8; 12], aad: &[u8], data: &mut [u8]) -> [u8; 16] {
-        assert!(!too_long(data.len()), "message too long");
+    pub fn encrypt_in_place(
+        &self,
+        nonce: &[u8; 12],
+        aad: &[u8],
+        data: &mut [u8],
+    ) -> Result<[u8; 16], Error> {
+        // Check the length before encrypting anything.
+        check_len(data.len())?;
         let mut ctx = self.ctx(nonce, &[0; 16]);
         let seal = match self.backend {
             Backend::Scalar => vg_chacha20_poly1305_seal,
@@ -154,24 +166,20 @@ impl ChaCha20Poly1305 {
         let mut tag = [0; 16];
         tag[..8].copy_from_slice(&ctx[6].to_le_bytes());
         tag[8..].copy_from_slice(&ctx[7].to_le_bytes());
-        tag
+        Ok(tag)
     }
 
     /// Decrypts `data` in place, with the nonce `nonce` and the additional
     /// data `aad`, if `tag` authenticates it; otherwise returns
-    /// [`InvalidTag`] and zeroes `data`.
-    ///
-    /// # Panics
-    ///
-    /// If `data` is longer than RFC 8439's `P_MAX` (2³⁸ − 64 bytes).
+    /// [`Error::TagMismatch`] and zeroes `data`.
     pub fn decrypt_in_place(
         &self,
         nonce: &[u8; 12],
         aad: &[u8],
         data: &mut [u8],
         tag: &[u8; 16],
-    ) -> Result<(), InvalidTag> {
-        assert!(!too_long(data.len()), "message too long");
+    ) -> Result<(), Error> {
+        check_len(data.len())?;
         let mut ctx = self.ctx(nonce, tag);
         let open = match self.backend {
             Backend::Scalar => vg_chacha20_poly1305_open,
@@ -199,14 +207,14 @@ impl ChaCha20Poly1305 {
             // wrong (it may hold the decryption of the forged ciphertext):
             // this, not the verified code, keeps it from being released.
             data.fill(0);
-            Err(InvalidTag)
+            Err(Error::TagMismatch)
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Backend, ChaCha20Poly1305, InvalidTag, P_MAX, select, too_long};
+    use super::{Backend, ChaCha20Poly1305, Error, P_MAX, check_len, select};
     #[cfg(target_arch = "x86_64")]
     use crate::cpu::Features;
     use crate::cpu::detected;
@@ -224,7 +232,7 @@ mod tests {
             let mut buf = [0u8; 200];
             let data = &mut buf[..len];
             data.copy_from_slice(msg);
-            let tag = aead.encrypt_in_place(&nonce, &aad, data);
+            let tag = aead.encrypt_in_place(&nonce, &aad, data).unwrap();
             let mut copy = [0u8; 200];
             let copy = &mut copy[..len];
             copy.copy_from_slice(data);
@@ -235,38 +243,39 @@ mod tests {
             copy.copy_from_slice(data);
             assert_eq!(
                 aead.decrypt_in_place(&nonce, &aad, copy, &bad_tag),
-                Err(InvalidTag)
+                Err(Error::TagMismatch)
             );
             assert!(copy.iter().all(|&b| b == 0));
             copy.copy_from_slice(data);
             assert_eq!(
                 aead.decrypt_in_place(&[8; 12], &aad, copy, &tag),
-                Err(InvalidTag)
+                Err(Error::TagMismatch)
             );
             copy.copy_from_slice(data);
             assert_eq!(
                 aead.decrypt_in_place(&nonce, &aad[..2], copy, &tag),
-                Err(InvalidTag)
+                Err(Error::TagMismatch)
             );
             if len > 0 {
                 copy.copy_from_slice(data);
                 copy[len - 1] ^= 0x80;
                 assert_eq!(
                     aead.decrypt_in_place(&nonce, &aad, copy, &tag),
-                    Err(InvalidTag)
+                    Err(Error::TagMismatch)
                 );
             }
         }
     }
 
     /// `P_MAX` bytes are allowed and one more are not (a 32-bit length is
-    /// always allowed).
+    /// always allowed), which no test can reach with real buffers.
     #[test]
     fn length_limit() {
-        assert!(!too_long(0));
-        assert!(!too_long(usize::try_from(P_MAX).unwrap_or(usize::MAX)));
+        assert_eq!(check_len(0), Ok(()));
+        let max = usize::try_from(P_MAX).unwrap_or(usize::MAX);
+        assert_eq!(check_len(max), Ok(()));
         if let Ok(len) = usize::try_from(P_MAX + 1) {
-            assert!(too_long(len));
+            assert_eq!(check_len(len), Err(Error::InvalidTextLength));
         }
     }
 
@@ -290,6 +299,7 @@ mod tests {
             let mut b = msg;
             let tag = scalar.encrypt_in_place(&nonce, &aad, &mut a[..len]);
             assert_eq!(best.encrypt_in_place(&nonce, &aad, &mut b[..len]), tag);
+            let tag = tag.unwrap();
             assert_eq!(a, b);
             assert_eq!(
                 best.decrypt_in_place(&nonce, &aad, &mut a[..len], &tag),

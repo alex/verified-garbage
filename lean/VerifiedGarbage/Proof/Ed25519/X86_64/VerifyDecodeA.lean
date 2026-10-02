@@ -8,6 +8,7 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
 variable {fld : Arith} [EdArith fld]
+variable {dbl : Prog isa} [EdDouble dbl]
 
 def decodedEquation (a r : Option Spec.Ed25519.Point) (scalar challenge : Nat) : Bool :=
   match a with
@@ -16,7 +17,7 @@ def decodedEquation (a r : Option Spec.Ed25519.Point) (scalar challenge : Nat) :
 
 theorem verifyDecodeA_ok {s : State} {base pk sig challenge : Addr}
     (h : VerifyContext s base pk sig challenge) :
-    WP isa (verifyDecodeA fld) s fun t => VerifyKeep base s t ∧
+    WP isa (verifyDecodeA fld dbl) s fun t => VerifyKeep base s t ∧
       t.gpr .rax = signWord (decodedEquation
         (Spec.Ed25519.decodePoint (Spec.Ed25519.bytesAt s.mem pk 32))
         (Spec.Ed25519.decodePoint (Spec.Ed25519.bytesAt s.mem sig 32))

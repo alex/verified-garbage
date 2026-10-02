@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyMessage.Body
 namespace VG.Proof.Ed25519.X86_64.VerifyMessage
 
 variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+variable {dbl : VG.Prog VG.X86_64.isa} [VG.Proof.Ed25519.X86_64.EdDouble dbl]
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64.VerifyMessage
 open VG.Proof.Sha512.X86_64 (Compress)
@@ -13,13 +14,13 @@ theorem pop_rsp (B : Addr) :
     B + BitVec.ofNat 64 16 + BitVec.ofNat 64 (8 * 21) = B + BitVec.ofNat 64 184 := by
   rw [PublicKey.add_add]
 
-theorem verifyMessage_ok (v : Compress) {s : State} (h : verifyMessageLocal.pre s) :
-    WP isa (code fld fs v.callee v.suffix) s fun s' => abiPreserved s s' ∧ verifyMessageLocal.post s s' := by
+theorem verifyMessage_ok (hq : EqCode (VG.Impl.Ed25519.X86_64.verifyEquation fld dbl)) (v : Compress) {s : State} (h : verifyMessageLocal.pre s) :
+    WP isa (code fld dbl fs v.callee v.suffix) s fun s' => abiPreserved s s' ∧ verifyMessageLocal.post s s' := by
   have hL := lay_ok h
   have hc := push_ctx h
   refine WP.frame (rs := pushRs) (by decide) (by decide) (by decide)
     (by show 8 * 21 ≤ _; have := h.1; omega)
-    (WP.mono (body_ok v hL hc hL.message_bound)
+    (WP.mono (body_ok hq v hL hc hL.message_bound)
       fun u ⟨hu, ho⟩ => ⟨hu.rsp.trans hc.rsp.symm, hu.wr.trans hc.wr.symm, ?_, ?_⟩)
   · have hrsp : (popped .r11 pushRs.length u).gpr .rsp = s.gpr .rsp := by
       rw [popped_rsp, hu.rsp, show pushRs.length = 21 from rfl, pop_rsp, lay_ret]

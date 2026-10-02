@@ -1,0 +1,5 @@
+name = "SHA-384"
+family = "Hashes"
+specs = ["Sha512"]
+modules = ["src/hashes/sha384.rs"]
+asm = ["sha512"]

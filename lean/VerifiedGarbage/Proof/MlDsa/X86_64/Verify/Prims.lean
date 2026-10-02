@@ -44,6 +44,7 @@ def prims : Prims where
   unpackT1 := Pack.unpackT1
   hintUnpack := Pack.hintBitUnpack
   normLt := Round.normLt
+  rej4 := Sample.Rej4.rejNTT4
 
 /-- The primitives, with the polynomial arithmetic of `B`. -/
 def primsWith (B : Arith.Backend) : Prims :=
@@ -55,6 +56,7 @@ def primsWith (B : Arith.Backend) : Prims :=
     sub := B.sub
     normLt := B.normLt
     useHint := B.useHint
+    rej4 := B.rej4
     sfx := B.sfx }
 
 /-- A function of the polynomial arithmetic satisfies what the proofs of verification need of it. -/
@@ -62,7 +64,7 @@ theorem calleeOf {sig : Sig} {pre : Curry (sig.words X86_64.abi.ptrBits) (Mem �
     {post : sig.Post X86_64.abi.ptrBits} {wa : Bool} {c : Prog isa}
     (h : FnOk (fun S => sig.contract X86_64.abi pre post wa S none) c) :
     CalleeOk c (sig.contract X86_64.abi pre post wa 16 none) :=
-  CalleeOk.of_verified h.ver (by decide) h.nosp h.depth h.ctl h.sp
+  CalleeOk.of_verified h.ver (by decide) h.nosp (Nat.le_succ_of_le h.depth) h.ctl h.sp
 
 theorem prims_okWith (v : ArithImpl) : PrimsOk (primsWith v.code) where
   ntt := by
@@ -102,11 +104,12 @@ theorem prims_okWith (v : ArithImpl) : PrimsOk (primsWith v.code) where
     (Code.all_of_allInstrs (by lit_decide)) :
     CalleeOk prims.hintUnpack _)
   normLt := calleeOf v.ok.normLt
+  rej4 := ⟨v.ok.rej4.ver.1, v.ok.rej4.ver.2.1, v.ok.rej4.nosp, v.ok.rej4.depth, v.ok.rej4.ctl, v.ok.rej4.sp⟩
 
 /-- `vg_mldsa*_verify` for the parameter set `p`, calling the x86-64
 primitives, with the polynomial arithmetic of `v`. -/
 theorem verify_prims (v : ArithImpl) {p : Spec.MlDsa.Params} (hp : p ∈ params) :
-    Verified X86_64.target (verify (primsWith v.code) p) (Spec.MlDsa.verifyContract p X86_64.abi 24) :=
+    Verified X86_64.target (verify (primsWith v.code) p) (Spec.MlDsa.verifyContract p X86_64.abi 32) :=
   verify_verified (prims_okWith v) hp
 
 end VG.Proof.MlDsa.X86_64.Verify
