@@ -1,11 +1,11 @@
-import VerifiedGarbage.Proof.AesGcm.X86_64.OneCT
+import VerifiedGarbage.Proof.AesGcm.X86_64.OneBlocks.CT
 
 /-!
 # AES-GCM on x86-64: `vg_aes_gcm_seal` is constant time
 
 Untrusted: everything here is checked by Lean. After the entry, which loads
 `work` from the stack first, both runs go through the same pieces with the
-same public data (`oneAad_rel`, `oneCrypt_rel`, `oneTag_rel`).
+same public data (`oneAad_rel`, `oneBlocksE_rel`, `oneCrypt_rel`, `oneTag_rel`).
 -/
 
 namespace VG.Proof.AesGcm.X86_64
@@ -16,7 +16,7 @@ open VG.Spec.Gcm (Block blockAt)
 /-- What the entry of `seal` and `open` leaves, for `oneAad`. -/
 def OneIn (s₀ : State) (k : Nat) (s : State) : Prop :=
   OneS (s₀.gpr .rdi) (stackArg s₀ 2) (s₀.gpr .rsp) (s₀.gpr .rsi).toNat (s₀.gpr .r8) (s₀.gpr .r9).toNat
-      (stackArg s₀ 0) (stackArg s₀ 1).toNat s ∧ s.gpr .r12 = s₀.gpr .rdx ∧
+      (stackArg s₀ 0) (stackArg s₀ 1).toNat none s ∧ s.gpr .r12 = s₀.gpr .rdx ∧
     s.gpr .rbp = BitVec.ofNat 64 (s₀.gpr .rcx).toNat ∧
     DataOk (stackArg s₀ 2 + BitVec.ofNat 64 16) (stackArg s₀ 2) (s₀.gpr .rsp) s (s₀.gpr .rdx) (s₀.gpr .rcx).toNat ∧
     k = k
@@ -27,7 +27,7 @@ theorem OneEntry.oneIn {k : Nat} {s₀ s : State}
     (E : OneEntry s₀ (s₀.gpr .rdi) (stackArg s₀ 2) (s₀.gpr .rsp) (s₀.gpr .r8) (stackArg s₀ 0) (stackArg s₀ 1).toNat s) :
     OneIn s₀ k s :=
   ⟨⟨E.env, E.rounds, E.aad, by rw [E.alen, BitVec.ofNat_toNat, BitVec.setWidth_eq], E.dat, E.len,
-    C.aad.of_eq E.rd E.wr, C.data.of_eq E.rd E.wr⟩, E.r12, by rw [E.rbp, BitVec.ofNat_toNat, BitVec.setWidth_eq],
+    C.aad.of_eq E.rd E.wr, C.data.of_eq E.rd E.wr, fun _ h => nomatch h⟩, E.r12, by rw [E.rbp, BitVec.ofNat_toNat, BitVec.setWidth_eq],
     C.nonce.of_eq E.rd E.wr, rfl⟩
 
 theorem one_pub {k : Nat} {s₀ s₀' : State} (hq : Proof.AesGcm.onePub k s₀ s₀') :
@@ -46,6 +46,20 @@ theorem oneIn_pub {k : Nat} (hk : 3 ≤ k) {s₀ s₀' : State} (hq : Proof.AesG
   rw [q₁, q₂, q₃, q₄, q₅, q₆, q₇, a₀, a₁, a₂]
   exact h
 
+/-- `e; (a; (b; (c; (d; f))))`, related as `e; ((a; (b; (c; d))); f)`. -/
+theorem rel_reassoc_inner4 {P Q : State → State → Prop} {e a b c d f : Prog isa}
+    (h : RelCT isa P (.seq e (.seq (.seq a (.seq b (.seq c d))) f)) Q) :
+    RelCT isa P (.seq e (.seq a (.seq b (.seq c (.seq d f))))) Q := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  cases e₁ with | seq x₁ e₁ => cases e₁ with | seq a₁ e₁ => cases e₁ with | seq b₁ e₁ => cases e₁ with
+    | seq c₁ e₁ => cases e₁ with | seq d₁ f₁ =>
+  cases e₂ with | seq x₂ e₂ => cases e₂ with | seq a₂ e₂ => cases e₂ with | seq b₂ e₂ => cases e₂ with
+    | seq c₂ e₂ => cases e₂ with | seq d₂ f₂ =>
+  obtain ⟨ht, hq⟩ := h _ _ _ _ _ _ hp (.seq x₁ (.seq (.seq a₁ (.seq b₁ (.seq c₁ d₁))) f₁))
+    (.seq x₂ (.seq (.seq a₂ (.seq b₂ (.seq c₂ d₂))) f₂))
+  simp only [List.append_assoc] at ht
+  exact ⟨ht, hq⟩
+
 theorem seal_rel (v : GcmImpl) {s₀ s₀' : State} (hp : Proof.AesGcm.sealX86_64.pre s₀)
     (hp' : Proof.AesGcm.sealX86_64.pre s₀') (hq : Proof.AesGcm.sealX86_64.pub s₀ s₀') :
     RelCT isa (fun s₁ s₂ => s₁ = s₀ ∧ s₂ = s₀') («seal» v.callees) fun _ _ => True := by
@@ -60,21 +74,29 @@ theorem seal_rel (v : GcmImpl) {s₀ s₀' : State} (hp : Proof.AesGcm.sealX86_6
   rw [oneEntry, List.append_assoc, List.append_assoc, List.append_assoc] at hE₁ hE₂
   rw [«seal», oneEntry, List.append_assoc, List.append_assoc, List.append_assoc]
   have ha₂ := C.args 2 (by decide); have ha₂' := C'.args 2 (by decide)
-  refine rel_reassoc_inner3 (fn_rel₂ (Ctx := s₀.gpr .rdi) (St := stackArg s₀ 2 + BitVec.ofNat 64 16)
+  refine rel_reassoc_inner4 (fn_rel₂ (Ctx := s₀.gpr .rdi) (St := stackArg s₀ 2 + BitVec.ofNat 64 16)
     (W := stackArg s₀ 2) (SP := s₀.gpr .rsp) (k := 24) [.rdi, .rsi, .rdx, .rcx, .r8, .r9, .rsp] (by simp)
     ⟨_, by taint_decide⟩ (one_pub hq) hw (by simpa [hp.2.2.1] using ha₂) (by simpa using ha₂')
     ⟨_, by taint_decide⟩ hE₁ hE₂ ?_)
   have hDW := C.dE
-  have a := (oneAad_rel v L hDW).mono (P' := fun (s₁ s₂ : State) => True ∧ OneIn s₀ 3 s₁ ∧ OneIn s₀ 3 s₂)
+  have hn := C.data.ok.lt
+  have a := (oneAad_rel v L hDW (T := none)).mono (P' := fun (s₁ s₂ : State) => True ∧ OneIn s₀ 3 s₁ ∧ OneIn s₀ 3 s₂)
     (fun _ _ h => ⟨⟨h.2.1.1, h.2.1.2.1, h.2.1.2.2.1, h.2.1.2.2.2.1⟩,
     ⟨h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, h.2.2.2.2.2.1⟩⟩) fun _ _ h => h
+  have bl := oneBlocksE_rel v L (R := (s₀.gpr .rsi).toNat) (A := s₀.gpr .r8) (al := (s₀.gpr .r9).toNat) (T := none)
+    C.t_c C.t_w C.t_d C.sp24
+  have hDW' := C.dE.sub_left (Offset.sub_base (stackArg s₀ 0) (d := 16 * ((stackArg s₀ 1).toNat / 16))
+    (n := (stackArg s₀ 1).toNat - 16 * ((stackArg s₀ 1).toNat / 16)) (by omega))
   have hT : ∀ s, OneS (s₀.gpr .rdi) (stackArg s₀ 2) (s₀.gpr .rsp) (s₀.gpr .rsi).toNat (s₀.gpr .r8) (s₀.gpr .r9).toNat
-      (stackArg s₀ 0) (stackArg s₀ 1).toNat s → WP isa (oneTag v.callees 0) s
+      (stackArg s₀ 0 + BitVec.ofNat 64 (16 * ((stackArg s₀ 1).toNat / 16)))
+      ((stackArg s₀ 1).toNat - 16 * ((stackArg s₀ 1).toNat / 16)) (some (stackArg s₀ 1).toNat) s →
+      WP isa (oneTag v.callees 0) s
         (Env (s₀.gpr .rdi) (stackArg s₀ 2 + BitVec.ofNat 64 16) (stackArg s₀ 2) (s₀.gpr .rsp)) := fun s h =>
-    WP.mono (oneTag_ok v L (.inl rfl) (a := List.replicate (s₀.gpr .r9).toNat 0) h.env rfl h.rounds h.dat h.len h.alen
-      (by simp) h.dD.ok hDW h.dD.ctx) fun _ o => o.1
-  have t := rel_wp (oneTag_rel v L (.inl rfl) hDW) (fun _ _ h => h) hT hT
-  exact RelCT.seq a (RelCT.seq (oneCrypt_rel v L hDW) (t.mono (fun _ _ h => h) fun _ _ h => h.2))
+    WP.mono (oneTag_ok v L (.inl rfl) (x := []) (by decide) h.env rfl h.rounds h.dat h.len (h.tlen _ rfl) hn h.alen
+      h.dD.ok hDW' h.dD.ctx) fun _ o => o.1
+  have t := rel_wp (oneTag_rel v L (.inl rfl) hDW') (fun _ _ h => h) hT hT
+  exact RelCT.seq a (RelCT.seq bl (RelCT.seq (oneCrypt_rel v L hDW')
+    (t.mono (fun _ _ h => h) fun _ _ h => h.2)))
 
 theorem seal_ct (v : GcmImpl) :
     ConstantTime isa Proof.AesGcm.sealX86_64.pre Proof.AesGcm.sealX86_64.pub («seal» v.callees) :=

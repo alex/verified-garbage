@@ -23,6 +23,10 @@ abbrev ret (s : State) : Region := ⟨s.gpr .rsp, 8⟩
 /-- The stack the calls use. -/
 abbrev stk (s : State) : Region := below (s.gpr .rsp) 8
 
+/-- The stack `seal` and `open` use: a frame of one argument, and the return
+addresses of a call and of its own calls. -/
+abbrev stk24 (s : State) : Region := below (s.gpr .rsp) 24
+
 /-- The `i`-th argument on the stack. -/
 abbrev arg (s : State) (i : Nat) : BitVec 64 := stackArg s i
 
@@ -202,11 +206,12 @@ def onePre (n : Nat) (s : State) : Prop :=
     aad.Disjoint data ∧ aad.Disjoint work ∧
     data.Disjoint work ∧ data.Disjoint (args s n) ∧ work.Disjoint (args s n) ∧
     (ret s).Disjoint data ∧ (ret s).Disjoint work ∧
-    (stk s).Disjoint ctx ∧ (stk s).Disjoint nonce ∧ (stk s).Disjoint aad ∧ (stk s).Disjoint data ∧
-    (stk s).Disjoint work ∧
+    (stk24 s).Disjoint ctx ∧ (stk24 s).Disjoint nonce ∧ (stk24 s).Disjoint aad ∧ (stk24 s).Disjoint data ∧
+    (stk24 s).Disjoint work ∧
     (s.gpr .rdi).toNat + 256 ≤ 2 ^ 64 ∧ (s.gpr .rdx).toNat + (s.gpr .rcx).toNat ≤ 2 ^ 64 ∧
     (s.gpr .r8).toNat + (s.gpr .r9).toNat ≤ 2 ^ 64 ∧ (arg s 0).toNat + (arg s 1).toNat ≤ 2 ^ 64 ∧
-    (arg s 2).toNat + 2560 ≤ 2 ^ 64 ∧ (s.gpr .rsp).toNat + 8 * (n + 1) ≤ 2 ^ 64 ∧ rounds s
+    (arg s 2).toNat + 2560 ≤ 2 ^ 64 ∧ 24 ≤ (s.gpr .rsp).toNat ∧ (s.gpr .rsp).toNat + 8 * (n + 1) ≤ 2 ^ 64 ∧
+    rounds s
 
 def onePub (n : Nat) (s₁ s₂ : State) : Prop :=
   s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧

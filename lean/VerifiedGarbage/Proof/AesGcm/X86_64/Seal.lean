@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.AesGcm.X86_64.OneShot
+import VerifiedGarbage.Proof.AesGcm.X86_64.SealBody
 
 /-!
 # AES-GCM on x86-64: `vg_aes_gcm_seal`
@@ -124,49 +124,26 @@ theorem seal_wp (v : GcmImpl) {s : State} (hp : Proof.AesGcm.sealX86_64.pre s) :
   generalize ha : bytesAt s.mem A al = a at M
   have hRo : RoundsAt s₂.mem W R := hR ▸ M.rounds
   have hd₂ : DataW Ctx (W + BitVec.ofNat 64 16) W SP s₂ D n := C.data.of_eq M.rd M.wr
-  refine WP.seq (WP.mono (oneCrypt_ok v L (icb := inc32 (Spec.Gcm.j0 H iv)) M.env hRo M.dat M.len hd₂)
-    fun s₃ ⟨co, hrd₃, hwr₃⟩ => ?_)
-  have hctr₂ : Ctr s₂.mem (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 48) (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 64)
-      (ciphOf s₂.mem Ctx R) (inc32 (Spec.Gcm.j0 H iv)) 0 := ⟨M.cb, fun h => absurd rfl h⟩
-  have kp : ∀ {m m' : Mem}, Frame (oneFrame W D SP n) m m' → ∀ d, (128 ≤ d ∧ d + 8 ≤ 216) ∨ (224 ≤ d ∧ d + 8 ≤ 240) →
-      m'.readW (W + BitVec.ofNat 64 d) 64 = m.readW (W + BitVec.ofNat 64 d) 64 :=
-    fun hf d hd => hf.readW (r := ⟨W + BitVec.ofNat 64 d, 8⟩) (Region.contains_self _ _) (kept_oneFrame L C.dE hd)
-      (by decide)
-  have f₃ := crFrame_one co.frame
-  have hH₃ : blockAt s₃.mem (Ctx + BitVec.ofNat 64 240) = H := by
-    rw [blockAt_frame co.frame (fun r hr => (ctx_crFrame L hd₂ r hr).sub_left (Lay.ctxSub (by decide))), M.hH]
   have hal₂ : s₂.mem.readW (W + BitVec.ofNat 64 184) 64 = BitVec.ofNat 64 al := by
     rw [M.alen, ← hal, BitVec.ofNat_toNat, BitVec.setWidth_eq]
   have hal₃ : a.length = al := by rw [← ha, length_bytesAt]
-  have hd₃ : DataOk (W + BitVec.ofNat 64 16) W SP s₃ D n := hd₂.ok.of_eq hrd₃ hwr₃
-  refine WP.seq (WP.mono (oneTag_ok v L (o := 0) (.inl rfl) co.env hH₃ co.rounds
-    (by rw [kp f₃ 200 (.inl ⟨by decide, by decide⟩)]; exact M.dat)
-    (by rw [kp f₃ 208 (.inl ⟨by decide, by decide⟩)]; exact M.len)
-    (by rw [kp f₃ 184 (.inl ⟨by decide, by decide⟩)]; exact hal₂) hal₃ hd₃ C.dE C.data.ctx)
-    fun s₄ ⟨he₄, f₄, hrd₄, hwr₄, _, hq⟩ => ?_)
-  have hsv₄ : SavedAt s₄.mem W s :=
-    (M.saved.frame co.frame (saved_crFrame L hd₂)).frame (wFrame_one (D := D) (n := n) (o := 0) (.inl rfl) f₄) (saved_oneFrame L C.dE)
-  have dRw : ∀ r ∈ (⟨W + BitVec.ofNat 64 0, 16⟩ :: wFrame W SP), (⟨SP, 8⟩ : Region).Disjoint r := by
-    intro r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl
-    · exact C.rW.sub_right (Lay.wSub (by decide))
-    · exact C.rW.sub_right (Lay.wSub (by decide))
-    · exact C.rW.sub_right (Lay.wSub (by decide))
-    · exact C.rW.sub_right (Lay.wSub (by decide))
-    · exact ret_below SP
+  refine WP.seq_assoc (WP.seq_assoc (WP.seq (WP.mono (sealBody_ok v L (icb := inc32 (Spec.Gcm.j0 H iv)) (a := a)
+    ⟨M.env, hRo, M.dat, M.len, hd₂, C.t_c, C.t_w, C.t_d, C.sp24⟩ M.hH M.cb hal₂ M.abs)
+    fun s₄ ⟨he₄, _, _, f₄, hC, hT⟩ => ?_)))
+  have hsv₄ : SavedAt s₄.mem W s := M.saved.frame f₄ (saved_oneFrameB L C.dE C.t_w)
   have hret : s₄.mem.readW SP 64 = s.mem.readW SP 64 := by
-    rw [ret_kept f₄ dRw, ret_kept co.frame (fun r hr => ?_), ret_kept M.frame (fun r hr => ?_)]
+    rw [ret_kept f₄ (fun r hr => ?_), ret_kept M.frame (fun r hr => ?_)]
     · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
       · exact C.rW
       · exact ret_below SP
     · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl
-      · exact C.rD
-      · rw [add_ofNat_assoc]; exact C.rW.sub_right (Lay.wSub (by decide))
+      rcases hr with rfl | rfl | rfl | rfl | rfl
+      · exact C.rW.sub_right (by simpa using Offset.sub_base W (d := 0) (n := 128) (k := 2560) (by decide))
       · exact C.rW.sub_right (Lay.wSub (by decide))
-      · exact ret_below SP
+      · exact C.rW.sub_right (Lay.wSub (by decide))
+      · exact C.rD
+      · exact Offset.base_disjoint_below SP (n := 24) (k := 8) (by decide)
   refine WP.mono (exit_ok he₄.r15 (by rw [he₄.rsp, hSP]) (covers_left he₄.perm.w) hsv₄ (by rw [hSP, hret]))
     fun s' ⟨hg, hm, _⟩ => ⟨hg, ?_⟩
   -- The memory of the parts.
@@ -181,39 +158,12 @@ theorem seal_wp (v : GcmImpl) {s : State} (hp : Proof.AesGcm.sealX86_64.pre s) :
     ciph_frame M.frame (fun r hr => dM _ _ L.cw' L.kc r hr) hR'
   have hp₂ : bytesAt s₂.mem D n = bytesAt s.mem D n :=
     bytesAt_frame M.frame (dM _ _ C.dE C.data.ok.stk) (by have := C.data.ok.lt; omega)
-  have hc₃ : bytesAt s₃.mem D n = gctr (ctxCiph s.mem Ctx R) (inc32 (Spec.Gcm.j0 H iv)) (bytesAt s.mem D n) := by
-    rw [co.out hctr₂, hc₂, hp₂, Proof.Gcm.gctr_eq]
-  have dDw : ∀ r ∈ (⟨W + BitVec.ofNat 64 0, 16⟩ :: wFrame W SP), (⟨D, n⟩ : Region).Disjoint r := by
-    intro r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl
-    · exact C.dE.sub_right (Lay.wSub (by decide))
-    · exact C.dE.sub_right (Lay.wSub (by decide))
-    · exact C.dE.sub_right (Lay.wSub (by decide))
-    · exact C.dE.sub_right (Lay.wSub (by decide))
-    · exact C.data.ok.stk.symm
-  have hd₄ : bytesAt s₄.mem D n = bytesAt s₃.mem D n := bytesAt_frame f₄ dDw (by have := C.data.ok.lt; omega)
-  have dSc : ∀ d k, d + k ≤ 48 → ∀ r ∈ crFrame (W + BitVec.ofNat 64 16) W SP D n,
-      (⟨W + BitVec.ofNat 64 16 + BitVec.ofNat 64 d, k⟩ : Region).Disjoint r := by
-    intro d k hk r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
-    · exact (hd₂.ok.st.sub_right (Lay.stSub (by omega))).symm
-    · exact L.st_st (.inl (by omega)) (by omega) (by decide)
-    · exact L.st_w (by omega) (.inr ⟨by decide, by decide⟩)
-    · exact (L.stk_st (by omega)).symm
-  have habs₃ : Absorbed s₃.mem (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 16) (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 32) H
-      (a ++ zeros (padLen a.length)) := by
-    have hl := Nat.mod_lt (a ++ zeros (padLen a.length)).length (show 16 > 0 by decide)
-    exact M.abs.congr (blockAt_frame co.frame (dSc 16 16 (by decide)))
-      (bytesAt_frame co.frame (dSc 32 _ (by omega)) (by omega))
-  have hJ₃ : blockAt s₃.mem (W + BitVec.ofNat 64 16) = Spec.Gcm.j0 H iv := by
-    rw [← M.j0]; simpa using blockAt_frame co.frame (dSc 0 16 (by decide))
-  have hT := hq habs₃
-  rw [hJ₃, ciph_frame co.frame (ctx_crFrame L hd₂) hR', hc₂, hc₃, show W + BitVec.ofNat 64 0 = W from BitVec.add_zero W] at hT
+  have hc₄ : bytesAt s₄.mem D n = gctr (ctxCiph s.mem Ctx R) (inc32 (Spec.Gcm.j0 H iv)) (bytesAt s.mem D n) := by
+    rw [hC, hc₂, hp₂, Proof.Gcm.gctr_eq]
+  rw [M.j0, hc₂] at hT
   simp only [Proof.AesGcm.sealX86_64, Proof.AesGcm.arg]
-  rw [hCtx, hNp, hnl, hA, hal, hD, hn, hW, hR, hH, hiv, ha, Spec.Gcm.encryptWith, hm, hT, hd₄, hc₃,
-    Proof.Gcm.fullTag_eq, Proof.Gcm.length_gctr, length_bytesAt]
+  rw [hCtx, hNp, hnl, hA, hal, hD, hn, hW, hR, hH, hiv, ha, Spec.Gcm.encryptWith, hm, hT, hc₄,
+    Proof.Gcm.fullTag_eq, Proof.Gcm.length_gctr, length_bytesAt, hal₃]
   simp only [Prod.mk.injEq, true_and]
   rw [List.take_of_length_le (by rw [Cmac.toBytes_length])]
 

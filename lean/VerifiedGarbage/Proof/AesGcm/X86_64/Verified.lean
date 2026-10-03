@@ -137,12 +137,18 @@ theorem streamVerify_correct (s : State) (hs : Proof.AesGcm.streamVerifyX86_64.p
   exact ⟨t, s', he, abiPreserved_of_exec (streamVerify_mx v) he hg, hp⟩
 
 theorem seal_mx : («seal» v.callees).allInstrs (fun i => !loadsMxcsr i) = true := by
-  simp only [init, streamInit, streamAad, streamEncrypt, streamDecrypt, streamFinish, streamVerify, «seal», «open», ghash1, absorbHead, absorbWhole, absorbTail, absorb, flush, lens, cryptHead, cryptWhole, cryptTail, crypt, tag, j0hash, j0, firstFlush, textAbsorb, finTag, oneAad, oneTag, oneCrypt, Code.allInstrs, GcmImpl.callees, v.ctr.mxcsr, v.key.mxcsr, v.gh.mxcsr, Bool.true_and,
+  have e := encryptBlocks_mx v v.stitch
+  have d := decryptBlocks_mx v v.stitch
+  simp only [GcmImpl.callees] at e d
+  simp only [e, d, init, streamInit, streamAad, streamEncrypt, streamDecrypt, streamFinish, streamVerify, «seal», «open», ghash1, absorbHead, absorbWhole, absorbTail, absorb, flush, lens, cryptHead, cryptWhole, cryptTail, crypt, tag, j0hash, j0, firstFlush, textAbsorb, finTag, oneAad, oneBlocks, oneTag, oneCrypt, oneUndo, Code.allInstrs, GcmImpl.callees, v.ctr.mxcsr, v.key.mxcsr, v.gh.mxcsr, Bool.true_and,
     Bool.and_true]
   decide +kernel
 
 theorem seal_spSafe : («seal» v.callees).all (fun i => !X86_64.isa.writesSp i) = true := by
-  simp only [init, streamInit, streamAad, streamEncrypt, streamDecrypt, streamFinish, streamVerify, «seal», «open», ghash1, absorbHead, absorbWhole, absorbTail, absorb, flush, lens, cryptHead, cryptWhole, cryptTail, crypt, tag, j0hash, j0, firstFlush, textAbsorb, finTag, oneAad, oneTag, oneCrypt, Code.all, GcmImpl.callees, v.ctr.spSafe, v.key.spSafe, v.gh.spSafe, Bool.true_and,
+  have e := encryptBlocks_spSafe v v.stitch
+  have d := decryptBlocks_spSafe v v.stitch
+  simp only [GcmImpl.callees] at e d
+  simp only [e, d, init, streamInit, streamAad, streamEncrypt, streamDecrypt, streamFinish, streamVerify, «seal», «open», ghash1, absorbHead, absorbWhole, absorbTail, absorb, flush, lens, cryptHead, cryptWhole, cryptTail, crypt, tag, j0hash, j0, firstFlush, textAbsorb, finTag, oneAad, oneBlocks, oneTag, oneCrypt, oneUndo, Code.all, GcmImpl.callees, v.ctr.spSafe, v.key.spSafe, v.gh.spSafe, Bool.true_and,
     Bool.and_true]
   decide +kernel
 
@@ -152,12 +158,18 @@ theorem seal_correct (s : State) (hs : Proof.AesGcm.sealX86_64.pre s) :
   exact ⟨t, s', he, abiPreserved_of_exec (seal_mx v) he hg, hp⟩
 
 theorem open_mx : («open» v.callees).allInstrs (fun i => !loadsMxcsr i) = true := by
-  simp only [init, streamInit, streamAad, streamEncrypt, streamDecrypt, streamFinish, streamVerify, «seal», «open», ghash1, absorbHead, absorbWhole, absorbTail, absorb, flush, lens, cryptHead, cryptWhole, cryptTail, crypt, tag, j0hash, j0, firstFlush, textAbsorb, finTag, oneAad, oneTag, oneCrypt, Code.allInstrs, GcmImpl.callees, v.ctr.mxcsr, v.key.mxcsr, v.gh.mxcsr, Bool.true_and,
+  have e := encryptBlocks_mx v v.stitch
+  have d := decryptBlocks_mx v v.stitch
+  simp only [GcmImpl.callees] at e d
+  simp only [e, d, init, streamInit, streamAad, streamEncrypt, streamDecrypt, streamFinish, streamVerify, «seal», «open», ghash1, absorbHead, absorbWhole, absorbTail, absorb, flush, lens, cryptHead, cryptWhole, cryptTail, crypt, tag, j0hash, j0, firstFlush, textAbsorb, finTag, oneAad, oneBlocks, oneTag, oneCrypt, oneUndo, Code.allInstrs, GcmImpl.callees, v.ctr.mxcsr, v.key.mxcsr, v.gh.mxcsr, Bool.true_and,
     Bool.and_true]
   decide +kernel
 
 theorem open_spSafe : («open» v.callees).all (fun i => !X86_64.isa.writesSp i) = true := by
-  simp only [init, streamInit, streamAad, streamEncrypt, streamDecrypt, streamFinish, streamVerify, «seal», «open», ghash1, absorbHead, absorbWhole, absorbTail, absorb, flush, lens, cryptHead, cryptWhole, cryptTail, crypt, tag, j0hash, j0, firstFlush, textAbsorb, finTag, oneAad, oneTag, oneCrypt, Code.all, GcmImpl.callees, v.ctr.spSafe, v.key.spSafe, v.gh.spSafe, Bool.true_and,
+  have e := encryptBlocks_spSafe v v.stitch
+  have d := decryptBlocks_spSafe v v.stitch
+  simp only [GcmImpl.callees] at e d
+  simp only [e, d, init, streamInit, streamAad, streamEncrypt, streamDecrypt, streamFinish, streamVerify, «seal», «open», ghash1, absorbHead, absorbWhole, absorbTail, absorb, flush, lens, cryptHead, cryptWhole, cryptTail, crypt, tag, j0hash, j0, firstFlush, textAbsorb, finTag, oneAad, oneBlocks, oneTag, oneCrypt, oneUndo, Code.all, GcmImpl.callees, v.ctr.spSafe, v.key.spSafe, v.gh.spSafe, Bool.true_and,
     Bool.and_true]
   decide +kernel
 
@@ -309,9 +321,9 @@ def sealSat : State where
   wr := [⟨0, 0⟩, ⟨0, 2560⟩]
 
 theorem seal_verified (v : GcmImpl) :
-    Verified X86_64.target («seal» v.callees) (Spec.Gcm.sealContract X86_64.abi 8) :=
+    Verified X86_64.target («seal» v.callees) (Spec.Gcm.sealContract X86_64.abi 24) :=
   Verified.of_correct (seal_correct v) (seal_ct v) (by
-    sig_implies [Spec.Gcm.sealContract, Spec.Gcm.sealSig, Proof.AesGcm.sealX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk,
+    sig_implies [Spec.Gcm.sealContract, Spec.Gcm.sealSig, Proof.AesGcm.sealX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk24,
       Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
       List.getD, List.range, List.range.loop, VG.X86_64.below,
       X86_64.argRegs] [sealSat] using sealSat)
@@ -335,28 +347,28 @@ theorem leak_bool {a b : Bool} (h : [if a = true then 1 else 0] = [if b = true t
 /-- `open`'s public data include its leak, from which `pub` has whether it
 succeeds. -/
 theorem open_verified (v : GcmImpl) :
-    Verified X86_64.target («open» v.callees) (Spec.Gcm.openContract X86_64.abi 8) :=
+    Verified X86_64.target («open» v.callees) (Spec.Gcm.openContract X86_64.abi 24) :=
   Verified.of_correct (open_correct v) (open_ct v)
-    { pre := by sig_implies_pre [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk,
+    { pre := by sig_implies_pre [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk24,
       Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
       List.getD, List.range, List.range.loop, VG.X86_64.below,
       X86_64.argRegs]
-      post := by sig_implies_post [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk,
+      post := by sig_implies_post [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk24,
       Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
       List.getD, List.range, List.range.loop, VG.X86_64.below,
       X86_64.argRegs]
       pub := by
         intro s₁ s₂ _ _ h
-        sig_pub [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk,
+        sig_pub [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk24,
       Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
       List.getD, List.range, List.range.loop, VG.X86_64.below,
       X86_64.argRegs] at h
         sig_split h
-        sig_reduce [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk,
+        sig_reduce [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk24,
       Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
       List.getD, List.range, List.range.loop, VG.X86_64.below,
       X86_64.argRegs]
-        sig_simp [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk,
+        sig_simp [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk24,
       Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
       List.getD, List.range, List.range.loop, VG.X86_64.below,
       X86_64.argRegs] [Nat.forall_lt_succ_right, Nat.not_lt_zero, false_imp_iff, forall_const, true_and]
@@ -365,7 +377,7 @@ theorem open_verified (v : GcmImpl) :
         all_goals first
           | with_reducible assumption
           | (apply leak_bool; with_reducible assumption)
-      sat := by sig_implies_sat [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk,
+      sat := by sig_implies_sat [Spec.Gcm.openContract, Spec.Gcm.openSig, Proof.AesGcm.openX86_64, Proof.AesGcm.onePre, Proof.AesGcm.onePub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args, Proof.AesGcm.stk24,
       Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
       List.getD, List.range, List.range.loop, VG.X86_64.below,
       X86_64.argRegs] [openSat] using openSat }

@@ -8,6 +8,6 @@ A variant of `AesGcm` on x86-64 (see `TCB/Emit.lean`): AES-NI for the cipher (`v
 
 namespace VG.Variants.AesGcm.X86_64.AesNi
 
-def variant : Proof.AesGcm.X86_64.GcmImpl := ⟨.aesni, .aesni, .scalar⟩
+def variant : Proof.AesGcm.X86_64.GcmImpl := ⟨.aesni, .aesni, .scalar, false, nofun⟩
 
 end VG.Variants.AesGcm.X86_64.AesNi
