@@ -82,6 +82,24 @@ def inverse (a m : Nat) : Option Nat :=
 def modulusValid (n k : Nat) : Bool :=
   n % 2 == 1 && 2 ^ 511 ≤ n && n < 2 ^ 8192 && 256 ^ (k - 1) ≤ n
 
+/-! ## Precomputed values of the modulus -/
+
+/-- The 64-bit words of a `k`-octet modulus: `⌈k / 8⌉`. -/
+def modulusWords (k : Nat) : Nat := (k + 7) / 8
+
+/-- The low `w` words of 64 bits of `x`, least significant first. -/
+def toWords (x w : Nat) : List (BitVec 64) :=
+  (List.range w).map fun i => BitVec.ofNat 64 (x / 2 ^ (64 * i))
+
+/-- What Montgomery multiplication modulo the `k`-octet modulus `nB` needs
+of it, with `w = ⌈k / 8⌉` words and `R = 2^(64 w)`: `n` and then
+`R² mod n`, as `w` words each, least significant first; or `none` if the
+modulus is not valid. -/
+def publicPrecompute (nB : List Byte) : Option (List (BitVec 64)) :=
+  let n := os2ip nB
+  let w := modulusWords nB.length
+  if modulusValid n nB.length then some (toWords n w ++ toWords (2 ^ (128 * w) % n) w) else none
+
 /-! ## The primitives on integers -/
 
 /-- RSAEP (§5.1.1) and RSAVP1 (§5.2.2): `x^e mod n`, or `none` if `x` is not

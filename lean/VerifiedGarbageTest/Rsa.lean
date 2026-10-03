@@ -18,6 +18,10 @@ failure for `c ≥ n`; no vector values are embedded in this test. For each:
   also with `p`, `dP` and `qInv` one octet longer (a leading zero).
 * `publicOp` with `e` takes `k` back to `c`.
 * Inconsistent keys fail: `qInv + p`, and `q + 2` (so `p q ≠ n`).
+* `publicPrecompute` gives `w = ⌈k / 8⌉` words of `n`, which make up `n`,
+  then `w` words of `R² mod n`, which equal `(R mod n)² mod n`, with
+  `R = 2^(64 w)` reduced by doubling; and nothing for the invalid moduli
+  below.
 
 The rest checks the edges on arithmetic inputs, not known answers: the
 bounds of `modulusValid`, OS2IP and I2OSP, and that `inverse` finds every
@@ -75,6 +79,12 @@ def parse (text : String) : Except String (List Vector) := do
 /-- `x` as octets, most significant first, with no leading zero. -/
 def bytes (x : Nat) : List Byte := i2osp x ((Nat.log2 x) / 8 + 1)
 
+/-- The words `ws`, least significant first, as an integer. -/
+def ofWords (ws : List (BitVec 64)) : Nat := ws.foldr (fun x acc => x.toNat + 2 ^ 64 * acc) 0
+
+/-- `2^b mod n`, by `b` doublings. -/
+def powTwoMod (b n : Nat) : Nat := (List.range b).foldl (fun x _ => 2 * x % n) (1 % n)
+
 /-- Checks one vector; returns the number of candidates the factor recovery
 tried. -/
 def check (v : Vector) : Except String Nat := do
@@ -129,6 +139,14 @@ def check (v : Vector) : Except String Nat := do
     throw "privateCrt accepted p q ≠ n"
   unless privatePrimes nB cB (bytes p) (i2osp (q + 2) qLen) dB == none do
     throw "privatePrimes accepted p q ≠ n"
+  let w := modulusWords len
+  let some ws := publicPrecompute nB | throw "publicPrecompute rejected the modulus"
+  unless ws.length == 2 * w do throw "publicPrecompute length"
+  unless ofWords (ws.take w) == n do throw "publicPrecompute: n"
+  let rr := powTwoMod (64 * w) n
+  unless ofWords (ws.drop w) == rr * rr % n do throw "publicPrecompute: R² mod n"
+  unless publicPrecompute (0 :: nB) == none && publicPrecompute (i2osp (n + 1) len) == none do
+    throw "publicPrecompute accepted an invalid modulus"
   -- A modulus with a leading zero octet, or an even one, is not valid.
   unless publicOp (0 :: nB) eB (0 :: kB) == none do throw "accepted a leading zero"
   unless publicOp (i2osp (n + 1) len) eB kB == none do throw "accepted an even modulus"
@@ -143,6 +161,9 @@ def checkEdges : Except String Unit := do
       (2 ^ 520 + 1, 66, true), (2 ^ 520 + 1, 67, false)] do
     unless modulusValid n k == ok do
       throw s!"modulusValid of a {k}-octet modulus"
+  for (k, w) in [(64, 8), (65, 9), (71, 9), (72, 9), (73, 10), (1024, 128)] do
+    unless modulusWords k == w do throw s!"modulusWords {k}"
+  unless toWords (2 ^ 64 + 5) 3 == [5, 1, 0] do throw "toWords"
   for x in List.range 70000 do
     unless os2ip (i2osp x 3) == x % 2 ^ 24 do throw "I2OSP/OS2IP"
   for m in List.range 120 do
@@ -159,7 +180,8 @@ def checkEdges : Except String Unit := do
 #assert_standard_axioms Spec.Rsa.privateCrt
 #assert_standard_axioms Spec.Rsa.privatePrimes
 #assert_standard_axioms Spec.Rsa.privateExponents
-#assert_no_compiler_overrides Spec.Rsa.publicOp Spec.Rsa.privateCrt Spec.Rsa.privatePrimes Spec.Rsa.privateExponents
+#assert_standard_axioms Spec.Rsa.publicPrecompute
+#assert_no_compiler_overrides Spec.Rsa.publicPrecompute Spec.Rsa.publicOp Spec.Rsa.privateCrt Spec.Rsa.privatePrimes Spec.Rsa.privateExponents
 #assert_spec_origin
 
 run_cmd do
