@@ -4,7 +4,6 @@ import VerifiedGarbage.Proof.Aes.X86_64.ExpandKey
 import VerifiedGarbage.Proof.Aes.X86_64.AesNi.ExpandKey
 import VerifiedGarbage.Proof.Gcm.X86_64.Ghash
 import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Ghash
-import VerifiedGarbage.Proof.Gcm.X86_64.Vpclmul.Ghash
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 
 /-!
@@ -81,18 +80,6 @@ def pclmul : GhashImpl where
   spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := "_pclmul"
   features := ["pclmulqdq", "ssse3"]
-
-/-- `vg_ghash_vpclmul`. -/
-def vpclmul : GhashImpl where
-  fn := ⟨"vg_ghash_vpclmul", Impl.Gcm.X86_64.Vpclmul.ghash⟩
-  depth := by lit_decide
-  ok := Proof.Gcm.X86_64.Vpclmul.ghash_correct
-  ct := Proof.Gcm.X86_64.Vpclmul.ghash_ct
-  nosp := nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
-  mxcsr := by lit_decide
-  spSafe := Code.all_of_allInstrs (by lit_decide)
-  suffix := "_vpclmul"
-  features := ["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]
 
 end GhashImpl
 

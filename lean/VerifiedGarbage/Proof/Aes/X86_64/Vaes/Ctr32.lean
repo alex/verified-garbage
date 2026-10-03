@@ -382,15 +382,15 @@ theorem body16_ok {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c + 16 ≤ nb s
   have hrcx := hI₁.inv.rcx
   have hr8 := hI₁.inv.r8
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
-    readSrc, arithFlags, State.setFlags, isa, State.setReg, ite_true, ite_false, e256, e16, hrcx, hr8,
+  simp only [reduceCtorEq, ↓reduceIte, runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
+    readSrc, arithFlags, State.setFlags, isa, State.setReg, e256, e16, hrcx, hr8,
     Option.bind_some, Option.some.injEq, exists_eq_left']
   have hsub : BitVec.ofNat 64 (nb s₀ - c) - 16 = BitVec.ofNat 64 (nb s₀ - (c + 16)) := by
     have := (s₀.gpr .r8).isLt; bv_omega
   refine ⟨⟨{ hI₁.inv with
     gpr := fun r h1 h2 h3 h4 => by simp [h2, h3, hI₁.inv.gpr r h1 h2 h3 h4]
     r10 := by simp [hI₁.inv.r10]
-    rcx := by simp (config := {decide := true}) only [bAddr, ite_false, ite_true]; bv_omega
+    rcx := by simp only [reduceCtorEq, ↓reduceIte, bAddr]; bv_omega
     r8 := by simp only [ite_true, reduceCtorEq, ite_false]; exact hsub }, hI₁.y9, hI₁.y10, hI₁.y12⟩, ?_⟩
   simp only [hsub, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show nb s₀ - (c + 16) < 2 ^ 64 by omega),
     show (16 : BitVec 64).toNat = 16 from rfl]
@@ -403,12 +403,15 @@ theorem mid_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s�
   have e8 : BitVec.signExtend 64 (8 : BitVec 32) = 8 := by decide
   have hr8 := hI.r8
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, VOp.exec,
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, VOp.exec,
     execAlu, readSrc, arithFlags, State.setFlags, isa, e8, hr8, Option.bind_some, Option.some.injEq,
     exists_eq_left']
   refine ⟨{ hI with }, ?_⟩
   simp only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show nb s₀ - c < 2 ^ 64 by omega),
     show (8 : BitVec 64).toNat = 8 from rfl]
+
+/-- `vinserti128`'s immediate 1 selects the upper lane. -/
+theorem getLsbD_one8 : (1 : BitVec 8).getLsbD 0 = true := rfl
 
 /-- The prologue, from a state `s` with `s₀`'s registers and memory. -/
 theorem ctrLoad_ok {s₀ : State} (hp : Pre s₀) {s : State} (hg : s.gpr = s₀.gpr) (hm : s.mem = s₀.mem)
@@ -419,21 +422,21 @@ theorem ctrLoad_ok {s₀ : State} (hp : Pre s₀) {s : State} (hg : s.gpr = s₀
       rw [hg, ofInt_natCast]; exact contains_offset (by omega) (by omega)⟩
   apply WP.of_runBlock
   simp only [ctrLoad, Impl.Aes.X86_64.Vaes.const, List.cons_append, List.nil_append]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, VOp.exec,
+  simp only [reduceCtorEq, ↓reduceIte, runBlock_cons, runStep_some, runBlock_nil, exec, VOp.exec,
     execAlu, readSrc, arithFlags, State.setFlags, isa, State.setV, State.setReg, State.load128, State.lane,
-    ea_at, hin, ite_true, ite_false, VBinOp.sse, movq_const, Option.map_some, Option.bind_some,
+    ea_at, hin, VBinOp.sse, movq_const, getLsbD_one8, Option.map_some, Option.bind_some,
     Option.some.injEq, exists_eq_left']
   have hcb : XBinOp.eval .pshufb (s.mem.readW (s.gpr .rdx + BitVec.ofInt 64 ((0 : Nat) : Int)) 128)
       revMask = cb s₀ := by
     rw [ofInt_natCast, hg, hm]; simp only [BitVec.add_zero]; exact (blockAt_eq _ _).symm
   refine ⟨⟨Nat.zero_le _, ?_, rfl, rfl, fun r h1 h2 h3 h4 => by simp [h1, h4, hg], ?_, ?_, ?_,
     by rw [hm]; exact Frame.refl _ _, fun k _ => by simp [hm], hrd, hwr⟩, ?_, rfl, fun l hl => ?_⟩ <;>
-    try simp (config := {decide := true}) only [ite_true, ite_false]
+    try simp only [reduceCtorEq, ↓reduceIte]
   · exact hcb
   · simp only [nr, sp, hg]; bv_omega
   · simp [bAddr, hg]
   · simp [nb, hg]
-  · simp (config := {decide := true}) only [State.lane, ite_true, ite_false]
+  · simp only [reduceCtorEq, ↓reduceIte, State.lane]
     exact (congrArg (XBinOp.eval .paddd · one) hcb).trans (AesNi.paddd_one _)
   · rcases (by omega : l = 0 ∨ l = 1) with rfl | rfl <;> rfl
 
@@ -445,7 +448,7 @@ theorem cmp16_ok (s₀ : State) :
       s.rd = s₀.rd ∧ s.wr = s₀.wr ∧ s.cf = some (decide (nb s₀ < 16)) := by
   have e16 : BitVec.signExtend 64 (16 : BitVec 32) = 16 := by decide
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
     readSrc, arithFlags, State.setFlags, isa, e16, Option.bind_some, Option.some.injEq, exists_eq_left']
   refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> simp [nb]
 

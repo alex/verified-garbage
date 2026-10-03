@@ -46,6 +46,9 @@ theorem step8 (H Y X₀ X₁ X₂ X₃ X₄ X₅ X₆ X₇ T₁ T₂ T₃ T₄ T
 
 /-! ## Lane by lane -/
 
+/-- `vinserti128`'s and `vextracti128`'s immediate 1 selects the upper lane. -/
+theorem getLsbD_one8 : (1 : BitVec 8).getLsbD 0 = true := rfl
+
 /-- A block of lane-wise instructions whose SSE block leaves each lane's
 registers but `rs` alone leaves the vector registers but `rs` alone. -/
 theorem yframe_of_lanes {rs : List XReg} {s s' : State} (hk : VKeep s s')
@@ -64,8 +67,8 @@ theorem pshufb7_ok (t : State) :
     WP isa (.block [.xop (.bin .pshufb .xmm7 .xmm0)]) t fun t' =>
       t'.xmm .xmm7 = XBinOp.eval .pshufb (t.xmm .xmm7) (t.xmm .xmm0) ∧ Only [.xmm7] t t' := by
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
-    isa, State.setXmm, ite_true, Option.some.injEq, exists_eq_left']
+  simp only [↓reduceIte, runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
+    isa, State.setXmm, Option.some.injEq, exists_eq_left']
   refine ⟨trivial, fun r _ => rfl, rfl, rfl, rfl, fun r hr => ?_⟩
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   simp only [hr, ite_false]
@@ -198,9 +201,9 @@ theorem next_ok (s : State) :
   have e8 : BitVec.signExtend 64 (8 : BitVec 32) = 8 := by decide
   rw [next]
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
-    readSrc, arithFlags, State.setFlags, isa, State.setReg, ite_true, ite_false, e128, e8,
-    Option.bind_some, Option.some.injEq, exists_eq_left']
+  simp only [reduceCtorEq, ↓reduceIte, runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
+    readSrc, arithFlags, State.setFlags, isa, State.setReg, e128, e8,
+    Option.bind_some, Option.some.injEq, exists_eq_left', and_self]
   exact ⟨trivial, trivial, rfl, fun r h1 h2 => by simp only [h2, ↓reduceIte, h1], fun _ _ => rfl, trivial⟩
 
 /-! ## The eight-block loop -/
@@ -383,8 +386,8 @@ theorem pairs_ok (s : State) :
       (∀ r, r ≠ .xmm12 → r ≠ .xmm13 → r ≠ .xmm14 → r ≠ .xmm15 → s'.xmm r = s.xmm r) ∧
       s'.gpr = s.gpr ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, VOp.exec, isa,
-    State.setV, State.lane, ite_true, ite_false, Option.some.injEq, exists_eq_left']
+  simp only [reduceCtorEq, ↓reduceIte, getLsbD_one8, runBlock_cons, runStep_some, runBlock_nil, exec, VOp.exec, isa,
+    State.setV, State.lane, Option.some.injEq, exists_eq_left', and_self]
   refine ⟨trivial, trivial, trivial, trivial, trivial, trivial, trivial, trivial, trivial, trivial, trivial,
     fun r h12 h13 h14 h15 => ?_, trivial⟩
   by_cases h0 : r = .xmm0
@@ -475,7 +478,7 @@ theorem cmp_ok {s₀ : State} (hp : Pre s₀) {i : Nat} {s : State} (hI : Inv s�
   have hn := hp.nb_lt
   have hrcx := hI.rcx
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
     readSrc, arithFlags, State.setFlags, isa, hrcx, ec, Option.bind_some, Option.some.injEq, exists_eq_left']
   refine ⟨{ hI with }, ?_⟩
   simp only [toNat_ofNat_lt (show nb s₀ - i < 2 ^ 64 by omega), toNat_ofNat_lt (show c < 2 ^ 64 by omega)]
