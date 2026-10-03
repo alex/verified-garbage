@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.TripleDes.X86_64.VerifiedBlock
 import VerifiedGarbage.Proof.TripleDes.X86_64.Key.Verified
-import VerifiedGarbage.Proof.TripleDes.X86_64.Ecb.Verified
+import VerifiedGarbage.Proof.TripleDes.X86_64.Bitsliced.Verified
 
 namespace VG.Artifacts.TripleDes.X86_64
 
@@ -35,22 +35,22 @@ def artifacts : List Artifact := [
   { Spec.TripleDes.ecbEncryptApi with
     target := X86_64.target
     doc := Spec.TripleDes.ecbEncryptApi.doc
-      (notes := ["Baseline x86-64, calling the verified Triple DES block primitive for each complete block."])
-    code := Impl.TripleDes.X86_64.Ecb.encrypt
-    contract := Spec.TripleDes.ecbEncryptContract X86_64.abi 8
-    stack := 8
+      (notes := ["Bitsliced on baseline x86-64: 64 blocks at a time, one in each bit position of 64 state words, through Boolean S-box circuits."])
+    code := Impl.TripleDes.X86_64.Bitslice.encrypt
+    contract := Spec.TripleDes.ecbEncryptContract X86_64.abi
+    stack := 0
     ofSig := ⟨_, _, _, by unfold Spec.TripleDes.ecbEncryptContract Spec.TripleDes.ecbContract; rfl⟩
-    verified := Proof.TripleDes.X86_64.Ecb.encrypt_verified
+    verified := Proof.TripleDes.X86_64.Bitsliced.encrypt_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.TripleDes.ecbDecryptApi with
     target := X86_64.target
     doc := Spec.TripleDes.ecbDecryptApi.doc
-      (notes := ["Baseline x86-64, calling the verified Triple DES block primitive for each complete block."])
-    code := Impl.TripleDes.X86_64.Ecb.decrypt
-    contract := Spec.TripleDes.ecbDecryptContract X86_64.abi 8
-    stack := 8
+      (notes := ["Bitsliced on baseline x86-64: 64 blocks at a time, one in each bit position of 64 state words, through Boolean S-box circuits."])
+    code := Impl.TripleDes.X86_64.Bitslice.decrypt
+    contract := Spec.TripleDes.ecbDecryptContract X86_64.abi
+    stack := 0
     ofSig := ⟨_, _, _, by unfold Spec.TripleDes.ecbDecryptContract Spec.TripleDes.ecbContract; rfl⟩
-    verified := Proof.TripleDes.X86_64.Ecb.decrypt_verified
+    verified := Proof.TripleDes.X86_64.Bitsliced.decrypt_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.TripleDes.X86_64
