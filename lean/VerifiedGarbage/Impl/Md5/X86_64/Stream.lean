@@ -1,4 +1,5 @@
 import VerifiedGarbage.Impl.Md5.X86_64
+import VerifiedGarbage.Impl.Md5.X86_64.Avx512
 import VerifiedGarbage.Impl.MdStream.X86_64
 
 /-!
@@ -16,9 +17,11 @@ The streaming state (80 bytes at `state`) is the MD buffer followed by a
   buffered bytes (one or two blocks), compresses them and writes the digest.
 
 `update` and `finalize` are the generic streaming code of
-`Impl/MdStream/X86_64.lean`, calling `vg_md5_compress`
-(`Impl.Md5.X86_64.compress`) with `scratch[0..64)` as its scratch space; our
-caller's callee-saved registers are saved in `scratch[64..112)`. The length
+`Impl/MdStream/X86_64.lean`. They take the compression function they call (a
+`Callee`, `vg_md5_compress` or `vg_md5_compress_avx512`), and are emitted
+once for each implementation (`Generic/MdHash/X86_64/Stream.lean`). It is
+called with `scratch[0..64)` as its scratch space; our caller's callee-saved
+registers are saved in `scratch[64..112)`. The length
 field is little-endian, and so are the words of the digest.
 -/
 
@@ -27,6 +30,14 @@ namespace VG.Impl.Md5.X86_64.Stream
 open VG.X86_64
 open VG.Impl.Md5.X86_64 (at_ compress)
 open VG.Impl.MdStream.X86_64 (Params len64 out32)
+
+/-- A compression function to call: its symbol and its code. -/
+structure Callee where
+  name : String
+  code : Prog isa
+
+def Callee.scalar : Callee := ⟨"vg_md5_compress", compress⟩
+def Callee.avx512 : Callee := ⟨"vg_md5_compress_avx512", Avx512.compress⟩
 
 def init : Prog isa :=
   .block ((List.range 4).flatMap fun k =>
@@ -41,8 +52,8 @@ def params : Params where
   len := len64 72 false
   out := out32 4 false
 
-def update : Prog isa := MdStream.X86_64.update params "vg_md5_compress" compress
+def update (f : Callee) : Prog isa := MdStream.X86_64.update params f.name f.code
 
-def finalize : Prog isa := MdStream.X86_64.finalize params "vg_md5_compress" compress
+def finalize (f : Callee) : Prog isa := MdStream.X86_64.finalize params f.name f.code
 
 end VG.Impl.Md5.X86_64.Stream

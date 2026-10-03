@@ -10,6 +10,10 @@
 //! `init` and `finalize` and `vg_pbkdf2_hmac_md5_iterate` (contract
 //! `VG.Spec.Hmac.Instance.iterateContract`), the one PBKDF2 iteration for
 //! every streaming hash function.
+//!
+//! On x86-64 with AVX512F and AVX512VL, it is `vg_pbkdf2_hmac_md5_avx512`,
+//! the same verified code calling `vg_md5_compress_avx512`, with the same
+//! contract.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -19,11 +23,15 @@
 ))]
 
 use crate::arch::pbkdf2_md5::vg_pbkdf2_hmac_md5;
+#[cfg(target_arch = "x86_64")]
+use crate::arch::pbkdf2_md5::{VG_PBKDF2_HMAC_MD5_AVX512_FEATURES, vg_pbkdf2_hmac_md5_avx512};
 use crate::hashes::md5::{Md5, Md5Backend};
 
 super::whole_pbkdf2!(
     Md5 (Md5Backend) {
         Scalar => vg_pbkdf2_hmac_md5,
+        #[cfg(target_arch = "x86_64")]
+        Avx512 if [VG_PBKDF2_HMAC_MD5_AVX512_FEATURES] => vg_pbkdf2_hmac_md5_avx512,
     },
     scratch: 128,
     output: 16,

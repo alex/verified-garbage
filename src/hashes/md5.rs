@@ -8,6 +8,10 @@
 //! maintain a streaming state that represents the message absorbed so far
 //! (`VG.Spec.Md5.Repr`: the MD buffer after its whole blocks, and its
 //! remaining bytes), and pad it and output the digest.
+//!
+//! On x86-64, CPUs with AVX512F and AVX512VL run `vg_md5_update_avx512` and
+//! `vg_md5_finalize_avx512` instead, which have the same contracts and call
+//! `vg_md5_compress_avx512`.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -16,6 +20,11 @@
     target_arch = "x86"
 ))]
 
+#[cfg(target_arch = "x86_64")]
+use crate::arch::md5::{
+    VG_MD5_FINALIZE_AVX512_FEATURES, VG_MD5_UPDATE_AVX512_FEATURES, vg_md5_finalize_avx512,
+    vg_md5_update_avx512,
+};
 use crate::arch::md5::{vg_md5_finalize, vg_md5_init, vg_md5_update};
 
 super::streaming_hash!(
@@ -29,13 +38,17 @@ super::streaming_hash!(
         init: vg_md5_init,
         backends: Md5Backend {
             Scalar => (vg_md5_update, vg_md5_finalize),
+            #[cfg(target_arch = "x86_64")]
+            Avx512 if [VG_MD5_UPDATE_AVX512_FEATURES, VG_MD5_FINALIZE_AVX512_FEATURES] =>
+                (vg_md5_update_avx512, vg_md5_finalize_avx512),
         },
     }
 );
 
 #[cfg(test)]
 mod tests {
-    use super::Md5;
+    use super::{Md5, Md5Backend};
+    use crate::cpu::{Features, detected};
 
     /// Every way of splitting a message into two updates gives the same
     /// digest, for every length around the padding boundaries.
@@ -57,5 +70,26 @@ mod tests {
                 assert_eq!(h.finalize(), expected);
             }
         }
+    }
+
+    /// The implementation chosen for each set of the features it depends on.
+    #[test]
+    fn select() {
+        for bits in 0..(1 << crate::cpu::NAMES.len()) {
+            let backend = Md5Backend::select(Features(bits));
+            #[cfg(target_arch = "x86_64")]
+            {
+                let expected =
+                    if Features(bits).contains(Features::of(&["avx", "avx512f", "avx512vl"])) {
+                        Md5Backend::Avx512
+                    } else {
+                        Md5Backend::Scalar
+                    };
+                assert_eq!(backend, expected, "{bits:#b}");
+            }
+            #[cfg(not(target_arch = "x86_64"))]
+            assert_eq!(backend, Md5Backend::Scalar);
+        }
+        assert_eq!(Md5::new().backend, Md5Backend::select(detected()));
     }
 }

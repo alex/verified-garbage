@@ -471,7 +471,7 @@ jobs:
         # p4p: nothing beyond x86-64's baseline, not even CPUID leaf 7.
         chip: [native, skx, hsw, p4p]
         # Ed25519's are `ed25519` and RFC 8032's other two.
-        tests: [sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa scrypt x25519 x448 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
+        tests: [md5 rfc1321 sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa scrypt x25519 x448 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
         include:
           # x86 feature dispatch, natively in a 32-bit userspace, with both
           # the runner's features and the baseline implementations.

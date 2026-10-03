@@ -238,3 +238,248 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_finalize(inner: *mut [u8; 80], 
         vg_md5_compress = sym super::md5::vg_md5_compress,
     )
 }
+
+/// The CPU features `vg_hmac_md5_init_avx512` requires (`Artifact.features`).
+pub(crate) const VG_HMAC_MD5_INIT_AVX512_FEATURES: &[&str] = &["avx", "avx512f", "avx512vl"];
+
+/// Starts an HMAC-MD5 computation with a key of at most 64 bytes: makes the MD5 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 64 bytes (FIPS 198-1). The text is then absorbed with `vg_md5_update` on `*inner` (its `count` starting at 64), and the MAC computed with `vg_hmac_md5_finalize`.
+///
+/// Contract: `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.md5I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+///
+/// # Safety
+///
+/// * `inner` must be valid for reads and writes of 80 bytes.
+/// * `outer` must be valid for reads and writes of 80 bytes.
+/// * `key` must be valid for reads of `key_len` bytes.
+/// * `scratch` must be valid for reads and writes of 384 bytes.
+/// * `key_len` must be at most 64.
+/// * The contents of `scratch` on return are unspecified.
+/// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `avx`, `avx512f` and `avx512vl` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_init_avx512(inner: *mut [u8; 80], outer: *mut [u8; 80], key: *const u8, key_len: usize, scratch: *mut [u64; 48]) {
+    core::arch::naked_asm!(
+        "mov QWORD PTR [r8+112], rbx",
+        "mov QWORD PTR [r8+120], rbp",
+        "mov QWORD PTR [r8+128], r12",
+        "mov QWORD PTR [r8+136], r13",
+        "mov QWORD PTR [r8+144], r14",
+        "mov QWORD PTR [r8+152], r15",
+        "mov rbx, rdi",
+        "mov r12, rsi",
+        "mov r15, r8",
+        "mov rbp, rdx",
+        "mov r13, rcx",
+        "mov rdi, rbx",
+        "call {vg_md5_init}",
+        "mov rdi, r12",
+        "call {vg_md5_init}",
+        "mov eax, 909522486",
+        "mov DWORD PTR [rbx+16], eax",
+        "mov DWORD PTR [rbx+20], eax",
+        "mov DWORD PTR [rbx+24], eax",
+        "mov DWORD PTR [rbx+28], eax",
+        "mov DWORD PTR [rbx+32], eax",
+        "mov DWORD PTR [rbx+36], eax",
+        "mov DWORD PTR [rbx+40], eax",
+        "mov DWORD PTR [rbx+44], eax",
+        "mov DWORD PTR [rbx+48], eax",
+        "mov DWORD PTR [rbx+52], eax",
+        "mov DWORD PTR [rbx+56], eax",
+        "mov DWORD PTR [rbx+60], eax",
+        "mov DWORD PTR [rbx+64], eax",
+        "mov DWORD PTR [rbx+68], eax",
+        "mov DWORD PTR [rbx+72], eax",
+        "mov DWORD PTR [rbx+76], eax",
+        "mov r14d, 0",
+        "test r13, r13",
+        "je 20f",
+        "22:",
+        "movzx eax, BYTE PTR [rbp+r14*1]",
+        "xor eax, 54",
+        "mov BYTE PTR [rbx+r14*1+16], al",
+        "add r14, 1",
+        "cmp r14, r13",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "21:",
+        "mov eax, DWORD PTR [rbx+16]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+16], eax",
+        "mov eax, DWORD PTR [rbx+20]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+20], eax",
+        "mov eax, DWORD PTR [rbx+24]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+24], eax",
+        "mov eax, DWORD PTR [rbx+28]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+28], eax",
+        "mov eax, DWORD PTR [rbx+32]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+32], eax",
+        "mov eax, DWORD PTR [rbx+36]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+36], eax",
+        "mov eax, DWORD PTR [rbx+40]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+40], eax",
+        "mov eax, DWORD PTR [rbx+44]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+44], eax",
+        "mov eax, DWORD PTR [rbx+48]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+48], eax",
+        "mov eax, DWORD PTR [rbx+52]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+52], eax",
+        "mov eax, DWORD PTR [rbx+56]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+56], eax",
+        "mov eax, DWORD PTR [rbx+60]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+60], eax",
+        "mov eax, DWORD PTR [rbx+64]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+64], eax",
+        "mov eax, DWORD PTR [rbx+68]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+68], eax",
+        "mov eax, DWORD PTR [rbx+72]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+72], eax",
+        "mov eax, DWORD PTR [rbx+76]",
+        "xor eax, 1785358954",
+        "mov DWORD PTR [r12+76], eax",
+        "mov rsi, rbx",
+        "add rsi, 16",
+        "mov rdi, rbx",
+        "mov edx, 1",
+        "mov rcx, r15",
+        "call {vg_md5_compress_avx512}",
+        "mov rbx, rdi",
+        "mov r15, rcx",
+        "mov rbx, r12",
+        "mov rsi, r12",
+        "add rsi, 16",
+        "mov rdi, rbx",
+        "mov edx, 1",
+        "mov rcx, r15",
+        "call {vg_md5_compress_avx512}",
+        "mov rbx, rdi",
+        "mov r15, rcx",
+        "mov rbx, QWORD PTR [r15+112]",
+        "mov rbp, QWORD PTR [r15+120]",
+        "mov r12, QWORD PTR [r15+128]",
+        "mov r13, QWORD PTR [r15+136]",
+        "mov r14, QWORD PTR [r15+144]",
+        "mov r15, QWORD PTR [r15+152]",
+        "ret",
+        ".p2align 6",
+        vg_md5_init = sym super::md5::vg_md5_init,
+        vg_md5_compress_avx512 = sym super::md5::vg_md5_compress_avx512,
+    )
+}
+
+/// The CPU features `vg_hmac_md5_finalize_avx512` requires (`Artifact.features`).
+pub(crate) const VG_HMAC_MD5_FINALIZE_AVX512_FEATURES: &[&str] = &["avx", "avx512f", "avx512vl"];
+
+/// Finishes an HMAC-MD5 computation: if, for a 64-byte key `K₀` and a text of fewer than 2⁶⁴ − 64 bytes, the MD5 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes, and `*outer` represents `K₀ ⊕ opad`, writes the HMAC-MD5 of the text under `K₀` (16 bytes) to `*out`.
+///
+/// Contract: `VG.Spec.Hmac.Instance.finalizeContract` of `VG.Spec.Hmac.md5I`. Constant time: only the pointers and `count` may affect timing, not the states.
+///
+/// # Safety
+///
+/// * `inner` must be valid for reads and writes of 80 bytes.
+/// * `outer` must be valid for reads of 80 bytes.
+/// * `out` must be valid for reads and writes of 16 bytes.
+/// * `scratch` must be valid for reads and writes of 384 bytes.
+/// * The contents of `inner` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
+/// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `avx`, `avx512f` and `avx512vl` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_finalize_avx512(inner: *mut [u8; 80], outer: *const [u8; 80], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 48]) {
+    core::arch::naked_asm!(
+        "mov QWORD PTR [r8+112], rbx",
+        "mov QWORD PTR [r8+120], rbp",
+        "mov QWORD PTR [r8+128], r12",
+        "mov QWORD PTR [r8+136], r13",
+        "mov QWORD PTR [r8+144], r14",
+        "mov QWORD PTR [r8+152], r15",
+        "mov rbx, rdi",
+        "mov r12, rsi",
+        "mov r13, rcx",
+        "mov r15, r8",
+        "mov rsi, rdx",
+        "mov rdx, r15",
+        "add rdx, 160",
+        "mov rcx, r15",
+        "call {vg_md5_finalize_avx512}",
+        "mov eax, DWORD PTR [r12]",
+        "mov DWORD PTR [rbx], eax",
+        "mov eax, DWORD PTR [r12+4]",
+        "mov DWORD PTR [rbx+4], eax",
+        "mov eax, DWORD PTR [r12+8]",
+        "mov DWORD PTR [rbx+8], eax",
+        "mov eax, DWORD PTR [r12+12]",
+        "mov DWORD PTR [rbx+12], eax",
+        "mov eax, DWORD PTR [r15+160]",
+        "mov DWORD PTR [rbx+16], eax",
+        "mov eax, DWORD PTR [r15+164]",
+        "mov DWORD PTR [rbx+20], eax",
+        "mov eax, DWORD PTR [r15+168]",
+        "mov DWORD PTR [rbx+24], eax",
+        "mov eax, DWORD PTR [r15+172]",
+        "mov DWORD PTR [rbx+28], eax",
+        "mov rbp, rbx",
+        "add rbp, 16",
+        "mov eax, 128",
+        "mov DWORD PTR [rbp+16], eax",
+        "mov eax, 0",
+        "mov DWORD PTR [rbp+20], eax",
+        "mov DWORD PTR [rbp+24], eax",
+        "mov DWORD PTR [rbp+28], eax",
+        "mov DWORD PTR [rbp+32], eax",
+        "mov DWORD PTR [rbp+36], eax",
+        "mov DWORD PTR [rbp+40], eax",
+        "mov DWORD PTR [rbp+44], eax",
+        "mov DWORD PTR [rbp+48], eax",
+        "mov DWORD PTR [rbp+52], eax",
+        "mov r12d, 80",
+        "mov rax, r12",
+        "add rax, rax",
+        "add rax, rax",
+        "add rax, rax",
+        "mov QWORD PTR [rbx+72], rax",
+        "mov rsi, rbp",
+        "mov rdi, rbx",
+        "mov edx, 1",
+        "mov rcx, r15",
+        "call {vg_md5_compress_avx512}",
+        "mov rbx, rdi",
+        "mov r15, rcx",
+        "mov rbp, r13",
+        "mov eax, DWORD PTR [rbx]",
+        "mov DWORD PTR [rbp], eax",
+        "mov eax, DWORD PTR [rbx+4]",
+        "mov DWORD PTR [rbp+4], eax",
+        "mov eax, DWORD PTR [rbx+8]",
+        "mov DWORD PTR [rbp+8], eax",
+        "mov eax, DWORD PTR [rbx+12]",
+        "mov DWORD PTR [rbp+12], eax",
+        "mov rbx, QWORD PTR [r15+112]",
+        "mov rbp, QWORD PTR [r15+120]",
+        "mov r12, QWORD PTR [r15+128]",
+        "mov r13, QWORD PTR [r15+136]",
+        "mov r14, QWORD PTR [r15+144]",
+        "mov r15, QWORD PTR [r15+152]",
+        "ret",
+        ".p2align 6",
+        vg_md5_finalize_avx512 = sym super::md5::vg_md5_finalize_avx512,
+        vg_md5_compress_avx512 = sym super::md5::vg_md5_compress_avx512,
+    )
+}

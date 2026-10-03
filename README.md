@@ -98,7 +98,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ operations scheduled for latency</td>
+<td>✅ AVX-512F, AVX-512VL; operations scheduled for latency</td>
 
 <td>✅</td>
 
@@ -296,7 +296,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ AVX-512F, AVX-512VL</td>
 
 <td>✅</td>
 
@@ -650,7 +650,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ AVX-512F, AVX-512VL</td>
 
 <td>✅</td>
 
