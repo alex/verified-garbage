@@ -16,6 +16,8 @@ open VG VG.X86_64 VG.Impl.Bignum.X86_64 VG.Impl.Bignum.X86_64.Public VG.Impl.Rsa
 open VG.Impl.Rsa.X86_64.Precomputed
 open VG.Proof.MlKem.X86_64
 
+variable {M : Mont}
+
 /-! ## The load and the checks -/
 
 theorem check_eq (a top : BitVec 64) (c : Bool) :
@@ -202,9 +204,9 @@ def pdIn : List (Prog isa) :=
   [.block [.mov .rsi (.mem (hdr sIn)), .mov .rcx (.mem (hdr sK)), .mov .rbx (.mem (hdr (sArr aX)))], loadBE]
 
 /-- `X = input R`, the exponentiation and `Y R⁻¹`. -/
-def pdExp : List (Prog isa) := [mm aXm aX aR2, Precomputed.expLoop, Precomputed.finish]
+def pdExp (M : Mont) : List (Prog isa) := [M.mm aXm aX aR2, Precomputed.expLoop M.mm, Precomputed.finish M.mm]
 
-theorem pdRest_eq : Precomputed.rest = seqs ((pdIn ++ restSteps) ++ (pdExp ++ outSteps)) := rfl
+theorem pdRest_eq (M : Mont) : Precomputed.rest M.mm = seqs ((pdIn ++ restSteps) ++ (pdExp M ++ outSteps)) := rfl
 
 /-- What `rest` starts from: the header `entry` leaves, `m` and `R² mod m`
 (here any `R < N`) in their arrays, as the checks accepted them. -/
@@ -333,7 +335,7 @@ input is not below `N`) to `out`, for the `x` with `x R ≡ input R² R⁻¹`,
 which is the input if `R ≡ R²`. -/
 theorem pdRest_ok {s : State} {B : Addr} {Z k : Nat} {op ep ip : Addr} {L : Nat} {eb xb : List Byte} {N R : Nat}
     (h : PdPre s B Z k op ep ip L eb xb N R) :
-    WP isa Precomputed.rest s fun t => ∃ x : Nat,
+    WP isa (Precomputed.rest M.mm) s fun t => ∃ x : Nat,
       (R % N = 2 ^ (64 * ((k + 7) / 8)) * 2 ^ (64 * ((k + 7) / 8)) % N → x % N = Spec.Rsa.os2ip xb % N) ∧
       MainPost s t B Z k op (if Spec.Rsa.os2ip xb < N then x ^ Spec.Rsa.os2ip eb % N else 0)
         (decide (Spec.Rsa.os2ip xb < N)) := by
@@ -354,7 +356,7 @@ theorem pdRest_ok {s : State} {B : Addr} {Z k : Nat} {op ep ip : Addr} {L : Nat}
   refine wp_seqs_append (by simp [pdExp]) (by simp [outSteps]) ?_
   unfold pdExp
   -- `X = input R`.
-  refine WP.seq (WP.mono (mmN_ok (o := aXm) (a := aX) (b := aR2) so.good hZ hw (by omega) (by decide) (by decide)
+  refine WP.seq (WP.mono (mmN_ok M (o := aXm) (a := aX) (b := aR2) so.good hZ hw (by omega) (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) so.n so.inv (by rw [hR₂]; exact h.rlt))
     fun t₃ ⟨hg₃, hn₃, hinv₃, hlt₃, hm₃, ha₃, k₃⟩ => ?_)
   rw [so.x, hR₂] at hm₃

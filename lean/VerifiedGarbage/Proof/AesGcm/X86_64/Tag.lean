@@ -32,6 +32,9 @@ structure TagOut (Ctx St W SP : Addr) (o R : Nat) (H Y J : Block) (aLen cLen : N
   out : bytesAt s.mem (W + BitVec.ofNat 64 o) 16 =
     toBytes (ghashFrom H Y [ofBytes (lensBlock aLen cLen)] ^^^ ciphOf m₀ Ctx R J)
   frame : Frame (tagFrame St W SP o) m₀ s.mem
+  /-- The call of `vg_aes_ctr32` left the next counter block, the first one of
+  the data, at `St`. -/
+  j : blockAt s.mem St = Spec.Gcm.inc32 J
 
 /-- `tag o` before the call of `vg_aes_ctr32`, from `m₀`: its arguments, and
 the accumulator with the lengths block at `W + o`. -/
@@ -197,7 +200,7 @@ theorem tag_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {H J : Block} {s : State} (h
   refine WP.mono (ctr_call v.ctr M.call) fun s₃ g => ?_
   have gout := g.out
   rw [blocksAt_one, blocksAt_one, ctr32_single, List.cons.injEq] at gout
-  refine ⟨M.env.of_saved g.saved g.rd g.wr, ?_, ?_, ?_⟩
+  refine ⟨M.env.of_saved g.saved g.rd g.wr, ?_, ?_, ?_, by rw [g.ctr, M.j]; rfl⟩
   · refine rounds_frame g.frame (fun r hr => ?_) M.rounds
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl

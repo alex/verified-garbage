@@ -57,7 +57,7 @@ theorem setupMovs_ok (s : State) :
 unchanged since `s`) to slot `i`. -/
 theorem setupLoad_ok {c : Cfg} (hc : CfgOk c) {s t : State} {base p : Addr} {src : Reg} {i : Nat}
     (hs : Scr t base size) (hsrc : src ≠ .rax) (hi : i < 45) (hp : t.gpr src = p)
-    (hin : (⟨p, 8 * c.n⟩ : Region) ∈ t.rd ++ t.wr)
+    (hin : ∀ e, e + 8 ≤ 8 * c.n → InRegions (t.rd ++ t.wr) (p + BitVec.ofNat 64 e) 8)
     (hd : Region.Disjoint ⟨p, 8 * c.n⟩ ⟨base, size⟩) (ho : Outside base 0 size s.mem t.mem) :
     WP isa (.block (loadBE c.n (c.sl i) src)) t fun t' =>
       wordsVal t'.mem base (c.sl i) c.n = ofBytes (Spec.Ecdsa.bytesAt s.mem p (8 * c.n)) ∧
@@ -65,7 +65,7 @@ theorem setupLoad_ok {c : Cfg} (hc : CfgOk c) {s t : State} {base p : Addr} {src
   have hl := sl_le c hc.n7 hi
   have h7 := hc.n7
   have hsz : size = 8192 := rfl
-  refine WP.mono (loadBE_ok hs hsrc hl (by rw [hp]; exact inRegions_words hin (by omega))
+  refine WP.mono (loadBE_ok hs hsrc hl (by rw [hp]; exact hin)
     (by rw [hp]; exact hd.sub_right (Offset.sub_base base hl))) fun t' ⟨e, k, O⟩ => ⟨?_, k, O⟩
   have hb : Spec.Ecdsa.bytesAt t.mem p (8 * c.n) = Spec.Ecdsa.bytesAt s.mem p (8 * c.n) :=
     List.map_congr_left fun j hj =>
@@ -166,12 +166,12 @@ theorem setup_eq (c : Cfg) : c.setup = Spill.saveCode .r8 Cfg.saved ++
     setConst 1 (c.sl FLAG) (2 ^ 64 - 1)))))) := by
   simp only [Cfg.setup, List.append_assoc]; rfl
 
-theorem setup_ok {c : Cfg} (hc : CfgOk c) {s : State} (hp : Pre c s) :
+theorem setup_ok {c : Cfg} (hc : CfgOk c) {s : State} (hp : SetupPre c s) :
     WP isa (.block c.setup) s (SetupPost c s (s.gpr .r8)) := by
   have h7 := hc.n7
   have h0 := hc.n0
   have hsz : size = 8192 := rfl
-  have hw : (⟨s.gpr .r8, size⟩ : Region) ∈ s.wr := by rw [hp.wr]; simp
+  have hw : (⟨s.gpr .r8, size⟩ : Region) ∈ s.wr := hp.wr
   rw [setup_eq, WP.block_append_iff]
   refine WP.mono (setupSaves_ok rfl hw) fun s₁ ⟨g₁, rd₁, wr₁, O₁, sv₁⟩ => ?_
   rw [WP.block_append_iff]
@@ -191,21 +191,21 @@ theorem setup_ok {c : Cfg} (hc : CfgOk c) {s : State} (hp : Pre c s) :
   -- `k`
   rw [WP.block_append_iff]
   refine WP.mono (setupLoad_ok hc (s := s) hs₂ (by decide) (i := K) (by decide)
-    (G₂ _ (by decide) (by decide)) (by rw [RD₂, hp.rd]; simp) hp.k_sc O₂)
+    (G₂ _ (by decide) (by decide)) (by rw [RD₂]; exact hp.k_in) hp.k_sc O₂)
     fun s₃ ⟨e₃, k₃, O₃⟩ => ?_
   have hs₃ := hs₂.of_keepRegs k₃ (by decide)
   -- `d`
   rw [WP.block_append_iff]
   refine WP.mono (setupLoad_ok hc (s := s) hs₃ (by decide) (i := D) (by decide)
     (by rw [k₃.gpr _ (by decide)]; exact G₂ _ (by decide) (by decide))
-    (by rw [k₃.rd, k₃.wr, RD₂, hp.rd]; simp) hp.d_sc
+    (by rw [k₃.rd, k₃.wr, RD₂]; exact hp.d_in) hp.d_sc
     (O₂.trans (O₃.mono (Nat.zero_le _) (by omega)))) fun s₄ ⟨e₄, k₄, O₄⟩ => ?_
   have hs₄ := hs₃.of_keepRegs k₄ (by decide)
   -- the hash
   rw [WP.block_append_iff]
   refine WP.mono (setupLoad_ok hc (s := s) hs₄ (by decide) (i := E) (by decide)
     (by rw [k₄.gpr _ (by decide), k₃.gpr _ (by decide)]; exact G₂ _ (by decide) (by decide))
-    (by rw [k₄.rd, k₄.wr, k₃.rd, k₃.wr, RD₂, hp.rd]; simp) hp.digest_sc
+    (by rw [k₄.rd, k₄.wr, k₃.rd, k₃.wr, RD₂]; exact hp.digest_in) hp.digest_sc
     ((O₂.trans (O₃.mono (Nat.zero_le _) (by omega))).trans (O₄.mono (Nat.zero_le _) (by omega))))
     fun s₅ ⟨e₅, k₅, O₅⟩ => ?_
   have hs₅ := hs₄.of_keepRegs k₅ (by decide)

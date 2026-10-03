@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Bignum.X86_64.CT
+import VerifiedGarbage.Proof.Bignum.X86_64.PubCode
 
 /-!
 # `vg_rsa_public` on x86-64: the exponentiation is constant time but for `e`
@@ -39,17 +39,18 @@ def BitTested (p : BitPub) (t : State) : Prop := BitPre p t ∧ t.zf = some (dec
 
 theorem pins_bitPre : Pins BitPre [.rdi] := fun p s₁ s₂ h₁ h₂ => pins_good p.L s₁ s₂ h₁.1 h₂.1
 
-theorem mm_mid {L : Lay} {t : State} {o a b : Nat} (hg : GoodL L t) (hw : 2 ≤ L.w) (hw' : L.w < 2 ^ 31)
+theorem mm_mid (M : Mont) {L : Lay} {t : State} {o a b : Nat} (hg : GoodL L t) (hw : 2 ≤ L.w) (hw' : L.w < 2 ^ 31)
     (ho : o < 8) (ha : a < 8) (hb : b < 8) (d1 : o ≠ aAcc) (d2 : o ≠ aTmp) (d3 : a ≠ aAcc) (d4 : b ≠ aAcc)
     (d5 : o ≠ aN)
     (hinv : ((word t.mem L.B (slot L.w aN)).toNat * L.minv.toNat + 1) % 2 ^ 64 = 0)
-    (hB : wv t.mem L.B (slot L.w b) L.w < wv t.mem L.B (slot L.w aN) L.w) :
-    WP isa (mm o a b) t fun t' => GoodL L t' ∧
+    (hB : wv t.mem L.B (slot L.w b) L.w < wv t.mem L.B (slot L.w aN) L.w) (d6 : a ≠ aTmp := by decide)
+    (d7 : b ≠ aTmp := by decide) :
+    WP isa (M.mm o a b) t fun t' => GoodL L t' ∧
       wv t'.mem L.B (slot L.w aN) L.w = wv t.mem L.B (slot L.w aN) L.w ∧
       ((word t'.mem L.B (slot L.w aN)).toNat * L.minv.toNat + 1) % 2 ^ 64 = 0 ∧
       wv t'.mem L.B (slot L.w o) L.w < wv t.mem L.B (slot L.w aN) L.w ∧
       Arrays L.B L.w [aAcc, aTmp, o] t.mem t'.mem :=
-  WP.mono (mmN_ok hg.1 hg.2 hw hw' ho ha hb d1 d2 d3 d4 d5 rfl hinv hB)
+  WP.mono (mmN_ok M hg.1 hg.2 hw hw' ho ha hb d1 d2 d3 d4 d5 rfl hinv hB d6 d7)
     fun _ ⟨g, n, i, lt, _, ar, _⟩ => ⟨⟨g, hg.2⟩, n, i, lt, ar⟩
 
 /-- `expBit` leaks the same in two runs that agree on the bit. -/
@@ -60,7 +61,7 @@ theorem expBit_ct : RelCT isa (Two BitPre) expBit fun _ _ => True := by
   -- The squaring.
   refine RelCT.seq (two_post (Ψ := BitPre) (two_map (·.L) (fun _ _ h => h.1)
     (montMul_ct (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by taint_decide)))
-    fun p t h => WP.mono (mm_mid h.1 h.2.2.2.1 h.2.2.2.2.1 (by decide) (by decide) (by decide) (by decide)
+    fun p t h => WP.mono (mm_mid Mont.base h.1 h.2.2.2.1 h.2.2.2.2.1 (by decide) (by decide) (by decide) (by decide)
       (by decide) (by decide) (by decide) (by decide) h.2.2.2.2.2.1 h.2.2.2.2.2.2.1)
       fun t' ⟨g, n, i, lt, ar⟩ => ⟨g, by rw [ar.hslot (by decide)]; exact h.2.1, h.2.2.1, h.2.2.2.1,
         h.2.2.2.2.1, i, by rw [n]; exact lt,
@@ -76,7 +77,7 @@ theorem expBit_ct : RelCT isa (Two BitPre) expBit fun _ _ => True := by
     simp only [eval, h₁.2, h₂.2]) ?_ ?_) ?_
   · refine two_post (Ψ := fun (p : BitPub) t => GoodL p.L t) (two_map (·.L) (fun _ _ h => h.1.1.1)
       (montMul_ct (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by taint_decide)))
-      fun p t h => WP.mono (mm_mid h.1.1.1 h.1.1.2.2.2.1 h.1.1.2.2.2.2.1 (by decide) (by decide) (by decide)
+      fun p t h => WP.mono (mm_mid Mont.base h.1.1.1 h.1.1.2.2.2.1 h.1.1.2.2.2.2.1 (by decide) (by decide) (by decide)
         (by decide) (by decide) (by decide) (by decide) (by decide) h.1.1.2.2.2.2.2.1
         h.1.1.2.2.2.2.2.2.2) fun _ h' => h'.1
   · exact RelCT.block_nil fun _ _ hp => two_mono (fun _ _ h => h.1.1.1) hp
@@ -274,7 +275,7 @@ theorem expPhase_ct : RelCT isa (Two EPhasePre) (seqs expSteps) fun _ _ => True 
     (mmct (by decide) (by decide) (by decide) (by taint_decide))) ?_) ?_
   · rintro a s ⟨X, hg, hZ, hw, hw', hodd, hN1, hn, hinv, hX, hone, hlt2, hr2, he, hlen, hL, hL1, hL', heb⟩
     have hR : Nat.Coprime (2 ^ (64 * a.L.w)) a.N := VG.Proof.Bignum.coprime_pow2 hodd _
-    refine WP.mono (mmN_ok (o := aY) (a := aR2) (b := aOne) hg hZ hw hw' (by decide) (by decide)
+    refine WP.mono (mmN_ok Mont.base (o := aY) (a := aR2) (b := aOne) hg hZ hw hw' (by decide) (by decide)
       (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) hn hinv (by rw [hone]; exact hN1))
       fun t₁ ⟨hg₁, hn₁, hinv₁, hlt₁, hm₁, ha₁, k₁⟩ => ⟨X, s, ⟨X, hg, hZ, hw, hw', hodd, hN1, hn, hinv, hX, hone,
         hlt2, hr2, he, hlen, hL, hL1, hL', heb⟩, hg₁, hX, hn₁, hinv₁, hlt₁, ?_, Frm.ep_of_arrays ha₁ (by simp), k₁⟩
@@ -287,7 +288,7 @@ theorem expPhase_ct : RelCT isa (Two EPhasePre) (seqs expSteps) fun _ _ => True 
       heb⟩, hg₁, hX, hn₁, hinv₁, hlt₁, hY₁, f₁, k₁⟩
     have hn' : a.L.B.toNat + slot a.L.w 8 ≤ 2 ^ 64 := by have := hg.scr.nowrap; omega
     have hR : Nat.Coprime (2 ^ (64 * a.L.w)) a.N := VG.Proof.Bignum.coprime_pow2 hodd _
-    refine WP.mono (mmN_ok (o := aXm) (a := aX) (b := aR2) hg₁ hZ hw hw' (by decide) (by decide)
+    refine WP.mono (mmN_ok Mont.base (o := aXm) (a := aX) (b := aR2) hg₁ hZ hw hw' (by decide) (by decide)
       (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) hn₁ hinv₁
       (by rw [f₁.ep_wv hn' (by decide) (by decide) (by decide) (by decide) (by decide)]; exact hlt2))
       fun t₂ ⟨hg₂, hn₂, hinv₂, hlt₂, hm₂, ha₂, k₂⟩ => ?_

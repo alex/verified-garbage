@@ -464,7 +464,7 @@ yours to keep:
 
 <td>✅ AVX-512F, AVX2; bitsliced, 64, 128, 256 or 512 blocks at a time</td>
 
-<td>✅</td>
+<td>✅ bitsliced, 128 blocks at a time</td>
 
 <td>✅</td>
 
@@ -510,13 +510,13 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>✅</td>
 
 <td>❌</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -539,6 +539,22 @@ yours to keep:
 <th>ARMv7</th>
 
 <th>x86</th>
+
+</tr>
+
+<tr>
+
+<td>AES-CCM (128-, 192- and 256-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -571,6 +587,22 @@ yours to keep:
 <td>✅</td>
 
 <td>✅ AES-NI, PCLMULQDQ</td>
+
+</tr>
+
+<tr>
+
+<td>AES-OCB3 (128-, 192- and 256-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -902,7 +934,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -1084,7 +1116,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ BMI2, ADX</td>
 
 <td>❌</td>
 

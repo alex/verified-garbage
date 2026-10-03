@@ -8,6 +8,7 @@ def VOp.dst : VOp → VReg
   | .mov d .. | .movi0 d | .dup _ d .. | .ins _ d .. | .dupS d .. => d
   | .logic _ d .. | .not d .. | .add _ d .. | .sub _ d .. | .shift _ _ d .. => d
   | .ext d .. | .rev _ d .. | .perm _ _ d .. | .tbl d .. => d
+  | .dupE _ d .. | .insE _ d .. | .cmeq _ d .. | .bsel _ d .. | .tblN _ _ d .. => d
   | .umull _ d .. | .umlal _ d .. | .mul d .. | .mla d .. | .mls d .. => d
   | .sqdmulh d .. | .umin d .. | .pmull _ d .. => d
   | .aese d .. | .aesd d .. | .aesmc d .. | .aesimc d .. => d

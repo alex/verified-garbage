@@ -183,16 +183,16 @@ def PcO (q : PcPub × BitVec 64) (s : State) : Prop :=
     (∀ i < 16 * q.1.w, q.1.Z ≤ ofs q.1.B (q.1.op + BitVec.ofNat 64 i))
 
 /-- `R² mod m` leaks the same in runs that agree on `m`. -/
-theorem pcR2_ct : RelCT isa (Two Pc3) (seqs r2Steps) (Two PcO) := by
+theorem pcR2_ct (M : Mont) : RelCT isa (Two Pc3) (seqs (r2Steps M)) (Two PcO) := by
   have h := two_post (Φ := fun (q : PcPub × BitVec 64) s => PcM q.1 s ∧ R2Pre ⟨PcPub.L q, q.1.N⟩ s)
-    (Ψ := PcO) (two_map (fun q => (⟨PcPub.L q, q.1.N⟩ : R2Pub)) (fun _ _ h => h.2) r2_ct) ?_
+    (Ψ := PcO) (two_map (fun q => (⟨PcPub.L q, q.1.N⟩ : R2Pub)) (fun _ _ h => h.2) (r2_ct M)) ?_
   · exact h.mono (fun _ _ hp => two_bind (fun p s₁ s₂ ⟨mi₁, m₁, r₁⟩ ⟨mi₂, m₂, r₂⟩ => by
       obtain rfl := pc3_minv r₁ r₂
       exact ⟨(p, mi₁), ⟨m₁, r₁⟩, m₂, r₂⟩) hp) fun _ _ h => h
   rintro ⟨p, mi⟩ s ⟨hm, hr⟩
   obtain ⟨hg, hw, hw', hn, hinv, h12, h10, hodd, hlo⟩ := hr
   dsimp only at hg hw hw' hn hinv h12 h10 hodd hlo
-  refine WP.mono (r2_ok hg.1 hg.2 hw hw' hn hinv h12 h10 hodd hlo) fun t ⟨hg', _, _, f, k⟩ =>
+  refine WP.mono (r2_ok M hg.1 hg.2 hw hw' hn hinv h12 h10 hodd hlo) fun t ⟨hg', _, _, f, k⟩ =>
     ⟨⟨hg', hg.2⟩, hw, hw', ?_, fun i hi => by rw [k.2.2]; exact hm.2.2.2.2.2.2.2.2.2.2.2.1 i hi,
       hm.2.2.2.2.2.2.2.2.2.2.2.2⟩
   rw [(Fixed.of_frm f (r2Ranges_fixed _)) sOut (by decide)]
@@ -327,10 +327,10 @@ theorem pcOut_ct : RelCT isa (Two PcO) (seqs pcOut) fun _ _ => True := by
     · rw [h₁.1.1.1.rdi, h₂.1.1.1.rdi]) (by taint_decide)
 
 /-- `main` leaks the same in runs that agree on the public data and `n`. -/
-theorem pcMain_ct : RelCT isa (Two PcM) Precompute.main fun _ _ => True := by
-  rw [pcMain_eq]
+theorem pcMain_ct (M : Mont) : RelCT isa (Two PcM) (Precompute.main M.mm) fun _ _ => True := by
+  rw [pcMain_eq M]
   refine RelCT.seqs_append (by simp [pcLoad]) (by simp [r2Steps]) (RelCT.seq pcLoad_ct ?_)
-  exact RelCT.seqs_append (by simp [r2Steps]) (by simp [pcOut]) (RelCT.seq pcR2_ct pcOut_ct)
+  exact RelCT.seqs_append (by simp [r2Steps]) (by simp [pcOut]) (RelCT.seq (pcR2_ct M) pcOut_ct)
 
 /-! ## The whole function -/
 
@@ -351,7 +351,7 @@ def PcC3 (p : PcPub) (t : State) : Prop :=
 
 /-- `vg_rsa_public_precompute` leaks the same in runs that agree on the public
 data and `n`. -/
-theorem pcCode_ct : RelCT isa (Two PcC) Precompute.code fun _ _ => True := by
+theorem pcCode_ct (M : Mont) : RelCT isa (Two PcC) (Precompute.code M.mm) fun _ _ => True := by
   unfold Precompute.code
   refine RelCT.seq (two_piece (Ψ := PcC3) [.r8, .rdx, .rcx] (fun p s₁ s₂ h₁ h₂ r hr => by
     obtain ⟨-, a₁, -, c₁, -, d₁, -⟩ := h₁
@@ -409,7 +409,7 @@ theorem pcCode_ct : RelCT isa (Two PcC) Precompute.code fun _ _ => True := by
       fun t' ⟨⟨hsi, hcx⟩, k'⟩ => ⟨hsi, hcx, (k'.gpr (by decide)).trans hdi⟩
   · -- `main`.
     refine two_map id (fun p t ⟨⟨hs, hdi, hZ, hk1, hk2, hO, hK, hN, hnb, hnl, hpw, _, hps, hz⟩, he⟩ =>
-      ⟨hs, hdi, hZ, hk1, hk2, hO, hK, hN, hnb, hnl, ?_, hpw, hps⟩) pcMain_ct
+      ⟨hs, hdi, hZ, hk1, hk2, hO, hK, hN, hnb, hnl, ?_, hpw, hps⟩) (pcMain_ct M)
     simp only [eval, hz] at he; simpa using he
 
 /-- The public data of a state. -/
@@ -418,8 +418,9 @@ def pcPubOf (s : State) : PcPub :=
     Spec.Rsa.bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat⟩
 
 /-- `vg_rsa_public_precompute` is constant time but for `n`. -/
-theorem pcCode_constantTime : ConstantTime isa pcContract.pre pcContract.pub Precompute.code := by
-  refine RelCT.constantTime (pcCode_ct.mono (fun s₁ s₂ ⟨h₁, h₂, hp⟩ => ⟨pcPubOf s₁, ?_, ?_⟩) fun _ _ h => h)
+theorem pcCode_constantTime (M : Mont) :
+    ConstantTime isa pcContract.pre pcContract.pub (Precompute.code M.mm) := by
+  refine RelCT.constantTime ((pcCode_ct M).mono (fun s₁ s₂ ⟨h₁, h₂, hp⟩ => ⟨pcPubOf s₁, ?_, ?_⟩) fun _ _ h => h)
   · exact ⟨h₁, rfl, rfl, rfl, rfl, rfl, rfl⟩
   · obtain ⟨hr, hn⟩ := hp
     have r : ∀ r ∈ [Reg.rdi, .rsi, .rdx, .rcx, .r8, .r9, .rsp], s₂.gpr r = s₁.gpr r := fun r h => (hr r h).symm

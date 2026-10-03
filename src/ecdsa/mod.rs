@@ -13,6 +13,10 @@
 //!
 //! Signing is constant time except for the number of candidates for `k`
 //! that it tries, almost always one.
+//!
+//! `public_key` derives a key's public key `Q = dG`, by one call of
+//! verified code (`vg_ec_<curve>_public_key`, contract
+//! `VG.Spec.EcKey.Instance.publicKeyContract`), in constant time.
 
 #![cfg(target_arch = "x86_64")]
 
@@ -33,12 +37,13 @@ pub trait Curve: sealed::Sealed {
     type PrivateKey: AsMut<[u8]> + Clone;
 }
 
-/// Why signing failed.
+/// Why signing, or deriving the public key, failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
     /// The private key is not in `[1, n − 1]`. For a valid key, signing
     /// fails only if none of the candidates for `k` it tries is suitable:
-    /// for P-256, with probability under 2⁻²⁴⁸.
+    /// for P-256, with probability under 2⁻²⁴⁸; deriving the public key
+    /// never fails.
     InvalidKey,
 }
 
@@ -60,8 +65,8 @@ pub struct SigningKey<C: Curve> {
 }
 
 impl<C: Curve> SigningKey<C> {
-    /// Imports a private key `d`, most significant byte first. Signing
-    /// checks that it is in `[1, n − 1]`.
+    /// Imports a private key `d`, most significant byte first. Signing and
+    /// deriving the public key check that it is in `[1, n − 1]`.
     pub fn from_bytes(d: &C::PrivateKey) -> Self {
         Self { d: d.clone() }
     }

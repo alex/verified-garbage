@@ -44,13 +44,24 @@ def VReg.q (r : VReg) : String := s!"q{r.index}"
 def VReg.s (r : VReg) : String := s!"s{r.index}"
 
 def VArr.name : VArr → String
-  | .s4 => "4s" | .d2 => "2d"
+  | .s4 => "4s" | .d2 => "2d" | .b16 => "16b"
+
+/-- The element size of an arrangement, in an element operand (`v<n>.<t>[i]`). -/
+def VArr.elem : VArr → String
+  | .s4 => "s" | .d2 => "d" | .b16 => "b"
 
 def VLogicOp.name : VLogicOp → String
   | .and => "and" | .orr => "orr" | .eor => "eor" | .bic => "bic" | .orn => "orn"
 
 def VShiftOp.name : VShiftOp → String
-  | .shl => "shl" | .ushr => "ushr" | .sri => "sri" | .sli => "sli"
+  | .shl => "shl" | .ushr => "ushr" | .sri => "sri" | .sli => "sli" | .sshr => "sshr"
+
+def VSelOp.name : VSelOp → String
+  | .bsl => "bsl" | .bit => "bit" | .bif => "bif"
+
+/-- `{vn.16b, …}`: the `len` registers from `n`. -/
+def tableList (n : VReg) (len : Nat) : String :=
+  "{" ++ ", ".intercalate ((List.range len).map fun i => (Nat.repeat VReg.succ i n).b) ++ "}"
 
 def VPermOp.name : VPermOp → String
   | .zip1 => "zip1" | .zip2 => "zip2" | .trn1 => "trn1" | .trn2 => "trn2" | .uzp1 => "uzp1"
@@ -66,7 +77,13 @@ def VOp.asm : VOp → String
   | .dup .d2 d n => s!"dup {d.arr "2d"}, {n.name .x}"
   | .ins .s4 d i n => s!"mov v{d.index}.s[{i}], {n.name .w}"
   | .ins .d2 d i n => s!"mov v{d.index}.d[{i}], {n.name .x}"
+  | .dup .b16 d n => s!"dup {d.b}, {n.name .w}"
+  | .ins .b16 d i n => s!"mov v{d.index}.b[{i}], {n.name .w}"
   | .dupS d n i => s!"dup {d.s}, v{n.index}.s[{i}]"
+  | .dupE a d n i => s!"dup {d.arr a.name}, v{n.index}.{a.elem}[{i}]"
+  | .insE a d i n j => s!"mov v{d.index}.{a.elem}[{i}], v{n.index}.{a.elem}[{j}]"
+  | .cmeq a d n m => s!"cmeq {d.arr a.name}, {n.arr a.name}, {m.arr a.name}"
+  | .bsel op d n m => s!"{op.name} {d.b}, {n.b}, {m.b}"
   | .logic op d n m => s!"{op.name} {d.b}, {n.b}, {m.b}"
   | .not d n => s!"not {d.b}, {n.b}"
   | .add a d n m => s!"add {d.arr a.name}, {n.arr a.name}, {m.arr a.name}"
@@ -79,6 +96,7 @@ def VOp.asm : VOp → String
   | .rev .rev64s d n => s!"rev64 {d.arr "4s"}, {n.arr "4s"}"
   | .perm op a d n m => s!"{op.name} {d.arr a.name}, {n.arr a.name}, {m.arr a.name}"
   | .tbl d n m => s!"tbl {d.b}, \{{n.b}}, {m.b}"
+  | .tblN x len d n m => s!"{if x then "tbx" else "tbl"} {d.b}, {tableList n len}, {m.b}"
   | .umull false d n m => s!"umull {d.arr "2d"}, {n.arr "2s"}, {m.arr "2s"}"
   | .umull true d n m => s!"umull2 {d.arr "2d"}, {n.arr "4s"}, {m.arr "4s"}"
   | .umlal false d n m => s!"umlal {d.arr "2d"}, {n.arr "2s"}, {m.arr "2s"}"

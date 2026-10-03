@@ -1102,6 +1102,44 @@ mod tests {
     /// Streaming, with the additional data or the text split at every
     /// point (around block boundaries), agrees with the one-shot functions,
     /// in both directions, with one key for every message.
+    /// One-shot encryption and decryption of whole blocks in one pass (from
+    /// 16 blocks, interleaved on CPUs with VAES and VPCLMULQDQ) agree with
+    /// the streaming functions, which do the two in separate passes, and a
+    /// wrong tag leaves the ciphertext as it was.
+    #[test]
+    fn long_one_shot() {
+        let msg: [u8; 4111] = core::array::from_fn(|i| (i * 31 + 7) as u8);
+        let aad = [3u8; 21];
+        let nonce = [5u8; 12];
+        for key_len in [16, 24, 32] {
+            let k = AesGcm::new(&[0x42; 32][..key_len]).unwrap();
+            for len in [255, 256, 257, 511, 512, 529, 1024, 4096, 4111] {
+                let mut ct = msg;
+                let ct = &mut ct[..len];
+                let tag = k.encrypt_in_place(&nonce, &aad, ct).unwrap();
+                let mut e = k.encryptor(&nonce).unwrap();
+                e.update_aad(&aad).unwrap();
+                let mut s = msg;
+                e.update(&mut s[..len]).unwrap();
+                assert_eq!(&s[..len], &ct[..]);
+                assert_eq!(e.finalize(), tag);
+
+                let mut bad = tag;
+                bad[0] ^= 0x80;
+                let mut buf = msg;
+                let buf = &mut buf[..len];
+                buf.copy_from_slice(ct);
+                assert_eq!(
+                    k.decrypt_in_place(&nonce, &aad, buf, &bad),
+                    Err(Error::TagMismatch)
+                );
+                assert_eq!(&buf[..], &ct[..]);
+                k.decrypt_in_place(&nonce, &aad, buf, &tag).unwrap();
+                assert_eq!(buf, &msg[..len]);
+            }
+        }
+    }
+
     #[test]
     fn stream() {
         let key = [7u8; 16];

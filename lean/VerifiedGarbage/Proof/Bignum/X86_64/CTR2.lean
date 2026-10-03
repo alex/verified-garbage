@@ -110,17 +110,16 @@ def SqPre (L : Lay) (s : State) : Prop :=
     ((word s.mem L.B (slot L.w aN)).toNat * L.minv.toNat + 1) % 2 ^ 64 = 0 ∧
     wv s.mem L.B (slot L.w aR2) L.w < wv s.mem L.B (slot L.w aN) L.w
 
-theorem sqs_ct (n : Nat) : RelCT isa (Two SqPre) (seqs (List.replicate (n + 1) (mm aR2 aR2 aR2)))
+theorem sqs_ct (M : Mont) (n : Nat) : RelCT isa (Two SqPre) (seqs (List.replicate (n + 1) (M.mm aR2 aR2 aR2)))
     fun _ _ => True := by
-  have one : RelCT isa (Two SqPre) (mm aR2 aR2 aR2) fun _ _ => True :=
-    two_map id (fun _ _ h => h.1)
-      (montMul_ct (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by taint_decide))
+  have one : RelCT isa (Two SqPre) (M.mm aR2 aR2 aR2) fun _ _ => True :=
+    two_map id (fun _ _ h => h.1) (M.ct (.inl ⟨rfl, rfl, rfl⟩))
   induction n with
   | zero => exact one
   | succ n ih =>
-    show RelCT isa (Two SqPre) (.seq (mm aR2 aR2 aR2) (seqs (List.replicate (n + 1) (mm aR2 aR2 aR2)))) _
+    show RelCT isa (Two SqPre) (.seq (M.mm aR2 aR2 aR2) (seqs (List.replicate (n + 1) (M.mm aR2 aR2 aR2)))) _
     refine RelCT.seq (two_post (Ψ := SqPre) one fun L s ⟨hg, hw, hw', hinv, hlt⟩ =>
-      WP.mono (mm_mid hg hw hw' (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
+      WP.mono (mm_mid M hg hw hw' (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
         (by decide) (by decide) hinv hlt) fun t ⟨g, n, i, lt, _⟩ => ⟨g, hw, hw', i, by rw [n]; exact lt⟩) ih
 
 /-! ## `R² mod m` -/
@@ -219,7 +218,7 @@ theorem setWord_eq (o : Nat) (i : Reg) : setWord o i =
     .seq (.block [.mov .r8 (.mem (hdr (sArr o)))]) (.seq zeroAccLoop (.block [.store (ix .r8 i) .rdx])) := rfl
 
 /-- `R² mod m` leaks the same in runs that agree on `m`. -/
-theorem r2_ct : RelCT isa (Two R2Pre) (seqs r2Steps) fun _ _ => True := by
+theorem r2_ct (M : Mont) : RelCT isa (Two R2Pre) (seqs (r2Steps M)) fun _ _ => True := by
   unfold r2Steps
   -- The top word.
   refine RelCT.seq (two_piece (Ψ := R2a) _ pins_r2Pre (by taint_decide) ?_) ?_
@@ -330,6 +329,6 @@ theorem r2_ct : RelCT isa (Two R2Pre) (seqs r2Steps) fun _ _ => True := by
     rw [hv', hf'.r2_wv hn' (by decide) (by decide) (by decide) (by decide), hN]
     exact Nat.mod_lt _ hN0
   -- The squarings.
-  exact two_map (·.L) (fun _ _ h => h) (sqs_ct 5)
+  exact two_map (·.L) (fun _ _ h => h) (sqs_ct M 5)
 
 end VG.Proof.Bignum.X86_64

@@ -60,7 +60,11 @@ theorem precomputed_implies : pdContract.Implies (Spec.Rsa.publicPrecomputedCont
     exact ⟨hdi, hsi, hdx, hcx, h8, h9, hsp⟩
   sat := by sig_implies_sat [Spec.Rsa.publicPrecomputedContract, Spec.Rsa.publicPrecomputedSig, abi, argRegs, pdContract, stackArgs_four, List.append_eq] [pdSatState, stackArg, stackArgAddr, Mem.readW, Mem.read] using pdSatState
 
-theorem precomputed_verified : Verified target Precomputed.code (Spec.Rsa.publicPrecomputedContract abi) :=
-  Verified.of_correct pdCode_correct pdCode_constantTime precomputed_implies
+/-- `vg_rsa_public_precomputed` with Montgomery multiplication `M`, given
+that its code never loads MXCSR (which the registration file evaluates). -/
+theorem precomputed_verified (M : Mont)
+    (hmx : (Precomputed.code M.mm).allInstrs (fun i => !loadsMxcsr i) = true) :
+    Verified target (Precomputed.code M.mm) (Spec.Rsa.publicPrecomputedContract abi) :=
+  Verified.of_correct (pdCode_correct M hmx) pdCode_constantTime precomputed_implies
 
 end VG.Proof.Bignum.X86_64

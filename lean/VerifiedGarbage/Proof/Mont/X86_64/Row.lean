@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Mont.X86_64.Words
-import Mathlib.Tactic.Ring
 import Mathlib.Tactic.Tauto
 
 /-!
@@ -65,9 +64,10 @@ theorem mulSteps_ok {size : Nat} : ∀ (ts : List Reg) {s : State} {base : Addr}
       simp only [regsVal, wordsVal, List.length_cons, pow64_succ, ht₂]
       have h1 : (s.gpr .rcx).toNat * ((word s.mem base d).toNat + 2 ^ 64 * wordsVal s.mem base (d + 8)
           ts.length) = (s.gpr .rcx).toNat * (word s.mem base d).toNat +
-          2 ^ 64 * ((s.gpr .rcx).toNat * wordsVal s.mem base (d + 8) ts.length) := by ring
+          2 ^ 64 * ((s.gpr .rcx).toNat * wordsVal s.mem base (d + 8) ts.length) := by
+        rw [Nat.mul_add, Nat.mul_left_comm]
       have h2 : 2 ^ 64 * 2 ^ (64 * ts.length) * (s₂.gpr .rbp).toNat =
-          2 ^ 64 * (2 ^ (64 * ts.length) * (s₂.gpr .rbp).toNat) := by ring
+          2 ^ 64 * (2 ^ (64 * ts.length) * (s₂.gpr .rbp).toNat) := Nat.mul_assoc _ _ _
       rw [h1, h2]
       have := readSrc_sc hs (d := d) (by simp at hd; omega)
       omega

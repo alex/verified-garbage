@@ -8,6 +8,6 @@ A variant of `AesGcm` on x86-64 (see `TCB/Emit.lean`): VAES for the cipher (`vg_
 
 namespace VG.Variants.AesGcm.X86_64.Vaes
 
-def variant : Proof.AesGcm.X86_64.GcmImpl := ⟨.vaes, .aesni, .scalar⟩
+def variant : Proof.AesGcm.X86_64.GcmImpl := ⟨.vaes, .aesni, .scalar, false, nofun⟩
 
 end VG.Variants.AesGcm.X86_64.Vaes

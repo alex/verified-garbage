@@ -46,9 +46,12 @@ structure St₁ (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop extend
   t₀ : ∀ t < 64 * c.n, s.mem (off base (bitsAt c.n 0 + t)) = if (kv c s₀).testBit t then 1 else 0
   t₁ : ∀ t < 64 * c.n, s.mem (off base (bitsAt c.n 1 + t)) = if (c.C.p - 2).testBit t then 1 else 0
   t₂ : ∀ t < 64 * c.n, s.mem (off base (bitsAt c.n 2 + t)) = if (c.C.n - 2).testBit t then 1 else 0
+  gpr : ∀ r, r ∉ [.rax, .rdi, .r14, .rdx, .rbx] → s.gpr r = s₀.gpr r
+  unch : Unch base [(0, size)] s₀.mem s.mem
+  rd : s.rd = s₀.rd
 
 /-- The setup, then the three tables. -/
-theorem stage₁ (hc : CfgOk c) {s₀ : State} (hp : Pre c s₀) {rest : Prog isa} {Q : State → Prop}
+theorem stage₁ (hc : CfgOk c) {s₀ : State} (hp : SetupPre c s₀) {rest : Prog isa} {Q : State → Prop}
     (h : ∀ s, St₁ c s₀ (s₀.gpr .r8) s → WP isa rest s Q) :
     WP isa (.seq (.block c.setup) (.seq (bits (c.sl K) (bitsAt c.n 0) (8 * c.n))
       (.seq (bits (c.sl EXPP) (bitsAt c.n 1) (8 * c.n))
@@ -96,7 +99,8 @@ theorem stage₁ (hc : CfgOk c) {s₀ : State} (hp : Pre c s₀) {rest : Prog is
     by rw [v₄ (by decide), P.k], by rw [v₄ (by decide), P.d], by rw [v₄ (by decide), P.e],
     by rw [v₄ (by decide)]; exact hc' (RX, 0) (by simp [Cfg.consts]),
     by rw [v₄ (by decide)]; exact hc' (RY, c.mont 1) (by simp [Cfg.consts]),
-    by rw [v₄ (by decide)]; exact hc' (RZ, 0) (by simp [Cfg.consts]), ?_, ?_, ?_, ?_⟩
+    by rw [v₄ (by decide)]; exact hc' (RZ, 0) (by simp [Cfg.consts]), ?_, ?_, ?_, ?_, ?_, ?_,
+    by rw [k₄.rd, k₃.rd, k₂.rd, P.keep.rd]⟩
   · rw [k₄.gpr _ (by decide), k₃.gpr _ (by decide), k₂.gpr _ (by decide), P.r14]
   · exact (fx.unch h7 hn (fixedOk_tbl 0) u₂ |>.unch h7 hn (fixedOk_tbl 1) u₃).unch h7 hn (fixedOk_tbl 2) u₄
   · have hF := sl_le c h7 (i := FLAG) (by decide)
@@ -114,6 +118,16 @@ theorem stage₁ (hc : CfgOk c) {s₀ : State} (hp : Pre c s₀) {rest : Prog is
       ← v₂ (by decide)]
   · intro t ht
     rw [b₄ t ht, hn2, ← v₃ (by decide)]
+  · intro r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+    rw [k₄.gpr r (by simp [hr.1, hr.2.2.2.1, hr.2.2.2.2]), k₃.gpr r (by simp [hr.1, hr.2.2.2.1, hr.2.2.2.2]),
+      k₂.gpr r (by simp [hr.1, hr.2.2.2.1, hr.2.2.2.2]), P.keep.gpr r (by simp [hr.1, hr.2.1, hr.2.2.1])]
+  · intro x hx
+    have hx' : size ≤ ofs (s₀.gpr .r8) x := by have := hx _ (List.mem_singleton_self _); omega
+    rw [O₄ x (Or.inr (by have := bitsAt_le c h7 (j := 2) (by decide); omega)),
+      O₃ x (Or.inr (by have := bitsAt_le c h7 (j := 1) (by decide); omega)),
+      O₂ x (Or.inr (by have := bitsAt_le c h7 (j := 0) (by decide); omega)),
+      P.unch x fun w hw => by rw [List.mem_singleton.mp hw]; exact Or.inr (by omega)]
 
 /-- After `[k]G` and `Z^(p-2)`. -/
 structure St₂ (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop extends Keep c s₀ base s where
@@ -126,6 +140,7 @@ structure St₂ (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop extend
     (tmv c.C c.n base s (c.sl RZ)) (mul (kv c s₀) (G c.C))
   acc_lt : sv c base s ACC < c.C.p
   acc : toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC) = tmv c.C c.n base s (c.sl RZ) ^ (c.C.p - 2)
+  rz_lt : sv c base s RZ < c.C.p
 
 theorem toM_cmont (hc : CfgOk c) (x : Nat) : toM c.C.p (2 ^ (64 * c.n)) (c.mont x) = (x : ZMod c.C.p) :=
   toM_mont (coprime_pow_two hc.p_odd _)
@@ -225,7 +240,8 @@ theorem stage₂ (hc : CfgOk c) {s₀ : State} {base : Addr} {s : State} (hS : S
     by rw [e₆ (by decide) (by decide) (by decide), hS.k],
     by rw [e₆ (by decide) (by decide) (by decide), hS.d],
     by rw [e₆ (by decide) (by decide) (by decide), hS.e],
-    by rw [flag_unch U₆ h7 h0 hn (by decide), flag_unch U₅ h7 h0 hn (by decide), hS.flag], ?_, ?_, lt₆, ?_⟩
+    by rw [flag_unch U₆ h7 h0 hn (by decide), flag_unch U₅ h7 h0 hn (by decide), hS.flag], ?_, ?_, lt₆, ?_,
+    ?_⟩
   · rw [K₆.gpr _ (r14_not_powClob hc.n4), K₅.gpr _ (r14_not_powClob hc.n4), hS.r14]
   · intro t ht
     rw [tbl_unch U₆ h7 hn (j := 2) (by decide) ht (tbl_apart_slW (by decide) 2 t),
@@ -238,6 +254,8 @@ theorem stage₂ (hc : CfgOk c) {s₀ : State} {base : Addr} {s : State} (hS : S
   · show _ = toM _ _ (sv c base s₆ RZ) ^ _
     rw [r₆ (i := RZ) (by decide) (by decide)]
     exact v₆
+  · rw [r₆ (i := RZ) (by decide) (by decide)]
+    exact L₅ (c.sl RZ) (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_singleton_self _)))
 
 /-- After `x`, `r`, the checks and `k^(n-2)`. -/
 structure St₃ (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop extends Keep c s₀ base s where
@@ -404,6 +422,6 @@ restores the callee-saved registers. -/
 theorem sign_ok (hc : CfgOk c) {s₀ : State} (hp : Pre c s₀) :
     WP isa c.sign s₀ fun s' => (∀ r ∈ Cfg.saved.map Prod.fst, s'.gpr r = s₀.gpr r) ∧ SignPost c s₀ s' := by
   rw [sign_eq]
-  exact stage₁ hc hp fun _ S₁ => stage₂ hc S₁ fun _ S₂ => stage₃ hc S₂ fun _ S₃ => stage₄ hc hp rfl S₃
+  exact stage₁ hc (hp.setup hc.n7) fun _ S₁ => stage₂ hc S₁ fun _ S₂ => stage₃ hc S₂ fun _ S₃ => stage₄ hc hp rfl S₃
 
 end VG.Proof.Ecdsa.X86_64

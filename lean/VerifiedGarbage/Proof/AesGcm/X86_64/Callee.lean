@@ -1,4 +1,7 @@
 import VerifiedGarbage.Proof.AesGcm.X86_64.Loops
+import VerifiedGarbage.Impl.AesGcm.X86_64.Blocks
+import VerifiedGarbage.Spec.Gcm.Contract
+import VerifiedGarbage.Proof.Gcm.X86_64.Stitch.Spec
 import VerifiedGarbage.Proof.Aes.X86_64.Variant
 import VerifiedGarbage.Proof.Aes.X86_64.ExpandKey
 import VerifiedGarbage.Proof.Aes.X86_64.AesNi.ExpandKey
@@ -348,15 +351,27 @@ structure GcmImpl where
   ctr : Ctr32Impl
   key : KeyImpl
   gh : GhashImpl
+  /-- Whether `vg_aes_gcm_encrypt_blocks` and `_decrypt_blocks` interleave
+  counter mode and GHASH with VAES and VPCLMULQDQ (`Gcm.X86_64.Stitch`), for
+  `vg_aes_ctr32_vaes` and `vg_ghash_vpclmul`. -/
+  stitch : Bool := false
+  /-- The interleaved loops' proof, which only an instance that uses them
+  supplies (it imports the algebra of `Proof/Gcm/Poly.lean`). -/
+  stitchOk : stitch = true → Gcm.X86_64.Stitch.StitchOk
 
 namespace GcmImpl
 
 variable (v : GcmImpl)
 
-def callees : Callees := ⟨⟨v.ctr.callee.name, v.ctr.callee.code⟩, v.key.fn, v.gh.fn⟩
-
 /-- What the names of the functions calling `vg_ghash` end with. -/
 def suffix : String := v.ctr.suffix ++ v.gh.suffix
+
+def callees : Callees :=
+  ⟨⟨v.ctr.callee.name, v.ctr.callee.code⟩, v.key.fn, v.gh.fn,
+    ⟨Spec.Gcm.encryptBlocksApi.name ++ v.suffix,
+      Impl.AesGcm.X86_64.Blocks.encrypt ⟨v.ctr.callee.name, v.ctr.callee.code⟩ v.gh.fn v.stitch⟩,
+    ⟨Spec.Gcm.decryptBlocksApi.name ++ v.suffix,
+      Impl.AesGcm.X86_64.Blocks.decrypt ⟨v.ctr.callee.name, v.ctr.callee.code⟩ v.gh.fn v.stitch⟩⟩
 
 end GcmImpl
 

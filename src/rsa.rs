@@ -8,6 +8,9 @@
 //! `VG.Spec.Rsa.publicPrecomputedContract`), which checks the input, computes
 //! `input^e mod n` by Montgomery multiplication, and writes it out. Their
 //! timing may depend on the public key (`n` and `e`) but not on the input.
+//! On a CPU with BMI2 and ADX, `vg_rsa_public_precompute_adx` and
+//! `vg_rsa_public_precomputed_adx`, with the same contracts, do the same with
+//! a faster Montgomery multiplication.
 //! This module only checks the lengths and allocates the memory they work in.
 //!
 //! This is a primitive for building padding schemes (OAEP, PSS, PKCS #1
@@ -20,7 +23,36 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::fmt;
 
-use crate::arch::rsa::{vg_rsa_public_precompute, vg_rsa_public_precomputed};
+use crate::arch::rsa::{
+    VG_RSA_PUBLIC_PRECOMPUTE_ADX_FEATURES, VG_RSA_PUBLIC_PRECOMPUTED_ADX_FEATURES,
+    vg_rsa_public_precompute, vg_rsa_public_precompute_adx, vg_rsa_public_precomputed,
+    vg_rsa_public_precomputed_adx,
+};
+use crate::cpu::{Features, detected};
+
+/// The implementations of `vg_rsa_public_precompute` and
+/// `vg_rsa_public_precomputed`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Backend {
+    /// The baseline ISA.
+    Baseline,
+    /// Montgomery multiplication with BMI2's `mulx` and ADX's `adcx` and
+    /// `adox`.
+    Adx,
+}
+
+impl Backend {
+    /// The best implementation a CPU with the features `f` can run.
+    fn select(f: Features) -> Backend {
+        if f.contains(const { Features::of(VG_RSA_PUBLIC_PRECOMPUTE_ADX_FEATURES) })
+            && f.contains(const { Features::of(VG_RSA_PUBLIC_PRECOMPUTED_ADX_FEATURES) })
+        {
+            Backend::Adx
+        } else {
+            Backend::Baseline
+        }
+    }
+}
 
 /// The shortest modulus, in bytes (512 bits).
 pub const MIN_MODULUS_LEN: usize = 64;
@@ -89,13 +121,19 @@ impl PublicKey {
         }
         let mut pre = vec![0u64; precomputed_words(k)];
         let mut scratch = vec![0u64; scratch_words(k)];
+        let f = match Backend::select(detected()) {
+            Backend::Baseline => vg_rsa_public_precompute,
+            // `select` chose it because the CPU has the features it needs.
+            Backend::Adx => vg_rsa_public_precompute_adx,
+        };
         // SAFETY: each pointer is valid for its length (`pre` and `scratch`
         // for writes), and none overlaps another or wraps around, as they are
         // distinct Rust allocations; the check above gives
         // `64 ≤ n_len ≤ 1024`, and `pre_len = 2 ⌈n_len / 8⌉` and
-        // `scratch_len = 16 n_len`.
+        // `scratch_len = 16 n_len`; and the CPU has the features of the
+        // function `select` chose.
         let r = unsafe {
-            vg_rsa_public_precompute(
+            f(
                 pre.as_mut_ptr(),
                 pre.len(),
                 n.as_ptr(),
@@ -132,15 +170,22 @@ impl PublicKey {
             return Err(Error::InvalidLength);
         }
         let mut scratch = vec![0u64; scratch_words(k)];
+        let f = match Backend::select(detected()) {
+            Backend::Baseline => vg_rsa_public_precomputed,
+            // `select` chose it because the CPU has the features it needs.
+            Backend::Adx => vg_rsa_public_precomputed_adx,
+        };
         // SAFETY: each pointer is valid for its length (`out` for writes,
         // `scratch` too), and none overlaps another or wraps around, as they
         // are distinct Rust allocations; `PublicKey::new` and the check above
         // give `64 ≤ out_len ≤ 1024`, `input_len = out_len`,
         // `pre_len = 2 ⌈out_len / 8⌉`, `1 ≤ e_len ≤ out_len`, and
-        // `scratch_len = 16 out_len`; and `pre` holds what
-        // `vg_rsa_public_precompute` wrote for the modulus, returning 1.
+        // `scratch_len = 16 out_len`; `pre` holds what
+        // `vg_rsa_public_precompute` (or its variant, with the same contract)
+        // wrote for the modulus, returning 1; and the CPU has the features of
+        // the function `select` chose.
         let r = unsafe {
-            vg_rsa_public_precomputed(
+            f(
                 out.as_mut_ptr(),
                 k,
                 self.pre.as_ptr(),
@@ -208,6 +253,16 @@ mod tests {
             assert_eq!(out, vec![0; n.len()]);
         }
         r.map(|()| out)
+    }
+
+    #[test]
+    fn backends() {
+        assert_eq!(Backend::select(Features(0)), Backend::Baseline);
+        assert_eq!(Backend::select(Features::of(&["bmi2"])), Backend::Baseline);
+        assert_eq!(
+            Backend::select(Features::of(VG_RSA_PUBLIC_PRECOMPUTED_ADX_FEATURES)),
+            Backend::Adx
+        );
     }
 
     /// Identities that hold for every modulus, at every length from 512 to

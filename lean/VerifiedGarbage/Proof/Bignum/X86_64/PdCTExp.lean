@@ -16,6 +16,8 @@ open VG VG.X86_64 VG.Impl.Bignum.X86_64 VG.Impl.Bignum.X86_64.Public VG.Impl.Rsa
 open VG.Impl.Rsa.X86_64.Precomputed
 open VG.Proof.MlKem.X86_64
 
+variable {M : Mont}
+
 /-! ## A bit -/
 
 /-- The public data of a bit: the working space, `m`, the prefix `E` of `e`
@@ -73,11 +75,7 @@ theorem start_ct : RelCT isa (Two GoodL) start fun _ _ => True := by
     fun t₁ ⟨⟨h12, hsi, hbx⟩, k⟩ => ⟨h12, hsi, hbx, (k.gpr (by decide)).trans hg.rdi⟩
 
 /-- A bit leaks the same in runs that agree on `e`. -/
-theorem pExpBit_ct : RelCT isa (Two PQ) Precomputed.expBit fun _ _ => True := by
-  have mmct : ∀ {o a b : Nat} {hc : VG.Taint.Hint VG.X86_64.Taint.T}, o < 8 → a < 8 → b < 8 →
-      (taint.check (Taint.ofRegs [.rdi]) (.block (bases o a b aN aAcc aTmp)) hc).isSome = true →
-      RelCT isa (Two GoodL) (mm o a b) fun _ _ => True :=
-    fun ho ha hb h => montMul_ct (by decide) (by decide) (by decide) ho ha hb h
+theorem pExpBit_ct : RelCT isa (Two PQ) (Precomputed.expBit M.mm) fun _ _ => True := by
   unfold Precomputed.expBit
   -- Whether started.
   refine RelCT.seq (two_piece (Ψ := fun p t => PQ p t ∧ t.zf = some (decide (p.E = 0))) _ pins_PQ
@@ -85,7 +83,7 @@ theorem pExpBit_ct : RelCT isa (Two PQ) Precomputed.expBit fun _ _ => True := by
   -- `Y := Y²` if started.
   refine RelCT.seq (R := Two fun (p : PBitPub) t => PQ ⟨p.L, p.N, 2 * p.E, p.V⟩ t)
     (two_post (two_ite (fun p s₁ s₂ h₁ h₂ => by simp only [eval, h₁.2, h₂.2])
-      (two_map (·.L) (fun _ _ h => h.1.1.goodL) (mmct (by decide) (by decide) (by decide) (by taint_decide)))
+      (two_map (·.L) (fun _ _ h => h.1.1.goodL) (M.ct (by unfold MmUse; decide)))
       (RelCT.block_nil fun _ _ _ => trivial)) ?_) ?_
   · rintro p t ⟨⟨X, x, hc, hy, hf, hV, hV'⟩, hz⟩
     exact WP.mono (pSq_ok hc hf.1 hf.2.1 hf.2.2.1 hf.2.2.2.1 hy hz) fun t' ⟨hc', hy', ha, _⟩ =>
@@ -108,7 +106,7 @@ theorem pExpBit_ct : RelCT isa (Two PQ) Precomputed.expBit fun _ _ => True := by
       (by taint_decide) fun p t h => startedTest_pq h.1.1) ?_
     refine two_ite (fun p s₁ s₂ h₁ h₂ => by simp only [eval, h₁.2, h₂.2]) ?_ ?_
     · exact two_map (fun (p : PBitPub) => p.L) (fun _ _ h => h.1.1.goodL)
-        (mmct (by decide) (by decide) (by decide) (by taint_decide))
+        (M.ct (by unfold MmUse; decide))
     · exact two_map (fun (p : PBitPub) => p.L) (fun _ _ h => h.1.1.goodL) start_ct
   · rintro p t ⟨⟨X, x, hc, hy, hf, -, -⟩, hz⟩
     exact WP.mono (pMul_ok hc hf.1 hf.2.1 hf.2.2.1 hf.2.2.2.1 hf.2.2.2.2.1 hf.2.2.2.2.2 hy hz)
@@ -128,7 +126,7 @@ theorem pBitsInv_pq {p : BitsPub} {j : Nat} {s : State} (hj : j < 8) (h : PBitsI
   exact ⟨X, x, hI.ctx, hI.y, hf, hI.v, by have := Nat.mul_le_mul_left p.v hp; dsimp only; omega⟩
 
 /-- The eight bits of a byte leak the same in runs that agree on `e`. -/
-theorem pBits_ct : RelCT isa (Two fun p s => 0 < 8 ∧ PBitsInv p 0 s) (.loop Precomputed.expBit .ne)
+theorem pBits_ct : RelCT isa (Two fun p s => 0 < 8 ∧ PBitsInv p 0 s) (.loop (Precomputed.expBit M.mm) .ne)
     (Two fun p s => PBitsInv p 8 s) :=
   two_loop (Φ := PBitsInv) (fun _ => 8)
     (two_map (fun q : BitsPub × Nat =>
@@ -165,7 +163,7 @@ theorem pins_pHeadMid : Pins PHeadMid [.rdi, .rax, .rcx] := by
 
 /-- One byte of `e` leaks the same in runs that agree on `e`. -/
 theorem pByteBody_ct : RelCT isa (Two fun (q : EPub × Nat) s => q.2 < q.1.len ∧ PBytesInv q.1 q.2 s)
-    (.seq (.block byteHead) (.seq (.loop Precomputed.expBit .ne) (.block byteNext))) fun _ _ => True := by
+    (.seq (.block byteHead) (.seq (.loop (Precomputed.expBit M.mm) .ne) (.block byteNext))) fun _ _ => True := by
   rw [byteHead_eq]
   have w₁ : ∀ (q : EPub × Nat) s, q.2 < q.1.len ∧ PBytesInv q.1 q.2 s →
       WP isa (.block [.mov .rax (.mem (hdr sE)), .mov .rcx (.mem (hdr sI))]) s (PHeadMid q) := by
@@ -201,7 +199,7 @@ def PExpPre (a : EPub) (s : State) : Prop :=
     1 ≤ a.len ∧ ESrc a s
 
 /-- The exponentiation leaks the same in runs that agree on `e`. -/
-theorem pExpLoop_ct : RelCT isa (Two PExpPre) Precomputed.expLoop (Two fun a s => PBytesInv a a.len s) := by
+theorem pExpLoop_ct : RelCT isa (Two PExpPre) (Precomputed.expLoop M.mm) (Two fun a s => PBytesInv a a.len s) := by
   unfold Precomputed.expLoop
   refine RelCT.seq (two_piece (Ψ := fun a s => 0 < a.len ∧ PBytesInv a 0 s) [.rdi]
     (fun _ _ _ ⟨_, _, h₁, _⟩ ⟨_, _, h₂, _⟩ r hr => by
@@ -231,7 +229,7 @@ theorem pins_FPre : Pins FPre [.rdi] := fun _ _ _ ⟨_, _, h₁, _⟩ ⟨_, _, h
   simp only [List.mem_singleton] at hr; subst hr; rw [h₁.good.rdi, h₂.good.rdi]
 
 /-- `finish` leaks the same in runs that agree on `e`. -/
-theorem finish_ct : RelCT isa (Two FPre) Precomputed.finish fun _ _ => True := by
+theorem finish_ct : RelCT isa (Two FPre) (Precomputed.finish M.mm) fun _ _ => True := by
   unfold Precomputed.finish
   refine RelCT.seq (two_piece (Ψ := fun p t => FPre p t ∧ t.zf = some (decide (p.E = 0))) _ pins_FPre
     (by taint_decide) ?_) ?_
@@ -240,7 +238,7 @@ theorem finish_ct : RelCT isa (Two FPre) Precomputed.finish fun _ _ => True := b
       ⟨⟨X, x, hc.mem hm k (by decide), by rw [hm]; exact hy, hZ, hw, hw'⟩, hz⟩
   refine two_ite (fun p s₁ s₂ h₁ h₂ => by simp only [eval, h₁.2, h₂.2]) ?_ ?_
   · exact two_map (fun (p : FPub) => p.L) (fun _ _ ⟨⟨⟨_, _, hc, _, hZ, _⟩, _⟩, _⟩ => ⟨hc.good, hZ⟩)
-      (montMul_ct (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by taint_decide))
+      (M.ct (by unfold MmUse; decide))
   -- `Y := 1`.
   unfold setWord
   refine RelCT.seq (two_piece (Ψ := fun (p : FPub) t => GoodL p.L t ∧ t.gpr .r12 = BitVec.ofNat 64 p.L.w ∧
