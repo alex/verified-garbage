@@ -5,10 +5,11 @@
 //! are the verified primitives (`VG.Spec.Rc4.initContract` and
 //! `VG.Spec.Rc4.applyContract`). Secret indices never address memory: the
 //! primitives scan the permutation at fixed addresses, with NEON register
-//! tables on AArch64 and masked quadwords on x86-64. Only pointers, lengths
-//! and the stream position modulo 256 may affect the leakage trace.
+//! tables on AArch64, masked quadwords on x86-64 and masked doublewords on
+//! x86. Only pointers, lengths and the stream position modulo 256 may
+//! affect the leakage trace.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
 
 use core::mem::MaybeUninit;
 
