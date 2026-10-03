@@ -133,7 +133,7 @@ theorem exec_addImm (s : State) (d : Reg) (v : BitVec 32) :
 theorem runBlock_cat (a b : List Instr) (s : State) :
     runBlock isa (a ++ b) s = (runBlock isa a s).bind (runBlock isa b) := by
   induction a generalizing s with
-  | nil => simp [runBlock]
+  | nil => rw [List.nil_append, runBlock_nil]; rfl
   | cons i is ih =>
     show (isa.exec i s).bind _ = ((isa.exec i s).bind _).bind _
     cases isa.exec i s with

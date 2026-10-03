@@ -1,8 +1,12 @@
-import VerifiedGarbage.Proof.TripleDes.X86_64.Ecb.IO
+import VerifiedGarbage.Proof.TripleDes.X86_64.Bitsliced.Ecb
+import VerifiedGarbage.Proof.TripleDes.X86_64.Bitsliced.ConstantTime
+import VerifiedGarbage.Proof.TripleDes.X86_64.ConstantTime
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.TripleDes.Contract
 
-namespace VG.Proof.TripleDes.X86_64.Ecb
+/-! # The bitsliced ECB functions meet their contracts -/
+
+namespace VG.Proof.TripleDes.X86_64.Bitsliced
 
 open VG VG.X86_64
 
@@ -12,10 +16,8 @@ def contract (d : Spec.TripleDes.Direction) : Contract isa where
     let data : Region := ⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩
     let buf : Region := ⟨s.gpr .rcx, 1024⟩
     let ret : Region := ⟨s.gpr .rsp, 8⟩
-    let stack := below (s.gpr .rsp) 8
     s.rd = [key] ∧ s.wr = [data, buf] ∧ key.Disjoint data ∧ key.Disjoint buf ∧
       data.Disjoint buf ∧ ret.Disjoint data ∧ ret.Disjoint buf ∧
-      stack.Disjoint key ∧ stack.Disjoint data ∧ stack.Disjoint buf ∧
       (s.gpr .rsi).toNat + 8 * (s.gpr .rdx).toNat ≤ 2 ^ 64
   post s s' :=
     Spec.TripleDes.blocksAt s'.mem (s.gpr .rsi) (s.gpr .rdx).toNat =
@@ -25,7 +27,7 @@ def contract (d : Spec.TripleDes.Direction) : Contract isa where
 
 theorem ecbTaint_wf (d : Spec.TripleDes.Direction) (s : State) (hs : (contract d).pre s) :
     Taint.Wf ecbTaint s := by
-  obtain ⟨_, hwr, _, _, dataSep, _, _, _, _, _, fit⟩ := hs
+  obtain ⟨_, hwr, _, _, dataSep, _, _, fit⟩ := hs
   refine ⟨?_, ?_⟩
   · intro _
     rw [hwr]
@@ -69,4 +71,48 @@ theorem ecbTaint_agree (d : Spec.TripleDes.Direction) (s t : State)
   · intro r hr
     simp only [ecbTaint, RegSet.not_mem_empty] at hr
 
-end VG.Proof.TripleDes.X86_64.Ecb
+def satState : State where
+  gpr r := match r with
+    | .rdi => 0x1000 | .rsi => 0x2000 | .rcx => 0x3000 | .rsp => 0x4000 | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem _ := 0
+  rd := [⟨0x1000, 384⟩]
+  wr := [⟨0x2000, 0⟩, ⟨0x3000, 1024⟩]
+
+theorem encrypt_correct (s : State) (hs : (contract .encrypt).pre s) :
+    ∃ t s', Exec isa Impl.TripleDes.X86_64.Bitslice.encrypt s t s' ∧ abiPreserved s s' ∧
+      (contract .encrypt).post s s' := by
+  obtain ⟨rd, wr, kd, kb, db, rdt, rb, fit⟩ := hs
+  obtain ⟨t, s', he, ha, hp⟩ := ecb_ok .encrypt ⟨rd, wr, kd, kb, db, rdt, rb, fit⟩
+  exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he ha, hp⟩
+
+theorem decrypt_correct (s : State) (hs : (contract .decrypt).pre s) :
+    ∃ t s', Exec isa Impl.TripleDes.X86_64.Bitslice.decrypt s t s' ∧ abiPreserved s s' ∧
+      (contract .decrypt).post s s' := by
+  obtain ⟨rd, wr, kd, kb, db, rdt, rb, fit⟩ := hs
+  obtain ⟨t, s', he, ha, hp⟩ := ecb_ok .decrypt ⟨rd, wr, kd, kb, db, rdt, rb, fit⟩
+  exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he ha, hp⟩
+
+theorem publicRegs_five (s₁ s₂ : State) : PublicRegs [.rdi, .rsi, .rdx, .rcx, .rsp] s₁ s₂ ↔
+    s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
+    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .rsp = s₂.gpr .rsp := by
+  simp [PublicRegs]
+
+theorem encrypt_verified : Verified target Impl.TripleDes.X86_64.Bitslice.encrypt
+    (Spec.TripleDes.ecbEncryptContract abi) := by
+  refine Verified.of_correct encrypt_correct
+    (encrypt_constantTime _ _ (ecbTaint_agree .encrypt)) ?_
+  sig_implies [Spec.TripleDes.ecbEncryptContract, Spec.TripleDes.ecbContract,
+    Spec.TripleDes.ecbSig, abi, argRegs, contract, publicRegs_five] [satState] using satState
+
+theorem decrypt_verified : Verified target Impl.TripleDes.X86_64.Bitslice.decrypt
+    (Spec.TripleDes.ecbDecryptContract abi) := by
+  refine Verified.of_correct decrypt_correct
+    (decrypt_constantTime _ _ (ecbTaint_agree .decrypt)) ?_
+  sig_implies [Spec.TripleDes.ecbDecryptContract, Spec.TripleDes.ecbContract,
+    Spec.TripleDes.ecbSig, abi, argRegs, contract, publicRegs_five] [satState] using satState
+
+end VG.Proof.TripleDes.X86_64.Bitsliced
