@@ -16,6 +16,8 @@ namespace VG.Proof.Bignum.X86_64
 open VG VG.X86_64 VG.Impl.Bignum.X86_64 VG.Impl.Bignum.X86_64.Public VG.Impl.Rsa.X86_64
 open VG.Proof.MlKem.X86_64
 
+variable {M : Mont}
+
 /-! ## The contract on the registers and the stack -/
 
 /-- `vg_rsa_public_precomputed(out = rdi, out_len = rsi, pre = rdx,
@@ -327,16 +329,17 @@ theorem pdPre_of {s t₁ t₂ : State} (c : PdCtx s) (hdi : t₁.gpr .rdi = stac
       el := bytesAt_length _ _ _, L1 := c.hL1, L2 := c.hL2, out := fun j hj => by rw [kk.2.2]; exact c.hout j hj,
       outSep := c.houts }
 
-theorem pdCode_correct (s : State) (h : pdContract.pre s) :
-    ∃ t s', Exec isa Precomputed.code s t s' ∧ abiPreserved s s' ∧ pdContract.post s s' := by
+theorem pdCode_correct (M : Mont)
+    (hmx : (Precomputed.code M.mm).allInstrs (fun i => !loadsMxcsr i) = true) (s : State) (h : pdContract.pre s) :
+    ∃ t s', Exec isa (Precomputed.code M.mm) s t s' ∧ abiPreserved s s' ∧ pdContract.post s s' := by
   have c := pdCtx_of h
   have hZ' := c.hZ
   have hk1 := c.hk1
   have hk2 := c.hk2
   have hn := c.hs.nowrap
-  suffices hwp : WP isa Precomputed.code s fun s' => gprPreserved s s' ∧ pdContract.post s s' by
+  suffices hwp : WP isa (Precomputed.code M.mm) s fun s' => gprPreserved s s' ∧ pdContract.post s s' by
     obtain ⟨t, s', he, hg, hp⟩ := hwp
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he hg, hp⟩
+    exact ⟨t, s', he, abiPreserved_of_exec hmx he hg, hp⟩
   unfold Precomputed.code
   have hw : ∀ i < 22, InRegions s.wr (off (stackArg s 2) (8 * i)) 8 := fun i hi => c.hs.st (by omega)
   refine WP.seq (WP.mono (pdEntry_ok rfl hw c.ha0 c.ha2 c.hsep) fun t₁ ⟨hdi, h0, h1, h2, h3, h4, h5, hO, hN, hK,

@@ -189,8 +189,8 @@ theorem MA.r2Pre {p : MPub} {t : State} {σ : State} {xb : List Byte} {mi : BitV
     hodd, hlo⟩
 
 /-- `R² mod m` leaks the same in runs that agree on `n`. -/
-theorem mainB_ct : RelCT isa (Two MA) (seqs r2Steps) (Two MB) := by
-  refine two_post (r2_ct.mono (fun _ _ h => two_bind (fun p t₁ t₂ h₁ h₂ => ?_) h) fun _ _ h => h) ?_
+theorem mainB_ct : RelCT isa (Two MA) (seqs (r2Steps Mont.base)) (Two MB) := by
+  refine two_post ((r2_ct Mont.base).mono (fun _ _ h => two_bind (fun p t₁ t₂ h₁ h₂ => ?_) h) fun _ _ h => h) ?_
   · obtain ⟨σ₁, xb₁, mi₁, hm₁, hv, so₁, -⟩ := h₁
     obtain ⟨σ₂, xb₂, mi₂, hm₂, -, so₂, -⟩ := h₂
     obtain ⟨hodd, -, -⟩ := valid_facts hv hm₁.k1
@@ -201,7 +201,7 @@ theorem mainB_ct : RelCT isa (Two MA) (seqs r2Steps) (Two MB) := by
   obtain ⟨hodd, -, hlo⟩ := valid_facts hv hm.k1
   have := hm.k1
   have := hm.k2
-  exact WP.mono (r2_ok so.good hm.z (by unfold MPub.w; omega) (by unfold MPub.w; omega) so.n so.inv so.r12 so.r10 hodd hlo)
+  exact WP.mono (r2_ok Mont.base so.good hm.z (by unfold MPub.w; omega) (by unfold MPub.w; omega) so.n so.inv so.r12 so.r10 hodd hlo)
     fun t' ⟨hg, hlt, hr, f', k'⟩ => ⟨σ, xb, mi, t, hm, hv, so, f, k, hg, hlt, hr, f', k'⟩
 
 /-- What the exponentiation phase needs, from the facts after `R² mod m`. -/

@@ -13,17 +13,19 @@ namespace VG.Proof.Bignum.X86_64
 open VG VG.X86_64 VG.Impl.Bignum.X86_64 VG.Impl.Bignum.X86_64.Public
 open VG.Proof.MlKem.X86_64
 
+variable (M : Mont)
+
 /-- One squaring of `[aR2] ≡ 2^E R`. -/
 theorem sq_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N E : Nat} (hg : Good t B Z w minv)
     (hZ : slot w 8 ≤ Z) (hw : 2 ≤ w) (hw' : w < 2 ^ 31) (hR : Nat.Coprime (2 ^ (64 * w)) N)
     (hn : wv t.mem B (slot w aN) w = N) (hinv : ((word t.mem B (slot w aN)).toNat * minv.toNat + 1) % 2 ^ 64 = 0)
     (hlt : wv t.mem B (slot w aR2) w < N) (hc : wv t.mem B (slot w aR2) w % N = 2 ^ E * 2 ^ (64 * w) % N) :
-    WP isa (mm aR2 aR2 aR2) t fun t' => Good t' B Z w minv ∧ wv t'.mem B (slot w aN) w = N ∧
+    WP isa (M.mm aR2 aR2 aR2) t fun t' => Good t' B Z w minv ∧ wv t'.mem B (slot w aN) w = N ∧
       ((word t'.mem B (slot w aN)).toNat * minv.toNat + 1) % 2 ^ 64 = 0 ∧
       wv t'.mem B (slot w aR2) w < N ∧ wv t'.mem B (slot w aR2) w % N = 2 ^ (2 * E) * 2 ^ (64 * w) % N ∧
       Arrays B w [aAcc, aTmp, aR2] t.mem t'.mem ∧ Keep mmRegs t t' := by
   have hn' : B.toNat + slot w 8 ≤ 2 ^ 64 := by have := hg.scr.nowrap; omega
-  refine WP.mono (mm_ok hg hZ hw hw' (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
+  refine WP.mono (M.mm_ok hg hZ hw hw' (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
     (by decide) hinv (by rw [hn]; exact hlt)) fun t' ⟨hg', hlt', hm, ha, k⟩ => ?_
   rw [hn] at hlt' hm
   refine ⟨hg', by rw [ha.wv_of_not_mem (by decide) (by decide) hn']; exact hn,
@@ -36,17 +38,17 @@ theorem sqs_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N E : Nat}
     (hR : Nat.Coprime (2 ^ (64 * w)) N)
     (hn : wv t.mem B (slot w aN) w = N) (hinv : ((word t.mem B (slot w aN)).toNat * minv.toNat + 1) % 2 ^ 64 = 0)
     (hlt : wv t.mem B (slot w aR2) w < N) (hc : wv t.mem B (slot w aR2) w % N = 2 ^ E * 2 ^ (64 * w) % N) :
-    WP isa (seqs (List.replicate (n + 1) (mm aR2 aR2 aR2))) t fun t' => Good t' B Z w minv ∧
+    WP isa (seqs (List.replicate (n + 1) (M.mm aR2 aR2 aR2))) t fun t' => Good t' B Z w minv ∧
       wv t'.mem B (slot w aR2) w < N ∧
       wv t'.mem B (slot w aR2) w % N = 2 ^ (2 ^ (n + 1) * E) * 2 ^ (64 * w) % N ∧
       Arrays B w [aAcc, aTmp, aR2] t.mem t'.mem ∧ Keep mmRegs t t' := by
   induction n generalizing t E with
   | zero =>
-    exact WP.mono (sq_ok hg hZ hw hw' hR hn hinv hlt hc) fun t' ⟨h1, _, _, h4, h5, h6, h7⟩ =>
+    exact WP.mono (sq_ok M hg hZ hw hw' hR hn hinv hlt hc) fun t' ⟨h1, _, _, h4, h5, h6, h7⟩ =>
       ⟨h1, h4, by rw [h5]; rfl, h6, h7⟩
   | succ n ih =>
-    show WP isa (.seq (mm aR2 aR2 aR2) (seqs (List.replicate (n + 1) (mm aR2 aR2 aR2)))) t _
-    refine WP.seq (WP.mono (sq_ok hg hZ hw hw' hR hn hinv hlt hc) fun t₁ ⟨h1, h2, h3, h4, h5, h6, h7⟩ => ?_)
+    show WP isa (.seq (M.mm aR2 aR2 aR2) (seqs (List.replicate (n + 1) (M.mm aR2 aR2 aR2)))) t _
+    refine WP.seq (WP.mono (sq_ok M hg hZ hw hw' hR hn hinv hlt hc) fun t₁ ⟨h1, h2, h3, h4, h5, h6, h7⟩ => ?_)
     refine WP.mono (ih h1 h2 h3 h4 h5) fun t' ⟨g1, g2, g3, g4, g5⟩ => ⟨g1, g2, ?_, h6.trans g4 |>.mono (by simp),
       (h7.trans g5).mono (by decide)⟩
     rw [g3, show 2 ^ (n + 1 + 1) = 2 ^ (n + 1) * 2 from rfl, Nat.mul_assoc]
@@ -59,7 +61,7 @@ def r2Steps : List (Prog isa) := [
   setWord aR2 .rcx,
   .block [.mov .rcx (.mem (hdr sCnt)), .alu .add .rcx (.mem (hdr sW))],
   doubles aN aAcc aTmp aR2 sCnt,
-  mm aR2 aR2 aR2, mm aR2 aR2 aR2, mm aR2 aR2 aR2, mm aR2 aR2 aR2, mm aR2 aR2 aR2, mm aR2 aR2 aR2]
+  M.mm aR2 aR2 aR2, M.mm aR2 aR2 aR2, M.mm aR2 aR2 aR2, M.mm aR2 aR2 aR2, M.mm aR2 aR2 aR2, M.mm aR2 aR2 aR2]
 
 /-- What `R² mod m` changes. -/
 def r2Ranges (w : Nat) : List (Nat × Nat) :=
@@ -128,7 +130,7 @@ theorem r2_ok {s : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N : Nat} (h
     (hinv : ((word s.mem B (slot w aN)).toNat * minv.toNat + 1) % 2 ^ 64 = 0)
     (h12 : s.gpr .r12 = BitVec.ofNat 64 w) (h10 : s.gpr .r10 = off B (slot w aN)) (hodd : N % 2 = 1)
     (hlo : 2 ^ (64 * (w - 1)) ≤ N) :
-    WP isa (seqs r2Steps) s fun t => Good t B Z w minv ∧
+    WP isa (seqs (r2Steps M)) s fun t => Good t B Z w minv ∧
       wv t.mem B (slot w aR2) w < N ∧ wv t.mem B (slot w aR2) w % N = 2 ^ (64 * w) * 2 ^ (64 * w) % N ∧
       Frm B (r2Ranges w) s.mem t.mem ∧ Keep mmRegs s t := by
   have hw' : w < 2 ^ 31 := by omega
@@ -208,8 +210,8 @@ theorem r2_ok {s : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N : Nat} (h
   have hf₆' : Frm B (r2Ranges w) t₅.mem t₆.mem := hf₆
   have hg₆ : Good t₆ B Z w minv := ⟨hs₅.congr k₆.2.2, (k₆.gpr (by decide)).trans ((k₅.gpr (by decide)).trans hdi₄),
     hH₆⟩
-  show WP isa (seqs (List.replicate (5 + 1) (mm aR2 aR2 aR2))) t₆ _
-  refine WP.mono (sqs_ok 5 hg₆ hZ hw hw' hR (E := w)
+  show WP isa (seqs (List.replicate (5 + 1) (M.mm aR2 aR2 aR2))) t₆ _
+  refine WP.mono (sqs_ok M 5 hg₆ hZ hw hw' hR (E := w)
     (by rw [hf₆'.r2_wv hn' (by decide) (by decide) (by decide) (by decide), hm₅]; exact hN₄)
     (by rw [hf₆'.r2_word hn' (by decide) (by decide) (by decide) (by decide), hm₅, hw0₄]; exact hinv)
     (by rw [hv₆]; exact Nat.mod_lt _ hN0) (by rw [hv₆, Nat.mod_mod]))

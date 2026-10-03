@@ -220,16 +220,17 @@ theorem pcCtx_of {s : State} (h : pcContract.pre s) : PcCtx s := by
   have hc := contains_byte (s.gpr .rsp) (i := b) (len := 8) (by omega) (by omega)
   exact ⟨out_scr dRs hc, hp8 ▸ out_scr dRp hc⟩
 
-theorem pcCode_correct (s : State) (h : pcContract.pre s) :
-    ∃ t s', Exec isa Precompute.code s t s' ∧ abiPreserved s s' ∧ pcContract.post s s' := by
+theorem pcCode_correct (M : Mont)
+    (hmx : (Precompute.code M.mm).allInstrs (fun i => !loadsMxcsr i) = true) (s : State) (h : pcContract.pre s) :
+    ∃ t s', Exec isa (Precompute.code M.mm) s t s' ∧ abiPreserved s s' ∧ pcContract.post s s' := by
   have c := pcCtx_of h
   have hZ := c.hZ
   have hk1 := c.hk1
   have hk2 := c.hk2
   have hn := c.hs.nowrap
-  suffices hwp : WP isa Precompute.code s fun s' => gprPreserved s s' ∧ pcContract.post s s' by
+  suffices hwp : WP isa (Precompute.code M.mm) s fun s' => gprPreserved s s' ∧ pcContract.post s s' by
     obtain ⟨t, s', he, hg, hp⟩ := hwp
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he hg, hp⟩
+    exact ⟨t, s', he, abiPreserved_of_exec hmx he hg, hp⟩
   unfold Precompute.code
   refine WP.seq ?_
   rw [WP.block_append_iff]
@@ -284,7 +285,7 @@ theorem pcCode_correct (s : State) (h : pcContract.pre s) :
     simp only [Spec.Rsa.publicPrecompute, bytesAt_length, hv, Bool.false_eq_true, ite_false]
   · have hv : Spec.Rsa.modulusValid (Spec.Rsa.os2ip (Spec.Rsa.bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat))
         (s.gpr .rcx).toNat = true := by simpa using hb
-    refine WP.mono (pcMain_ok hs₂ hdi₂ hz hk1 hk2 (by rw [hm₂]; exact hO) (by rw [hm₂, hK, ofNat_toNat64])
+    refine WP.mono (pcMain_ok M hs₂ hdi₂ hz hk1 hk2 (by rw [hm₂]; exact hO) (by rw [hm₂, hK, ofNat_toNat64])
       (by rw [hm₂]; exact hN) (c.hnb.congrK i₂ kk) (bytesAt_length _ _ _) hv hw c.hps)
       fun t ⟨ws, hws, hp⟩ => fin t ws true hp (by rw [hws]; rfl) fun h => absurd h (by decide)
 

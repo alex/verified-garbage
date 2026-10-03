@@ -1,8 +1,4 @@
 import VerifiedGarbage.Proof.Bignum.X86_64.MulAdd
-import Mathlib.Tactic.LinearCombination
-import Mathlib.Tactic.Zify
-import Mathlib.Tactic.Ring
-import Mathlib.Tactic.Linarith
 
 /-!
 # Multiword arithmetic on x86-64: `acc += a_i B`
@@ -91,8 +87,7 @@ theorem rowStep_ok {s₀ : State} {B : Addr} {Z w eA eb : Nat}
     rw [hx, hy, tcx] at hv
     have hval := hI.val
     rw [pow64_succ]
-    zify at hv hval ⊢
-    linear_combination (2 ^ (64 * j) : ℤ) * hv + hval
+    grind
 
 theorem rowTop_ok {t : State} {B : Addr} {Z w eA : Nat} (hs : Scr t B Z)
     (h8 : t.gpr .r8 = off B eA) (h12 : t.gpr .r12 = BitVec.ofNat 64 w) (hA : eA + 8 * w + 16 ≤ Z) :
@@ -130,7 +125,7 @@ theorem rowTop_val (m : Mem) (B : Addr) {Z eA w : Nat} (hn : B.toNat + Z ≤ 2 ^
   rw [show w + 2 = w + 1 + 1 from rfl, wv, wv, show eA + 8 * (w + 1) = eA + 8 * w + 8 by omega,
     word_writeW_self, o2.word (Or.inl (Nat.le_refl _)) (by omega), word_writeW_self,
     o2.wv (Or.inl (by omega)) (by omega), o1.wv (Or.inl (Nat.le_refl _)) (by omega), pow64_succ, ← hc]
-  ring
+  grind
 
 /-- `acc += rcx · B` (`mulAddRow`), if the sum fits in `w + 2` words. -/
 theorem mulAddRow_ok {s : State} {B : Addr} {Z w eA eb : Nat} (hs : Scr s B Z)
@@ -173,7 +168,7 @@ theorem mulAddRow_ok {s : State} {B : Addr} {Z w eA eb : Nat} (hs : Scr s B Z)
   have e2 : wv s.mem B eA (w + 2) = wv s.mem B eA w + 2 ^ (64 * w) *
       ((word s.mem B (eA + 8 * w)).toNat + 2 ^ 64 * (word s.mem B (eA + 8 * w + 8)).toNat) := by
     rw [show w + 2 = w + 1 + 1 from rfl, wv, wv, pow64_succ, show eA + 8 * (w + 1) = eA + 8 * w + 8 by omega]
-    ring
+    grind
   -- The sum fits: `X + c + 2⁶⁴ Y < 2¹²⁸`.
   have hfit : (word t.mem B (eA + 8 * w)).toNat + (t.gpr .rbp).toNat +
       2 ^ 64 * (word t.mem B (eA + 8 * w + 8)).toNat < 2 ^ 128 := by
@@ -182,13 +177,11 @@ theorem mulAddRow_ok {s : State} {B : Addr} {Z w eA eb : Nat} (hs : Scr s B Z)
         2 ^ 64 * (word s.mem B (eA + 8 * w + 8)).toNat) < 2 ^ (64 * w) * 2 ^ 128 := by
       rw [← Nat.pow_add, show 64 * w + 128 = 64 * (w + 2) by omega]
       have := wv_lt t.mem B eA w
-      zify at hval hbound e2 this ⊢
-      linarith
+      grind
     exact Nat.lt_of_mul_lt_mul_left hlt
   refine ⟨?_, ?_, ((k₁.trans hI.keep).trans k').mono (by decide)⟩
   · rw [hm', rowTop_val t.mem B hn (show eA + 8 * w + 16 ≤ Z by omega) _ hfit, hX, hY, e2]
-    zify at hval ⊢
-    linear_combination hval
+    grind
   · rw [hm']
     intro x hx
     rw [writeW_outside _ B _ (by omega) x (by omega), writeW_outside _ B _ (by omega) x (by omega)]
