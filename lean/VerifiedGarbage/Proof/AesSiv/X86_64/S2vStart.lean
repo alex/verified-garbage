@@ -127,15 +127,6 @@ theorem startPre_wp {s₀ : State} {C D S : Addr} {R : Nat} (hp : ZPre s₀ C D 
   obtain ⟨s₁, run, rdi, rsi, rdx, rcx, r8, r9, g, m, rd, wr⟩ := startPre_ok hp
   exact WP.of_runBlock ⟨s₁, run, hp.fargs rdi rsi rdx rcx r8 r9 (g _ (by decide)) rd wr, g, m⟩
 
-theorem xor_zeros {x : List Byte} (h : x.length = 16) : Spec.Cmac.xor x (Spec.Cmac.zeros 16) = x := by
-  apply List.ext_getElem (by simp [Proof.Cmac.length_xor, Proof.Cmac.length_zeros, h])
-  intro i h₁ h₂
-  simp only [Spec.Cmac.xor, Spec.Cmac.zeros, List.getElem_zipWith, List.getElem_replicate]
-  exact BitVec.xor_zero ..
-
-theorem chain_blocks_nil (c : Spec.Cmac.Cipher) (z : List Byte) :
-    Spec.Cmac.chain c z (Spec.Cmac.blocks 16 []) = z := rfl
-
 /-- The last block of the zero block, with `K1` from memory: `K1 ⊕ 0`, and
 XORing it into the zero state leaves it. -/
 theorem xor_lastBlock_zeros (m : Mem) (p : Addr) (k2 : List Byte) :

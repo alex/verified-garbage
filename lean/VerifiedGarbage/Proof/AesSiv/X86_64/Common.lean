@@ -42,4 +42,21 @@ theorem drop_bytesAt (m : Mem) (p : Addr) {a b : Nat} :
     (Spec.Aes.bytesAt m p (a + b)).drop a = Spec.Aes.bytesAt m (p + BitVec.ofNat 64 a) b := by
   rw [Proof.Cmac.Stream.bytesAt_append, List.drop_left' (Proof.Cmac.bytesAt_length _ _ _)]
 
+theorem xor_zeros {x : List Byte} (h : x.length = 16) : Spec.Cmac.xor x (Spec.Cmac.zeros 16) = x := by
+  apply List.ext_getElem (by simp [Proof.Cmac.length_xor, Proof.Cmac.length_zeros, h])
+  intro i h₁ h₂
+  simp only [Spec.Cmac.xor, Spec.Cmac.zeros, List.getElem_zipWith, List.getElem_replicate]
+  exact BitVec.xor_zero ..
+
+theorem chain_blocks_nil (c : Spec.Cmac.Cipher) (z : List Byte) :
+    Spec.Cmac.chain c z (Spec.Cmac.blocks 16 []) = z := rfl
+
+/-- The last block of CMAC (§6.2 step 4) is a block. -/
+theorem length_lastBlock {k1 k2 t : List Byte} (h1 : k1.length = 16) (h2 : k2.length = 16) (ht : t.length ≤ 16) :
+    (Spec.Cmac.lastBlock 16 k1 k2 t).length = 16 := by
+  unfold Spec.Cmac.lastBlock
+  split
+  · simp [Proof.Cmac.length_xor, *]
+  · simp [Proof.Cmac.length_xor, Proof.Cmac.length_zeros, h2]; omega
+
 end VG.Proof.AesSiv.X86_64
