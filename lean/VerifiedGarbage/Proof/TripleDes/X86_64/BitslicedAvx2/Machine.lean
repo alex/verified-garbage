@@ -22,6 +22,11 @@ open VG.Impl.TripleDes.X86_64.BitsliceAvx2
 /-- The scratch buffer. -/
 def scratchR (s : State) : Region := ⟨s.gpr .rcx, 1024⟩
 
+/-- The circuits' spill slots, at the start of the scratch buffer. -/
+def spillR (s : State) : Region := ⟨s.gpr .rcx, 256⟩
+
+theorem spill_sub (s : State) : Region.Sub (spillR s) (scratchR s) := Region.sub_prefix (by decide)
+
 /-- What a batch's code needs of the machine: the scratch buffer writable,
 the state words writable and apart from it. -/
 structure Room (s : State) : Prop where

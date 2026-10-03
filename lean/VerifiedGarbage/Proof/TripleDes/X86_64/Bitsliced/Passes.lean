@@ -14,11 +14,11 @@ open VG VG.X86_64 VG.X86_64.RegUpd VG.Impl.TripleDes.X86_64.Bitslice VG.Spec.Tri
 open VG.Proof.TripleDes.Bitslice (passW pairs swapW)
 
 /-- The first `n` passes, with the schedule `K`. -/
-def chain (d : Direction) (K : Schedule) : Nat → (Nat → BitVec 64) → Nat → BitVec 64
+def chain {w : Nat} (d : Direction) (K : Schedule) : Nat → (Nat → BitVec w) → Nat → BitVec w
   | 0, W => W
   | n + 1, W => passW (componentSchedule K (passComp d (3 - n)).1) (passComp d (3 - n)).2 (chain d K n W)
 
-theorem chain_congr (d : Direction) (K : Schedule) (n : Nat) {W W' : Nat → BitVec 64}
+theorem chain_congr {w : Nat} (d : Direction) (K : Schedule) (n : Nat) {W W' : Nat → BitVec w}
     (hW : ∀ x < 64, W x = W' x) : ∀ x < 64, chain d K n W x = chain d K n W' x := by
   induction n with
   | zero => exact hW
@@ -112,7 +112,8 @@ theorem passes_ok (d : Direction) {s₀ : State}
     · rw [q.count, cntv]
 
 /-- Three passes, in every lane: TDEA between IP and FP. -/
-theorem chain_lane (d : Direction) (K : Schedule) (W : Nat → BitVec 64) {b : Nat} (hb : b < 64) :
+theorem chain_lane {w : Nat} (d : Direction) (K : Schedule) (W : Nat → BitVec w) {b : Nat}
+    (hb : b < w) :
     VG.Proof.TripleDes.Bitslice.ipLane (chain d K 3 W) b =
       match d with
       | .encrypt => VG.Proof.TripleDes.desCore (componentSchedule K 2) .encrypt

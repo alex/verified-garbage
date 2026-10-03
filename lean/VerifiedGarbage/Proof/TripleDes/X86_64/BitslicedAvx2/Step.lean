@@ -234,7 +234,7 @@ theorem sboxStep_ok (ρ : Role) {j : Nat} (hj : j < 8) {s : State} (h : Room s)
     ∃ s', runBlock isa (sboxStep ρ j) s = some s' ∧
       (∀ x < 64, words s' x = step ρ k j (words s) x) ∧ s'.gpr .rax = s.gpr .rax <<< 6 ∧
       (∀ r, r ≠ .rax → r ≠ .rbx → s'.gpr r = s.gpr r) ∧ s'.ymm ones = s.ymm ones ∧
-      s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame [scratchR s, stateR s] s.mem s'.mem := by
+      s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame [spillR s, stateR s] s.mem s'.mem := by
   obtain ⟨s₁, run₁, k₁, in₁, g₁, o₁, m₁, rd₁, wr₁⟩ := inputsN_ok ρ hj (Nat.le_refl 6) h
   have c₁ := g₁ .rcx (by decide) (by decide)
   have si₁ := g₁ .rsi (by decide) (by decide)
@@ -275,14 +275,14 @@ theorem sboxStep_ok (ρ : Role) {j : Nat} (hj : j < 8) {s : State} (h : Room s)
   · rw [g₃, g₂, k₁]
   · rw [g₃, g₂, g₁ r h1 h2]
   · rw [o₃, o₂, o₁]
-  · have a : Frame [scratchR s, stateR s] s.mem s₁.mem := by rw [m₁]; exact Frame.refl _ _
-    have b : Frame [scratchR s, stateR s] s₁.mem s₂.mem := by
+  · have a : Frame [spillR s, stateR s] s.mem s₁.mem := by rw [m₁]; exact Frame.refl _ _
+    have b : Frame [spillR s, stateR s] s₁.mem s₂.mem := by
       refine f₂.sub fun r hr => ?_
       simp only [List.mem_singleton] at hr; subst hr
-      refine ⟨scratchR s, List.mem_cons_self, ?_⟩
-      simp only [slotRegion, sboxCfg, scratchR, c₁]
+      refine ⟨spillR s, List.mem_cons_self, ?_⟩
+      simp only [slotRegion, sboxCfg, spillR, c₁]
       exact Region.sub_prefix (by simp [spills])
-    have c : Frame [scratchR s, stateR s] s₂.mem s₃.mem := by
+    have c : Frame [spillR s, stateR s] s₂.mem s₃.mem := by
       refine f₃.sub fun r hr => ?_
       simp only [List.mem_singleton] at hr; subst hr
       refine ⟨stateR s, List.mem_cons_of_mem _ List.mem_cons_self, ?_⟩

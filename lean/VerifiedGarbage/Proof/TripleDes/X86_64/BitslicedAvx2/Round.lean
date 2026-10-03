@@ -78,7 +78,7 @@ theorem stepsCode_ok (ρ : Role) (K : BitVec 64) {n : Nat} (hn : n ≤ 8) {s : S
       (∀ x < 64, words s' x = steps ρ (K.setWidth 48) n (words s) x) ∧
       s'.gpr .rax = K.rotateRight 48 <<< (6 * n) ∧
       (∀ r, r ≠ .rax → r ≠ .rbx → s'.gpr r = s.gpr r) ∧ s'.ymm ones = s.ymm ones ∧
-      s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame [scratchR s, stateR s] s.mem s'.mem := by
+      s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame [spillR s, stateR s] s.mem s'.mem := by
   induction n with
   | zero => exact ⟨s, runBlock_nil, fun _ _ => rfl, by simp [hr], fun _ _ _ => rfl, rfl, rfl, rfl,
       Frame.refl _ _⟩
@@ -96,7 +96,7 @@ theorem stepsCode_ok (ρ : Role) (K : BitVec 64) {n : Nat} (hn : n ≤ 8) {s : S
     · rw [w₂ x hx, steps_succ]
       exact VG.Proof.TripleDes.Bitslice.step_congr ρ _ (by omega) w₁ (w₁ x hx)
     · rw [r₂, r₁, ← BitVec.shiftLeft_add, show 6 * n + 6 = 6 * (n + 1) by omega]
-    · rw [show scratchR s₁ = scratchR s by simp only [scratchR, c₁],
+    · rw [show spillR s₁ = spillR s by simp only [spillR, c₁],
         show stateR s₁ = stateR s by simp only [stateR, si₁]] at f₂
       exact f₁.trans f₂
 
@@ -110,7 +110,7 @@ theorem round_ok (ρ : Role) {s : State} (h : Room s) (hones : s.ymm ones = BitV
       (∀ x < 64, words s' x = roundW ρ ((s.mem.readW (s.gpr .r8) 64).setWidth 48) (words s) x) ∧
       s'.gpr .r8 = s.gpr .r8 + s.gpr .r9 ∧
       (∀ r, r ≠ .rax → r ≠ .rbx → r ≠ .r8 → s'.gpr r = s.gpr r) ∧ s'.ymm ones = s.ymm ones ∧
-      s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame [scratchR s, stateR s] s.mem s'.mem := by
+      s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame [spillR s, stateR s] s.mem s'.mem := by
   obtain ⟨s₁, run₁, r₁, k₁, g₁, m₁, rd₁, wr₁, y₁⟩ := keyLoad_ok hkey
   have c₁ := g₁ .rcx (by decide) (by decide)
   have si₁ := g₁ .rsi (by decide) (by decide)
@@ -125,7 +125,7 @@ theorem round_ok (ρ : Role) {s : State} (h : Room s) (hones : s.ymm ones = BitV
     exact steps_congr ρ _ (Nat.le_refl 8) (fun y _ => e y) x hx
   · rw [g₂ _ (by decide) (by decide), k₁]
   · rw [g₂ r h1 h2, g₁ r h1 h3]
-  · rw [show scratchR s₁ = scratchR s by simp only [scratchR, c₁],
+  · rw [show spillR s₁ = spillR s by simp only [spillR, c₁],
       show stateR s₁ = stateR s by simp only [stateR, si₁]] at f₂
     rw [m₁] at f₂
     exact f₂
