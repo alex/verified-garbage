@@ -33,8 +33,8 @@ use crate::arch::aes_siv::{
     VG_AES_SIV_SEAL_VAES_FEATURES, vg_aes_siv_init, vg_aes_siv_init_aesni, vg_aes_siv_init_vaes,
     vg_aes_siv_open, vg_aes_siv_open_aesni, vg_aes_siv_open_vaes, vg_aes_siv_s2v_ad,
     vg_aes_siv_s2v_ad_aesni, vg_aes_siv_s2v_ad_vaes, vg_aes_siv_s2v_start,
-    vg_aes_siv_s2v_start_aesni, vg_aes_siv_s2v_start_vaes, vg_aes_siv_seal,
-    vg_aes_siv_seal_aesni, vg_aes_siv_seal_vaes,
+    vg_aes_siv_s2v_start_aesni, vg_aes_siv_s2v_start_vaes, vg_aes_siv_seal, vg_aes_siv_seal_aesni,
+    vg_aes_siv_seal_vaes,
 };
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;

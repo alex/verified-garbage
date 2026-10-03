@@ -49,7 +49,15 @@ struct AeadCase {
 
 /// Checks one vector: the key, the components, the plaintext, the
 /// synthetic IV and the encrypted data.
-fn check(id: u64, result: Expectation, key: &[u8], ads: &[&[u8]], msg: &[u8], tag: &[u8], ct: &[u8]) {
+fn check(
+    id: u64,
+    result: Expectation,
+    key: &[u8],
+    ads: &[&[u8]],
+    msg: &[u8],
+    tag: &[u8],
+    ct: &[u8],
+) {
     let key = AesSiv::new(key).unwrap();
     let tag: &[u8; 16] = tag.try_into().unwrap();
     let mut buf = ct.to_vec();
@@ -98,7 +106,15 @@ fn aead_aes_siv_cmac() {
         let id = test.tc_id;
         assert_eq!(group.params.key_size, 8 * c.key.0.len(), "tcId {id}");
         assert_eq!(group.params.tag_size, 128, "tcId {id}");
-        check(id, test.result, &c.key.0, &[&c.aad.0, &c.iv.0], &c.msg.0, &c.tag.0, &c.ct.0);
+        check(
+            id,
+            test.result,
+            &c.key.0,
+            &[&c.aad.0, &c.iv.0],
+            &c.msg.0,
+            &c.tag.0,
+            &c.ct.0,
+        );
         if test.result == Expectation::Valid {
             valid += 1;
         } else {
