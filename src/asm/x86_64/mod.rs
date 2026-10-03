@@ -113,6 +113,9 @@ pub(crate) mod poly1305;
 pub(crate) mod rc2;
 
 #[rustfmt::skip]
+pub(crate) mod rsa;
+
+#[rustfmt::skip]
 pub(crate) mod scrypt;
 
 #[rustfmt::skip]
