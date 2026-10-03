@@ -1,0 +1,5 @@
+name = "RFC 7253, The OCB Authenticated-Encryption Algorithm (sample results in Appendix A)"
+directories = ["rfc7253"]
+url = "https://www.rfc-editor.org/rfc/rfc7253.txt"
+sha256 = "c32892a848c40853a13f2ac087c7a847707a1d9d5d22678c84125954f7e72545"
+retrieved = 2026-10-03

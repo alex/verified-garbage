@@ -560,6 +560,22 @@ yours to keep:
 
 <tr>
 
+<td>AES-OCB3 (128-, 192- and 256-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>ChaCha20-Poly1305</td>
 
 <td>✅</td>
