@@ -70,45 +70,40 @@ theorem slAdd_ok {M : Mod} {m : Nat} (hMn : M.n = c.n) (h7 : c.n < 7) {base : Ad
   exact this
 
 /-- A multiplication by `1` leaves Montgomery's form. -/
-theorem toM_one_mul {m R r A : Nat} (hR : Nat.Coprime R m) (h : r * R % m = A * 1 % m) :
-    (r : ZMod m) = toM m R A := by
-  have h' : (r : ZMod m) * R = A := by
-    have := (ZMod.natCast_eq_natCast_iff' (r * R) (A * 1) m).mpr h
-    rwa [Nat.cast_mul, Nat.mul_one] at this
-  have hu : (R : ZMod m) * (R : ZMod m)⁻¹ = 1 := ZMod.coe_mul_inv_eq_one R hR
+theorem toM_one_mul {m R r A : Nat} [NeZero m] (hR : UnitMod m R) (h : r * R % m = A * 1 % m) :
+    Fin.ofNat m r = toM m R A := by
+  have h' : Fin.ofNat m r * Fin.ofNat m R = Fin.ofNat m A := by
+    rw [← ofNat_mul', ofNat_eq_ofNat, h, Nat.mul_one]
+  have hu := mul_rinv hR
   unfold toM
-  rw [← h', mul_assoc, hu, mul_one]
+  grind
 
 /-- A multiplication by `R² mod m` enters Montgomery's form. -/
-theorem toM_r2 {m R r A : Nat} (hR : Nat.Coprime R m) (h : r * R % m = A * (R * R % m) % m) :
-    toM m R r = (A : ZMod m) := by
-  have h' : (r : ZMod m) * R = A * (R * R) := by
-    have := (ZMod.natCast_eq_natCast_iff' (r * R) (A * (R * R % m)) m).mpr h
-    rwa [Nat.cast_mul, Nat.cast_mul, ZMod.natCast_mod, Nat.cast_mul] at this
-  have hu : (R : ZMod m) * (R : ZMod m)⁻¹ = 1 := ZMod.coe_mul_inv_eq_one R hR
+theorem toM_r2 {m R r A : Nat} [NeZero m] (hR : UnitMod m R) (h : r * R % m = A * (R * R % m) % m) :
+    toM m R r = Fin.ofNat m A := by
+  have h' : Fin.ofNat m r * Fin.ofNat m R = Fin.ofNat m A * (Fin.ofNat m R * Fin.ofNat m R) := by
+    rw [← ofNat_mul', ← ofNat_mul', ← ofNat_mul', ofNat_eq_ofNat, h, Nat.mul_mod, Nat.mod_mod,
+      ← Nat.mul_mod]
+  have hu := mul_rinv hR
   unfold toM
-  have : (r : ZMod m) = A * R := by
-    have e : (r : ZMod m) * R * (R : ZMod m)⁻¹ = A * (R * R) * (R : ZMod m)⁻¹ := by rw [h']
-    rwa [mul_assoc, hu, mul_one, mul_assoc, mul_assoc, hu, mul_one] at e
-  rw [this, mul_assoc, hu, mul_one]
+  grind
 
 /-- What `x R mod m` stands for. -/
-theorem toM_mont {m R x : Nat} (hR : Nat.Coprime R m) : toM m R (x * R % m) = (x : ZMod m) := by
+theorem toM_mont {m R x : Nat} [NeZero m] (hR : UnitMod m R) : toM m R (x * R % m) = Fin.ofNat m x := by
   unfold toM
-  rw [ZMod.natCast_mod, Nat.cast_mul, mul_assoc, ZMod.coe_mul_inv_eq_one R hR, mul_one]
+  rw [ofNat_mod, ofNat_mul', Lean.Grind.Semiring.mul_assoc, mul_rinv hR, Lean.Grind.Semiring.mul_one]
 
 /-- A number below `m` stands for zero only if it is zero. -/
-theorem toM_eq_zero_iff {m R x : Nat} (hR : Nat.Coprime R m) (hx : x < m) : toM m R x = 0 ↔ x = 0 := by
+theorem toM_eq_zero_iff {m R x : Nat} [NeZero m] (hR : UnitMod m R) (hx : x < m) :
+    toM m R x = 0 ↔ x = 0 := by
   unfold toM
   constructor
   · intro h
-    have hu : (R : ZMod m) * (R : ZMod m)⁻¹ = 1 := ZMod.coe_mul_inv_eq_one R hR
-    have h' : (x : ZMod m) = 0 := by
-      have e := congrArg (· * (R : ZMod m)) h
-      simp only [zero_mul] at e
-      rwa [mul_assoc, mul_comm _ (R : ZMod m), hu, mul_one] at e
-    exact Nat.eq_zero_of_dvd_of_lt ((ZMod.natCast_eq_zero_iff _ _).mp h') hx
+    have hu := mul_rinv hR
+    have h' : Fin.ofNat m x = 0 := by grind
+    have := congrArg Fin.val h'
+    rwa [Fin.val_ofNat, Nat.mod_eq_of_lt hx] at this
   · rintro rfl
-    rw [Nat.cast_zero, zero_mul]
+    exact Lean.Grind.Semiring.zero_mul _
 
 end VG.Proof.Ecdsa.X86_64

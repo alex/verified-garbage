@@ -70,8 +70,8 @@ structure ScPost (c : Cfg) (base : Addr) (s s' : State) : Prop where
   wr : s'.wr = s.wr
   unch : Unch base ([RM, DM, EM, TT, SM, SS, TMP].map fun i => (c.sl i, 8 * c.n)) s.mem s'.mem
   ss_lt : sv c base s' SS < c.C.n
-  ss : (sv c base s' SS : ZMod c.C.n) = toM c.C.n (2 ^ (64 * c.n)) (sv c base s ACC) *
-    ((sv c base s E : ZMod c.C.n) + (sv c base s RR : ZMod c.C.n) * (sv c base s D : ZMod c.C.n))
+  ss : Fin.ofNat c.C.n (sv c base s' SS) = toM c.C.n (2 ^ (64 * c.n)) (sv c base s ACC) *
+    (Fin.ofNat c.C.n (sv c base s E) + Fin.ofNat c.C.n (sv c base s RR) * Fin.ofNat c.C.n (sv c base s D))
 
 /-- The first three multiplications by `R² mod n`. -/
 theorem scalarIn_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size)
@@ -82,16 +82,16 @@ theorem scalarIn_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base si
       (∀ r, r ∉ clob c.n → s'.gpr r = s.gpr r) → s'.rd = s.rd → s'.wr = s.wr →
       Unch base ([RM, DM, EM, TT, SM, SS, TMP].map fun i => (c.sl i, 8 * c.n)) s.mem s'.mem →
       sv c base s' RM < c.C.n → sv c base s' DM < c.C.n → sv c base s' EM < c.C.n →
-      toM c.C.n (2 ^ (64 * c.n)) (sv c base s' RM) = (sv c base s RR : ZMod c.C.n) →
-      toM c.C.n (2 ^ (64 * c.n)) (sv c base s' DM) = (sv c base s D : ZMod c.C.n) →
-      toM c.C.n (2 ^ (64 * c.n)) (sv c base s' EM) = (sv c base s E : ZMod c.C.n) →
+      toM c.C.n (2 ^ (64 * c.n)) (sv c base s' RM) = Fin.ofNat c.C.n (sv c base s RR) →
+      toM c.C.n (2 ^ (64 * c.n)) (sv c base s' DM) = Fin.ofNat c.C.n (sv c base s D) →
+      toM c.C.n (2 ^ (64 * c.n)) (sv c base s' EM) = Fin.ofNat c.C.n (sv c base s E) →
       WP isa rest s' Q) :
     WP isa (.seq (.block (mul c.MN' (c.sl RM) (c.sl RR) (c.sl R2N)))
       (.seq (.block (mul c.MN' (c.sl DM) (c.sl D) (c.sl R2N)))
       (.seq (.block (mul c.MN' (c.sl EM) (c.sl E) (c.sl R2N))) rest))) s Q := by
   have h7 := hc.n7
   have hn := hs.nowrap
-  have hnR := coprime_pow_two hc.n_odd (64 * c.n)
+  have hnR := unitMod_pow_two hc.n_odd (64 * c.n)
   have hn3 := hc.n_ge
   have hr2lt : sv c base s R2N < c.C.n := by rw [hr2]; exact Nat.mod_lt _ (by omega)
   refine WP.seq (WP.mono (slMul_ok (MN'_n c) h7 hs hMN (o := RM) (a := RR) (b := R2N) (by decide)
@@ -136,7 +136,7 @@ theorem scalarOut_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base s
       s'.wr = s.wr →
       Unch base ([RM, DM, EM, TT, SM, SS, TMP].map fun i => (c.sl i, 8 * c.n)) s.mem s'.mem →
       sv c base s' SS < c.C.n →
-      (sv c base s' SS : ZMod c.C.n) = toM c.C.n (2 ^ (64 * c.n)) (sv c base s ACC) *
+      Fin.ofNat c.C.n (sv c base s' SS) = toM c.C.n (2 ^ (64 * c.n)) (sv c base s ACC) *
         (toM c.C.n (2 ^ (64 * c.n)) (sv c base s RM) * toM c.C.n (2 ^ (64 * c.n)) (sv c base s DM) +
           toM c.C.n (2 ^ (64 * c.n)) (sv c base s EM)) →
       WP isa rest s' Q) :
@@ -146,7 +146,7 @@ theorem scalarOut_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base s
       (.seq (.block (mul c.MN' (c.sl SS) (c.sl SM) (c.sl ONE))) rest)))) s Q := by
   have h7 := hc.n7
   have hn := hs.nowrap
-  have hnR := coprime_pow_two hc.n_odd (64 * c.n)
+  have hnR := unitMod_pow_two hc.n_odd (64 * c.n)
   have hn3 := hc.n_ge
   refine WP.seq (WP.mono (slMul_ok (MN'_n c) h7 hs hMN (o := TT) (a := RM) (b := DM) (by decide)
     (by decide) (by decide) hdm) fun s₁ ⟨k₁, lt₁, e₁⟩ => ?_)
