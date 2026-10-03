@@ -16,6 +16,12 @@ made with a backend: its streaming functions as the code calls them
 (`mdHash`, `Impl/Pbkdf2/Md/X86.lean`), and the functions the whole of PBKDF2
 calls (`fns`, `Impl/Pbkdf2/Whole/X86.lean`), by the names the generic
 registration files give them (with the backend's suffix).
+
+SHA-224 is SHA-256 from another initial hash value, so HMAC-SHA-224 and
+PBKDF2-HMAC-SHA-224 are the same code at SHA-224 made with a backend
+(`hmacHash224`, `mdHash224`, `fns224`): SHA-224's `init`, the backend's
+SHA-256 `update`, `finalize` and compression function, and a 28-byte digest
+of the 32 bytes `finalize` writes.
 -/
 
 namespace VG.Proof.Sha256.X86.Variants
@@ -46,5 +52,31 @@ def fns (suffix cmpN : String) (cmpC updC finC : Prog isa) : Impl.Pbkdf2.Whole.X
   hfC := (mdHash suffix cmpN cmpC updC finC).hmacFin
   itN := Spec.Hmac.sha256I.iterateApi.name ++ suffix
   itC := (mdHash suffix cmpN cmpC updC finC).iterate
+
+/-- SHA-224's streaming functions: SHA-224's `init`, and a backend's SHA-256
+`update` and `finalize` (`updC`, `finC`), named with its suffix: SHA-256's
+96-byte state and 20 words of working space, and a 28-byte digest of the
+32 bytes `finalize` writes. -/
+def hmacHash224 (suffix : String) (updC finC : Prog isa) : Impl.Pbkdf2.Stream.X86.Hash :=
+  ⟨64, 96, 28, 32, 20, Spec.Sha256.init224Api.name, Impl.Sha256.X86.Stream.init224,
+    Spec.Sha256.updateApi.name ++ suffix, updC, Spec.Sha256.finalizeApi.name ++ suffix, finC⟩
+
+/-- SHA-224 as a Merkle–Damgård hash function, with a backend's SHA-256
+compression function `cmpN`/`cmpC` and the streaming functions calling it:
+SHA-256's 32-byte hash value, big-endian 8-byte length field and 112 bytes of
+scratch space for the compression function. -/
+def mdHash224 (suffix cmpN : String) (cmpC updC finC : Prog isa) : Impl.Pbkdf2.Md.X86.Hash :=
+  ⟨hmacHash224 suffix updC finC, 32, 8, true, 112, cmpN, cmpC, Impl.Sha256.X86.Stream.params.out⟩
+
+/-- The functions the whole of PBKDF2 calls for SHA-224 with a backend. -/
+def fns224 (suffix cmpN : String) (cmpC updC finC : Prog isa) : Impl.Pbkdf2.Whole.X86.Fns where
+  H := hmacHash224 suffix updC finC
+  W := Spec.Hmac.sha224I.scratch
+  hiN := Spec.Hmac.sha224I.initApi.name ++ suffix
+  hiC := (mdHash224 suffix cmpN cmpC updC finC).hmacInit
+  hfN := Spec.Hmac.sha224I.finalizeApi.name ++ suffix
+  hfC := (mdHash224 suffix cmpN cmpC updC finC).hmacFin
+  itN := Spec.Hmac.sha224I.iterateApi.name ++ suffix
+  itC := (mdHash224 suffix cmpN cmpC updC finC).iterate
 
 end VG.Proof.Sha256.X86.Variants
