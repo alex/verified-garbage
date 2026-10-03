@@ -47,9 +47,9 @@ impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     fn select(f: Features) -> Backend {
-        if f.contains(Features::of(VG_X25519_IFMA_FEATURES)) {
+        if f.contains(const { Features::of(VG_X25519_IFMA_FEATURES) }) {
             Backend::Ifma
-        } else if f.contains(Features::of(VG_X25519_ADX_FEATURES)) {
+        } else if f.contains(const { Features::of(VG_X25519_ADX_FEATURES) }) {
             Backend::Adx
         } else {
             Backend::Baseline

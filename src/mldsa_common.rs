@@ -32,12 +32,12 @@ impl Backend {
     pub(crate) fn select(
         keccak: crate::hashes::sha3::Backend,
         f: crate::cpu::Features,
-        avx2: &[&[&str]],
+        avx2: crate::cpu::Features,
     ) -> Backend {
         match keccak {
             crate::hashes::sha3::Backend::Scalar => {
                 #[cfg(target_arch = "x86_64")]
-                if f.contains(crate::cpu::Features::all(avx2)) {
+                if f.contains(avx2) {
                     return Backend::Avx2;
                 }
                 Backend::Scalar
@@ -87,13 +87,13 @@ macro_rules! ml_dsa {
         /// the CPU has what its callers need.
         fn backend() -> Backend {
             #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
-            if !$crate::cpu::detected().contains($crate::cpu::Features::all(&[
+            if !$crate::cpu::detected().contains(const { $crate::cpu::Features::all(&[
                 $keygen_sha3_features,
                 $sign_sha3_features,
                 $verify_sha3_features,
                 $sign_message_sha3_features,
                 $verify_message_sha3_features,
-            ])) {
+            ]) }) {
                 return Backend::Scalar;
             }
             #[cfg(target_arch = "x86_64")]
@@ -106,7 +106,11 @@ macro_rules! ml_dsa {
             ];
             #[cfg(not(target_arch = "x86_64"))]
             const AVX2: &[&[&str]] = &[];
-            Backend::select($crate::hashes::sha3::Backend::detected(), $crate::cpu::detected(), AVX2)
+            Backend::select(
+                $crate::hashes::sha3::Backend::detected(),
+                $crate::cpu::detected(),
+                const { $crate::cpu::Features::all(AVX2) },
+            )
         }
 
         /// Why an operation failed.

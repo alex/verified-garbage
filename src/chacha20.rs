@@ -86,11 +86,11 @@ impl Backend {
     /// ChaCha20-Poly1305's need too, see its tests).
     #[cfg(target_arch = "aarch64")]
     pub(crate) fn select(f: Features) -> Backend {
-        if f.contains(Features::of(&["neon"]))
-            && f.contains(Features::of(VG_CHACHA20_APPLY_SVE2_FEATURES))
+        if f.contains(const { Features::of(&["neon"]) })
+            && f.contains(const { Features::of(VG_CHACHA20_APPLY_SVE2_FEATURES) })
         {
             Backend::Sve2
-        } else if f.contains(Features::of(&["neon"])) {
+        } else if f.contains(const { Features::of(&["neon"]) }) {
             Backend::Neon
         } else {
             Backend::Scalar
@@ -102,8 +102,8 @@ impl Backend {
     pub(crate) fn select(f: Features) -> Backend {
         Backend::select_for(
             f,
-            VG_CHACHA20_APPLY_AVX512_FEATURES,
-            VG_CHACHA20_APPLY_AVX2_FEATURES,
+            const { Features::of(VG_CHACHA20_APPLY_AVX512_FEATURES) },
+            const { Features::of(VG_CHACHA20_APPLY_AVX2_FEATURES) },
         )
     }
 
@@ -112,10 +112,10 @@ impl Backend {
     /// `avx512` and `avx2` (ChaCha20-Poly1305's, which also call Poly1305
     /// with AVX2, need more than `vg_chacha20_apply`'s).
     #[cfg(target_arch = "x86_64")]
-    pub(crate) fn select_for(f: Features, avx512: &[&str], avx2: &[&str]) -> Backend {
-        if f.contains(Features::of(avx512)) {
+    pub(crate) fn select_for(f: Features, avx512: Features, avx2: Features) -> Backend {
+        if f.contains(avx512) {
             Backend::Avx512
-        } else if f.contains(Features::of(avx2)) {
+        } else if f.contains(avx2) {
             Backend::Avx2
         } else {
             Backend::Scalar

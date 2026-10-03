@@ -55,12 +55,16 @@ impl Field {
     /// The fastest field multiplications a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     fn select(f: Features) -> Field {
-        let adx = f.contains(Features::all(&[
-            VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
-            VG_ED25519_SIGN_CACHED_ADX_FEATURES,
-            VG_ED25519_VERIFY_ADX_FEATURES,
-        ]));
-        if adx && f.contains(Features::of(VG_ED25519_VERIFY_IFMA_FEATURES)) {
+        let adx = f.contains(
+            const {
+                Features::all(&[
+                    VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
+                    VG_ED25519_SIGN_CACHED_ADX_FEATURES,
+                    VG_ED25519_VERIFY_ADX_FEATURES,
+                ])
+            },
+        );
+        if adx && f.contains(const { Features::of(VG_ED25519_VERIFY_IFMA_FEATURES) }) {
             Field::Ifma
         } else if adx {
             Field::Adx
