@@ -87,15 +87,23 @@ def callUpdate (c : Ctr32) (sfx : String) : Prog isa :=
 def callFinalize (c : Ctr32) (sfx : String) : Prog isa :=
   .call ("vg_cmac_aes_finalize" ++ sfx) (Impl.CmacAes.X86_64.finalize c)
 
+/-- `mov [b + d], r` for each `(r, d)` of `l` (`VG.X86_64.Spill.saveCode`). -/
+def saveCode (b : Reg) (l : List (Reg × Nat)) : List Instr :=
+  l.map fun p => .store { base := b, disp := p.2 } p.1
+
+/-- `mov r, [b + d]` for each `(r, d)` of `l` (`VG.X86_64.Spill.restoreCode`). -/
+def restoreCode (b : Reg) (l : List (Reg × Nat)) : List Instr :=
+  l.map fun p => .mov p.1 (.mem { base := b, disp := p.2 })
+
 def saved : List (Reg × Nat) :=
   [(.rbx, saveOff), (.rbp, saveOff + 8), (.r12, saveOff + 16), (.r13, saveOff + 24),
    (.r14, saveOff + 32), (.r15, saveOff + 40)]
 
 /-- Saves the registers in the working space at `w`. -/
-def save (w : Reg) : List Instr := saved.map fun (r, d) => .store (at_ w d) r
+def save (w : Reg) : List Instr := saveCode w saved
 
 /-- Restores the registers, with `r15` (restored last) the working space. -/
-def restore : List Instr := saved.map fun (r, d) => .mov r (.mem (at_ .r15 d))
+def restore : List Instr := restoreCode .r15 saved
 
 /-- The 16 bytes at `b + d` zeroed (`rax` zero). -/
 def zero16 (b : Reg) (d : Nat) : List Instr :=
@@ -107,13 +115,18 @@ def initSaved : List (Reg × Nat) :=
   [(.rbx, saveOff), (.rbp, saveOff + 8), (.r12, saveOff + 16), (.r13, saveOff + 24),
    (.r14, saveOff + 32)]
 
+/-- `initSaved` with `r13`, the base, last. -/
+def initRestored : List (Reg × Nat) :=
+  [(.rbx, saveOff), (.rbp, saveOff + 8), (.r12, saveOff + 16), (.r14, saveOff + 32),
+   (.r13, saveOff + 24)]
+
 /-- Saves the registers and keeps the key in `rbx`, the half length
 (`key_len / 2`) in `rbp`, the context in `r12`, the working space in `r13`
 and the rounds (`key_len / 8 + 6`) in `r14`; then the arguments of
 `vg_aes_expand_key(key = rdi, key_len = rsi, schedule = rdx, scratch = rcx)`
 for `K1`. -/
 def initPre : List Instr :=
-  initSaved.map (fun (r, d) => .store (at_ .rcx d) r) ++
+  saveCode .rcx initSaved ++
   [.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .shift .shr .rbp 1, .mov .r12 (.reg .rdx),
    .mov .r13 (.reg .rcx), .mov .r14 (.reg .rsi), .shift .shr .r14 3, .alu .add .r14 (imm 6),
    .mov .rsi (.reg .rbp), .alu .add .rcx (imm csOff)]
@@ -129,10 +142,7 @@ def initMid₂ : List Instr :=
    .alu .add .rdx (imm 272), .mov .rcx (.reg .r13), .alu .add .rcx (imm csOff)]
 
 /-- The registers restored, with `r13` (restored last) the working space. -/
-def initPost : List Instr :=
-  [.mov .rbx (.mem (at_ .r13 saveOff)), .mov .rbp (.mem (at_ .r13 (saveOff + 8))),
-   .mov .r12 (.mem (at_ .r13 (saveOff + 16))), .mov .r14 (.mem (at_ .r13 (saveOff + 32))),
-   .mov .r13 (.mem (at_ .r13 (saveOff + 24)))]
+def initPost : List Instr := restoreCode .r13 initRestored
 
 def init (e : ExpandKey) (c : Ctr32) (sfx : String) : Prog isa :=
   .seq (.block initPre)
