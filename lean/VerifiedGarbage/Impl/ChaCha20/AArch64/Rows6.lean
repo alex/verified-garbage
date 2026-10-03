@@ -72,7 +72,15 @@ def setup : List Instr := (List.finRange 24).flatMap setupRow ++ Neon4.setupTabl
 def addRow (k : Fin 24) : List Instr := inputRowInto k .v31 ++
   [.vop (.add .s4 (vreg k) (vreg k) .v31)]
 
-def feedForward : List Instr := (List.finRange 24).flatMap addRow
+/-- Load each common row once for its six independent additions. -/
+def cachedFeedRow (r : Fin 3) : List Instr :=
+  [.ldrq .v31 .x0 (16 * r.val)] ++
+    (List.finRange 6).map fun b => Instr.vop (.add .s4
+      (vreg (row b ⟨r.val, by omega⟩)) (vreg (row b ⟨r.val, by omega⟩)) .v31)
+
+def feedForward : List Instr :=
+  cachedFeedRow 0 ++ cachedFeedRow 1 ++ cachedFeedRow 2 ++
+    (List.finRange 6).flatMap (fun b => addRow (row b 3))
 
 /-- Rows already have the output byte order, so no transpose is needed. -/
 def xorRow (k : Fin 24) : List Instr :=

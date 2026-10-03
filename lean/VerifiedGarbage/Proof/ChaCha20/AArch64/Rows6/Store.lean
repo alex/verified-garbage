@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.ChaCha20.AArch64.Rows6.Add
+import VerifiedGarbage.Proof.ChaCha20.AArch64.Rows6.CachedAdd
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Neon4.Store
 
 namespace VG.Proof.ChaCha20.AArch64.Rows6

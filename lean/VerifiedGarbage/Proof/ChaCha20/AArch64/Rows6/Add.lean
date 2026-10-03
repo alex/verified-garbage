@@ -58,16 +58,4 @@ theorem addList_ok (ks : List (Fin 24)) (hn : ks.Nodup) {s₀ s : State} {done :
     refine ⟨fun l j hj => ?_,hu.same⟩
     simpa only [List.mem_append,List.mem_cons,or_assoc,or_left_comm] using hu.words l j hj
 
-theorem feedForward_ok (s : State)
-    (hin : ∀ k : Fin 24, InRegions (s.rd ++ s.wr)
-      (s.gpr .x0 + BitVec.ofNat 64 (16 * (k.val % 4))) 16)
-    (hctr : InRegions (s.rd ++ s.wr) (s.gpr .x0 + 48) 4) :
-    WP isa (.block feedForward) s fun u =>
-      (∀ k : Fin 24, ∀ j, j < 4 → vword (u.v (vreg k)) j =
-        vword (s.v (vreg k)) j + input s k j) ∧ LoadSame s u := by
-  refine (addList_ok (List.finRange 24) (List.nodup_finRange 24) (done := [])
-    ⟨(fun _ _ _ => by simp),VG.Proof.ChaCha20.AArch64.Neon4.LoadSame.refl s⟩
-    (fun _ _ h => by cases h) hin hctr).mono fun u hu => ⟨?_,hu.same⟩
-  intro k j hj
-  simpa only [List.append_nil,List.mem_finRange,ite_true] using hu.words k j hj
 end VG.Proof.ChaCha20.AArch64.Rows6
