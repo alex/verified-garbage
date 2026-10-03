@@ -227,6 +227,8 @@ def Instr.asm : Instr → List String
   | .adox d s => [s!"adox {d.name}, {s.str}"]
   | .push rs => rs.map fun r => s!"push {r.name}"
   | .pop r k => List.replicate k s!"pop {r.name}"
+  | .alloc bytes => [s!"lea rsp, [rsp-{bytes}]"]
+  | .free bytes => [s!"lea rsp, [rsp+{bytes}]"]
 
 def Cond.name : Cond → String
   | .e => "e" | .ne => "ne" | .b => "b" | .ae => "ae"
@@ -256,7 +258,7 @@ def Instr.memOps : Instr → List MemOp
   | .vmovdqu32Store m _ | .vbroadcasti32x4 _ m | .zbcst _ _ _ m | .stmxcsr m | .ldmxcsr m => [m]
   | .shift32 .. | .bswap32 _ | .rorx32 .. | .andn32 .. | .rorx .. | .andn .. | .bswap _
   | .shift .. | .movImm64 .. | .xop _ | .vop _ | .vpmovmskb .. | .zop _ | .lfence | .mul _
-  | .push _ | .pop .. => []
+  | .push _ | .pop .. | .alloc _ | .free _ => []
 
 def printer : Printer isa where
   instr := Instr.asm
