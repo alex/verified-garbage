@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.X448.X86_64.Adx
+import VerifiedGarbage.Impl.X448.X86_64
 import VerifiedGarbage.Impl.Ed448.X86_64.Scalar
 import VerifiedGarbage.Spec.Ed448
 
@@ -119,26 +119,35 @@ def mulLoop (F : Field) : Prog isa :=
 /-! ## Entry and exit -/
 
 /-- The callee-saved registers saved at the working space `rdx`, the output's
-address at `OUT`, the working space into `rdi`, and the constants. -/
+address into `r15`, the working space into `rdi`, and the constants. -/
 def entry : List Instr :=
-  saveAt .rdx ++ ([.store (at_ .rdx OUT) .rdi, .mov .rdi (.reg .rdx)] ++ consts)
+  saveAt .rdx ++ ([.mov .r15 (.reg .rdi), .mov .rdi (.reg .rdx)] ++ consts)
+
+/-- The output's address at `OUT`, once the scalar's bits are stored (a store
+of a secret at an address with a counter, as the bits are, would leave the
+taint analysis unable to tell that `OUT` holds a public value). -/
+def stashOut : List Instr := [.store (at_ .rdi OUT) .r15]
+
+/-- `rsi = 128 · (r8 mod 2)`: the top bit of the encoding's last byte, from
+the low bit of `x`. -/
+def signBit : List Instr := [.mov .rsi (.reg .r8), .alu .and .rsi (.imm 1), .shift .ror .rsi 57]
 
 /-- `x = X/Z` into slot 3 and `y = Y/Z` into slot 4, with `1/Z` in slot 21
-(the inversion's result); `y` fully reduced to the output's first 56 bytes,
-and the low bit of `x` as the top bit of its 57th; then the callee-saved
-registers restored. -/
+(the inversion's result); `x` fully reduced and its low bit kept in `rsi`;
+`y` fully reduced to the output's first 56 bytes, and the low bit of `x` as
+the top bit of its 57th; then the callee-saved registers restored. The
+output's address is read from `OUT` once, before any store to the output
+(after which the taint analysis no longer knows `OUT` to be public). -/
 def encode (F : Field) : List Instr :=
-  F.mul (slot 3) (slot 0) (slot 21) ++ (F.mul (slot 4) (slot 1) (slot 21) ++ (freeze (slot 4) ++
-    ([.mov .rax (.mem (sc OUT))] ++ ((List.range 7).map (fun i => .store (at_ .rax (8 * i)) (w i)) ++
-    (freeze (slot 3) ++ ([.mov .rax (.mem (sc OUT)), .alu .and .r8 (.imm 1), .shift .ror .r8 57,
-      .store8 (at_ .rax 56) .r8] ++ Impl.X448.X86_64.restore))))))
+  F.mul (slot 3) (slot 0) (slot 21) ++ (F.mul (slot 4) (slot 1) (slot 21) ++ (freeze (slot 3) ++
+    (signBit ++ (freeze (slot 4) ++ ([.mov .rax (.mem (sc OUT))] ++
+    ((List.range 7).map (fun i => .store (at_ .rax (8 * i)) (w i)) ++
+    ([.store8 (at_ .rax 56) .rsi] ++ Impl.X448.X86_64.restore)))))))
 
 /-- `vg_ed448_scalar_base` with the field multiplications `F`. -/
 def scalarBaseWith (F : Field) : Prog isa :=
-  .seq (.block entry) <| .seq bits <| .seq (mulLoop F) <| .seq (invert F) (.block (encode F))
+  .seq (.block entry) <| .seq bits <| .seq (.block stashOut) <| .seq (mulLoop F) <| .seq (invert F) (.block (encode F))
 
 def scalarBase : Prog isa := scalarBaseWith Impl.X448.X86_64.baseline
-
-def scalarBaseAdx : Prog isa := scalarBaseWith Impl.X448.X86_64.adx
 
 end VG.Impl.Ed448.X86_64

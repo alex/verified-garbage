@@ -119,4 +119,12 @@ theorem encodeLE_57 (y b : Nat) (hy : y < 256 ^ 56) :
       Nat.zero_add, Nat.mul_comm]
   rw [e2, ← Proof.X25519.leBytes_mod 56, hM, e1]
 
+/-- A 57-byte number has no bits from 456 up. -/
+theorem decodeLE_shift_456 (xs : List Byte) (h : xs.length = 57) : decodeLE xs >>> 456 = 0 := by
+  have hl := decodeLE_lt' xs
+  rw [h] at hl
+  have e : (2 : Nat) ^ 456 = 256 ^ 57 := by decide +kernel
+  rw [Nat.shiftRight_eq_div_pow, e]
+  exact Nat.div_eq_of_lt hl
+
 end VG.Proof.Ed448
