@@ -24,6 +24,7 @@ mod chacha20;
 mod chacha20poly1305;
 mod cmac_aes;
 mod cmac_triple_des;
+mod ecdh_p256;
 mod ecdsa_p256;
 mod ed25519;
 mod hmac_md5;
@@ -286,6 +287,7 @@ const BENCHES: &[Bench] = &[
     (x448::USES, x448::bench),
     (ed25519::USES, ed25519::bench),
     (ecdsa_p256::USES, ecdsa_p256::bench),
+    (ecdh_p256::USES, ecdh_p256::bench),
 ];
 
 /// Runs the benchmarks that use any of the modules in `$VG_BENCH_MODULES`

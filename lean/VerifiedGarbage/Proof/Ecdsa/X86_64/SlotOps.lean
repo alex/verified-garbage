@@ -97,4 +97,18 @@ theorem toM_mont {m R x : Nat} (hR : Nat.Coprime R m) : toM m R (x * R % m) = (x
   unfold toM
   rw [ZMod.natCast_mod, Nat.cast_mul, mul_assoc, ZMod.coe_mul_inv_eq_one R hR, mul_one]
 
+/-- A number below `m` stands for zero only if it is zero. -/
+theorem toM_eq_zero_iff {m R x : Nat} (hR : Nat.Coprime R m) (hx : x < m) : toM m R x = 0 ↔ x = 0 := by
+  unfold toM
+  constructor
+  · intro h
+    have hu : (R : ZMod m) * (R : ZMod m)⁻¹ = 1 := ZMod.coe_mul_inv_eq_one R hR
+    have h' : (x : ZMod m) = 0 := by
+      have e := congrArg (· * (R : ZMod m)) h
+      simp only [zero_mul] at e
+      rwa [mul_assoc, mul_comm _ (R : ZMod m), hu, mul_one] at e
+    exact Nat.eq_zero_of_dvd_of_lt ((ZMod.natCast_eq_zero_iff _ _).mp h') hx
+  · rintro rfl
+    rw [Nat.cast_zero, zero_mul]
+
 end VG.Proof.Ecdsa.X86_64

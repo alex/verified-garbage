@@ -32,6 +32,9 @@ pub(crate) mod ct;
 pub(crate) mod ec_p256;
 
 #[rustfmt::skip]
+pub(crate) mod ecdh_p256;
+
+#[rustfmt::skip]
 pub(crate) mod ecdsa_p256;
 
 #[rustfmt::skip]

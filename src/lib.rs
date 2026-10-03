@@ -85,6 +85,7 @@ pub mod chacha20;
 pub mod chacha20poly1305;
 pub mod cmac;
 mod ct;
+pub mod ecdh;
 pub mod ecdsa;
 pub mod ed25519;
 pub mod hashes;
