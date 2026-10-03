@@ -32,7 +32,6 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LEAN = ROOT / "lean"
-FRAMEWORK = LEAN / "VerifiedGarbage" / "Proof" / "Framework"
 
 LIMITS = r"(?:maxHeartbeats|maxRecDepth|synthInstance\.maxHeartbeats|synthInstance\.maxSize)"
 SET_LIMIT = re.compile(rf"\bset_option\s+{LIMITS}\b")
@@ -40,7 +39,6 @@ LAKEFILE_LIMIT = re.compile(rf"^\s*{LIMITS}\s*=", re.M)
 BIG_IMPORT = re.compile(r"^\s*import\s+(Mathlib|Mathlib\.Tactic)\s*$", re.M)
 SIMP_ARGS = re.compile(r"\bsimp(?:_all|a)?\b[^\[\n]*\[([^\]]*)\]")
 UNFOLD = re.compile(r"(?<![\w.])(runBlock|runStep)(?![\w.])")
-PROOF = LEAN / "VerifiedGarbage" / "Proof"
 THEOREM = re.compile(r"^(?:private |protected )?(?:theorem|lemma) ", re.M)
 DOT_LIST = re.compile(r"\[\s*\.")
 META = re.compile(
@@ -49,6 +47,7 @@ META = re.compile(
     r"\b(?:CoreM|MetaM|SimpM|TermElabM|TacticM|CommandElabM)\b",
     re.M,
 )
+META_WORDS = ("elab", "simproc", "CoreM", "MetaM", "SimpM", "TermElabM", "TacticM", "CommandElabM")
 IMPORT = re.compile(r"^import\s+([\w.]+)", re.M)
 TAUTO = re.compile(r"(?<![\w.])tauto(?![\w.])")
 HEAVY_MATHLIB = (
@@ -123,7 +122,7 @@ def in_globs(module: str, globs: list[str]) -> bool:
 def uncompiled_meta(rel_module: str, text: str, globs: list[str]) -> bool:
     """Whether the module defines meta code, could be compiled (it imports only
     Lean core and precompiled modules), and is not."""
-    if not META.search(text) or in_globs(rel_module, globs):
+    if not any(k in text for k in META_WORDS) or not META.search(text) or in_globs(rel_module, globs):
         return False
     core = ("Init", "Std", "Lean")
     return all(i.split(".")[0] in core or in_globs(i, globs) for i in IMPORT.findall(text))
@@ -171,7 +170,7 @@ def main() -> int:
         module = ".".join(f.relative_to(LEAN).with_suffix("").parts)
         imports[module] = IMPORT.findall(text)
         paths[module] = rel
-        code = strip_comments(text)
+        code = strip_comments(text) if "tauto" in text else ""
         for m in TAUTO.finditer(code):
             errors.append(f"{rel}:{line_of(code, m.start())}: `tauto` runs interpreted; use `grind`, `simp` or `decide`")
         if uncompiled_meta(module, text, globs):
@@ -183,13 +182,15 @@ def main() -> int:
             errors.append(f"{rel}:{line_of(text, m.start())}: changes a resource limit; make the proof faster instead")
         for m in BIG_IMPORT.finditer(text):
             errors.append(f"{rel}:{line_of(text, m.start())}: imports {m.group(1)}; import the modules you use")
-        if PROOF in f.parents:
+        if module.startswith("VerifiedGarbage.Proof."):
             for i in unascribed_lists(text):
                 errors.append(
                     f"{rel}:{line_of(text, i)}: instruction list next to `++` in a theorem statement; "
                     "ascribe it: `([.op …] : List Instr)`"
                 )
-        if FRAMEWORK in f.parents:
+        if module.startswith("VerifiedGarbage.Proof.Framework."):
+            continue
+        if "runBlock" not in text and "runStep" not in text:
             continue
         for m in SIMP_ARGS.finditer(text):
             for u in UNFOLD.finditer(m.group(1)):
