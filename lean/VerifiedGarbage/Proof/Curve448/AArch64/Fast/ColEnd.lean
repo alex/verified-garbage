@@ -31,29 +31,27 @@ theorem mask_val : (BitVec.ofNat 64 (2 ^ 56 - 1) : BitVec 64) =
 /-- Add the carry `c`: `ZERO` holds zero. -/
 theorem carryIn_ok (s : State) (a : Acc) (c : Reg) (h₁ : a.lo ≠ a.hi) (h₂ : a.lo ≠ ZERO)
     (hz : s.gpr ZERO = 0) (hlt : accVal s a + (s.gpr c).toNat < 2 ^ 128) :
-    WP isa (.block [.adds .x a.lo a.lo c, .adcs .x a.hi a.hi ZERO]) s fun t =>
+    WP isa (.block [.adds .x a.lo a.lo c, .adc .x a.hi a.hi ZERO]) s fun t =>
       accVal t a = accVal s a + (s.gpr c).toNat ∧ t.mem = s.mem ∧ Keeps [a.lo, a.hi] s t := by
   refine WP.of_runBlock ⟨_, by simp only [runBlock_cons, runStep_some, runBlock_nil, exec]; rfl, ?_⟩
   refine ⟨?_, rfl, fun q hq => ?_, rfl, rfl⟩
   · have := add128 (s.gpr a.lo) (s.gpr a.hi) (s.gpr c) hlt
-    simp only [accVal, read_x, RegUpd.gpr_addWithCarry, RegUpd.c_addWithCarry, h₁, Ne.symm h₁,
-      Ne.symm h₂, ite_true, ite_false, BitVec.setWidth_eq, hz]
+    simp only [accVal, read_x, RegUpd.gpr_write, RegUpd.gpr_addWithCarry,
+      RegUpd.c_addWithCarry, h₁, Ne.symm h₁, Ne.symm h₂, ite_true, ite_false, BitVec.setWidth_eq, hz]
     dsimp only [addCarry, carryOut, Size.bits] at this ⊢
     exact this
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hq
-    simp only [read_x, RegUpd.gpr_addWithCarry, hq.1, hq.2, ite_false]
+    simp only [read_x, RegUpd.gpr_write, RegUpd.gpr_addWithCarry, hq.1, hq.2, ite_false]
 
-/-- Stage the low 56 bits of `a` at `STAGE + 8k` and carry the rest into `c`. -/
+/-- Store the low 56 bits of `a` at `d` and carry the rest into `c`. -/
 theorem stage_ok {s : State} {base : Addr} (hs : Scr s base) (t : Reg) (a : Acc) (c : Reg)
-    {k : Nat} (hk : k < 8) (h₁ : t ≠ a.lo) (h₂ : t ≠ a.hi) (h₄ : t ≠ .x3)
+    {d : Nat} (hd8 : d % 8 = 0) (hd : d + 8 ≤ 8192) (h₁ : t ≠ a.lo) (h₂ : t ≠ a.hi) (h₄ : t ≠ .x3)
     (hm : s.gpr MASK = BitVec.ofNat 64 (2 ^ 56 - 1)) (hlt : accVal s a < 2 ^ 120) :
-    WP isa (.block [.logic .and .x t a.lo MASK, st t (STAGE + 8 * k), .extr .x c a.hi a.lo 56]) s
-      fun u => u.mem = s.mem.writeW (off base (STAGE + 8 * k))
-          (BitVec.ofNat 64 (accVal s a % radix)) ∧
+    WP isa (.block [.logic .and .x t a.lo MASK, st t d, .extr .x c a.hi a.lo 56]) s
+      fun u => u.mem = s.mem.writeW (off base d) (BitVec.ofNat 64 (accVal s a % radix)) ∧
         (u.gpr c).toNat = accVal s a / radix ∧ Keeps [t, c] s u := by
-  have w := hs.write (d := STAGE + 8 * k) (n := 8) (by simp only [STAGE, VG.Impl.X448.AArch64.TMP]; omega)
-  have oe : (STAGE + 8 * k) % 8 = 0 ∧ STAGE + 8 * k < 32768 := by
-    simp only [STAGE, VG.Impl.X448.AArch64.TMP]; omega
+  have w := hs.write (d := d) (n := 8) hd
+  have oe : d % 8 = 0 ∧ d < 32768 := ⟨hd8, by omega⟩
   have hv : (s.gpr a.lo &&& s.gpr MASK) = BitVec.ofNat 64 (accVal s a % radix) := by
     apply BitVec.eq_of_toNat_eq
     rw [hm, low56 (s.gpr a.lo) (s.gpr a.hi), BitVec.toNat_ofNat,

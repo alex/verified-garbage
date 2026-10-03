@@ -56,7 +56,7 @@ theorem finish_ok {s : State} {base p : Addr} (hs : Scr s base) (hb : BEnv s.mem
   rw [Impl.X448.AArch64.Fast.finish]
   simp only [List.append_assoc]
   rw [WP.block_append_iff]
-  refine WP.mono (fmulE hs hb 1 1 21) fun u ⟨uk, ub, um, us, ue⟩ => ?_
+  refine WP.mono (fmulE hs hb 1 1 21 (by decide)) fun u ⟨uk, ub, um, us, ue⟩ => ?_
   have us₀ := uk.scr hs
   rw [WP.block_append_iff]
   refine WP.mono (VG.Proof.Curve448.AArch64.toLegacy_ok' us₀ (o := X2) (by decide) (by decide)

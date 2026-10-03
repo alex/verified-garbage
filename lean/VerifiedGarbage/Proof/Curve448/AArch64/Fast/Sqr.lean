@@ -22,7 +22,7 @@ def doubles : List Instr :=
     [.add .x Sqr.R.t (Sqr.limb h k) (Sqr.limb h k), st Sqr.R.t (KD + 24 * h + 8 * k)])
 
 theorem sqr_split (o a : Nat) :
-    sqr o a = loadA a ++ consts ++ zadds ++ doubles ++ columns Sqr.R a Sqr.L Sqr.H Sqr.column ++
+    sqr o a = loadA a ++ consts ++ zadds ++ doubles ++ columns Sqr.R a Sqr.L Sqr.H Sqr.column o ++
       finish o := rfl
 
 def zRegs : List Reg := [.x10, .x11, .x13, .x14]
@@ -181,7 +181,6 @@ theorem sqr_ok {s : State} {base : Addr} (hs : Scr s base) {o a : Nat}
       FieldMem base o s.mem t.mem ∧ Keeps clob s t := by
   have hA : ACC = 3584 := rfl
   have hKD : KD = 3648 := rfl
-  have hST : STAGE = 3840 := rfl
   let f := limbs s.mem base a
   rw [sqr_split, List.append_assoc, List.append_assoc, List.append_assoc, List.append_assoc,
     WP.block_append_iff]
@@ -230,9 +229,9 @@ theorem sqr_ok {s : State} {base : Addr} (hs : Scr s base) {o a : Nat}
   have hfit := fits_of fa fa
   let P := fun (t : State) =>
     (∀ h < 3, ∀ i < 4, t.gpr (Sqr.limb h i) = t4.gpr (Sqr.limb h i)) ∧
-    (∀ d, d + 8 ≤ 8192 → (d + 8 ≤ STAGE ∨ STAGE + 64 ≤ d) → word t.mem base d = word t4.mem base d)
+    (∀ d, d + 8 ≤ 8192 → (d + 8 ≤ o ∨ o + 64 ≤ d) → word t.mem base d = word t4.mem base d)
   have hP : ∀ t u, P t → Keeps (colWrites Sqr.R [Sqr.L, Sqr.H]) t u →
-      Outside base STAGE 64 t.mem u.mem → P u := by
+      Outside base o 64 t.mem u.mem → P u := by
     intro t u ⟨pa, pm⟩ k o
     exact ⟨fun h hh i hi => (k.1 _ (AZ_colWrites h hh i hi)).trans (pa h hh i hi),
       fun d hd hd' => (o.word hd' hd).trans (pm d hd hd')⟩
@@ -249,7 +248,7 @@ theorem sqr_ok {s : State} {base : Addr} (hs : Scr s base) {o a : Nat}
         simp only [Sqr.src, ite_true, srcVal, pa h hh i hj, L4 h hh i hj]
         ring
       · simp only [Sqr.src, e, ite_false, srcVal, pa h hh j hj, L4 h hh j hj]
-        rw [pm _ (by omega) (Or.inl (by omega)), D4 h hh i (by omega)]
+        rw [pm _ (by omega) (by omega), D4 h hh i (by omega)]
         push_cast; ring
     refine sqrCol_ok f (srcVal t base a) ?_ ?_ ?_ e hd
     · intro i j hij hj; rw [hv 0 (by decide) i j hij hj]; rfl
@@ -257,6 +256,7 @@ theorem sqr_ok {s : State} {base : Addr} (hs : Scr s base) {o a : Nat}
     · intro i j hij hj; rw [hv 2 (by decide) i j hij hj]; simp only [lv]; push_cast; ring
   rw [WP.block_append_iff]
   refine WP.mono (columns_ok sqr_good sqr_colRegs (by decide) (by decide) (by decide) ha8 (by omega)
+    ho8 (by omega)
     hfit sqr_ops P hP hsem s4 ⟨fun _ _ _ _ => rfl, fun _ _ _ => rfl⟩
     (by rw [k4.1 _ (by decide), k3.1 _ (by decide)]; exact mk2)
     (by rw [k4.1 _ (by decide), k3.1 _ (by decide)]; exact z2))
