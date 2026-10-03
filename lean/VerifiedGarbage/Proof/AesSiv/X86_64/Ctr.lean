@@ -253,4 +253,147 @@ theorem ctr_head (v : Ctr32Impl) (h : Env s₀ C D P W R L) (hcp : (⟨C, 512⟩
       · exact ⟨_, by simp, fun _ h => h⟩
       · exact ⟨_, by simp, Offset.sub_below _ (a := 8) (n := 8) (b := 16) (m := 16) (by decide) (by decide)⟩)
 
+/-- The state after the last block: the data is CTR's output. -/
+structure CDone (s₀ : State) (C D P W : Addr) (R L : Nat) (m₀ : Mem) (q x : List Byte) (s : State) : Prop where
+  rbx : s.gpr .rbx = C
+  rbp : s.gpr .rbp = BitVec.ofNat 64 R
+  r12 : s.gpr .r12 = D
+  r15 : s.gpr .r15 = W
+  rsp : s.gpr .rsp = s₀.gpr .rsp
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  data : Spec.Aes.bytesAt s.mem P L = Spec.Siv.ctr (Spec.Siv.ctxCiph m₀ C R) q x
+  frame : Frame (ctrRegions W P L (s₀.gpr .rsp)) m₀ s.mem
+
+theorem ctxCiph_length (m : Mem) (C : Addr) (R : Nat) (y : List Byte) : (Spec.Siv.ctxCiph m C R y).length = 16 :=
+  Proof.Cmac.aesWith_length _ _ _
+
+theorem ctr_tail (h : Env s₀ C D P W R L) (hPw : (⟨P, L⟩ : Region) ∈ s₀.wr) {m₀ : Mem} {q x : List Byte} {i : Nat} {s s₃ : State}
+    (hi : CInv s₀ C D P W R L m₀ q x i s) (hh : CHead s₀ C D P W R L m₀ q i s s₃) :
+    WP isa (.seq xorBytes (.block ctrPost)) s₃ fun s' =>
+      (s'.zf = some true ∧ CDone s₀ C D P W R L m₀ q x s') ∨
+      (s'.zf = some false ∧ CInv s₀ C D P W R L m₀ q x (i + 1) s') := by
+  have hwW := h.wW
+  have hwP := h.wP
+  have hlt := h.lt
+  have hiL := hi.lt
+  have hxL : x.length = L := by
+    have := congrArg List.length hi.data
+    rw [Proof.Cmac.bytesAt_length, length_ctrPart] at this; exact this.symm
+  have hn : 0 < min 16 (L - 16 * i) := by omega
+  have hn16 : min 16 (L - 16 * i) ≤ 16 := Nat.min_le_left _ _
+  have dP (r : Region) (hr : r ∈ [(⟨W + BitVec.ofNat 64 80, 32⟩ : Region), ⟨W + BitVec.ofNat 64 256, 2048⟩,
+      below (s₀.gpr .rsp) 16]) : (⟨P, L⟩ : Region).Disjoint r := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl
+    · exact h.p_w.sub_right (h.sW (by decide))
+    · exact h.p_w.sub_right (h.sW (by decide))
+    · exact h.stk_p.symm
+  have data₃ : Spec.Aes.bytesAt s₃.mem P L = ctrPart (Spec.Siv.ctxCiph m₀ C R) q x (16 * i) := by
+    rw [bytesAt_frame hh.frame dP (by omega), hi.data]
+  have sQ : Region.Sub ⟨P + BitVec.ofNat 64 (16 * i), min 16 (L - 16 * i)⟩ ⟨P, L⟩ := h.sP (by omega)
+  refine WP.seq (WP.mono (xorBytes_wp s₃ (Q := P + BitVec.ofNat 64 (16 * i)) (K := W + BitVec.ofNat 64 80) hn hn16
+    hh.r13 hh.r15 rfl hh.rcx
+    (fun j hj => by rw [Offset.add_add]; exact h.inRP hh.rd hh.wr (by omega))
+    (fun j hj => by rw [Offset.add_add]; exact h.inRW hh.rd hh.wr (by omega))
+    (fun j hj => by rw [Offset.add_add]; exact h.inWP hPw hh.wr (by omega))
+    ((h.p_w.sub_left sQ).sub_right (h.sW (by omega)))
+    (by rw [toNat_add_lt P hwP (show 16 * i < L by omega)]; omega)) fun s₄ h₄ => ?_)
+  obtain ⟨hi₀, lo₀, hhi, hlo, hq⟩ := hi.cnt
+  have hlx : (Spec.Cmac.xor (Spec.Aes.bytesAt s₃.mem (P + BitVec.ofNat 64 (16 * i)) (min 16 (L - 16 * i)))
+      (Spec.Aes.bytesAt s₃.mem (W + BitVec.ofNat 64 80) (min 16 (L - 16 * i)))).length = min 16 (L - 16 * i) := by
+    rw [Proof.Cmac.length_xor, Proof.Cmac.bytesAt_length, Proof.Cmac.bytesAt_length, Nat.min_self]
+  have fx : Frame [⟨P + BitVec.ofNat 64 (16 * i), min 16 (L - 16 * i)⟩] s₃.mem s₄.mem := by
+    rw [h₄.mem]; exact writeBytes_frame _ _ _ (by rw [hlx]; exact Region.contains_self _ _)
+  have dW (d n : Nat) (hd : d + n ≤ 2560) (r : Region) (hr : r ∈ [(⟨P + BitVec.ofNat 64 (16 * i),
+      min 16 (L - 16 * i)⟩ : Region)]) : (⟨W + BitVec.ofNat 64 d, n⟩ : Region).Disjoint r := by
+    simp only [List.mem_singleton] at hr; subst hr; exact (h.p_w.sub_left sQ).symm.sub_left (h.sW hd)
+  have dH (d : Nat) (hd : d + 8 ≤ 80) (r : Region) (hr : r ∈ [(⟨W + BitVec.ofNat 64 80, 32⟩ : Region),
+      ⟨W + BitVec.ofNat 64 256, 2048⟩, below (s₀.gpr .rsp) 16]) : (⟨W + BitVec.ofNat 64 d, 8⟩ : Region).Disjoint r := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl
+    · exact Offset.disjoint W (by omega) (by omega) (by omega)
+    · exact Offset.disjoint W (by omega) (by omega) (by omega)
+    · exact (h.stk_w.sub_right (h.sW (by omega))).symm
+  have c₄ (d : Nat) (hd : d + 8 ≤ 80) : s₄.mem.readW (W + BitVec.ofNat 64 d) 64 = s.mem.readW (W + BitVec.ofNat 64 d) 64 := by
+    rw [fx.readW (w := 64) (Region.contains_self _ _) (dW d 8 (by omega)) (by decide),
+      hh.frame.readW (w := 64) (Region.contains_self _ _) (dH d hd) (by decide)]
+  have g₄ (r : Reg) (h₁ : r ≠ .rax) (h₂ : r ≠ .rdx) (h₃ : r ≠ .r10) := h₄.other r h₁ h₂ h₃
+  obtain ⟨s₅, run₅, ⟨hi₁, lo₁, m₅, hq₁⟩, r13₅, r14₅, zf₅, g₅, rd₅, wr₅⟩ := ctrPost_ok (W := W) (s := s₄)
+    (left := L - 16 * i) (n := min 16 (L - 16 * i)) (hi := hi₀) (lo := lo₀)
+    (by rw [g₄ _ (by decide) (by decide) (by decide), hh.r15]) (by rw [g₄ _ (by decide) (by decide) (by decide), hh.r13])
+    (by rw [g₄ _ (by decide) (by decide) (by decide), hh.r14]) (by rw [g₄ _ (by decide) (by decide) (by decide), hh.rcx])
+    (Nat.min_le_right _ _) (by omega) (by rw [c₄ cntOff (by decide)]; exact hhi)
+    (by rw [c₄ (cntOff + 8) (by decide)]; exact hlo)
+    (h.inRW (by rw [h₄.rd, hh.rd]) (by rw [h₄.wr, hh.wr]) (by decide))
+    (h.inRW (by rw [h₄.rd, hh.rd]) (by rw [h₄.wr, hh.wr]) (by decide))
+    (h.inW (by rw [h₄.wr, hh.wr]) (by decide)) (h.inW (by rw [h₄.wr, hh.wr]) (by decide))
+  refine WP.of_runBlock ⟨s₅, run₅, ?_⟩
+  have fp : Frame [⟨W + BitVec.ofNat 64 64, 16⟩] s₄.mem s₅.mem := by
+    rw [m₅]
+    have c64 : (⟨W + BitVec.ofNat 64 64, 16⟩ : Region).Contains (W + BitVec.ofNat 64 cntOff) (64 / 8) := by
+      show Region.Contains _ (W + BitVec.ofNat 64 64) 8
+      simpa using Offset.contains_base (W + BitVec.ofNat 64 64) (d := 0) (n := 8) (k := 16) (by decide) (by decide)
+    exact ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ c64).writeW
+      (List.mem_singleton_self _) _ (by
+        rw [show W + BitVec.ofNat 64 (cntOff + 8) = W + BitVec.ofNat 64 64 + BitVec.ofNat 64 8 by
+          rw [Offset.add_add]; rfl]
+        exact Offset.contains_base _ (by decide) (by decide))
+  -- The data.
+  have kt : Spec.Aes.bytesAt s₃.mem (W + BitVec.ofNat 64 80) (min 16 (L - 16 * i)) =
+      (Siv.ksBlock (Spec.Siv.ctxCiph m₀ C R) q i).take (min 16 (L - 16 * i)) := by
+    rw [← hh.ks]
+    have := take_bytesAt s₃.mem (W + BitVec.ofNat 64 80) (a := min 16 (L - 16 * i)) (b := 16 - min 16 (L - 16 * i))
+    rw [show min 16 (L - 16 * i) + (16 - min 16 (L - 16 * i)) = 16 by omega] at this
+    exact this.symm
+  have st := ctrPart_step (Spec.Siv.ctxCiph m₀ C R) (ctxCiph_length m₀ C R) q x s₃.mem P (i := i)
+    (n := min 16 (L - 16 * i)) (by omega) hn16 (by omega) (by rw [hxL]; exact data₃)
+  rw [hxL, ← kt, ← h₄.mem] at st
+  have data₅ : Spec.Aes.bytesAt s₅.mem P L = ctrPart (Spec.Siv.ctxCiph m₀ C R) q x (16 * i + min 16 (L - 16 * i)) := by
+    rw [bytesAt_frame fp (fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; exact h.p_w.sub_right (h.sW (by decide))) (by omega), st]
+  -- The frame.
+  have frame : Frame (ctrRegions W P L (s₀.gpr .rsp)) m₀ s₅.mem :=
+    ((hi.frame.trans (hh.frame.sub fun r hr => by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl
+      · exact ⟨⟨W + BitVec.ofNat 64 64, 48⟩, by simp, by
+          rw [show W + BitVec.ofNat 64 80 = W + BitVec.ofNat 64 64 + BitVec.ofNat 64 16 by rw [Offset.add_add]]
+          exact Offset.sub_base _ (by decide)⟩
+      · exact ⟨_, by simp, fun _ h => h⟩
+      · exact ⟨_, by simp, fun _ h => h⟩)).trans
+      (fx.sub fun r hr => ⟨⟨P, L⟩, by simp, by simp only [List.mem_singleton] at hr; subst hr; exact sQ⟩)).trans
+      (fp.sub fun r hr => ⟨⟨W + BitVec.ofNat 64 64, 48⟩, by simp, by
+        simp only [List.mem_singleton] at hr; subst hr; exact Region.sub_prefix (by decide)⟩)
+  have keep (r : Reg) (h₁ : r ≠ .rax) (h₂ : r ≠ .rdx) (h₃ : r ≠ .r10) (h₅ : r ≠ .r13) (h₆ : r ≠ .r14) :
+      s₅.gpr r = s₃.gpr r := by rw [g₅ r h₁ h₂ h₅ h₆, g₄ r h₁ h₂ h₃]
+  by_cases hfin : L - 16 * i ≤ 16
+  · left
+    have hn' : min 16 (L - 16 * i) = L - 16 * i := Nat.min_eq_right hfin
+    refine ⟨by rw [zf₅, hn']; simp, ⟨by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rbx],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rbp],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.r12],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.r15],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rsp],
+      by rw [rd₅, h₄.rd, hh.rd], by rw [wr₅, h₄.wr, hh.wr], ?_, frame⟩⟩
+    rw [data₅, hn', show 16 * i + (L - 16 * i) = L by omega]
+    exact ctrPart_all _ (ctxCiph_length m₀ C R) q x (by omega)
+  · right
+    have hn' : min 16 (L - 16 * i) = 16 := Nat.min_eq_left (by omega)
+    refine ⟨by rw [zf₅, hn']; simp; omega,
+      ⟨by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rbx],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rbp],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.r12],
+      by rw [r13₅, Offset.add_add, show 16 * i + 16 = 16 * (i + 1) by omega],
+      by rw [r14₅, hn', show L - 16 * i - 16 = L - 16 * (i + 1) by omega],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.r15],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rsp],
+      by rw [rd₅, h₄.rd, hh.rd], by rw [wr₅, h₄.wr, hh.wr], by omega, ⟨hi₁, lo₁, ?_, ?_, ?_⟩, ?_, frame⟩⟩
+    · rw [m₅, Mem.readW_writeW_sep (Offset.sep W (d := cntOff) (n := 8) (e := cntOff + 8) (k := 8) (by decide)
+        (by decide) (by decide)) (by decide), Mem.readW_writeW_self64]
+    · rw [m₅, Mem.readW_writeW_self64]
+    · rw [hq₁, hq, BitVec.add_assoc, BitVec.ofNat_add]; rfl
+    · rw [data₅, hn', show 16 * i + 16 = 16 * (i + 1) by omega]
+
+
 end VG.Proof.AesSiv.X86_64
