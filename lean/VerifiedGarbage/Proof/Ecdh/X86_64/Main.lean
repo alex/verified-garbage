@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Ecdh.X86_64.Validate
 import VerifiedGarbage.Proof.Ecdh.Exchange
+import VerifiedGarbage.Proof.Weierstrass.X86_64.Rep
 
 /-!
 # ECDH on x86-64: the result, and the whole function
@@ -95,7 +96,7 @@ theorem middle_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size
     (hr14 : s.gpr .r14 = out) (hw : (⟨out, 8 * c.n⟩ : Region) ∈ s.wr)
     (hd : Region.Disjoint ⟨out, 8 * c.n⟩ ⟨base, size⟩) :
     WP isa (Impl.Ecdh.X86_64.Cfg.middle c) s fun s' => ∃ xv, xv < c.C.p ∧
-      (xv : ZMod c.C.p) =
+      Fin.ofNat c.C.p xv =
         toM c.C.p (2 ^ (64 * c.n)) (sv c base s RX) * toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC) ∧
       Spec.Ecdsa.bytesAt s'.mem out (8 * c.n) =
         (if ok c base s V then toBytes (8 * c.n) xv else List.replicate (8 * c.n) 0) ∧
@@ -104,7 +105,7 @@ theorem middle_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size
   have h0 := hc.n0
   have h7 := hc.n7
   have hn := hs.nowrap
-  have hpR := coprime_pow_two hc.p_odd (64 * c.n)
+  have hpR := unitMod_pow_two hc.p_odd (64 * c.n)
   have hp3 := hc.p_ge
   have hf : c.sl FLAG + 8 ≤ size := by have := sl_le c h7 (i := FLAG) (by decide); omega
   rw [middle_eq]
@@ -124,7 +125,7 @@ theorem middle_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size
   have hs₂ := k₂.scr hs₁
   have v₂ : ∀ {i}, i < 45 → i ≠ XM → i ≠ X → i ≠ TMP → sv c base s₂ i = sv c base s i := fun hi h₁ h₂ h₃ =>
     (sv_keep (MP'_n c) rfl h7 hn k₂ hi h₂ h₃).trans (v₁ hi h₁ h₃)
-  have x₂ : (sv c base s₂ X : ZMod c.C.p) =
+  have x₂ : Fin.ofNat c.C.p (sv c base s₂ X) =
       toM c.C.p (2 ^ (64 * c.n)) (sv c base s RX) * toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC) := by
     rw [toM_one_mul hpR (by rw [e₂, v₁ (i := ONE) (by decide) (by decide) (by decide), hone]),
       toM_mul hpR e₁]
@@ -220,28 +221,29 @@ theorem args_ok (s : State) :
 /-- The point the ladder multiplies: the peer's, if its key is valid as the
 code checks it, else `G`. -/
 def peerPt (c : Cfg) (b4 : Prop) [Decidable b4] (x y : Nat) : Point c.C :=
-  if h : ((b4 ∧ x < c.C.p) ∧ y < c.C.p) ∧ OnCurve c x y then .affine ⟨x, h.1.1.2⟩ ⟨y, h.1.2⟩ else G c.C
+  if h : ((b4 ∧ x < c.C.p) ∧ y < c.C.p) ∧ OnCurve c (Fin.ofNat c.C.p x) (Fin.ofNat c.C.p y) then .affine ⟨x, h.1.1.2⟩ ⟨y, h.1.2⟩ else G c.C
 
 theorem peerPt_onCurve (hc : CfgOk c) (b4 : Prop) [Decidable b4] (x y : Nat) :
     onCurve c.C (peerPt c b4 x y) = true := by
-  have : Fact c.C.p.Prime := ⟨hc.good.prime⟩
   unfold peerPt
   split
   · next h => exact (onCurve_iff _ _).mpr h.2
   · exact hc.onG
 
-theorem peerPt_rep (hc : CfgOk c) (b4 : Prop) [Decidable b4] (x y : Nat) {X Y : ZMod c.C.p}
-    (hX : X = if ((b4 ∧ x < c.C.p) ∧ y < c.C.p) ∧ OnCurve c x y then (x : ZMod c.C.p) else (c.C.gx : ZMod c.C.p))
-    (hY : Y = if ((b4 ∧ x < c.C.p) ∧ y < c.C.p) ∧ OnCurve c x y then (y : ZMod c.C.p) else (c.C.gy : ZMod c.C.p)) :
+theorem peerPt_rep (hC : Good c.C) (b4 : Prop) [Decidable b4] (x y : Nat) {X Y : Fe c.C}
+    (hX : X = if ((b4 ∧ x < c.C.p) ∧ y < c.C.p) ∧ OnCurve c (Fin.ofNat c.C.p x) (Fin.ofNat c.C.p y)
+      then Fin.ofNat c.C.p x else Fin.ofNat c.C.p c.C.gx)
+    (hY : Y = if ((b4 ∧ x < c.C.p) ∧ y < c.C.p) ∧ OnCurve c (Fin.ofNat c.C.p x) (Fin.ofNat c.C.p y)
+      then Fin.ofNat c.C.p y else Fin.ofNat c.C.p c.C.gy) :
     Rep c.C X Y 1 (peerPt c b4 x y) := by
-  have : Fact c.C.p.Prime := ⟨hc.good.prime⟩
   unfold peerPt
-  by_cases h : ((b4 ∧ x < c.C.p) ∧ y < c.C.p) ∧ OnCurve c x y
-  · rw [dite_eq_left h]; rw [ite_eq_left h] at hX hY; rw [hX, hY]
-    exact rep_affine (C := c.C) ⟨x, h.1.1.2⟩ ⟨y, h.1.2⟩
+  by_cases h : ((b4 ∧ x < c.C.p) ∧ y < c.C.p) ∧ OnCurve c (Fin.ofNat c.C.p x) (Fin.ofNat c.C.p y)
+  · rw [dite_eq_left h]; rw [ite_eq_left h] at hX hY
+    rw [hX, hY]
+    exact ⟨one_ne_zero_fe hC, by rw [EcKey.fe_eq h.1.1.2 rfl, Lean.Grind.Semiring.mul_one],
+      by rw [EcKey.fe_eq h.1.2 rfl, Lean.Grind.Semiring.mul_one]⟩
   · rw [dite_eq_right h]; rw [ite_eq_right h] at hX hY; rw [hX, hY]
-    have := rep_affine (C := c.C) (Fin.ofNat c.C.p c.C.gx) (Fin.ofNat c.C.p c.C.gy)
-    rwa [toF_ofNat, toF_ofNat] at this
+    exact rep_affine' hC _ _
 
 /-- The peer's key: `04`, `x` and `y`. -/
 theorem peer_bytes (m : Mem) (p : Addr) (n : Nat) :
@@ -262,14 +264,13 @@ theorem exchange_eq' (c : Cfg) : Impl.Ecdh.X86_64.Cfg.exchange c =
 
 /-- `vg_ecdh_<curve>` computes the specification's shared secret and restores
 the callee-saved registers. -/
-theorem exchange_ok (hc : CfgOk c) {s₀ : State} (hp : EPre c s₀) :
+theorem exchange_ok (hc : CfgOk c) (hC : Good c.C) {s₀ : State} (hp : EPre c s₀) :
     WP isa (Impl.Ecdh.X86_64.Cfg.exchange c) s₀ fun s' =>
       (∀ r ∈ Cfg.saved.map Prod.fst, s'.gpr r = s₀.gpr r) ∧ EPost c s₀ s' := by
   have h0 := hc.n0
   have h7 := hc.n7
   have hsz : size = 8192 := rfl
-  have : Fact c.C.p.Prime := ⟨hc.good.prime⟩
-  have hpR := coprime_pow_two hc.p_odd (64 * c.n)
+  have hpR := unitMod_pow_two hc.p_odd (64 * c.n)
   have hp3 := hc.p_ge
   rw [exchange_eq']
   refine WP.seq (WP.mono (args_ok s₀) fun s₁ ⟨r8₁, r9₁, rcx₁, rdx₁, k₁⟩ => ?_)
@@ -326,11 +327,21 @@ theorem exchange_ok (hc : CfgOk c) {s₀ : State} (hp : EPre c s₀) :
         tbl_unch U₃ h7 hn hj ht (apart_append (tbl_apart_slW (by decide) _ t) (tbl_apart_flag h0 _ t))]
   have hpk : sv c (s₀.gpr .rcx) s₂ K < 2 ^ (64 * c.n) := wordsVal_lt _ _ _ _
   -- `[d]P`, then `Z^(p-2)`.
-  refine ladPow_ok hc hs₄ F₄ hpk (peerPt_onCurve hc _ _ _)
-    (peerPt_rep hc _ _ _ px py |> fun h => by
-      show Rep c.C (toM _ _ (sv c (s₀.gpr .rcx) s₄ PX)) (toM _ _ (sv c (s₀.gpr .rcx) s₄ PY))
-        (toM _ _ (wordsVal s₄.mem (s₀.gpr .rcx) (c.sl ONEP) c.n)) _
+  have hstep := step_rep (L := Impl.Ecdh.X86_64.Cfg.ladderQ c) (k := sv c (s₀.gpr .rcx) s₂ K) hC
+    (peerPt_onCurve hc _ _ _)
+    (by
+      show toM c.C.p (2 ^ (64 * c.n)) (wordsVal s₄.mem _ (c.sl AP) c.n) = _
+      rw [F₄.ap]; exact toM_cmont hc _)
+    (by
+      show toM c.C.p (2 ^ (64 * c.n)) (wordsVal s₄.mem _ (c.sl B3P) c.n) = _
+      rw [F₄.b3p]; exact toM_cmont hc _)
+    (peerPt_rep hC _ _ _ px py |> fun h => by
+      show Rep c.C (toM c.C.p (2 ^ (64 * c.n)) (sv c (s₀.gpr .rcx) s₄ PX))
+        (toM c.C.p (2 ^ (64 * c.n)) (sv c (s₀.gpr .rcx) s₄ PY))
+        (toM c.C.p (2 ^ (64 * c.n)) (wordsVal s₄.mem (s₀.gpr .rcx) (c.sl ONEP) c.n)) _
       rw [F₄.onep, toM_one hpR]; exact h)
+  refine ladPow_ok hc hs₄ F₄ hstep
+    (by rw [shiftRight_eq_zero hpk, mul_zero_pt]; exact rep_infinity' hC)
     px_lt py_lt
     (by rw [e₄ (by decide) (by decide) (by decide), e₃ (by decide) (by decide) (by decide)]; exact S₂.rx)
     (by rw [e₄ (by decide) (by decide) (by decide), e₃ (by decide) (by decide) (by decide)]; exact S₂.ry)
@@ -372,11 +383,11 @@ theorem exchange_ok (hc : CfgOk c) {s₀ : State} (hp : EPre c s₀) :
         .affine ⟨_, h.2.1⟩ ⟨_, h.2.2.1⟩ := fun h => by
     unfold peerPt; rw [dite_eq_left ⟨⟨⟨h.1, h.2.1⟩, h.2.2.1⟩, h.2.2.2⟩]
   have hk : sv c (s₀.gpr .rcx) s₂ K = dk c s₀ := by rw [S₂.k]; simp only [kv, dk, k₁.2.1, rcx₁]
-  have hR := L.rep
-  rw [hk] at hR
-  have hxoX : (xv : ZMod c.C.p) = tmv c.C c.n (s₀.gpr .rcx) s₅ (c.sl RX) *
-      tmv c.C c.n (s₀.gpr .rcx) s₅ (c.sl RZ) ^ (c.C.p - 2) := by rw [hxv, L.acc]
-  have hspec := exchange_eq hlen hb0 hxs hys hP' hR hxl hxoX
+  have hR := L.q
+  rw [Nat.shiftRight_zero, hk] at hR
+  have hxoX : Fin.ofNat c.C.p xv = tmv c.C c.n (s₀.gpr .rcx) s₅ (c.sl RX) *
+      tmv c.C c.n (s₀.gpr .rcx) s₅ (c.sl RZ) ^ (c.C.p - 2) := by rw [hxv, L.acc]; rfl
+  have hspec := exchange_eq hC hlen hb0 hxs hys hP' hR hxl hxoX
   have hD₅ : sv c (s₀.gpr .rcx) s₅ D = dk c s₀ := by
     rw [e₅ (by decide) (by decide) (by decide), e₄ (by decide) (by decide) (by decide),
       e₃ (by decide) (by decide) (by decide), S₂.d]

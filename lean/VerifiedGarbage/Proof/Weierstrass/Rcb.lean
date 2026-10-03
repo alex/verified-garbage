@@ -1,17 +1,18 @@
-import Mathlib.Algebra.Ring.Defs
-
 /-!
 # Complete projective addition (Renes, Costello and Batina)
 
 Algorithm 1 of Renes, Costello and Batina, "Complete addition formulas for
 prime order elliptic curves" (EUROCRYPT 2016): the sum of two points
 `(X₁ : Y₁ : Z₁)` and `(X₂ : Y₂ : Z₂)` of `Y²Z = X³ + aXZ² + bZ³`, for any
-`a`, with `b3 = 3b`, in its 40 steps, as the implementations compute it.
+`a`, with `b3 = 3b`, in its 40 steps, as the implementations compute it:
+over any commutative ring of Lean's core (`Lean.Grind.CommRing`), so that
+the implementations' proofs compute it in `Fin p` without importing
+Mathlib's algebra, which only the proofs of the group law need.
 -/
 
 namespace VG.Proof.Weierstrass
 
-variable {F : Type*} [CommRing F]
+variable {F : Type _} [Lean.Grind.CommRing F]
 
 /-- Algorithm 1, in its stated order. -/
 def rcbAdd (a b3 X1 Y1 Z1 X2 Y2 Z2 : F) : F × F × F :=

@@ -87,7 +87,7 @@ impl Backend {
     #[cfg(target_arch = "aarch64")]
     pub(crate) fn select(f: Features) -> Backend {
         if f.contains(const { Features::of(&["neon"]) })
-            && f.contains(const { Features::of(VG_CHACHA20_APPLY_SVE2_FEATURES) })
+            && f.contains(VG_CHACHA20_APPLY_SVE2_FEATURES)
         {
             Backend::Sve2
         } else if f.contains(const { Features::of(&["neon"]) }) {
@@ -102,8 +102,8 @@ impl Backend {
     pub(crate) fn select(f: Features) -> Backend {
         Backend::select_for(
             f,
-            const { Features::of(VG_CHACHA20_APPLY_AVX512_FEATURES) },
-            const { Features::of(VG_CHACHA20_APPLY_AVX2_FEATURES) },
+            VG_CHACHA20_APPLY_AVX512_FEATURES,
+            VG_CHACHA20_APPLY_AVX2_FEATURES,
         )
     }
 
@@ -436,8 +436,8 @@ mod tests {
                 VG_CHACHA20_APPLY_AVX2_FEATURES, VG_CHACHA20_APPLY_AVX512_FEATURES,
             };
             use crate::cpu::Features;
-            let avx2 = Features::of(VG_CHACHA20_APPLY_AVX2_FEATURES);
-            let avx512 = Features::of(VG_CHACHA20_APPLY_AVX512_FEATURES);
+            let avx2 = VG_CHACHA20_APPLY_AVX2_FEATURES;
+            let avx512 = VG_CHACHA20_APPLY_AVX512_FEATURES;
             assert_eq!(Backend::select(avx2), Backend::Avx2);
             assert_eq!(Backend::select(avx512), Backend::Avx512);
             assert_eq!(

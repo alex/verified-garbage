@@ -1252,7 +1252,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor(state: *mut [u32; 16], data
 }
 
 /// The CPU features `vg_chacha20_xor_avx2` requires (`Artifact.features`).
-pub(crate) const VG_CHACHA20_XOR_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_CHACHA20_XOR_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`.
 ///
@@ -2972,7 +2972,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor_avx2(state: *mut [u32; 16],
 }
 
 /// The CPU features `vg_chacha20_xor_avx512` requires (`Artifact.features`).
-pub(crate) const VG_CHACHA20_XOR_AVX512_FEATURES: &[&str] = &["avx", "avx512f"];
+pub(crate) const VG_CHACHA20_XOR_AVX512_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx512f"]);
 
 /// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`.
 ///
@@ -4253,7 +4253,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_set_nonce(state: *mut [u64; 96]
 }
 
 /// The CPU features `vg_chacha20_apply_avx2` requires (`Artifact.features`).
-pub(crate) const VG_CHACHA20_APPLY_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_CHACHA20_APPLY_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// Applies a ChaCha20 keystream (RFC 8439 §2.4), encrypting or decrypting: if at least `len` bytes are left of the keystream that the streaming state `*state` represents, XORs the next `len` of them into the `len` bytes at `data`, keeps the rest in `*state`, and returns 1. Otherwise (the block counter would pass 2³² − 1) returns 0, and leaves the bytes at `data` and the keystream unchanged.
 ///
@@ -4393,7 +4393,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_apply_avx2(state: *mut [u64; 96
 }
 
 /// The CPU features `vg_chacha20_apply_avx512` requires (`Artifact.features`).
-pub(crate) const VG_CHACHA20_APPLY_AVX512_FEATURES: &[&str] = &["avx", "avx512f"];
+pub(crate) const VG_CHACHA20_APPLY_AVX512_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx512f"]);
 
 /// Applies a ChaCha20 keystream (RFC 8439 §2.4), encrypting or decrypting: if at least `len` bytes are left of the keystream that the streaming state `*state` represents, XORs the next `len` of them into the `len` bytes at `data`, keeps the rest in `*state`, and returns 1. Otherwise (the block counter would pass 2³² − 1) returns 0, and leaves the bytes at `data` and the keystream unchanged.
 ///

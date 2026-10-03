@@ -38,12 +38,14 @@ the `doc` must not state them itself (`checkLayout`).
 
 An artifact whose code needs CPU features beyond the target's baseline
 (`Artifact.features`) also gets a last `# Safety` item saying the CPU must
-support them, and a constant listing them, for the Rust that checks for them
-before calling it:
+support them, and a constant of them, for the Rust that checks for them
+before calling it: a `Features` set (`src/cpu.rs`), made from their names by
+`Features::of`, which does not compile with a name `src/cpu.rs` does not
+detect:
 
 ```rust
 /// The CPU features `<name>` requires (`Artifact.features`).
-pub(crate) const <NAME>_FEATURES: &[&str] = &["<feature>", …];
+pub(crate) const <NAME>_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["<feature>", …]);
 ```
 
 `files` checks that `features` are exactly the features the code requires.
@@ -98,14 +100,15 @@ def featureDoc (doc : String) : List String → String
   | fs => doc ++ s!"\n* The CPU must support the {codeList fs} target \
     feature{if fs.length == 1 then "" else "s"}."
 
-/-- The constant listing the CPU features `fs` that the function `name`
+/-- The constant of the CPU features `fs` that the function `name`
 requires; nothing if there are none. -/
 def featuresConst (name : String) : List String → String
   | [] => ""
   | fs =>
     s!"/// The CPU features `{name}` requires (`Artifact.features`).\n" ++
-    s!"pub(crate) const {name.toUpper}_FEATURES: &[&str] = &[" ++
-    ", ".intercalate (fs.map fun f => s!"\"{escape f}\"") ++ "];\n\n"
+    s!"pub(crate) const {name.toUpper}_FEATURES: crate::cpu::Features = \
+      crate::cpu::Features::of(&[" ++
+    ", ".intercalate (fs.map fun f => s!"\"{escape f}\"") ++ "]);\n\n"
 
 /-- The features that the function `name`, with documentation `doc`, declares
 (`declared`) are exactly those its code requires (`required`, with

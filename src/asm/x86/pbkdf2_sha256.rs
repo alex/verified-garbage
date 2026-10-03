@@ -475,7 +475,7 @@ pub(crate) unsafe extern "C" fn vg_pbkdf2_hmac_sha256(password: *const u8, passw
 }
 
 /// The CPU features `vg_pbkdf2_hmac_sha256_iterate_shani` requires (`Artifact.features`).
-pub(crate) const VG_PBKDF2_HMAC_SHA256_ITERATE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
+pub(crate) const VG_PBKDF2_HMAC_SHA256_ITERATE_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha", "ssse3"]);
 
 /// Runs `n` steps of PBKDF2-HMAC-SHA-256's iteration: if, for a 64-byte key `K₀`, the SHA-256 streaming state in bytes 0 to 95 of `*key` represents `K₀ ⊕ ipad` and the one in bytes 96 to 191 represents `K₀ ⊕ opad` (as `vg_hmac_sha256_init` leaves them), repeats `U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).
 ///
@@ -692,7 +692,7 @@ pub(crate) unsafe extern "C" fn vg_pbkdf2_hmac_sha256_iterate_shani(key: *const 
 }
 
 /// The CPU features `vg_pbkdf2_hmac_sha256_shani` requires (`Artifact.features`).
-pub(crate) const VG_PBKDF2_HMAC_SHA256_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
+pub(crate) const VG_PBKDF2_HMAC_SHA256_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha", "ssse3"]);
 
 /// PBKDF2-HMAC-SHA-256 (RFC 8018 §5.2, with HMAC-SHA-256 as the pseudorandom function): writes the `out_len`-byte key derived from the `password_len` bytes at `password` and the `salt_len` bytes at `salt` with `c` iterations to `out`. Calls the verified SHA-256 and HMAC-SHA-256 functions and `vg_pbkdf2_hmac_sha256_iterate`.
 ///

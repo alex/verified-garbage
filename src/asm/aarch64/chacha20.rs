@@ -3664,7 +3664,7 @@ pub(crate) unsafe extern "C" fn vg_chacha20_apply(state: *mut [u64; 96], data: *
 }
 
 /// The CPU features `vg_chacha20_xor_sve2` requires (`Artifact.features`).
-pub(crate) const VG_CHACHA20_XOR_SVE2_FEATURES: &[&str] = &["sve2"];
+pub(crate) const VG_CHACHA20_XOR_SVE2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sve2"]);
 
 /// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`.
 ///
@@ -5743,7 +5743,7 @@ pub(crate) unsafe extern "C" fn vg_chacha20_xor_sve2(state: *mut [u32; 16], data
 }
 
 /// The CPU features `vg_chacha20_apply_sve2` requires (`Artifact.features`).
-pub(crate) const VG_CHACHA20_APPLY_SVE2_FEATURES: &[&str] = &["sve2"];
+pub(crate) const VG_CHACHA20_APPLY_SVE2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sve2"]);
 
 /// Applies a ChaCha20 keystream (RFC 8439 §2.4), encrypting or decrypting: if at least `len` bytes are left of the keystream that the streaming state `*state` represents, XORs the next `len` of them into the `len` bytes at `data`, keeps the rest in `*state`, and returns 1. Otherwise (the block counter would pass 2³² − 1) returns 0, and leaves the bytes at `data` and the keystream unchanged.
 ///

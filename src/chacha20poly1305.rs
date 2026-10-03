@@ -53,8 +53,8 @@ use crate::zeroize::zeroize;
 fn select(f: Features) -> Backend {
     Backend::select_for(
         f,
-        const { Features::of(VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES) },
-        const { Features::of(VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES) },
+        VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES,
+        VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES,
     )
 }
 
@@ -350,24 +350,15 @@ mod tests {
             VG_CHACHA20_XOR_AVX512_FEATURES,
             VG_POLY1305_BLOCKS_AVX512_FEATURES,
         ]);
-        assert_eq!(Features::of(VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES), avx2);
-        assert_eq!(Features::of(VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES), avx2);
-        assert_eq!(
-            Features::of(VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES),
-            avx512
-        );
-        assert_eq!(
-            Features::of(VG_CHACHA20_POLY1305_OPEN_AVX512_FEATURES),
-            avx512
-        );
+        assert_eq!(VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES, avx2);
+        assert_eq!(VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES, avx2);
+        assert_eq!(VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES, avx512);
+        assert_eq!(VG_CHACHA20_POLY1305_OPEN_AVX512_FEATURES, avx512);
         assert_eq!(select(avx2), Backend::Avx2);
         assert_eq!(select(avx512), Backend::Avx512);
         // AVX-512F alone is not enough: the AVX-512 instances' Poly1305
         // calls its AVX2 implementation.
-        assert_eq!(
-            select(Features::of(VG_CHACHA20_XOR_AVX512_FEATURES)),
-            Backend::Scalar
-        );
+        assert_eq!(select(VG_CHACHA20_XOR_AVX512_FEATURES), Backend::Scalar);
         assert_eq!(select(Features::of(&["avx"])), Backend::Scalar);
     }
 
@@ -382,11 +373,14 @@ mod tests {
             VG_CHACHA20_POLY1305_OPEN_SVE2_FEATURES, VG_CHACHA20_POLY1305_SEAL_SVE2_FEATURES,
         };
         use crate::cpu::Features;
-        let sve2 = Features::of(VG_CHACHA20_XOR_SVE2_FEATURES);
-        assert_eq!(Features::of(VG_CHACHA20_POLY1305_SEAL_SVE2_FEATURES), sve2);
-        assert_eq!(Features::of(VG_CHACHA20_POLY1305_OPEN_SVE2_FEATURES), sve2);
+        let sve2 = VG_CHACHA20_XOR_SVE2_FEATURES;
+        assert_eq!(VG_CHACHA20_POLY1305_SEAL_SVE2_FEATURES, sve2);
+        assert_eq!(VG_CHACHA20_POLY1305_OPEN_SVE2_FEATURES, sve2);
         assert_eq!(
-            select(Features::all(&[&["neon"], VG_CHACHA20_XOR_SVE2_FEATURES])),
+            select(Features::all(&[
+                Features::of(&["neon"]),
+                VG_CHACHA20_XOR_SVE2_FEATURES
+            ])),
             Backend::Sve2
         );
         assert_eq!(select(Features::of(&["neon"])), Backend::Neon);

@@ -1,14 +1,15 @@
-import VerifiedGarbage.Proof.Ecdsa.X86_64.Fixed
-import VerifiedGarbage.Proof.Ecdsa.X86_64.Finish
+import VerifiedGarbage.Proof.Ecdsa.X86_64.Stages
+import VerifiedGarbage.Proof.Weierstrass.X86_64.Rep
 import VerifiedGarbage.Proof.Ecdsa.Sign
 
 /-!
 # ECDSA on x86-64: the whole function
 
 `sign_ok`: `Cfg.sign` computes the specification's signature of the hash
-with `d` and `k`, for any curve the proof supports (`CfgOk`), and restores
-the callee-saved registers. Four stages, each a lemma: the setup and the
-tables of bits (`stage₁`), `[k]G` and `Z^(p-2)` (`stage₂`), `x`, `r`, the
+with `d` and `k`, for any curve the proof of the code supports (`CfgOk`)
+whose group law the proofs support (`Good`), and restores the callee-saved
+registers. Four stages, each a lemma: the setup and the tables of bits
+(`stage₁`, in `Stages.lean`), `[k]G` and `Z^(p-2)` (`stage₂`), `x`, `r`, the
 checks and `k^(n-2)` (`stage₃`), and `s`, its check and the result
 (`stage₄`); `signWith_eq` connects what they compute to the specification.
 -/
@@ -20,114 +21,6 @@ open VG.Proof.Mont.X86_64 VG.Proof.Weierstrass.X86_64 VG.Proof.Weierstrass Spec.
 open VG.Proof.X25519.X86_64 (Keeps)
 
 variable {c : Cfg}
-
-/-- The arguments' numbers. -/
-abbrev kv (c : Cfg) (s₀ : State) : Nat := ofBytes (Spec.Ecdsa.bytesAt s₀.mem (s₀.gpr .rcx) (8 * c.n))
-abbrev dv (c : Cfg) (s₀ : State) : Nat := ofBytes (Spec.Ecdsa.bytesAt s₀.mem (s₀.gpr .rsi) (8 * c.n))
-abbrev ev (c : Cfg) (s₀ : State) : Nat := ofBytes (Spec.Ecdsa.bytesAt s₀.mem (s₀.gpr .rdx) (8 * c.n))
-
-/-- What the stages keep: the working space, `out` in `r14`, the regions,
-the constants and the saved registers. -/
-structure Keep (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop where
-  scr : Scr s base size
-  r14 : s.gpr .r14 = s₀.gpr .rdi
-  wr : s.wr = s₀.wr
-  fixed : Fixed c base s₀.gpr s.mem
-
-/-- After the setup and the tables. -/
-structure St₁ (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop extends Keep c s₀ base s where
-  k : sv c base s K = kv c s₀
-  d : sv c base s D = dv c s₀
-  e : sv c base s E = ev c s₀
-  rx : sv c base s RX = 0
-  ry : sv c base s RY = c.mont 1
-  rz : sv c base s RZ = 0
-  flag : word s.mem base (c.sl FLAG) = BitVec.allOnes 64
-  t₀ : ∀ t < 64 * c.n, s.mem (off base (bitsAt c.n 0 + t)) = if (kv c s₀).testBit t then 1 else 0
-  t₁ : ∀ t < 64 * c.n, s.mem (off base (bitsAt c.n 1 + t)) = if (c.C.p - 2).testBit t then 1 else 0
-  t₂ : ∀ t < 64 * c.n, s.mem (off base (bitsAt c.n 2 + t)) = if (c.C.n - 2).testBit t then 1 else 0
-  gpr : ∀ r, r ∉ [.rax, .rdi, .r14, .rdx, .rbx] → s.gpr r = s₀.gpr r
-  unch : Unch base [(0, size)] s₀.mem s.mem
-  rd : s.rd = s₀.rd
-
-/-- The setup, then the three tables. -/
-theorem stage₁ (hc : CfgOk c) {s₀ : State} (hp : SetupPre c s₀) {rest : Prog isa} {Q : State → Prop}
-    (h : ∀ s, St₁ c s₀ (s₀.gpr .r8) s → WP isa rest s Q) :
-    WP isa (.seq (.block c.setup) (.seq (bits (c.sl K) (bitsAt c.n 0) (8 * c.n))
-      (.seq (bits (c.sl EXPP) (bitsAt c.n 1) (8 * c.n))
-      (.seq (bits (c.sl EXPN) (bitsAt c.n 2) (8 * c.n)) rest)))) s₀ Q := by
-  have h0 := hc.n0
-  have h7 := hc.n7
-  refine WP.seq (WP.mono (setup_ok hc hp) fun s₁ P => ?_)
-  have hn := P.scr.nowrap
-  have hc' : ∀ ix ∈ c.consts, sv c (s₀.gpr .r8) s₁ ix.1 = ix.2 := P.consts
-  have fx : Fixed c (s₀.gpr .r8) s₀.gpr s₁.mem :=
-    ⟨hc' (MP, c.C.p) (by simp [Cfg.consts]), hc' (MN, c.C.n) (by simp [Cfg.consts]),
-      hc' (ZERO, 0) (by simp [Cfg.consts]), hc' (ONE, 1) (by simp [Cfg.consts]),
-      (hc' (ONEP, c.mont 1) (by simp [Cfg.consts])).trans (by simp only [Cfg.mont, Cfg.R, Nat.one_mul]),
-      hc' (AP, c.mont c.C.a) (by simp [Cfg.consts]), hc' (B3P, c.mont (3 * c.C.b)) (by simp [Cfg.consts]),
-      hc' (GX, c.mont c.C.gx) (by simp [Cfg.consts]), hc' (GY, c.mont c.C.gy) (by simp [Cfg.consts]),
-      hc' (R2N, c.R * c.R % c.C.n) (by simp [Cfg.consts]), hc' (ONEN, c.R % c.C.n) (by simp [Cfg.consts]),
-      P.saved⟩
-  have hsep : ∀ {i : Nat}, i < 45 → ∀ j, c.sl i + 8 * c.n ≤ bitsAt c.n j ∨ bitsAt c.n j + 64 * c.n ≤ c.sl i :=
-    fun hi j => Or.inl (by have := sl_below_bits c hi j 0; omega)
-  have hsz : ∀ {j}, j < 3 → bitsAt c.n j + 64 * c.n ≤ size := fun hj => bitsAt_le c h7 hj
-  -- The table of `k`.
-  refine WP.seq (WP.mono (bits_ok P.scr h0 (by omega) (sl_le c h7 (i := K) (by decide)) (hsz (j := 0)
-    (by decide)) (hsep (i := K) (by decide) 0)) fun s₂ ⟨b₂, k₂, O₂⟩ => ?_)
-  have hs₂ := P.scr.of_keepRegs k₂ (by decide)
-  have u₂ := O₂.unch
-  have v₂ : ∀ {i}, i < 45 → sv c (s₀.gpr .r8) s₂ i = sv c (s₀.gpr .r8) s₁ i := fun hi =>
-    sv_unch u₂ h7 hn hi (apart_tbl hi 0)
-  -- The table of `p - 2`.
-  refine WP.seq (WP.mono (bits_ok hs₂ h0 (by omega) (sl_le c h7 (i := EXPP) (by decide)) (hsz (j := 1)
-    (by decide)) (hsep (i := EXPP) (by decide) 1)) fun s₃ ⟨b₃, k₃, O₃⟩ => ?_)
-  have hs₃ := hs₂.of_keepRegs k₃ (by decide)
-  have u₃ := O₃.unch
-  have v₃ : ∀ {i}, i < 45 → sv c (s₀.gpr .r8) s₃ i = sv c (s₀.gpr .r8) s₁ i := fun hi =>
-    (sv_unch u₃ h7 hn hi (apart_tbl hi 1)).trans (v₂ hi)
-  -- The table of `n - 2`.
-  refine WP.seq (WP.mono (bits_ok hs₃ h0 (by omega) (sl_le c h7 (i := EXPN) (by decide)) (hsz (j := 2)
-    (by decide)) (hsep (i := EXPN) (by decide) 2)) fun s₄ ⟨b₄, k₄, O₄⟩ => h s₄ ?_)
-  have u₄ := O₄.unch
-  have v₄ : ∀ {i}, i < 45 → sv c (s₀.gpr .r8) s₄ i = sv c (s₀.gpr .r8) s₁ i := fun hi =>
-    (sv_unch u₄ h7 hn hi (apart_tbl hi 2)).trans (v₃ hi)
-  have hk : (kv c s₀) = sv c (s₀.gpr .r8) s₁ K := P.k.symm
-  have hp2 : c.C.p - 2 = sv c (s₀.gpr .r8) s₁ EXPP := (hc' (EXPP, c.C.p - 2) (by simp [Cfg.consts])).symm
-  have hn2 : c.C.n - 2 = sv c (s₀.gpr .r8) s₁ EXPN := (hc' (EXPN, c.C.n - 2) (by simp [Cfg.consts])).symm
-  refine ⟨⟨hs₃.of_keepRegs k₄ (by decide), ?_, by rw [k₄.wr, k₃.wr, k₂.wr, P.keep.wr], ?_⟩,
-    by rw [v₄ (by decide), P.k], by rw [v₄ (by decide), P.d], by rw [v₄ (by decide), P.e],
-    by rw [v₄ (by decide)]; exact hc' (RX, 0) (by simp [Cfg.consts]),
-    by rw [v₄ (by decide)]; exact hc' (RY, c.mont 1) (by simp [Cfg.consts]),
-    by rw [v₄ (by decide)]; exact hc' (RZ, 0) (by simp [Cfg.consts]), ?_, ?_, ?_, ?_, ?_, ?_,
-    by rw [k₄.rd, k₃.rd, k₂.rd, P.keep.rd]⟩
-  · rw [k₄.gpr _ (by decide), k₃.gpr _ (by decide), k₂.gpr _ (by decide), P.r14]
-  · exact (fx.unch h7 hn (fixedOk_tbl 0) u₂ |>.unch h7 hn (fixedOk_tbl 1) u₃).unch h7 hn (fixedOk_tbl 2) u₄
-  · have hF := sl_le c h7 (i := FLAG) (by decide)
-    have ap : ∀ j, ∀ w ∈ [(bitsAt c.n j, 64 * c.n)], c.sl FLAG + 8 ≤ w.1 ∨ w.1 + w.2 ≤ c.sl FLAG :=
-      fun j w hw => by
-        rw [List.mem_singleton.mp hw]
-        have := sl_below_bits c (i := FLAG) (by decide) j 0
-        exact Or.inl (by dsimp only; omega)
-    rw [u₄.word (ap 2) (by omega), u₃.word (ap 1) (by omega), u₂.word (ap 0) (by omega), P.flag]
-  · intro t ht
-    rw [tbl_unch u₄ h7 hn (j := 0) (by decide) ht (tbl_apart_tbl (by decide) ht),
-      tbl_unch u₃ h7 hn (j := 0) (by decide) ht (tbl_apart_tbl (by decide) ht), b₂ t ht, hk]
-  · intro t ht
-    rw [tbl_unch u₄ h7 hn (j := 1) (by decide) ht (tbl_apart_tbl (by decide) ht), b₃ t ht, hp2,
-      ← v₂ (by decide)]
-  · intro t ht
-    rw [b₄ t ht, hn2, ← v₃ (by decide)]
-  · intro r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    rw [k₄.gpr r (by simp [hr.1, hr.2.2.2.1, hr.2.2.2.2]), k₃.gpr r (by simp [hr.1, hr.2.2.2.1, hr.2.2.2.2]),
-      k₂.gpr r (by simp [hr.1, hr.2.2.2.1, hr.2.2.2.2]), P.keep.gpr r (by simp [hr.1, hr.2.1, hr.2.2.1])]
-  · intro x hx
-    have hx' : size ≤ ofs (s₀.gpr .r8) x := by have := hx _ (List.mem_singleton_self _); omega
-    rw [O₄ x (Or.inr (by have := bitsAt_le c h7 (j := 2) (by decide); omega)),
-      O₃ x (Or.inr (by have := bitsAt_le c h7 (j := 1) (by decide); omega)),
-      O₂ x (Or.inr (by have := bitsAt_le c h7 (j := 0) (by decide); omega)),
-      P.unch x fun w hw => by rw [List.mem_singleton.mp hw]; exact Or.inr (by omega)]
 
 /-- After `[k]G` and `Z^(p-2)`. -/
 structure St₂ (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop extends Keep c s₀ base s where
@@ -142,43 +35,14 @@ structure St₂ (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop extend
   acc : toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC) = tmv c.C c.n base s (c.sl RZ) ^ (c.C.p - 2)
   rz_lt : sv c base s RZ < c.C.p
 
-theorem toM_cmont (hc : CfgOk c) (x : Nat) : toM c.C.p (2 ^ (64 * c.n)) (c.mont x) = (x : ZMod c.C.p) :=
-  toM_mont (coprime_pow_two hc.p_odd _)
-
-theorem toM_zero (m R : Nat) : toM m R 0 = 0 := by
-  unfold toM; rw [Nat.cast_zero, zero_mul]
-
-theorem mul_zero_pt (P : Point c.C) : Spec.Weierstrass.mul 0 P = .infinity := by
-  rw [Spec.Weierstrass.mul]; simp
-
-theorem rdi_not_powClob (n : Nat) : Reg.rdi ∉ powClob n := fun h =>
-  (List.mem_cons.mp h).elim (fun h => absurd h (by decide)) (rdi_not_clob n)
-
-theorem ladW_eq (c : Cfg) : ladW c.ladderCfg = slW c [RX, RY, RZ, T0, T1, T2, T3, T4, T5, DX, DY, DZ,
-    T0, T1, T2, T3, T4, T5, TX, TY, TZ, TMP] := rfl
-
-theorem powWP_eq (c : Cfg) : powW c.powP = slW c [ACC, PT, TMP] := rfl
-theorem powWN_eq (c : Cfg) : powW c.powN = slW c [ACC, PT, TMP] := rfl
-
-/-- The flag word apart from numbered slots. -/
-theorem flag_unch {base : Addr} {l : List Nat} {m m' : Mem} (hu : Unch base (slW c l) m m')
-    (h7 : c.n < 7) (h0 : 0 < c.n) (hn : base.toNat + size ≤ 2 ^ 64) (hl : FLAG ∉ l) :
-    word m' base (c.sl FLAG) = word m base (c.sl FLAG) := by
-  have hF := sl_le c h7 (i := FLAG) (by decide)
-  refine hu.word (fun w hw => ?_) (by omega)
-  rcases apart_slW (c := c) hl w hw with h | h
-  · exact Or.inl (by omega)
-  · exact Or.inr h
-
 /-- `[k]G`, then `Z^(p-2)`. -/
-theorem stage₂ (hc : CfgOk c) {s₀ : State} {base : Addr} {s : State} (hS : St₁ c s₀ base s)
+theorem stage₂ (hc : CfgOk c) (hC : Good c.C) {s₀ : State} {base : Addr} {s : State} (hS : St₁ c s₀ base s)
     {rest : Prog isa} {Q : State → Prop} (h : ∀ s', St₂ c s₀ base s' → WP isa rest s' Q) :
     WP isa (.seq (ladder c.ladderCfg) (.seq (pow c.powP) rest)) s Q := by
   have h0 := hc.n0
   have h7 := hc.n7
   have hn := hS.scr.nowrap
-  have : Fact c.C.p.Prime := ⟨hc.good.prime⟩
-  have hpR := coprime_pow_two hc.p_odd (64 * c.n)
+  have hpR := unitMod_pow_two hc.p_odd (64 * c.n)
   have hp3 := hc.p_ge
   have F := hS.fixed
   have hkl : kv c s₀ < 2 ^ (64 * c.n) := hS.k ▸ wordsVal_lt _ _ _ _
@@ -203,21 +67,21 @@ theorem stage₂ (hc : CfgOk c) {s₀ : State} {base : Addr} {s : State} (hS : S
     show Rep c.C (toM _ _ (wordsVal s.mem base (c.sl GX) c.n)) (toM _ _ (wordsVal s.mem base (c.sl GY) c.n))
       (toM _ _ (wordsVal s.mem base (c.sl ONEP) c.n)) (G c.C)
     rw [F.gx, F.gy, F.onep, toM_cmont hc, toM_cmont hc, toM_one hpR]
-    have := rep_affine (C := c.C) (Fin.ofNat c.C.p c.C.gx) (Fin.ofNat c.C.p c.C.gy)
-    rwa [toF_ofNat, toF_ofNat] at this
+    exact rep_affine' hC _ _
   have hR : Rep c.C (tmv c.C c.n base s (c.sl RX)) (tmv c.C c.n base s (c.sl RY))
       (tmv c.C c.n base s (c.sl RZ)) (mul (kv c s₀ >>> (64 * c.n)) (G c.C)) := by
     show Rep c.C (toM _ _ (sv c base s RX)) (toM _ _ (sv c base s RY)) (toM _ _ (sv c base s RZ)) _
-    rw [hS.rx, hS.ry, hS.rz, toM_cmont hc, Nat.cast_one, toM_zero, shiftRight_eq_zero hkl, mul_zero_pt]
-    exact rep_infinity
-  refine WP.seq (WP.mono (ladder_ok (L := c.ladderCfg) (k := kv c s₀) (ladLay hc) hc.good hpR hc.onG
-    hS.scr (modP_of hc F.mp) hlt (by
+    rw [hS.rx, hS.ry, hS.rz, toM_cmont hc, toM_zero, shiftRight_eq_zero hkl, mul_zero_pt]
+    exact rep_infinity' hC
+  have hstep := step_rep (L := c.ladderCfg) (k := kv c s₀) hC hc.onG (by
       show toM c.C.p (2 ^ (64 * c.n)) (wordsVal s.mem base (c.sl AP) c.n) = _
       rw [F.ap]; exact toM_cmont hc _)
     (by
       show toM c.C.p (2 ^ (64 * c.n)) (wordsVal s.mem base (c.sl B3P) c.n) = _
-      rw [F.b3p, toM_cmont hc, Nat.cast_mul, Nat.cast_ofNat]) hG hR hS.t₀)
+      rw [F.b3p]; exact toM_cmont hc _) hG
+  refine WP.seq (WP.mono (ladder_ok (ladLay hc) hpR hS.scr (modP_of hc F.mp) hlt hstep hR hS.t₀)
     fun s₅ ⟨K₅, U₅, M₅, L₅, R₅⟩ => ?_)
+  rw [Nat.shiftRight_zero] at R₅
   rw [ladW_eq] at U₅
   have hs₅ := hS.scr.of_keepRegs K₅ (rdi_not_powClob _)
   have F₅ := F.unch h7 hn (fixedOk_slW (by decide)) U₅
@@ -264,13 +128,13 @@ structure St₃ (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop extend
   rep : Rep c.C (tmv c.C c.n base s (c.sl RX)) (tmv c.C c.n base s (c.sl RY))
     (tmv c.C c.n base s (c.sl RZ)) (mul (kv c s₀) (G c.C))
   x_lt : sv c base s X < c.C.p
-  x : (sv c base s X : ZMod c.C.p) =
+  x : Fin.ofNat c.C.p (sv c base s X) =
     tmv c.C c.n base s (c.sl RX) * tmv c.C c.n base s (c.sl RZ) ^ (c.C.p - 2)
   rr : sv c base s RR = sv c base s X % c.C.n
   flag : word s.mem base (c.sl FLAG) = BitVec.allOnes 64 &&&
     mask (0 < dv c s₀ ∧ dv c s₀ < c.C.n) &&& mask (0 < kv c s₀ ∧ kv c s₀ < c.C.n) &&&
     mask (sv c base s X % c.C.n ≠ 0)
-  acc : toM c.C.n (2 ^ (64 * c.n)) (sv c base s ACC) = (kv c s₀ : ZMod c.C.n) ^ (c.C.n - 2)
+  acc : toM c.C.n (2 ^ (64 * c.n)) (sv c base s ACC) = Fin.ofNat c.C.n (kv c s₀) ^ (c.C.n - 2)
 
 /-- `x`, `r`, `k R mod n` and the checks, then `k^(n-2)`. -/
 theorem stage₃ (hc : CfgOk c) {s₀ : State} {base : Addr} {s : State} (hS : St₂ c s₀ base s)
@@ -279,7 +143,7 @@ theorem stage₃ (hc : CfgOk c) {s₀ : State} {base : Addr} {s : State} (hS : S
   have h0 := hc.n0
   have h7 := hc.n7
   have hn := hS.scr.nowrap
-  have hnR := coprime_pow_two hc.n_odd (64 * c.n)
+  have hnR := unitMod_pow_two hc.n_odd (64 * c.n)
   have F := hS.fixed
   refine WP.seq ?_
   rw [middle_eq]
@@ -331,6 +195,7 @@ theorem stage₃ (hc : CfgOk c) {s₀ : State} {base : Addr} {s : State} (hS : S
   · refine v₉.trans ?_
     show toM c.C.n (2 ^ (64 * c.n)) (sv c base s₈ KM) ^ _ = _
     rw [e₈ (i := KM) (by decide) (by decide), Mp.km, hS.k]
+    rfl
 
 /-- The result the contract asks for: the specification's signature of the
 hash with `d` and `k`, big-endian, and `1`, or zeros and `0`. -/
@@ -350,14 +215,13 @@ theorem hashToInt_eq (hc : CfgOk c) (m : Mem) (q : Addr) :
     show 8 * (8 * c.n) ≤ Spec.Ecdsa.nBits c.C by omega, ite_true]
 
 /-- `s`, its check, and the result. -/
-theorem stage₄ (hc : CfgOk c) {s₀ : State} (hp : Pre c s₀) {base : Addr} (hb : base = s₀.gpr .r8)
+theorem stage₄ (hc : CfgOk c) (hC : Good c.C) {s₀ : State} (hp : Pre c s₀) {base : Addr} (hb : base = s₀.gpr .r8)
     {s : State} (hS : St₃ c s₀ base s) :
     WP isa c.scalar s fun s' => (∀ r ∈ Cfg.saved.map Prod.fst, s'.gpr r = s₀.gpr r) ∧ SignPost c s₀ s' := by
   have h0 := hc.n0
   have h7 := hc.n7
   have hn := hS.scr.nowrap
-  have hnR := coprime_pow_two hc.n_odd (64 * c.n)
-  have : Fact c.C.p.Prime := ⟨hc.good.prime⟩
+  have hnR := unitMod_pow_two hc.n_odd (64 * c.n)
   have F := hS.fixed
   rw [scalar_eq]
   refine scalarIn_ok hc hS.scr (modN_of hc F.mn) F.r2n
@@ -392,7 +256,7 @@ theorem stage₄ (hc : CfgOk c) {s₀ : State} (hp : Pre c s₀) {base : Addr} (
   refine WP.mono (finish_ok hc hs₁₂ hr14 hw (hb ▸ hp.out_sc) F₁₂.saved _ hflag)
     fun s' ⟨bytes, rax, saved, _⟩ => ⟨saved, ?_⟩
   -- The specification.
-  have hsig := signWith_eq (C := c.C) (d := dv c s₀) (e := ev c s₀) (k := kv c s₀) hS.rep hS.x_lt hS.x
+  have hsig := signWith_eq hC (C := c.C) (d := dv c s₀) (e := ev c s₀) (k := kv c s₀) hS.rep hS.x_lt hS.x
     (s := wordsVal s₁₁.mem base (c.sl SS) c.n) ss_lt (by
       rw [ss, trm, tdm, tem, acc₁₀, hS.acc, hS.rr, hS.d, hS.e, add_comm])
   unfold SignPost
@@ -419,9 +283,10 @@ theorem sign_eq (c : Cfg) : c.sign = .seq (.block c.setup) (.seq (bits (c.sl K) 
 
 /-- `vg_ecdsa_<curve>_sign` computes the specification's signature and
 restores the callee-saved registers. -/
-theorem sign_ok (hc : CfgOk c) {s₀ : State} (hp : Pre c s₀) :
+theorem sign_ok (hc : CfgOk c) (hC : Good c.C) {s₀ : State} (hp : Pre c s₀) :
     WP isa c.sign s₀ fun s' => (∀ r ∈ Cfg.saved.map Prod.fst, s'.gpr r = s₀.gpr r) ∧ SignPost c s₀ s' := by
   rw [sign_eq]
-  exact stage₁ hc (hp.setup hc.n7) fun _ S₁ => stage₂ hc S₁ fun _ S₂ => stage₃ hc S₂ fun _ S₃ => stage₄ hc hp rfl S₃
+  exact stage₁ hc (hp.setup hc.n7) fun _ S₁ => stage₂ hc hC S₁ fun _ S₂ => stage₃ hc S₂ fun _ S₃ =>
+    stage₄ hc hC hp rfl S₃
 
 end VG.Proof.Ecdsa.X86_64

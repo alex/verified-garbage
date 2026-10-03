@@ -72,7 +72,7 @@ ARCH_FEATURES = {"aarch64": {"aes": "AES, PMULL", "sha2": "SHA extensions", "sha
 
 CFG = re.compile(r"^#!\[cfg\((.*?)\)\]$", re.MULTILINE | re.DOTALL)
 ARCH = re.compile(r'target_arch\s*=\s*"(\w+)"')
-FEATURE_CONST = re.compile(r"_FEATURES: &\[&str\] = &\[(.*?)\];")
+FEATURE_CONST = re.compile(r"_FEATURES: crate::cpu::Features = crate::cpu::Features::of\(&\[(.*?)\]\);")
 
 
 def supported(row, errors):

@@ -3828,7 +3828,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_compress(state: *mut [u64; 8], bl
 }
 
 /// The CPU features `vg_sha512_compress_avx2` requires (`Artifact.features`).
-pub(crate) const VG_SHA512_COMPRESS_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
+pub(crate) const VG_SHA512_COMPRESS_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2"]);
 
 /// The SHA-512 compression function (FIPS 180-4 §6.4.2), shared by SHA-384, SHA-512, SHA-512/224 and SHA-512/256: updates the hash value `*state` with the `n` 128-byte blocks starting at `blocks`, in order.
 ///
@@ -8908,7 +8908,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_compress_avx2(state: *mut [u64; 8
 }
 
 /// The CPU features `vg_sha512_compress_shani` requires (`Artifact.features`).
-pub(crate) const VG_SHA512_COMPRESS_SHANI_FEATURES: &[&str] = &["avx", "avx2", "sha512"];
+pub(crate) const VG_SHA512_COMPRESS_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512"]);
 
 /// The SHA-512 compression function (FIPS 180-4 §6.4.2), shared by SHA-384, SHA-512, SHA-512/224 and SHA-512/256: updates the hash value `*state` with the `n` 128-byte blocks starting at `blocks`, in order.
 ///
@@ -9735,7 +9735,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_finalize(state: *mut [u8; 192], c
 }
 
 /// The CPU features `vg_sha512_update_avx2` requires (`Artifact.features`).
-pub(crate) const VG_SHA512_UPDATE_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
+pub(crate) const VG_SHA512_UPDATE_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2"]);
 
 /// Absorbs data into a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
@@ -9872,7 +9872,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_update_avx2(state: *mut [u8; 192]
 }
 
 /// The CPU features `vg_sha512_finalize_avx2` requires (`Artifact.features`).
-pub(crate) const VG_SHA512_FINALIZE_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
+pub(crate) const VG_SHA512_FINALIZE_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2"]);
 
 /// Finishes a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the streaming state `*state` represents a message of `count` bytes, hashed from an initial hash value, writes the final hash value `H⁽ᴺ⁾` of that message (64 bytes) to `*out`. The SHA-512 digest is all of it; the SHA-384, SHA-512/224 and SHA-512/256 digests are its first 48, 28 and 32 bytes.
 ///
@@ -9996,7 +9996,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_finalize_avx2(state: *mut [u8; 19
 }
 
 /// The CPU features `vg_sha512_update_shani` requires (`Artifact.features`).
-pub(crate) const VG_SHA512_UPDATE_SHANI_FEATURES: &[&str] = &["avx", "avx2", "sha512"];
+pub(crate) const VG_SHA512_UPDATE_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512"]);
 
 /// Absorbs data into a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
@@ -10133,7 +10133,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_update_shani(state: *mut [u8; 192
 }
 
 /// The CPU features `vg_sha512_finalize_shani` requires (`Artifact.features`).
-pub(crate) const VG_SHA512_FINALIZE_SHANI_FEATURES: &[&str] = &["avx", "avx2", "sha512"];
+pub(crate) const VG_SHA512_FINALIZE_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512"]);
 
 /// Finishes a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the streaming state `*state` represents a message of `count` bytes, hashed from an initial hash value, writes the final hash value `H⁽ᴺ⁾` of that message (64 bytes) to `*out`. The SHA-512 digest is all of it; the SHA-384, SHA-512/224 and SHA-512/256 digests are its first 48, 28 and 32 bytes.
 ///

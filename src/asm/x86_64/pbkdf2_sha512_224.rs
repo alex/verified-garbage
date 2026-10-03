@@ -442,7 +442,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha512_224(password: *const 
 }
 
 /// The CPU features `vg_pbkdf2_hmac_sha512_224_iterate_avx2` requires (`Artifact.features`).
-pub(crate) const VG_PBKDF2_HMAC_SHA512_224_ITERATE_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
+pub(crate) const VG_PBKDF2_HMAC_SHA512_224_ITERATE_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2"]);
 
 /// Runs `n` steps of PBKDF2-HMAC-SHA-512/224's iteration: if, for a 128-byte key `K₀`, the SHA-512/224 streaming state in bytes 0 to 191 of `*key` represents `K₀ ⊕ ipad` and the one in bytes 192 to 383 represents `K₀ ⊕ opad` (as `vg_hmac_sha512_224_init` leaves them), repeats `U ← HMAC-SHA-512/224 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).
 ///
@@ -714,7 +714,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha512_224_iterate_avx2(key:
 }
 
 /// The CPU features `vg_pbkdf2_hmac_sha512_224_avx2` requires (`Artifact.features`).
-pub(crate) const VG_PBKDF2_HMAC_SHA512_224_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
+pub(crate) const VG_PBKDF2_HMAC_SHA512_224_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2"]);
 
 /// PBKDF2-HMAC-SHA-512/224 (RFC 8018 §5.2, with HMAC-SHA-512/224 as the pseudorandom function): writes the `out_len`-byte key derived from the `password_len` bytes at `password` and the `salt_len` bytes at `salt` with `c` iterations to `out`. Calls the verified SHA-512/224 and HMAC-SHA-512/224 functions and `vg_pbkdf2_hmac_sha512_224_iterate`.
 ///
@@ -889,7 +889,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha512_224_avx2(password: *c
 }
 
 /// The CPU features `vg_pbkdf2_hmac_sha512_224_iterate_shani` requires (`Artifact.features`).
-pub(crate) const VG_PBKDF2_HMAC_SHA512_224_ITERATE_SHANI_FEATURES: &[&str] = &["avx", "avx2", "sha512"];
+pub(crate) const VG_PBKDF2_HMAC_SHA512_224_ITERATE_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512"]);
 
 /// Runs `n` steps of PBKDF2-HMAC-SHA-512/224's iteration: if, for a 128-byte key `K₀`, the SHA-512/224 streaming state in bytes 0 to 191 of `*key` represents `K₀ ⊕ ipad` and the one in bytes 192 to 383 represents `K₀ ⊕ opad` (as `vg_hmac_sha512_224_init` leaves them), repeats `U ← HMAC-SHA-512/224 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).
 ///
@@ -1161,7 +1161,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha512_224_iterate_shani(key
 }
 
 /// The CPU features `vg_pbkdf2_hmac_sha512_224_shani` requires (`Artifact.features`).
-pub(crate) const VG_PBKDF2_HMAC_SHA512_224_SHANI_FEATURES: &[&str] = &["avx", "avx2", "sha512"];
+pub(crate) const VG_PBKDF2_HMAC_SHA512_224_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512"]);
 
 /// PBKDF2-HMAC-SHA-512/224 (RFC 8018 §5.2, with HMAC-SHA-512/224 as the pseudorandom function): writes the `out_len`-byte key derived from the `password_len` bytes at `password` and the `salt_len` bytes at `salt` with `c` iterations to `out`. Calls the verified SHA-512/224 and HMAC-SHA-512/224 functions and `vg_pbkdf2_hmac_sha512_224_iterate`.
 ///

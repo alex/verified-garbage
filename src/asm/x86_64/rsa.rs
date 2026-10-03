@@ -2315,7 +2315,7 @@ pub(crate) unsafe extern "sysv64" fn vg_rsa_public_precompute(pre: *mut u64, pre
 }
 
 /// The CPU features `vg_rsa_public_precompute_adx` requires (`Artifact.features`).
-pub(crate) const VG_RSA_PUBLIC_PRECOMPUTE_ADX_FEATURES: &[&str] = &["bmi2", "adx"];
+pub(crate) const VG_RSA_PUBLIC_PRECOMPUTE_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["bmi2", "adx"]);
 
 /// The values of an RSA modulus that `vg_rsa_public_precomputed` takes, so that they are computed once per public key rather than once per operation. With the modulus `n` (`n_len` bytes, most significant first, odd, from 512 to 8192 bits, its first byte not zero) of `w = ⌈n_len / 8⌉` words of 64 bits, writes `n` and then `R² mod n` for `R = 2^(64 w)` to `pre` (`w` words each, least significant first) and returns 1; or writes zeros and returns 0 if `n` is not such a modulus.
 ///
@@ -4636,7 +4636,7 @@ pub(crate) unsafe extern "sysv64" fn vg_rsa_public_precomputed(out: *mut u8, out
 }
 
 /// The CPU features `vg_rsa_public_precomputed_adx` requires (`Artifact.features`).
-pub(crate) const VG_RSA_PUBLIC_PRECOMPUTED_ADX_FEATURES: &[&str] = &["bmi2", "adx"];
+pub(crate) const VG_RSA_PUBLIC_PRECOMPUTED_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["bmi2", "adx"]);
 
 /// The RSA public-key operation, as `vg_rsa_public`, with the modulus given by the values `vg_rsa_public_precompute` wrote for it to `pre`. With those values of a modulus `n` of `out_len` bytes and the public exponent `e` (`e_len` bytes, most significant first), writes `input^e mod n` (`out_len` bytes, most significant first) to `out` and returns 1; or writes zeros and returns 0 if the input (`out_len` bytes, most significant first) is not below `n`.
 ///

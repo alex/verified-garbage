@@ -376,7 +376,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_224_finalize(inner: *mut [u8; 192
 }
 
 /// The CPU features `vg_hmac_sha512_224_init_sha3` requires (`Artifact.features`).
-pub(crate) const VG_HMAC_SHA512_224_INIT_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_HMAC_SHA512_224_INIT_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// Starts an HMAC-SHA-512/224 computation with a key of at most 128 bytes: makes the SHA-512/224 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 128 bytes (FIPS 198-1). The text is then absorbed with `vg_sha512_update` on `*inner` (its `count` starting at 128), and the MAC computed with `vg_hmac_sha512_224_finalize`.
 ///
@@ -586,7 +586,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_224_init_sha3(inner: *mut [u8; 19
 }
 
 /// The CPU features `vg_hmac_sha512_224_finalize_sha3` requires (`Artifact.features`).
-pub(crate) const VG_HMAC_SHA512_224_FINALIZE_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_HMAC_SHA512_224_FINALIZE_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// Finishes an HMAC-SHA-512/224 computation: if, for a 128-byte key `K₀` and a text of fewer than 2⁶⁴ − 128 bytes, the SHA-512/224 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes, and `*outer` represents `K₀ ⊕ opad`, writes the HMAC-SHA-512/224 of the text under `K₀` (28 bytes) to `*out`.
 ///

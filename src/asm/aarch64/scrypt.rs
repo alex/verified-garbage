@@ -766,7 +766,7 @@ pub(crate) unsafe extern "C" fn vg_scrypt(password: *const u8, password_len: usi
 }
 
 /// The CPU features `vg_scrypt_sha2` requires (`Artifact.features`).
-pub(crate) const VG_SCRYPT_SHA2_FEATURES: &[&str] = &["sha2"];
+pub(crate) const VG_SCRYPT_SHA2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha2"]);
 
 /// scrypt (RFC 7914 §6) with block size parameter `r`, cost parameter `N = vlen / r` and parallelization parameter `p = blen / r`: writes the `out_len`-byte key derived from the `password_len` bytes at `password` and the `salt_len` bytes at `salt` to `out`. Calls `vg_pbkdf2_hmac_sha256` for its two PBKDF2-HMAC-SHA256 steps and `vg_scrypt_romix` for each of the `p` blocks.
 ///

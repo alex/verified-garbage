@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ecdh.X86_64.Peer
 import VerifiedGarbage.Proof.Ecdsa.X86_64.Lays
 import VerifiedGarbage.Proof.Ecdsa.X86_64.SlotOps
-import VerifiedGarbage.Proof.Ecdsa.X86_64.Main
+import VerifiedGarbage.Proof.Ecdsa.X86_64.Stages
 
 /-!
 # ECDH on x86-64: the peer's point, `[d]P` and `Z^(p-2)`
@@ -32,7 +32,7 @@ def curveN : List FOp :=
 
 theorem curveOps_eq (c : Cfg) : Impl.Ecdh.X86_64.Cfg.curveOps c = curveN.map (FOp.rename c.sl) := rfl
 
-theorem curveN_run {F : Type*} [CommRing F] (e : Nat → F) :
+theorem curveN_run {F : Type _} [Lean.Grind.CommRing F] (e : Nat → F) :
     runOps curveN e W1 = e QYM * e QYM - ((e QXM * e QXM * e QXM + e AP * e QXM) + e BP) := by
   simp only [curveN, runOps_cons, runOps_nil, FOp.run, Function.update_apply]
   simp only [W0, W1, W2, W3, QYM, QXM, AP, BP, KM, TT, SM, RM, XM, X, EM, Nat.reduceEqDiff, ↓reduceIte]
@@ -57,9 +57,9 @@ structure MontPost (c : Cfg) (base : Addr) (s s' : State) : Prop where
   unch : Unch base (slW c [QXM, QYM, TMP]) s.mem s'.mem
   mod : ModOk c.MP' size c.C.p s'.mem base
   x_lt : sv c base s' QXM < c.C.p
-  x : toM c.C.p (2 ^ (64 * c.n)) (sv c base s' QXM) = (sv c base s E : ZMod c.C.p)
+  x : toM c.C.p (2 ^ (64 * c.n)) (sv c base s' QXM) = Fin.ofNat c.C.p (sv c base s E)
   y_lt : sv c base s' QYM < c.C.p
-  y : toM c.C.p (2 ^ (64 * c.n)) (sv c base s' QYM) = (sv c base s QY : ZMod c.C.p)
+  y : toM c.C.p (2 ^ (64 * c.n)) (sv c base s' QYM) = Fin.ofNat c.C.p (sv c base s QY)
 
 theorem mont_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size)
     (hM : ModOk c.MP' size c.C.p s.mem base) (hr2 : sv c base s R2P = c.R * c.R % c.C.p) :
@@ -67,7 +67,7 @@ theorem mont_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size)
       Impl.Mont.X86_64.mul c.MP' (c.sl QYM) (c.sl QY) (c.sl R2P))) s (MontPost c base s) := by
   have h7 := hc.n7
   have hn := hs.nowrap
-  have hpR := coprime_pow_two hc.p_odd (64 * c.n)
+  have hpR := unitMod_pow_two hc.p_odd (64 * c.n)
   have hp3 := hc.p_ge
   have hr2' : sv c base s R2P = 2 ^ (64 * c.n) * 2 ^ (64 * c.n) % c.C.p := hr2
   rw [WP.block_append_iff]
@@ -91,9 +91,9 @@ theorem mont_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size)
 
 /-! ## The curve's equation -/
 
-/-- `y² = x³ + a x + b`, in `ZMod p`. -/
-abbrev OnCurve (c : Cfg) (x y : ZMod c.C.p) : Prop :=
-  y * y - ((x * x * x + (c.C.a : ZMod c.C.p) * x) + c.C.b) = 0
+/-- `y² = x³ + a x + b`, in `Fin p`. -/
+abbrev OnCurve (c : Cfg) (x y : Fe c.C) : Prop :=
+  y * y - ((x * x * x + Fin.ofNat c.C.p c.C.a * x) + Fin.ofNat c.C.p c.C.b) = 0
 
 theorem curve_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size)
     (hM : ModOk c.MP' size c.C.p s.mem base) (hx : sv c base s QXM < c.C.p) (hy : sv c base s QYM < c.C.p)
@@ -108,7 +108,7 @@ theorem curve_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size)
   have h0 := hc.n0
   have h7 := hc.n7
   have hn := hs.nowrap
-  have hpR := coprime_pow_two hc.p_odd (64 * c.n)
+  have hpR := unitMod_pow_two hc.p_odd (64 * c.n)
   have hp3 := hc.p_ge
   have hF : c.sl FLAG + 8 ≤ size := by have := sl_le c h7 (i := FLAG) (by decide); omega
   have hL : Lay c.MP' size (· ∈ curveSl.map c.sl) := lay_map hc rfl rfl rfl (by decide)
@@ -222,7 +222,7 @@ theorem validate_wp (c : Cfg) {s : State} {Q : State → Prop} :
 /-- The peer's point is valid as the code checks it: `P₀` (its first byte
 and the range of its coordinates) and the curve's equation. -/
 abbrev PeerOk (c : Cfg) (base : Addr) (s : State) (P₀ : Prop) : Prop :=
-  P₀ ∧ OnCurve c (sv c base s E) (sv c base s QY)
+  P₀ ∧ OnCurve c (Fin.ofNat c.C.p (sv c base s E)) (Fin.ofNat c.C.p (sv c base s QY))
 
 theorem validate_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size)
     {g : Reg → BitVec 64} (F : Fixed c base g s.mem) (hr2 : sv c base s R2P = c.R * c.R % c.C.p)
@@ -234,9 +234,9 @@ theorem validate_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base si
       word s'.mem base (c.sl FLAG) = mask (PeerOk c base s P₀) ∧
       sv c base s' PX < c.C.p ∧ sv c base s' PY < c.C.p ∧
       toM c.C.p (2 ^ (64 * c.n)) (sv c base s' PX) =
-        (if PeerOk c base s P₀ then (sv c base s E : ZMod c.C.p) else (c.C.gx : ZMod c.C.p)) ∧
+        (if PeerOk c base s P₀ then Fin.ofNat c.C.p (sv c base s E) else Fin.ofNat c.C.p c.C.gx) ∧
       toM c.C.p (2 ^ (64 * c.n)) (sv c base s' PY) =
-        (if PeerOk c base s P₀ then (sv c base s QY : ZMod c.C.p) else (c.C.gy : ZMod c.C.p)) := by
+        (if PeerOk c base s P₀ then Fin.ofNat c.C.p (sv c base s QY) else Fin.ofNat c.C.p c.C.gy) := by
   have h0 := hc.n0
   have h7 := hc.n7
   have hn := hs.nowrap
@@ -259,7 +259,7 @@ theorem validate_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base si
   have F₆ := F₄.unch h7 hn (fixedOk_slW (l := [PX, PY]) (by decide)) U₆
   have qx : sv c base s₄ QXM = sv c base s₂ QXM := q₄ (by decide) (by decide) (by decide)
   have qy : sv c base s₄ QYM = sv c base s₂ QYM := q₄ (by decide) (by decide) (by decide)
-  have hpR := coprime_pow_two hc.p_odd (64 * c.n)
+  have hpR := unitMod_pow_two hc.p_odd (64 * c.n)
   refine ⟨hs₆, fun r hr => ?_, by rw [k₆.rd, rd₄, Mp.rd], by rw [k₆.wr, wr₄, Mp.wr], ?_,
     by rw [flag_unch U₆ h7 h0 hn (by decide)]; exact f₄, ?_, ?_, ?_, ?_⟩
   · rw [k₆.gpr r (fun h => hr (by simp at h; rcases h with rfl | rfl | rfl <;> simp [clob])), g₄ r hr,
@@ -280,10 +280,10 @@ theorem validate_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base si
     · exact hsl (by decide) w hw
   · rw [px]; split
     · rw [qx]; exact Mp.x_lt
-    · exact F₄.gx.trans_lt (hmont _)
+    · exact lt_of_eq_of_lt F₄.gx (hmont _)
   · rw [py]; split
     · rw [qy]; exact Mp.y_lt
-    · exact F₄.gy.trans_lt (hmont _)
+    · exact lt_of_eq_of_lt F₄.gy (hmont _)
   · rw [px]; split
     · rw [qx, Mp.x]
     · show toM _ _ (wordsVal s₄.mem base (c.sl GX) c.n) = _
@@ -300,7 +300,9 @@ end VG.Proof.Ecdh.X86_64
 
 The signature's ladder with its point at `PX`, `PY`, `ONEP` (`ladderQ`),
 whose slots are apart as `ladder_ok` needs (`ladLayQ`, as `ladLay`), then
-the signature's power (`ladPow_ok`, as `stage₂`).
+the signature's power (`ladPow_ok`, as `stage₂`), for any invariant of the
+ladder: `Main.lean` gives the one of the group law, that `R` represents
+`[k >>> j]P`.
 -/
 
 namespace VG.Proof.Ecdh.X86_64
@@ -343,37 +345,35 @@ theorem ladLayQ (hc : CfgOk c) : LadLay (Impl.Ecdh.X86_64.Cfg.ladderQ c) size :=
 theorem ladWQ_eq (c : Cfg) : ladW (Impl.Ecdh.X86_64.Cfg.ladderQ c) = slW c [RX, RY, RZ, T0, T1, T2, T3,
     T4, T5, DX, DY, DZ, T0, T1, T2, T3, T4, T5, TX, TY, TZ, TMP] := rfl
 
-/-- What the ladder and the power leave. -/
-structure LadPost (c : Cfg) (base : Addr) (k : Nat) (P : Point c.C) (s s' : State) : Prop where
+/-- What the ladder and the power leave: `Q 0` accepts what `R` holds. -/
+structure LadPost (c : Cfg) (base : Addr) (Q : Nat → Fe c.C → Fe c.C → Fe c.C → Prop) (s s' : State) :
+    Prop where
   scr : Scr s' base size
   gpr : ∀ r, r ∉ powClob c.n → s'.gpr r = s.gpr r
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
   unch : Unch base (slW c [RX, RY, RZ, T0, T1, T2, T3, T4, T5, DX, DY, DZ, T0, T1, T2, T3, T4, T5,
     TX, TY, TZ, TMP] ++ slW c [ACC, PT, TMP]) s.mem s'.mem
-  rep : Rep c.C (tmv c.C c.n base s' (c.sl RX)) (tmv c.C c.n base s' (c.sl RY))
-    (tmv c.C c.n base s' (c.sl RZ)) (mul k P)
+  q : Q 0 (tmv c.C c.n base s' (c.sl RX)) (tmv c.C c.n base s' (c.sl RY)) (tmv c.C c.n base s' (c.sl RZ))
   acc_lt : sv c base s' ACC < c.C.p
   acc : toM c.C.p (2 ^ (64 * c.n)) (sv c base s' ACC) = tmv c.C c.n base s' (c.sl RZ) ^ (c.C.p - 2)
   rz_lt : sv c base s' RZ < c.C.p
 
-/-- `[k]P` by the ladder, from `R = O`, then `Z^(p-2)`. -/
+/-- The ladder, from `R = O`, then `Z^(p-2)`, for any invariant `Q` that an
+iteration keeps and that `Q (64 n)` accepts `O`. -/
 theorem ladPow_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size) {g : Reg → BitVec 64}
-    (F : Fixed c base g s.mem) {k : Nat} (hk : k < 2 ^ (64 * c.n)) {P : Point c.C}
-    (hP : onCurve c.C P = true)
-    (hG : Rep c.C (tmv c.C c.n base s (c.sl PX)) (tmv c.C c.n base s (c.sl PY))
-      (tmv c.C c.n base s (c.sl ONEP)) P)
+    (F : Fixed c base g s.mem) {k : Nat} {Q : Nat → Fe c.C → Fe c.C → Fe c.C → Prop}
+    (hstep : Step (Impl.Ecdh.X86_64.Cfg.ladderQ c) c.C base s k Q) (hO : Q (64 * c.n) 0 1 0)
     (hpx : sv c base s PX < c.C.p) (hpy : sv c base s PY < c.C.p)
     (hrx : sv c base s RX = 0) (hry : sv c base s RY = c.mont 1) (hrz : sv c base s RZ = 0)
     (ht₀ : ∀ t < 64 * c.n, s.mem (off base (bitsAt c.n 0 + t)) = if k.testBit t then 1 else 0)
     (ht₁ : ∀ t < 64 * c.n, s.mem (off base (bitsAt c.n 1 + t)) = if (c.C.p - 2).testBit t then 1 else 0)
-    {rest : Prog isa} {Q : State → Prop} (h : ∀ s', LadPost c base k P s s' → WP isa rest s' Q) :
-    WP isa (.seq (ladder (Impl.Ecdh.X86_64.Cfg.ladderQ c)) (.seq (pow c.powP) rest)) s Q := by
+    {rest : Prog isa} {R : State → Prop} (h : ∀ s', LadPost c base Q s s' → WP isa rest s' R) :
+    WP isa (.seq (ladder (Impl.Ecdh.X86_64.Cfg.ladderQ c)) (.seq (pow c.powP) rest)) s R := by
   have h0 := hc.n0
   have h7 := hc.n7
   have hn := hs.nowrap
-  have : Fact c.C.p.Prime := ⟨hc.good.prime⟩
-  have hpR := coprime_pow_two hc.p_odd (64 * c.n)
+  have hpR := unitMod_pow_two hc.p_odd (64 * c.n)
   have hp3 := hc.p_ge
   have hmont : ∀ x, c.mont x < c.C.p := fun x => Nat.mod_lt _ (by omega)
   have hlt : ∀ x ∈ ladR (Impl.Ecdh.X86_64.Cfg.ladderQ c), wordsVal s.mem base x c.MP'.n < c.C.p := by
@@ -383,26 +383,21 @@ theorem ladPow_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hi
     show sv c base s i < c.C.p
     rcases hi with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact F.ap.trans_lt (hmont _)
-    · exact F.b3p.trans_lt (hmont _)
+    · exact lt_of_eq_of_lt F.ap (hmont _)
+    · exact lt_of_eq_of_lt F.b3p (hmont _)
     · exact hpx
     · exact hpy
-    · exact F.onep.trans_lt (Nat.mod_lt _ (by omega))
-    · exact hrx.trans_lt (by omega)
-    · exact hry.trans_lt (hmont _)
-    · exact hrz.trans_lt (by omega)
-  have hR : Rep c.C (tmv c.C c.n base s (c.sl RX)) (tmv c.C c.n base s (c.sl RY))
-      (tmv c.C c.n base s (c.sl RZ)) (mul (k >>> (64 * c.n)) P) := by
-    show Rep c.C (toM _ _ (sv c base s RX)) (toM _ _ (sv c base s RY)) (toM _ _ (sv c base s RZ)) _
-    rw [hrx, hry, hrz, toM_cmont hc, Nat.cast_one, toM_zero, shiftRight_eq_zero hk, mul_zero_pt]
-    exact rep_infinity
-  refine WP.seq (WP.mono (ladder_ok (L := Impl.Ecdh.X86_64.Cfg.ladderQ c) (k := k) (ladLayQ hc) hc.good
-    hpR hP hs (modP_of hc F.mp) hlt (by
-      show toM c.C.p (2 ^ (64 * c.n)) (wordsVal s.mem base (c.sl AP) c.n) = _
-      rw [F.ap]; exact toM_cmont hc _)
-    (by
-      show toM c.C.p (2 ^ (64 * c.n)) (wordsVal s.mem base (c.sl B3P) c.n) = _
-      rw [F.b3p, toM_cmont hc, Nat.cast_mul, Nat.cast_ofNat]) hG hR ht₀)
+    · exact lt_of_eq_of_lt F.onep (Nat.mod_lt _ (by omega))
+    · exact lt_of_eq_of_lt hrx (by omega)
+    · exact lt_of_eq_of_lt hry (hmont _)
+    · exact lt_of_eq_of_lt hrz (by omega)
+  have hR : Q (64 * c.n) (tmv c.C c.n base s (c.sl RX)) (tmv c.C c.n base s (c.sl RY))
+      (tmv c.C c.n base s (c.sl RZ)) := by
+    show Q _ (toM _ _ (sv c base s RX)) (toM _ _ (sv c base s RY)) (toM _ _ (sv c base s RZ))
+    rw [hrx, hry, hrz, toM_cmont hc, toM_zero]
+    exact hO
+  refine WP.seq (WP.mono (ladder_ok (L := Impl.Ecdh.X86_64.Cfg.ladderQ c) (k := k) (ladLayQ hc)
+    hpR hs (modP_of hc F.mp) hlt hstep hR ht₀)
     fun s₅ ⟨K₅, U₅, M₅, L₅, R₅⟩ => ?_)
   rw [ladWQ_eq] at U₅
   have hs₅ := hs.of_keepRegs K₅ (rdi_not_powClob _)
@@ -420,7 +415,7 @@ theorem ladPow_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size
     sv_unch U₆ h7 hn hi (apart_slW h₁)
   refine ⟨hs₅.of_keepRegs K₆ (rdi_not_powClob _), fun r hr => by rw [K₆.gpr r hr, K₅.gpr r hr],
     by rw [K₆.rd, K₅.rd], by rw [K₆.wr, K₅.wr], U₅.trans U₆, ?_, lt₆, ?_, ?_⟩
-  · show Rep c.C (toM _ _ (sv c base s₆ RX)) (toM _ _ (sv c base s₆ RY)) (toM _ _ (sv c base s₆ RZ)) _
+  · show Q 0 (toM _ _ (sv c base s₆ RX)) (toM _ _ (sv c base s₆ RY)) (toM _ _ (sv c base s₆ RZ))
     rw [r₆ (i := RX) (by decide) (by decide), r₆ (i := RY) (by decide) (by decide),
       r₆ (i := RZ) (by decide) (by decide)]
     exact R₅

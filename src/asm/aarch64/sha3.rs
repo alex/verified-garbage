@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 
 /// The CPU features `vg_keccak_f1600_sha3` requires (`Artifact.features`).
-pub(crate) const VG_KECCAK_F1600_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_KECCAK_F1600_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// The permutation Keccak-f[1600] (FIPS 202 §3.4): applies it to the state `*state` (lane `x + 5y` at index `x + 5y`).
 ///
@@ -2255,7 +2255,7 @@ pub(crate) unsafe extern "C" fn vg_keccak_squeeze(state: *mut [u64; 25], rate: u
 }
 
 /// The CPU features `vg_keccak_absorb_sha3` requires (`Artifact.features`).
-pub(crate) const VG_KECCAK_ABSORB_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_KECCAK_ABSORB_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// Absorbs data into a SHA-3 or SHAKE computation: if the state `*state` represents a message whose length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it then represents that message followed by the `len` bytes at `data`. Returns the position after them, `(pos + len) % rate`.
 ///
@@ -4266,7 +4266,7 @@ pub(crate) unsafe extern "C" fn vg_keccak_absorb_sha3(state: *mut [u64; 25], rat
 }
 
 /// The CPU features `vg_keccak_pad_sha3` requires (`Artifact.features`).
-pub(crate) const VG_KECCAK_PAD_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_KECCAK_PAD_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// Pads a SHA-3 or SHAKE message: if the state `*state` represents a message whose length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it becomes the state after absorbing that message with the domain-separation suffix (the low byte of `suffix`, with the first bit of the padding: `0x06` for SHA-3, `0x1f` for SHAKE) and `pad10*1`.
 ///
@@ -4306,7 +4306,7 @@ pub(crate) unsafe extern "C" fn vg_keccak_pad_sha3(state: *mut [u64; 25], rate: 
 }
 
 /// The CPU features `vg_keccak_squeeze_sha3` requires (`Artifact.features`).
-pub(crate) const VG_KECCAK_SQUEEZE_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_KECCAK_SQUEEZE_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// Squeezes output from a padded SHA-3 or SHAKE state: writes to `out` the `outlen` bytes of the output of the sponge with rate `rate` from the state `*state` (FIPS 202 Algorithm 8, steps 7 to 10), from byte `pos` of that output on; leaves in `*state` a state, and returns a position, from which the output continues after them. Start from the state `vg_keccak_pad` leaves and position 0.
 ///

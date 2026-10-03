@@ -6806,7 +6806,7 @@ pub(crate) unsafe extern "sysv64" fn vg_x25519(out: *mut [u8; 32], scalar: *cons
 }
 
 /// The CPU features `vg_x25519_adx` requires (`Artifact.features`).
-pub(crate) const VG_X25519_ADX_FEATURES: &[&str] = &["bmi2", "adx"];
+pub(crate) const VG_X25519_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["bmi2", "adx"]);
 
 /// Computes X25519 (RFC 7748 §5): writes `X25519(k, u)` to `*out`, for the 32-byte scalar `k` at `scalar` and the 32-byte u-coordinate `u` at `point`. The scalar is decoded (clamped) and the most significant bit of `u` masked as RFC 7748 specifies; the result may be all zero (for a `u` of small order), which the caller must check for if its protocol requires it (RFC 7748 §6.1).
 ///
@@ -10467,7 +10467,7 @@ pub(crate) unsafe extern "sysv64" fn vg_x25519_adx(out: *mut [u8; 32], scalar: *
 }
 
 /// The CPU features `vg_x25519_ifma` requires (`Artifact.features`).
-pub(crate) const VG_X25519_IFMA_FEATURES: &[&str] = &["avx", "avx2", "bmi2", "adx", "avx512ifma", "avx512vl"];
+pub(crate) const VG_X25519_IFMA_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi2", "adx", "avx512ifma", "avx512vl"]);
 
 /// Computes X25519 (RFC 7748 §5): writes `X25519(k, u)` to `*out`, for the 32-byte scalar `k` at `scalar` and the 32-byte u-coordinate `u` at `point`. The scalar is decoded (clamped) and the most significant bit of `u` masked as RFC 7748 specifies; the result may be all zero (for a `u` of small order), which the caller must check for if its protocol requires it (RFC 7748 §6.1).
 ///

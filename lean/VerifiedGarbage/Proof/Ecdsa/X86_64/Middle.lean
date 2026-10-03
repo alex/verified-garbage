@@ -33,11 +33,11 @@ structure MidPost (c : Cfg) (base : Addr) (s s' : State) : Prop where
   modP : ModOk c.MP' size c.C.p s'.mem base
   modN : ModOk c.MN' size c.C.n s'.mem base
   x_lt : sv c base s' X < c.C.p
-  x : (sv c base s' X : ZMod c.C.p) =
+  x : Fin.ofNat c.C.p (sv c base s' X) =
     toM c.C.p (2 ^ (64 * c.n)) (sv c base s RX) * toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC)
   rr : sv c base s' RR = sv c base s' X % c.C.n
   km_lt : sv c base s' KM < c.C.n
-  km : toM c.C.n (2 ^ (64 * c.n)) (sv c base s' KM) = (sv c base s K : ZMod c.C.n)
+  km : toM c.C.n (2 ^ (64 * c.n)) (sv c base s' KM) = Fin.ofNat c.C.n (sv c base s K)
 
 theorem unch_slots {base : Addr} {m₁ m₂ : Mem} {o : Nat} {l : List Nat} {M : Mod} (hMn : M.n = c.n)
     (hMt : M.tmp = c.sl TMP) (h : Unch base [(c.sl o, 8 * M.n), (M.tmp, 8 * M.n)] m₁ m₂)
@@ -60,8 +60,8 @@ theorem midOps_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size
       (.seq (.block (mul c.MN' (c.sl KM) (c.sl K) (c.sl R2N))) rest)))) s Q := by
   have h7 := hc.n7
   have hn := hs.nowrap
-  have hpR := coprime_pow_two hc.p_odd (64 * c.n)
-  have hnR := coprime_pow_two hc.n_odd (64 * c.n)
+  have hpR := unitMod_pow_two hc.p_odd (64 * c.n)
+  have hnR := unitMod_pow_two hc.n_odd (64 * c.n)
   have hp3 := hc.p_ge
   have hpn := hc.p_lt_2n
   -- `XM = X · ACC`.
@@ -81,7 +81,7 @@ theorem midOps_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size
   have zero₂ : sv c base s₂ ZERO = 0 := by
     rw [sv_keep (MP'_n c) rfl h7 hn k₂ (by decide) (by decide) (by decide),
       sv_keep (MP'_n c) rfl h7 hn k₁ (by decide) (by decide) (by decide), hzero]
-  have x₂ : (sv c base s₂ X : ZMod c.C.p) =
+  have x₂ : Fin.ofNat c.C.p (sv c base s₂ X) =
       toM c.C.p (2 ^ (64 * c.n)) (sv c base s RX) * toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC) := by
     rw [toM_one_mul hpR (by rw [e₂, one₁]), toM_mul hpR e₁]
   -- `RR = X mod n`.
