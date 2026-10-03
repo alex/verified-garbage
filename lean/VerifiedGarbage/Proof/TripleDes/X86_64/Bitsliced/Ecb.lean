@@ -227,16 +227,50 @@ theorem loads_ok {s : State} (h : Room s) (l : List (Reg × Nat)) (hl : ∀ p �
 
 /-! ## The function -/
 
-/-- What the function's contract gives. -/
+/-- What the function needs: the scratch buffer and the data writable, the
+schedule readable, apart from each other and the return address. -/
 structure EcbPre (s : State) : Prop where
-  rd : s.rd = [⟨s.gpr .rdi, 384⟩]
-  wr : s.wr = [⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩, ⟨s.gpr .rcx, 1024⟩]
+  scratch : (⟨s.gpr .rcx, 1024⟩ : Region) ∈ s.wr
+  dataIn : ∀ i < (s.gpr .rdx).toNat, InRegions s.wr (wAt (s.gpr .rsi) i) 8
+  keyIn : ∀ i < 48, InRegions (s.rd ++ s.wr) (s.gpr .rdi + BitVec.ofNat 64 (8 * i)) 8
   keyData : (⟨s.gpr .rdi, 384⟩ : Region).Disjoint ⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩
   keyBuf : (⟨s.gpr .rdi, 384⟩ : Region).Disjoint ⟨s.gpr .rcx, 1024⟩
   dataBuf : (⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩ : Region).Disjoint ⟨s.gpr .rcx, 1024⟩
   retData : (⟨s.gpr .rsp, 8⟩ : Region).Disjoint ⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩
   retBuf : (⟨s.gpr .rsp, 8⟩ : Region).Disjoint ⟨s.gpr .rcx, 1024⟩
   fit : (s.gpr .rsi).toNat + 8 * (s.gpr .rdx).toNat ≤ 2 ^ 64
+
+/-- `EcbPre` from the regions of the contract. -/
+theorem EcbPre.of_regions {s : State} (hrd : s.rd = [⟨s.gpr .rdi, 384⟩])
+    (hwr : s.wr = [⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩, ⟨s.gpr .rcx, 1024⟩])
+    (keyData : (⟨s.gpr .rdi, 384⟩ : Region).Disjoint ⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩)
+    (keyBuf : (⟨s.gpr .rdi, 384⟩ : Region).Disjoint ⟨s.gpr .rcx, 1024⟩)
+    (dataBuf : (⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩ : Region).Disjoint ⟨s.gpr .rcx, 1024⟩)
+    (retData : (⟨s.gpr .rsp, 8⟩ : Region).Disjoint ⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩)
+    (retBuf : (⟨s.gpr .rsp, 8⟩ : Region).Disjoint ⟨s.gpr .rcx, 1024⟩)
+    (fit : (s.gpr .rsi).toNat + 8 * (s.gpr .rdx).toNat ≤ 2 ^ 64) : EcbPre s where
+  scratch := by rw [hwr]; exact List.mem_cons_of_mem _ List.mem_cons_self
+  dataIn i hi := by
+    rw [hwr]
+    exact ⟨_, List.mem_cons_self, Offset.contains_base _ (by omega) (by omega)⟩
+  keyIn i hi := by
+    rw [hrd]
+    exact ⟨_, List.mem_cons_self, Offset.contains_base _ (by omega) (by omega)⟩
+  keyData := keyData
+  keyBuf := keyBuf
+  dataBuf := dataBuf
+  retData := retData
+  retBuf := retBuf
+  fit := fit
+
+/-- What the function does: every block of the data becomes its encryption or
+decryption, the callee-saved registers and the return address are kept, and
+only the scratch buffer and the data change. -/
+structure EcbPost (d : Direction) (s s' : State) : Prop where
+  gpr : gprPreserved s s'
+  done : ∀ b < (s.gpr .rdx).toNat, blockAt s'.mem (wAt (s.gpr .rsi) b) =
+    blockOut (scheduleAt s.mem (s.gpr .rdi)) d (blockAt s.mem (wAt (s.gpr .rsi) b))
+  frame : Frame [scratchR s, ⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩] s.mem s'.mem
 
 theorem ecb_blocks (K : Schedule) (d : Direction) (m m' : Mem) (D : Addr) (n : Nat)
     (h : ∀ b < n, blockAt m' (wAt D b) = blockOut K d (blockAt m (wAt D b))) :
@@ -246,15 +280,11 @@ theorem ecb_blocks (K : Schedule) (d : Direction) (m m' : Mem) (D : Addr) (n : N
   intro b hb
   exact h b (List.mem_range.mp hb)
 
-theorem ecb_ok (d : Direction) {s : State} (h : EcbPre s) :
-    WP isa (ecb d) s (fun s' => gprPreserved s s' ∧
-      blocksAt s'.mem (s.gpr .rsi) (s.gpr .rdx).toNat =
-        Spec.TripleDes.ecb (scheduleAt s.mem (s.gpr .rdi)) d
-          (blocksAt s.mem (s.gpr .rsi) (s.gpr .rdx).toNat)) := by
+theorem ecb_ok (d : Direction) {s : State} (h : EcbPre s) : WP isa (ecb d) s (EcbPost d s) := by
   let n := (s.gpr .rdx).toNat
   let D := s.gpr .rsi
   let S := s.gpr .rdi
-  have hroom : Room s := ⟨by rw [h.wr]; exact List.mem_cons_of_mem _ List.mem_cons_self⟩
+  have hroom : Room s := ⟨h.scratch⟩
   rw [Impl.TripleDes.X86_64.Bitslice.ecb]
   -- the setup
   apply WP.seq
@@ -288,9 +318,7 @@ theorem ecb_ok (d : Direction) {s : State} (h : EcbPre s) :
       simp only [List.mem_singleton] at hr; subst hr
       exact h.dataBuf.sub_left (Offset.sub_base _ (by omega))
   -- after the loop (or none), the registers restored
-  have finish : ∀ s₂ : State, BatchesPost d s₀ n s₂ →
-      WP isa (.block restore) s₂ (fun s' => gprPreserved s s' ∧
-        blocksAt s'.mem D n = Spec.TripleDes.ecb (scheduleAt s.mem S) d (blocksAt s.mem D n)) := by
+  have finish : ∀ s₂ : State, BatchesPost d s₀ n s₂ → WP isa (.block restore) s₂ (EcbPost d s) := by
     intro s₂ p
     have h₂ : Room s₂ := (hroom.congr (by rw [p.rcx, g₀]) (by rw [p.wr, wr₀]))
     obtain ⟨s', run', m', set', keep'⟩ := loads_ok h₂ savedRegs (by decide) (by decide)
@@ -300,7 +328,7 @@ theorem ecb_ok (d : Direction) {s : State} (h : EcbPre s) :
       have := p.frame
       rw [scr₀, D₀] at this
       exact (f₀.mono (by simp)).trans this
-    refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
+    refine ⟨⟨fun r hr => ?_, ?_⟩, fun b hb => ?_, frame⟩
     · have saved : ∀ q ∈ savedRegs, s'.gpr q.1 = s.gpr q.1 := by
         intro q hq
         rw [set' q hq, p.saved q.2 (by revert hq q; decide) (by revert hq q; decide), sl₀]
@@ -321,9 +349,7 @@ theorem ecb_ok (d : Direction) {s : State} (h : EcbPre s) :
       rcases hr with rfl | rfl
       · exact h.retBuf
       · exact h.retData
-    · apply ecb_blocks
-      intro b hb
-      have e := p.done b hb
+    · have e := p.done b hb
       rw [D₀, S₀, K₀, B₀ b hb, ← m'] at e
       exact e
   apply WP.seq
@@ -342,11 +368,9 @@ theorem ecb_ok (d : Direction) {s : State} (h : EcbPre s) :
       omega
     have E : BatchesEnv s₀ n := by
       refine ⟨hroom.congr (by rw [g₀]) wr₀, fun i hi => ?_, ?_, hn, fun i hi => ?_, ?_, ?_⟩
-      · rw [wr₀, h.wr, D₀]
-        exact ⟨_, List.mem_cons_self, Offset.contains_base _ (by omega) (by omega)⟩
+      · rw [wr₀, D₀]; exact h.dataIn i hi
       · rw [D₀, scr₀]; exact h.dataBuf
-      · rw [rd₀, wr₀, h.rd, S₀]
-        exact ⟨_, List.mem_cons_self, Offset.contains_base _ (by omega) (by omega)⟩
+      · rw [rd₀, wr₀, S₀]; exact h.keyIn i hi
       · rw [S₀, scr₀]; exact h.keyBuf
       · rw [S₀, D₀]; exact h.keyData
     have I : BatchesInv d s₀ n n s₀ := by

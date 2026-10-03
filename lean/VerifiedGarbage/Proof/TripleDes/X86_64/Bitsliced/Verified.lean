@@ -86,15 +86,17 @@ theorem encrypt_correct (s : State) (hs : (contract .encrypt).pre s) :
     ∃ t s', Exec isa Impl.TripleDes.X86_64.Bitslice.encrypt s t s' ∧ abiPreserved s s' ∧
       (contract .encrypt).post s s' := by
   obtain ⟨rd, wr, kd, kb, db, rdt, rb, fit⟩ := hs
-  obtain ⟨t, s', he, ha, hp⟩ := ecb_ok .encrypt ⟨rd, wr, kd, kb, db, rdt, rb, fit⟩
-  exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he ha, hp⟩
+  obtain ⟨t, s', he, hp⟩ := ecb_ok .encrypt (EcbPre.of_regions rd wr kd kb db rdt rb fit)
+  exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he hp.gpr,
+    ecb_blocks _ _ _ _ _ _ hp.done⟩
 
 theorem decrypt_correct (s : State) (hs : (contract .decrypt).pre s) :
     ∃ t s', Exec isa Impl.TripleDes.X86_64.Bitslice.decrypt s t s' ∧ abiPreserved s s' ∧
       (contract .decrypt).post s s' := by
   obtain ⟨rd, wr, kd, kb, db, rdt, rb, fit⟩ := hs
-  obtain ⟨t, s', he, ha, hp⟩ := ecb_ok .decrypt ⟨rd, wr, kd, kb, db, rdt, rb, fit⟩
-  exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he ha, hp⟩
+  obtain ⟨t, s', he, hp⟩ := ecb_ok .decrypt (EcbPre.of_regions rd wr kd kb db rdt rb fit)
+  exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he hp.gpr,
+    ecb_blocks _ _ _ _ _ _ hp.done⟩
 
 theorem publicRegs_five (s₁ s₂ : State) : PublicRegs [.rdi, .rsi, .rdx, .rcx, .rsp] s₁ s₂ ↔
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
