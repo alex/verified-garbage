@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Poly1305.Horner8
 /-!
 # Poly1305 on x86-64 with AVX-512: groups of eight blocks
 
-Untrusted: everything here is checked by Lean. Each group of eight blocks is
-added to the quadwords of `H` (block `π k` to quadword `k`) and multiplied by
-`r⁸` (Horner's rule in eight lanes, `Horner8.lean`); the last group is
+Each group of eight blocks is added to the quadwords of `H` (block `π k` to
+quadword `k`) and multiplied by `r⁸` (Horner's rule in eight lanes,
+`Horner8.lean`), whose limbs are in the state (`MemY`); the last group is
 multiplied quadword by quadword by `r^(8 - π k)`, after which the sum of the
 quadwords is the accumulator.
 -/
@@ -15,7 +15,7 @@ namespace VG.Proof.Poly1305.X86_64.Avx512
 
 open VG VG.X86_64 VG.Impl.Poly1305.X86_64.Avx512
 open VG.Impl.Poly1305.X86_64.Avx2 (hreg dreg yreg tP)
-open VG.Proof.Poly1305.X86_64.Avx2 (xr xi xr_xi vec vec_trans vec_gpr ext5 val_congr)
+open VG.Proof.Poly1305.X86_64.Avx2 (xr xi xr_xi vec vec_trans vec_gpr vec_mem vec_rd vec_wr ext5 val_congr)
 open VG.Spec.Poly1305 (P leNum bytesAt)
 open VG.Proof.Poly1305 (mv lanes8 absorbAll)
 
@@ -76,21 +76,30 @@ theorem YInv.of_y {s s' : State} {R : Nat} (h : YInv s R)
   exact ⟨fun k hk => by rw [el k hk]; exact h.lo k hk, fun k hk => by rw [eh k hk]; exact h.hi k hk,
     fun k hk => by rw [el k hk]; exact h.lob k hk, fun k hk => by rw [eh k hk]; exact h.hib k hk⟩
 
-/-- `addGroup`, then `mul` by `Y`'s low doublewords: quadword `k` becomes
-`(V_k + m_(π k)) · Y_k`. -/
-theorem addMul_ok {s : State} (hr8 : s.gpr .r8 = 0x3ffffff) (hr9 : s.gpr .r9 = 0x1000000) (hc : Ctx s)
-    (hb : ∀ k < 8, ∀ i < 5, hv s k i < 2 ^ 27) (hy : ∀ k < 8, ∀ i < 5, yl s k i < 2 ^ 27) :
-    WP isa (.block (addGroup ++ mul)) s fun s' => vec s s' = s' ∧
+/-- The multiplier in the state (`mulM`'s) is `R⁸`. -/
+structure MemY (R : Nat) (s : State) : Prop where
+  m : MemM s
+  val : Limbs26.val (mr s) ≡ R ^ 8 [MOD P]
+
+theorem Ctx.of_vec {s s' : State} (h : Ctx s) (hv : vec s s' = s') : Ctx s' := by
+  have g := vec_gpr hv
+  have rd := vec_rd hv
+  have wr := vec_wr hv
+  exact ⟨fun i hi => by rw [rd, wr, g]; exact h.ld i hi, fun d h₁ h₂ => by rw [rd, wr, g]; exact h.mb d h₁ h₂⟩
+
+/-- `addGroupM`, then `mulM` by the multiplier in the state: quadword `k`
+becomes `(V_k + m_(π k)) · r`. -/
+theorem addMulM_ok {s : State} (hc : Ctx s) (hM : MemM s) (hb : ∀ k < 8, ∀ i < 5, hv s k i < 2 ^ 27) :
+    WP isa (.block (addGroupM ++ mulM)) s fun s' => vec s s' = s' ∧
       (∀ i < 5, ∀ k < 8, qz s' (yreg i) k = qz s (yreg i) k) ∧ (∀ k < 8, ∀ i < 5, hv s' k i < 2 ^ 27) ∧
-      ∀ k < 8, hval s' k ≡ (hval s k + mv (blk s (pi k))) * Limbs26.val (yl s k) [MOD P] := by
-  refine WP.block_append (WP.mono (addGroup_ok ⟨hr9, hc, hb⟩) fun s₁ A => ?_)
-  have hyl : ∀ k < 8, yl s₁ k = yl s k := fun k hk => ext5 (fun _ h => yl_ge _ _ h) (fun _ h => yl_ge _ _ h)
-    fun i hi => by simp only [yl, A.y i hi k hk]
-  refine WP.mono (mul_ok ⟨by rw [vec_gpr A.vec, hr8], A.hb, fun k hk i hi => by rw [hyl k hk]; exact hy k hk i hi⟩)
+      ∀ k < 8, hval s' k ≡ (hval s k + mv (blk s (pi k))) * Limbs26.val (mr s) [MOD P] := by
+  refine WP.block_append (WP.mono (addGroupM_ok ⟨hM.pad, hc, hb⟩) fun s₁ A => ?_)
+  have hm : mr s₁ = mr s := by funext i; simp only [mr, envOf, vec_gpr A.vec, vec_mem A.vec]
+  refine WP.mono (mulM_ok ⟨hc.of_vec A.vec, hM.of_mem (by rw [vec_gpr A.vec]) (vec_mem A.vec), A.hb⟩)
     fun s₂ M => ⟨vec_trans A.vec M.vec, fun i hi k hk => by rw [M.y i hi k hk, A.y i hi k hk], M.hb,
       fun k hk => ?_⟩
   simp only [hval]
-  rw [val_congr (M.h k hk), blk_mv, ← A.h k hk, ← hyl k hk]
+  rw [val_congr (M.h k hk), blk_mv, ← A.h k hk, hm]
   exact Limbs26.mul_mod _ _
 
 theorem pi_0 : pi 0 = 0 := rfl
@@ -103,13 +112,12 @@ theorem pi_6 : pi 6 = 3 := rfl
 theorem pi_7 : pi 7 = 7 := rfl
 
 /-- A group before the last: the invariant for the blocks so far and the group. -/
-theorem group_ok {R X : Nat} {s : State} (hr8 : s.gpr .r8 = 0x3ffffff) (hr9 : s.gpr .r9 = 0x1000000)
-    (hc : Ctx s) (hI : LaneInv R X s) :
-    WP isa (.block (addGroup ++ mul)) s fun s' => vec s s' = s' ∧
+theorem group_ok {R X : Nat} {s : State} (hc : Ctx s) (hM : MemY R s) (hI : LaneInv R X s) :
+    WP isa (.block (addGroupM ++ mulM)) s fun s' => vec s s' = s' ∧
       LaneInv R (absorbAll R X (bytesAt s.mem (s.gpr .rsi) 128)) s' := by
-  refine WP.mono (addMul_ok hr8 hr9 hc hI.hb hI.y.lob) fun s' ⟨hv', hy, hb, he⟩ => ⟨hv', hI.y.of_y hy, hb, ?_⟩
+  refine WP.mono (addMulM_ok hc hM.m hI.hb) fun s' ⟨hv', hy, hb, he⟩ => ⟨hv', hI.y.of_y hy, hb, ?_⟩
   have e : ∀ k < 8, hval s' k ≡ (hval s k + mv (blk s (pi k))) * R ^ 8 [MOD P] := fun k hk =>
-    (he k hk).trans (Nat.ModEq.mul_left _ (hI.y.lo k hk))
+    (he k hk).trans (Nat.ModEq.mul_left _ hM.val)
   rw [group_bytes]
   have L := blk_length s
   exact Poly1305.horner8_step (L 0) (L 1) (L 2) (L 3) (L 4) (L 5) (L 6) (L 7) hI.acc

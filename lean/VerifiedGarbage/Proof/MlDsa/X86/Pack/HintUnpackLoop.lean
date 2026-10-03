@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Pack.HintUnpack
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_hint_bit_unpack`, the coefficients of a polynomial
 
-Untrusted: everything here is checked by Lean. Once the bound `y[ω + i]`
-of polynomial `i` has passed its checks, the code sets the coefficients
-`y[index]` up to it (`coefs_piece`), following `huStep` from the spec's
-state `cur s₀ i` before the polynomial: after `t` of them the spec's state
-is `G s₀ i t`, and `eax` its index (or 256 once a check fails, which ends
-the loop).
+Once the bound `y[ω + i]` of polynomial `i` has passed its checks, the code
+sets the coefficients `y[index]` up to it (`coefs_piece`), following `huStep`
+from the spec's state `cur s₀ i` before the polynomial: after `t` of them the
+spec's state is `G s₀ i t`, and `eax` its index (or 256 once a check fails,
+which ends the loop).
 -/
 
 namespace VG.Proof.MlDsa.X86.Pack.Hint

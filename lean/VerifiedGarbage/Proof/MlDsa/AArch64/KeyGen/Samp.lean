@@ -4,17 +4,17 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Masked
 /-!
 # ML-DSA key generation on AArch64: the samplers
 
-Untrusted: everything here is checked by Lean. The entries of `Â`
-(`expA_piece`) and of `s₁ ‖ s₂` (`expS_piece`): after the first `e` entries
-of `Â` and `r` of `s₁ ‖ s₂` (`KSamp`), each polynomial is reduced (and those
-of `s₁ ‖ s₂` small), and `x24` is 1 if every sampler succeeded, with the
-polynomials those of the standard for some bounds, or 0 if key generation
-fails within the least bounds (`Good`).
+The entries of `Â` (`expA_piece`) and of `s₁ ‖ s₂` (`expS_piece`): after the
+first `e` entries of `Â` and `r` of `s₁ ‖ s₂` (`KSamp`), each polynomial is
+reduced (and those of `s₁ ‖ s₂` small), and `x24` is 1 if every sampler
+succeeded, with the polynomials those of the standard for some bounds, or 0 if
+key generation fails within the least bounds (`Good`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Keep)
 open VG.Spec.MlDsa (Params keyGenSeeds Poly IPoly Bounds minBounds rejNTTPoly rejBoundedPoly keyGenInternal toRq
   polyAt coeffAt Reduced PolyIs)
@@ -132,7 +132,7 @@ theorem rej_pub {p : Params} {S : Nat} {σ₁ σ₂ : State} (pub : kgPub p S σ
 
 theorem Two.post {p : Params} {S : Nat} {x y x' y' : State} (T : Two p S x y) {W₁ W₂ : List Region}
     (hx : PostB S x x' W₁) (hy : PostB S y y' W₂) : Two p S x' y' :=
-  ⟨T.lx.post hx, T.ly.post hy, fun r hr => by rw [hx.bs r hr, hy.bs r hr]; exact T.same.1 r hr,
+  ⟨T.lx.post hx, T.ly.post hy, fun r hr => by rw [hx.bs r (bases_kept r hr), hy.bs r (bases_kept r hr)]; exact T.same.1 r hr,
     by rw [hx.sp, hy.sp]; exact T.same.2⟩
 
 /-- A piece that leaks the same, and keeps the layout, leaves two runs in it. -/
@@ -179,7 +179,7 @@ theorem expA_tr {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : PFac
     (Q := fun x y => Two p S x y ∧ bytesAt x.mem (pa x (sc oSA)) 34 = bytesAt y.mem (pa y (sc oSA)) 34)
     fun x y x' y' ⟨T, e32⟩ ⟨⟨_, hx⟩, bx⟩ ⟨⟨_, hy⟩, by'⟩ => ⟨T.post hx hy, by rw [bx, by', e32]⟩) ?_
   have hc : rejNttChk kgR (kgW p) (sc oSA) (aP e) (sc oSS) = true := by unfold rejNttChk; lay
-  have ok := fun x (L : Lay S kgR (kgW p) x) => WP.mono (rejNttAt_ok hP.s64 hP.rejNtt L hc)
+  have ok := fun x (L : Lay S kgR (kgW p) x) => WP.mono (rejNttAt_ok (nm := "vg_mldsa_rej_ntt_poly" ++ P.suffix) hP.s64 hP.rejNtt L hc)
     fun _ h => (⟨_, h.1⟩ : ∃ W, PostB S x _ W)
   exact RelCT.seq (RelCT.two (fun _ _ h => h.1) (rejNttAt_tr hP.rejNtt (kgOk p) hc fun x y h =>
       ⟨h.1.lx, h.1.ly, h.2, h.1.same⟩)
@@ -216,7 +216,7 @@ theorem expS_ok {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : PFac
   have L := h.k1.kc.lay hF hp
   unfold expS sampled
   refine WP.seq (WP.mono (setB_ok L (p := sc (oSB + 64)) (v := r) (by decide) (by lay)
-    (show Reg.x28 ∈ bases by decide)) fun s₁ ⟨hP₁, k₁, hb₁⟩ => ?_)
+    (show Reg.x28 ∈ keptRegs by decide)) fun s₁ ⟨hP₁, k₁, hb₁⟩ => ?_)
   have h₁ : KSamp p σ (p.k * p.ℓ) r s₁ :=
     h.keep hF hp hP₁ (by unfold k1Chk kcChk; lay) (fun e' he' => by lay) (fun r' hr' => by lay) (k₁.get .x24)
   have L₁ := h₁.k1.kc.lay hF hp
@@ -297,7 +297,7 @@ theorem expS_tr {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : PFac
   let F := fun (x x' : State) => (∃ W, PostB S x x' W) ∧ ∀ ρ' : List Byte, bytesAt x.mem (pa x (sc oSB)) 64 = ρ' →
     bytesAt x.mem (pa x (sc (oSB + 65))) 1 = [0] → bytesAt x'.mem (pa x' (sc oSB)) 66 = seedS ρ' r
   have hF1 : ∀ x, Lay S kgR (kgW p) x → WP isa (.block (setB (sc (oSB + 64)) r)) x (F x) := fun x L =>
-    WP.mono (setB_ok L (p := sc (oSB + 64)) (v := r) (by decide) (by lay) (show Reg.x28 ∈ bases by decide))
+    WP.mono (setB_ok L (p := sc (oSB + 64)) (v := r) (by decide) (by lay) (show Reg.x28 ∈ keptRegs by decide))
       fun x' ⟨hP₁, _, hb⟩ => ⟨⟨_, hP₁⟩, fun _ h64 h65 => sbSeed L (by omega) hP₁ hb h64 h65⟩
   refine RelCT.seq (RelCT.postDep (taintRel [.x28] (fun x y h => h.1.x28) (setS_taint _ (by omega)))
     (F := F) (fun x y h => ⟨hF1 x h.1.lx, hF1 y h.1.ly⟩)

@@ -1,5 +1,6 @@
 import VerifiedGarbage.Impl.Rc2.AArch64.ExpandKey
-import VerifiedGarbage.Proof.Rc2.AArch64.Save
+import VerifiedGarbage.Proof.Rc2.AArch64.BlockIO
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 import VerifiedGarbage.Proof.Rc2.Expansion
 
 /-! # Individual AArch64 RC2 key-expansion steps -/

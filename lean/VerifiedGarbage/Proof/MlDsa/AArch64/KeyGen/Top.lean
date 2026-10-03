@@ -4,18 +4,18 @@ import VerifiedGarbage.Proof.MlKem.AArch64.KgA
 /-!
 # ML-DSA on AArch64: entry and exit
 
-Untrusted: everything here is checked by Lean. What the top-level functions
-keep from their entry state `σ` on (`Top`): the permissions and the stack
-pointer, their four arguments in `x25`–`x28`, the callee-saved registers
-they never write, and their caller's `x24`–`x28` and `x30` saved in
-`scratch`. The prologue establishes it (`pro_ok`), every piece keeps it
-(`Top.step`), and the epilogue restores the caller's registers from it
-(`epi_ok`).
+What the top-level functions keep from their entry state `σ` on (`Top`): the
+permissions and the stack pointer, their four arguments in `x25`–`x28`, the
+callee-saved registers they never write, and their caller's `x24`–`x28` and
+`x30` saved in `scratch`. The prologue establishes it (`pro_ok`), every piece
+keeps it (`Top.step`), and the epilogue restores the caller's registers from
+it (`epi_ok`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep wp_nil wp_movz wp_addImm wp_ldrx in_rd_wr)
 open VG.Spec.Sha3 (bytesAt)
 
@@ -45,7 +45,7 @@ theorem Top.step {S : Nat} {rbs wbs : List (Reg × Nat)} {σ s s' : State} (h : 
     {ws : List (Ptr × Nat)} (hP : PPostB S s s' ws) (hc : keepB rbs wbs ws svP 48 = true) : Top σ s' := by
   have hsv : ∀ k < 6, s'.mem.readW (pa s' svP + BitVec.ofNat 64 (8 * k)) 64 =
       s.mem.readW (pa s svP + BitVec.ofNat 64 (8 * k)) 64 := fun k hk => by
-    rw [hP.pa (keepB_bs hc)]
+    rw [hP.pa (L.keepBs hc)]
     obtain ⟨n, hn, hl⟩ := inB_spec (keepB_in hc)
     refine hP.frame.readW (r := ⟨pa s svP, 48⟩) (Offset.contains_base _ (by omega) (by omega))
       (L.fdisj hc) (by decide)

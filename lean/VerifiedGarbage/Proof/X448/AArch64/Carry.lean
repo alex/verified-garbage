@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # X448 on AArch64: carry propagation
 
-Untrusted: everything here is checked by Lean. The sixteen machine steps
-implement `digit` and `carry`; the inputs may be normalized in place.
+The sixteen machine steps implement `digit` and `carry`; the inputs may be
+normalized in place.
 -/
 
 namespace VG.Proof.X448.AArch64

@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # ML-KEM on x86-64: the contracts the proofs are written against
 
-Untrusted: everything here is checked by Lean. For each function, a
-contract with the facts of its shared contract (`Spec/MlKem/Poly.lean`,
-`Spec/MlKem/Contract.lean`) spelled out for x86-64: the arguments in their
-registers, the permitted regions, their disjointness, and the
-postcondition. The proofs are written against these, and callers use them
-(`WP.call`); `Verified.of_correct` moves a proof to the shared contract,
+For each function, a contract with the facts of its shared contract
+(`Spec/MlKem/Poly.lean`, `Spec/MlKem/Contract.lean`) spelled out for x86-64:
+the arguments in their registers, the permitted regions, their disjointness,
+and the postcondition. The proofs are written against these, and callers use
+them (`WP.call`); `Verified.of_correct` moves a proof to the shared contract,
 which implies it (`sig_implies`).
 -/
 
@@ -66,29 +65,37 @@ def cbd2K : Contract isa where
 /-- The width `d`, a `u32` argument in `r`. -/
 abbrev dArg (s : State) (r : Reg) : Nat := ((s.gpr r).setWidth 32).toNat
 
-/-- `vg_mlkem_compress_encode(f = rdi, d = esi, out = rdx, len = rcx)`. -/
-def compressEncodeK : Contract isa where
+/-- `vg_mlkem_compress_encode(f = rdi, d = esi, out = rdx, len = rcx)`, or
+another compression of the same signature for the widths `ws`
+(`vg_mlkem1024_compress_encode`). -/
+def compressEncodeWK (ws : List Nat) : Contract isa where
   pre s :=
     s.rd = [pR (s.gpr .rdi)] ∧ s.wr = [⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩] ∧
     (pR (s.gpr .rdi)).Disjoint ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩ ∧ (retR s).Disjoint (pR (s.gpr .rdi)) ∧
-    (retR s).Disjoint ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩ ∧ dArg s .rsi ∈ compressWidths ∧
+    (retR s).Disjoint ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩ ∧ dArg s .rsi ∈ ws ∧
     (s.gpr .rcx).toNat = 32 * dArg s .rsi ∧ Reduced s.mem (s.gpr .rdi)
   post s s' := Spec.Sha3.bytesAt s'.mem (s.gpr .rdx) (s.gpr .rcx).toNat =
     compressEncode (dArg s .rsi) (polyAt s.mem (s.gpr .rdi))
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧ s₁.gpr .rcx = s₂.gpr .rcx ∧
     s₁.gpr .rsp = s₂.gpr .rsp ∧ (s₁.gpr .rsi).setWidth 32 = (s₂.gpr .rsi).setWidth 32
 
-/-- `vg_mlkem_decode_decompress(b = rdi, len = rsi, d = edx, f = rcx)`. -/
-def decodeDecompressK : Contract isa where
+abbrev compressEncodeK : Contract isa := compressEncodeWK compressWidths
+
+/-- `vg_mlkem_decode_decompress(b = rdi, len = rsi, d = edx, f = rcx)`, or
+another decompression of the same signature for the widths `ws`
+(`vg_mlkem1024_decode_decompress`). -/
+def decodeDecompressWK (ws : List Nat) : Contract isa where
   pre s :=
     s.rd = [⟨s.gpr .rdi, (s.gpr .rsi).toNat⟩] ∧ s.wr = [pR (s.gpr .rcx)] ∧
     Region.Disjoint ⟨s.gpr .rdi, (s.gpr .rsi).toNat⟩ (pR (s.gpr .rcx)) ∧
     (retR s).Disjoint ⟨s.gpr .rdi, (s.gpr .rsi).toNat⟩ ∧ (retR s).Disjoint (pR (s.gpr .rcx)) ∧
-    dArg s .rdx ∈ compressWidths ∧ (s.gpr .rsi).toNat = 32 * dArg s .rdx
+    dArg s .rdx ∈ ws ∧ (s.gpr .rsi).toNat = 32 * dArg s .rdx
   post s s' := PolyIs s'.mem (s.gpr .rcx)
     (decodeDecompress (dArg s .rdx) (Spec.Sha3.bytesAt s.mem (s.gpr .rdi) (s.gpr .rsi).toNat))
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rcx = s₂.gpr .rcx ∧
     s₁.gpr .rsp = s₂.gpr .rsp ∧ (s₁.gpr .rdx).setWidth 32 = (s₂.gpr .rdx).setWidth 32
+
+abbrev decodeDecompressK : Contract isa := decodeDecompressWK compressWidths
 
 /-! ## Constant time -/
 

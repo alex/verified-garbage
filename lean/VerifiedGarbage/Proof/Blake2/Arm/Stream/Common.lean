@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # Streaming BLAKE2 on ARMv7: common lemmas
 
-Untrusted: everything here is checked by Lean. The contracts the proofs of
-`init`, `update` and `finalize` are written against (for any word size, as
-on AArch64: `Proof/Blake2/AArch64/Stream/Common.lean`), weakest-precondition
-rules for the instructions the MD streaming proofs do not cover, 64-bit
-counts in register pairs, the number of buffered bytes, the loops copying
-bytes into the buffer and zeroing it, and saving and restoring the caller's
-registers.
+The contracts the proofs of `init`, `update` and `finalize` are written
+against (for any word size, as on AArch64:
+`Proof/Blake2/AArch64/Stream/Common.lean`), weakest-precondition rules for the
+instructions the MD streaming proofs do not cover, 64-bit counts in register
+pairs, the number of buffered bytes, the loops copying bytes into the buffer
+and zeroing it, and saving and restoring the caller's registers.
 -/
 
 namespace VG.Proof.Blake2
@@ -433,26 +432,19 @@ theorem zeroLoop_ok {s₀ : State} {st : BitVec 32} {r k : Nat} (hN : bufOff w �
 /-! ## Saving and restoring the caller's registers -/
 
 /-- The caller's registers `g` are saved in the scratch space at `b`. -/
-def Saved (b : Addr) (g : Reg → BitVec 32) (m : Mem) : Prop :=
-  ∀ p ∈ saved, m.readW (b + BitVec.ofNat 64 p.2) 32 = g p.1
+abbrev Saved (b : Addr) (g : Reg → BitVec 32) (m : Mem) : Prop := Spill.Saved m b g saved
+
+theorem saved_slots : Spill.Slots 512 548 saved := by decide
 
 theorem saved_bound : ∀ p ∈ saved, 512 ≤ p.2 ∧ p.2 + 4 ≤ 548 := by decide
 
-theorem saved_nodup : (saved.map Prod.fst).Nodup := by decide
-
-set_option simprocs false in
 theorem saveMem_saved (m : Mem) (b : Addr) (g : Reg → BitVec 32) :
-    Saved b g (MdStream.Arm.saveMem m b g saved) := by
-  intro p hp
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (disch := decide) only [saved, MdStream.Arm.saveMem, Mem.readW_writeW_self32,
-    MdStream.Arm.readW_writeW_save]
+    Saved b g (MdStream.Arm.saveMem m b g saved) :=
+  Spill.saveMem_saved b g m saved saved_slots
 
 theorem saveMem_frame (m : Mem) (b : Addr) (g : Reg → BitVec 32) :
     Frame [⟨b, 576⟩] m (MdStream.Arm.saveMem m b g saved) :=
-  MdStream.Arm.saveMem_frame m b g (by decide) saved fun p hp => by
-    have := saved_bound p hp; omega
+  Spill.saveMem_frame m b g (by decide) saved (by decide)
 
 /-- Saving `r4`–`r11` and `lr` with the scratch pointer in `b`. -/
 theorem save_ok {b : Reg} {rest : List Instr} {s : State} {Q : State → Prop}
@@ -460,10 +452,8 @@ theorem save_ok {b : Reg} {rest : List Instr} {s : State} {Q : State → Prop}
     (hin : ∀ d, 512 ≤ d → d + 4 ≤ 548 → InRegions s.wr (State.addr (s.gpr b) + BitVec.ofNat 64 d) 4)
     (k : ∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
       s'.mem = MdStream.Arm.saveMem s.mem (State.addr (s.gpr b)) s.gpr saved → WP isa (.block rest) s' Q) :
-    WP isa (.block (save b ++ rest)) s Q := by
-  refine MdStream.Arm.saveList_ok saved s Q (fun p hp => ?_) k
-  have := saved_bound p hp
-  exact ⟨by omega, by omega, hin _ this.1 this.2⟩
+    WP isa (.block (save b ++ rest)) s Q :=
+  Spill.save_slots_ok saved_slots (by omega) hin (k _ rfl rfl rfl rfl rfl)
 
 /-- Restoring `r4`–`r11` and `lr` from the save area at `scratch` (in `r5`). -/
 theorem restore_ok {s : State} {scr : BitVec 32} (h5 : s.gpr .r5 = scr) (hfit : scr.toNat + 576 ≤ 2 ^ 32)
@@ -476,32 +466,15 @@ theorem restore_ok {s : State} {scr : BitVec 32} (h5 : s.gpr .r5 = scr) (hfit : 
   rw [← List.append_nil (saved.map _)]
   refine wp_mov (op2_reg _ _) fun s₁ u₁ => ?_
   have h3 : s₁.gpr .r3 = scr := by rw [u₁.gpr, h5]
-  refine MdStream.Arm.restoreList_ok saved s₁ Q saved_nodup (fun p hp => ?_)
-    fun s' ho _ hm hrd hwr hsp => WP.block_nil (k s' (fun p hp => ?_) (hm.trans u₁.mem) (hrd.trans u₁.rd)
+  refine Spill.restore_slots_ok saved_slots (by decide) (g := g) (by rw [h3]; omega)
+    (fun d h₁ h₂ => by rw [h3, u₁.rd, u₁.wr]; exact hin d h₁ h₂) (by rw [h3, u₁.mem]; exact hsv)
+    fun s' ho _ hm hrd hwr hsp => WP.block_nil (k s' ho (hm.trans u₁.mem) (hrd.trans u₁.rd)
       (hwr.trans u₁.wr) (hsp.trans u₁.sp))
-  · have := saved_bound p hp
-    have hne : p.1 ≠ .r3 := by
-      simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-      rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-    rw [h3, u₁.rd, u₁.wr]
-    exact ⟨hne, by omega, by omega, hin _ this.1 this.2⟩
-  · rw [ho p hp, h3, u₁.mem, hsv p hp]
 
 /-- The callee-saved registers are the caller's again once `restore` has run. -/
 theorem preserved_of {s₀ s' : State} (hsv : ∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) :
-    ∀ r ∈ preserved, s'.gpr r = s₀.gpr r := by
-  intro r hr
-  simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-  · exact hsv (.r4, 512) (by simp [saved])
-  · exact hsv (.r5, 516) (by simp [saved])
-  · exact hsv (.r6, 520) (by simp [saved])
-  · exact hsv (.r7, 524) (by simp [saved])
-  · exact hsv (.r8, 528) (by simp [saved])
-  · exact hsv (.r9, 532) (by simp [saved])
-  · exact hsv (.r10, 536) (by simp [saved])
-  · exact hsv (.r11, 540) (by simp [saved])
-  · exact hsv (.lr, 544) (by simp [saved])
+    ∀ r ∈ preserved, s'.gpr r = s₀.gpr r :=
+  Spill.restored_of hsv (by decide)
 
 /-! ## The streaming state -/
 

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyContract
 
-/-! Untrusted: save registers, install public headers, and establish the verifier context. -/
+/-! Save registers, install public headers, and establish the verifier context. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

@@ -1,7 +1,7 @@
 //! CMAC (NIST SP 800-38B, RFC 4493): a MAC built from a block cipher.
 //!
 //! Each block cipher with a verified CMAC implementation has a module of its
-//! own here: [`aes`].
+//! own here: `aes`, and `triple_des` (TDEA).
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -11,12 +11,10 @@
 ))]
 
 pub mod aes;
+pub mod triple_des;
 
 /// The key does not have a length the block cipher accepts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InvalidKeyLength;
 
-/// The MAC did not match: the message or the key is not what was
-/// authenticated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InvalidMac;
+pub use crate::hmac::InvalidMac;

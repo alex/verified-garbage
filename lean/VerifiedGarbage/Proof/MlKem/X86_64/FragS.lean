@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.MlKem.KPke
 /-!
 # ML-KEM-768 on x86-64: byte stores, copies, and the calls of `SampleNTT`
 
-Untrusted: everything here is checked by Lean. In a layout: a byte store
-(`setB_okL`), a copy (`copy_okL`), and the entry `Â[i, j]` of the matrix,
-`SampleNTT(ρ ‖ j ‖ i)` with `ρ` at `SB` (`sampleIJ_ok`, `sampleIJ_tr`),
-which changes `r15` (so what it leaves is `PostB`, not `Post`).
+In a layout: a byte store (`setB_okL`), a copy (`copy_okL`), and the entry
+`Â[i, j]` of the matrix, `SampleNTT(ρ ‖ j ‖ i)` with `ρ` at `SB`
+(`sampleIJ_ok`, `sampleIJ_tr`), which changes `r15` (so what it leaves is
+`PostB`, not `Post`).
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -79,12 +79,6 @@ end
 
 /-! ## The seed of `SampleNTT` -/
 
-theorem seed_eq {m : Mem} {p : Addr} {ρ : List Byte} (hρ : bytesAt m p 32 = ρ) {j i : Byte}
-    (hj : bytesAt m (p + BitVec.ofNat 64 32) 1 = [j]) (hi : bytesAt m (p + BitVec.ofNat 64 33) 1 = [i]) :
-    bytesAt m p 34 = ρ ++ [j, i] := by
-  rw [show (34 : Nat) = 32 + (1 + 1) from rfl, bytesAt_add, bytesAt_add, off_add, hρ, hj, hi]
-  rfl
-
 /-- What `SampleNTT` leaves, as `PostB`. -/
 theorem SampPost.b {a : Ptr} {s s' : State} (h : SampPost a s s') :
     PPostB s s' [(a, 1024), (sc oSS, 2048)] :=
@@ -130,34 +124,40 @@ theorem setIJ_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
   have hib : bytesAt s₂.mem (pa s₂ (sc (oSB + 33))) 1 = [BitVec.ofNat 8 i] := by
     rw [e2]; exact hb₂
   refine ⟨PPost.app hP₁ hP₂ (by decide), seed_eq hρ ?_ ?_⟩
-  · rw [← hjb, pa, pa, off_add]
-  · rw [← hib, pa, pa, off_add]
+  · refine mem_of_bytesAt_one ?_; rw [← hjb, pa, pa, off_add]
+  · refine mem_of_bytesAt_one ?_; rw [← hib, pa, pa, off_add]
 
 theorem sampleIJ_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
-    (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {i j : Nat} (hi : i < 256) (hj : j < 256)
-    (hc : ijChk (rbs ++ wbs) wbs (aS i j) = true) :
-    WP isa (sampleIJ i j) s fun s' =>
-      PPostB s s' ([(sc (oSB + 32), 1)] ++ [(sc (oSB + 33), 1)] ++ [(aS i j, 1024), (sc oSS, 2048)]) ∧
+    (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {a : Ptr} (hna : NA a) {i j : Nat} (hi : i < 256)
+    (hj : j < 256) (hc : ijChk (rbs ++ wbs) wbs a = true) :
+    WP isa (sampleIJ a i j) s fun s' =>
+      PPostB s s' ([(sc (oSB + 32), 1)] ++ [(sc (oSB + 33), 1)] ++ [(a, 1024), (sc oSS, 2048)]) ∧
       s'.gpr .r15 = BitVec.setWidth 64 ((s.gpr .r15).setWidth 32 &&&
         (if (sampleNTT minIterations (matSeed (bytesAt s.mem (pa s (sc oSB)) 32) i j)).isSome then 1 else 0)) ∧
       ∀ f, sampleNTT minIterations (matSeed (bytesAt s.mem (pa s (sc oSB)) 32) i j) = some f →
-        PolyIs s'.mem (pa s (aS i j)) f := by
+        PolyIs s'.mem (pa s a) f := by
   unfold sampleIJ
   rw [WP.seq_iff]
   refine WP.mono (setIJ_ok L hcs hi hj hc) fun s₂ ⟨hP₂, hseed⟩ => ?_
   have L₂ := L.post hP₂.b hcs
-  refine WP.mono (sampleAt_ok rbx_na (SampH.of L₂ (ijChk_spec hc).1)) fun s₃ h => ?_
-  have e3 : pa s₂ (aS i j) = pa s (aS i j) := hP₂.pa rbx_cs
-  refine ⟨PPostB.app hP₂.b h.b (by simp [bases]), ?_, fun f hf => ?_⟩
+  refine WP.mono (sampleAt_ok hna (SampH.of L₂ (ijChk_spec hc).1)) fun s₃ h => ?_
+  have hab : a.1 ∈ bases := by
+    obtain ⟨n, hn, _⟩ := inB_spec (sampChk_in (ijChk_spec hc).1).2
+    exact hcs (a.1, n) hn
+  have e3 : pa s₂ a = pa s a := hP₂.b.pa hab
+  refine ⟨PPostB.app hP₂.b h.b (fun w hw => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hw
+    rcases hw with rfl | rfl
+    exacts [hab, by decide]), ?_, fun f hf => ?_⟩
   · rw [h.r15, hseed, hP₂.cs .r15 (by decide)]
   · rw [← e3]; exact h.res f (by rw [hseed]; exact hf)
 
-theorem sampleIJ_tr {rbs wbs : List (Reg × Nat)} (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {i j : Nat}
-    (hi : i < 256) (hj : j < 256) (hc : ijChk (rbs ++ wbs) wbs (aS i j) = true)
+theorem sampleIJ_tr {rbs wbs : List (Reg × Nat)} (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {a : Ptr} (hna : NA a)
+    {i j : Nat} (hi : i < 256) (hj : j < 256) (hc : ijChk (rbs ++ wbs) wbs a = true)
     (ht : (taint.check (X86_64.Taint.ofRegs [.rbx]) (.block (setB (sc (oSB + 32)) j ++ setB (sc (oSB + 33)) i))
       (.block [])).isSome = true) :
     RelCT isa (fun x y => LRel rbs wbs x y ∧ bytesAt x.mem (pa x (sc oSB)) 32 = bytesAt y.mem (pa y (sc oSB)) 32)
-      (sampleIJ i j) fun _ _ => True := by
+      (sampleIJ a i j) fun _ _ => True := by
   have hin : inB (rbs ++ wbs) (sc oSB) 34 = true := (sampChk_in (ijChk_spec hc).1).1
   unfold sampleIJ
   refine RelCT.seq (RelCT.postDep (taintRel [.rbx] (fun x y h r hr => by
@@ -166,6 +166,6 @@ theorem sampleIJ_tr {rbs wbs : List (Reg × Nat)} (hcs : ∀ b ∈ rbs ++ wbs, b
       bytesAt x'.mem (pa x' (sc oSB)) 34 = matSeed (bytesAt x.mem (pa x (sc oSB)) 32) i j)
     (fun x y h => ⟨setIJ_ok h.1.1 hcs hi hj hc, setIJ_ok h.1.2.1 hcs hi hj hc⟩)
     fun x y x' y' h hx hy => ⟨h.1.post hcs hx.1.b hy.1.b, by rw [hx.2, hy.2, h.2]⟩)
-    (sampleAt_trL rbx_na (ijChk_spec hc).1)
+    (sampleAt_trL hna (ijChk_spec hc).1)
 
 end VG.Proof.MlKem.X86_64

@@ -1,12 +1,12 @@
 import VerifiedGarbage.Proof.Blake2.X86.CompressB.Body
 import VerifiedGarbage.Proof.Framework.X86.RegUpd
+import VerifiedGarbage.Proof.Framework.X86.Spill
 
 /-!
 # BLAKE2b compression function on x86 (32-bit): one block and the loop
 
-Untrusted: everything here is checked by Lean. `body_ok`: one block, from
-the invariant `Common` after `i` blocks to `Common` after `i + 1`; `correct`:
-the whole function.
+`body_ok`: one block, from the invariant `Common` after `i` blocks to `Common`
+after `i + 1`; `correct`: the whole function.
 -/
 
 namespace VG.Proof.Blake2.X86.CompressB
@@ -80,7 +80,9 @@ theorem V0_get (h : HashValue 64) (t : Nat) (f : Bool) (k : Nat) (hk : k < 16) :
 /-! ## The loop invariant -/
 
 /-- The callee-saved registers are saved in `scratch`. -/
-def Saved (s₀ : State) (m : Mem) : Prop := ∀ p ∈ saved, m.readW (addr (scr s₀) p.2) 32 = s₀.gpr p.1
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (addr (scr s₀)) s₀.gpr saved
+
+theorem saved_fits : Spill.Fits 304 saved := by decide
 
 theorem saved_bounds : ∀ p ∈ saved, 288 ≤ p.2 ∧ p.2 + 4 ≤ 512 := by decide
 

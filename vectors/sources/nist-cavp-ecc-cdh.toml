@@ -1,0 +1,5 @@
+name = "NIST CAVP SP 800-56A ECC CDH primitive test vectors (KAS_ECC_CDH_PrimitiveTest.txt)"
+directories = ["nist-cavp/ecc-cdh"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/components/ecccdhtestvectors.zip"
+sha256 = "5fff092551f2d72e89a3d9362711878708f9a14b502f0dfae819649105b0ea39"
+retrieved = 2026-10-02

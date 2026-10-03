@@ -2,11 +2,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.TopBase
 import VerifiedGarbage.Impl.MlKem.X86_64.Decaps
 
 /-!
-# ML-KEM-768 on x86-64: `vg_mlkem768_decaps`, the choice of the key
+# ML-KEM on x86-64: decapsulation, the choice of the key
 
-Untrusted: everything here is checked by Lean. The comparison of the
-ciphertexts (`cmp_ok`: the OR of the XORs of their bytes), the mask
-(`mid_ok`), and the choice of each byte of the key (`sel_ok`).
+The comparison of the ciphertexts of `N` bytes (`cmp_ok`: the OR of the XORs
+of their bytes), the mask (`mid_ok`), and the choice of each byte of the key
+(`sel_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -92,12 +92,13 @@ theorem sel_byte (x y : Byte) (e : Bool) :
   · rw [ifp rfl, ifp rfl, BitVec.and_allOnes, BitVec.xor_assoc, BitVec.xor_self, BitVec.xor_zero]
     exact b8b x
 
-theorem cmp_ok (s : State) {a b : Addr} (ha : InRegions (s.rd ++ s.wr) a 1088) (hb : InRegions (s.rd ++ s.wr) b 1088)
-    (hsi : s.gpr .rsi = a) (hdi : s.gpr .rdi = b) (hdx : s.gpr .rdx = 0) (hcx : s.gpr .rcx = BitVec.ofNat 64 1088) :
+theorem cmp_ok (s : State) {N : Nat} (hN : N < 2 ^ 32) (hN0 : 0 < N) {a b : Addr}
+    (ha : InRegions (s.rd ++ s.wr) a N) (hb : InRegions (s.rd ++ s.wr) b N)
+    (hsi : s.gpr .rsi = a) (hdi : s.gpr .rdi = b) (hdx : s.gpr .rdx = 0) (hcx : s.gpr .rcx = BitVec.ofNat 64 N) :
     WP isa (.loop cmpBody .ne) s fun s' => s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
-      s'.gpr .rdx = BitVec.setWidth 64 (accX (bytesAt s.mem a 1088) (bytesAt s.mem b 1088)) ∧
+      s'.gpr .rdx = BitVec.setWidth 64 (accX (bytesAt s.mem a N) (bytesAt s.mem b N)) ∧
       Keep [.rax, .r8, .rdx, .rsi, .rdi, .rcx] s s' := by
-  refine wp_countdown (cnt := .rcx) (N := 1088) (by decide) (by decide) (fun k s' =>
+  refine wp_countdown (cnt := .rcx) (N := N) (by omega) hN0 (fun k s' =>
       s'.gpr .rsi = a + BitVec.ofNat 64 k ∧ s'.gpr .rdi = b + BitVec.ofNat 64 k ∧
       s'.gpr .rdx = BitVec.setWidth 64 (accX (bytesAt s.mem a k) (bytesAt s.mem b k)) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ Keep [.rax, .r8, .rdx, .rsi, .rdi, .rcx] s s')
@@ -156,16 +157,16 @@ theorem sel_ok (s : State) {g kb key : Addr} (e : Bool) (hg : InRegions (s.rd ++
 
 /-! ## The choice -/
 
-abbrev setupB : List Instr := [.mov .rsi (.reg .r14), .mov .rdi (.reg .rbx),
-  .alu .add .rdi (.imm (BitVec.ofNat 32 oCT)), .mov32 .rcx (.imm 1088), .mov32 .rdx (.imm 0)]
+abbrev setupB (L : Kem) : List Instr := [.mov .rsi (.reg .r14), .mov .rdi (.reg .rbx),
+  .alu .add .rdi (.imm (BitVec.ofNat 32 L.oCT)), .mov32 .rcx (.imm (BitVec.ofNat 32 L.ctLen)), .mov32 .rdx (.imm 0)]
 
-theorem setup_ok (s : State) :
-    WP isa (.block setupB) s fun s' =>
-      (s'.mem = s.mem ∧ s'.gpr .rsi = pa s (.r14, 0) ∧ s'.gpr .rdi = pa s (sc oCT) ∧
-        s'.gpr .rcx = BitVec.ofNat 64 1088 ∧ s'.gpr .rdx = 0) ∧
+theorem setup_ok {L : Kem} (ho : L.oCT < 2 ^ 31) (hn : L.ctLen < 2 ^ 32) (s : State) :
+    WP isa (.block (setupB L)) s fun s' =>
+      (s'.mem = s.mem ∧ s'.gpr .rsi = pa s (.r14, 0) ∧ s'.gpr .rdi = pa s (sc L.oCT) ∧
+        s'.gpr .rcx = BitVec.ofNat 64 L.ctLen ∧ s'.gpr .rdx = 0) ∧
       Keep [.rsi, .rdi, .rcx, .rdx] s s' := by
-  refine WP.keep _ ?_ (by decide)
-  xrun [sx_ofNat (show oCT < 2 ^ 31 by decide)]
+  refine WP.keep _ ?_ (by rfl)
+  xrun [sx_ofNat ho, sw_ofNat hn]
   rw [pa, add_ofNat_zero]
 
 theorem zx_eq_zero {x : Byte} : BitVec.setWidth 64 x = 0 ↔ x = 0 := by
@@ -175,18 +176,19 @@ theorem zx_eq_zero {x : Byte} : BitVec.setWidth 64 x = 0 ↔ x = 0 := by
     rwa [b8b] at this
   · intro h; rw [h]; rfl
 
-theorem select_ok {s : State} (hc : InRegions (s.rd ++ s.wr) (pa s (.r14, 0)) 1088)
-    (hct : InRegions (s.rd ++ s.wr) (pa s (sc oCT)) 1088) (hg : InRegions (s.rd ++ s.wr) (pa s (sc oG)) 32)
+theorem select_ok {L : Kem} (ho : L.oCT < 2 ^ 31) (hn : L.ctLen < 2 ^ 32) (hn0 : 0 < L.ctLen) {s : State}
+    (hc : InRegions (s.rd ++ s.wr) (pa s (.r14, 0)) L.ctLen)
+    (hct : InRegions (s.rd ++ s.wr) (pa s (sc L.oCT)) L.ctLen) (hg : InRegions (s.rd ++ s.wr) (pa s (sc oG)) 32)
     (hkb : InRegions (s.rd ++ s.wr) (pa s (sc oKB)) 32) (hkey : InRegions s.wr (pa s (.r12, 0)) 32)
     (dg : Region.Disjoint ⟨pa s (sc oG), 32⟩ ⟨pa s (.r12, 0), 32⟩)
     (dkb : Region.Disjoint ⟨pa s (sc oKB), 32⟩ ⟨pa s (.r12, 0), 32⟩) :
-    WP isa select s fun s' => PPost s s' [((.r12, 0), 32)] ∧
+    WP isa (select L) s fun s' => PPost s s' [((.r12, 0), 32)] ∧
       bytesAt s'.mem (pa s (.r12, 0)) 32 =
-        if bytesAt s.mem (pa s (.r14, 0)) 1088 = bytesAt s.mem (pa s (sc oCT)) 1088 then
+        if bytesAt s.mem (pa s (.r14, 0)) L.ctLen = bytesAt s.mem (pa s (sc L.oCT)) L.ctLen then
           bytesAt s.mem (pa s (sc oG)) 32 else bytesAt s.mem (pa s (sc oKB)) 32 := by
   unfold select
-  refine WP.seq (WP.mono (setup_ok s) fun s₁ ⟨⟨hm₁, hsi₁, hdi₁, hcx₁, hdx₁⟩, k₁⟩ => ?_)
-  refine WP.seq (WP.mono (cmp_ok s₁ (by rw [k₁.2.1, k₁.2.2]; exact hc) (by rw [k₁.2.1, k₁.2.2]; exact hct) hsi₁ hdi₁
+  refine WP.seq (WP.mono (setup_ok ho hn s) fun s₁ ⟨⟨hm₁, hsi₁, hdi₁, hcx₁, hdx₁⟩, k₁⟩ => ?_)
+  refine WP.seq (WP.mono (cmp_ok s₁ hn hn0 (by rw [k₁.2.1, k₁.2.2]; exact hc) (by rw [k₁.2.1, k₁.2.2]; exact hct) hsi₁ hdi₁
     hdx₁ hcx₁) fun s₂ ⟨hm₂, hrd₂, hwr₂, hdx₂, k₂⟩ => ?_)
   refine WP.seq (WP.mono (mid_ok s₂) fun s₃ ⟨⟨hm₃, hax₃, hsi₃, hdi₃, h8₃, hcx₃⟩, k₃⟩ => ?_)
   have e12 : ∀ r ∈ [Reg.rbx, Reg.r12], s₂.gpr r = s.gpr r := fun r hr => by
@@ -199,7 +201,7 @@ theorem select_ok {s : State} (hc : InRegions (s.rd ++ s.wr) (pa s (.r14, 0)) 10
   have hmem : s₃.mem = s.mem := by rw [hm₃, hm₂, hm₁]
   have hrd : s₃.rd ++ s₃.wr = s.rd ++ s.wr := by rw [k₃.2.1, k₃.2.2, hrd₂, hwr₂, k₁.2.1, k₁.2.2]
   have hwr : s₃.wr = s.wr := by rw [k₃.2.2, hwr₂, k₁.2.2]
-  have hax : s₃.gpr .rax = if decide (bytesAt s.mem (pa s (.r14, 0)) 1088 = bytesAt s.mem (pa s (sc oCT)) 1088) then
+  have hax : s₃.gpr .rax = if decide (bytesAt s.mem (pa s (.r14, 0)) L.ctLen = bytesAt s.mem (pa s (sc L.oCT)) L.ctLen) then
       BitVec.allOnes 64 else 0 := by
     rw [hax₃, hdx₂, hm₁, ← hsi₁, ← hdi₁, hsi₁, hdi₁]
     exact ite_congr (propext (zx_eq_zero.trans ((eq_iff_foldl_or_xor

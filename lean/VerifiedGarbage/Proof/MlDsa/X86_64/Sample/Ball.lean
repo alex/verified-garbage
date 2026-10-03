@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNtt
 /-!
 # ML-DSA on x86-64: `vg_mldsa_sample_in_ball`, correctness
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `H(c̃, 272)` (`J6`), the
-zeroing of `c`, and the loop over the 264 bytes after the sign bits,
-iteration `t` of which starts from `BAt σ t`: with the polynomial and `i`
-that `bFold` computes from the first `t` of them, and the sign bits not yet
-used in `r9` (`W σ`, the first 8 bytes as a `u64`, shifted right once per
-coefficient set).
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`H(c̃, 272)` (`J6`), the zeroing of `c`, and the loop over the 264 bytes after
+the sign bits, iteration `t` of which starts from `BAt σ t`: with the
+polynomial and `i` that `bFold` computes from the first `t` of them, and the
+sign bits not yet used in `r9` (`W σ`, the first 8 bytes as a `u64`, shifted
+right once per coefficient set).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

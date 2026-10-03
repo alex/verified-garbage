@@ -6,9 +6,8 @@ import VerifiedGarbage.Impl.MlKem.Arm.Ntt
 /-!
 # ML-KEM on 32-bit ARM: Barrett reduction, the tables and the saved registers
 
-Untrusted: everything here is checked by Lean. `reduce` computes `x mod q`
-of any `x < 2²⁵` (`red_toNat`), through `barrett32`
-(`Proof/MlKem/Arith.lean`); `table` stores a table of 128 `u32`s
+`reduce` computes `x mod q` of any `x < 2²⁵` (`red_toNat`), through
+`barrett32` (`Proof/MlKem/Arith.lean`); `table` stores a table of 128 `u32`s
 (`table_ok`), and the tables of the code are those of the standard
 (`zetaTable_eq`, `gammaTable_eq`); `saveRegs` and `restoreRegs` keep our
 caller's `r4`–`r11` in memory.

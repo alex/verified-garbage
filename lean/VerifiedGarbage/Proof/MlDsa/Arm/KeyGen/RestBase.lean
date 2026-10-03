@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Rest
 /-!
 # ML-DSA key generation on 32-bit ARM: after the samplers
 
-Untrusted: everything here is checked by Lean. Once the samplers are done,
-with `Â` and `s₁ ‖ s₂` in memory as `A` and `S` and `r11` as `R` (`Good`),
-the rest of the function computes the keys from them, whatever they are
-(`KR`): after the copies of `ρ` and `K` (`copies_piece`), the first `np`
-entries of `s₁ ‖ s₂` packed to `sk`, the first `nj` of `s₁` in the NTT
-domain, and the first `nr` rows of `t` packed to `pk` and `sk`.
+Once the samplers are done, with `Â` and `s₁ ‖ s₂` in memory as `A` and `S`
+and `r11` as `R` (`Good`), the rest of the function computes the keys from
+them, whatever they are (`KR`): after the copies of `ρ` and `K`
+(`copies_piece`), the first `np` entries of `s₁ ‖ s₂` packed to `sk`, the
+first `nj` of `s₁` in the NTT domain, and the first `nr` rows of `t` packed to
+`pk` and `sk`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

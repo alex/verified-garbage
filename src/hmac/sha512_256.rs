@@ -7,7 +7,12 @@
 //! streaming states. `init` and `finalize` are the one HMAC implementation for
 //! every streaming hash function, calling SHA-512/256's verified functions.
 //!
-//! On AArch64, the `_sha3` variants follow SHA-512 hardware dispatch.
+//! On x86-64, they follow the implementation of SHA-512's streaming functions
+//! that `Sha512_256` runs on this CPU: e.g. `vg_hmac_sha512_256_init_shani` and
+//! `vg_hmac_sha512_256_finalize_shani`, the same verified code calling
+//! `vg_sha512_update_shani`, `vg_sha512_finalize_shani` and
+//! `vg_sha512_compress_shani`, or the `_avx2` ones. On AArch64, the `_sha3`
+//! variants use the SHA-512 instructions through the same generic code.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -29,7 +34,7 @@ use crate::arch::hmac_sha512_256::{
     vg_hmac_sha512_256_finalize_sha3, vg_hmac_sha512_256_init_sha3,
 };
 use crate::arch::hmac_sha512_256::{vg_hmac_sha512_256_finalize, vg_hmac_sha512_256_init};
-use crate::hashes::sha512::{Sha512_256, Sha512_256Backend};
+use crate::hashes::sha512_256::{Sha512_256, Sha512_256Backend};
 
 super::streaming_hmac!(
     Sha512_256 (Sha512_256Backend) {

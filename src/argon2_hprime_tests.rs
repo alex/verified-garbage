@@ -1,5 +1,5 @@
 //! Machine-code checks for Argon2's internal variable-length hash.
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use crate::arch::argon2::vg_argon2_hprime;
 use crate::hashes::blake2b::{Blake2b, Blake2bBackend};

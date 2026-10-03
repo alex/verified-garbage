@@ -5,12 +5,12 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Iter
 /-!
 # ML-DSA signing on x86-64: the commitment of an iteration
 
-Untrusted: everything here is checked by Lean. At the head of iteration
-`t` of the loop (`IL`): what decoding left, `κ = ℓt` at `KAP`, `814 - t` at
-`CNT`, and the `t` iterations before rejected (within `maxBounds`). Then
-`y[r]` from `ExpandMask(ρ″, κ + r)` and `ŷ[r] = NTT(y[r])` (`maskR_ok`),
-`w[i] = NTT⁻¹(∑_j Â[i, j] ŷ[j])` (`rowW_ok`), `w1Encode(HighBits(w[i]))` at
-`W1` (`w1R_ok`), and `c̃ = H(μ ‖ w1Encode(w₁), λ/4)` at `CT` (`commit_ok`).
+At the head of iteration `t` of the loop (`IL`): what decoding left, `κ = ℓt`
+at `KAP`, `814 - t` at `CNT`, and the `t` iterations before rejected (within
+`maxBounds`). Then `y[r]` from `ExpandMask(ρ″, κ + r)` and `ŷ[r] = NTT(y[r])`
+(`maskR_ok`), `w[i] = NTT⁻¹(∑_j Â[i, j] ŷ[j])` (`rowW_ok`),
+`w1Encode(HighBits(w[i]))` at `W1` (`w1R_ok`), and `c̃ = H(μ ‖ w1Encode(w₁),
+λ/4)` at `CT` (`commit_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign
@@ -87,16 +87,16 @@ theorem IL.st {p : Params} {D : Nat} {σ s : State} {t : Nat} (h : IL p D σ t s
 
 /-! ## `κ + r` -/
 
-theorem setKappa_ok (r : Nat) (hr : r < 2 ^ 31) (s : State)
-    (h1 : InRegions (s.rd ++ s.wr) (pa s (sc oKAP)) 8) (h2 : InRegions s.wr (pa s (sc (oMS + 64))) 1)
-    (h3 : InRegions s.wr (pa s (sc (oMS + 65))) 1) :
-    WP isa (.block (setKappa r)) s fun s' =>
-      s'.mem = (s.mem.writeW (pa s (sc (oMS + 64)))
+theorem setKap_ok (o r : Nat) (hr : r < 2 ^ 31) (s : State)
+    (h1 : InRegions (s.rd ++ s.wr) (pa s (sc oKAP)) 8) (h2 : InRegions s.wr (pa s (sc o)) 1)
+    (h3 : InRegions s.wr (pa s (sc (o + 1))) 1) :
+    WP isa (.block (setKap o r)) s fun s' =>
+      s'.mem = (s.mem.writeW (pa s (sc o))
         ((s.mem.readW (pa s (sc oKAP)) 64 + BitVec.ofNat 64 r).setWidth 8)).writeW
-        (pa s (sc (oMS + 65))) (((s.mem.readW (pa s (sc oKAP)) 64 + BitVec.ofNat 64 r) >>> 8).setWidth 8) ∧
+        (pa s (sc (o + 1))) (((s.mem.readW (pa s (sc oKAP)) 64 + BitVec.ofNat 64 r) >>> 8).setWidth 8) ∧
         Keep [.rax] s s' := by
   refine WP.keep [.rax] ?_ (by rfl)
-  unfold setKappa
+  unfold setKap
   xrun [h1, h2, h3, sx_ofNat hr]
 
 theorem integerToBytes_two (x : Nat) : integerToBytes x 2 = [BitVec.ofNat 8 x, BitVec.ofNat 8 (x / 256)] := by
@@ -130,31 +130,40 @@ theorem bytes2_write (m : Mem) (a : Addr) (v w : Byte) :
   rw [e0, e1, VG.Proof.MlKem.writeW8_apply, VG.Proof.MlKem.writeW8_apply, ifn (add_one_ne a), ifp rfl,
     VG.Proof.MlKem.writeW8_apply, ifp rfl]
 
+/-- `κ + r` to `scratch + o`, as the two bytes of `ExpandMask`'s seed. -/
+theorem setKap_okB {D : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay D rbs wbs s) {r x : Nat}
+    {o : Nat} (hr : r < 2 ^ 31) (hx : x + r < 2 ^ 16) (h1 : inB (rbs ++ wbs) (sc oKAP) 8 = true)
+    (h2 : inB wbs (sc o) 2 = true) (hk : s.mem.readW (pa s (sc oKAP)) 64 = BitVec.ofNat 64 x) :
+    WP isa (.block (setKap o r)) s fun s' => PPostB D s s' [(sc o, 2)] ∧
+      (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
+      bytesAt s'.mem (pa s (sc o)) 2 = integerToBytes (x + r) 2 := by
+  have e65 : pa s (sc (o + 1)) = pa s (sc o) + 1 := (pa_sc_add s o 1).symm
+  have w2 := L.iW h2
+  have c0 : (⟨pa s (sc o), 2⟩ : Region).Contains (pa s (sc o)) 1 := by
+    have := contains_offset' (base := pa s (sc o)) (off := 0) (len := 1) (n := 2) (by omega) (by decide)
+    rwa [BitVec.add_zero] at this
+  have c1 : (⟨pa s (sc o), 2⟩ : Region).Contains (pa s (sc (o + 1))) 1 := by
+    rw [e65]; exact contains_offset' (off := 1) (by omega) (by decide)
+  have i0 : InRegions s.wr (pa s (sc o)) 1 := by
+    have := inRegions_sub (off := 0) (l := 1) w2 (by omega) (by decide)
+    rwa [BitVec.add_zero] at this
+  have i1 : InRegions s.wr (pa s (sc (o + 1))) 1 := by
+    rw [e65]; exact inRegions_sub (off := 1) (l := 1) w2 (by omega) (by decide)
+  refine WP.mono (setKap_ok o r hr s (L.iR h1) i0 i1) fun s' ⟨hm, k⟩ => ?_
+  have hf : Frame [⟨pa s (sc o), 2⟩] s.mem s'.mem := by
+    rw [hm]
+    exact ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ c0).writeW (List.mem_singleton_self _) _ c1
+  refine ⟨(postB_of_keep (D := D) k (by decide) hf).1, (postB_of_keep (D := D) k (by decide) hf).2, ?_⟩
+  rw [hm, e65, bytes2_write, hk, ofNat64_add, kappa_bytes hx]
+
 /-- `κ + r` to `MS + 64`, as the two bytes of `ExpandMask`'s seed. -/
 theorem setKappa_okB {D : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay D rbs wbs s) {r x : Nat}
     (hr : r < 2 ^ 31) (hx : x + r < 2 ^ 16) (h1 : inB (rbs ++ wbs) (sc oKAP) 8 = true)
     (h2 : inB wbs (sc (oMS + 64)) 2 = true) (hk : s.mem.readW (pa s (sc oKAP)) 64 = BitVec.ofNat 64 x) :
     WP isa (.block (setKappa r)) s fun s' => PPostB D s s' [(sc (oMS + 64), 2)] ∧
       (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
-      bytesAt s'.mem (pa s (sc (oMS + 64))) 2 = integerToBytes (x + r) 2 := by
-  have e65 : pa s (sc (oMS + 65)) = pa s (sc (oMS + 64)) + 1 := (pa_sc_add s (oMS + 64) 1).symm
-  have w2 := L.iW h2
-  have c0 : (⟨pa s (sc (oMS + 64)), 2⟩ : Region).Contains (pa s (sc (oMS + 64))) 1 := by
-    have := contains_offset' (base := pa s (sc (oMS + 64))) (off := 0) (len := 1) (n := 2) (by omega) (by decide)
-    rwa [BitVec.add_zero] at this
-  have c1 : (⟨pa s (sc (oMS + 64)), 2⟩ : Region).Contains (pa s (sc (oMS + 65))) 1 := by
-    rw [e65]; exact contains_offset' (off := 1) (by omega) (by decide)
-  have i0 : InRegions s.wr (pa s (sc (oMS + 64))) 1 := by
-    have := inRegions_sub (off := 0) (l := 1) w2 (by omega) (by decide)
-    rwa [BitVec.add_zero] at this
-  have i1 : InRegions s.wr (pa s (sc (oMS + 65))) 1 := by
-    rw [e65]; exact inRegions_sub (off := 1) (l := 1) w2 (by omega) (by decide)
-  refine WP.mono (setKappa_ok r hr s (L.iR h1) i0 i1) fun s' ⟨hm, k⟩ => ?_
-  have hf : Frame [⟨pa s (sc (oMS + 64)), 2⟩] s.mem s'.mem := by
-    rw [hm]
-    exact ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ c0).writeW (List.mem_singleton_self _) _ c1
-  refine ⟨(postB_of_keep (D := D) k (by decide) hf).1, (postB_of_keep (D := D) k (by decide) hf).2, ?_⟩
-  rw [hm, e65, bytes2_write, hk, ofNat64_add, kappa_bytes hx]
+      bytesAt s'.mem (pa s (sc (oMS + 64))) 2 = integerToBytes (x + r) 2 :=
+  setKap_okB L hr hx h1 h2 hk
 
 /-! ## `y` and `ŷ` -/
 
@@ -217,6 +226,134 @@ theorem maskR_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : Sta
   show PolyIs _ _ _
   rw [hP4.pa (pS_bases _), hyh3.2] at *
   exact hq4
+
+/-! ## `y` and `ŷ`, four at a time -/
+
+/-- Iteration `t`, with the first `ry` polynomials of `y` and the first `r` of `ŷ`. -/
+structure ICy (p : Params) (D : Nat) (σ : State) (t ry r : Nat) (s : State) : Prop where
+  l : IL p D σ t s
+  y : Fam s (yBase p) ry (Yv p σ (p.ℓ * t))
+  yh : Fam s (yhBase p) r (YHv p σ (p.ℓ * t))
+
+def icyChk (p : Params) (ws : List (Ptr × Nat)) (ry r : Nat) : Bool :=
+  ilChk p ws && famChk (sgB p) ws (yBase p) ry && famChk (sgB p) ws (yhBase p) r
+
+theorem ICy.step {p : Params} {D : Nat} {σ s s' : State} {t ry r : Nat} (h : ICy p D σ t ry r s)
+    {ws : List (Ptr × Nat)} (hP : PPostB D s s' ws) (hc : icyChk p ws ry r = true) : ICy p D σ t ry r s' := by
+  simp only [icyChk, Bool.and_eq_true] at hc
+  have L := h.l.st.lay
+  exact ⟨h.l.step hP hc.1.1, Fam.keep L hP hc.1.2 h.y, Fam.keep L hP hc.2 h.yh⟩
+
+/-- What `ŷ[r]` needs of the layout, with `ry` polynomials of `y`. -/
+def yhChk (p : Params) (ry r : Nat) : Bool :=
+  let y := pS (yBase p + r)
+  let yh := pS (yhBase p + r)
+  copyChk (sgB p) (sgW p) yh y 1024 && icyChk p [(yh, 1024)] ry r && ipChk (sgB p) (sgW p) yh &&
+    icyChk p [(yh, 1024), (sc oPS, 1024)] ry r
+
+theorem yhR_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : State} {t ry r : Nat}
+    (hc : yhChk p ry r = true) (hr : r < ry) {s : State} (h : ICy p D σ t ry r s) :
+    WP isa (yhR P p r) s (ICy p D σ t ry (r + 1)) := by
+  simp only [yhChk, Bool.and_eq_true] at hc
+  obtain ⟨⟨⟨cc, c3⟩, ci⟩, c4⟩ := hc
+  unfold yhR
+  refine WP.seq (WP.mono (copy_okB h.l.st.lay cc) fun s3 ⟨hP3, _, hb3⟩ => ?_)
+  have I3 := h.step hP3 c3
+  have hyh3 : Pl s3 (yhBase p + r) (Yv p σ (p.ℓ * t) r) := by
+    show PolyIs _ _ _
+    rw [hP3.pa (pS_bases _)]
+    exact polyIs_of_bytes hb3 (h.y r hr)
+  refine WP.mono (ipAt_ok (t := ntt) hP.ntt I3.l.st.lay ci hyh3.1) fun s4 ⟨hP4, _, hq4⟩ => ?_
+  have I4 := I3.step hP4 c4
+  refine ⟨I4.l, I4.y, Fam.snoc I4.yh ?_⟩
+  show PolyIs _ _ _
+  rw [hP4.pa (pS_bases _), hyh3.2] at *
+  exact hq4
+
+/-- Iteration `t`, with the first `4g` polynomials of `y` and `ŷ`, and the first `k` seeds of `MS4`. -/
+structure SD (p : Params) (D : Nat) (σ : State) (t g k : Nat) (s : State) : Prop where
+  m : ICm p D σ t (4 * g) s
+  sd : ∀ j < k, bytesAt s.mem (pa s (sc (oMS4 + 66 * j))) 66 =
+    rppOf p σ ++ integerToBytes (p.ℓ * t + (4 * g + j)) 2
+
+/-- What seed `k` of `MS4` needs of the layout. -/
+def ms4Chk (p : Params) (g k : Nat) : Bool :=
+  let w1 : List (Ptr × Nat) := [(sc (oMS4 + 66 * k), 64)]
+  let w2 : List (Ptr × Nat) := [(sc (oMS4 + 66 * k + 64), 2)]
+  copyChk (sgB p) (sgW p) (sc (oMS4 + 66 * k)) (sc oMS) 64 && icmChk p w1 (4 * g) && icmChk p w2 (4 * g) &&
+    inB (sgB p) (sc oKAP) 8 && inB (sgW p) (sc (oMS4 + 66 * k + 64)) 2 &&
+    keepB (sgB p) w2 (sc (oMS4 + 66 * k)) 64 &&
+    (List.range k).all (fun j => keepB (sgB p) w1 (sc (oMS4 + 66 * j)) 66 &&
+      keepB (sgB p) w2 (sc (oMS4 + 66 * j)) 66) &&
+    decide (p.ℓ * 813 + (4 * g + k) < 2 ^ 16) && decide (4 * g + k < 2 ^ 31)
+
+theorem ms4_ok {p : Params} {D : Nat} {σ : State} {t g k : Nat} (hc : ms4Chk p g k = true) {s : State}
+    (h : SD p D σ t g k s) : WP isa (cpM4 g k) s (SD p D σ t g (k + 1)) := by
+  simp only [ms4Chk, Bool.and_eq_true, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨cc, c1⟩, c2⟩, k1⟩, w2⟩, k12⟩, kd⟩, hx⟩, hr⟩ := hc
+  have ht := h.m.l.t_lt
+  have hx' : p.ℓ * t + (4 * g + k) < 2 ^ 16 := by
+    have := Nat.mul_le_mul_left p.ℓ (show t ≤ 813 by omega); omega
+  unfold cpM4
+  refine WP.seq (WP.mono (copy_okB h.m.l.st.lay cc) fun s1 ⟨hP1, _, hb1⟩ => ?_)
+  have I1 := h.m.step hP1 c1
+  refine WP.mono (setKap_okB I1.l.st.lay hr hx' k1 w2 I1.l.kap) fun s2 ⟨hP2, _, hb2⟩ => ?_
+  have I2 := I1.step hP2 c2
+  refine ⟨I2, fun j hj => ?_⟩
+  rcases (by omega : j < k ∨ j = k) with hj' | rfl
+  · have kk := List.all_eq_true.mp kd j (List.mem_range.mpr hj')
+    simp only [Bool.and_eq_true] at kk
+    rw [I1.l.st.lay.keepBytes hP2 kk.2, h.m.l.st.lay.keepBytes hP1 kk.1]
+    exact h.sd j hj'
+  · rw [VG.Proof.MlKem.bytesAt_add _ _ 64 2, pa_sc_add, I1.l.st.lay.keepBytes hP2 k12, hP1.pa (sc_bases _), hb1,
+      h.m.l.k.rpp, hP2.pa (sc_bases _), hb2]
+
+/-- What `y[4g], …, y[4g + 3]` and their `ŷ` need of the layout. -/
+def m4Chk (p : Params) (g : Nat) : Bool :=
+  (List.range 4).all (ms4Chk p g) && mask4Chk (sgB p) (sgW p) (yP p (4 * g)) (r4P p) &&
+    icmChk p [(yP p (4 * g), 4096), (r4P p, 8192)] (4 * g) &&
+    (List.range 4).all (fun r => yhChk p (4 * g + 4) (4 * g + r)) && decide (p.γ₁ = 2 ^ 17 ∨ p.γ₁ = 2 ^ 19)
+
+theorem m4Chk_spec {p : Params} {g : Nat} (hc : m4Chk p g = true) :
+    (∀ k < 4, ms4Chk p g k = true) ∧ mask4Chk (sgB p) (sgW p) (yP p (4 * g)) (r4P p) = true ∧
+      icmChk p [(yP p (4 * g), 4096), (r4P p, 8192)] (4 * g) = true ∧
+      (∀ r, 4 * g ≤ r → r < 4 * g + 4 → yhChk p (4 * g + 4) r = true) ∧ (p.γ₁ = 2 ^ 17 ∨ p.γ₁ = 2 ^ 19) := by
+  simp only [m4Chk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨⟨hcp, cm⟩, c2⟩, hyh⟩, hγ⟩ := hc
+  refine ⟨hcp, cm, c2, fun r h1 h2 => ?_, hγ⟩
+  have := hyh (r - 4 * g) (by omega)
+  rwa [show 4 * g + (r - 4 * g) = r by omega] at this
+
+/-- The call of `vg_mldsa_expand_mask_poly4`, from the four seeds of `MS4`. -/
+theorem m4call_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : State} {t g : Nat}
+    (hγ : p.γ₁ = 2 ^ 17 ∨ p.γ₁ = 2 ^ 19) (cm : mask4Chk (sgB p) (sgW p) (yP p (4 * g)) (r4P p) = true)
+    (c2 : icmChk p [(yP p (4 * g), 4096), (r4P p, 8192)] (4 * g) = true) {s : State} (h : SD p D σ t g 4 s) :
+    WP isa (mask4At P p.γ₁ (yP p (4 * g)) (r4P p)) s (ICy p D σ t (4 * g + 4) (4 * g)) := by
+  refine WP.mono (mask4Call_ok hP h.m.l.st.lay hγ cm) fun s2 ⟨hP2, _, hq2⟩ => ?_
+  have I2 := h.m.step hP2 c2
+  refine ⟨I2.l, fun j hj => ?_, I2.yh⟩
+  rcases (by omega : j < 4 * g ∨ 4 * g ≤ j) with hj' | hj'
+  · exact I2.y j hj'
+  · obtain ⟨k, hk, rfl⟩ : ∃ k, k < 4 ∧ j = 4 * g + k := ⟨j - 4 * g, by omega, by omega⟩
+    have hq := hq2 k hk
+    rw [seed66, pa_sc_add, h.sd k hk] at hq
+    show PolyIs s2.mem (pa s2 (pS (yBase p + (4 * g + k)))) _
+    rw [hP2.pa (pS_bases _), ← Nat.add_assoc, ← pa_poly4]
+    exact hq
+
+theorem mask4_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : State} {t g : Nat}
+    (hc : m4Chk p g = true) {s : State} (h : ICm p D σ t (4 * g) s) :
+    WP isa (mask4 P p g) s (ICm p D σ t (4 * (g + 1))) := by
+  obtain ⟨hcp, cm, c2, hyh, hγ⟩ := m4Chk_spec hc
+  unfold mask4
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => SD p D σ t g k) 4 0
+    (fun k _ hk s hs => ms4_ok (hcp k (by omega)) hs) s ⟨h, fun _ h => absurd h (Nat.not_lt_zero _)⟩)
+    fun s1 hs1 => ?_)
+  rw [Nat.zero_add] at hs1
+  refine WP.seq (WP.mono (m4call_ok hP hγ cm c2 hs1) fun s2 hs2 => ?_)
+  exact WP.mono (seqR_ok (I := fun r => ICy p D σ t (4 * g + 4) r) 4 (4 * g)
+    (fun r h1 hr s hs => yhR_ok hP (hyh r h1 hr) (by omega) hs) s2 hs2)
+    fun s3 hs3 => ⟨hs3.l, hs3.y, hs3.yh⟩
 
 /-! ## `w` -/
 
@@ -357,7 +494,7 @@ structure IC (p : Params) (D : Nat) (σ : State) (t : Nat) (s : State) : Prop wh
 
 /-- What the commitment needs of the layout. -/
 def cChk (p : Params) : Bool :=
-  (List.range p.ℓ).all (mChk p) && (List.range p.k).all (wChk p) && (List.range p.k).all (hChk p) &&
+  (List.range (p.ℓ / 4)).all (m4Chk p) && (List.range p.ℓ).all (mChk p) && (List.range p.k).all (wChk p) && (List.range p.k).all (hChk p) &&
     shakeChk (sgB p) (sgW p) [((.r12, 0), 64), (sc oW1, p.k * w1Len p)] (sc oCT) (cLen p) &&
     icwChk p [(sc 0, 200), (sc 200, 640), (sc oCT, cLen p)] p.k
 
@@ -367,12 +504,15 @@ theorem cChk_ok {p : Params} (h : Ok3 p) : cChk p = true := by
 theorem commit_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : cChk p = true) {σ : State} {t : Nat}
     {s : State} (h : IL p D σ t s) : WP isa (commit P p) s (IC p D σ t) := by
   simp only [cChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc
-  obtain ⟨⟨⟨⟨hm, hw⟩, hh⟩, hs⟩, hk⟩ := hc
+  obtain ⟨⟨⟨⟨⟨hm4, hm⟩, hw⟩, hh⟩, hs⟩, hk⟩ := hc
   unfold commit
-  refine WP.seq (WP.mono (seqR_ok (I := fun r => ICm p D σ t r) p.ℓ 0
-    (fun r _ hr s hs => maskR_ok hP (hm r (by omega)) hs) s
-    ⟨h, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun s1 hs1 => ?_)
-  rw [Nat.zero_add] at hs1
+  refine WP.seq (WP.mono (seqR_ok (I := fun g => ICm p D σ t (4 * g)) (p.ℓ / 4) 0
+    (fun g _ hg s hs => mask4_ok hP (hm4 g (by omega)) hs) s
+    ⟨h, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun s0 hs0 => ?_)
+  rw [Nat.zero_add] at hs0
+  refine WP.seq (WP.mono (seqR_ok (I := fun r => ICm p D σ t r) (p.ℓ % 4) (4 * (p.ℓ / 4))
+    (fun r _ hr s hs => maskR_ok hP (hm r (by omega)) hs) s0 hs0) fun s1 hs1 => ?_)
+  rw [Nat.div_add_mod] at hs1
   refine WP.seq (WP.mono (seqR_ok (I := fun i => ICw p D σ t i) p.k 0
     (fun i _ hi s hs => rowW_ok hP (hw i (by omega)) (by omega) hs) s1
     ⟨hs1.l, hs1.y, hs1.yh, fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun s2 hs2 => ?_)

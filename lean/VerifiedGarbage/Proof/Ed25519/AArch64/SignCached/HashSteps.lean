@@ -33,7 +33,8 @@ theorem update_step (b : Backend) (hc : Ctx L g vec m₀ s) (hL : L.Ok) (ha : Ar
   rw [BitVec.add_zero] at a0
   have hw := Whole.hash_writes (E := L.E) (wr := L.outputs) (by simp [Lay.outputs] : L.SCR ∈ L.outputs)
   have huRepr : Spec.Sha512.Repr Spec.Sha512.H0_512 u.mem L.scr prev := by rw [hm]; exact hr
-  refine WP.mono (Whole.update_call b hu (Whole.update_pre a0 a2 a3 a4 hi.scratch)
+  refine WP.mono (Whole.update_call b hu (Whole.update_pre a0 a2 a3 a4 hi.scratch
+    (by rw [hu.sp]; exact hL.e16) (by rw [hu.sp]; exact hL.cc) (by rw [hu.sp]; exact hi.ck hL))
     (update_covers hi) hw a0 a2 a3 (by rw [a1]; exact congrArg (BitVec.ofNat 64) hcount) huRepr)
     fun t ⟨ht, hf, hrepr⟩ => ⟨ht, ?_, ?_⟩
   · rw [hm] at hf; exact update_frame hf
@@ -72,7 +73,9 @@ theorem finalize_step (v : Backend) (hc : Ctx L g vec m₀ s) (hL : L.Ok) (ha : 
   have huRepr : Spec.Sha512.Repr Spec.Sha512.H0_512 u.mem L.scr msg := by rw [hm]; exact hr
   have hw := final_writes L
   refine WP.mono (Whole.finalize_call v hu (Whole.finalize_pre a0 a2 a3
-    (hL.kc.sub_left (digestWithin L).sub)) (Whole.covers_writes hw) hw a0 a2 countEq huRepr hlen)
+    (hL.kc.sub_left (digestWithin L).sub) (by rw [hu.sp]; exact hL.e16) (by rw [hu.sp]; exact hL.cc)
+    (by rw [hu.sp]; exact Whole.ck_frame (by decide : 192 + 64 ≤ 304)))
+    (Whole.covers_writes hw) hw a0 a2 countEq huRepr hlen)
     fun t ⟨ht, hf, hh⟩ => ⟨ht, ?_, hh⟩
   rw [hm] at hf
   exact finalize_frame hf

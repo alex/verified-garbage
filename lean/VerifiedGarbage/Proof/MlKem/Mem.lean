@@ -7,10 +7,9 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # ML-KEM: polynomials and bytes in memory, for every target
 
-Untrusted: everything here is checked by Lean. How the stored
-representation of `Spec/MlKem/Poly.lean` (a polynomial as `[u32; 256]`,
-`coeffAt`, `polyAt`, `Reduced`, `PolyIs`) and `bytesAt` change when a
-program writes a coefficient or a byte, and how to conclude `PolyIs` or
+How the stored representation of `Spec/MlKem/Poly.lean` (a polynomial as
+`[u32; 256]`, `coeffAt`, `polyAt`, `Reduced`, `PolyIs`) and `bytesAt` change
+when a program writes a coefficient or a byte, and how to conclude `PolyIs` or
 `bytesAt … = L` from what each word or byte holds.
 -/
 
@@ -210,6 +209,20 @@ theorem bytesAt_eq {m : Mem} {p : Addr} {L : List Byte} {len : Nat} (hl : L.leng
 theorem bytesAt_eq! {m : Mem} {p : Addr} {L : List Byte} {len : Nat} (hl : L.length = len)
     (h : ∀ i < len, m (p + BitVec.ofNat 64 i) = L[i]!) : bytesAt m p len = L :=
   bytesAt_eq hl fun i hi => by rw [h i hi, getElem!_pos L i (by omega)]
+
+/-- The 34-byte input `ρ ‖ j ‖ i` of `SampleNTT`, from its pieces in memory. -/
+theorem seed_eq {m : Mem} {p : Addr} {ρ : List Byte} (hρ : bytesAt m p 32 = ρ) {j i : Byte}
+    (hj : m (p + BitVec.ofNat 64 32) = j) (hi : m (p + BitVec.ofNat 64 33) = i) :
+    bytesAt m p 34 = ρ ++ [j, i] := by
+  rw [show 34 = 32 + 2 from rfl, bytesAt_add, hρ]
+  refine congrArg (ρ ++ ·) (bytesAt_eq rfl fun k hk => ?_)
+  rcases (by omega : k = 0 ∨ k = 1) with rfl | rfl
+  · rw [BitVec.add_zero]; exact hj
+  · rw [Offset.add_add]; exact hi
+
+/-- The byte at `p`, from the one byte at `p`. -/
+theorem mem_of_bytesAt_one {m : Mem} {p : Addr} {b : Byte} (h : bytesAt m p 1 = [b]) : m p = b := by
+  rw [← BitVec.add_zero p]; exact List.head_eq_of_cons_eq h
 
 theorem bytesAt_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr} {len : Nat}
     (hd : ∀ r ∈ rs, (⟨p, len⟩ : Region).Disjoint r) (hlen : len ≤ 2 ^ 64) :

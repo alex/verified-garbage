@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifySetup
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarBaseMain
 
-/-! Untrusted: verification preserves the ABI and checks the original input buffers. -/
+/-! Verification preserves the ABI and checks the original input buffers. -/
 
 namespace VG.Proof.Ed25519.AArch64
 
@@ -64,7 +64,7 @@ theorem verifySetup_state_ok {s : State} (hs : verifyLocal.pre s) :
   have hc : VerifyContext c (s.gpr .x3) (s.gpr .x0) (s.gpr .x1) (s.gpr .x2) := by
     have rr : c.rd = s.rd := rc.trans (rb.trans ka.rd)
     have ww : c.wr = s.wr := wc.trans (wb.trans ka.wr)
-    refine ⟨⟨cs, ww ▸ hws, hn⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨⟨cs, ww ▸ hws, hn⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · rw [cp, gb, ka.gpr .x0 (by decide)]
     · rw [cr, gb, ka.gpr .x1 (by decide)]
     · rw [cc, gb, ach]
@@ -80,9 +80,6 @@ theorem verifySetup_state_ok {s : State} (hs : verifyLocal.pre s) :
       exact ⟨_, by rw [rr, hr]; simp, Offset.contains_base _ (show 32 + i + 1 ≤ 64 by omega) (by omega)⟩
     · intro i hi
       exact ⟨_, by rw [rr, hr]; simp, Offset.contains_base _ (show i + 1 ≤ 64 by omega) (by omega)⟩
-    · intro d hd
-      rw [show off (off (s.gpr .x2) 32) d = off (s.gpr .x2) (32 + d) from Offset.add_add ..]
-      exact ⟨_, by rw [rr, hr]; simp, Offset.contains_base _ (show 32 + d + 8 ≤ 64 by omega) (by omega)⟩
     · intro i hi; exact farScr hpk hi (by decide)
     · intro i hi; exact farScr hsig (by omega) (by decide)
     · intro i hi

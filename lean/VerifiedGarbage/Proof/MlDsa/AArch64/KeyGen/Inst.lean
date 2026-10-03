@@ -1,8 +1,8 @@
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Rej4.Depth
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Depth
 import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Main
 import VerifiedGarbage.Impl.MlDsa.AArch64.KeyGen.Prims
-import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Ntt
-import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.NttInv
+import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Neon.NttInv
 import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Mul
 import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.AddSub
 import VerifiedGarbage.Proof.MlDsa.AArch64.Round.Power2Round
@@ -19,10 +19,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Pack.HintUnpack
 /-!
 # ML-DSA key generation on AArch64, with this library's primitives
 
-Untrusted: everything here is checked by Lean. The AArch64 implementations
-of the primitives (`prims`) are verified with at most 16 bytes of stack, and
-their frames use at most that (`prims_ok`), so key generation with them is
-verified with 16 bytes of stack (`keyGen44_verified`, …).
+The AArch64 implementations of the primitives (`prims`) are verified with at
+most 16 bytes of stack, and their frames use at most that (`prims_ok`), so key
+generation with them is verified with 16 bytes of stack (`keyGen44_verified`,
+…).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
@@ -35,11 +35,11 @@ theorem prims_okWith : PrimsOk (primsWith keccak.callee) 16 where
   s16 := Nat.le_refl _
   sl := by decide
   ntt := by
-    have h := Arith.ntt_verified
+    have h := Arith.Neon.ntt_verified
     unfold Spec.MlDsa.nttContract Spec.MlDsa.inPlaceContract at h ⊢
     exact CalleeOk.of_verified (by decide) h (by decide) (by dsimp only [primsWith]; decide)
   invNtt := by
-    have h := Arith.nttInv_verified
+    have h := Arith.Neon.nttInv_verified
     unfold Spec.MlDsa.nttInvContract Spec.MlDsa.inPlaceContract at h ⊢
     exact CalleeOk.of_verified (by decide) h (by decide) (by dsimp only [primsWith]; decide)
   mul := CalleeOk.of_verified (by decide) Arith.mul_verified (by decide) (by dsimp only [primsWith]; decide)
@@ -47,6 +47,8 @@ theorem prims_okWith : PrimsOk (primsWith keccak.callee) 16 where
   add := CalleeOk.of_verified (by decide) Arith.add_verified (by decide) (by dsimp only [primsWith]; decide)
   sub := CalleeOk.of_verified (by decide) Arith.sub_verified (by decide) (by dsimp only [primsWith]; decide)
   rejNtt := CalleeOk.of_verified (by decide) (Sample.rejNTT_verifiedWith keccak) (by decide) (by simp [primsWith, Sample.rejNTT_depth keccak])
+  rej4 := CalleeOk.of_verified (by decide) (Sample.Rej4.verified keccak.callee.pairedSha3) (by decide)
+    (by simp only [primsWith,Sample.Rej4.depth,Nat.mul_zero]; decide)
   rejBounded := CalleeOk.of_verified (by decide) (Sample.rejBounded_verifiedWith keccak) (by decide) (by simp [primsWith, Sample.rejBounded_depth keccak])
   ball := CalleeOk.of_verified (by decide) (Sample.sampleInBall_verifiedWith keccak) (by decide) (by simp [primsWith, Sample.ball_depth keccak])
   power2Round := CalleeOk.of_verified (by decide) Round.power2Round_verified (by decide) (by dsimp only [primsWith]; decide)

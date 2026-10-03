@@ -1,17 +1,19 @@
 import VerifiedGarbage.Proof.MdStream.Spec
+import VerifiedGarbage.Proof.Hmac.Common
 import VerifiedGarbage.Spec.Pbkdf2.Generic
 
 /-!
 # PBKDF2-HMAC over a Merkle–Damgård hash function: one step as two compressions
 
-Untrusted: everything here is checked by Lean. For a key `K₀` of one block,
-both hashes of HMAC of a `D`-byte `U` are of `B + D`-byte messages: a block
-(`K₀ ⊕ ipad` or `K₀ ⊕ opad`) whose compression is the hash value of the
-streaming state `init` leaves, then `D` bytes, which the padding (`pad`)
-completes to a second block (`block`). So a step of PBKDF2's iteration is two
-compressions (`step`), for any hash function the streaming proofs describe
-(`Md`), whatever the target. `Link` is what ties a hash function of the
-specification (`StreamingHash`) to its `Md`.
+For a key `K₀` of one block, both hashes of HMAC of a `D`-byte `U` are of `B +
+D`-byte messages: a block (`K₀ ⊕ ipad` or `K₀ ⊕ opad`) whose compression is
+the hash value of the streaming state `init` leaves, then `D` bytes, which the
+padding (`pad`) completes to a second block (`block`). So a step of PBKDF2's
+iteration is two compressions (`step`), for any hash function the streaming
+proofs describe (`Md`), whatever the target. `Link` is what ties a hash
+function of the specification (`StreamingHash`) to its `Md`. HMAC's outer
+hash, of a key's outer block and an inner digest, is likewise one compression
+(`Link.hash_block`), which HMAC's `finalize` computes.
 -/
 
 namespace VG.Proof.MdStream.Md
@@ -38,6 +40,17 @@ theorem tailPad_take {D n : Nat} (h₁ : 0 < n) (h₂ : D + n + L ≤ B) :
 
 /-- The last block of a `B + D`-byte message whose last `D` bytes are `x`. -/
 def tailBlock (D : Nat) (x : List Byte) : H.Blk := H.parse fun t => (x ++ H.tailPad D).getD t 0
+
+/-- The block in memory at `p`, of `D` bytes of message and the padding after
+them. -/
+theorem blockAt_eq {D : Nat} {m : Mem} {p : Addr} (hD : D ≤ B)
+    (h : Spec.Sha256.bytesAt m (p + BitVec.ofNat 64 D) (B - D) = H.tailPad D) :
+    H.blockAt m p = H.tailBlock D (Spec.Sha256.bytesAt m p D) := by
+  simp only [blockAt, tailBlock]
+  refine H.parse_congr fun k hk => ?_
+  have e := Hmac.Common.bytesAt_add m p D (B - D)
+  rw [h, show D + (B - D) = B by omega] at e
+  rw [← e, Hmac.Common.bytesAt_getD' _ _ hk]
 
 /-- A `B + D`-byte message is hashed with one more compression. -/
 theorem hash_block (iv : H.HV) {p x : List Byte} {D : Nat} (hp : p.length = B) (hx : x.length = D)
@@ -80,6 +93,14 @@ structure Link (S : StreamingHash) (iv : H.HV) (D : Nat) : Prop where
 
 variable {H}
 
+/-- The hash of a block `p` and `D` bytes `x` (HMAC's outer hash, of the
+key's outer block and the inner digest) is one compression, of the hash
+value of `p` with the block of `x` and the padding. -/
+theorem Link.hash_block {S : StreamingHash} {iv : H.HV} {D : Nat} (hl : H.Link S iv D) {p x : List Byte}
+    (hp : p.length = B) (hx : x.length = D) :
+    S.H.hash (p ++ x) = (H.digest (H.compress (H.compressList iv p 1) (H.tailBlock D x))).take D := by
+  rw [hl.hash, Md.hash_block H iv hp hx hl.DL]
+
 /-- One step of the iteration is HMAC, for a key whose blocks' hash values
 are `hi` and `ho`. -/
 theorem hmac_step {S : StreamingHash} {iv : H.HV} {D : Nat} (hl : H.Link S iv D) {k0 u : List Byte}
@@ -89,8 +110,8 @@ theorem hmac_step {S : StreamingHash} {iv : H.HV} {D : Nat} (hl : H.Link S iv D)
   have li : (xorPad k0 ipad).length = B := by simp [xorPad, hk]
   have lo : (xorPad k0 opad).length = B := by simp [xorPad, hk]
   simp only [hmacBlockKey, step]
-  rw [hl.hash, hl.hash, hash_block H iv li hu hl.DL, hash_block H iv lo (x := List.take D _)
-    (by simp only [List.length_take, H.digest_length]; exact Nat.min_eq_left hl.DN) hl.DL]
+  rw [hl.hash_block li hu, hl.hash_block lo (x := List.take D _)
+    (by simp only [List.length_take, H.digest_length]; exact Nat.min_eq_left hl.DN)]
 
 /-- The hash value stored at an address depends only on the bytes there, not
 on the address. -/
@@ -114,5 +135,32 @@ theorem iterate_congr {D : Nat} {f g : List Byte → List Byte} (hfg : ∀ u, u.
     simp only [Spec.Pbkdf2.iterate]
     rw [hfg u hu]
     exact ih _ _ (hg u)
+
+/-- PBKDF2's iteration with HMAC as its pseudorandom function is the
+iteration of `step`, from the hash values of a key's streaming states. -/
+theorem iterate_hmac {S : StreamingHash} {iv : H.HV} {D : Nat} (hl : H.Link S iv D) {k0 : List Byte}
+    (hk : k0.length = S.H.blockSize) {mem : Mem} {p q : Addr} (hi : S.Repr mem p (xorPad k0 ipad))
+    (ho : S.Repr mem q (xorPad k0 opad)) (n : Nat) {u t : List Byte} (hu : u.length = D) :
+    Spec.Pbkdf2.iterate (hmacBlockKey S.H k0) n u t =
+      Spec.Pbkdf2.iterate (H.step D (H.stateAt mem p) (H.stateAt mem q)) n u t := by
+  have hB : 0 < B := by have := hl.DL; omega
+  rw [hl.hB] at hk
+  have li : (xorPad k0 ipad).length = B := by simp [xorPad, hk]
+  have lo : (xorPad k0 opad).length = B := by simp [xorPad, hk]
+  rw [stateAt_of_repr hB li (hl.repr _ _ _ hi), stateAt_of_repr hB lo (hl.repr _ _ _ ho)]
+  exact iterate_congr (fun u hu => hmac_step hl hk hu) (fun u => step_length H hl.DN _ _ u) n u t hu
+
+/-- HMAC's outer hash, for a key whose outer block's hash value is `ho`, of
+the inner digest `x`: one compression of the block `x ‖ pad`. -/
+theorem hmac_outer {S : StreamingHash} {iv : H.HV} {D : Nat} (hl : H.Link S iv D) {k0 text : List Byte}
+    (hk : k0.length = S.H.blockSize) {mem : Mem} {p : Addr} (ho : S.Repr mem p (xorPad k0 opad)) :
+    hmacBlockKey S.H k0 text =
+      (H.digest (H.compress (H.stateAt mem p) (H.tailBlock D (S.H.hash (xorPad k0 ipad ++ text))))).take D := by
+  have hB : 0 < B := by have := hl.DL; omega
+  rw [hl.hB] at hk
+  have lo : (xorPad k0 opad).length = B := by simp [xorPad, hk]
+  have hx : (S.H.hash (xorPad k0 ipad ++ text)).length = D := by
+    rw [hl.hash, List.length_take, Md.hash, H.digest_length]; exact Nat.min_eq_left hl.DN
+  rw [hmacBlockKey, hl.hash, hash_block H iv lo hx hl.DL, stateAt_of_repr hB lo (hl.repr _ _ _ ho)]
 
 end VG.Proof.MdStream.Md

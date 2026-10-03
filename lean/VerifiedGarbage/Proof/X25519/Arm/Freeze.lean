@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # X25519 on 32-bit ARM: the final reduction and the output
 
-Untrusted: everything here is checked by Lean. `freeze` stores the 32 bytes
-of the element at `X2`, reduced fully modulo `p`, at `out` (`freeze_ok`).
+`freeze` stores the 32 bytes of the element at `X2`, reduced fully modulo `p`,
+at `out` (`freeze_ok`).
 -/
 
 namespace VG.Proof.X25519.Arm
@@ -233,7 +233,7 @@ theorem freeze_ok {s : State} (hc : Ctx b s) (hl : Lim s.mem (State.addr b) X2) 
     (hdisj : Region.Disjoint ⟨State.addr b, 4096⟩ ⟨State.addr o, 32⟩) :
     WP isa (.block freeze) s fun s' =>
       bytesAt s'.mem (State.addr o) 32 = leBytes 32 (V s.mem (State.addr b) X2 % P) ∧ Rest clob s s' ∧
-      Frame [FA b, ⟨State.addr o, 32⟩] s.mem s'.mem := by
+      Frame [FA ACC b, ⟨State.addr o, 32⟩] s.mem s'.mem := by
   have hX : X2 = 128 := rfl
   have hY : Y = 1088 := rfl
   obtain ⟨tA, tY, hS, hR, hv⟩ := freeze_facts hl
@@ -302,8 +302,8 @@ theorem freeze_ok {s : State} (hc : Ctx b s) (hl : Lim s.mem (State.addr b) X2) 
     rw [V, ← hv]
     exact bytesAt_limbs hR (fun k hk => by rw [h6'.b0 k hk, hr k hk]) (fun k hk => by rw [h6'.b1 k hk, hr k hk])
   · exact (hr45.mono (by decide)).trans (h6'.rest.mono (by decide))
-  · have hfa : ∀ z, z + 64 ≤ 1280 → 64 ≤ z → Region.Sub ⟨State.addr b + BitVec.ofNat 64 z, 64⟩ (FA b) :=
-      fun z h1 h2 => Offset.sub _ (by omega) (by omega)
+  · have hfa : ∀ z, z + 64 ≤ 1280 → 64 ≤ z → Region.Sub ⟨State.addr b + BitVec.ofNat 64 z, 64⟩ (FA ACC b) :=
+      fun z h1 h2 => Offset.sub _ (by omega) (by rw [ACC_eq]; omega)
     refine (frame_sub1 hf1 (hfa X2 (by omega) (by omega)) (List.mem_cons_self ..)).trans ?_
     refine (frame_sub1 hpf2 (hfa X2 (by omega) (by omega)) (List.mem_cons_self ..)).trans ?_
     rw [← u3.mem]

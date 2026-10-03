@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.Sample.Ball
 /-!
 # ML-DSA: `BitUnpack` as arithmetic on the bytes
 
-Untrusted: everything here is checked by Lean. The bits of a byte string
-`v` (`bytesToBits`) are those of the integer `leNat v` whose little-endian
-encoding it is (`bytesToBits_getD_testBit`); so the `c` bits of
-coefficient `i` of `BitUnpack` are `⌊leNat v / 2^(ic)⌋ mod 2^c`
+The bits of a byte string `v` (`bytesToBits`) are those of the integer `leNat
+v` whose little-endian encoding it is (`bytesToBits_getD_testBit`); so the `c`
+bits of coefficient `i` of `BitUnpack` are `⌊leNat v / 2^(ic)⌋ mod 2^c`
 (`bitUnpack_getElem`), which an implementation computes from the few bytes
 that hold them.
 -/

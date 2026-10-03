@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Aes.Arm.Linear
 /-!
 # Encrypting two blocks, bitsliced, on ARMv7
 
-Untrusted: everything here is checked by Lean.
-
 `encrypt2_ok`: from two blocks in the registers (`InRel`), with the
 bitsliced round keys in the scratch buffer (`KeysAt`) and `kp` at the
 first, `encrypt2` leaves the two ciphertexts, having written only the first

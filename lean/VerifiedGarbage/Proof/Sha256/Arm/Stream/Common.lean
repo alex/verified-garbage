@@ -6,20 +6,19 @@ import VerifiedGarbage.Proof.Sha256.Arm.Lit
 /-!
 # Streaming SHA-256 on ARMv7: calling the compression function, and saving registers
 
-Untrusted: everything here is checked by Lean. What HMAC and PBKDF2, which
-call SHA-256's compression function themselves and save our caller's
-registers where its streaming code does, use: the call (`compressAt`), and
-saving and restoring the registers (`save`, `restore`). The streaming
-`update` and `finalize` are proven generically (`Proof/Sha256/Arm/Stream/Md.lean`),
-and the per-instruction rules are `VG.Proof.MdStream.Arm`'s.
+What HMAC and PBKDF2, which call SHA-256's compression function themselves and
+save our caller's registers where its streaming code does, use: the call
+(`compressAt`), and saving and restoring the registers (`save`, `restore`). The
+streaming `update` and `finalize` are proven generically
+(`Proof/Sha256/Arm/Stream/Md.lean`), and the per-instruction rules are
+`VG.Proof.MdStream.Arm`'s.
 -/
 
 namespace VG.Proof.Sha256.Arm.Stream
 
 open VG VG.Arm VG.Impl.Sha256.Arm.Stream
 open VG.Proof.Sha256.Arm (compress_verified contains_offset)
-open VG.Proof.MdStream.Arm (Upd WP.cons op2_imm wp_mov wp_ldr wp_str saveList_ok
-  readW_writeW_save restoreList_ok)
+open VG.Proof.MdStream.Arm (Upd WP.cons op2_imm wp_mov wp_ldr wp_str)
 open VG.Spec.Sha256 (HashValue stateAt blockAt compressBlocks compress parseBlock bytesAt)
 
 /-! ## The compression function -/
@@ -85,7 +84,7 @@ theorem compressAt_ok {s : State} {st scr src : BitVec 32}
 
 /-! ## Saving and restoring our caller's registers -/
 
-theorem save_eq (b : Reg) : save b = saved.map (fun p => Instr.str p.1 b p.2) := rfl
+theorem saved_slots : Spill.Slots 112 148 saved := by decide
 
 /-- Saving `r4`–`r11` and `lr` with the scratch pointer in `b`. -/
 theorem save_ok {b : Reg} {rest : List Instr} {s : State} {Q : State → Prop}
@@ -93,31 +92,18 @@ theorem save_ok {b : Reg} {rest : List Instr} {s : State} {Q : State → Prop}
     (hin : ∀ d, 112 ≤ d → d + 4 ≤ 148 → InRegions s.wr (State.addr (s.gpr b) + BitVec.ofNat 64 d) 4)
     (k : ∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
       s'.mem = Proof.MdStream.Arm.saveMem s.mem (State.addr (s.gpr b)) s.gpr saved → WP isa (.block rest) s' Q) :
-    WP isa (.block (save b ++ rest)) s Q := by
-  rw [save_eq]
-  refine saveList_ok saved s Q (fun p hp => ?_) k
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  exact ⟨by decide, by simp only; omega, hin _ (by decide) (by decide)⟩
+    WP isa (.block (save b ++ rest)) s Q :=
+  Spill.save_slots_ok saved_slots (by omega) hin (k _ rfl rfl rfl rfl rfl)
 
 theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
     ∀ p ∈ saved, (Proof.MdStream.Arm.saveMem m B g saved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 :=
-  Proof.MdStream.Arm.saveMem_saved (P := params) ⟨by decide, by decide, by decide⟩ m B g
+  Spill.saveMem_saved B g m saved saved_slots
 
 theorem saveMem_frame (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
-    ∀ (l : List (Reg × Nat)), (∀ p ∈ l, p.2 + 4 ≤ 160) → Frame [⟨B, 160⟩] m (Proof.MdStream.Arm.saveMem m B g l) := by
-  intro l
-  induction l generalizing m with
-  | nil => intro _; exact Frame.refl _ _
-  | cons p l ih =>
-    intro hl
-    have h := hl p (by simp)
-    exact ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_offset (n := 32 / 8) h (by omega))).trans
-      (ih _ fun q hq => hl q (List.mem_cons_of_mem _ hq))
+    ∀ (l : List (Reg × Nat)), (∀ p ∈ l, p.2 + 4 ≤ 160) → Frame [⟨B, 160⟩] m (Proof.MdStream.Arm.saveMem m B g l) :=
+  Spill.saveMem_frame m B g (by decide)
 
 theorem saved_bound : ∀ p ∈ saved, p.2 + 4 ≤ 160 ∧ 112 ≤ p.2 := by decide
-
-theorem restore_eq : restore = saved.map (fun p => Instr.ldr p.1 .r3 p.2) := rfl
 
 /-- Restoring `r4`–`r11` and `lr` from the save area at `scratch`. -/
 theorem restore_ok {s : State} {scr : BitVec 32} (h3 : s.gpr .r3 = scr) (hfit : scr.toNat + 160 ≤ 2 ^ 32)
@@ -127,13 +113,9 @@ theorem restore_ok {s : State} {scr : BitVec 32} (h3 : s.gpr .r3 = scr) (hfit : 
     (k : ∀ s', (∀ p ∈ saved, s'.gpr p.1 = g p.1) → (∀ r, r ∉ saved.map Prod.fst → s'.gpr r = s.gpr r) →
       s'.mem = s.mem → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp → Q s') :
     WP isa (.block restore) s Q := by
-  rw [restore_eq, ← List.append_nil (saved.map _)]
-  refine restoreList_ok saved s Q (by decide) (fun p hp => ?_)
-    fun s' ho hr hm hrd hwr hsp => WP.block_nil (k s' (fun p hp => ?_) hr hm hrd hwr hsp)
-  · simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rw [h3]
-    rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-    exact ⟨by decide, by decide, by simp only; omega, hin _ (by decide) (by decide)⟩
-  · rw [ho p hp, h3, hsv p hp]
+  rw [restore, ← List.append_nil (saved.map _)]
+  subst h3
+  exact Spill.restore_slots_ok saved_slots (by decide) (by omega) hin hsv
+    fun s' ho hr hm hrd hwr hsp => WP.block_nil (k s' ho hr hm hrd hwr hsp)
 
 end VG.Proof.Sha256.Arm.Stream

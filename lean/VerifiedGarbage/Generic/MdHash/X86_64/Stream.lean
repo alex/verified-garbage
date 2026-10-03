@@ -11,14 +11,8 @@ SHA-512 family); those of a hash function with one implementation (MD5) are
 in its registration file.
 
 The variant supplies each function's `Api` and its verified code
-(`MdHash.stream`, a `StreamFn`), whose contract is the one the `Api` gives
-it (`StreamFn.ofApi`, which this file passes on as the artifact's
-`ofApi`). **Review note**: the name, `sig` and `doc` are trusted, as they
-tie the Rust caller to the contract: they are those of the function's `Api`
-(in `Spec/`, reviewed with the contract), and the name ends with the
-variant's suffix. The emitter adds the `# Safety` items that depend on the
-target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract, and the CPU features the implementation needs.
+(`MdHash.stream`, a `StreamFn`), whose contract is the one the `Api` gives it
+(`StreamFn.ofApi`, which this file passes on as the artifact's `ofApi`).
 -/
 
 namespace VG.Generic.MdHash.X86_64.Stream

@@ -5,11 +5,11 @@ import VerifiedGarbage.Spec.X25519
 /-!
 # `2^255 - 19` is prime
 
-Untrusted. A Pratt certificate: for each prime `p` of the tree, a witness `a`
-of order `p - 1` modulo `p` and the prime factors of `p - 1` (with
-multiplicity), checked by Lucas's theorem (`lucas_primality`). The kernel
-evaluates the modular powers with `powMod`, a binary exponentiation on `Nat`.
-Factors below `2^16` are prime by `norm_num`.
+A Pratt certificate: for each prime `p` of the tree, a witness `a` of order `p -
+1` modulo `p` and the prime factors of `p - 1` (with multiplicity), checked by
+Lucas's theorem (`lucas_primality`). The kernel evaluates the modular powers
+with `powMod`, a binary exponentiation on `Nat`. Factors below `2^16` are
+prime by `norm_num`.
 -/
 
 namespace VG.Proof.Ed25519

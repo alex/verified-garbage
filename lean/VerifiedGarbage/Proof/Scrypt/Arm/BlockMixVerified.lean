@@ -4,7 +4,8 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Proof.Scrypt.Memory
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Proof.Hmac.Arm.Init
+import VerifiedGarbage.Proof.MdStream.Arm.Common
+import VerifiedGarbage.Proof.Hmac.Common
 import VerifiedGarbage.Impl.Scrypt.Arm.Salsa
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.RelCT
@@ -13,10 +14,9 @@ import VerifiedGarbage.Impl.Scrypt.Arm.BlockMix
 /-!
 # The Salsa20/8 Core on 32-bit ARM
 
-Untrusted: everything here is checked by Lean. The sixteen words live in
-`scratch`, word `k` at `4k`, and `b` keeps the input until the final
-addition. Each line of the rounds is proved once, for any indices
-(`line_ok`), and the lines are composed by induction.
+The sixteen words live in `scratch`, word `k` at `4k`, and `b` keeps the input
+until the final addition. Each line of the rounds is proved once, for any
+indices (`line_ok`), and the lines are composed by induction.
 -/
 
 namespace VG.Proof.Scrypt
@@ -24,10 +24,8 @@ namespace VG.Proof.Scrypt
 open Spec.Scrypt
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32; 16])`:
-replaces the 64 bytes at `b` by their Salsa20/8 Core.
+/-- 32-bit ARM contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32;
+16])`: replaces the 64 bytes at `b` by their Salsa20/8 Core.
 
 The code may read and write `b` (in `r0`) and `scratch` (in `r1`; 64 bytes
 each, the contents of `scratch` on exit unspecified), which may not overlap
@@ -44,13 +42,10 @@ def salsaArm : Contract Arm.isa where
   pub s₁ s₂ := s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧ s₁.sp = s₂.sp
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for
-`vg_scrypt_blockmix(b = r0, r = r1, y = r2, ry = r3, scratch = [sp])`:
-if `ry = r > 0`, writes scryptBlockMix of the `128 r` bytes at `b` to `y`.
-The code may read `b` and the stack argument, and read and write `y` and
-`scratch` (128 bytes). -/
+/-- 32-bit ARM contract for `vg_scrypt_blockmix(b = r0, r = r1, y = r2, ry =
+r3, scratch = [sp])`: if `ry = r > 0`, writes scryptBlockMix of the `128 r`
+bytes at `b` to `y`. The code may read `b` and the stack argument, and read
+and write `y` and `scratch` (128 bytes). -/
 def blockMixArm : Contract Arm.isa where
   pre s :=
     let r := (s.gpr .r1).toNat
@@ -72,14 +67,11 @@ def blockMixArm : Contract Arm.isa where
     s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for
-`vg_scrypt_romix(b = r0, r = r1, v = r2, vlen = r3, scratch = [sp], slen = [sp + 4])`:
-if `r > 0`, `vlen = N r` for a power of two `N`, and `slen = r + 2`, replaces
-the `128 r` bytes at `b` by their scryptROMix. The code may read the stack
-arguments, and read and write `b`, `v` and `scratch`. The indices `j` of
-step 3 are public. -/
+/-- 32-bit ARM contract for `vg_scrypt_romix(b = r0, r = r1, v = r2, vlen = r3,
+scratch = [sp], slen = [sp + 4])`: if `r > 0`, `vlen = N r` for a power of two
+`N`, and `slen = r + 2`, replaces the `128 r` bytes at `b` by their scryptROMix.
+The code may read the stack arguments, and read and write `b`, `v` and
+`scratch`. The indices `j` of step 3 are public. -/
 def roMixArm : Contract Arm.isa where
   pre s :=
     let r := (s.gpr .r1).toNat
@@ -114,8 +106,12 @@ open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (Word)
 open VG.Proof.Scrypt
 open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str wp_add op2_reg)
-open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.Memory (contains_off)
+
+theorem wp_eor {is : List Instr} {s : State} {Q : State → Prop} {d n : Reg} {o : Op2} {y : BitVec 32}
+    (ho : o.eval s = some y) (k : ∀ s', Upd s s' d (s.gpr n ^^^ y) → WP isa (.block is) s' Q) :
+    WP isa (.block (.dp .eor d n o :: is)) s Q :=
+  MdStream.Arm.WP.cons (s' := s.setReg d (s.gpr n ^^^ y)) (by simp [exec, ho]) (k _ (Upd.setReg _ _ _))
 
 /-! ## The precondition -/
 
@@ -460,9 +456,9 @@ end VG.Proof.Scrypt.Arm
 /-!
 # scrypt on 32-bit ARM: common lemmas
 
-Untrusted: everything here is checked by Lean. The target-independent lemmas
-about addresses and bytes are in `Proof/Scrypt/Memory.lean`; here are
-32-bit pointers as addresses, and the 64-byte exclusive-or.
+The target-independent lemmas about addresses and bytes are in
+`Proof/Scrypt/Memory.lean`; here are 32-bit pointers as addresses, and the
+64-byte exclusive-or.
 -/
 
 namespace VG.Proof.Scrypt.Arm
@@ -472,7 +468,6 @@ open VG.Spec.Scrypt (bytesAt)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil writeBytes_frame)
 open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str op2_reg saveMem)
-open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.Memory (sub_off xorBytes_length bytesAt_length bytesAt_add
   bytesAt_writeBytes_sep)
 
@@ -651,11 +646,11 @@ end VG.Proof.Scrypt.Arm
 /-!
 # scryptBlockMix on 32-bit ARM: the loop
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Scrypt/AArch64/BlockMixVerified.lean`), the calls of `vg_salsa20_8` are used
-through `SalsaSpec`, what its proof says about a call; the proof of this file
-holds for any code meeting it. Registers hold 32-bit pointers, and memory is
-addressed by their zero extensions (`State.addr`), which do not wrap.
+As on AArch64 (`Proof/Scrypt/AArch64/BlockMixVerified.lean`), the calls of
+`vg_salsa20_8` are used through `SalsaSpec`, what its proof says about a call;
+the proof of this file holds for any code meeting it. Registers hold 32-bit
+pointers, and memory is addressed by their zero extensions (`State.addr`), which
+do not wrap.
 -/
 
 namespace VG.Proof.Scrypt.Arm.BlockMix
@@ -1170,10 +1165,10 @@ end VG.Proof.Scrypt.Arm.BlockMix
 /-!
 # scryptBlockMix on 32-bit ARM: the whole function
 
-Untrusted: everything here is checked by Lean. The prologue loads the
-scratch pointer from the stack, saves our caller's `r4`–`r9` and our return
-address in `scratch` and sets up the loop's registers; the loop runs the
-`r` pairs; the epilogue restores the registers. There is no stack frame.
+The prologue loads the scratch pointer from the stack, saves our caller's
+`r4`–`r9` and our return address in `scratch` and sets up the loop's
+registers; the loop runs the `r` pairs; the epilogue restores the registers.
+There is no stack frame.
 -/
 
 namespace VG.Proof.Scrypt.Arm.BlockMix
@@ -1196,14 +1191,9 @@ def bmSetup : List Instr :=
 theorem prologue_eq : bmPrologue =
     .ldrSp .r12 0 :: (bmSaved.map (fun p => Instr.str p.1 .r12 p.2) ++ bmSetup) := rfl
 
-set_option simprocs false in
 theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
-    ∀ p ∈ bmSaved, (saveMem m B g bmSaved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 := by
-  intro p hp
-  simp only [bmSaved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (config := {decide := true}) only [bmSaved, saveMem, Mem.readW_writeW_self32,
-    readW_writeW_save]
+    ∀ p ∈ bmSaved, (saveMem m B g bmSaved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 :=
+  Spill.saveMem_saved (lo := 64) (hi := 92) B g m bmSaved (by decide)
 
 theorem bmSaved_bound : ∀ p ∈ bmSaved, p.2 + 4 ≤ 128 ∧ 64 ≤ p.2 ∧ p.1 ≠ .r12 := by decide
 
@@ -1391,39 +1381,22 @@ end VG.Proof.Scrypt.Arm.BlockMix
 /-!
 # scryptBlockMix on 32-bit ARM: verified
 
-Untrusted: everything here is checked by Lean. `SalsaSpec` of the verified
-Salsa20/8 Core, from its `Verified` proof by `WP.call`; then the `Verified`
-proof of `vg_scrypt_blockmix`. Only the pointers, `r` and the stack argument
-(the scratch pointer) are public, and the taint analysis checks that nothing
-else reaches an address or a branch.
+`SalsaSpec` of the verified Salsa20/8 Core, from its `Verified` proof by
+`WP.call`; then the `Verified` proof of `vg_scrypt_blockmix`. Only the
+pointers, `r` and the stack argument (the scratch pointer) are public, and the
+taint analysis checks that nothing else reaches an address or a branch.
 -/
 
 namespace VG.Proof.Scrypt.Arm.BlockMix
 
 open VG VG.Arm
 
-/-- A region inside one of `rs` is covered by `rs`. -/
-theorem covers_of_in {rs : List Region} {a : Addr} {n : Nat} (h : InRegions rs a n) :
-    Covers [⟨a, n⟩] rs := by
-  obtain ⟨R, hR, hc⟩ := h
-  refine Covers.of_sub fun r hr => ?_
-  simp only [List.mem_singleton] at hr; subst hr
-  exact ⟨R, hR, (a - R.base).toNat, by rw [BitVec.ofNat_toNat, BitVec.setWidth_eq]; bv_omega, hc⟩
-
-theorem covers_pair {rs : List Region} {a b : Region} (ha : Covers [a] rs) (hb : Covers [b] rs) :
-    Covers [a, b] rs := by
-  intro x n ⟨r, hr, hc⟩
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl
-  · exact ha x n ⟨_, List.mem_singleton_self _, hc⟩
-  · exact hb x n ⟨_, List.mem_singleton_self _, hc⟩
-
 theorem salsaSpec : SalsaSpec Impl.Scrypt.Arm.salsa := by
   intro s d sc hd hsc fd fsc hds hind hins Q hQ
   have c0 : s.callEntry.gpr .r0 = d := (State.callEntry_gpr _ (by decide)).trans hd
   have c1 : s.callEntry.gpr .r1 = sc := (State.callEntry_gpr _ (by decide)).trans hsc
   have hw : Covers [⟨State.addr d, 64⟩, ⟨State.addr sc, 64⟩] s.wr :=
-    covers_pair (covers_of_in hind) (covers_of_in hins)
+    Covers.pair (Covers.one hind) (Covers.one hins)
   refine WP.call (k := Proof.Scrypt.salsaArm) Proof.Scrypt.Arm.salsa_correct
     (rd := []) (wr := [⟨State.addr d, 64⟩, ⟨State.addr sc, 64⟩]) ?_ ?_ hw ?_
   · simp only [Proof.Scrypt.salsaArm, State.withRegions_gpr, State.withRegions_rd,

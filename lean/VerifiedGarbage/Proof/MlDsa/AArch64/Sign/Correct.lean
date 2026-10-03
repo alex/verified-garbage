@@ -1,13 +1,13 @@
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseA4
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseO
 
 /-!
 # ML-DSA signing on AArch64: correctness
 
-Untrusted: everything here is checked by Lean. The function returns 1 with
-`Sign_internal`'s signature (within `maxBounds`) in `sig`, or 0 when
-`Sign_internal` returns nothing within `minBounds` (`sign_correct`): its
-`ExpandA` or its loop does not finish (`signMu_min_A`, `signMu_min_L`), or
-an iteration passes (`signMu_max`).
+The function returns 1 with `Sign_internal`'s signature (within `maxBounds`)
+in `sig`, or 0 when `Sign_internal` returns nothing within `minBounds`
+(`sign_correct`): its `ExpandA` or its loop does not finish (`signMu_min_A`,
+`signMu_min_L`), or an iteration passes (`signMu_max`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
@@ -15,6 +15,7 @@ namespace VG.Proof.MlDsa.AArch64.Sign
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -173,7 +174,7 @@ theorem sign_correct {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 :
     unfold Impl.MlDsa.AArch64.Sign.signWith
     refine WP.seq (WP.mono (pro_ok hin) fun s₁ ⟨h₁, h15, hf₁⟩ => ?_)
     have S1 := entry_st h3 hpre h₁ hf₁
-    refine WP.seq (WP.mono (expandA_ok hP ha S1 h15) fun s₂ h₂ => ?_)
+    refine WP.seq (WP.mono (expandA_ok hP h3 ha S1 h15) fun s₂ h₂ => ?_)
     refine WP.seq (WP.mono (show WP isa (ifOk (restWith keccak.callee P p)) s₂ (FS p D σ) from ?_) fun s₄ h₄ => ?_)
     · unfold ifOk
       refine ifOkElse_ok (fun hne => ?_) fun he => ?_

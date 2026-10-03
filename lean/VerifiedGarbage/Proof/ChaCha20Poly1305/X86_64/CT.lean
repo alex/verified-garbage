@@ -17,9 +17,9 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ChaCha20-Poly1305 on x86-64: the calls
 
-Untrusted: everything here is checked by Lean. Each call of a verified
-function, from its proof of `Verified` (with `WP.call`): what it needs of the
-state it is called from, and what holds when it returns.
+Each call of a verified function, from its proof of `Verified` (with
+`WP.call`): what it needs of the state it is called from, and what holds when
+it returns.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -387,8 +387,6 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 
 /-!
 # ChaCha20-Poly1305 on x86-64: the entry state, regions and invariant
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305
@@ -422,9 +420,7 @@ def pubX86_64 (s₁ s₂ : X86_64.State) : Prop :=
   s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
+/-- `vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
 def sealX86_64 : Contract X86_64.isa where
   pre := preX86_64
   post s s' :=
@@ -435,9 +431,7 @@ def sealX86_64 : Contract X86_64.isa where
   pub := pubX86_64
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
+/-- `vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
 def openX86_64 : Contract X86_64.isa where
   pre := preX86_64
   post s s' :=
@@ -647,21 +641,13 @@ theorem covers_sub {s₀ s : State} (hp : APre s₀) (hwr : s.wr = s₀.wr) (rs 
   obtain ⟨k, hrk, hk⟩ := h r hr
   exact ⟨ctxR s₀, by simp [hwr, hp.wr], k, by rw [hrk]; simp [off_eq], hk⟩
 
-theorem covers_left {rs wr : List Region} (rd : List Region) (h : Covers rs wr) : Covers rs (rd ++ wr) :=
-  fun a n hi => by
-    obtain ⟨r, hr, hc⟩ := h a n hi
-    exact ⟨r, List.mem_append_right _ hr, hc⟩
-
-theorem covers_nil_append {rs rs' : List Region} (h : Covers rs rs') : Covers ([] ++ rs) rs' := by
-  simpa using h
-
 end VG.Proof.ChaCha20Poly1305.X86_64
 
 /-!
 # ChaCha20-Poly1305 on x86-64: the prologue
 
-Untrusted: everything here is checked by Lean. Saving the registers, the
-ChaCha20 state for counter 0, the one-time key and the Poly1305 state for it.
+Saving the registers, the ChaCha20 state for counter 0, the one-time key and
+the Poly1305 state for it.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -913,7 +899,7 @@ theorem prologue_ok {s₀ : State} (hp : APre s₀) : WP isa prologue s₀ (Post
   -- The block for counter 0: the one-time key.
   refine WP.seq (block_call rdi₄ rsi₄ (sub_disj s₀ (by lit_omega) (by lit_omega) (by lit_omega))
     (by rw [rsp₄]; exact hp.below8_sub (by lit_omega)) (by rw [rsp₄]; exact hp.below8_sub (by lit_omega))
-    (covers_left _ (covers_sub hp wr₄' _ (by
+    (Covers.right (covers_sub hp wr₄' _ (by
       intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
         or_false] at hr
       rcases hr with rfl | rfl
@@ -942,7 +928,7 @@ theorem prologue_ok {s₀ : State} (hp : APre s₀) : WP isa prologue s₀ (Post
   -- The Poly1305 state for the one-time key.
   refine WP.seq (init_call rdi₈ rsi₈ (sub_disj s₀ (by lit_omega) (by lit_omega) (by lit_omega))
     (by rw [rsp₈]; exact hp.below8_sub (by lit_omega)) (by rw [rsp₈]; exact hp.below8_sub (by lit_omega))
-    (covers_left _ (covers_sub hp wr₈' _ (by
+    (Covers.right (covers_sub hp wr₈' _ (by
       intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
         or_false] at hr
       rcases hr with rfl | rfl
@@ -1025,9 +1011,8 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 /-!
 # ChaCha20-Poly1305 on x86-64: absorbing padded data
 
-Untrusted: everything here is checked by Lean. `macPad p n` absorbs the `n`
-bytes at `p` into the Poly1305 state, and zeros to a multiple of 16:
-`msg ++ x ++ pad16 x`.
+`macPad p n` absorbs the `n` bytes at `p` into the Poly1305 state, and zeros
+to a multiple of 16: `msg ++ x ++ pad16 x`.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -1352,7 +1337,7 @@ theorem padTail_ok (b : Impl.Poly1305.X86_64.Blocks) {s₀ : State} (hp : APre s
     (sub_disj s₀ (b := 576) (m := 16 * 1) (by lit_omega) (by lit_omega) (by lit_omega))
     (by rw [hp.off_toNat (by lit_omega)]; have := hp.wrap_c; omega)
     (by rw [rsp₆]; exact hp.stk_sub (by lit_omega)) (by rw [rsp₆]; exact hp.stk_sub (by lit_omega))
-    (covers_left _ (covers_sub hp wr₆' _ (by
+    (Covers.right (covers_sub hp wr₆' _ (by
       intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
         or_false] at hr
       rcases hr with rfl | rfl
@@ -1432,7 +1417,7 @@ theorem macPad_ok (b : Impl.Poly1305.X86_64.Blocks) {s₀ : State} (hp : APre s�
       rcases hr' with rfl | rfl
       · rw [rd₁, wr₁, hrd, hwr]
         exact hs.cov a w ⟨_, List.mem_singleton_self _, by simp only [Region.Contains] at hc ⊢; omega⟩
-      · refine covers_left _ (covers_sub hp (by rw [wr₁, hwr]) [sub s₀ 448 128] (fun r hr => ?_)) a w
+      · refine Covers.right (covers_sub hp (by rw [wr₁, hwr]) [sub s₀ 448 128] (fun r hr => ?_)) a w
           ⟨_, List.mem_singleton_self _, hc⟩
         simp only [List.mem_singleton] at hr; subst hr; exact ⟨448, rfl, show 448 + 128 ≤ 1024 by omega⟩)
     (covers_sub hp (by rw [wr₁, hwr]) _ (by
@@ -1518,9 +1503,8 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 /-!
 # ChaCha20-Poly1305 on x86-64: the other parts
 
-Untrusted: everything here is checked by Lean. The lengths block, the
-encryption, absorbing the lengths, the tag, comparing tags, and restoring the
-registers.
+The lengths block, the encryption, absorbing the lengths, the tag, comparing
+tags, and restoring the registers.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -1800,7 +1784,7 @@ theorem XArgs.call (v : Proof.ChaCha20.X86_64.XorImpl) {Q : State → Prop}
     (sub_disj s₀ (a := 64) (n := 64) (b := 128) (m := 320) (by lit_omega) (by lit_omega) (by lit_omega))
     (hp.c_d.symm.sub_right (sub_ctx s₀ (k := 128) (n := 320) (by lit_omega))) hp.wrap_d
     (by rw [h.rsp]; exact hp.stk_sub (by lit_omega)) (by rw [h.rsp]; exact hp.stk_d)
-    (by rw [h.rsp]; exact hp.stk_sub (by lit_omega)) (covers_nil_append (covers_left _ (h.hw hp))) (h.hw hp)
+    (by rw [h.rsp]; exact hp.stk_sub (by lit_omega)) ((Covers.right (h.hw hp))) (h.hw hp)
     fun s' rd wr cs f rsi data => hQ s' rd wr cs (by rw [h.rsp] at f; exact f) rsi data
 
 end
@@ -1891,7 +1875,7 @@ theorem absorbLengths_ok (b : Impl.Poly1305.X86_64.Blocks) {s₀ : State} (hp : 
     (sub_disj s₀ (b := 656) (m := 16 * 1) (by lit_omega) (by lit_omega) (by lit_omega))
     (by rw [hp.off_toNat (by lit_omega)]; have := hp.wrap_c; omega)
     (by rw [rsp₁]; exact hp.stk_sub (by lit_omega)) (by rw [rsp₁]; exact hp.stk_sub (by lit_omega))
-    (covers_left _ (covers_sub hp wr₁' _ (by
+    (Covers.right (covers_sub hp wr₁' _ (by
       intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
         or_false] at hr
       rcases hr with rfl | rfl
@@ -1945,7 +1929,7 @@ theorem finalizeTo_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ 
   rw [h.r15] at rdi₁ rdx₁
   refine finalize_call rdi₁ rsi₁ rdx₁ (sub_disj s₀ (by lit_omega) (by lit_omega) ho)
     (by rw [rsp₁]; exact hp.below8_sub (by lit_omega)) (by rw [rsp₁]; exact hp.below8_sub ho)
-    (covers_left _ (covers_sub hp wr₁' _ (by
+    (Covers.right (covers_sub hp wr₁' _ (by
       intro r hr; simp only [List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
       · exact ⟨448, rfl, show 448 + 128 ≤ 1024 by omega⟩
@@ -1970,8 +1954,7 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 /-!
 # ChaCha20-Poly1305 on x86-64: correctness
 
-Untrusted: everything here is checked by Lean. `seal` and `open`, from their
-parts.
+`seal` and `open`, from their parts.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -2152,14 +2135,13 @@ end VG.Proof.ChaCha20Poly1305.X86_64
 /-!
 # ChaCha20-Poly1305 on x86-64: constant time
 
-Untrusted: everything here is checked by Lean. `seal` and `open` call an
-implementation of `vg_chacha20_xor` that the proof does not know, so the
-taint analysis cannot follow them into it. The code before the call and the
-code after it are checked by the taint analysis; the call is constant time
-by the implementation's own proof (`RelCT.callEx`), since its arguments,
-which correctness determines (`XArgs`), agree in two runs; and after it,
-correctness says again where `rsi` points (`After`), from which the rest is
-checked.
+`seal` and `open` call an implementation of `vg_chacha20_xor` that the proof
+does not know, so the taint analysis cannot follow them into it. The code
+before the call and the code after it are checked by the taint analysis; the
+call is constant time by the implementation's own proof (`RelCT.callEx`),
+since its arguments, which correctness determines (`XArgs`), agree in two
+runs; and after it, correctness says again where `rsi` points (`After`), from
+which the rest is checked.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86_64
@@ -2315,7 +2297,7 @@ theorem call_rel (v : Proof.ChaCha20.X86_64.XorImpl) :
         callEntry_gpr' s₂ (by decide : Reg.rcx ≠ .rsp), a₁.rdi, a₁.rsi, a₁.rdx, a₁.rcx, a₁.rsp, a₂.rdi,
         a₂.rsi, a₂.rdx, a₂.rcx, a₂.rsp, cx, dp, p1, p4, p5, p6]
       exact ⟨trivial, trivial, trivial, trivial, trivial⟩,
-      covers_nil_append (covers_left _ (a₁.hw hp)), a₁.hw hp, covers_nil_append (covers_left _ (a₂.hw hp')),
+      (Covers.right (a₁.hw hp)), a₁.hw hp, (Covers.right (a₂.hw hp')),
       a₂.hw hp', by rw [a₁.rsp, a₂.rsp, p6]⟩
   have after : ∀ {σ₀ s : State}, APre σ₀ → XArgs σ₀ s →
       WP isa (.call v.callee.name v.callee.code) s (After σ₀) := fun hp a =>

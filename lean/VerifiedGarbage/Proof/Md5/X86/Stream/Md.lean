@@ -10,13 +10,13 @@ import VerifiedGarbage.Proof.Md5.X86.Lit
 /-!
 # Streaming MD5 on x86 (32-bit): `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/X86.lean`), so they are verified
-by the generic proofs (`Proof/MdStream/X86/`) for MD5's instance
-(`Proof/Md5/Md.lean`) with 112 bytes of scratch space, given what MD5's own
-pieces do: its length field and digest (`shape`), that its compression
-function is verified (`callee`), and that the taint analysis accepts its code
-(which it checks together with the compression function's).
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/X86.lean`), so they are verified by the generic proofs
+(`Proof/MdStream/X86/`) for MD5's instance (`Proof/Md5/Md.lean`) with 112
+bytes of scratch space, given what MD5's own pieces do: its length field and
+digest (`shape`), that its compression function is verified (`callee`), and
+that the taint analysis accepts its code (which it checks together with the
+compression function's).
 -/
 
 namespace VG.Proof.Md5.X86.Stream
@@ -25,11 +25,12 @@ open VG VG.X86 VG.Proof.MdStream VG.Proof.MdStream.X86
 
 abbrev params := Impl.Md5.X86.Stream.params
 
-theorem dims : Dims params 112 := ⟨by decide, by decide, by decide⟩
+theorem dims : Dims params 112 := ⟨.inl rfl, by decide, by decide, by decide, by decide⟩
 
 theorem shape : Shape (P := params) md where
-  len _ hfit hlo hhi ho₁ ho₂ := len64_ok (so := params.so) (d := params.N + 56) (be := false) (by omega)
-    hlo hhi ho₁ ho₂
+  len _ hfit hlo hhi ho := len64_ok (so := params.so) (d := params.N + params.B - params.L) (be := false)
+    (by have : params.N + params.B - params.L + 8 = params.N + params.B := rfl; omega) hlo hhi
+    (ho _ (Nat.le_refl _) (by decide)) (ho _ (by decide) (by decide))
   out _ hbx hax hin hout hd := by
     refine (out32_ok (n := 4) false (by decide) hbx hax hin hout hd).mono fun s' ⟨g, rd, wr, m⟩ =>
       ⟨g, rd, wr, ?_⟩

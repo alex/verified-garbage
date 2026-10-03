@@ -12,10 +12,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Pack.BitPack
 /-!
 # ML-DSA key generation on 32-bit ARM, with this library's primitives
 
-Untrusted: everything here is checked by Lean. The ARM implementations of
-the primitives (`prims`) are verified with at most 28 bytes of stack, and
-their frames use no more (`prims_ok`), so key generation with them is
-verified with 36 (`keyGen44_verified`, …).
+The ARM implementations of the primitives (`prims`) are verified with at most
+28 bytes of stack, and their frames use no more (`prims_ok`), so key
+generation with them is verified with 36 (`keyGen44_verified`, …).
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseD
 /-!
 # ML-DSA signing on AArch64: decoding leaks only the pointers
 
-Untrusted: everything here is checked by Lean. Each call while decoding
-leaks only its pointers, given that its input polynomial is reduced
-(`dec_tr`); so two runs agree on what decoding leaks (`decode_tr`).
+Each call while decoding leaks only its pointers, given that its input
+polynomial is reduced (`dec_tr`); so two runs agree on what decoding leaks
+(`decode_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
@@ -14,6 +14,7 @@ namespace VG.Proof.MlDsa.AArch64.Sign
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
@@ -41,17 +42,17 @@ theorem decode_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : dC
   unfold decodeWith
   refine RelCT.seq (R := RS p D E fun σ s => ID p D σ p.ℓ 0 0 s) ?_ (RelCT.seq (R := RS p D E fun σ s => ID p D σ p.ℓ p.k 0 s)
     ?_ (RelCT.seq (R := RS p D E fun σ s => ID p D σ p.ℓ p.k p.k s) ?_ ?_))
-  · refine RelCT.mono (seqR_tr (R := fun r => RS p D E fun σ s => ID p D σ r 0 0 s) p.ℓ 0 fun r _ hr =>
+  · refine RelCT.mono (seqR_tr (Q := fun r => RS p D E fun σ s => ID p D σ r 0 0 s) p.ℓ 0 fun r _ hr =>
       liftT (fun _ _ h => h.im.st) (fun _ _ _ h => decS1_ok hP hc (by omega) h)
         (dec_tr hP hs.2.2.2.2.2.2.1 (sLen_eq p) (hs.1 r (by omega)).1)) (fun x y h => h.mono (fun _ _ h => h) fun _ _ h =>
           ⟨h, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _),
             fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun x y h => by rwa [Nat.zero_add] at h
-  · refine RelCT.mono (seqR_tr (R := fun i => RS p D E fun σ s => ID p D σ p.ℓ i 0 s) p.k 0 fun i _ hi =>
+  · refine RelCT.mono (seqR_tr (Q := fun i => RS p D E fun σ s => ID p D σ p.ℓ i 0 s) p.k 0 fun i _ hi =>
       liftT (fun _ _ h => h.im.st) (fun _ _ _ h => decS2_ok hP hc (by omega) h)
         (dec_tr hP hs.2.2.2.2.2.2.1 (sLen_eq p) (hs.2.1 i (by omega)).1)) (fun x y h => h.mono (fun _ _ h => h) fun _ _ h =>
           ⟨h.im, h.s1, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩)
       fun x y h => by rwa [Nat.zero_add] at h
-  · refine RelCT.mono (seqR_tr (R := fun i => RS p D E fun σ s => ID p D σ p.ℓ p.k i s) p.k 0 fun i _ hi =>
+  · refine RelCT.mono (seqR_tr (Q := fun i => RS p D E fun σ s => ID p D σ p.ℓ p.k i s) p.k 0 fun i _ hi =>
       liftT (fun _ _ h => h.im.st) (fun _ _ _ h => decT0_ok hP hc (by omega) h)
         (dec_tr hP (by decide) (by decide) (hs.2.2.1 i (by omega)).1)) (fun x y h => h.mono (fun _ _ h => h) fun _ _ h =>
           ⟨h.im, h.s1, h.s2, fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun x y h => by rwa [Nat.zero_add] at h

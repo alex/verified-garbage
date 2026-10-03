@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.PrepareAdd
 import VerifiedGarbage.Proof.Ed25519.Arm.BitMask
 import VerifiedGarbage.Proof.Ed25519.Arm.PointSelect
 
-/-! Untrusted: add one exact table power and select with its scalar bit. -/
+/-! Add one exact table power and select with its scalar bit. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

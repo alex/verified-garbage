@@ -14,6 +14,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.Bswap
 import VerifiedGarbage.Proof.Gcm.X86_64.Bits
 import VerifiedGarbage.Proof.Framework.Omega
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 import VerifiedGarbage.Spec.Gcm
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
@@ -29,14 +30,14 @@ section
 /-!
 # Carry-less products from integer products with holes
 
-Untrusted: everything here is checked by Lean. The arithmetic of
-`Impl.Gcm.X86_64.product` (BearSSL's ctmul64): the integer product of two
-words whose bits are 4 apart, one of them with at most 8 bits, has the bits
-of their carry-less product at the positions of its class (`testBit_ip`),
-since the column sums (at most 8) never carry into the next position of the
-class. So the classes of the eight parts of `a` and the four of `b`, masked
-and added, give the carry-less product of `a` and `b` (`lp_prodVal`), which
-in SP 800-38D's reflected bit order is `x · a · b` (`gp_prodVal`).
+The arithmetic of `Impl.Gcm.X86_64.product` (BearSSL's ctmul64): the integer
+product of two words whose bits are 4 apart, one of them with at most 8 bits,
+has the bits of their carry-less product at the positions of its class
+(`bit_ip`), since the column sums (at most 8) never carry into the next
+position of the class. So the classes of the eight parts of `a` and the four
+of `b`, masked and added, give the carry-less product of `a` and `b`
+(`lp_prodVal`), which in SP 800-38D's reflected bit order is `x · a · b`
+(`gp_prodVal`).
 
 `lp v` is the polynomial of the bits of `v` with bit `i` from the right the
 coefficient of `Xⁱ` (integers' order), and `sp v e m` the polynomial over
@@ -428,9 +429,9 @@ section
 /-!
 # GHASH on x86-64: running a word product
 
-Untrusted: everything here is checked by Lean. `Impl.Gcm.X86_64.product`
-leaves `prodVal` of its factors in `r14:r13` (`product_ok`), changing no
-other register but `rax, rdx, rbx, rbp, r9–r12`, and not memory.
+`Impl.Gcm.X86_64.product` leaves `prodVal` of its factors in `r14:r13`
+(`product_ok`), changing no other register but `rax, rdx, rbx, rbp, r9–r12`,
+and not memory.
 -/
 
 open VG.PowLit
@@ -666,9 +667,8 @@ section
 /-!
 # GHASH on x86-64: Karatsuba, the reduction and `x⁻¹ · H`
 
-Untrusted: everything here is checked by Lean. In the ring `Q` of
-`Proof/Gcm/Poly.lean`, with `ψ w` the class of a 64-bit word (the
-coefficients of `x⁰ … x⁶³`):
+In the ring `Q` of `Proof/Gcm/Poly.lean`, with `ψ w` the class of a 64-bit
+word (the coefficients of `x⁰ … x⁶³`):
 
 * the three word products of a block give `x · Y · H'` as four words
   (`ψ_karatsuba`);
@@ -835,9 +835,8 @@ end
 /-!
 # GHASH on x86-64: running the other parts of the code
 
-Untrusted: everything here is checked by Lean. What each straight-line
-part of `Impl.Gcm.X86_64.ghash` other than `product` does, one symbolic
-execution each.
+What each straight-line part of `Impl.Gcm.X86_64.ghash` other than `product`
+does, one symbolic execution each.
 -/
 
 namespace VG.Proof.Gcm.X86_64
@@ -1114,8 +1113,6 @@ section
 
 /-!
 # GHASH on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -1125,12 +1122,10 @@ namespace VG.Proof.Gcm
 open Spec.Gcm
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for
-`vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32])`:
-replaces the block `Y` at `y` with `GHASH_H` continued from `Y` over the `n`
-blocks at `data`, where `H` is the block at `h`.
+/-- X86-64 contract for `vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], data:
+*const [u8; 16], n: usize, scratch: *mut [u64; 32])`: replaces the block `Y` at
+`y` with `GHASH_H` continued from `Y` over the `n` blocks at `data`, where `H`
+is the block at `h`.
 
 The code may read `h` (16 bytes) and `data` (`16 * n` bytes), and read and
 write `y` (16 bytes) and `scratch` (256 bytes, whose contents on exit are
@@ -1356,13 +1351,9 @@ def TblMem (p : Addr) (ka kb : BitVec 64) (m : Mem) : Prop :=
   ∀ u < 24, m.readW (p + BitVec.ofInt 64 ((off u : Nat) : Int)) 64 = part (hword ka kb (u / 8)) (u % 8)
 
 /-- The callee-saved registers are saved in the scratch buffer. -/
-def Saved (s₀ : State) (m : Mem) : Prop :=
-  m.readW (scr s₀ + BitVec.ofInt 64 ((0 : Nat) : Int)) 64 = s₀.gpr .rbx ∧
-  m.readW (scr s₀ + BitVec.ofInt 64 ((8 : Nat) : Int)) 64 = s₀.gpr .rbp ∧
-  m.readW (scr s₀ + BitVec.ofInt 64 ((16 : Nat) : Int)) 64 = s₀.gpr .r12 ∧
-  m.readW (scr s₀ + BitVec.ofInt 64 ((24 : Nat) : Int)) 64 = s₀.gpr .r13 ∧
-  m.readW (scr s₀ + BitVec.ofInt 64 ((32 : Nat) : Int)) 64 = s₀.gpr .r14 ∧
-  m.readW (scr s₀ + BitVec.ofInt 64 ((40 : Nat) : Int)) 64 = s₀.gpr .r15
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (scr s₀) s₀.gpr saved
+
+theorem saved_bound : ∀ p ∈ saved, p.2 + 8 ≤ 48 := by decide
 
 /-- What the set-up leaves in memory. -/
 structure SetupMem (s₀ : State) (ka kb : BitVec 64) (mS : Mem) : Prop where
@@ -1626,61 +1617,27 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {ka kb : BitVec 64} {mS : Mem}
 
 /-! ## The set-up -/
 
-theorem save_eq : save = [
-    .store (at_ .r8 0) .rbx, .store (at_ .r8 8) .rbp, .store (at_ .r8 16) .r12,
-    .store (at_ .r8 24) .r13, .store (at_ .r8 32) .r14, .store (at_ .r8 40) .r15] := rfl
-
-theorem restore_eq : restore = [
-    .mov .rbx (.mem (at_ .r8 0)), .mov .rbp (.mem (at_ .r8 8)), .mov .r12 (.mem (at_ .r8 16)),
-    .mov .r13 (.mem (at_ .r8 24)), .mov .r14 (.mem (at_ .r8 32)), .mov .r15 (.mem (at_ .r8 40))] := rfl
-
 /-- The memory after saving the registers. -/
-def saveMem (s₀ : State) : Mem :=
-  (((((s₀.mem.writeW (scr s₀ + BitVec.ofInt 64 ((0 : Nat) : Int)) (s₀.gpr .rbx)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((8 : Nat) : Int)) (s₀.gpr .rbp)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((16 : Nat) : Int)) (s₀.gpr .r12)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((24 : Nat) : Int)) (s₀.gpr .r13)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((32 : Nat) : Int)) (s₀.gpr .r14)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((40 : Nat) : Int)) (s₀.gpr .r15)
+abbrev saveMem (s₀ : State) : Mem := Spill.saveMem s₀.mem (scr s₀) s₀.gpr saved
 
-set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block save) s₀ fun s₁ =>
-      s₁.gpr = s₀.gpr ∧ s₁.rd = s₀.rd ∧ s₁.wr = s₀.wr ∧ s₁.mem = saveMem s₀ := by
-  have o0 := hp.out_save (d := 0) (by decide); have o1 := hp.out_save (d := 8) (by decide)
-  have o2 := hp.out_save (d := 16) (by decide); have o3 := hp.out_save (d := 24) (by decide)
-  have o4 := hp.out_save (d := 32) (by decide); have o5 := hp.out_save (d := 40) (by decide)
-  apply WP.of_runBlock
-  rw [save_eq]
-  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, isa, ea_at,
-    State.store64, o0, o1, o2, o3, o4, o5, ite_true, Option.some.injEq, exists_eq_left']
-  exact ⟨trivial, trivial, trivial, rfl⟩
+      s₁.gpr = s₀.gpr ∧ s₁.rd = s₀.rd ∧ s₁.wr = s₀.wr ∧ s₁.mem = saveMem s₀ :=
+  Spill.save_ok .r8 saved s₀ fun p hp' => by
+    have := hp.out_save (d := p.2) (by have := saved_bound p hp'; omega)
+    rwa [ofInt_natCast] at this
 
-theorem saveMem_saved {s₀ : State} : Saved s₀ (saveMem s₀) := by
-  simp only [Saved, saveMem]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-  simp (config := {decide := true}) only [Mem.readW_writeW_self64, readW_writeW_off]
+theorem saveMem_saved {s₀ : State} : Saved s₀ (saveMem s₀) :=
+  Spill.saveMem_saved _ _ _ _ (by decide)
 
-theorem saveMem_frame {s₀ : State} : Frame [scrR s₀] s₀.mem (saveMem s₀) := by
-  have c : ∀ d : Nat, d + 8 ≤ 256 →
-      (scrR s₀).Contains (scr s₀ + BitVec.ofInt 64 (d : Int)) (64 / 8) :=
-    fun d hd => contains_offset' hd (by omega)
-  simp only [saveMem]
-  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 0 (by decide))).writeW
-    (List.mem_singleton_self _) _ (c 8 (by decide))).writeW (List.mem_singleton_self _) _
-    (c 16 (by decide))).writeW (List.mem_singleton_self _) _ (c 24 (by decide))).writeW
-    (List.mem_singleton_self _) _ (c 32 (by decide)) |>.writeW (List.mem_singleton_self _) _
-    (c 40 (by decide))
+theorem saveMem_frame {s₀ : State} : Frame [scrR s₀] s₀.mem (saveMem s₀) :=
+  Spill.saveMem_frame_base _ _ _ _ (fun p hp => by have := saved_bound p hp; omega) (by decide)
 
 theorem Saved.write {s₀ : State} {m : Mem} (h : Saved s₀ m) {e : Nat} (he : 48 ≤ e) (he' : e < 2 ^ 32)
     (v : BitVec 64) : Saved s₀ (m.writeW (scr s₀ + BitVec.ofInt 64 (e : Int)) v) := by
-  obtain ⟨g0, g1, g2, g3, g4, g5⟩ := h
-  exact ⟨(readW_writeW_off _ _ _ (d := 0) (by decide) he' (by omega)).trans g0,
-    (readW_writeW_off _ _ _ (d := 8) (by decide) he' (by omega)).trans g1,
-    (readW_writeW_off _ _ _ (d := 16) (by decide) he' (by omega)).trans g2,
-    (readW_writeW_off _ _ _ (d := 24) (by decide) he' (by omega)).trans g3,
-    (readW_writeW_off _ _ _ (d := 32) (by decide) he' (by omega)).trans g4,
-    (readW_writeW_off _ _ _ (d := 40) (by decide) he' (by omega)).trans g5⟩
+  rw [ofInt_natCast]
+  exact Spill.Saved.writeW h v (fun p hp => by have := saved_bound p hp; omega)
+    (fun p hp => by have := saved_bound p hp; omega) (by omega)
 
 theorem tbl_word {s : State} {ka kb : BitVec 64} (hAL : s.gpr AL = ka) (hAH : s.gpr AH = kb)
     (hPH : s.gpr PH = ka ^^^ kb) (q : Nat) : s.gpr (tblReg q) = hword ka kb q := by
@@ -1751,33 +1708,22 @@ theorem setup_ok {s₀ : State} (hp : Pre s₀) :
 
 /-! ## The end -/
 
-set_option simprocs false in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {mS : Mem} (hsv : Saved s₀ mS) {s : State}
     (hc : Common s₀ mS (nb s₀) s) :
     WP isa (.block restore) s fun s' =>
       gprPreserved s₀ s' ∧ Proof.Gcm.ghashX86_64.post s₀ s' := by
-  have i0 := hp.in_save (d := 0) (by decide); have i1 := hp.in_save (d := 8) (by decide)
-  have i2 := hp.in_save (d := 16) (by decide); have i3 := hp.in_save (d := 24) (by decide)
-  have i4 := hp.in_save (d := 32) (by decide); have i5 := hp.in_save (d := 40) (by decide)
-  rw [← hc.rd, ← hc.wr] at i0 i1 i2 i3 i4 i5
-  obtain ⟨g0, g1, g2, g3, g4, g5⟩ := hsv
-  rw [← hc.mem.readW_low hp (by decide)] at g0 g1 g2 g3 g4 g5
   have hret : s.mem.readW (s₀.gpr .rsp) 64 = s₀.mem.readW (s₀.gpr .rsp) 64 :=
     hc.mem.f1.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_y, hp.ret_scr⟩) (by decide)
-  have hrsp := hc.rsp
-  have hy := hc.y
-  have hr8 := hc.r8
-  apply WP.of_runBlock
-  rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
-    runBlock_nil, exec, readSrc, isa, ea_at, State.load64,
-    State.setReg, hr8, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,
-    Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hrsp]
-  · exact hret
-  · exact hy
+  refine WP.mono (Spill.restore_ok .r8 saved s₀.gpr s (by decide) (fun p hp' => ?_) fun p hp' => ?_)
+    fun s' ⟨h₁, h₂, hm, _⟩ => ?_
+  · have := hp.in_save (d := p.2) (by have := saved_bound p hp'; omega)
+    rw [ofInt_natCast] at this
+    rw [hc.r8, hc.rd, hc.wr]; exact this
+  · have := hc.mem.readW_low hp (d := p.2) (by have := saved_bound p hp'; omega)
+    rw [ofInt_natCast] at this
+    rw [hc.r8]; exact this.trans (hsv p hp')
+  · exact ⟨⟨Spill.calleeSaved_ok h₁ h₂ (by decide) hc.rsp, by rw [hm]; exact hret⟩,
+      by show blockAt _ _ = _; rw [hm]; exact hc.y⟩
 
 /-! ## The whole function -/
 

@@ -38,7 +38,7 @@ namespace VG.Impl.MlDsa.AArch64.KeyGen
 
 variable (c : Impl.Sha3.AArch64.Callee)
 
-open VG.AArch64
+open VG.AArch64 VG.Impl.MlDsa.AArch64.Call
 open VG.Impl.MlKem.AArch64 (copy32)
 open VG.Spec.MlDsa (Params bitlen)
 
@@ -47,6 +47,7 @@ open VG.Spec.MlDsa (Params bitlen)
 def oKL : Nat := 896
 def oHX : Nat := 1024
 def oSA : Nat := 1152
+def oSA4 : Nat := 1408
 def oSB : Nat := 1216
 def oSS : Nat := 2048
 /-- Polynomial `j`. -/
@@ -59,6 +60,9 @@ abbrev sP (p : Params) (r : Nat) : Ptr := sc (oP (p.k * p.ℓ + r))
 abbrev tP (p : Params) : Ptr := sc (oP (p.k * p.ℓ + p.ℓ + p.k))
 abbrev t1P (p : Params) : Ptr := sc (oP (p.k * p.ℓ + p.ℓ + p.k + 1))
 abbrev t0P (p : Params) : Ptr := sc (oP (p.k * p.ℓ + p.ℓ + p.k + 2))
+
+/-- The eight KiB four-way sampler scratch follows the live polynomials. -/
+def oR4 (p : Params) : Nat := oP (p.k*p.ℓ+p.ℓ+p.k+3)
 
 /-- The length of a packed polynomial of `s₁` or `s₂`, `32 · bitlen (2η)`. -/
 def lenS (p : Params) : Nat := 32 * bitlen (2 * p.η)
@@ -79,6 +83,25 @@ def seedsWith (p : Params) : Prog isa :=
 def expA (P : Prims) (p : Params) (e : Nat) : Prog isa :=
   .seq (.block (setB (sc (oSA + 32)) (e % p.ℓ) ++ setB (sc (oSA + 33)) (e / p.ℓ)))
     (sampled (rejNttAt P (sc oSS) (sc oSA) (aP e)) (aP e))
+
+/-- Copy rho to one 34-byte seed, allowing the unaligned seed stride. -/
+def copySeed4 (j : Nat) : List Instr :=
+  lea .x10 .x28 (oSA4+34*j) ++ Impl.MlKem.AArch64.copy32 .x28 oSA .x10 0
+
+def setSR (p : Params) (e j : Nat) : List Instr :=
+  setB (sc (oSA4+34*j+32)) ((e+j)%p.ℓ) ++ setB (sc (oSA4+34*j+33)) ((e+j)/p.ℓ)
+
+def seedSlot4 (p : Params) (e j : Nat) : Prog isa :=
+  .seq (.block (copySeed4 j)) (.block (setSR p e j))
+
+def expA4 (P : Prims) (p : Params) (g : Nat) : Prog isa :=
+  .seq (seqR (seedSlot4 p (4*g)) 0 4)
+    (.seq (rej4At P (sc (oR4 p)) (sc oSA4) (aP (4*g)))
+      (.seq (.block and24) (mask4 (aP (4*g)))))
+
+def expAll (P : Prims) (p : Params) : Prog isa :=
+  .seq (seqR (expA4 P p) 0 (p.k*p.ℓ/4))
+    (seqR (expA P p) (4*(p.k*p.ℓ/4)) (p.k*p.ℓ%4))
 
 /-- Entry `r` of `s₁ ‖ s₂`: `RejBoundedPoly(ρ′ ‖ r ‖ 0)`. -/
 def expS (P : Prims) (p : Params) (r : Nat) : Prog isa :=
@@ -115,7 +138,7 @@ def restWith (P : Prims) (p : Params) : Prog isa :=
 
 /-- `vg_mldsa*_keygen` for the parameter set `p`, calling the primitives `P`. -/
 def keyGenWith (P : Prims) (p : Params) : Prog isa :=
-  .seq (.block pro) (.seq ((seedsWith c) p) (.seq (seqR (expA P p) 0 (p.k * p.ℓ))
+  .seq (.block pro) (.seq ((seedsWith c) p) (.seq (expAll P p)
     (.seq (seqR (expS P p) 0 (p.ℓ + p.k)) (.seq ((restWith c) P p) (.block epi)))))
 
 def seeds := seedsWith .scalar

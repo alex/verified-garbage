@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.PhaseC
 /-!
 # ML-DSA signing on ARMv7: the checks of an iteration
 
-Untrusted: everything here is checked by Lean. `c = SampleInBall(c̃)` at
-`ĉ` (`ball_ok`), and, if it succeeded, `ĉ = NTT(c)` and each check of the
-iteration, their results ANDed into `r11`: the norm of each `z[r]`
-(`zR_ok`), of each `r₀[i]` (`r0R_ok`) and of each `ct₀[i]`, with each
-hint `h[i]` and the number of its 1s summed at `ONES` (`hR_ok`), and that
-sum against `ω` (`onesOk_ok`); so `r11` is 1 exactly when the iteration
-passes (`checks_ok`).
+`c = SampleInBall(c̃)` at `ĉ` (`ball_ok`), and, if it succeeded, `ĉ = NTT(c)`
+and each check of the iteration, their results ANDed into `r11`: the norm of
+each `z[r]` (`zR_ok`), of each `r₀[i]` (`r0R_ok`) and of each `ct₀[i]`, with
+each hint `h[i]` and the number of its 1s summed at `ONES` (`hR_ok`), and that
+sum against `ω` (`onesOk_ok`); so `r11` is 1 exactly when the iteration passes
+(`checks_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign
@@ -391,8 +390,7 @@ abbrev onesAdd : List Instr := [.ldr .r1 .r7 oONES, .dp .add .r1 .r1 (.reg .r0),
 theorem onesAdd_ok (s : State) (h2 : InRegions s.wr (State.addr (s.gpr .r7 + BitVec.ofNat 32 oONES)) 4) :
     WP isa (.block onesAdd) s fun s' => s'.mem = s.mem.writeW (State.addr (s.gpr .r7 + BitVec.ofNat 32 oONES))
       (s.mem.readW (State.addr (s.gpr .r7 + BitVec.ofNat 32 oONES)) 32 + s.gpr .r0) ∧ KeepM [.r1] s s' := by
-  have h1 : InRegions (s.rd ++ s.wr) (State.addr (s.gpr .r7 + BitVec.ofNat 32 oONES)) 4 := covers_wr (covers_one h2
-    (by decide)) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
+  have h1 : InRegions (s.rd ++ s.wr) (State.addr (s.gpr .r7 + BitVec.ofNat 32 oONES)) 4 := Covers.right (Covers.one h2) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
   run_block [h1, h2]
   refine ⟨trivial, fun r hr => ?_, rfl, rfl, rfl⟩
   simp only [List.mem_singleton] at hr; simp [hr]

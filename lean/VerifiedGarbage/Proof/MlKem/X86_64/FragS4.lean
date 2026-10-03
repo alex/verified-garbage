@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Sample4Impl
 /-!
 # ML-KEM on x86-64: four entries of the matrix at once
 
-Untrusted: everything here is checked by Lean. In a layout: the seed
-`ρ ‖ j ‖ i` of an entry, with `ρ` at `SB`, to `34 k` bytes into `scratch`
-(`seedAt_ok`), and the four seeds of entries `e₀, …, e₀ + 3` of a matrix of
-`n` columns (`SeedsIs`); then `vg_mlkem_sample_ntt4`, of any implementation
-(`Sample4Impl`), of those seeds to the four polynomials from `a`
-(`sample4At_ok`), which changes `r15` (so what it leaves is `PostB`), and
+In a layout: the seed `ρ ‖ j ‖ i` of an entry, with `ρ` at `SB`, to `34 k`
+bytes into `scratch` (`seedAt_ok`), and the four seeds of entries `e₀, …, e₀ +
+3` of a matrix of `n` columns (`SeedsIs`); then `vg_mlkem_sample_ntt4`, of any
+implementation (`Sample4Impl`), of those seeds to the four polynomials from
+`a` (`sample4At_ok`), which changes `r15` (so what it leaves is `PostB`), and
 the whole (`quad_ok`), and its constant time for a given `ρ` (`quad_tr`).
 -/
 
@@ -62,8 +61,8 @@ theorem seedAt_ok {s : State} (L : Lay rbs wbs s) (hcs : ∀ b ∈ rbs ++ wbs, b
     (fun w hw => by
       simp only [List.mem_append, List.mem_singleton] at hw; rcases hw with rfl | rfl <;> exact rbx_cs),
     seed_eq hρ ?_ ?_⟩
-  · rw [← hjb, pa, pa, off_add]
-  · rw [← hib, pa, pa, off_add]
+  · refine mem_of_bytesAt_one ?_; rw [← hjb, pa, pa, off_add]
+  · refine mem_of_bytesAt_one ?_; rw [← hib, pa, pa, off_add]
 
 /-- `ρ` at `SB`, and the seeds of entries `e₀, …, e₀ + K - 1` of a matrix
 of `n` columns, from `scratch`. -/

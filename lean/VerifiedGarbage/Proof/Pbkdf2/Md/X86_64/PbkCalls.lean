@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.PbkCommon
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: `pbkdf2`'s calls
 
-Untrusted: everything here is checked by Lean. The calls of HMAC's `init`
-and `finalize` and of `iterate`, whose contracts (`initG`, `finG`, `iterK`)
-their proofs are given as hypotheses: each is run with `WP.call`, and shown
-constant time in two runs with `RelCT.call`. Each uses at most 24 bytes of
-stack below `rsp` (a call two deep).
+The calls of HMAC's `init` and `finalize` and of `iterate`, whose contracts
+(`initG`, `finG`, `iterK`) their proofs are given as hypotheses: each is run
+with `WP.call`, and shown constant time in two runs with `RelCT.call`. Each
+uses at most 24 bytes of stack below `rsp` (a call two deep).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64.Pbk
@@ -16,7 +15,7 @@ open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Pbkdf2.Md.X86_64 (HashOK)
 open VG.Proof.Pbkdf2.X86_64 (iterK)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG ne_rsp callEntry_bytes)
+open VG.Proof.Pbkdf2.Md.X86_64.Calls (initG finG ne_rsp callEntry_bytes)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad blockKey hmacBlockKey)
 

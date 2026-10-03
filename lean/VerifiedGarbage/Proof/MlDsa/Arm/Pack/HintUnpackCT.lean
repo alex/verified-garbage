@@ -4,17 +4,17 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Pack.HintCT
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_hint_bit_unpack`, constant time and `Verified`
 
-Untrusted: everything here is checked by Lean. Two runs from states that
-agree on the public data (the pointers, the lengths, `ω`, the stack pointer
-and `y`, which the contract lets the function leak) leak the same trace
-(`RelCT`), phase by phase: the load of `hlen` and the return, with the
-reloads of the saved registers, access only the stack (`RelCT.spBlock`);
-zeroing `h` is proved by the taint analysis; the polynomials by `memTaint`,
-from the states narrowed to `y` and `h` (`RelCT.narrow`), on which both runs
-agree once `h` is zeroed; and the bytes after the last index likewise, from
-the states narrowed to `y`, which the index, the same in both runs (that of
-the spec, from the same `y`), then reads. What each run is at each point
-comes from the correctness proof (`RelCT.wp`).
+Two runs from states that agree on the public data (the pointers, the lengths,
+`ω`, the stack pointer and `y`, which the contract lets the function leak)
+leak the same trace (`RelCT`), phase by phase: the load of `hlen` and the
+return, with the reloads of the saved registers, access only the stack
+(`RelCT.spBlock`); zeroing `h` is proved by the taint analysis; the
+polynomials by `memTaint`, from the states narrowed to `y` and `h`
+(`RelCT.narrow`), on which both runs agree once `h` is zeroed; and the bytes
+after the last index likewise, from the states narrowed to `y`, which the
+index, the same in both runs (that of the spec, from the same `y`), then
+reads. What each run is at each point comes from the correctness proof
+(`RelCT.wp`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Pack.Hint.Unpack
@@ -104,18 +104,18 @@ theorem main_ct : RelCT isa (fun a b => UZ s₁ a ∧ UZ s₂ b) hbuMain fun _ _
     have hwa := uz_wr hp₁ ha
     have hrb : uyR s₁ ∈ b.rd := by rw [yR_eq h]; exact uz_rd hp₂ hb
     have hwb : uhR s₁ ∈ b.wr := by rw [hR_eq h]; exact uz_wr hp₂ hb
-    exact ⟨covers_of_mem fun r hr => by
+    exact ⟨Covers.of_mem fun r hr => by
         simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
         rcases hr with rfl | rfl
         · exact List.mem_append_left _ hra
         · exact List.mem_append_right _ hwa,
-      covers_of_mem fun r hr => by rw [List.mem_singleton] at hr; subst hr; exact hwa,
-      covers_of_mem fun r hr => by
+      Covers.of_mem fun r hr => by rw [List.mem_singleton] at hr; subst hr; exact hwa,
+      Covers.of_mem fun r hr => by
         simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
         rcases hr with rfl | rfl
         · exact List.mem_append_left _ hrb
         · exact List.mem_append_right _ hwb,
-      covers_of_mem fun r hr => by rw [List.mem_singleton] at hr; subst hr; exact hwb⟩
+      Covers.of_mem fun r hr => by rw [List.mem_singleton] at hr; subst hr; exact hwb⟩
   · obtain ⟨a0, a1, a2, a3, a6, az, -⟩ := id ha
     obtain ⟨b0, b1, b2, b3, b6, bz, -⟩ := id hb
     obtain ⟨t₁, u₁, e₁, -⟩ := main_ok hp₁ (mainPre_of hp₁ ha (rd := [uyR s₁]) (wr := [uhR s₁])

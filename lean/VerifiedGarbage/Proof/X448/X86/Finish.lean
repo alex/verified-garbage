@@ -6,9 +6,9 @@ import VerifiedGarbage.Proof.X448.X86.Freeze
 /-!
 # X448 on x86 (32-bit): the result and restored registers
 
-Untrusted: everything here is checked by Lean. The final multiplication,
-canonical reduction and encoding produce the affine coordinate. The four
-callee-saved registers are then restored from the disjoint working space.
+The final multiplication, canonical reduction and encoding produce the affine
+coordinate. The four callee-saved registers are then restored from the
+disjoint working space.
 -/
 
 namespace VG.Proof.X448.X86
@@ -25,7 +25,7 @@ theorem finish_ok {s₀ s : State} (pre : Pre s₀)
     (hfar : ∀ j < 8192, 56 ≤ ofs ((arg s₀ 0).setWidth 64) (off base j))
     (sv : Saved base s₀.gpr s.mem) :
     WP isa finish s fun t =>
-      (∀ i < 4, t.gpr (saved[i]!) = s₀.gpr (saved[i]!)) ∧ Keeps finishRegs s t ∧
+      (∀ p ∈ savedSlots, t.gpr p.1 = s₀.gpr p.1) ∧ Keeps finishRegs s t ∧
       Frame [⟨base, 8192⟩, outR s₀] s.mem t.mem ∧
       Spec.X448.bytesAt t.mem ((arg s₀ 0).setWidth 64) 56 =
         Spec.X448.encodeUCoordinate (E s.mem base 1 * E s.mem base 21) := by
@@ -52,9 +52,9 @@ theorem finish_ok {s₀ s : State} (pre : Pre s₀)
       Offset.contains_base _ (by omega) (by omega)⟩) hfar) fun w ⟨wv, wm, wk⟩ => ?_
   have ws := vs'.of_keeps wk (by decide)
   have svv := (sv.field uk.2 (by decide)).field vm (by decide)
-  have svw : Saved base s₀.gpr w.mem := by
-    intro i hi
-    exact (output_word wm (by decide) (by omega) hfar).trans (by rw [hv.mem]; exact svv i hi)
+  have svw : Saved base s₀.gpr w.mem := svv.of_readW fun p hp => by
+    have := savedSlots_bound p hp
+    rw [← hv.mem]; exact output_word wm (by decide) (by omega) hfar
   refine WP.mono (restore_ok ws svw) fun t ⟨tr, tm, tk⟩ => ?_
   refine ⟨tr, (uk.1.mono ?_).trans ((vk.mono ?_).trans ((hv.rest (by decide)).trans ((wk.mono ?_).trans (tk.mono ?_)))), ?_, ?_⟩
   · intro r hr; simp only [clob, List.mem_cons, List.not_mem_nil, or_false] at hr

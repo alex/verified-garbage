@@ -1,20 +1,24 @@
 import VerifiedGarbage.Proof.Hmac.Generic.Implies
-import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Hash
+import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Calls
 
 /-!
-# PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: `pbkdf2`'s contract
+# HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: the shared contracts
 
-Untrusted: everything here is checked by Lean. `pbkG` is the contract the
-proof of `pbkdf2` is written against: `VG.Spec.Pbkdf2.pbkdf2Contract` with its
-facts spelt out, which it implies for any streaming hash function and
-scratch space (`generic_implies`). Every argument is in a register, and the
-functions `pbkdf2` calls may use the 16 bytes below the stack pointer.
+`pbkG` is the contract the proof of `pbkdf2` is written against:
+`VG.Spec.Pbkdf2.pbkdf2Contract` with its facts spelt out, which it implies for
+any streaming hash function and scratch space (`generic_implies`). Every
+argument is in a register, and the functions `pbkdf2` calls may use the 16
+bytes below the stack pointer. Likewise HMAC's `initG` and `finG`
+(`Calls.lean`) imply `VG.Spec.Hmac.initContract` and
+`VG.Spec.Hmac.finalizeContract` (`initImp`, `finImp`); `initSat` and `finSat`
+are states satisfying those contracts' preconditions, from which each hash
+function's instance shows them satisfiable.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64
 
 open VG.AArch64
-open VG.Proof.Hmac.Generic.AArch64 (stk)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (stk initG finG)
 open Spec.Hmac (StreamingHash)
 open Spec.Sha256 (bytesAt)
 
@@ -50,5 +54,43 @@ theorem pbkImp (h : ∃ s, (Spec.Pbkdf2.pbkdf2Contract S W AArch64.abi 16).pre s
     (pbkG S W).Implies (Spec.Pbkdf2.pbkdf2Contract S W AArch64.abi 16) := by
   generic_implies [
     Spec.Pbkdf2.pbkdf2Contract, Spec.Pbkdf2.pbkdf2Sig, pbkG, stk, AArch64.abi, AArch64.argRegs] using h
+
+/-! ## HMAC's `init` and `finalize` -/
+
+/-- A state satisfying `init`'s precondition, with states of `S` bytes and
+`8 sc` bytes of scratch space (and a one-byte key). -/
+def initSat (S sc : Nat) : State where
+  gpr r := match r with
+    | .x0 => 0x10000 | .x1 => 0x20000 | .x2 => 0x30000 | .x3 => 1 | .x4 => 0x40000
+    | _ => 0
+  sp := 0x90000
+  mem _ := 0
+  rd := [⟨0x30000, 1⟩]
+  wr := [⟨0x10000, S⟩, ⟨0x20000, S⟩, ⟨0x40000, 8 * sc⟩]
+
+/-- A state satisfying `finalize`'s precondition, with states of `S` bytes,
+a digest of `D` bytes and `8 sc` bytes of scratch space. -/
+def finSat (S D sc : Nat) : State where
+  gpr r := match r with
+    | .x0 => 0x10000 | .x1 => 0x20000 | .x3 => 0x30000 | .x4 => 0x40000
+    | _ => 0
+  sp := 0x90000
+  mem _ := 0
+  rd := [⟨0x20000, S⟩]
+  wr := [⟨0x10000, S⟩, ⟨0x30000, D⟩, ⟨0x40000, 8 * sc⟩]
+
+/-- `initG` implies the shared contract for any hash function and scratch space
+(`generic_implies`), given that the shared contract is satisfiable. -/
+theorem initImp (S : Spec.Hmac.StreamingHash) (W : Nat) (h : ∃ s, (Spec.Hmac.initContract S W AArch64.abi 16).pre s) :
+    (initG S W).Implies (Spec.Hmac.initContract S W AArch64.abi 16) := by
+  generic_implies [
+    Spec.Hmac.initContract, Spec.Hmac.initSig, initG, stk, AArch64.abi, AArch64.argRegs] using h
+
+/-- `finG` implies the shared contract for any hash function and scratch space
+(`generic_implies`), given that the shared contract is satisfiable. -/
+theorem finImp (S : Spec.Hmac.StreamingHash) (W : Nat) (h : ∃ s, (Spec.Hmac.finalizeContract S W AArch64.abi 16).pre s) :
+    (finG S W).Implies (Spec.Hmac.finalizeContract S W AArch64.abi 16) := by
+  generic_implies [
+    Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, finG, stk, AArch64.abi, AArch64.argRegs] using h
 
 end VG.Proof.Pbkdf2.Md.AArch64

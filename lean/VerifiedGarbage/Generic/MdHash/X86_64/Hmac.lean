@@ -6,17 +6,11 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Variant
 
 A generic file (see `TCB/Emit.lean`): HMAC's `init` and `finalize`, the one
 implementation for every Merkle–Damgård hash function
-(`Impl/Hmac/Generic/X86_64.lean`), calling the hash function's streaming
-functions made with the variant's compression function, are emitted once for
-each variant (`Variants/MdHash/X86_64/`), named with its suffix (e.g.
-`vg_hmac_sha256_init_shani`). **Review note**: `sig` and `doc` are
-trusted, as they tie the Rust caller to the contract; check them against the
-contract's `pre`/`post`. An artifact made from a function's `Api` (in
-`Spec/`, reviewed with the contract) takes them from there. The emitter adds
-the `# Safety` items that depend on the target (`Sig.layoutDoc`), from
-`stack` and `writeArgs`, which `ofSig` checks against the contract (after
-unfolding the `Instance`'s contract to the generic one, which is a
-`Sig.contract`), and the CPU features the implementation needs.
+(`Impl/Pbkdf2/Md/X86_64.lean`), calling the variant's compression function
+(each once or twice), the hash function's streaming `init` and, in
+`finalize`, its streaming `finalize` made with that compression function, are
+emitted once for each variant (`Variants/MdHash/X86_64/`), named with its
+suffix (e.g. `vg_hmac_sha256_init_shani`).
 -/
 
 namespace VG.Generic.MdHash.X86_64.Hmac
@@ -29,7 +23,6 @@ def artifacts (v : Proof.Pbkdf2.Md.X86_64.MdHash) : List Artifact := [
     code := v.H.hmacInit
     contract := v.I.initContract X86_64.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
-    writeArgs := true
     stack := 16
     verified := v.hmacInit
     spSafe := v.hmacInitSp
@@ -41,7 +34,6 @@ def artifacts (v : Proof.Pbkdf2.Md.X86_64.MdHash) : List Artifact := [
     code := v.H.hmacFin
     contract := v.I.finalizeContract X86_64.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
-    writeArgs := true
     stack := 16
     verified := v.hmacFin
     spSafe := v.hmacFinSp

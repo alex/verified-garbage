@@ -22,10 +22,7 @@ env:
 
 jobs:
   # The Lean build is split into shards that build in parallel (see
-  # ci/lean_shards.py): as many as the modules changed since the build `main`
-  # last saved (and the modules importing them) need, packed by how long
-  # each took to build before, from none to MAX_SHARDS. One runner would
-  # check them one after another.
+  # ci/lean_shards.py).
   lean-plan:
     name: Plan the Lean build
     runs-on: ubuntu-latest
@@ -267,19 +264,15 @@ jobs:
               options: --env RUSTUP_HOME=/tmp/verified-garbage-rustup
           - os: macos-latest
           - os: windows-latest
-        rust: [stable, "1.88"]
-        exclude:
-          # Inline assembly (and so `naked_asm!`) on PowerPC was stabilized
-          # in Rust 1.95, after the crate's minimum of 1.88.
-          - platform:
-              os: ubuntu-24.04-ppc64le
-              container:
-                image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:ppc64le
-                options: --env RUSTUP_HOME=/tmp/verified-garbage-rustup
-            rust: "1.88"
-        # One job each for the upcoming toolchains, to catch regressions (and
-        # new warnings, which are errors here) before they reach stable.
+        rust: [stable]
         include:
+          # The minimum supported Rust version (Cargo.toml's `rust-version`),
+          # on one platform.
+          - platform:
+              os: ubuntu-latest
+            rust: "1.88"
+          # One job each for the upcoming toolchains, to catch regressions (and
+          # new warnings, which are errors here) before they reach stable.
           - platform:
               os: ubuntu-latest
             rust: beta
@@ -296,9 +289,8 @@ jobs:
       # toolchains on a 64-bit kernel.
       RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
       RUSTFLAGS: -D warnings -Cinstrument-coverage
-      # Relative to the crate root, where the test binaries run.
+      # Both relative to the crate root, where the test binaries run.
       LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
-      # Relative to the crate root.
       WYCHEPROOF_ROOT: wycheproof
     steps:
       - name: Install the amd64 libc for the runner's Node
@@ -335,9 +327,17 @@ jobs:
           cargo clippy --all-targets --locked --features cpu-features-env
       - run: rustc -vV
       - run: cargo test --locked
+      - name: Test baseline x86 implementations
+        if: ${{ matrix.platform.install-amd64-libc }}
+        env:
+          VG_CPU_FEATURES: none
+        run: cargo test --locked --features cpu-features-env
       - name: Export coverage
         shell: bash
         run: $(command -v python3 || command -v python) ci/export_rust_coverage.py .rust-cov
+      - name: Export baseline x86 coverage
+        if: ${{ matrix.platform.install-amd64-libc }}
+        run: python3 ci/export_rust_coverage.py .rust-cov --features cpu-features-env
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-data-${{ strategy.job-index }}
@@ -355,7 +355,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, "1.88"]
+        # The minimum supported Rust version is tested in the `rust` job.
+        rust: [stable]
     name: Rust (Thumb, ${{ matrix.rust }})
     runs-on: ubuntu-24.04-arm
     container:
@@ -397,48 +398,101 @@ jobs:
             awk '$4 == "FUNC" && $8 ~ /vg_/ { n++; if ($2 ~ /[02468aceACE]$/) { print "not Thumb: " $8; bad++ } }
                  END { print n " verified function symbols"; exit (n == 0 || bad > 0) }'
 
-  # CPU feature detection, and the primitives that choose among
-  # implementations by CPU feature (see src/cpu.rs), tested end to end on
-  # CPUs with different features: this runner's, natively, and CPUs that
-  # Intel SDE presents through CPUID, emulating what this runner lacks. Each
-  # SDE chip is one without the SHA extensions, whose code SDE runs tens of
-  # times slower than a runner that has them (#274), so that code only runs
-  # natively:
-  # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 with AVX-512F, and SHA-256
-  #   and SHA-512 with AVX2; and BMI2 and ADX, so X25519 and Ed25519 with
-  #   them;
-  # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F or ADX, so ChaCha20
-  #   with AVX2 even where this runner has AVX-512F, and X25519's and
-  #   Ed25519's baselines;
-  # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
-  #   leaf 7, so the baseline ISA's implementations everywhere;
-  # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
-  #   runner has. It also has the SHA extensions, so only SHA-512's tests
-  #   (and detection's) run there.
-  # And natively on an ARM64 runner, whose AES and PMULL extensions
-  # `cpu-features-env` detects at run time (without it, AArch64 detection is
-  # at compile time, which the `rust` job tests).
-  # The coverage is merged with the rest, which checks that every
-  # implementation was chosen on one of them.
+  # CPU feature detection (src/cpu.rs) and the primitives that choose an
+  # implementation by CPU feature, tested end to end on this runner's CPU,
+  # on CPUs that Intel SDE emulates, and natively on ARM64 (where
+  # `cpu-features-env` detects features at run time; without it, AArch64
+  # detection is at compile time, which the `rust` job tests). SDE runs the
+  # SHA extensions' code tens of times slower than hardware (#274), so the
+  # chips that have them (arl, icx, dmr) run only the tests they are there
+  # for. `cpu-features` restricts a chip's features with `VG_CPU_FEATURES`
+  # (empty for none), so that each implementation, and each of Ed25519's
+  # combinations of SHA-512 and field multiplication, is chosen somewhere;
+  # the coverage, merged with the rest, checks that every one was.
   rust-cpu-features:
     strategy:
       fail-fast: false
       matrix:
+        arch: [x86_64]
+        # skx: AVX-512F, BMI2 and ADX; hsw: AVX2, but not AVX-512F or ADX;
+        # p4p: nothing beyond x86-64's baseline, not even CPUID leaf 7.
         chip: [native, skx, hsw, p4p]
-        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu]
+        # Ed25519's are `ed25519` and RFC 8032's other two.
+        tests: [sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa scrypt x25519 x448 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
         include:
-          - chip: arl
-            tests: sha384 sha512 ed25519 cpu
-          # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma.
-          - chip: icx
-            tests: x25519 cpu
+          # x86 feature dispatch, natively in a 32-bit userspace, with both
+          # the runner's features and the baseline implementations.
           - chip: native
+            arch: x86
+            container:
+              image: rust:slim
+              options: --platform linux/386
+            install-amd64-libc: true
+            tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem scrypt x25519 ed25519 cpu
+          - chip: native
+            arch: x86
+            cpu-features: none
+            container:
+              image: rust:slim
+              options: --platform linux/386
+            install-amd64-libc: true
+            tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem scrypt x25519 ed25519 cpu
+          # Arrow Lake: the SHA512 extension, which no runner has.
+          - chip: arl
+            tests: sha384 sha512 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          - chip: arl
+            cpu-features: avx,avx2,sha512
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          - chip: skx
+            cpu-features: bmi2,adx
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma
+          # and Ed25519's IFMA variants.
+          - chip: icx
+            tests: x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          - chip: icx
+            cpu-features: avx,avx2,bmi2,adx,avx512ifma,avx512vl
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          # Diamond Rapids: the SHA512 extension and AVX512_IFMA, for
+          # Ed25519's verification with both (vg_ed25519_verify_shani_ifma).
+          - chip: dmr
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          - chip: native
+            arch: aarch64
             os: ubuntu-24.04-arm
-            tests: aes_gcm cmac sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
-    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
+            tests: aes_gcm cmac sha1 sha224 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          # AES-GCM's instances for AES's or GHASH's extension alone, which no
+          # runner or chip has without the other, on x86-64 and on x86.
+          - chip: native
+            cpu-features: aes,ssse3
+            tests: aes_gcm cpu
+          - chip: native
+            cpu-features: pclmulqdq,ssse3
+            tests: aes_gcm cpu
+          - chip: native
+            arch: x86
+            cpu-features: aes
+            container:
+              image: rust:slim
+              options: --platform linux/386
+            install-amd64-libc: true
+            tests: aes_gcm cpu
+          - chip: native
+            arch: x86
+            cpu-features: pclmulqdq,ssse3
+            container:
+              image: rust:slim
+              options: --platform linux/386
+            install-amd64-libc: true
+            tests: aes_gcm cpu
+    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }}${{ matrix.arch && format(', {0}', matrix.arch) || '' }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+    container:
+      image: ${{ matrix.container.image || '' }}
+      options: ${{ matrix.container.options || '' }}
     env:
       RUSTUP_TOOLCHAIN: stable
+      VG_CPU_FEATURES: ${{ matrix.cpu-features || '' }}
       RUSTFLAGS: -D warnings -Cinstrument-coverage
       LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
       WYCHEPROOF_ROOT: wycheproof
@@ -446,6 +500,13 @@ jobs:
       SDE_URL: https://downloadmirror.intel.com/924984/sde-external-10.13.1-2026-07-28-lin.tar.xz
       SDE_SHA256: 94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50
     steps:
+      - name: Install the amd64 libc for the runner's Node
+        if: ${{ matrix.install-amd64-libc }}
+        run: |
+          dpkg --add-architecture amd64
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends libc6:amd64 libstdc++6:amd64 git ca-certificates python3
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

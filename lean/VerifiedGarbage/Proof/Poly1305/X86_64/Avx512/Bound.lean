@@ -4,16 +4,15 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Bound
 /-!
 # Poly1305 on x86-64 with AVX-512: terms as numbers
 
-Untrusted: everything here is checked by Lean. As for AVX2 (`Avx2/Bound.lean`),
-on the eight quadwords of `zmm` registers. The limbs the code computes
-stay far below `2⁶⁴`, so its additions, products and shifts never wrap.
-`Q.bnd` bounds each term from bounds on the registers it starts from,
-`Q.ok` checks that its additions and left shifts do not wrap under those
-bounds, and `Q.nat` is its value as a number, with the reductions modulo
-`2⁶⁴` (and to the low doubleword, for products) left out. `nat_ok` proves
-that a term is `Q.nat` and within `Q.bnd` where the kernel evaluates `Q.ok`
-of concrete terms to `true`, so the number a block computes is `nat` of its
-term, which unfolds to the arithmetic of `Limbs26` by definition. `Q.natw`
+As for AVX2 (`Avx2/Bound.lean`), on the eight quadwords of `zmm` registers.
+The limbs the code computes stay far below `2⁶⁴`, so its additions, products
+and shifts never wrap. `Q.bnd` bounds each term from bounds on the registers
+it starts from, `Q.ok` checks that its additions and left shifts do not wrap
+under those bounds, and `Q.nat` is its value as a number, with the reductions
+modulo `2⁶⁴` (and to the low doubleword, for products) left out. `nat_ok`
+proves that a term is `Q.nat` and within `Q.bnd` where the kernel evaluates
+`Q.ok` of concrete terms to `true`, so the number a block computes is `nat` of
+its term, which unfolds to the arithmetic of `Limbs26` by definition. `Q.natw`
 is the value with every reduction kept, which `natw_ok` proves exact for any
 term, for the blocks that shift bits out on purpose.
 -/
@@ -24,27 +23,33 @@ open VG VG.X86_64
 open VG.Proof.Poly1305.X86_64.Avx2 (xr xi xr_xi lo32 capW orB capW_ge orB_ge lo32_toNat)
 
 /-- Bounds on the registers a block starts from: on each vector register's
-quadwords (`v`) and their low doublewords (`lo`), and on the general-purpose
-registers. -/
+quadwords (`v`) and their low doublewords (`lo`), on the general-purpose
+registers, and on the quadwords of memory at `rdi + d` (`mb`) and their low
+doublewords (`mbl`). -/
 structure Bnds where
   v : XReg → Nat
   lo : XReg → Nat
   g : Reg → Nat
+  mb : Nat → Nat
+  mbl : Nat → Nat
 
 /-- The values a block starts from, as numbers. -/
 structure Env where
   v : Nat → Nat → Nat
   g : Reg → Nat
   m : Nat → Nat
+  mb : Nat → Nat
 
 def envOf (s₀ : State) : Env :=
   ⟨fun r k => (qz s₀ (xr r) k).toNat, fun g => (s₀.gpr g).toNat,
-    fun j => (s₀.mem.readW (s₀.gpr .rsi + BitVec.ofNat 64 (8 * j)) 64).toNat⟩
+    fun j => (s₀.mem.readW (s₀.gpr .rsi + BitVec.ofNat 64 (8 * j)) 64).toNat,
+    fun d => (s₀.mem.readW (s₀.gpr .rdi + BitVec.ofInt 64 (d : Int)) 64).toNat⟩
 
 /-- A bound on the low doubleword of `t`, whose bound is `b`. -/
 def loB (B : Bnds) (t : Q) (b : Nat) : Nat :=
   match t with
   | .reg r => min (B.lo (xr r)) (min b (2 ^ 32 - 1))
+  | .mb d => min (B.mbl d) (min b (2 ^ 32 - 1))
   | _ => min b (2 ^ 32 - 1)
 
 def Q.bnd (B : Bnds) : Q → Nat → Nat
@@ -53,6 +58,7 @@ def Q.bnd (B : Bnds) : Q → Nat → Nat
   | .lane0 a, k => if k = 0 then a.bnd B 0 else 0
   | .bc a, _ => a.bnd B 0
   | .ld _, _ => 2 ^ 64 - 1
+  | .mb d, _ => min (B.mb d) (2 ^ 64 - 1)
   | .add a b, k => capW (a.bnd B k + b.bnd B k)
   | .mul a b, k => loB B a (a.bnd B k) * loB B b (b.bnd B k)
   | .and a b, k => min (a.bnd B k) (b.bnd B k)
@@ -72,6 +78,7 @@ def Q.nat (E : Env) : Q → Nat → Nat
   | .lane0 a, k => if k = 0 then a.nat E 0 else 0
   | .bc a, _ => a.nat E 0
   | .ld i, k => E.m (i + k)
+  | .mb d, _ => E.mb d
   | .add a b, k => a.nat E k + b.nat E k
   | .mul a b, k => a.nat E k % 2 ^ 32 * (b.nat E k % 2 ^ 32)
   | .and a b, k => a.nat E k &&& b.nat E k
@@ -92,6 +99,7 @@ def Q.natw (E : Env) : Q → Nat → Nat
   | .lane0 a, k => if k = 0 then a.natw E 0 else 0
   | .bc a, _ => a.natw E 0
   | .ld i, k => E.m (i + k)
+  | .mb d, _ => E.mb d
   | .add a b, k => (a.natw E k + b.natw E k) % 2 ^ 64
   | .mul a b, k => a.natw E k % 2 ^ 32 * (b.natw E k % 2 ^ 32)
   | .and a b, k => a.natw E k &&& b.natw E k
@@ -105,7 +113,7 @@ def Q.natw (E : Env) : Q → Nat → Nat
 
 /-- No addition or left shift in `t` wraps, by the bounds `B`. -/
 def Q.ok (B : Bnds) : Q → Nat → Bool
-  | .reg _, _ | .gpr _, _ | .ld _, _ => true
+  | .reg _, _ | .gpr _, _ | .ld _, _ | .mb _, _ => true
   | .lane0 a, k => if k = 0 then a.ok B 0 else true
   | .bc a, _ => a.ok B 0
   | .add a b, k => a.bnd B k + b.bnd B k < 2 ^ 64 && a.ok B k && b.ok B k
@@ -121,6 +129,8 @@ structure EnvOK (s₀ : State) (B : Bnds) : Prop where
   v : ∀ r k, k < 8 → (qz s₀ r k).toNat ≤ B.v r
   lo : ∀ r k, k < 8 → (qz s₀ r k).toNat % 2 ^ 32 ≤ B.lo r
   g : ∀ g, (s₀.gpr g).toNat ≤ B.g g
+  mb : ∀ d : Nat, (s₀.mem.readW (s₀.gpr .rdi + BitVec.ofInt 64 (d : Int)) 64).toNat ≤ B.mb d
+  mbl : ∀ d : Nat, (s₀.mem.readW (s₀.gpr .rdi + BitVec.ofInt 64 (d : Int)) 64).toNat % 2 ^ 32 ≤ B.mbl d
 
 theorem loB_ge {s₀ : State} {B : Bnds} (hE : EnvOK s₀ B) {t : Q} {k : Nat} (hk : k < 8) {b : Nat}
     (hb : (t.eval s₀ k).toNat ≤ b) : (t.eval s₀ k).toNat % 2 ^ 32 ≤ loB B t b := by
@@ -131,6 +141,12 @@ theorem loB_ge {s₀ : State} {B : Bnds} (hE : EnvOK s₀ B) {t : Q} {k : Nat} (
     have h₁ := Nat.mod_le (qz s₀ (xr r) k).toNat (2 ^ 32)
     have h₂ := Nat.mod_lt (qz s₀ (xr r) k).toNat (show 2 ^ 32 > 0 by decide)
     simp only [Q.eval] at hb ⊢
+    omega
+  · rename_i d
+    have := hE.mbl d
+    have h₁ := Nat.mod_le (Q.eval s₀ (.mb d) k).toNat (2 ^ 32)
+    have h₂ := Nat.mod_lt (Q.eval s₀ (.mb d) k).toNat (show 2 ^ 32 > 0 by decide)
+    simp only [Q.eval] at hb h₁ h₂ ⊢
     omega
   · have h₁ := Nat.mod_le (t.eval s₀ k).toNat (2 ^ 32)
     have h₂ := Nat.mod_lt (t.eval s₀ k).toNat (show 2 ^ 32 > 0 by decide)
@@ -160,6 +176,9 @@ theorem nat_ok {s₀ : State} {B : Bnds} (hE : EnvOK s₀ B) :
     intro k _ _
     refine ⟨?_, Nat.le_sub_one_of_lt (BitVec.isLt _)⟩
     simp only [Q.eval, Q.nat, envOf, Nat.mul_add]
+  | mb d =>
+    intro k _ _
+    exact ⟨rfl, Nat.le_min.2 ⟨hE.mb d, Nat.le_sub_one_of_lt (BitVec.isLt _)⟩⟩
   | add a b iha ihb =>
     intro k hk ho
     simp only [Q.ok, Bool.and_eq_true, decide_eq_true_eq] at ho
@@ -258,6 +277,7 @@ theorem natw_ok (s₀ : State) : ∀ (t : Q) (k : Nat), (t.eval s₀ k).toNat = 
     · rfl
   | bc a ih => intro k; exact ih 0
   | ld i => intro k; simp only [Q.eval, Q.natw, envOf, Nat.mul_add]
+  | mb d => intro k; rfl
   | add a b iha ihb => intro k; simp only [Q.eval, Q.natw, BitVec.toNat_add, iha, ihb]
   | mul a b iha ihb =>
     intro k

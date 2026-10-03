@@ -8,9 +8,8 @@ import VerifiedGarbage.Proof.Sha512.X86_64.Avx2.Lit
 /-!
 # SHA-512 with AVX2 on x86-64: one round
 
-Untrusted: everything here is checked by Lean. `round j t` computes
-`roundKW`, with `Σ₀` and `Σ₁` as three `rorx`, `Ch` as a sum of two
-disjoint masks and `Maj` from the previous round's `a ⊕ b`.
+`round j t` computes `roundKW`, with `Σ₀` and `Σ₁` as three `rorx`, `Ch` as a
+sum of two disjoint masks and `Maj` from the previous round's `a ⊕ b`.
 -/
 
 namespace VG.Proof.Sha512.X86_64.Avx2

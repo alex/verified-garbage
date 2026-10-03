@@ -9,12 +9,11 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # X448 on x86 (32-bit): the whole function
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (the facts of `Spec.X448.x448Contract` it uses, stated
-for x86 (32-bit)), and the correctness of `vg_x448` against it: every write is in
-the working space but the result's, so the arguments are read unchanged, the
-callee-saved registers restored from the working space, and the return
-address kept.
+The contract the proof is written against (the facts of `Spec.X448.x448Contract`
+it uses, stated for x86 (32-bit)), and the correctness of `vg_x448` against it:
+every write is in the working space but the result's, so the arguments are read
+unchanged, the callee-saved registers restored from the working space, and the
+return address kept.
 -/
 
 namespace VG.Proof.X448.X86
@@ -107,10 +106,10 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · intro r hr
       simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl
-      · exact restored 0 (by decide)
-      · exact restored 1 (by decide)
-      · exact restored 2 (by decide)
-      · exact restored 3 (by decide)
+      · exact restored (.ebx, 0) (by decide)
+      · exact restored (.esi, 4) (by decide)
+      · exact restored (.edi, 8) (by decide)
+      · exact restored (.ebp, 12) (by decide)
       · exact kall.1 _ (by decide)
     · have frame : Frame [scR (arg s₀ 3), outR s₀] s₀.mem s'.mem := by
         rw [← hbase] at fm o₆

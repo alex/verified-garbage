@@ -4,14 +4,13 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # BLAKE2 on x86 (32-bit): the contracts
 
-Untrusted: everything here is checked by Lean. The contracts the proofs of
-the x86 (32-bit) implementations are written against, for BLAKE2b and
-BLAKE2s at once (words of `w` bits, the parameters `P`), with the arguments
-on the stack (cdecl); the artifacts' contracts are the shared ones of
-`Spec/Blake2/Contract.lean`, which imply these. The streaming functions call
-the compression function (BLAKE2b's or BLAKE2s's) through `compressX86`,
-using the 32 bytes of stack below the return address (its seven arguments
-and the return address).
+The contracts the proofs of the x86 (32-bit) implementations are written
+against, for BLAKE2b and BLAKE2s at once (words of `w` bits, the parameters
+`P`), with the arguments on the stack (cdecl); the artifacts' contracts are
+the shared ones of `Spec/Blake2/Contract.lean`, which imply these. The
+streaming functions call the compression function (BLAKE2b's or BLAKE2s's)
+through `compressX86`, using the 32 bytes of stack below the return address
+(its seven arguments and the return address).
 -/
 
 namespace VG.Proof.Blake2

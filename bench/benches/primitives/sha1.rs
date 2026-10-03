@@ -6,8 +6,6 @@ use verified_garbage::hashes::sha1::Sha1;
 
 use crate::hash_group;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`).
 pub const USES: &[&str] = &["sha1"];
 
 #[cfg(not(any(

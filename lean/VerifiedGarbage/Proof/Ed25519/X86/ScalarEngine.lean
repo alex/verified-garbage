@@ -17,7 +17,7 @@ theorem scalarInit_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
     change fe v.mem x scalarR + _ * _ = acc u + 0 at ev
     rw [au] at ev
     omega_using [ev]
-  refine ⟨ku.scalar.trans (kv.scalar.trans (scalarUpd ht)), ht.gpr, ?_, ?_⟩
+  refine ⟨(Keep.scalar ku).trans ((Keep.scalar kv).trans (scalarUpd ht)), ht.gpr, ?_, ?_⟩
   · rw [ht.mem, mu] at *; exact fv
   · rw [ht.mem]; exact hz
 
@@ -44,7 +44,8 @@ theorem Saved.scalarEngine {s₀ s t : State} {x : BitVec 32} (h : Saved s₀ x 
       exact sub_sub hx (by decide) (by decide) (by decide)
   · have hR : scalarR = 64 := rfl
     have hT : T = 864 := rfl
-    intro j hj r hr
+    intro p hp r hr
+    have hj := savedSlots_bound p hp
     simp only [scalarBodyFrame, scalarFrame, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl <;>
       exact sub_disj (by omega_using [hx, hj]) (by omega_using [hx, hR, hT])

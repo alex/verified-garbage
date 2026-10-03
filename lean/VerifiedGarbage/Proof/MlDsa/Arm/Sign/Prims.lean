@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.Framework.Arm.Contract
 /-!
 # ML-DSA signing on ARMv7: the primitives it calls
 
-Untrusted: everything here is checked by Lean. What the proofs need of the
-implementations of the primitives (`PrimsOk`): each is verified against its
-shared contract (`Spec/MlDsa/Poly.lean`) for a stack that, with the frame of
-its stack arguments, fits in the `D` bytes the function gives its calls
-(`Callee`); and, of the two samplers whose result the function branches on,
-that the result is public in their own runs (`RetPub`) and that they
-succeed only when the algorithm finishes within `maxBounds`, the bounds the
-leakage of signing is stated for.
+What the proofs need of the implementations of the primitives (`PrimsOk`):
+each is verified against its shared contract (`Spec/MlDsa/Poly.lean`) for a
+stack that, with the frame of its stack arguments, fits in the `D` bytes the
+function gives its calls (`Callee`); and, of the two samplers whose result the
+function branches on, that the result is public in their own runs (`RetPub`)
+and that they succeed only when the algorithm finishes within `maxBounds`, the
+bounds the leakage of signing is stated for.
 
 A callee's precondition is stated of its entry state `E` (`Ent`): its stack
 pointer leaves `S` bytes below it, apart from the buffers of the layout, and
@@ -309,7 +308,7 @@ theorem accAt_ok {t : Poly → Poly → Poly} {n : String} {c : Prog isa} (C : C
     (rd := [pR (pa s g)]) (wr := [pR (pa s f)])
     (fun s1 hA k => accPre (ent_R L k (by have := C.hS; omega) _ _) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn2 hA).1) (by rw [vR _ _ _ nl1]; exact (argsIn2 hA).2) rfl rfl rf rg)
-    (covers_append (L.cR i2) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (L.cR i2) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, k, hq⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e1, e2⟩ := argsIn2 hA
   sig_post [accSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hq
@@ -327,9 +326,9 @@ theorem accAt_tr {t : Poly → Poly → Poly} {n : String} {c : Prog isa} (C : C
       (by rw [vR _ _ _ nl0]; exact (argsIn2 hAx).1) (by rw [vR _ _ _ nl1]; exact (argsIn2 hAx).2) rfl rfl rfx rgx,
       accPre (ent_R R.ly ky hS [pR (pa y g)] [pR (pa y f)]) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn2 hAy).1) (by rw [vR _ _ _ nl1]; exact (argsIn2 hAy).2) rfl rfl rfy rgy, ?_,
-      by rw [kx.rd, kx.wr]; exact covers_append (R.lx.cR i2) (covers_wr (R.lx.cW w1)),
+      by rw [kx.rd, kx.wr]; exact Covers.append_left (R.lx.cR i2) (Covers.right (R.lx.cW w1)),
       by rw [kx.wr]; exact R.lx.cW w1,
-      by rw [ky.rd, ky.wr]; exact covers_append (R.ly.cR i2) (covers_wr (R.ly.cW w1)),
+      by rw [ky.rd, ky.wr]; exact Covers.append_left (R.ly.cR i2) (Covers.right (R.ly.cW w1)),
       by rw [ky.wr]; exact R.ly.cW w1⟩
   obtain ⟨hx1, hx2⟩ := argsIn2 hAx
   obtain ⟨hy1, hy2⟩ := argsIn2 hAy

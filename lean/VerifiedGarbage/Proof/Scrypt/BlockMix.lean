@@ -3,9 +3,9 @@ import VerifiedGarbage.Spec.Scrypt
 /-!
 # scryptBlockMix, one block at a time
 
-Untrusted: everything here is checked by Lean. `blockMix` in the order an
-implementation computes it: `Y[i]` from the previous one (`yAt`), and the
-output as the blocks `Y[0], Y[2], …` followed by `Y[1], Y[3], …`.
+`blockMix` in the order an implementation computes it: `Y[i]` from the
+previous one (`yAt`), and the output as the blocks `Y[0], Y[2], …` followed by
+`Y[1], Y[3], …`.
 -/
 
 namespace VG.Proof.Scrypt

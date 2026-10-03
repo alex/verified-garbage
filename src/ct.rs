@@ -1,5 +1,5 @@
-//! Constant-time comparison, for the checks of MACs and tags that the Rust
-//! code around the verified primitives does.
+//! Constant-time comparison, for the checks of MACs, tags and shared secrets
+//! that the Rust code around the verified primitives does.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -17,6 +17,26 @@ pub(crate) fn eq(a: &[u8], b: &[u8]) -> bool {
     // The buffers may overlap. Live slices lie outside the callee’s stack frame.
     unsafe { vg_ct_eq(a.as_ptr(), a.len(), b.as_ptr(), b.len()) != 0 }
 }
+
+/// Fails to compile unless `N`, the length of a key a password KDF's
+/// `verify` checks, is at least 16 bytes (128 bits; SP 800-132 asks
+/// for at least 112). The length is a type parameter so that it is fixed in
+/// the caller's code, never taken from a slice: PBKDF2's and scrypt's keys of
+/// different lengths share their prefixes, so a key checked at a length
+/// that came from elsewhere (a truncated stored key, or one an attacker sent)
+/// would be checked on as few bytes as that length.
+macro_rules! assert_verify_len {
+    ($n:expr) => {
+        const {
+            assert!(
+                $n >= 16,
+                "a derived key to verify is at least 16 bytes long"
+            )
+        }
+    };
+}
+
+pub(crate) use assert_verify_len;
 
 #[cfg(test)]
 mod tests {

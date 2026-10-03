@@ -3,6 +3,7 @@ import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Spec
 import VerifiedGarbage.Proof.ChaCha20.X86.Block
 import VerifiedGarbage.Proof.Framework.X86.CallWith
+import VerifiedGarbage.Proof.Framework.X86.Spill
 import VerifiedGarbage.Impl.ChaCha20Poly1305.X86
 import VerifiedGarbage.Proof.Framework.PowLit
 import VerifiedGarbage.Proof.Poly1305.X86.Init
@@ -19,8 +20,6 @@ section
 
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): the entry state, regions and invariant
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -57,9 +56,7 @@ open VG.X86 in
 def pubX86 (s₁ s₂ : X86.State) : Prop := s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 5, arg s₁ i = arg s₂ i
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
+/-- `vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
 def sealX86 : Contract X86.isa where
   pre := preX86
   post s s' :=
@@ -71,9 +68,7 @@ def sealX86 : Contract X86.isa where
   pub := pubX86
 
 open VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
+/-- `vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
 def openX86 : Contract X86.isa where
   pre := preX86
   post s s' :=
@@ -305,22 +300,17 @@ theorem Repr.frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {P : Add
 /-! ## The saved registers and the invariant -/
 
 /-- Our caller's `ebx, esi, edi, ebp`, saved in `ctx[592, 608)`. -/
-def Saved (s₀ : State) (m : Mem) : Prop :=
-  m.readW (cx s₀ + BitVec.ofNat 64 592) 32 = s₀.gpr .ebx ∧
-  m.readW (cx s₀ + BitVec.ofNat 64 596) 32 = s₀.gpr .esi ∧
-  m.readW (cx s₀ + BitVec.ofNat 64 600) 32 = s₀.gpr .edi ∧
-  m.readW (cx s₀ + BitVec.ofNat 64 604) 32 = s₀.gpr .ebp
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (cx s₀ + BitVec.ofNat 64 ·) s₀.gpr saved
+
+theorem saved_bound : ∀ p ∈ saved, 592 ≤ p.2 ∧ p.2 + 4 ≤ 608 := by decide
+
+theorem saved_contains (s₀ : State) : ∀ p ∈ saved, (sub s₀ 592 16).Contains (cx s₀ + BitVec.ofNat 64 p.2) 4 :=
+  fun p hp => have h := saved_bound p hp; contains_sub s₀ h.1 h.2 (by lit_omega)
 
 /-- The saved registers survive a frame that does not touch them. -/
 theorem Saved.frame {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved s₀ m)
-    (hf : Frame rs m m') (hd : ∀ r ∈ rs, (sub s₀ 592 16).Disjoint r) : Saved s₀ m' := by
-  have c : ∀ d, 592 ≤ d → d + 4 ≤ 608 → (sub s₀ 592 16).Contains (cx s₀ + BitVec.ofNat 64 d) (32 / 8) :=
-    fun d h₁ h₂ => contains_sub s₀ h₁ h₂ (by lit_omega)
-  obtain ⟨h1, h2, h3, h4⟩ := h
-  exact ⟨by rw [hf.readW (c 592 (Nat.le_refl _) (by lit_omega)) hd (by decide), h1],
-    by rw [hf.readW (c 596 (by lit_omega) (by lit_omega)) hd (by decide), h2],
-    by rw [hf.readW (c 600 (by lit_omega) (by lit_omega)) hd (by decide), h3],
-    by rw [hf.readW (c 604 (by lit_omega) (by lit_omega)) hd (by decide), h4]⟩
+    (hf : Frame rs m m') (hd : ∀ r ∈ rs, (sub s₀ 592 16).Disjoint r) : Saved s₀ m' :=
+  Spill.Saved.of_frame h hf (saved_contains s₀) hd
 
 /-- The working space: `ctx[64, 1024)`. -/
 abbrev workR (s₀ : State) : Region := sub s₀ 64 960
@@ -388,11 +378,10 @@ end
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): the calls
 
-Untrusted: everything here is checked by Lean. Each call of a verified
-function, in a frame of its arguments (`callWith`), from its proof of
-`Verified` (`WP.callWith`): what it needs of the state it is called from
-(`CallPre`, which the constant-time proof uses too), and what holds when it
-returns.
+Each call of a verified function, in a frame of its arguments (`callWith`),
+from its proof of `Verified` (`WP.callWith`): what it needs of the state it is
+called from (`CallPre`, which the constant-time proof uses too), and what
+holds when it returns.
 -/
 
 open VG.PowLit
@@ -899,11 +888,10 @@ end VG.Proof.ChaCha20Poly1305.X86
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): absorbing padded data
 
-Untrusted: everything here is checked by Lean. `absorbOne k` absorbs the 16
-bytes at `ctx + k`; `macPad p n` absorbs the bytes whose address and length
-are the stack arguments at `esp + p` and `esp + n`, and zeros to a multiple
-of 16: `msg ++ x ++ pad16 x`. Each stage is stated separately, for the
-constant-time proof.
+`absorbOne k` absorbs the 16 bytes at `ctx + k`; `macPad p n` absorbs the
+bytes whose address and length are the stack arguments at `esp + p` and `esp +
+n`, and zeros to a multiple of 16: `msg ++ x ++ pad16 x`. Each stage is stated
+separately, for the constant-time proof.
 -/
 
 open VG.PowLit
@@ -1478,9 +1466,9 @@ section
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): the prologue
 
-Untrusted: everything here is checked by Lean. Saving the registers, the
-ChaCha20 state for counter 0, the one-time key and the Poly1305 state for it.
-Each stage is stated separately (`Pro1`, …), for the constant-time proof.
+Saving the registers, the ChaCha20 state for counter 0, the one-time key and
+the Poly1305 state for it. Each stage is stated separately (`Pro1`, …), for
+the constant-time proof.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86
@@ -1504,46 +1492,28 @@ theorem load_ok {s₀ : State} (hp : APre s₀) :
     i₀, v₀, ite_true, Option.map_some, Option.some.injEq, exists_eq_left']
 
 /-- The memory after the registers are saved. -/
-def saveMem (s₀ : State) : Mem :=
-  (((s₀.mem.writeW (cx s₀ + BitVec.ofNat 64 592) (s₀.gpr .ebx)).writeW (cx s₀ + BitVec.ofNat 64 596)
-    (s₀.gpr .esi)).writeW (cx s₀ + BitVec.ofNat 64 600) (s₀.gpr .edi)).writeW
-    (cx s₀ + BitVec.ofNat 64 604) (s₀.gpr .ebp)
+abbrev saveMem (s₀ : State) : Mem := Spill.saveMem s₀.mem (cx s₀ + BitVec.ofNat 64 ·) s₀.gpr saved
 
-theorem saveMem_frame (s₀ : State) : Frame [sub s₀ 592 16] s₀.mem (saveMem s₀) := by
-  have c : ∀ d, 592 ≤ d → d + 4 ≤ 608 → (sub s₀ 592 16).Contains (cx s₀ + BitVec.ofNat 64 d) (32 / 8) :=
-    fun d h₁ h₂ => contains_sub s₀ h₁ h₂ (by lit_omega)
-  exact ((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 592 (Nat.le_refl _) (by lit_omega))).writeW
-    (List.mem_singleton_self _) _ (c 596 (by lit_omega) (by lit_omega))).writeW (List.mem_singleton_self _) _
-    (c 600 (by lit_omega) (by lit_omega))).writeW (List.mem_singleton_self _) _ (c 604 (by lit_omega) (by lit_omega))
+theorem saveMem_frame (s₀ : State) : Frame [sub s₀ 592 16] s₀.mem (saveMem s₀) :=
+  Spill.saveMem_frame List.mem_cons_self _ _ _ _ (saved_contains s₀)
 
-theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) := by
-  simp only [Saved, saveMem]
-  refine ⟨?_, ?_, ?_, ?_⟩
-  · rw [readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega),
-      readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega),
-      readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self32]
-  · rw [readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega),
-      readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self32]
-  · rw [readW_writeW_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self32]
-  · rw [Mem.readW_writeW_self32]
+theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) :=
+  Spill.saveMem_saved_ofNat _ _ _ (by decide : Spill.Fits 608 saved) (by decide)
 
-set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : APre s₀) :
     WP isa (.block (save ++ ([.mov .edi (.reg .eax)] : List Instr))) (s₀.setReg .eax (CX s₀)) fun s =>
       s.gpr .edi = CX s₀ ∧ (∀ r, r ≠ .eax → r ≠ .edi → s.gpr r = s₀.gpr r) ∧ s.mem = saveMem s₀ ∧
       s.rd = s₀.rd ∧ s.wr = s₀.wr := by
-  have e0 := hp.c64 (k := 592) (by lit_omega); have e1 := hp.c64 (k := 596) (by lit_omega)
-  have e2 := hp.c64 (k := 600) (by lit_omega); have e3 := hp.c64 (k := 604) (by lit_omega)
-  have o0 := hp.in_ctx (a := 592) (w := 4) (by lit_omega)
-  have o1 := hp.in_ctx (a := 596) (w := 4) (by lit_omega)
-  have o2 := hp.in_ctx (a := 600) (w := 4) (by lit_omega)
-  have o3 := hp.in_ctx (a := 604) (w := 4) (by lit_omega)
-  apply WP.of_runBlock
-  simp (config := {decide := true}) only [save, saved, List.map, List.cons_append, List.nil_append,
-    runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, State.ea, at_, State.store32,
-    State.setReg, e0, e1, e2, e3, o0, o1, o2, o3, ite_true, ite_false, Option.map_some,
-    Option.some.injEq, exists_eq_left']
-  exact ⟨trivial, fun r h₁ h₂ => by simp [h₁, h₂], rfl, trivial⟩
+  have e : ∀ p ∈ saved, addr (CX s₀) p.2 = cx s₀ + BitVec.ofNat 64 p.2 :=
+    fun p h => hp.ea_ctx (by have := saved_bound p h; lit_omega)
+  have geax : (s₀.setReg .eax (CX s₀)).gpr .eax = CX s₀ := RegUpd.gpr_setReg_self _ _ _
+  refine Spill.save_ok saved (fun p h => by
+      rw [geax, e p h]; exact hp.in_ctx (by have := saved_bound p h; lit_omega))
+    fun s₁ u => Wp.wp_mov fun s₂ u₂ => WP.block_nil ⟨by rw [u₂.gpr, u.gpr, geax], fun r h₁ h₂ => ?_,
+      ?_, by rw [u₂.rd, u.rd]; rfl, by rw [u₂.wr, u.wr]; rfl⟩
+  · rw [u₂.other _ h₂, u.gpr]; exact RegUpd.gpr_setReg_of_ne _ _ h₁
+  · rw [u₂.mem, u.mem, geax]
+    exact Spill.saveMem_congr _ _ e fun p h => RegUpd.gpr_setReg_of_ne _ _ (by revert p h; decide)
 
 /-! ## The ChaCha20 state -/
 
@@ -1827,8 +1797,8 @@ end
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): the other parts
 
-Untrusted: everything here is checked by Lean. The lengths block, the
-encryption, the tag, comparing tags, and restoring the registers.
+The lengths block, the encryption, the tag, comparing tags, and restoring the
+registers.
 -/
 
 open VG.PowLit
@@ -2105,29 +2075,17 @@ theorem finalizeTo_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ 
 theorem restore_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Fin s₀ s) :
     WP isa (.block restore) s fun s' => (∀ r ∈ calleeSaved, s'.gpr r = s₀.gpr r) ∧
       s'.gpr .eax = s.gpr .eax ∧ s'.mem = s.mem := by
-  obtain ⟨v0, v1, v2, v3⟩ := h.saved
-  have i : ∀ d, d + 4 ≤ 1024 → InRegions (s.rd ++ s.wr) (cx s₀ + BitVec.ofNat 64 d) 4 := fun d hd => by
-    rw [h.at_.rd, h.at_.wr]; exact hp.in_ctx' hd
-  have c : ∀ d, d < 1024 → ∀ s' : State, s'.gpr .edi = CX s₀ → s'.ea (at_ .edi d) = cx s₀ + BitVec.ofNat 64 d :=
-    fun d hd s' he => by rw [ea_at, he, hp.ea_ctx hd]
-  refine wp_movm (c 592 (by lit_omega) _ h.edi) (i 592 (by lit_omega)) fun s₁ u₁ _ => ?_
-  refine wp_movm (c 596 (by lit_omega) _ (by rw [u₁.other _ (by decide), h.edi]))
-    (by rw [u₁.rd, u₁.wr]; exact i 596 (by lit_omega)) fun s₂ u₂ _ => ?_
-  refine wp_movm (c 604 (by lit_omega) _ (by rw [u₂.other _ (by decide), u₁.other _ (by decide), h.edi]))
-    (by rw [u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact i 604 (by lit_omega)) fun s₃ u₃ _ => ?_
-  refine wp_movm (c 600 (by lit_omega) _ (by rw [u₃.other _ (by decide), u₂.other _ (by decide),
-    u₁.other _ (by decide), h.edi])) (by rw [u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact i 600 (by lit_omega))
-    fun s₄ u₄ _ => WP.block_nil ?_
-  have mm : s₄.mem = s.mem := by rw [u₄.mem, u₃.mem, u₂.mem, u₁.mem]
-  refine ⟨fun r hr => ?_, by rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide),
-    u₁.other _ (by decide)], mm⟩
-  simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl
-  · rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr, v0]
-  · rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, u₁.mem, v1]
-  · rw [u₄.gpr, u₃.mem, u₂.mem, u₁.mem, v2]
-  · rw [u₄.other _ (by decide), u₃.gpr, u₂.mem, u₁.mem, v3]
-  · rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), h.at_.esp]
+  have e : ∀ p ∈ saved, addr (CX s₀) p.2 = cx s₀ + BitVec.ofNat 64 p.2 :=
+    fun p h => hp.ea_ctx (by have := saved_bound p h; lit_omega)
+  rw [show restore = Spill.restoreCode .edi ([(.ebx, 592), (.esi, 596), (.ebp, 604)] ++ [(.edi, 600)]) ++ []
+    from rfl]
+  refine Spill.restoreBase_ok _ (by decide) (fun p hp' => ?_)
+    (by rw [h.edi]; exact (h.saved.congr (fun p h => (e p h).symm) fun _ _ => rfl).sub (by decide))
+    fun s' r' => WP.block_nil ⟨r'.abi (by decide) (by decide) h.at_.esp, r'.other _ (by decide), r'.mem⟩
+  have hp'' : p ∈ saved := by revert p hp'; decide
+  have := saved_bound p hp''
+  rw [h.edi, e p hp'', h.at_.rd, h.at_.wr]
+  exact hp.in_ctx' (by lit_omega)
 
 /-! ## Comparing the tags -/
 

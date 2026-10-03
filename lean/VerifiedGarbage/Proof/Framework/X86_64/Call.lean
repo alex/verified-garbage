@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.X86_64.Inline
 /-!
 # Calls (x86-64)
 
-Untrusted: everything here is checked by Lean.
-
 A call (`Code.call`) stores its return address at `rsp - 8` and runs the
 called function from there (`State.callEntry`). Code that never writes `rsp`
 itself changes memory only within the regions it may write and the return

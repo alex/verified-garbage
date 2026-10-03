@@ -15,6 +15,14 @@ publish = false
 # `src/cpu.rs` and `ci/bench_arches.py`).
 verified-garbage = { path = "..", features = ["cpu-features-env"] }
 
+[features]
+# OpenSSL 3.2+ supplies Argon2; the benchmark runners use 3.0.
+# On a supported host, use `cargo bench --features openssl-argon2` and
+# `cargo test --features openssl-argon2 --test argon2` for the comparison.
+openssl-argon2 = []
+# OpenSSL 3.5+ supplies ML-DSA; enable its benchmark comparisons on a supported host.
+openssl-mldsa = []
+
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 openssl = "0.10"

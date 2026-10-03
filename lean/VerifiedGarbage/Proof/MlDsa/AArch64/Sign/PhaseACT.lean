@@ -3,14 +3,15 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Rel
 /-!
 # ML-DSA signing on AArch64: `ExpandA` leaks only `ρ`
 
-Untrusted: everything here is checked by Lean. Two runs of `ExpandA` with
-the same `ρ` compute the same results of `vg_mldsa_rej_ntt_poly`, so they
-agree on `x24` (`RA`), and leak the same (`expandA_tr`).
+Two runs of `ExpandA` with the same `ρ` compute the same results of
+`vg_mldsa_rej_ntt_poly`, so they agree on `x24` (`RA`), and leak the same
+(`expandA_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
@@ -54,26 +55,6 @@ theorem sampleE_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {e : Na
     obtain ⟨s₀, h₀, hP₀, -⟩ := h
     exact h₀.st.step hP₀ (eChk_spec he).2.2.1
 
-theorem expandA_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : aChk p = true) :
-    RelCT isa (RR p D (fun σ s => St p D σ s ∧ s.gpr .x24 = 1) fun _ _ => True)
-      (Impl.MlDsa.AArch64.Sign.expandA P p) (RA p D (p.k * p.ℓ)) := by
-  simp only [aChk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨he, hcp⟩, hst⟩, hsk⟩ := hc
-  unfold Impl.MlDsa.AArch64.Sign.expandA
-  refine RelCT.seq (R := RA p D 0) (stepRR (F := fun s s' => s'.gpr .x24 = s.gpr .x24) (J := fun σ s => IA p D σ 0 s)
-    (E' := fun x y => x.gpr .x24 = y.gpr .x24)
-    (fun σ s _ h => ?_) (lrel_tr (fun x y h => h.lrel fun _ _ h => h.1) (by taint_decide))
-    fun x y x' y' h fx fy _ => ?_) ?_
-  · refine WP.mono (copyP_ok h.1.lay hcp) fun s1 ⟨hP1, hcs1, hb⟩ => ⟨?_, hcs1.get .x24⟩
-    have S1 := h.1.step hP1 hst
-    have e15 : s1.gpr .x24 = 1 := by rw [hcs1.get .x24, h.2]
-    exact ⟨S1, by rw [hP1.pa (by decide), hb, rhoOf, ← h.1.sk, VG.Proof.MlKem.bytesAt_take _ _ hsk],
-      .inr e15, fun _ => ⟨fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩,
-      fun h0 => absurd (h0.symm.trans e15) (by decide)⟩
-  · obtain ⟨⟨σ₁, σ₂, _, _, _, ⟨_, h₁⟩, ⟨_, h₂⟩⟩, _⟩ := h
-    rw [fx, fy, h₁, h₂]
-  · have := seqR_tr (f := sampleE P p) (R := fun k => RA p D k) (p.k * p.ℓ) 0
-      fun k _ hk => sampleE_tr hP (he k (by omega))
-    rwa [Nat.zero_add] at this
+
 
 end VG.Proof.MlDsa.AArch64.Sign

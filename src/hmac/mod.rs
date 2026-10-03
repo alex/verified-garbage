@@ -19,6 +19,7 @@ use crate::hashes::HashFunction;
 
 mod md5;
 mod sha1;
+mod sha224;
 mod sha256;
 mod sha384;
 mod sha512;
@@ -53,7 +54,9 @@ pub trait HmacHash: HashFunction + sealed::Sealed {
 }
 
 /// The MAC did not match: the message or the key is not what was
-/// authenticated.
+/// authenticated. [`crate::cmac`], [`crate::poly1305`] and keyed BLAKE2
+/// ([`crate::hashes::blake2b`], [`crate::hashes::blake2s`]) return this
+/// type too.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InvalidMac;
 
@@ -102,13 +105,6 @@ impl<H: HmacHash> Hmac<H> {
         let mut h = Self::new(key);
         h.update(data);
         h.finalize()
-    }
-
-    /// The state of the computation (for PBKDF2's iteration, on the targets
-    /// where it runs under Rust's loop).
-    #[cfg(any(target_arch = "arm", target_arch = "x86"))]
-    pub(crate) fn state(&self) -> &H::State {
-        &self.state
     }
 }
 
@@ -194,32 +190,34 @@ macro_rules! streaming_hmac {
                     $backend::$base => $init,
                     $($(#[$attr])* $backend::$variant => $vinit,)*
                 };
-                let mut inner = [0; $state];
-                let mut outer = [0; $state];
-                let mut scratch = [0u64; $scratch];
-                // SAFETY: `key.len()` is at most a block; `inner` and `outer`
-                // are valid for reads and writes of a streaming state, `key`
-                // for reads of `key.len()` bytes and `scratch` for reads and
-                // writes of its size; they are distinct objects, so they do
-                // not overlap each other or the call's stack frame, nor wrap
-                // around the address space. `init` needs no CPU feature that
-                // `backend` was not selected for (`tests::backend_features`).
+                // The states are written in place, where they are wiped when
+                // the computation is dropped. Once `init` has run, the inner
+                // one represents `K₀ ⊕ ipad`, of a block.
+                let mut state = super::StreamingHmacState {
+                    inner: $hash::from_state([0; $state], Self::BLOCK_SIZE as u64, backend),
+                    outer: [0; $state],
+                };
+                let (inner, _) = state.inner.state_mut();
+                let mut scratch = core::mem::MaybeUninit::<[u64; $scratch]>::uninit();
+                // SAFETY: `key.len()` is at most a block; `inner` and
+                // `state.outer` are valid for reads and writes of a streaming
+                // state, `key` for reads of `key.len()` bytes and `scratch`
+                // for reads and writes of its size; they are distinct objects
+                // or fields, so they do not overlap each other or the call's
+                // stack frame, nor wrap around the address space. `init`
+                // needs no CPU feature that `backend` was not selected for
+                // (`tests::backend_features`). `scratch` is uninitialized: it
+                // is only working space, and the contract's result does not
+                // depend on what it holds.
                 unsafe {
                     init(
-                        &mut inner,
-                        &mut outer,
+                        inner,
+                        &mut state.outer,
                         key.as_ptr(),
                         key.len(),
-                        &mut scratch,
+                        scratch.as_mut_ptr(),
                     )
                 };
-                // `inner` now represents `K₀ ⊕ ipad`, of a block.
-                let state = super::StreamingHmacState {
-                    inner: $hash::from_state(inner, Self::BLOCK_SIZE as u64, backend),
-                    outer,
-                };
-                $crate::zeroize::zeroize(&mut inner);
-                $crate::zeroize::zeroize(&mut outer);
                 state
             }
 
@@ -227,27 +225,30 @@ macro_rules! streaming_hmac {
                 state.inner.update(data);
             }
 
-            fn hmac_finalize(state: Self::State) -> [u8; $output] {
+            fn hmac_finalize(mut state: Self::State) -> [u8; $output] {
                 let finalize = match state.inner.backend() {
                     $backend::$base => $finalize,
                     $($(#[$attr])* $backend::$variant => $vfinalize,)*
                 };
-                let (mut inner, count) = state.inner.state();
+                // The inner state is finalized in place, and wiped with the
+                // computation.
+                let (inner, count) = state.inner.state_mut();
                 let mut mac = [0; $output];
-                let mut scratch = [0u64; $scratch];
+                let mut scratch = core::mem::MaybeUninit::<[u64; $scratch]>::uninit();
                 // SAFETY: `inner` is valid for reads and writes of a streaming
                 // state, `state.outer` for reads of one, `mac` for writes of
                 // a digest and `scratch` for reads and writes of its size;
-                // they are distinct objects, so they do not overlap each
-                // other or the call's stack frame, nor wrap around the
+                // they are distinct objects or fields, so they do not overlap
+                // each other or the call's stack frame, nor wrap around the
                 // address space. `inner` represents `(K₀ ⊕ ipad) ‖ text`, of
                 // `count` bytes (which the hash's `update` keeps below 2⁶⁴,
                 // so the text is shorter than 2⁶⁴ − B bytes), and
                 // `state.outer` represents `K₀ ⊕ opad`. `finalize` needs no
                 // CPU feature that the hash's implementation was not selected
-                // for (`tests::backend_features`).
-                unsafe { finalize(&mut inner, &state.outer, count, &mut mac, &mut scratch) };
-                $crate::zeroize::zeroize(&mut inner);
+                // for (`tests::backend_features`). `scratch` is
+                // uninitialized: it is only working space, and the contract's
+                // result does not depend on what it holds.
+                unsafe { finalize(inner, &state.outer, count, &mut mac, scratch.as_mut_ptr()) };
                 mac
             }
         }

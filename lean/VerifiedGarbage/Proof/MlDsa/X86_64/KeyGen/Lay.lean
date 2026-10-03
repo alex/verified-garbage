@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ML-DSA key generation on x86-64: its contract, parameters and buffers
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (`kgK p`, which the shared contract implies), the facts about
-the parameter sets it uses (`PFacts`), the layout of its buffers (`seed` in
-`rbp`; `scratch`, `pk` and `sk` in `rbx`, `r12` and `r13`: `kgR`, `kgW p`),
-and the checks of pointers into them, for any parameter set, which `lay`
-proves from the offsets by `omega`.
+The contract the proof is written against (`kgK p`, which the shared contract
+implies), the facts about the parameter sets it uses (`PFacts`), the layout of
+its buffers (`seed` in `rbp`; `scratch`, `pk` and `sk` in `rbx`, `r12` and
+`r13`: `kgR`, `kgW p`), and the checks of pointers into them, for any
+parameter set, which `lay` proves from the offsets by `omega`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen
@@ -42,7 +41,7 @@ abbrev scrLen (p : Params) : Nat := scratchWords p * 8
 /-- `vg_mldsa*_keygen(seed = rdi, pk = rsi, sk = rdx, scratch = rcx) -> eax`, with 32 bytes of stack. -/
 def kgK (p : Params) : Contract isa where
   pre s :=
-    24 ≤ (s.gpr .rsp).toNat ∧
+    32 ≤ (s.gpr .rsp).toNat ∧
     s.rd = [⟨s.gpr .rdi, 32⟩] ∧ s.wr = [⟨s.gpr .rsi, p.pkLen⟩, ⟨s.gpr .rdx, p.skLen⟩, ⟨s.gpr .rcx, scrLen p⟩] ∧
     Region.Disjoint ⟨s.gpr .rdi, 32⟩ ⟨s.gpr .rsi, p.pkLen⟩ ∧ Region.Disjoint ⟨s.gpr .rdi, 32⟩ ⟨s.gpr .rdx, p.skLen⟩ ∧
     Region.Disjoint ⟨s.gpr .rdi, 32⟩ ⟨s.gpr .rcx, scrLen p⟩ ∧
@@ -188,6 +187,7 @@ macro_rules
       set_option linter.unusedSimpArgs false in
       try simp only [VG.Proof.MlDsa.X86_64.KeyGen.scrLen, VG.Spec.MlDsa.scratchWords,
         VG.Impl.MlDsa.X86_64.KeyGen.oP, VG.Impl.MlDsa.X86_64.KeyGen.oSA, VG.Impl.MlDsa.X86_64.KeyGen.oSB,
+        VG.Impl.MlDsa.X86_64.KeyGen.oSA4, VG.Impl.MlDsa.X86_64.KeyGen.oR4,
         VG.Impl.MlDsa.X86_64.KeyGen.oHX, VG.Impl.MlDsa.X86_64.KeyGen.oKL, VG.Impl.MlKem.X86_64.oSS,
         VG.Impl.MlKem.X86_64.oSV, VG.Impl.MlDsa.X86_64.KeyGen.oT0, $ls,*]
       and_intros <;> omega_arith))

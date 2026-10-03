@@ -1,7 +1,8 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.Field
-import VerifiedGarbage.Proof.Ed25519.Arm.Slots
+import VerifiedGarbage.Proof.Ed25519.Arm.Field
+import VerifiedGarbage.Proof.X25519.Arm.Slots
 
-/-! Untrusted: constants and copies in the sixteen-limb field workspace. -/
+/-! Constants and copies in the sixteen-limb field workspace. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

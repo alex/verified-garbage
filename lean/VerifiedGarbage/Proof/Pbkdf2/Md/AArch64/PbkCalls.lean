@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Pbkdf2.AArch64.Iterate
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: `pbkdf2`'s calls
 
-Untrusted: everything here is checked by Lean. The calls of HMAC's `init`
-and `finalize` and of `iterate`, whose contracts (`initG`, `finG`, `iterK`)
-their proofs are given as hypotheses: each is run with `WP.callFV` (the
-callee may use the 16 bytes below the stack pointer, a frame deep), and
-shown constant time in two runs with `RelCT.call`.
+The calls of HMAC's `init` and `finalize` and of `iterate`, whose contracts
+(`initG`, `finG`, `iterK`) their proofs are given as hypotheses: each is run
+with `WP.callFV` (the callee may use the 16 bytes below the stack pointer, a
+frame deep), and shown constant time in two runs with `RelCT.call`.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64.Pbk
@@ -17,7 +16,7 @@ open VG.AArch64
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
 open VG.Proof.Pbkdf2.Md.AArch64 (HashOK)
 open VG.Proof.Pbkdf2.AArch64 (iterK)
-open VG.Proof.Hmac.Generic.AArch64 (initG finG After frame_depth fdepth_lt ce0 ce1 ce2 ce3 ce4)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (initG finG After frame_depth fdepth_lt ce0 ce1 ce2 ce3 ce4)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad blockKey hmacBlockKey)
 

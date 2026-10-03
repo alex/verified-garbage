@@ -90,5 +90,12 @@ def printer : Printer isa where
   jump l := s!"jmp {l}"
   ret := ["ret"]
   call := "call"
+  /- Every function starts on a 64-byte boundary, a cache line: the unit
+  AMD's op cache builds its entries from (Zen 4 Software Optimization Guide,
+  57647, §2.9.1), and one of the 16- and 32-byte windows Intel's decoders and
+  decoded ICache work in. So where a function's code, and its loops, lie
+  relative to them is fixed by the function alone: a change to other code
+  cannot move them, and with them its performance. -/
+  funcAlign := [".p2align 6"]
 
 end VG.X86

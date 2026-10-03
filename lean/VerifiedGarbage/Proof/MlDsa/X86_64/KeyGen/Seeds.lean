@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.KeyGen.Inv
 /-!
 # ML-DSA key generation on x86-64: the prologue and the seeds
 
-Untrusted: everything here is checked by Lean. The prologue saves the
-callee-saved registers and keeps the pointers (`pro_piece`); then
-`(ρ, ρ′, K) = H(ξ ‖ k ‖ ℓ, 128)` to `HX`, `ρ` to the seed of `RejNTTPoly` and
-`ρ′ ‖ 0` to that of `RejBoundedPoly` (`seeds_piece`, `K1`).
+The prologue saves the callee-saved registers and keeps the pointers
+(`pro_piece`); then `(ρ, ρ′, K) = H(ξ ‖ k ‖ ℓ, 128)` to `HX`, `ρ` to the seed
+of `RejNTTPoly` and `ρ′ ‖ 0` to that of `RejBoundedPoly` (`seeds_piece`,
+`K1`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen
@@ -28,8 +28,8 @@ theorem Two.lrel {p : Params} {x y : State} (h : Two p x y) : LRel kgR (kgW p) x
 theorem Two.step {p : Params} {c : Prog isa} (htr : RelCT isa (Two p) c fun _ _ => True)
     (hok : ∀ x, Site p x → WP isa c x fun x' => ∃ W, PostB x x' W) : RelCT isa (Two p) c (Two p) :=
   RelCT.postDep htr (F := fun x x' => ∃ W, PostB x x' W) (fun x y h => ⟨hok x h.sx, hok y h.sy⟩)
-    fun x y x' y' h ⟨_, hx⟩ ⟨_, hy⟩ => ⟨⟨h.sx.lay.post hx (kgB_bases p), by rw [hx.rsp]; exact h.sx.h24⟩,
-      ⟨h.sy.lay.post hy (kgB_bases p), by rw [hy.rsp]; exact h.sy.h24⟩,
+    fun x y x' y' h ⟨_, hx⟩ ⟨_, hy⟩ => ⟨⟨h.sx.lay.post hx (kgB_bases p), by rw [hx.rsp]; exact h.sx.h32⟩,
+      ⟨h.sy.lay.post hy (kgB_bases p), by rw [hy.rsp]; exact h.sy.h32⟩,
       fun r hr => by
         have hb : r ∈ bases := by simp only [kgRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
                                   rcases hr with rfl | rfl | rfl | rfl <;> decide
@@ -137,21 +137,30 @@ theorem pro_piece {p : Params} (hF : PFacts p) :
 /-- `H(ξ ‖ k ‖ ℓ, 128)`. -/
 abbrev hxOf (p : Params) (σ : State) : List Byte := Spec.MlDsa.H (xiOf σ ++ integerToBytes p.k 1 ++ integerToBytes p.ℓ 1) 128
 
-/-- After the seeds. -/
-structure K1 (p : Params) (σ s : State) : Prop where
+/-- After the seeds, with `ρ` copied to the first `j` seeds of `oSA4`. -/
+structure K1R (p : Params) (j : Nat) (σ s : State) : Prop where
   kc : KC p σ s
   hx : bytesAt s.mem (pa s (sc oHX)) 128 = hxOf p σ
   sa : bytesAt s.mem (pa s (sc oSA)) 32 = rhoOf p σ
   sb : bytesAt s.mem (pa s (sc oSB)) 64 = rho'Of p σ
   z : bytesAt s.mem (pa s (sc (oSB + 65))) 1 = [0]
+  sa4 : ∀ k < j, bytesAt s.mem (pa s (sc (oSA4 + 34 * k))) 32 = rhoOf p σ
+
+/-- After the seeds. -/
+abbrev K1 (p : Params) (σ s : State) : Prop := K1R p 4 σ s
 
 theorem K1.step {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ) {s s' : State} (h : K1 p σ s)
     {ws : List (Ptr × Nat)} (hP : PPostB s s' ws) (hx : MX s' = MX s) (hc : k1Chk p ws = true) : K1 p σ s' := by
   simp only [k1Chk, Bool.and_eq_true] at hc
-  obtain ⟨⟨⟨⟨h0, h1⟩, h2⟩, h3⟩, h4⟩ := hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨h0, h1⟩, h2⟩, h3⟩, h4⟩, a0⟩, a1⟩, a2⟩, a3⟩ := hc
   have L := h.kc.lay hF hp
-  exact ⟨h.kc.step hF hp hP hx h0, by rw [L.keepBytes hP h1]; exact h.hx, by rw [L.keepBytes hP h2]; exact h.sa,
-    by rw [L.keepBytes hP h3]; exact h.sb, by rw [L.keepBytes hP h4]; exact h.z⟩
+  refine ⟨h.kc.step hF hp hP hx h0, by rw [L.keepBytes hP h1]; exact h.hx, by rw [L.keepBytes hP h2]; exact h.sa,
+    by rw [L.keepBytes hP h3]; exact h.sb, by rw [L.keepBytes hP h4]; exact h.z, fun k hk => ?_⟩
+  rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3) with rfl | rfl | rfl | rfl
+  · rw [L.keepBytes hP a0]; exact h.sa4 0 hk
+  · rw [L.keepBytes hP a1]; exact h.sa4 1 hk
+  · rw [L.keepBytes hP a2]; exact h.sa4 2 hk
+  · rw [L.keepBytes hP a3]; exact h.sa4 3 hk
 
 theorem shake31' : BitVec.ofNat 8 31 = Spec.Sha3.shakeSuffix := by decide
 
@@ -192,6 +201,20 @@ theorem setKL_ok {p : Params} {s : State} (L : Lay kgR (kgW p) s) {a b : Nat} (h
       bytesAt s'.mem (pa s (sc oKL)) 2 = [BitVec.ofNat 8 a, BitVec.ofNat 8 b] :=
   setTwo_ok L ha hb (by lay) (by lay) (by lay)
 
+/-- `ρ` to seed `j` of `oSA4`. -/
+theorem copyR_ok {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ) {j : Nat} (hj : j < 4) {s : State}
+    (h : K1R p j σ s) :
+    WP isa (copy (sc (oSA4 + 34 * j)) (sc oHX) 32) s fun s' => K1R p (j + 1) σ s' ∧ s'.gpr .r15 = s.gpr .r15 := by
+  have hk := hF.k; have hl := hF.l
+  have L := h.kc.lay hF hp
+  refine WP.mono (copy_okM L (dst := sc (oSA4 + 34 * j)) (src := sc oHX) (n := 32) (by decide) (by layk))
+    fun s' ⟨⟨hP, hb⟩, hx⟩ => ⟨⟨h.kc.step hF hp hP.b hx (by layk), by rw [L.keepBytes hP.b (by layk)]; exact h.hx,
+      by rw [L.keepBytes hP.b (by layk)]; exact h.sa, by rw [L.keepBytes hP.b (by layk)]; exact h.sb,
+      by rw [L.keepBytes hP.b (by layk)]; exact h.z, fun k hk' => ?_⟩, hP.cs .r15 (by decide)⟩
+  rcases (by omega : k < j ∨ k = j) with hk' | rfl
+  · rw [L.keepBytes hP.b (by layk)]; exact h.sa4 k hk'
+  · rw [hP.pa rbx_cs, hb, ← Proof.MlKem.bytesAt_take s.mem (pa s (sc oHX)) (show 32 ≤ 128 by decide), h.hx, ← rho_eq]
+
 theorem seeds_ok {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ) {s : State} (h : KC p σ s)
     (h15 : s.gpr .r15 = 1) : WP isa (seeds p) s fun s' => K1 p σ s' ∧ s'.gpr .r15 = 1 := by
   have hk := hF.k; have hl := hF.l
@@ -224,14 +247,21 @@ theorem seeds_ok {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ)
   have hsb : bytesAt s₃.mem (pa s₃ (sc (oHX + 32))) 64 = rho'Of p σ := by
     rw [rho'_eq, ← hx3, Proof.MlKem.bytesAt_slice _ _ (show 32 + 64 ≤ 128 by decide), pa, pa, off_add]
   rw [hsb, ← e₄] at hb₄
-  refine WP.mono (WP.mx (noLd_spec (by rfl)) (setB_okL L₄ (p := sc (oSB + 65)) (v := 0) (by decide) (by decide)
-    (by lay))) fun s₅ ⟨⟨hP₅, hb₅⟩, hx₅⟩ => ⟨⟨h₄.step hF hp hP₅.b hx₅ (by layk), ?_, ?_, ?_, ?_⟩, ?_⟩
-  · rw [L₄.keepBytes hP₅.b (by layk), L₃.keepBytes hP₄.b (by layk)]; exact hx3
-  · rw [L₄.keepBytes hP₅.b (by layk), L₃.keepBytes hP₄.b (by layk)]; exact hb₃
-  · rw [L₄.keepBytes hP₅.b (by layk)]; exact hb₄
-  · rw [hP₅.pa rbx_cs]; exact hb₅
-  · rw [hP₅.cs .r15 (by decide), hP₄.cs .r15 (by decide), hP₃.cs .r15 (by decide), hP₂.cs .r15 (by decide),
+  refine WP.seq (WP.mono (WP.mx (noLd_spec (by rfl)) (setB_okL L₄ (p := sc (oSB + 65)) (v := 0) (by decide)
+    (by decide) (by lay))) fun s₅ ⟨⟨hP₅, hb₅⟩, hx₅⟩ => ?_)
+  have h₅ : K1R p 0 σ s₅ := ⟨h₄.step hF hp hP₅.b hx₅ (by layk),
+    by rw [L₄.keepBytes hP₅.b (by layk), L₃.keepBytes hP₄.b (by layk)]; exact hx3,
+    by rw [L₄.keepBytes hP₅.b (by layk), L₃.keepBytes hP₄.b (by layk)]; exact hb₃,
+    by rw [L₄.keepBytes hP₅.b (by layk)]; exact hb₄, by rw [hP₅.pa rbx_cs]; exact hb₅,
+    fun _ h => absurd h (Nat.not_lt_zero _)⟩
+  have f₅ : s₅.gpr .r15 = 1 := by
+    rw [hP₅.cs .r15 (by decide), hP₄.cs .r15 (by decide), hP₃.cs .r15 (by decide), hP₂.cs .r15 (by decide),
       hP₁.cs .r15 (by decide), h15]
+  refine WP.seq (WP.mono (copyR_ok hF hp (j := 0) (by decide) h₅) fun s₆ ⟨h₆, f₆⟩ => ?_)
+  refine WP.seq (WP.mono (copyR_ok hF hp (j := 1) (by decide) h₆) fun s₇ ⟨h₇, f₇⟩ => ?_)
+  refine WP.seq (WP.mono (copyR_ok hF hp (j := 2) (by decide) h₇) fun s₈ ⟨h₈, f₈⟩ => ?_)
+  exact WP.mono (copyR_ok hF hp (j := 3) (by decide) h₈) fun s₉ ⟨h₉, f₉⟩ =>
+    ⟨h₉, by rw [f₉, f₈, f₇, f₆, f₅]⟩
 
 theorem setKL_taint : ∀ v < 16, ∀ w < 16, (taint.check (X86_64.Taint.ofRegs [.rbx])
     (.block (setB (sc oKL) v ++ setB (sc (oKL + 1)) w)) (.block [])).isSome = true := by decide +kernel

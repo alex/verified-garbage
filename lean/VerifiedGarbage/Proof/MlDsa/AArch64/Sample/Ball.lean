@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.RejNttCT
 /-!
 # ML-DSA on AArch64: `vg_mldsa_sample_in_ball`
 
-Untrusted: everything here is checked by Lean. Correctness: the prologue,
-the sponge (272 bytes of SHAKE256 of `c̃`), `c` set to zeros, the loop
-(`BallLoop.lean`), which leaves what `bFold` computes, and the end, which
-returns whether `i` reached 256. Constant time up to `c̃`, as for
-`vg_mldsa_rej_ntt_poly` (`RejNttCT.lean`): the loop, whose branches and
+Correctness: the prologue, the sponge (272 bytes of SHAKE256 of `c̃`), `c` set
+to zeros, the loop (`BallLoop.lean`), which leaves what `bFold` computes, and
+the end, which returns whether `i` reached 256. Constant time up to `c̃`, as
+for `vg_mldsa_rej_ntt_poly` (`RejNttCT.lean`): the loop, whose branches and
 addresses depend on the output, by `memTaint`, since both runs have the same
 output and zeros in `c`.
 -/
@@ -287,7 +286,7 @@ theorem sampleInBall_verifiedWith (v : Proof.Sha3.AArch64.Permutation) : Verifie
         sig_pub [Spec.MlDsa.sampleInBallContract, Spec.MlDsa.sampleInBallSig, sbK, AArch64.abi,
           AArch64.argRegs] at h
         obtain ⟨hsp, hb, hx0, hx1, hx2, hx3, hx4⟩ := h
-        exact ⟨hx0, hx1, hx2, hx3, hx4, hsp, Proof.MlKem.AArch64.Sample.map_toNat_inj hb⟩
+        exact ⟨hx0, hx1, hx2, hx3, hx4, hsp, VG.Proof.MlKem.map_toNat_inj hb⟩
       sat := by sig_implies_sat [Spec.MlDsa.sampleInBallContract, Spec.MlDsa.sampleInBallSig, sbK,
         AArch64.abi, AArch64.argRegs] [sbSat] using sbSat }
 

@@ -8,8 +8,6 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on x86 (32-bit): what the proofs of the hint encodings share
 
-Untrusted: everything here is checked by Lean.
-
 * Loops whose number of iterations depends on the leaked data
   (`loopC`, which ends when a condition that correctness determines from
   public data fails, and `loopN`, with a public number of iterations), for
@@ -92,7 +90,7 @@ theorem WP.keep {c : Prog isa} {s : State} {Q : State → Prop} (rs : List Reg) 
   refine ⟨t, s', he, hq, fun r hr => Exec.gpr (fun i hi => ?_) he, (Exec.rdwr he).1, (Exec.rdwr he).2⟩
   unfold writesOnly at hc
   rw [Code.allInstrs_eq, List.all_eq_true] at hc
-  have := List.all_eq_true.mp (hc i (instrs_eq_instrs c ▸ hi)) r (mem_allRegs r)
+  have := List.all_eq_true.mp (hc i hi) r (mem_allRegs r)
   simp only [Bool.or_eq_true, List.contains_iff_mem, hr, false_or, Bool.not_eq_true'] at this
   exact this
 

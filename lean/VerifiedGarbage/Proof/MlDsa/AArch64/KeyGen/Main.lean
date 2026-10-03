@@ -1,15 +1,15 @@
+import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Samp4
 import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.RestRow
 
 /-!
 # ML-DSA key generation on AArch64: `vg_mldsa44_keygen`, `vg_mldsa65_keygen`, `vg_mldsa87_keygen`
 
-Untrusted: everything here is checked by Lean. The function, piece by piece,
-for any parameter set of Table 1 and any verified implementations of the
-primitives (`keyGen_piece`): it returns 1 with `KeyGen_internal(ξ)` in `pk`
-and `sk` if every sampler succeeded (for some bounds), and 0 if key
-generation fails within the least bounds; it leaks only the pointers, `ρ`
-and what `RejBoundedPoly` leaks; so it meets the shared contract
-(`keyGen_verified`).
+The function, piece by piece, for any parameter set of Table 1 and any
+verified implementations of the primitives (`keyGen_piece`): it returns 1 with
+`KeyGen_internal(ξ)` in `pk` and `sk` if every sampler succeeded (for some
+bounds), and 0 if key generation fails within the least bounds; it leaks only
+the pointers, `ρ` and what `RejBoundedPoly` leaks; so it meets the shared
+contract (`keyGen_verified`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
@@ -98,7 +98,7 @@ theorem trHash_piece {p : Params} (hF : PFacts p) {S' : Nat} (h16 : 16 ≤ S') (
   refine WP.mono (shake_ok h16 hSl L (by simp) (trHash_chk hF)) fun s' ⟨hP', x', ho⟩ => ⟨A, S, R, ?_, ?_⟩
   · exact h.keep hF hp hP' x' (by krchk hF)
   · simp only [List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil] at ho
-    rw [hP'.pa (show Reg.x27 ∈ bases by decide), ho]
+    rw [hP'.pa (show Reg.x27 ∈ keptRegs by decide), ho]
     exact congrArg (Spec.MlDsa.H · 64) (pk_bytes hF h)
 
 /-! ## The return -/
@@ -155,7 +155,7 @@ theorem rest_piece {P : Prims} {S' : Nat} (hP : PrimsOk P S') {p : Params} (hF :
 theorem keyGen_piece {P : Prims} {S' : Nat} (hP : PrimsOk P S') {p : Params} (hF : PFacts p) :
     Piece p S' (fun σ s => s = σ)
       (fun σ s => abiPreserved σ s ∧ (Spec.MlDsa.keyGenContract p AArch64.abi S').post σ s) ((keyGenWith keccak.callee) P p) :=
-  (pro_piece hF).seq ((seeds_piece hF hP.s16 hP.s64).seq ((sampA_piece hP hF).seq ((sampS_piece hP hF).seq
+  (pro_piece hF).seq ((seeds_piece hF hP.s16 hP.s64).seq ((sampAll_piece hP hF).seq ((sampS_piece hP hF).seq
     ((rest_piece hP hF).seq (epi_piece hF)))))
 
 /-- `vg_mldsa*_keygen` of the parameter set `p` meets its contract, for any

@@ -8,12 +8,12 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # SHA-256 on AArch64, as a Merkle–Damgård hash function
 
-Untrusted: everything here is checked by Lean. SHA-256 with its compression
-function, as a variant of `MdHash` (`variant`), from which HMAC and PBKDF2
-are emitted (`Generic/MdHash/AArch64/`): its streaming code is the generic
-Merkle–Damgård code (`Stream.params`), its specification `Spec.Hmac.sha256S`.
-The facts about the code HMAC and PBKDF2 add, which do not depend on the
-functions they call, are checked once (`coreOK`).
+SHA-256 with its compression function, as a variant of `MdHash` (`variant`),
+from which HMAC and PBKDF2 are emitted (`Generic/MdHash/AArch64/`): its
+streaming code is the generic Merkle–Damgård code (`Stream.params`), its
+specification `Spec.Hmac.sha256S`. The facts about the code HMAC and PBKDF2
+add, which do not depend on the functions they call, are checked once
+(`coreOK`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64.Sha256
@@ -21,7 +21,6 @@ namespace VG.Proof.Pbkdf2.Md.AArch64.Sha256
 open VG.AArch64
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
 open VG.Proof.Sha256.AArch64 (Compress)
-open VG.Proof.Hmac.Generic.AArch64.Instances (initSat finSat)
 
 /-- SHA-256's functions. -/
 def hash (v : Compress) : Hash where
@@ -52,15 +51,14 @@ theorem coreOK : CoreOK coreH where
   iter := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   hinit := {
-    keys := ⟨_, by taint_decide⟩
+    pro := ⟨_, by taint_decide⟩
     argI := by
       simp only [List.mem_cons, List.not_mem_nil, or_false]
       rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-    argU₁ := ⟨_, by taint_decide⟩
-    argU₂ := ⟨_, by taint_decide⟩
+    keys := ⟨_, by taint_decide⟩
+    mid := ⟨_, by taint_decide⟩
     restore := ⟨_, by taint_decide⟩ }
-  hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
-    ⟨_, by taint_decide⟩⟩
+  hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   fitI := by decide
   fitF := by decide
 
@@ -81,7 +79,7 @@ variable (v : Compress)
 
 /-- The streaming functions, verified against the contracts HMAC's proofs
 call them with. -/
-def streamOK : Hmac.Generic.AArch64.HashOK (hash v).stream where
+def streamOK : Calls.StreamOK (hash v).stream where
   SH := Spec.Hmac.sha256S
   Wb := 160
   hS := rfl
@@ -139,7 +137,8 @@ def ok : HashOK (hash v) where
     show Spec.Sha256.hash m = _
     rw [Proof.Sha256.hash_eq]
     exact (List.take_of_length_le (Nat.le_of_eq (Proof.Sha256.md.digest_length _))).symm
-  sizes := ⟨⟨by simp only [hash] <;> decide, by simp only [hash] <;> decide⟩,
+  sizes := ⟨⟨by simp only [hash] <;> decide, by simp only [hash] <;> decide, by simp only [hash] <;> decide,
+      by simp only [hash] <;> decide⟩,
     by simp only [hash] <;> decide, by simp only [hash] <;> decide,
     by simp only [hash] <;> decide, by simp only [hash] <;> decide,
     by simp only [hash] <;> decide, by simp only [hash] <;> decide,
@@ -184,6 +183,6 @@ def stream : List StreamFn := [
 
 /-- Every construction follows the registered compression backend. -/
 def variant : MdHash :=
-  MdHash.of (ok v) coreOK rfl rfl satI satF satT satP v.suffix v.features (stream v)
+  { MdHash.of (ok v) coreOK rfl rfl satI satF satT satP v.suffix v.features (stream v) with sha256 := some v }
 
 end VG.Proof.Pbkdf2.Md.AArch64.Sha256

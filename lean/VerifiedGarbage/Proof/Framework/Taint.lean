@@ -7,8 +7,6 @@ import VerifiedGarbage.Proof.Framework.Lit
 /-!
 # Constant time by taint tracking
 
-Untrusted: everything here is checked by Lean.
-
 A `Taint M` is a sound, executable information-flow analysis for the ISA `M`:
 an abstract domain `T` of "which parts of the state are public", a relation
 `Agree τ s₁ s₂` ("the two states agree on everything `τ` says is public"),

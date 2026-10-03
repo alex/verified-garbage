@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 /-!
 # Poly1305 on x86-64 with AVX2: the integer instructions
 
-Untrusted: everything here is checked by Lean. The short blocks of integer
-instructions between the vector ones: constants, the MXCSR prologue and
-epilogue, loading `r` and the accumulator's words, and the counters.
+The short blocks of integer instructions between the vector ones: constants,
+the MXCSR prologue and epilogue, loading `r` and the accumulator's words, and
+the counters.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx2

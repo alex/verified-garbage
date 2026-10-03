@@ -21,11 +21,14 @@ The layout of `scratch` (in bytes): the Keccak state at 0 (200 bytes) and
 the sponge functions' working space at 200 (640 bytes); the caller's
 callee-saved registers at 840 (48 bytes); the seed of `RejNTTPoly` (`SB`,
 34 bytes) at 896; `w1Encode(w′₁)` at 1024 (at most 1024 bytes); the
-recomputed commitment hash `c̃′` at 2048 (at most 64 bytes); the working
+recomputed commitment hash `c̃′` at 2048 (at most 64 bytes); the four seeds
+of `vg_mldsa_rej_ntt_poly4` (`SB4`, 136 bytes) at 2560; the working
 space of the primitives at 4096 (2048 bytes); and polynomials of 1024 bytes
 from 8192 (`P j`): the hint `h` (polynomials 0 to 7, of which the first
 `k`), `z` (8 to 14), `c` (15), two temporaries (16, 17), `w′` (18), `w′₁`
-(19), and `Â[r, s]` (`20 + 8r + s`).
+(19), and `Â[r, s]` (`20 + ℓr + s`, entry `ℓr + s` of `Â` in order), then the
+working space of `vg_mldsa_rej_ntt_poly4` (8 KiB, from polynomial `20 + 8k`, after
+`Â` for every `ℓ` ≤ 8).
 -/
 
 namespace VG.Impl.MlDsa.X86_64.Verify
@@ -42,6 +45,7 @@ def oSV : Nat := 840
 def oSB : Nat := 896
 def oB : Nat := 1024
 def oCT : Nat := 2048
+def oSB4 : Nat := 2560
 def oSS : Nat := 4096
 /-- Polynomial `j`. -/
 def oP (j : Nat) : Nat := 8192 + 1024 * j
@@ -59,7 +63,8 @@ abbrev pT : Ptr := pS 16
 abbrev pT2 : Ptr := pS 17
 abbrev pW : Ptr := pS 18
 abbrev pW1 : Ptr := pS 19
-abbrev pA (r s : Nat) : Ptr := pS (20 + 8 * r + s)
+/-- `Â[r, s]`, for rows of `l` entries. -/
+abbrev pA (l r s : Nat) : Ptr := pS (20 + l * r + s)
 
 /-! ## Moves -/
 
@@ -137,6 +142,7 @@ structure Prims where
   unpackT1 : Prog isa
   hintUnpack : Prog isa
   normLt : Prog isa
+  rej4 : Prog isa
   /-- What the names of the polynomial arithmetic's functions end with (`Arith.Backend`). -/
   sfx : String := ""
 
@@ -159,12 +165,15 @@ def subAt (f g : Ptr) : Prog isa := callAt ("vg_mldsa_sub" ++ P.sfx) P.sub [(.rd
 def rejNttAt (a : Ptr) : Prog isa :=
   callAt "vg_mldsa_rej_ntt_poly" P.rejNtt [(.rdi, .ptr (sc oSB)), (.rsi, .ptr a), (.rdx, .ptr (sc oSS))]
 
+def rej4At (a w : Ptr) : Prog isa :=
+  callAt ("vg_mldsa_rej_ntt_poly4" ++ P.sfx) P.rej4 [(.rdi, .ptr (sc oSB4)), (.rsi, .ptr a), (.rdx, .ptr w)]
+
 def ballAt (ct : Ptr) (len tau : Nat) (c : Ptr) : Prog isa :=
   callAt "vg_mldsa_sample_in_ball" P.ball
     [(.rdi, .ptr ct), (.rsi, .imm len), (.rdx, .imm tau), (.rcx, .ptr c), (.r8, .ptr (sc oSS))]
 
 def useHintAt (h r : Ptr) (g2 : Nat) (out : Ptr) : Prog isa :=
-  callAt "vg_mldsa_use_hint" P.useHint [(.rdi, .ptr h), (.rsi, .ptr r), (.rdx, .imm g2), (.rcx, .ptr out)]
+  callAt ("vg_mldsa_use_hint" ++ P.sfx) P.useHint [(.rdi, .ptr h), (.rsi, .ptr r), (.rdx, .imm g2), (.rcx, .ptr out)]
 
 def sbpAt (f : Ptr) (b : Nat) (out : Ptr) (len : Nat) : Prog isa :=
   callAt "vg_mldsa_simple_bit_pack" P.simpleBitPack
@@ -182,7 +191,7 @@ def hintUnpackAt (y : Ptr) (len omega : Nat) (h : Ptr) (hlen : Nat) : Prog isa :
     [(.rdi, .ptr y), (.rsi, .imm len), (.rdx, .imm omega), (.rcx, .ptr h), (.r8, .imm hlen)]
 
 def normLtAt (f : Ptr) (bound : Nat) : Prog isa :=
-  callAt "vg_mldsa_norm_lt" P.normLt [(.rdi, .ptr f), (.rsi, .imm bound)]
+  callAt ("vg_mldsa_norm_lt" ++ P.sfx) P.normLt [(.rdi, .ptr f), (.rsi, .imm bound)]
 
 end
 
@@ -191,18 +200,23 @@ end
 /-- `r15 ← r15 ∧ eax`. -/
 def and15 : List Instr := [.alu32 .and .r15 (.reg .rax)]
 
-/-- The polynomial at `a` masked by the result `eax` (0 or 1) of the
-sampler that wrote it: unchanged if 1, and zero if 0, so that it is reduced
-either way, without a branch. `edx ← -eax`, then each coefficient `∧ edx`. -/
-def mask (a : Ptr) : Prog isa :=
+/-- The polynomial at `a` (or the `N` coefficients from `a`) masked by the
+result `eax` (0 or 1) of the sampler that wrote it: unchanged if 1, and zero
+if 0, so that it is reduced either way, without a branch. `edx ← -eax`, then
+each coefficient `∧ edx`. -/
+def mask (a : Ptr) (N : Nat := 256) : Prog isa :=
   .seq (.block ([.mov32 .rdx (.imm 0), .alu32 .sub .rdx (.reg .rax)] ++
-      glue [(.rdi, .ptr a), (.rcx, .imm 256)]))
+      glue [(.rdi, .ptr a), (.rcx, .imm N)]))
     (.loop (.block [.mov32 .rax (.mem (at_ .rdi 0)), .alu32 .and .rax (.reg .rdx), .store32 (at_ .rdi 0) .rax,
       .alu .add .rdi (.imm 4), .alu .sub .rcx (.imm 1)]) .ne)
 
 /-- A sampler's call, its result ANDed into `r15`, and its output masked. -/
 def sampled (call : Prog isa) (a : Ptr) : Prog isa :=
   .seq call (.seq (.block and15) (mask a))
+
+/-- The same for a call that samples the four polynomials from `a`. -/
+def sampled4 (call : Prog isa) (a : Ptr) : Prog isa :=
+  .seq call (.seq (.block and15) (mask a 1024))
 
 /-- `c` if `r15 ≠ 0`. -/
 def ifOk (c : Prog isa) : Prog isa :=

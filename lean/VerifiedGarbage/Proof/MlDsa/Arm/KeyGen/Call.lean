@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.Verify.Mem
 /-!
 # ML-DSA on 32-bit ARM: calling the primitives on the buffers of a `Site`
 
-Untrusted: everything here is checked by Lean. A call of each primitive, with
-its arguments pointers into the buffers of a `Site` (`PtrIn`): the callee's
-precondition from the layout (`ip_preS`, …), what the call changes and what
-its postcondition says (`ip_ok`, …), and that two runs of it with the same
-pointers leak the same (`ip_tr`, …).
+A call of each primitive, with its arguments pointers into the buffers of a
+`Site` (`PtrIn`): the callee's precondition from the layout (`ip_preS`, …),
+what the call changes and what its postcondition says (`ip_ok`, …), and that
+two runs of it with the same pointers leak the same (`ip_tr`, …).
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen
@@ -234,7 +233,7 @@ theorem ip_ok {c : Prog isa} (hc : Callee c (fun stk => inPlaceContract Arm.abi 
   have hg : glueOk (ipArgs f w) = true := by simp [glueOk, pf.1, pw.1]
   have hn : ((ipArgs f w).map Prod.fst).Nodup := by simp only [List.map_cons, List.map_nil]; decide
   have cw : Covers (ipWr L f w) s.wr := covers_cons' (hs.cwE pf wf) (covers_cons' (hs.cwE pw ww) covers_nil')
-  refine callV hver.1 hg (ip_preS hs (Nat.le_trans hstk hS) pf pw wf hd hr) (covers_wr cw) cw
+  refine callV hver.1 hg (ip_preS hs (Nat.le_trans hstk hS) pf pw wf hd hr) (Covers.right cw) cw
     (by have := hs.spk; have := hc.stack; omega) fun s' hk hp =>
       hQ s' (hs.kept_stk (W := [tri f 1024, tri w 1024]) (fun r hr => ?_) (Nat.le_trans hc.stack hS) hk) ?_
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -258,7 +257,7 @@ theorem ip_tr {c : Prog isa} (hc : Callee c (fun stk => inPlaceContract Arm.abi 
   have cx : Covers (ipWr L f w) x.wr := covers_cons' (hx.cwE pf wf) (covers_cons' (hx.cwE pw ww) covers_nil')
   have cy : Covers (ipWr L f w) y.wr := covers_cons' (hy.cwE pf wf) (covers_cons' (hy.cwE pw ww) covers_nil')
   refine ⟨[], ipWr L f w, ip_preS hx (Nat.le_trans hstk hS) pf pw wf hd rx,
-    ip_preS hy (Nat.le_trans hstk hS) pf pw wf hd ry, ip_pub ?_ ?_ ?_, covers_wr cx, cx, covers_wr cy, cy⟩
+    ip_preS hy (Nat.le_trans hstk hS) pf pw wf hd ry, ip_pub ?_ ?_ ?_, Covers.right cx, cx, Covers.right cy, cy⟩
   · rw [view_glue_sp, view_glue_sp, hsp]
   · rw [view_r0, view_r0, hx.gE hg hn (by simp) pf.1, hy.gE hg hn (by simp) pf.1]
   · rw [view_r1, view_r1, hx.gE hg hn (by simp) pw.1, hy.gE hg hn (by simp) pw.1]

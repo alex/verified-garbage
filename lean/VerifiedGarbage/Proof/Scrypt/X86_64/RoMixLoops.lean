@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Scrypt.X86_64.Lit
 /-!
 # scryptROMix on x86-64: the small loops
 
-Untrusted: everything here is checked by Lean. The word copy (`copyLoop`),
-the word exclusive-or (`xorLoop`), the multiplication by shifts and adds
-(`mulLoop`) and the computation of `2 N` by doubling (`nLoop`).
+The word copy (`copyLoop`), the word exclusive-or (`xorLoop`), the
+multiplication by shifts and adds (`mulLoop`) and the computation of `2 N` by
+doubling (`nLoop`).
 -/
 
 namespace VG.Proof.Scrypt.X86_64.RoMix

@@ -1,8 +1,8 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.BitRead
 import VerifiedGarbage.Proof.Ed25519.Bytes
-import VerifiedGarbage.Proof.Ed25519.AArch64.PointPowersLoop
+import VerifiedGarbage.Proof.Ed25519.AArch64.PointPowers
 
-/-! Untrusted: expand all scalar bits, without X25519's clamping. -/
+/-! Expand all scalar bits, without X25519's clamping. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

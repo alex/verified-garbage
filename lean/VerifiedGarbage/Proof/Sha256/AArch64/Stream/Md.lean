@@ -11,12 +11,12 @@ import VerifiedGarbage.Proof.Sha256.AArch64.Lit
 /-!
 # Streaming SHA-256 on AArch64: `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/AArch64.lean`), so they are
-verified by the generic proofs (`Proof/MdStream/AArch64/`) for SHA-256's
-instance (`Proof/Sha256/Md.lean`), given what SHA-256's own pieces do: its length
-field and digest (`shape`), that its compression function is verified
-(`callee`), and that the taint analysis accepts its code.
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/AArch64.lean`), so they are verified by the generic proofs
+(`Proof/MdStream/AArch64/`) for SHA-256's instance (`Proof/Sha256/Md.lean`),
+given what SHA-256's own pieces do: its length field and digest (`shape`), that
+its compression function is verified (`callee`), and that the taint analysis
+accepts its code.
 -/
 
 namespace VG.Proof.Sha256.AArch64.Stream
@@ -25,12 +25,12 @@ open VG VG.AArch64 VG.Proof.MdStream VG.Proof.MdStream.AArch64
 
 abbrev params := Impl.Sha256.AArch64.Stream.params
 
-theorem dims : Dims params := ⟨by decide, by decide⟩
+theorem dims : Dims params := ⟨by decide, by decide, by decide, by decide⟩
 
 theorem shape : Shape (P := params) md where
   lenKeepsV := by decide +kernel
   outKeepsV := by decide +kernel
-  len _ hout := len64_ok (d := params.N + 56) (be := true) (by decide) hout
+  len _ hout := len64_ok (d := params.N + params.B - params.L) (be := true) (by decide) hout
   out _ hin hout hd := by
     refine (out32_ok (n := 8) true (by decide) hin hout hd).mono fun s' ⟨g, rd, wr, sp, m⟩ =>
       ⟨g, rd, wr, sp, ?_⟩

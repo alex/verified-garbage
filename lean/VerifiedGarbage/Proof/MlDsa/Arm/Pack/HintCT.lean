@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.Framework.RelCT
 /-!
 # Constant time of code that leaks memory both runs agree on (ARMv7)
 
-Untrusted: everything here is checked by Lean. The ARMv7 counterpart of the
-x86-64 `memTaint` of ML-DSA (`Proof/MlDsa/X86_64/Pack/MemTaint.lean`), for
-`vg_mldsa_hint_bit_pack` and `vg_mldsa_hint_bit_unpack`, which branch and
-index memory on their input, which they load from memory.
+The ARMv7 counterpart of the x86-64 `memTaint` of ML-DSA
+(`Proof/MlDsa/X86_64/Pack/MemTaint.lean`), for `vg_mldsa_hint_bit_pack` and
+`vg_mldsa_hint_bit_unpack`, which branch and index memory on their input,
+which they load from memory.
 
 The taint analysis (`Proof/Framework/Arm/Taint.lean`) treats loaded memory as
 secret. `memTaint` is one for code that runs from states whose permitted
@@ -271,8 +271,5 @@ theorem relct_wp {c : Prog isa} {P : State → State → Prop} {F₁ F₂ : Stat
     (hct : RelCT isa P c fun _ _ => True) (hw : ∀ a b, P a b → WP isa c a F₁ ∧ WP isa c b F₂) :
     RelCT isa P c fun a b => F₁ a ∧ F₂ b :=
   (hct.wp hw).mono (fun _ _ h => h) fun _ _ h => ⟨h.2.1, h.2.2⟩
-
-theorem covers_of_mem {rs rs' : List Region} (h : ∀ r ∈ rs, r ∈ rs') : Covers rs rs' :=
-  fun _ _ ⟨r, hr, hc⟩ => ⟨r, h r hr, hc⟩
 
 end VG.Proof.MlDsa.Arm.Pack.Hint

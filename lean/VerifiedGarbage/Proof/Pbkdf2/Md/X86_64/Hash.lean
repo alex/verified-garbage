@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Pbkdf2.Md.X86_64
 import VerifiedGarbage.Proof.MdStream.X86_64.UpdateCT
 import VerifiedGarbage.Proof.MdStream.X86_64.FinalizeCT
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Hash
+import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Calls
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
@@ -9,24 +9,23 @@ import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: the hash function
 
-Untrusted: everything here is checked by Lean. `HashOK H` is what the proofs
-know of the hash function whose code `H` describes: its streaming code is
-the generic Merkle–Damgård code (`Proof/MdStream/X86_64/`) for a hash
-function `md` (`Md`) whose pieces do what they should (`Shape`, `Taints`),
-calling a verified compression function (`CalleeOk`); its specification
-`SH` is `md` from the initial hash value `iv`, with the digest the first `D`
-bytes of `md`'s; its streaming `init` is verified; and its sizes fit.
+`HashOK H` is what the proofs know of the hash function whose code `H`
+describes: its streaming code is the generic Merkle–Damgård code
+(`Proof/MdStream/X86_64/`) for a hash function `md` (`Md`) whose pieces do
+what they should (`Shape`, `Taints`), calling a verified compression function
+(`CalleeOk`); its specification `SH` is `md` from the initial hash value `iv`,
+with the digest the first `D` bytes of `md`'s; its streaming `init` is
+verified; and its sizes fit.
 
 From it, the streaming functions are verified against the contracts HMAC's
-generic proofs call them with (`HashOK.stream`), so those proofs hold for
-it.
+and PBKDF2's proofs call them with (`HashOK.stream`, `Calls.lean`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64
 
 open VG.X86_64 VG.Proof.MdStream VG.Proof.MdStream.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
-open VG.Proof.Hmac.Generic.X86_64 (initK)
+open VG.Proof.Pbkdf2.Md.X86_64.Calls (initK)
 open VG.Proof.Hmac.Generic.Common (bytesAt_reloc)
 open Spec.Hmac (StreamingHash)
 open Spec.Sha256 (bytesAt)
@@ -111,7 +110,7 @@ theorem sh_reloc (m m' : Mem) (p q : Addr) (msg : List Byte)
 
 /-- `update` is verified against the contract HMAC's proofs call it with. -/
 theorem upd : Verified X86_64.target H.updC
-    (Proof.Hmac.Generic.X86_64.updK (H.P.N + H.P.B) (H.P.so + 48) hH.SH.Repr) :=
+    (Calls.updK (H.P.N + H.P.B) (H.P.so + 48) hH.SH.Repr) :=
   Verified.of_implies (MdStream.X86_64.Update.verified hH.dims hH.taints hH.comp hH.updMx)
     { pre := fun _ h => h
       post := fun _ _ _ h m hr hc => (hH.repr _ _ _).2 (h hH.iv m ((hH.repr _ _ _).1 hr) hc)
@@ -121,7 +120,7 @@ theorem upd : Verified X86_64.target H.updC
 /-- `finalize` is verified against the contract HMAC's proofs call it with:
 its first `D` bytes are the digest. -/
 theorem fin : Verified X86_64.target H.finC
-    (Proof.Hmac.Generic.X86_64.finK (H.P.N + H.P.B) (H.P.so + 48) H.P.N H.D hH.SH.Repr hH.SH.H.hash) :=
+    (Calls.finK (H.P.N + H.P.B) (H.P.so + 48) H.P.N H.D hH.SH.Repr hH.SH.H.hash) :=
   Verified.of_implies (MdStream.X86_64.Finalize.verified hH.dims hH.shape hH.taints hH.comp hH.finMx)
     { pre := fun _ h => h
       post := fun _ _ _ h m hr hl hc => by
@@ -129,8 +128,8 @@ theorem fin : Verified X86_64.target H.finC
       pub := fun _ _ _ _ h => h
       sat := (MdStream.X86_64.Finalize.verified hH.dims hH.shape hH.taints hH.comp hH.finMx).2.2 }
 
-/-- The streaming functions, as HMAC's generic proofs need them. -/
-def stream : Proof.Hmac.Generic.X86_64.HashOK H.stream where
+/-- The streaming functions, as HMAC's and PBKDF2's proofs call them. -/
+def stream : Calls.StreamOK H.stream where
   SH := hH.SH
   Wb := H.P.so + 48
   hS := hH.hS

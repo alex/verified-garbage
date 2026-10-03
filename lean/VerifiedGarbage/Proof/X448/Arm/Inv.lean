@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.X448.Arm.Square
 /-!
 # X448 on ARMv7: inversion
 
-Untrusted: everything here is checked by Lean. The addition chain updates
-slots 14–21 and leaves the ladder's coordinates available for the final
-multiplication and encoding.
+The addition chain updates slots 14–21 and leaves the ladder's coordinates
+available for the final multiplication and encoding.
 -/
 
 namespace VG.Proof.X448.Arm

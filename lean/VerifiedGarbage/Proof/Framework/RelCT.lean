@@ -1,9 +1,8 @@
 import VerifiedGarbage.Proof.Framework.Taint
+import VerifiedGarbage.Proof.Framework.Inline
 
 /-!
 # Constant time by relating two runs
-
-Untrusted: everything here is checked by Lean.
 
 The taint analysis (`Taint.lean`) proves constant time from the code alone,
 so it forgets any public value that makes a round trip through memory it
@@ -16,7 +15,9 @@ proof knows about each run (`RelCT.wp`, by determinism), such as the values
 of registers, so a public value is public again as soon as correctness
 determines it. Pieces of code whose timing the taint analysis can establish
 are proved with `RelCT.taint`, and the pieces are put together with `seq`
-and `loop`.
+and `loop`. A call of verified code is related by `RegionModel.relCT_call`:
+the callee's run from its contract's narrower permissions is the actual run
+(`Inline.lean`), and the callee is constant time.
 -/
 
 namespace VG
@@ -151,5 +152,40 @@ theorem taint {A : Taint M} {P : M.State → M.State → Prop} {c : Prog M} (τ 
   exact ⟨(Taint.check_sound hc' (hp _ _ hP) e₁ e₂).1, trivial⟩
 
 end RelCT
+
+namespace RegionModel
+
+variable (R : RegionModel M)
+
+/-- Two runs of a call of verified code leak the same trace when, from the
+states the call instructions leave, the callee's contract holds in both
+(narrowed to regions that those states' regions cover), its public data
+agrees, and so do the addresses the call and return instructions access. -/
+theorem relCT_call {n : String} {c : Prog M} {Pre : M.State → Prop}
+    {Post : M.State → M.State → Prop} {Pub : M.State → M.State → Prop}
+    (hv : ∀ s, Pre s → ∃ t s', Exec M c s t s' ∧ Post s s')
+    (hct : ConstantTime M Pre Pub c) {P : M.State → M.State → Prop}
+    (hP : ∀ s₁ s₂ e₁ e₂, P s₁ s₂ → M.call s₁ = some e₁ → M.call s₂ = some e₂ →
+      ∃ r₁ w₁ r₂ w₂ : List Region,
+        Pre (R.withRegions e₁ r₁ w₁) ∧ Pre (R.withRegions e₂ r₂ w₂) ∧
+        Pub (R.withRegions e₁ r₁ w₁) (R.withRegions e₂ r₂ w₂) ∧
+        Covers (r₁ ++ w₁) (R.rd e₁ ++ R.wr e₁) ∧ Covers w₁ (R.wr e₁) ∧
+        Covers (r₂ ++ w₂) (R.rd e₂ ++ R.wr e₂) ∧ Covers w₂ (R.wr e₂) ∧
+        M.callAddrs s₁ = M.callAddrs s₂ ∧
+        ∀ x₁ x₂ y₁ y₂, M.ret e₁ x₁ = some y₁ → M.ret e₂ x₂ = some y₂ →
+          M.retAddrs x₁ = M.retAddrs x₂) :
+    RelCT M P (.call n c) fun _ _ => True := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  cases e₁ with
+  | call h₁ b₁ r₁ =>
+    cases e₂ with
+    | call h₂ b₂ r₂ =>
+      obtain ⟨_, _, _, _, p₁, p₂, hpub, c₁, w₁, c₂, w₂, ha, hr⟩ := hP _ _ _ _ hp h₁ h₂
+      obtain ⟨_, n₁⟩ := R.trace_narrow hv p₁ c₁ w₁ b₁
+      obtain ⟨_, n₂⟩ := R.trace_narrow hv p₂ c₂ w₂ b₂
+      rw [ha, hct _ _ _ _ _ _ p₁ p₂ hpub n₁ n₂, hr _ _ _ _ r₁ r₂]
+      exact ⟨rfl, trivial⟩
+
+end RegionModel
 
 end VG

@@ -6,11 +6,11 @@ import Mathlib.Algebra.Group.Basic
 /-!
 # The comb's tables represent `[k 256^j]B`, and `combG` represents `[G]B`
 
-Untrusted. Each entry is turned back into affine `(x, y)` (`uncache`, which
-the kernel checks inverts the caching) and `checkTables` walks the tables
-once: within table `j`, each entry is the previous one plus the first, with
-the specification's addition, compared projectively; the first entry of
-table `j + 1` is `[256]` of table `j`'s, with the specification's `pointMul`.
+Each entry is turned back into affine `(x, y)` (`uncache`, which the kernel
+checks inverts the caching) and `checkTables` walks the tables once: within
+table `j`, each entry is the previous one plus the first, with the
+specification's addition, compared projectively; the first entry of table `j +
+1` is `[256]` of table `j`'s, with the specification's `pointMul`.
 -/
 
 namespace VG.Proof.Ed25519
@@ -155,7 +155,5 @@ theorem combG_ok : Rep combG (combGVal • baseAff) := by
   simp only [combGCheck, Bool.and_eq_true, beq_iff_eq, bne_iff_ne, ne_eq] at hc
   obtain ⟨⟨hx, hy⟩, _⟩ := hc
   exact combPt_rep (q := combGAff) hp hx hy
-
-theorem combGCached_eq : combGCached = cache combG := by decide +kernel
 
 end VG.Proof.Ed25519

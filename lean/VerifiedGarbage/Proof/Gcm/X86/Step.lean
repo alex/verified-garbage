@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # GHASH on x86 (32-bit): one step of Algorithm 1
 
-Untrusted: everything here is checked by Lean. What the instructions of a
-step (`Impl.Gcm.X86.step`) compute on the four words of `V` (in registers)
-and of `Z` (in the scratch buffer), stated on the whole 128-bit values, and
-the 128 steps of a multiplication.
+What the instructions of a step (`Impl.Gcm.X86.step`) compute on the four
+words of `V` (in registers) and of `Z` (in the scratch buffer), stated on the
+whole 128-bit values, and the 128 steps of a multiplication.
 -/
 
 namespace VG.Proof.Gcm.X86

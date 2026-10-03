@@ -17,8 +17,8 @@
     target_arch = "arm"
 ))]
 
-/// Defines a BLAKE2 hash function with `$words` words of `$block / 16`
-/// bytes over verified streaming primitives:
+/// Defines a BLAKE2 hash function with blocks of `$block` bytes (sixteen
+/// words of `$block / 16` bytes) over verified streaming primitives:
 ///
 /// * `init(state: *mut [u8; STATE], outlen: usize, key: *const u8, keylen: usize)`
 ///   makes `state` represent the key block (none for an empty key), hashed
@@ -28,10 +28,11 @@
 /// * `finalize(state, count: u64, out: *mut [u8; MAX], scratch)` writes the
 ///   final hash value, whose first `outlen` bytes are the digest.
 ///
-/// Every region is a distinct Rust object, so none overlaps another or the
-/// return address, and none wraps around the end of the address space; the
-/// length is kept exactly (`update` panics rather than let it reach 2⁶⁴
-/// bytes).
+/// Every region is a distinct Rust object, so none overlaps another, the
+/// return address (on x86-64 and x86), the arguments on the stack (on 32-bit
+/// ARM and x86) or the stack below them that the call uses, and none wraps
+/// around the end of the address space; the length is kept exactly
+/// (`update` panics rather than let it reach 2⁶⁴ bytes).
 macro_rules! blake2 {
     (
         $(#[$doc:meta])*
@@ -175,8 +176,9 @@ macro_rules! blake2 {
                 // SAFETY: `1 ≤ N ≤ MAX` and `key.len() ≤ MAX`. `state` is
                 // valid for writes of its size and `key` for reads of
                 // `key.len()` bytes; they are distinct objects, so they do
-                // not overlap each other or the return address (on x86-64),
-                // and do not wrap around the end of the address space.
+                // not overlap each other, the return address (on x86-64 and
+                // x86) or the arguments on the stack (on x86), and do not
+                // wrap around the end of the address space.
                 unsafe { $init(&mut state, N, key.as_ptr(), key.len()) };
                 // The key block is the first block of the data.
                 let length = if key.is_empty() { 0 } else { $block };
@@ -198,9 +200,11 @@ macro_rules! blake2 {
                 // SAFETY: `self.state` is valid for reads and writes of its
                 // size, `data` for reads of `data.len()` bytes and `scratch`
                 // for reads and writes of its size; they are distinct
-                // objects, so they do not overlap each other or the return
-                // address (on x86-64), and do not wrap around the end of the
-                // address space. `self.length` is the length of the data
+                // objects, so they do not overlap each other, the return
+                // address (on x86-64 and x86), the arguments on the stack
+                // (on 32-bit ARM and x86) or the stack below them that the
+                // call uses, and do not wrap around the end of the address
+                // space. `self.length` is the length of the data
                 // `self.state` represents, and adding `data.len()` to it
                 // does not reach 2⁶⁴.
                 unsafe {
@@ -222,14 +226,29 @@ macro_rules! blake2 {
                 // SAFETY: `self.state` is valid for reads and writes of its
                 // size, `out` for writes of its size and `scratch` for reads
                 // and writes of its size; they are distinct objects, so they
-                // do not overlap each other or the return address (on
-                // x86-64), and do not wrap around the end of the address
-                // space. `self.length` is the exact length, less than 2⁶⁴, of
-                // the data `self.state` represents.
+                // do not overlap each other, the return address (on x86-64
+                // and x86), the arguments on the stack (on 32-bit ARM and
+                // x86) or the stack below them that the call uses, and do not
+                // wrap around the end of the address space. `self.length` is
+                // the exact length, less than 2⁶⁴, of the data `self.state`
+                // represents.
                 unsafe { self.backend.finalize(&mut self.state, self.length, &mut out, &mut scratch) };
                 let mut digest = [0; N];
                 digest.copy_from_slice(&out[..N]);
                 digest
+            }
+
+            /// Checks that `mac` is the digest of the data (its MAC, if the
+            /// computation is keyed), in constant time: the time taken does
+            /// not depend on where, or whether, `mac` differs from it (its
+            /// length is public). `mac` must be the whole digest, of `N`
+            /// bytes; a truncated one is rejected.
+            pub fn verify(self, mac: &[u8]) -> Result<(), $crate::hmac::InvalidMac> {
+                if $crate::ct::eq(&self.finalize(), mac) {
+                    Ok(())
+                } else {
+                    Err($crate::hmac::InvalidMac)
+                }
             }
 
             /// The (unkeyed) digest of `data`.
@@ -272,3 +291,49 @@ macro_rules! blake2 {
 }
 
 pub(super) use blake2;
+
+#[cfg(test)]
+mod tests {
+    use super::super::blake2b::Blake2b;
+    use super::super::blake2s::Blake2s;
+    use crate::hmac::InvalidMac;
+
+    /// `verify`, run by a computation of `mac`, accepts `mac` and rejects
+    /// any other: one with a bit flipped in its first, a middle or its last
+    /// byte, a truncated MAC, an empty one and a longer one.
+    fn check<const N: usize>(mac: [u8; N], verify: impl Fn(&[u8]) -> Result<(), InvalidMac>) {
+        assert_eq!(verify(&mac), Ok(()));
+        for i in [0, N / 2, N - 1] {
+            let mut bad = mac;
+            bad[i] ^= 1;
+            assert_eq!(verify(&bad), Err(InvalidMac));
+        }
+        assert_eq!(verify(&mac[..N - 1]), Err(InvalidMac));
+        assert_eq!(verify(&[]), Err(InvalidMac));
+        let mut longer = [0u8; 65];
+        longer[..N].copy_from_slice(&mac);
+        assert_eq!(verify(&longer[..N + 1]), Err(InvalidMac));
+    }
+
+    /// `verify`, keyed and unkeyed, for the largest digest and a smaller
+    /// one.
+    #[test]
+    fn verify() {
+        let (key, data) = (b"key", b"data");
+        macro_rules! sizes {
+            ($($hash:ident<$n:literal>),*) => {$(
+                check($hash::<$n>::digest_keyed(key, data), |m| {
+                    let mut h = $hash::<$n>::new_keyed(key);
+                    h.update(data);
+                    h.verify(m)
+                });
+                check($hash::<$n>::digest(data), |m| {
+                    let mut h = $hash::<$n>::new();
+                    h.update(data);
+                    h.verify(m)
+                });
+            )*};
+        }
+        sizes!(Blake2b<64>, Blake2b<20>, Blake2s<32>, Blake2s<16>);
+    }
+}

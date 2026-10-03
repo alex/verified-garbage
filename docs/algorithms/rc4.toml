@@ -1,0 +1,5 @@
+name = "RC4"
+family = "Ciphers"
+specs = ["Rc4"]
+modules = ["src/rc4.rs"]
+asm = ["rc4"]

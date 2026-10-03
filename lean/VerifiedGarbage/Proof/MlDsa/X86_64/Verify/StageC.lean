@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlDsa.Verify.Final
 /-!
 # ML-DSA verification on x86-64: `w′₁`, row by row
 
-Untrusted: everything here is checked by Lean. With the entries `A'` of
-`Â` and `ĉ = cH` as the samplers left them: `ẑ[i] = NTT(z[i])`
-(`nttZ_ok`), `ĉ` (`nttC_ok`), and each row `r` of `w′₁`, packed to
+With the entries `A'` of `Â` and `ĉ = cH` as the samplers left them: `ẑ[i] =
+NTT(z[i])` (`nttZ_ok`), `ĉ` (`nttC_ok`), and each row `r` of `w′₁`, packed to
 `B + r · 32 bitlen b` (`row_ok`).
 -/
 
@@ -25,7 +24,7 @@ structure SC (p : Params) (h : List (Vector Bool n)) (A' : Nat → Nat → Poly)
     (j : Nat) (cH : Poly) (r : Nat) (σ st : State) : Prop where
   t : T p σ st
   hint : HintIs st.mem (pa st (pH 0)) p.k h
-  a : ∀ r' < p.k, ∀ c < p.ℓ, PolyIs st.mem (pa st (pA r' c)) (A' r' c)
+  a : ∀ r' < p.k, ∀ c < p.ℓ, PolyIs st.mem (pa st (pA p.ℓ r' c)) (A' r' c)
   z : ∀ i < p.ℓ, PolyIs st.mem (pa st (pZ i)) (if i < j then zHat p (vSig p σ) i else toRq (vZ p (vSig p σ) i))
   c : PolyIs st.mem (pa st pC) cH
   rows : ∀ r' < r, bytesAt st.mem (pa st (sc (oB + w1Len p * r'))) (w1Len p) =
@@ -37,12 +36,12 @@ but `z[ex]`, but for `C` and the rows. -/
 def keepC (p : Params) (ws : List (Ptr × Nat)) (ex : Nat) : Bool :=
   tChk p ws && keepB (vB p) ws (pH 0) (1024 * p.k) &&
     (List.range p.ℓ).all (fun i => i == ex || keepB (vB p) ws (pZ i) 1024) &&
-    (List.range p.k).all (fun r => (List.range p.ℓ).all fun c => keepB (vB p) ws (pA r c) 1024)
+    (List.range p.k).all (fun r => (List.range p.ℓ).all fun c => keepB (vB p) ws (pA p.ℓ r c) 1024)
 
 theorem keepC_spec {p : Params} {ws : List (Ptr × Nat)} {ex : Nat} (h : keepC p ws ex = true) :
     tChk p ws = true ∧ keepB (vB p) ws (pH 0) (1024 * p.k) = true ∧
       (∀ i < p.ℓ, i ≠ ex → keepB (vB p) ws (pZ i) 1024 = true) ∧
-      ∀ r < p.k, ∀ c < p.ℓ, keepB (vB p) ws (pA r c) 1024 = true := by
+      ∀ r < p.k, ∀ c < p.ℓ, keepB (vB p) ws (pA p.ℓ r c) 1024 = true := by
   simp only [keepC, Bool.and_eq_true, List.all_eq_true, List.mem_range, Bool.or_eq_true, beq_iff_eq] at h
   exact ⟨h.1.1.1, h.1.1.2, fun i hi hne => (h.1.2 i hi).resolve_left hne, h.2⟩
 
@@ -106,7 +105,7 @@ abbrev wsR (p : Params) (r : Nat) : List (Ptr × Nat) :=
 
 /-- The facts about the parameters row `r` needs. -/
 def rowChk (p : Params) (r : Nat) : Bool :=
-  (List.range p.ℓ).all (fun c => mulChk (vB p) (vW p) pW (pA r c) (pZ c)) &&
+  (List.range p.ℓ).all (fun c => mulChk (vB p) (vW p) pW (pA p.ℓ r c) (pZ c)) &&
     t1Chk (vB p) (vW p) (.rbp, 32 + 320 * r) pT && decide (32 + 320 * r + 320 ≤ p.pkLen) &&
     ipChk (vB p) (vW p) pT && ipChk (vB p) (vW p) pW && mulChk (vB p) (vW p) pT2 pC pT &&
     subChk (vB p) (vW p) pW pT2 && uhChk (vB p) (vW p) (pH r) pW pW1 && decide (p.γ₂ ∈ gamma2s) &&
@@ -129,7 +128,7 @@ theorem wsR_bases (p : Params) (r : Nat) : ∀ w ∈ wsR p r, w.1.1 ∈ bases :=
 
 /-- `rowChk`, piece by piece. -/
 structure RowC (p : Params) (r : Nat) : Prop where
-  mul : ∀ c < p.ℓ, mulChk (vB p) (vW p) pW (pA r c) (pZ c) = true
+  mul : ∀ c < p.ℓ, mulChk (vB p) (vW p) pW (pA p.ℓ r c) (pZ c) = true
   t1 : t1Chk (vB p) (vW p) (.rbp, 32 + 320 * r) pT = true
   pk : 32 + 320 * r + 320 ≤ p.pkLen
   ipT : ipChk (vB p) (vW p) pT = true
@@ -190,7 +189,7 @@ variable {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : Stat
   {r : Nat} (hr : r < p.k) {s₀ : State} (hs : SC p h A' Q p.ℓ cH r σ s₀)
 include C hp hv hr hs
 
-theorem dotFirst_ok : WP isa (mulAt P pW (pA r 0) (pZ 0)) s₀ (DI p σ A' r 1 s₀) := by
+theorem dotFirst_ok : WP isa (mulAt P pW (pA p.ℓ r 0) (pZ 0)) s₀ (DI p σ A' r 1 s₀) := by
   have R := rowC hp hr
   refine WP.mono (mulAt_ok C.mul (hs.t.lay hp hv) (R.mul 0 R.l1) (hs.a r hr 0 R.l1).1 (hs.zHat R.l1).1)
     fun s₁ ⟨hP₁, e₁, hq₁⟩ => ⟨hP₁, e₁, ?_⟩
@@ -199,7 +198,7 @@ theorem dotFirst_ok : WP isa (mulAt P pW (pA r 0) (pZ 0)) s₀ (DI p σ A' r 1 s
   exact hq₁
 
 theorem dotStep_ok {k : Nat} (hk' : k < p.ℓ) {st : State} (hd : DI p σ A' r k s₀ st) :
-    WP isa (mulAddAt P pW (pA r k) (pZ k)) st (DI p σ A' r (k + 1) s₀) := by
+    WP isa (mulAddAt P pW (pA p.ℓ r k) (pZ k)) st (DI p σ A' r (k + 1) s₀) := by
   have R := rowC hp hr
   have L := hs.t.lay hp hv
   obtain ⟨_, _, hZ, hA⟩ := keepC_spec R.keep

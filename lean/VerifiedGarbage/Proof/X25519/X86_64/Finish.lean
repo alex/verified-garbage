@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.X25519.X86_64.Bits
 
 /-!
 # X25519 on x86-64: the last swap and the result
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.X25519.X86_64
@@ -66,22 +64,10 @@ theorem restore_ok {s : State} {base : Addr} (hs : Scr s base) {g : Reg → BitV
       (∀ rd ∈ saved, s'.gpr rd.1 = g rd.1) ∧
       (∀ r, r ∉ [Reg.rbx, .rbp, .r12, .r13, .r14, .r15] → s'.gpr r = s.gpr r) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
-  have hr : ∀ d, d + 8 ≤ 4096 → InRegions (s.rd ++ s.wr) (off base d) 8 :=
-    fun d hd => ⟨_, List.mem_append_right _ hs.wr, contains_sc hd⟩
-  have v : ∀ rd ∈ saved, s.mem.readW (off base rd.2) 64 = g rd.1 := hsv
-  apply WP.of_runBlock
-  simp only [restore, saved, List.map_cons, List.map_nil, runBlock_cons, runStep_some,
-    runBlock_nil, exec, readSrc, State.load64, ea_sc, RegUpd.gpr_setReg, RegUpd.mem_setReg,
-    RegUpd.rd_setReg, RegUpd.wr_setReg, hs.rdi, hr 0 (by omega), hr 8 (by omega),
-    hr 16 (by omega), hr 24 (by omega), hr 32 (by omega), hr 40 (by omega), ite_true, ite_false,
-    reduceCtorEq, Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨fun rd hrd => ?_, fun r hr => ?_, trivial, trivial, trivial⟩
-  · have e := v rd hrd
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hrd
-    rcases hrd with rfl | rfl | rfl | rfl | rfl | rfl <;>
-      simpa only [RegUpd.gpr_setReg, ite_true, ite_false, reduceCtorEq] using e
-  · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    simp only [hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2.1, hr.2.2.2.2.2, ite_false]
+  refine WP.mono (Spill.restore_ok .rdi saved g s (by decide) (fun p hp => ?_) (by rw [hs.rdi]; exact hsv))
+    fun s' ⟨h₁, h₂, hm, hrd, hwr⟩ => ⟨fun rd hrd => h₁ _ (List.mem_map_of_mem hrd), h₂, hm, hrd, hwr⟩
+  have := saved_lt p hp
+  rw [hs.rdi]; exact ⟨_, List.mem_append_right _ hs.wr, contains_sc (by omega)⟩
 
 theorem outStores_ok {s : State} {q : Addr} (hq : s.gpr .rsi = q) (hw : (⟨q, 32⟩ : Region) ∈ s.wr) :
     WP isa (.block ([.store (at_ .rsi 0) .r8, .store (at_ .rsi 8) .r9, .store (at_ .rsi 16) .r10,

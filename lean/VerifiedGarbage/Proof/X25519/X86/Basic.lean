@@ -8,16 +8,18 @@ import VerifiedGarbage.Impl.X25519.X86
 /-!
 # X25519 on x86 (32-bit): words of the working space
 
-Untrusted: everything here is checked by Lean. The working space, 4096 bytes
-at `x` (`edi` in the code), holds words at constant offsets; a field element
-is eight of them (`fe`). A store to a word leaves the others unchanged, and
-code that stores only to some regions of it leaves the rest of memory
-unchanged (`Frame`).
+The working space, `W` bytes at `x` (`edi` in the code), holds words at
+constant offsets (X25519's has 4096 bytes, Ed25519's 8192: the proofs hold for
+any `W ≥ 4096`); a field element is eight of them (`fe`). A store to a word
+leaves the others unchanged, and code that stores only to some regions of it
+leaves the rest of memory unchanged (`Frame`).
 -/
 
 namespace VG.Proof.X25519.X86
 
 open VG VG.X86 VG.Impl.X25519.X86
+
+variable {W : Nat}
 
 /-- The value of a register, as a number. -/
 abbrev v (s : State) (r : Reg) : Nat := (s.gpr r).toNat
@@ -39,8 +41,8 @@ def fe (m : Mem) (x : BitVec 32) (o : Nat) : Nat := num (fun k => wv m x (o + 4 
 /-- The region of `n` bytes at `[x + d]`. -/
 abbrev sub (x : BitVec 32) (d n : Nat) : Region := ⟨addr x d, n⟩
 
-/-- The working space. -/
-abbrev scR (x : BitVec 32) : Region := ⟨x.setWidth 64, 4096⟩
+/-- The working space, of `W` bytes. -/
+abbrev scR (W : Nat) (x : BitVec 32) : Region := ⟨x.setWidth 64, W⟩
 
 theorem ea_at (s : State) (b : Reg) (d : Nat) : s.ea (at_ b d) = addr (s.gpr b) d := rfl
 
@@ -61,10 +63,10 @@ theorem sub_disj {x : BitVec 32} {d n e k : Nat} (hd : x.toNat + d + n ≤ 2 ^ 3
   rw [addr_eq (by omega_using [he, hk])] at h₂
   exact Offset.disjoint _ h (by omega_using [hd]) (by omega_using [he]) a h₁ h₂
 
-theorem scR_eq (x : BitVec 32) : scR x = sub x 0 4096 := by rw [sub, addr_zero]
+theorem scR_eq (W : Nat) (x : BitVec 32) : scR W x = sub x 0 W := by rw [sub, addr_zero]
 
-theorem scR_contains {x : BitVec 32} (hx : x.toNat + 4096 ≤ 2 ^ 32) {d n : Nat} (h : d + n ≤ 4096)
-    (hn : 0 < n) : (scR x).Contains (addr x d) n := by
+theorem scR_contains {x : BitVec 32} (hx : x.toNat + W ≤ 2 ^ 32) {d n : Nat} (h : d + n ≤ W)
+    (hn : 0 < n) : (scR W x).Contains (addr x d) n := by
   rw [scR_eq]; exact sub_contains (by omega_using [hx]) (Nat.zero_le d) (by omega_using [h]) hn
 
 /-- The 32-bit word at `[x + d]`, after a store at `[x + e]` that does not overlap it. -/
@@ -85,7 +87,7 @@ theorem wd_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {x : BitVe
 
 /-- A word of the working space outside a frame's region `[x + o, x + o + n)`. -/
 theorem wd_frame1 {m m' : Mem} {x : BitVec 32} {o n d : Nat} (hf : Frame [sub x o n] m m')
-    (hx : x.toNat + 4096 ≤ 2 ^ 32) (ho : o + n ≤ 4096) (hd : d + 4 ≤ 4096) (h : d + 4 ≤ o ∨ o + n ≤ d) :
+    (hx : x.toNat + W ≤ 2 ^ 32) (ho : o + n ≤ W) (hd : d + 4 ≤ W) (h : d + 4 ≤ o ∨ o + n ≤ d) :
     wd m' x d = wd m x d :=
   wd_frame hf fun r hr => by
     rw [List.mem_singleton.mp hr]
@@ -93,44 +95,54 @@ theorem wd_frame1 {m m' : Mem} {x : BitVec 32} {o n d : Nat} (hf : Frame [sub x 
 
 /-- Stores into a frame's region. -/
 theorem frame_write1 {m m' : Mem} {x : BitVec 32} {o n : Nat} (hf : Frame [sub x o n] m m')
-    (hx : x.toNat + 4096 ≤ 2 ^ 32) (ho : o + n ≤ 4096) {d : Nat} (h₁ : o ≤ d) (h₂ : d + 4 ≤ o + n)
+    (hx : x.toNat + W ≤ 2 ^ 32) (ho : o + n ≤ W) {d : Nat} (h₁ : o ≤ d) (h₂ : d + 4 ≤ o + n)
     (w : BitVec 32) : Frame [sub x o n] m (m'.writeW (addr x d) w) :=
   hf.writeW (List.mem_singleton_self _) _
     (sub_contains (by omega_using [hx, ho]) h₁ h₂ (by decide))
 
 /-- A region of the working space within another. -/
-theorem sub_sub {x : BitVec 32} {o n o' n' : Nat} (hx : x.toNat + 4096 ≤ 2 ^ 32) (h₁ : o' ≤ o)
-    (h₂ : o + n ≤ o' + n') (hn : o < 4096) : Region.Sub (sub x o n) (sub x o' n') := by
+theorem sub_sub {x : BitVec 32} {o n o' n' : Nat} (hx : x.toNat + W ≤ 2 ^ 32) (h₁ : o' ≤ o)
+    (h₂ : o + n ≤ o' + n') (hn : o < W) : Region.Sub (sub x o n) (sub x o' n') := by
   rw [sub, sub, addr_eq (by omega_using [hx, hn]), addr_eq (by omega_using [hx, h₁, hn])]
   exact Offset.sub _ h₁ h₂
 
 /-- A frame of a region is one of any region containing it. -/
 theorem frameWiden {m m' : Mem} {x : BitVec 32} {o n o' n' : Nat} (hf : Frame [sub x o n] m m')
-    (hx : x.toNat + 4096 ≤ 2 ^ 32) (h₁ : o' ≤ o) (h₂ : o + n ≤ o' + n')
-    (hn : o < 4096) : Frame [sub x o' n'] m m' :=
+    (hx : x.toNat + W ≤ 2 ^ 32) (h₁ : o' ≤ o) (h₂ : o + n ≤ o' + n')
+    (hn : o < W) : Frame [sub x o' n'] m m' :=
   hf.sub fun _ hr => ⟨_, List.mem_singleton_self _, List.mem_singleton.mp hr ▸ sub_sub hx h₁ h₂ hn⟩
 
 /-- The code's view of the working space: `edi` points at it, it is
 writable, and it does not wrap around the 32-bit address space. -/
-structure Ctx (x : BitVec 32) (s : State) : Prop where
+structure Ctx (W : Nat) (x : BitVec 32) (s : State) : Prop where
   edi : s.gpr .edi = x
-  fit : x.toNat + 4096 ≤ 2 ^ 32
-  wr : scR x ∈ s.wr
+  fit : x.toNat + W ≤ 2 ^ 32
+  wr : scR W x ∈ s.wr
+  room : 4096 ≤ W
 
 namespace Ctx
-variable {x : BitVec 32} {s : State} (h : Ctx x s)
+variable {x : BitVec 32} {s : State} (h : Ctx W x s)
 include h
 
-theorem inW {d n : Nat} (hd : d + n ≤ 4096) (hn : 0 < n) : InRegions s.wr (addr x d) n :=
+theorem inW {d n : Nat} (hd : d + n ≤ W) (hn : 0 < n) : InRegions s.wr (addr x d) n :=
   ⟨_, h.wr, scR_contains h.fit hd hn⟩
 
-theorem inRW {d n : Nat} (hd : d + n ≤ 4096) (hn : 0 < n) :
+theorem inRW {d n : Nat} (hd : d + n ≤ W) (hn : 0 < n) :
     InRegions (s.rd ++ s.wr) (addr x d) n :=
   ⟨_, List.mem_append_right _ h.wr, scR_contains h.fit hd hn⟩
 
+/-- The working space's first 4096 bytes, all the field arithmetic uses. -/
+theorem fit4 : x.toNat + 4096 ≤ 2 ^ 32 := Nat.le_trans (Nat.add_le_add_left h.room _) h.fit
+
+theorem inW4 {d n : Nat} (hd : d + n ≤ 4096) (hn : 0 < n) : InRegions s.wr (addr x d) n :=
+  h.inW (Nat.le_trans hd h.room) hn
+
+theorem inRW4 {d n : Nat} (hd : d + n ≤ 4096) (hn : 0 < n) : InRegions (s.rd ++ s.wr) (addr x d) n :=
+  h.inRW (Nat.le_trans hd h.room) hn
+
 /-- The context survives a change of other registers and of memory. -/
-theorem keep {s' : State} (he : s'.gpr .edi = s.gpr .edi) (hw : s'.wr = s.wr) : Ctx x s' :=
-  ⟨he.trans h.edi, h.fit, hw ▸ h.wr⟩
+theorem keep {s' : State} (he : s'.gpr .edi = s.gpr .edi) (hw : s'.wr = s.wr) : Ctx W x s' :=
+  ⟨he.trans h.edi, h.fit, hw ▸ h.wr, h.room⟩
 
 end Ctx
 
@@ -149,7 +161,7 @@ theorem Keep.trans {s₁ s₂ s₃ : State} (h₁ : Keep s₁ s₂) (h₂ : Keep
   ⟨h₂.esi.trans h₁.esi, h₂.edi.trans h₁.edi, h₂.esp.trans h₁.esp, h₂.rd.trans h₁.rd,
     h₂.wr.trans h₁.wr⟩
 
-theorem Keep.ctx {x : BitVec 32} {s s' : State} (h : Keep s s') (hc : Ctx x s) : Ctx x s' :=
+theorem Keep.ctx {x : BitVec 32} {s s' : State} (h : Keep s s') (hc : Ctx W x s) : Ctx W x s' :=
   hc.keep h.edi h.wr
 
 /-! ## Numbers of words -/
@@ -195,7 +207,7 @@ theorem fe_frame {m m' : Mem} {x : BitVec 32} {o : Nat} (h : ∀ k < 8, wd m' x 
 
 /-- A field element outside a frame's region. -/
 theorem fe_frame1 {m m' : Mem} {x : BitVec 32} {o n q : Nat} (hf : Frame [sub x o n] m m')
-    (hx : x.toNat + 4096 ≤ 2 ^ 32) (ho : o + n ≤ 4096) (hq : q + 32 ≤ 4096) (h : q + 32 ≤ o ∨ o + n ≤ q) :
+    (hx : x.toNat + W ≤ 2 ^ 32) (ho : o + n ≤ W) (hq : q + 32 ≤ W) (h : q + 32 ≤ o ∨ o + n ≤ q) :
     fe m' x q = fe m x q :=
   fe_frame fun k hk => wd_frame1 hf hx ho (by omega_using [hq, hk]) (by omega_using [h, hk])
 

@@ -3,18 +3,18 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseC
 /-!
 # ML-DSA signing on AArch64: the checks of an iteration
 
-Untrusted: everything here is checked by Lean. `c = SampleInBall(c̃)` at
-`ĉ` (`ball_ok`), and, if it succeeded, `ĉ = NTT(c)` and each check of the
-iteration, their results ANDed into `x24`: the norm of each `z[r]`
-(`zR_ok`), of each `r₀[i]` (`r0R_ok`) and of each `ct₀[i]`, with each
-hint `h[i]` and the number of its 1s summed at `ONES` (`hR_ok`), and that
-sum against `ω` (`onesOk_ok`); so `x24` is 1 exactly when the iteration
-passes (`checks_ok`).
+`c = SampleInBall(c̃)` at `ĉ` (`ball_ok`), and, if it succeeded, `ĉ = NTT(c)`
+and each check of the iteration, their results ANDed into `x24`: the norm of
+each `z[r]` (`zR_ok`), of each `r₀[i]` (`r0R_ok`) and of each `ct₀[i]`, with
+each hint `h[i]` and the number of its 1s summed at `ONES` (`hR_ok`), and that
+sum against `ω` (`onesOk_ok`); so `x24` is 1 exactly when the iteration passes
+(`checks_ok`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep wp_movz wp_nil)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -54,7 +54,7 @@ structure IB (p : Params) (D : Nat) (σ : State) (t : Nat) (s : State) : Prop wh
 
 def bChk (p : Params) : Bool :=
   ballChkS (sgR p) (sgW p) (cLen p) cP && icwChk p [(cP, 1024), (sc oPS, 2048)] p.k &&
-    keepB (sgB p) [(cP, 1024), (sc oPS, 2048)] (sc oCT) (cLen p) && decide ((cLen p, p.τ) ∈ ballParams)
+    keepB (sgR p) (sgW p) [(cP, 1024), (sc oPS, 2048)] (sc oCT) (cLen p) && decide ((cLen p, p.τ) ∈ ballParams)
 
 theorem ball_val {τ : Nat} {x : List Byte} {r : BitVec 32} {out : Poly}
     (h : Outcome (fun b => (sampleInBall τ b.ball x).map toRq) r out) (h1 : r = 1)
@@ -156,7 +156,7 @@ structure KB (p : Params) (D : Nat) (σ : State) (t : Nat) (s : State) : Prop wh
   some : (sampleInBall p.τ maxBounds.ball (CTv p σ (p.ℓ * t))).isSome
 
 def kbChk (p : Params) (ws : List (Ptr × Nat)) : Bool :=
-  ilChk p ws && keepB (sgB p) ws (sc oCT) (cLen p) && keepB (sgB p) ws cP 1024
+  ilChk p ws && keepB (sgR p) (sgW p) ws (sc oCT) (cLen p) && keepB (sgR p) (sgW p) ws cP 1024
 
 theorem KB.step {p : Params} {D : Nat} {σ s s' : State} {t : Nat} (h : KB p D σ t s) {ws : List (Ptr × Nat)}
     (hP : PPostB D s s' ws) (hc : kbChk p ws = true) : KB p D σ t s' := by
@@ -180,11 +180,11 @@ def IZ (p : Params) (D : Nat) (σ : State) (t r : Nat) (s : State) : Prop :=
   IZb p D σ t r s ∧ s.gpr .x24 = bit (∀ j < r, normRq [Zv p σ (p.ℓ * t) j] < p.γ₁ - p.β)
 
 def zfam (p : Params) (ws : List (Ptr × Nat)) (r : Nat) : Bool :=
-  kbChk p ws && famChk (sgB p) ws (yBase p) r && famChk (sgB p) ws (wBase p) p.k && keepB (sgB p) ws (sc oONES) 8
+  kbChk p ws && famChk (sgR p) (sgW p) ws (yBase p) r && famChk (sgR p) (sgW p) ws (wBase p) p.k && keepB (sgR p) (sgW p) ws (sc oONES) 8
 
 theorem IZb.step {p : Params} {D : Nat} {σ s s' : State} {t r : Nat} (h : IZb p D σ t r s)
     {ws : List (Ptr × Nat)} (hP : PPostB D s s' ws) (hc : zfam p ws r = true)
-    (hy : famChk (sgB p) ws (yBase p + r) (p.ℓ - r) = true) : IZb p D σ t r s' := by
+    (hy : famChk (sgR p) (sgW p) ws (yBase p + r) (p.ℓ - r) = true) : IZb p D σ t r s' := by
   simp only [zfam, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩ := hc
   have L := h.b.l.st.lay
@@ -198,9 +198,9 @@ def zChk (p : Params) (r : Nat) : Bool :=
   let w3 : List (Ptr × Nat) := [(yP p r, 1024)]
   mulChk (sgR p) (sgW p) t1P cP (s1P p r) && ipChkS (sgR p) (sgW p) t1P && accChk (sgR p) (sgW p) (yP p r) t1P &&
     normChk (sgB p) (yP p r) && zfam p w1 r && zfam p w2 r && zfam p w3 r && zfam p [] (r + 1) &&
-    famChk (sgB p) w1 (yBase p + r) (p.ℓ - r) && famChk (sgB p) w2 (yBase p + r) (p.ℓ - r) &&
-    famChk (sgB p) w3 (yBase p + (r + 1)) (p.ℓ - (r + 1)) && famChk (sgB p) [] (yBase p + (r + 1)) (p.ℓ - (r + 1)) &&
-    famChk (sgB p) w3 (yBase p) r && keepB (sgB p) w1 (s1P p r) 1024 && decide (p.γ₁ - p.β < 2 ^ 32) &&
+    famChk (sgR p) (sgW p) w1 (yBase p + r) (p.ℓ - r) && famChk (sgR p) (sgW p) w2 (yBase p + r) (p.ℓ - r) &&
+    famChk (sgR p) (sgW p) w3 (yBase p + (r + 1)) (p.ℓ - (r + 1)) && famChk (sgR p) (sgW p) [] (yBase p + (r + 1)) (p.ℓ - (r + 1)) &&
+    famChk (sgR p) (sgW p) w3 (yBase p) r && keepB (sgR p) (sgW p) w1 (s1P p r) 1024 && decide (p.γ₁ - p.β < 2 ^ 32) &&
     decide (r < p.ℓ)
 
 theorem zR_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : State} {t r : Nat}
@@ -258,11 +258,11 @@ def IR (p : Params) (D : Nat) (σ : State) (t i : Nat) (s : State) : Prop :=
     s.gpr .x24 = bit (ZOk p σ (p.ℓ * t) ∧ ∀ j < i, normRq [R0v p σ (p.ℓ * t) j] < p.γ₂ - p.β)
 
 def rfam (p : Params) (ws : List (Ptr × Nat)) (i : Nat) : Bool :=
-  kbChk p ws && famChk (sgB p) ws (yBase p) p.ℓ && famChk (sgB p) ws (wBase p) i && keepB (sgB p) ws (sc oONES) 8
+  kbChk p ws && famChk (sgR p) (sgW p) ws (yBase p) p.ℓ && famChk (sgR p) (sgW p) ws (wBase p) i && keepB (sgR p) (sgW p) ws (sc oONES) 8
 
 theorem IRb.step {p : Params} {D : Nat} {σ s s' : State} {t i : Nat} (h : IRb p D σ t i s)
     {ws : List (Ptr × Nat)} (hP : PPostB D s s' ws) (hc : rfam p ws i = true)
-    (hw : famChk (sgB p) ws (wBase p + i) (p.k - i) = true) : IRb p D σ t i s' := by
+    (hw : famChk (sgR p) (sgW p) ws (wBase p + i) (p.k - i) = true) : IRb p D σ t i s' := by
   simp only [rfam, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩ := hc
   have L := h.b.l.st.lay
@@ -278,9 +278,9 @@ def rChk (p : Params) (i : Nat) : Bool :=
   mulChk (sgR p) (sgW p) t1P cP (s2P p i) && ipChkS (sgR p) (sgW p) t1P && accChk (sgR p) (sgW p) (wP p i) t1P &&
     rwChk (sgR p) (sgW p) (wP p i) 1024 t2P 1024 && normChk (sgB p) t2P && rfam p w1 i && rfam p w2 i &&
     rfam p w3 i && rfam p w4 (i + 1) && rfam p [] (i + 1) &&
-    famChk (sgB p) w1 (wBase p + i) (p.k - i) && famChk (sgB p) w2 (wBase p + i) (p.k - i) &&
-    famChk (sgB p) w3 (wBase p + (i + 1)) (p.k - (i + 1)) && famChk (sgB p) w4 (wBase p + (i + 1)) (p.k - (i + 1)) &&
-    famChk (sgB p) [] (wBase p + (i + 1)) (p.k - (i + 1)) && keepB (sgB p) w4 (wP p i) 1024 &&
+    famChk (sgR p) (sgW p) w1 (wBase p + i) (p.k - i) && famChk (sgR p) (sgW p) w2 (wBase p + i) (p.k - i) &&
+    famChk (sgR p) (sgW p) w3 (wBase p + (i + 1)) (p.k - (i + 1)) && famChk (sgR p) (sgW p) w4 (wBase p + (i + 1)) (p.k - (i + 1)) &&
+    famChk (sgR p) (sgW p) [] (wBase p + (i + 1)) (p.k - (i + 1)) && keepB (sgR p) (sgW p) w4 (wP p i) 1024 &&
     decide (p.γ₂ - p.β < 2 ^ 32) && decide (p.γ₂ ∈ gamma2s) && decide (i < p.k)
 
 theorem r0R_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : State} {t i : Nat}
@@ -353,9 +353,9 @@ def HFam (s : State) (b m : Nat) (f : Nat → Vector Bool n) : Prop :=
 
 theorem HFam.keep {D : Nat} {rbs wbs : List (Reg × Nat)} {s s' : State} (L : Lay D rbs wbs s)
     {ws : List (Ptr × Nat)} (hP : PPostB D s s' ws) {b m : Nat} {f : Nat → Vector Bool n}
-    (hc : famChk (rbs ++ wbs) ws b m = true) (h : HFam s b m f) : HFam s' b m f := fun j hj => by
+    (hc : famChk rbs wbs ws b m = true) (h : HFam s b m f) : HFam s' b m f := fun j hj => by
   have hk := famChk_one hc hj
-  rw [hP.pa (keepB_bs hk)]
+  rw [hP.pa (L.keepBs hk)]
   exact hintIs_congr (VG.Proof.MlKem.bytes_frame hP.frame (L.fdisj hk) (by decide)) (h j hj)
 
 theorem HFam.snoc {s : State} {b m : Nat} {f : Nat → Vector Bool n} (h : HFam s b m f)
@@ -403,12 +403,12 @@ def IH (p : Params) (D : Nat) (σ : State) (t i : Nat) (s : State) : Prop :=
     ∀ j < i, normRq [CT0v p σ (p.ℓ * t) j] < p.γ₂)
 
 def hfam (p : Params) (ws : List (Ptr × Nat)) (a c : Nat) : Bool :=
-  kbChk p ws && famChk (sgB p) ws (yBase p) p.ℓ && famChk (sgB p) ws (wBase p) a &&
-    famChk (sgB p) ws (wBase p + a) (p.k - a) && famChk (sgB p) ws 5 c
+  kbChk p ws && famChk (sgR p) (sgW p) ws (yBase p) p.ℓ && famChk (sgR p) (sgW p) ws (wBase p) a &&
+    famChk (sgR p) (sgW p) ws (wBase p + a) (p.k - a) && famChk (sgR p) (sgW p) ws 5 c
 
 theorem IHb.step {p : Params} {D : Nat} {σ s s' : State} {t a c : Nat} (h : IHb p D σ t a c s)
     {ws : List (Ptr × Nat)} (hP : PPostB D s s' ws) (hc : hfam p ws a c = true)
-    (ho : keepB (sgB p) ws (sc oONES) 8 = true) : IHb p D σ t a c s' := by
+    (ho : keepB (sgR p) (sgW p) ws (sc oONES) 8 = true) : IHb p D σ t a c s' := by
   simp only [hfam, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩ := hc
   have L := h.b.l.st.lay
@@ -435,16 +435,16 @@ def hChk2 (p : Params) (i : Nat) : Bool :=
   let w7 : List (Ptr × Nat) := [(hP i, 1024)]
   let w8 : List (Ptr × Nat) := [(sc oONES, 8)]
   mulChk (sgR p) (sgW p) t3P cP (t0P p i) && ipChkS (sgR p) (sgW p) t3P && normChk (sgB p) t3P &&
-    copyChk (sgB p) (sgW p) t4P (wP p i) 1024 && accChk (sgR p) (sgW p) (wP p i) t3P &&
+    copyChk (sgR p) (sgW p) t4P (wP p i) 1024 && accChk (sgR p) (sgW p) (wP p i) t3P &&
     accChk (sgR p) (sgW p) t4P (wP p i) && hintChk (sgR p) (sgW p) t4P (wP p i) (hP i) &&
     hfam p w1 i i && hfam p w2 i i && hfam p [] i i && hfam p w4 i i &&
-    (kbChk p w5 && famChk (sgB p) w5 (yBase p) p.ℓ && famChk (sgB p) w5 5 i) &&
+    (kbChk p w5 && famChk (sgR p) (sgW p) w5 (yBase p) p.ℓ && famChk (sgR p) (sgW p) w5 5 i) &&
     hfam p w4 (i + 1) i && hfam p w7 (i + 1) i && hfam p w8 (i + 1) (i + 1) &&
-    famChk (sgB p) w5 (wBase p) i && famChk (sgB p) w5 (wBase p + (i + 1)) (p.k - (i + 1)) &&
-    keepB (sgB p) w1 (sc oONES) 8 && keepB (sgB p) w2 (sc oONES) 8 && keepB (sgB p) [] (sc oONES) 8 &&
-    keepB (sgB p) w4 (sc oONES) 8 && keepB (sgB p) w5 (sc oONES) 8 && keepB (sgB p) w7 (sc oONES) 8 &&
-    keepB (sgB p) [] t3P 1024 && keepB (sgB p) w4 t3P 1024 &&
-    keepB (sgB p) w5 t4P 1024 && keepB (sgB p) w1 (t0P p i) 1024 &&
+    famChk (sgR p) (sgW p) w5 (wBase p) i && famChk (sgR p) (sgW p) w5 (wBase p + (i + 1)) (p.k - (i + 1)) &&
+    keepB (sgR p) (sgW p) w1 (sc oONES) 8 && keepB (sgR p) (sgW p) w2 (sc oONES) 8 && keepB (sgR p) (sgW p) [] (sc oONES) 8 &&
+    keepB (sgR p) (sgW p) w4 (sc oONES) 8 && keepB (sgR p) (sgW p) w5 (sc oONES) 8 && keepB (sgR p) (sgW p) w7 (sc oONES) 8 &&
+    keepB (sgR p) (sgW p) [] t3P 1024 && keepB (sgR p) (sgW p) w4 t3P 1024 &&
+    keepB (sgR p) (sgW p) w5 t4P 1024 && keepB (sgR p) (sgW p) w1 (t0P p i) 1024 &&
     inB (sgB p) (sc oONES) 8 && inB (sgW p) (sc oONES) 8 &&
     decide (p.γ₂ < 2 ^ 32) && decide (p.γ₂ ∈ gamma2s) && decide (i < p.k) && decide (256 * p.k < 2 ^ 32)
 
@@ -587,17 +587,17 @@ structure EF (p : Params) (D : Nat) (σ : State) (t : Nat) (s : State) : Prop wh
 /-- What the checks need of the layout. -/
 def ksChk (p : Params) : Bool :=
   ipChkS (sgR p) (sgW p) cP && icwChk p [(cP, 1024), (sc oPS, 1024)] p.k &&
-    keepB (sgB p) [(cP, 1024), (sc oPS, 1024)] (sc oCT) (cLen p) && inB (sgW p) (sc oONES) 8 &&
-    kbChk p [(sc oONES, 8)] && famChk (sgB p) [(sc oONES, 8)] (yBase p) p.ℓ &&
-    famChk (sgB p) [(sc oONES, 8)] (wBase p) p.k &&
+    keepB (sgR p) (sgW p) [(cP, 1024), (sc oPS, 1024)] (sc oCT) (cLen p) && inB (sgW p) (sc oONES) 8 &&
+    kbChk p [(sc oONES, 8)] && famChk (sgR p) (sgW p) [(sc oONES, 8)] (yBase p) p.ℓ &&
+    famChk (sgR p) (sgW p) [(sc oONES, 8)] (wBase p) p.k &&
     (List.range p.ℓ).all (zChk p) && (List.range p.k).all (rChk p) && (List.range p.k).all (hChk2 p) &&
     inB (sgB p) (sc oONES) 8 && inB (sgW p) (sc oCNT) 8 && inB (sgW p) (sc oKAP) 8 &&
     kbChk p [] &&
-    famChk (sgB p) [(sc oCNT, 8)] (yBase p) p.ℓ && famChk (sgB p) [(sc oCNT, 8)] 5 p.k &&
-    famChk (sgB p) [] (yBase p) p.ℓ && famChk (sgB p) [] 5 p.k &&
-    ikChk p [(sc oCNT, 8)] && ikChk p [(sc oKAP, 8)] && keepB (sgB p) [(sc oKAP, 8)] (sc oCNT) 8 &&
-    keepB (sgB p) [(sc oCNT, 8)] (sc oCT) (cLen p) && decide (p.ω + 1 < 4096) && decide (p.ℓ < 4096) &&
-    decide (256 * p.k < 2 ^ 32) && decide (0 < p.ℓ) && famChk (sgB p) [] (wBase p) p.k && inB (sgB p) (sc oKAP) 8
+    famChk (sgR p) (sgW p) [(sc oCNT, 8)] (yBase p) p.ℓ && famChk (sgR p) (sgW p) [(sc oCNT, 8)] 5 p.k &&
+    famChk (sgR p) (sgW p) [] (yBase p) p.ℓ && famChk (sgR p) (sgW p) [] 5 p.k &&
+    ikChk p [(sc oCNT, 8)] && ikChk p [(sc oKAP, 8)] && keepB (sgR p) (sgW p) [(sc oKAP, 8)] (sc oCNT) 8 &&
+    keepB (sgR p) (sgW p) [(sc oCNT, 8)] (sc oCT) (cLen p) && decide (p.ω + 1 < 4096) && decide (p.ℓ < 4096) &&
+    decide (256 * p.k < 2 ^ 32) && decide (0 < p.ℓ) && famChk (sgR p) (sgW p) [] (wBase p) p.k && inB (sgB p) (sc oKAP) 8
 
 theorem bit_ne {a : Prop} [Decidable a] : (bit a).setWidth 32 ≠ 0 ↔ a := by
   by_cases ha : a
@@ -615,16 +615,16 @@ theorem passV_iff {p : Params} {σ : State} {κ : Nat} :
 
 theorem ksChk_spec {p : Params} (hc : ksChk p = true) : ∀ {Q : Prop}, (ipChkS (sgR p) (sgW p) cP = true →
     icwChk p [(cP, 1024), (sc oPS, 1024)] p.k = true →
-    keepB (sgB p) [(cP, 1024), (sc oPS, 1024)] (sc oCT) (cLen p) = true → inB (sgW p) (sc oONES) 8 = true →
-    kbChk p [(sc oONES, 8)] = true → famChk (sgB p) [(sc oONES, 8)] (yBase p) p.ℓ = true →
-    famChk (sgB p) [(sc oONES, 8)] (wBase p) p.k = true →
+    keepB (sgR p) (sgW p) [(cP, 1024), (sc oPS, 1024)] (sc oCT) (cLen p) = true → inB (sgW p) (sc oONES) 8 = true →
+    kbChk p [(sc oONES, 8)] = true → famChk (sgR p) (sgW p) [(sc oONES, 8)] (yBase p) p.ℓ = true →
+    famChk (sgR p) (sgW p) [(sc oONES, 8)] (wBase p) p.k = true →
     (∀ r < p.ℓ, zChk p r = true) → (∀ i < p.k, rChk p i = true) → (∀ i < p.k, hChk2 p i = true) →
     inB (sgB p) (sc oONES) 8 = true → inB (sgW p) (sc oCNT) 8 = true → inB (sgW p) (sc oKAP) 8 = true →
-    kbChk p [] = true → famChk (sgB p) [(sc oCNT, 8)] (yBase p) p.ℓ = true →
-    famChk (sgB p) [(sc oCNT, 8)] 5 p.k = true → famChk (sgB p) [] (yBase p) p.ℓ = true →
-    famChk (sgB p) [] 5 p.k = true → ikChk p [(sc oCNT, 8)] = true → ikChk p [(sc oKAP, 8)] = true →
-    keepB (sgB p) [(sc oKAP, 8)] (sc oCNT) 8 = true → keepB (sgB p) [(sc oCNT, 8)] (sc oCT) (cLen p) = true →
-    p.ω + 1 < 4096 → p.ℓ < 4096 → 256 * p.k < 2 ^ 32 → 0 < p.ℓ → famChk (sgB p) [] (wBase p) p.k = true →
+    kbChk p [] = true → famChk (sgR p) (sgW p) [(sc oCNT, 8)] (yBase p) p.ℓ = true →
+    famChk (sgR p) (sgW p) [(sc oCNT, 8)] 5 p.k = true → famChk (sgR p) (sgW p) [] (yBase p) p.ℓ = true →
+    famChk (sgR p) (sgW p) [] 5 p.k = true → ikChk p [(sc oCNT, 8)] = true → ikChk p [(sc oKAP, 8)] = true →
+    keepB (sgR p) (sgW p) [(sc oKAP, 8)] (sc oCNT) 8 = true → keepB (sgR p) (sgW p) [(sc oCNT, 8)] (sc oCT) (cLen p) = true →
+    p.ω + 1 < 4096 → p.ℓ < 4096 → 256 * p.k < 2 ^ 32 → 0 < p.ℓ → famChk (sgR p) (sgW p) [] (wBase p) p.k = true →
     inB (sgB p) (sc oKAP) 8 = true → Q) → Q := by
   intro Q k
   simp only [ksChk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hc

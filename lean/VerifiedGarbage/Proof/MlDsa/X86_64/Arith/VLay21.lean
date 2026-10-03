@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.VLay
 /-!
 # ML-DSA on x86-64: the layers of the NTT and its inverse with `len` = 2 and 1
 
-Untrusted: everything here is checked by Lean. The layer with `len = 2` runs
-two blocks at a time (`vstep2`): the lower halves of their coefficients
-gathered into `xmm0` and the upper ones into `xmm1` by `punpcklqdq` and
-`punpckhqdq`, and back. The layer with `len = 1` runs four blocks at a time
-(`vstep1`): their coefficients gathered by `pshufd` and `punpck{l,h}qdq`,
-and interleaved back by `punpck{l,h}dq`.
+The layer with `len = 2` runs two blocks at a time (`vstep2`): the lower
+halves of their coefficients gathered into `xmm0` and the upper ones into
+`xmm1` by `punpcklqdq` and `punpckhqdq`, and back. The layer with `len = 1`
+runs four blocks at a time (`vstep1`): their coefficients gathered by `pshufd`
+and `punpck{l,h}qdq`, and interleaved back by `punpck{l,h}dq`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith
@@ -271,27 +270,6 @@ abbrev post1 : List Instr :=
   [xmov .xmm1 .xmm0, xb .punpckldq .xmm0 .xmm3, xb .punpckhdq .xmm1 .xmm3,
     .movdquStore (at_ .rdx 0) .xmm0, .movdquStore (at_ .rdx 16) .xmm1, .alu .add .rdx (.imm 32),
     .alu .sub .rcx (.imm 1)]
-
-omit hbf in
-/-- Each coefficient after the first `b` blocks of the layer with `len = 1`. -/
-theorem layF1_get (F : Poly) (zi : Nat → Nat) {b : Nat} (hb : b ≤ 128) {j : Nat} (hj : j < 256) :
-    (layF blk F 1 zi b)[j]! = if j < 2 * b then
-      (if j % 2 = 0 then (op F[j]! F[j + 1]! (zetas (zi (j / 2)))).1
-        else (op F[j - 1]! F[j]! (zetas (zi (j / 2)))).2) else F[j]! := by
-  induction b generalizing j with
-  | zero => rw [ite_eq_right (by omega)]; rfl
-  | succ b ih =>
-    rw [layF, foldl_range_succ, ← layF,
-      hblk.get _ 1 _ _ 1 (by decide) (by decide) (by rw [n_eq]; omega) j (by rw [n_eq]; exact hj)]
-    by_cases h1 : 2 * 1 * b ≤ j ∧ j < 2 * 1 * b + 1
-    · rw [ite_eq_left h1, ih (by omega) hj, ih (by omega) (by omega), show j / 2 = b by omega]
-      simp (disch := omega) only [ite_eq_left, ite_eq_right]
-    · rw [ite_eq_right h1]
-      by_cases h2 : 2 * 1 * b + 1 ≤ j ∧ j < 2 * 1 * b + 1 + 1
-      · rw [ite_eq_left h2, ih (by omega) (by omega), ih (by omega) hj, show j / 2 = b by omega]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right]
-      · rw [ite_eq_right h2, ih (by omega) hj]
-        by_cases h3 : j < 2 * b <;> simp (disch := omega) only [ite_eq_left, ite_eq_right]
 
 theorem vstep1 {fP sP : Addr} {i kz : Nat} (hi : i < 32) (o : BitVec 8) (dz : BitVec 32) (zi : Nat → Nat)
     (hk : kz + 4 ≤ 256) (hsel : ∀ e < 4, kz + sel o e = zi (4 * i + e))

@@ -8,12 +8,11 @@ import Mathlib.Tactic.Ring
 /-!
 # X25519 on AArch64: field elements as fifteen 17-bit limbs
 
-Untrusted: everything here is checked by Lean. The numbers the code of
-`Impl/X25519/AArch64.lean` computes, as natural numbers: the limbs
-`f 0, …, f 14` stand for `val15 f = Σ f i · 2^(17 i)`, and each operation is
-a function of the limbs, computed as the machine does (modulo `2⁶⁴`); here
-they are shown to compute the field operations, for limbs within bounds
-(`Bnd f k`: every limb is less than `2^k`).
+The numbers the code of `Impl/X25519/AArch64.lean` computes, as natural
+numbers: the limbs `f 0, …, f 14` stand for `val15 f = Σ f i · 2^(17 i)`, and
+each operation is a function of the limbs, computed as the machine does
+(modulo `2⁶⁴`); here they are shown to compute the field operations, for limbs
+within bounds (`Bnd f k`: every limb is less than `2^k`).
 -/
 
 namespace VG.Proof.X25519.AArch64

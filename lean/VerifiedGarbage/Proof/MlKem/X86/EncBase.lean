@@ -1,18 +1,19 @@
 import VerifiedGarbage.Proof.MlKem.X86.TopKeep
-import VerifiedGarbage.Proof.MlKem.X86.TopSeq2
+import VerifiedGarbage.Proof.MlKem.X86.TopKem
 import VerifiedGarbage.Proof.MlKem.X86.Extra
 import VerifiedGarbage.Impl.MlKem.X86.Encrypt
 
 /-!
-# ML-KEM-768 on x86 (32-bit): the setting of K-PKE.Encrypt
+# ML-KEM on x86 (32-bit): the setting of K-PKE.Encrypt
 
-Untrusted: everything here is checked by Lean. `encrypt sc` is proven once,
-for any layout whose `scratch` has 32768 bytes and whose stack is 88 bytes
-(`SOK`), which `vg_mlkem768_encaps` and `vg_mlkem768_decaps` both have. The
-facts of the layout of its buffers, all in `scratch`, are then computed from
-their offsets (`ok_sc`, `sep_sc`: `sc_decide`), and its code, which reaches
-them through `esi`, does not depend on the argument `scratch` is
-(`ptrTo_sc`: `sc_taint`).
+`encrypt L sc` is proven once, for any parameter set `L` and any layout whose
+`scratch` has `L.scratch` bytes and whose stack is 88 bytes (`SOK`), which
+encapsulation and decapsulation both have. The facts of the layout of its
+buffers, all in `scratch`, that the proofs use are stated once for any such
+layout (the classes `EncBaseOK`, …), and each parameter set has them by
+computing them from its offsets (`ok_sc`, `sep_sc`: `sc_decide`). Its code
+reaches the buffers through `esi`, so does not depend on the argument
+`scratch` is (`ptrTo_sc`: `sc_taint`).
 
 Its inputs (`Inp`) are `ek`, `m` and 64 bytes whose last 32 are `r`, at
 `eEK`, `eM` and `eKR` (`Base`). A step's frame is within what a predicate
@@ -29,21 +30,22 @@ open VG.Proof.MlKem.X86.Top
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- A layout whose `scratch` has 32768 bytes, written, and whose stack is 88 bytes. -/
-structure SOK (Y : Lay) : Prop where
+/-- A layout whose `scratch` has `L.scratch` bytes, written, and whose stack is 88 bytes. -/
+structure SOK (L : KemLay) (Y : Lay) : Prop where
   lt : Y.sc < Y.n
   wr : Y.awr Y.sc = true
-  len : Y.alen Y.sc = 32768
+  len : Y.alen Y.sc = L.scratch
   stk : Y.stk = 88
 
-theorem SOK.le {Y : Lay} (h : SOK Y) {n : Nat} (hn : n ≤ 88 := by decide) : n ≤ Y.stk := h.stk ▸ hn
+theorem SOK.le {L : KemLay} {Y : Lay} (h : SOK L Y) {n : Nat} (hn : n ≤ 88 := by decide) : n ≤ Y.stk :=
+  h.stk ▸ hn
 
-theorem ok_sc {Y : Lay} (h : SOK Y) (o l : Nat) :
-    Y.ok ⟨Y.sc, o, l⟩ = (decide (0 < l) && decide (o + l ≤ 32768)) := by
+theorem ok_sc {L : KemLay} {Y : Lay} (h : SOK L Y) (o l : Nat) :
+    Y.ok ⟨Y.sc, o, l⟩ = (decide (0 < l) && decide (o + l ≤ L.scratch)) := by
   simp only [Lay.ok, h.lt, h.len, decide_true, Bool.true_and]
 
-theorem okW_sc {Y : Lay} (h : SOK Y) (o l : Nat) :
-    Y.okW ⟨Y.sc, o, l⟩ = (decide (0 < l) && decide (o + l ≤ 32768)) := by
+theorem okW_sc {L : KemLay} {Y : Lay} (h : SOK L Y) (o l : Nat) :
+    Y.okW ⟨Y.sc, o, l⟩ = (decide (0 < l) && decide (o + l ≤ L.scratch)) := by
   simp only [Lay.okW, ok_sc h, h.wr, Bool.and_true]
 
 theorem sep_sc {Y : Lay} (o l o' l' : Nat) :
@@ -63,67 +65,77 @@ structure Inp where
   kr : State → List Byte
 
 section
-variable (I : Inp) (s₀ : State)
+variable (L : KemLay) (I : Inp) (s₀ : State)
 /-- `ρ`. -/
-abbrev ρE : List Byte := ekRho mlKem768 (I.ek s₀)
+abbrev ρE : List Byte := ekRho L.p (I.ek s₀)
 /-- `r`. -/
 abbrev rE : List Byte := (I.kr s₀).drop 32
 /-- `Â[i, j]`, if sampled. -/
-noncomputable abbrev aE (i j : Nat) : Poly := sv (matSeed (ρE I s₀) i j)
+noncomputable abbrev aE (i j : Nat) : Poly := sv (matSeed (ρE L I s₀) i j)
 /-- `ŷ[j]`. -/
 abbrev yE (j : Nat) : Poly := encY (rE I s₀) j
 end
 
 section
-variable (sc : Nat)
+variable (L : KemLay) (sc : Nat)
 abbrev bY (j : Nat) : Buf := ⟨sc, 1024 * j, 1024⟩
-abbrev bE : Buf := ⟨sc, eE, 1024⟩
-abbrev bU : Buf := ⟨sc, eU, 1024⟩
-abbrev bA : Buf := ⟨sc, eA, 1024⟩
-abbrev bP : Buf := ⟨sc, eP, 1024⟩
-abbrev bT : Buf := ⟨sc, eT, 1024⟩
-abbrev bMU : Buf := ⟨sc, eMU, 1024⟩
-abbrev bNS : Buf := ⟨sc, eNS, 1024⟩
-abbrev bSS : Buf := ⟨sc, eSS, 2048⟩
-abbrev bST : Buf := ⟨sc, eST, 200⟩
-abbrev bWK : Buf := ⟨sc, eWK, 640⟩
-abbrev bPRF : Buf := ⟨sc, ePRF, 128⟩
-abbrev bACC : Buf := ⟨sc, eACC, 4⟩
-abbrev bEK : Buf := ⟨sc, eEK, 1184⟩
-abbrev bM : Buf := ⟨sc, eM, 32⟩
-abbrev bKR : Buf := ⟨sc, eKR, 64⟩
-abbrev bC : Buf := ⟨sc, eC, 1088⟩
+abbrev bE : Buf := ⟨sc, L.eE, 1024⟩
+abbrev bU : Buf := ⟨sc, L.eU, 1024⟩
+abbrev bA : Buf := ⟨sc, L.eA, 1024⟩
+abbrev bP : Buf := ⟨sc, L.eP, 1024⟩
+abbrev bT : Buf := ⟨sc, L.eT, 1024⟩
+abbrev bMU : Buf := ⟨sc, L.eMU, 1024⟩
+abbrev bNS : Buf := ⟨sc, L.eNS, 1024⟩
+abbrev bSS : Buf := ⟨sc, L.eSS, 2048⟩
+abbrev bST : Buf := ⟨sc, L.eST, 200⟩
+abbrev bWK : Buf := ⟨sc, L.eWK, 640⟩
+abbrev bPRF : Buf := ⟨sc, L.ePRF, 128⟩
+abbrev bACC : Buf := ⟨sc, L.eACC, 4⟩
+abbrev bEK : Buf := ⟨sc, L.eEK, L.p.ekLen⟩
+abbrev bM : Buf := ⟨sc, L.eM, 32⟩
+abbrev bKR : Buf := ⟨sc, L.eKR, 64⟩
+abbrev bC : Buf := ⟨sc, L.eC, L.p.ctLen⟩
 /-- `r ‖ N`. -/
-abbrev bRN : Buf := ⟨sc, eKR + 32, 33⟩
+abbrev bRN : Buf := ⟨sc, L.eKR + 32, 33⟩
 /-- `N`. -/
-abbrev bN : Buf := ⟨sc, eKR + 64, 1⟩
+abbrev bN : Buf := ⟨sc, L.eKR + 64, 1⟩
 /-- `ρ ‖ i ‖ j`. -/
-abbrev bSeed : Buf := ⟨sc, eEK + 1152, 34⟩
+abbrev bSeed : Buf := ⟨sc, L.eEK + 384 * L.p.k, 34⟩
 end
 
 /-- Whether `bs` is apart from the inputs. -/
-def inApart (Y : Lay) (bs : List Buf) : Bool :=
-  Y.apart (bEK Y.sc) bs && Y.apart (bM Y.sc) bs && Y.apart (bKR Y.sc) bs
+def inApart (L : KemLay) (Y : Lay) (bs : List Buf) : Bool :=
+  Y.apart (bEK L Y.sc) bs && Y.apart (bM L Y.sc) bs && Y.apart (bKR L Y.sc) bs
 
 /-- A fact of the layout of buffers of `scratch`, computed from their offsets. -/
 macro "sc_decide" : tactic => `(tactic| (simp only [Lay.apart, List.all_cons, List.all_nil, Bool.and_true,
-  ok_sc ‹SOK _›, okW_sc ‹SOK _›, sep_sc, (‹SOK _›).stk, inApart]; decide))
+  ok_sc ‹SOK _ _›, okW_sc ‹SOK _ _›, sep_sc, (‹SOK _ _›).stk, inApart]; decide))
 
-/-- A taint check of code that reaches buffers of `scratch` through `esi`. -/
-macro "sc_taint" : tactic => `(tactic| ((try simp only [ptrTo_sc]); taint_decide))
+/-- The facts of the layout that `rn_split` and `cbd_piece` use. -/
+class BaseOK (L : KemLay) : Prop where
+  n : ∀ {Y : Lay}, SOK L Y → Y.okW (bN L Y.sc) = true
+  rn : ∀ {Y : Lay}, SOK L Y →
+    Y.ok ⟨Y.sc, L.eKR + 32, 32⟩ = true ∧ Y.ok (bN L Y.sc) = true ∧ Y.ok (bKR L Y.sc) = true
+  hash : ∀ {Y : Lay}, SOK L Y → (Y.okW (bST L Y.sc) && Y.okW (bWK L Y.sc) && Y.ok (bRN L Y.sc) &&
+    Y.okW (bPRF L Y.sc) && Y.sep (bST L Y.sc) (bWK L Y.sc) && Y.sep (bRN L Y.sc) (bST L Y.sc) &&
+    Y.sep (bRN L Y.sc) (bWK L Y.sc) && Y.sep (bST L Y.sc) (bPRF L Y.sc) && Y.sep (bPRF L Y.sc) (bWK L Y.sc)) = true
 
-variable {Y : Lay} {lk : State → List Byte}
+/-- A taint check of code that reaches buffers of `scratch` through `esi`, for any parameter set. -/
+macro "sc_taint" : tactic => `(tactic| ((try simp only [ptrTo_sc]); (try simp only [ptrTo, reduceIte,
+  Nat.reduceEqDiff, List.cons_append, List.nil_append]); taint_rfl))
+
+variable {L : KemLay} {Y : Lay} {lk : State → List Byte}
 
 /-- The inputs, in `scratch`. -/
-structure Base (Y : Lay) (I : Inp) (s₀ s : State) : Prop where
+structure Base (L : KemLay) (Y : Lay) (I : Inp) (s₀ s : State) : Prop where
   ctx : Ctx Y s₀ s
-  ek : bytesAt s.mem (Buf.addr s₀ (bEK Y.sc)) 1184 = I.ek s₀
-  m : bytesAt s.mem (Buf.addr s₀ (bM Y.sc)) 32 = I.m s₀
-  kr : bytesAt s.mem (Buf.addr s₀ (bKR Y.sc)) 64 = I.kr s₀
+  ek : bytesAt s.mem (Buf.addr s₀ (bEK L Y.sc)) L.p.ekLen = I.ek s₀
+  m : bytesAt s.mem (Buf.addr s₀ (bM L Y.sc)) 32 = I.m s₀
+  kr : bytesAt s.mem (Buf.addr s₀ (bKR L Y.sc)) 64 = I.kr s₀
 
 theorem Base.keep {I : Inp} {s₀ s s' : State} (hp : TPre Y s₀) {bs : List Buf} {M : Nat} (hM : M + 16 ≤ Y.stk)
-    (hs : inApart Y bs = true) (fr : Frame (FR s₀ bs M) s.mem s'.mem) (h : Base Y I s₀ s) (c : Ctx Y s₀ s') :
-    Base Y I s₀ s' := by
+    (hs : inApart L Y bs = true) (fr : Frame (FR s₀ bs M) s.mem s'.mem) (h : Base L Y I s₀ s) (c : Ctx Y s₀ s') :
+    Base L Y I s₀ s' := by
   simp only [inApart, Bool.and_eq_true] at hs
   exact ⟨c, by rw [keepBytes hp hM hs.1.1 fr]; exact h.ek, by rw [keepBytes hp hM hs.1.2 fr]; exact h.m,
     by rw [keepBytes hp hM hs.2 fr]; exact h.kr⟩
@@ -151,15 +163,16 @@ theorem st8_byte {s₀ : State} (m : Mem) (o v : Nat) :
   simp only [BitVec.add_zero, writeW8_apply, List.getElem_cons_zero, ite_true]
   rw [BitVec.setWidth_ofNat_of_le (by decide)]
 
+variable [BaseOK L]
+
 /-- `r ‖ N`. -/
-theorem rn_split {s₀ : State} (hS : SOK Y) (hp : TPre Y s₀) (m : Mem) :
-    bytesAt m (Buf.addr s₀ (bRN Y.sc)) 33 =
-      (bytesAt m (Buf.addr s₀ (bKR Y.sc)) 64).drop 32 ++ bytesAt m (Buf.addr s₀ (bN Y.sc)) 1 := by
-  rw [bytes_split hp m (o' := eKR + 64) (l₁ := 32) (l₂ := 1) rfl rfl (by sc_decide) (by sc_decide),
+theorem rn_split {s₀ : State} (hS : SOK L Y) (hp : TPre Y s₀) (m : Mem) :
+    bytesAt m (Buf.addr s₀ (bRN L Y.sc)) 33 =
+      (bytesAt m (Buf.addr s₀ (bKR L Y.sc)) 64).drop 32 ++ bytesAt m (Buf.addr s₀ (bN L Y.sc)) 1 := by
+  obtain ⟨o₁, o₂, o₃⟩ := BaseOK.rn hS
+  rw [bytes_split hp m (o' := L.eKR + 64) (l₁ := 32) (l₂ := 1) rfl rfl o₁ o₂,
     bytesAt_drop _ _ (show 32 ≤ 64 by decide)]
-  have e : Buf.addr s₀ ⟨Y.sc, eKR + 32, 32⟩ = Buf.addr s₀ (bKR Y.sc) + BitVec.ofNat 64 32 := by
-    rw [Buf.addr_eq hp (b := ⟨Y.sc, eKR + 32, 32⟩) (by sc_decide), Buf.addr_eq hp (b := bKR Y.sc) (by sc_decide),
+  have e : Buf.addr s₀ ⟨Y.sc, L.eKR + 32, 32⟩ = Buf.addr s₀ (bKR L Y.sc) + BitVec.ofNat 64 32 := by
+    rw [Buf.addr_eq hp (b := ⟨Y.sc, L.eKR + 32, 32⟩) o₁, Buf.addr_eq hp (b := bKR L Y.sc) o₃,
       BitVec.add_assoc, ← BitVec.ofNat_add]
   rw [e]
-
-end VG.Proof.MlKem.X86.Enc

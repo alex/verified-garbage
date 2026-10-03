@@ -1,14 +1,14 @@
+import VerifiedGarbage.Proof.Sha3.Seed34
 import VerifiedGarbage.Proof.MlKem.X86_64.S4Absorb
 
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, squeezing
 
-Untrusted: everything here is checked by Lean. The padded seeds are the
-states that `Keccak-f` turns into the absorbed ones (`padded_A0`), and the
-four states hold them after `absorb4` (`lanes_A0`). Each `squeeze4 n`
-permutes the four states (`permute4_ok`) and copies the first 168 bytes of
-each to its output, which then holds the first `168 (n + 1)` bytes of the
-seed's XOF output (`sq_ok`).
+The padded seeds are the states that `Keccak-f` turns into the absorbed ones
+(`padded_A0`), and the four states hold them after `absorb4` (`lanes_A0`).
+Each `squeeze4 n` permutes the four states (`permute4_ok`) and copies the
+first 168 bytes of each to its output, which then holds the first `168 (n +
+1)` bytes of the seed's XOF output (`sq_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4
@@ -22,43 +22,9 @@ open VG.Proof.Sha3.X86_64.X4 (la ba Lanes4 lanes4_of_bytes byte_of_lanes4 Pre4 p
 
 /-! ## The padded seeds -/
 
-/-- The state whose permutation is the absorbed padded seed. -/
-def A0 (Bs : List Byte) : Spec.Sha3.State := xorByte (xorByte (Rep 168 Bs) 34 0x1f) 167 0x80
-
-theorem padded_A0 {Bs : List Byte} (h : Bs.length = 34) :
-    padded 168 Spec.Sha3.shakeSuffix Bs = keccakF (A0 Bs) := by
-  rw [padded, absorb_pad (by decide) (by decide), h]; rfl
-
-theorem byteOf_A0 {Bs : List Byte} (h : Bs.length = 34) {q : Nat} (hq : q < 200) :
-    byteOf (A0 Bs) q = if q < 34 then Bs.getD q 0 else if q = 34 then 0x1f else if q = 167 then 0x80 else 0 := by
-  have hz : byteOf Spec.Sha3.zero q = 0 := by
-    simp only [byteOf, Spec.Sha3.zero, getElem!_pos (Vector.replicate 25 (0 : BitVec 64)) (q / 8) (by omega),
-      Vector.getElem_replicate]
-    apply BitVec.eq_of_getLsbD_eq; intro j _; simp
-  have ha : Spec.Sha3.absorb 168 Bs = Spec.Sha3.zero := by simp [Spec.Sha3.absorb, h]
-  have hr : byteOf (Rep 168 Bs) q = Bs.getD q 0 := by
-    rw [Rep, ha, byteOf_xorBytes _ _ hq, hz, h, show 168 * (34 / 168) = 0 from rfl, List.drop_zero]
-    exact BitVec.zero_xor
-  have hd : ∀ q, 34 ≤ q → Bs.getD q 0 = 0 := fun q hq' => by
-    rw [List.getD, List.getElem?_eq_none (by omega)]; rfl
-  rw [A0, byteOf_xorByte _ _ _ hq, byteOf_xorByte _ _ _ hq, hr]
-  by_cases e1 : q < 34
-  · rw [ifn (show ¬ q = 167 by omega), ifn (show ¬ q = 34 by omega), ifp e1]
-  · rw [ifn e1, hd q (by omega)]
-    by_cases e2 : q = 34
-    · rw [ifn (show ¬ q = 167 by omega), ifp e2, ifp e2]; exact BitVec.zero_xor
-    · rw [ifn e2, ifn e2]
-      by_cases e3 : q = 167
-      · rw [ifp e3, ifp e3]; exact BitVec.zero_xor
-      · rw [ifn e3, ifn e3]
+export VG.Proof.Sha3.Seed34 (A0 padded_A0 byteOf_A0 xofByte_A0)
 
 theorem B_length (σ : State) (k : Nat) : (B σ k).length = 34 := VG.Proof.Sha3.bytesAt_length _ _ _
-
-/-- Byte `p` of the XOF output of `Bs`, from the states. -/
-theorem xofByte_A0 {Bs : List Byte} (h : Bs.length = 34) {n p : Nat} (hp : p < 168) :
-    xofByte Bs (168 * n + p) = byteOf (iterF (n + 1) (A0 Bs)) p := by
-  rw [xofByte, show (168 * n + p) / 168 = n by omega, show (168 * n + p) % 168 = p by omega, padded_A0 h,
-    iterF_keccakF]
 
 /-! ## `Env` after writes -/
 

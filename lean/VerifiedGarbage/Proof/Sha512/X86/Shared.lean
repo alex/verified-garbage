@@ -9,10 +9,10 @@ import VerifiedGarbage.Spec.Sha512.Contract
 /-!
 # Sha512 on X86: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha512/X86/Compress.lean`); these theorems move
-them to the shared contracts of `Spec/Sha512/Contract.lean`, which the
-artifacts are emitted with.
+The proofs are written against per-target contracts
+(`Proof/Sha512/X86/Compress.lean`); these theorems move them to the shared
+contracts of `Spec/Sha512/Contract.lean`, which the artifacts are emitted
+with.
 
 The shared contracts give the functions more scratch than these ones use (1328
 bytes for `compress`, 1376 for `update` and `finalize`, sized for the x86-64
@@ -174,8 +174,8 @@ theorem init (iv : Spec.Sha512.HashValue) :
 theorem updateWide_implies : updateWide.Implies (Spec.Sha512.updateContract X86.abi 20) := by
   sig_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide, Proof.Sha512.updateX86,
     Proof.Sha512.countX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    [updateSat, Proof.Sha512.X86.Stream.Update.sat, Proof.Sha512.X86.Stream.Update.satMem, X86.arg,
-      X86.argAddr, Mem.readW, Mem.read] using updateSat
+    [updateSat, Proof.Sha512.X86.Stream.Update.sat, MdStream.X86.Update.sat, MdStream.X86.Update.sat₀,
+      MdStream.X86.Update.satMem, X86.arg, X86.argAddr, Mem.readW, Mem.read] using updateSat
 
 theorem update :
     Verified X86.target Impl.Sha512.X86.Stream.update (Spec.Sha512.updateContract X86.abi 20) :=
@@ -184,8 +184,8 @@ theorem update :
 theorem finalizeWide_implies : finalizeWide.Implies (Spec.Sha512.finalizeContract X86.abi 20) := by
   contract_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
     Proof.Sha512.finalizeX86, Proof.Sha512.countX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    [finalizeSat, Proof.Sha512.X86.Stream.Finalize.sat, Proof.Sha512.X86.Stream.Finalize.satMem,
-      X86.arg, X86.argAddr, Mem.readW, Mem.read] using finalizeSat
+    [finalizeSat, Proof.Sha512.X86.Stream.Finalize.sat, MdStream.X86.Finalize.satR, MdStream.X86.Finalize.sat₀,
+      MdStream.X86.Finalize.satMem, X86.arg, X86.argAddr, Mem.readW, Mem.read] using finalizeSat
 
 theorem finalize :
     Verified X86.target Impl.Sha512.X86.Stream.finalize (Spec.Sha512.finalizeContract X86.abi 20) :=

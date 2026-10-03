@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.X25519.X86.Step
 /-!
 # X25519 on x86 (32-bit): the inversion
 
-Untrusted: everything here is checked by Lean. The inversion is a sequence of
-blocks of operations and runs of squarings (`sqn`, a loop counted by `esi`);
-each leaves the slots with the values of an evaluation of it (`runI`), which
-for the inversion's steps is `invert` of `Z2` in `T1`.
+The inversion is a sequence of blocks of operations and runs of squarings
+(`sqn`, a loop counted by `esi`); each leaves the slots with the values of an
+evaluation of it (`runI`), which for the inversion's steps is `invert` of `Z2`
+in `T1`.
 -/
 
 namespace VG.Proof.X25519.X86
@@ -15,18 +15,18 @@ open VG VG.X86 VG.Impl.X25519.X86 VG.Spec.X25519
 
 /-- `n` squarings in place. -/
 theorem sqn_ok {x : BitVec 32} {k : Nat} {s₀ s : State} (hb : Base x k s₀ s) {o n : Nat}
-    (ho : isSlot o = true) (hn : 1 ≤ n) (hn' : n < 2 ^ 32) :
+    (ho : isSlot 288 o = true) (hn : 1 ≤ n) (hn' : n < 2 ^ 32) :
     WP isa (Impl.X25519.X86.sqn o n) s fun s' => Base x k s₀ s' ∧
-      ∀ q, isSlot q = true → F s'.mem x q = Function.update (F s.mem x) o
+      ∀ q, isSlot 288 q = true → F s'.mem x q = Function.update (F s.mem x) o
         (Proof.X25519.sqn (F s.mem x o) n) q := by
-  have hv : opValid (.mul o o o) = true := by
+  have hv : opValid 288 (.mul o o o) = true := by
     simp only [opValid, opOut, opIns, ho, List.all_cons, List.all_nil, Bool.and_self]
   refine WP.seq (Wp.wp_movi fun s₁ u₁ => WP.block_nil ?_)
   have b₁ : Base x k s₀ s₁ := hb.of_frame (o := 288) (n := 640) (u₁.other _ (by decide))
     (u₁.other _ (by decide)) u₁.rd u₁.wr (by rw [u₁.mem]; exact Frame.refl _ _) (by decide) (by decide)
     (.inr (Nat.le_refl _)) (by decide)
   refine WP.loop (M := isa) (fun c s' => 1 ≤ c ∧ c ≤ n ∧ Base x k s₀ s' ∧ s'.gpr .esi = BitVec.ofNat 32 c ∧
-      ∀ q, isSlot q = true → F s'.mem x q = Function.update (F s.mem x) o
+      ∀ q, isSlot 288 q = true → F s'.mem x q = Function.update (F s.mem x) o
         (Proof.X25519.sqn (F s.mem x o) (n - c)) q) (fun c s' hc => ?_) n s₁
     ⟨hn, Nat.le_refl _, b₁, u₁.gpr, fun q hq => by
       rw [Nat.sub_self, u₁.mem]
@@ -41,7 +41,7 @@ theorem sqn_ok {x : BitVec 32} {k : Nat} {s₀ s : State} (hb : Base x k s₀ s)
     (.inr (Nat.le_refl _)) (by decide)
   have esi₃ : s₃.gpr .esi = BitVec.ofNat 32 (c - 1) := by
     rw [u₃.gpr, k₂.esi, esi]; exact Wp.ofNat_pred c1
-  have val₃ : ∀ q, isSlot q = true → F s₃.mem x q = Function.update (F s.mem x) o
+  have val₃ : ∀ q, isSlot 288 q = true → F s₃.mem x q = Function.update (F s.mem x) o
       (Proof.X25519.sqn (F s.mem x o) (n - (c - 1))) q := fun q hq => by
     rw [u₃.mem, e₂ q hq]
     simp only [opOut, opVal]
@@ -77,8 +77,8 @@ def progOf : List IStep → Prog isa
   | st :: l => .seq st.prog (progOf l)
 
 def IStep.valid : IStep → Bool
-  | .ops l => l.all opValid
-  | .sqn o n => isSlot o && 1 ≤ n && n < 2 ^ 32
+  | .ops l => l.all (opValid 288)
+  | .sqn o n => isSlot 288 o && 1 ≤ n && n < 2 ^ 32
 
 /-- The values of the slots after a step. -/
 def IStep.run (V : Nat → Fe) : IStep → Nat → Fe
@@ -90,7 +90,7 @@ def runI : List IStep → (Nat → Fe) → Nat → Fe
   | st :: l, V => runI l (st.run V)
 
 theorem IStep.run_congr {V V' : Nat → Fe} (st : IStep) (hv : st.valid = true)
-    (h : ∀ q, isSlot q = true → V q = V' q) : ∀ q, isSlot q = true → st.run V q = st.run V' q := by
+    (h : ∀ q, isSlot 288 q = true → V q = V' q) : ∀ q, isSlot 288 q = true → st.run V q = st.run V' q := by
   cases st with
   | ops l =>
     simp only [IStep.valid, List.all_eq_true] at hv
@@ -103,7 +103,7 @@ theorem IStep.run_congr {V V' : Nat → Fe} (st : IStep) (hv : st.valid = true)
     · simp only [IStep.run, Function.update_of_ne e, h q hq]
 
 theorem runI_congr (l : List IStep) (hv : ∀ st ∈ l, st.valid = true) :
-    ∀ {V V' : Nat → Fe}, (∀ q, isSlot q = true → V q = V' q) → ∀ q, isSlot q = true → runI l V q = runI l V' q := by
+    ∀ {V V' : Nat → Fe}, (∀ q, isSlot 288 q = true → V q = V' q) → ∀ q, isSlot 288 q = true → runI l V q = runI l V' q := by
   induction l with
   | nil => exact fun h q hq => h q hq
   | cons st l ih =>
@@ -113,7 +113,7 @@ theorem runI_congr (l : List IStep) (hv : ∀ st ∈ l, st.valid = true) :
 
 theorem IStep.ok {x : BitVec 32} {k : Nat} {s₀ s : State} (hb : Base x k s₀ s) (st : IStep)
     (hv : st.valid = true) :
-    WP isa st.prog s fun s' => Base x k s₀ s' ∧ ∀ q, isSlot q = true → F s'.mem x q = st.run (F s.mem x) q := by
+    WP isa st.prog s fun s' => Base x k s₀ s' ∧ ∀ q, isSlot 288 q = true → F s'.mem x q = st.run (F s.mem x) q := by
   cases st with
   | ops l =>
     simp only [IStep.valid, List.all_eq_true] at hv
@@ -124,7 +124,7 @@ theorem IStep.ok {x : BitVec 32} {k : Nat} {s₀ s : State} (hb : Base x k s₀ 
 
 theorem progOf_ok {x : BitVec 32} {k : Nat} {s₀ : State} :
     ∀ (l : List IStep) {s : State}, Base x k s₀ s → (∀ st ∈ l, st.valid = true) →
-    WP isa (progOf l) s fun s' => Base x k s₀ s' ∧ ∀ q, isSlot q = true → F s'.mem x q = runI l (F s.mem x) q
+    WP isa (progOf l) s fun s' => Base x k s₀ s' ∧ ∀ q, isSlot 288 q = true → F s'.mem x q = runI l (F s.mem x) q
   | [], _, hb, _ => WP.block_nil ⟨hb, fun _ _ => rfl⟩
   | [st], _, hb, hv => WP.mono (IStep.ok hb st (hv st List.mem_cons_self)) fun _ ⟨b, e⟩ => ⟨b, e⟩
   | st :: st' :: l, s, hb, hv => by

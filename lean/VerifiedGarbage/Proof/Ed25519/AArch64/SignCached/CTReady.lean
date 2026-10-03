@@ -65,19 +65,23 @@ def init_ready (ha : s.gpr .x0 = L.scr) :
 def UpdateArgs (L : Lay) (count p len : Addr) (s : State) : Prop :=
   s.gpr .x0 = L.scr ∧ s.gpr .x1 = count ∧ s.gpr .x2 = p ∧ s.gpr .x3 = len ∧ s.gpr .x4 = L.scr + 192
 
-def update_ready {count p len : Addr} (hi : Input L p len) (ha : UpdateArgs L count p len s) :
+def update_ready (hL : L.Ok) (hsp : s.sp = L.E) {count p len : Addr} (hi : Input L p len)
+    (ha : UpdateArgs L count p len s) :
     Whole.CallReady Proof.Sha512.updateAArch64 L.E L.inputs L.outputs s := by
   have hw := Whole.hash_writes (E := L.E) (wr := L.outputs) (by simp [Lay.outputs] : L.SCR ∈ L.outputs)
   exact ⟨Whole.updateRd p len, Whole.hashWr L.scr,
-    Whole.update_pre ha.1 ha.2.2.1 ha.2.2.2.1 ha.2.2.2.2 hi.scratch, update_covers hi, hw⟩
+    Whole.update_pre ha.1 ha.2.2.1 ha.2.2.2.1 ha.2.2.2.2 hi.scratch (by rw [hsp]; exact hL.e16)
+      (by rw [hsp]; exact hL.cc) (by rw [hsp]; exact hi.ck hL), update_covers hi, hw⟩
 
 def FinalArgs (L : Lay) (count : Addr) (s : State) : Prop :=
   s.gpr .x0 = L.scr ∧ s.gpr .x1 = count ∧ s.gpr .x2 = L.E + 192 ∧ s.gpr .x3 = L.scr + 192
 
-def finalize_ready (hL : L.Ok) {count : Addr} (ha : FinalArgs L count s) :
+def finalize_ready (hL : L.Ok) (hsp : s.sp = L.E) {count : Addr} (ha : FinalArgs L count s) :
     Whole.CallReady Proof.Sha512.finalizeAArch64 L.E L.inputs L.outputs s :=
   ⟨[], Whole.finalizeWr L.scr (L.E + 192),
-    Whole.finalize_pre ha.1 ha.2.2.1 ha.2.2.2 (hL.kc.sub_left (digestWithin L).sub),
+    Whole.finalize_pre ha.1 ha.2.2.1 ha.2.2.2 (hL.kc.sub_left (digestWithin L).sub)
+      (by rw [hsp]; exact hL.e16) (by rw [hsp]; exact hL.cc)
+      (by rw [hsp]; exact Whole.ck_frame (by decide : 192 + 64 ≤ 304)),
     Whole.covers_writes (final_writes L), final_writes L⟩
 
 end VG.Proof.Ed25519.AArch64.SignCached

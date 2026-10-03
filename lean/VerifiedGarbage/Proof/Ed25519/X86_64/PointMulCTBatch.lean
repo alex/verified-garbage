@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulBatch
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulCTLit
 import VerifiedGarbage.Proof.Ed25519.X86_64.CTSupport
 
-/-! Untrusted: scratch counters are public by correctness, including after table stores. -/
+/-! Scratch counters are public by correctness, including after table stores. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

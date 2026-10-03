@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.X86.Taint
+import VerifiedGarbage.Proof.Framework.X86.Spill
 import VerifiedGarbage.Proof.Framework.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.Range
@@ -17,9 +18,9 @@ section
 /-!
 # SHA-3: the x86 (32-bit) contracts
 
-**Untrusted**: the contracts the proofs are written against; the artifacts
-are emitted with the shared contracts of `Spec/`, which imply these
-(`Contract.Implies`), with the arguments on the stack (cdecl).
+The contracts the proofs are written against; the artifacts are emitted with
+the shared contracts of `Spec/`, which imply these (`Contract.Implies`), with
+the arguments on the stack (cdecl).
 
 The streaming functions call the permutation, each call pushing its two
 arguments and storing its return address in the 12 bytes of stack below
@@ -170,12 +171,11 @@ section
 /-!
 # SHA-3 on x86 (32-bit): lanes as pairs of words
 
-Untrusted: everything here is checked by Lean. The halves of the lanes
-(`half`), their rotations as the code computes them (each half rotated, and
-their top bits exchanged), and weakest-precondition rules for the macros of
-`VG.Impl.Sha3.X86` that load, combine, rotate and store a lane in `(eax,
-edx)`, each proved once for any registers and offsets, in
-continuation-passing style. The halves and the 64-bit words in memory are
+The halves of the lanes (`half`), their rotations as the code computes them
+(each half rotated, and their top bits exchanged), and weakest-precondition
+rules for the macros of `VG.Impl.Sha3.X86` that load, combine, rotate and
+store a lane in `(eax, edx)`, each proved once for any registers and offsets,
+in continuation-passing style. The halves and the 64-bit words in memory are
 those of the SHA-512 proofs (`Proof/Sha512/X86/Rounds.lean`).
 -/
 
@@ -424,11 +424,11 @@ end
 /-!
 # Keccak-f[1600] on x86 (32-bit): one round
 
-Untrusted: everything here is checked by Lean. One round (`round src dst`)
-from the state at `src` to the state at `dst`, lane by lane
-(`Proof.Sha3.out`), each lane a pair of 32-bit words, through the work area
-of the scratch space (`C`, then `B`, and `D`), proved once for both of the
-rounds of an iteration (`src`, `dst` being `esi`, `edi` or `edi`, `esi`).
+One round (`round src dst`) from the state at `src` to the state at `dst`,
+lane by lane (`Proof.Sha3.out`), each lane a pair of 32-bit words, through the
+work area of the scratch space (`C`, then `B`, and `D`), proved once for both
+of the rounds of an iteration (`src`, `dst` being `esi`, `edi` or `edi`,
+`esi`).
 -/
 
 namespace VG.Proof.Sha3.X86
@@ -962,11 +962,10 @@ end
 /-!
 # Keccak-f[1600] on x86 (32-bit): the whole function
 
-Untrusted: everything here is checked by Lean. The prologue loads the
-arguments, saves the callee-saved registers and stores the round constants
-in the scratch space; each iteration of the loop runs two rounds
-(`round_ok`), from the state to the second state in the scratch space and
-back; the epilogue restores the registers.
+The prologue loads the arguments, saves the callee-saved registers and stores
+the round constants in the scratch space; each iteration of the loop runs two
+rounds (`round_ok`), from the state to the second state in the scratch space
+and back; the epilogue restores the registers.
 -/
 
 namespace VG.Proof.Sha3.X86
@@ -1146,9 +1145,11 @@ end Pre
 def Aux (s₀ : State) (m : Mem) : Prop := ∀ j < 24, rd64 m (scp s₀) (200 + 8 * j) = RC j
 
 /-- The saved registers. -/
-def Saved (s₀ : State) (m : Mem) : Prop := ∀ p ∈ saved, m.readW (addr (scp s₀) p.2) 32 = s₀.gpr p.1
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (addr (scp s₀)) s₀.gpr saved
 
 theorem saved_ok : ∀ p ∈ saved, 392 ≤ p.2 ∧ p.2 + 4 ≤ 404 := by decide
+
+theorem saved_fits : Spill.Fits 404 saved := by decide
 
 theorem Aux.keep {s₀ : State} {m m' : Mem} (ha : Aux s₀ m)
     (hk : ∀ d, 200 ≤ d → d + 4 ≤ 392 → m'.readW (addr (scp s₀) d) 32 = m.readW (addr (scp s₀) d) 32) :
@@ -1159,9 +1160,8 @@ theorem Aux.keep {s₀ : State} {m m' : Mem} (ha : Aux s₀ m)
 
 theorem Saved.keep {s₀ : State} {m m' : Mem} (hs : Saved s₀ m)
     (hk : ∀ d, 392 ≤ d → d + 4 ≤ 404 → m'.readW (addr (scp s₀) d) 32 = m.readW (addr (scp s₀) d) 32) :
-    Saved s₀ m' := fun p hp => by
-  obtain ⟨h1, h2⟩ := saved_ok p hp
-  rw [hk _ h1 h2]; exact hs p hp
+    Saved s₀ m' :=
+  hs.of_readW fun p hp => hk _ (saved_ok p hp).1 (saved_ok p hp).2
 
 /-! ## The state in memory -/
 
@@ -1307,9 +1307,8 @@ theorem rcs_ok {s₀ : State} (hp : Pre s₀) (s₁ : State) (hW : s₁.gpr .edi
     · rw [rd64_write64_ne _ _ (by omega) (by omega) (by omega)]
       exact hI.rcs j (by omega)
 
-theorem prologue_eq : prologue = ([.mov .eax (.mem (at_ .esp 8)), .mov .ecx (.mem (at_ .esp 4)),
-    .store (at_ .eax 392) .esi, .store (at_ .eax 396) .edi, .store (at_ .eax 400) .ebp,
-    .mov .edi (.reg .eax), .mov .esi (.reg .ecx)] : List Instr) ++
+theorem prologue_eq : prologue = (.mov .eax (.mem (at_ .esp 8)) :: .mov .ecx (.mem (at_ .esp 4)) ::
+    (Spill.saveCode .eax saved ++ ([.mov .edi (.reg .eax), .mov .esi (.reg .ecx)] : List Instr))) ++
     ((List.range 24).flatMap rcStore ++
       ([.mov .ebp (.reg .edi), .alu .add .ebp (.imm 200)] : List Instr)) := rfl
 
@@ -1332,40 +1331,24 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block prologue) s�
   have w₂ : s₂.wr = s₀.wr := by rw [u₂.wr, u₁.wr]
   have sin : ∀ (t : State), t.wr = s₀.wr → ∀ d, 392 ≤ d → d + 4 ≤ 404 →
       InRegions t.wr (addr (scp s₀) d) 4 := fun t ht d _ _ => by rw [ht]; exact hp.accC _ (by omega)
-  refine wp_stm e1 (sin _ w₂ 392 (by omega) (by omega)) fun s₃ u₃ => ?_
-  refine wp_stm (by rw [u₃.gpr, e1]) (sin _ (by rw [u₃.wr, w₂]) 396 (by omega) (by omega)) fun s₄ u₄ => ?_
-  refine wp_stm (by rw [u₄.gpr, u₃.gpr, e1]) (sin _ (by rw [u₄.wr, u₃.wr, w₂]) 400 (by omega) (by omega))
-    fun s₅ u₅ => ?_
+  refine Spill.save_ok saved (fun p h => by
+    rw [e1]; exact sin _ w₂ _ (saved_ok p h).1 (saved_ok p h).2) fun s₅ u₅ => ?_
   refine wp_mov fun s₆ u₆ => wp_mov fun s₇ u₇ => WP.block_nil ?_
-  have g₅ : ∀ r, s₅.gpr r = s₂.gpr r := fun r => by rw [u₅.gpr, u₄.gpr, u₃.gpr]
+  have g₅ : ∀ r, s₅.gpr r = s₂.gpr r := fun r => by rw [u₅.gpr]
   have g₂ : ∀ r, r ≠ .eax → r ≠ .ecx → s₂.gpr r = s₀.gpr r := fun r h1 h2 => by
     rw [u₂.other r h2, u₁.other r h1]
   have hW₇ : s₇.gpr .edi = scp s₀ := by rw [u₇.other _ (by decide), u₆.gpr, g₅, e1]
-  have w₇ : s₇.wr = s₀.wr := by rw [u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, w₂]
+  have w₇ : s₇.wr = s₀.wr := by rw [u₇.wr, u₆.wr, u₅.wr, w₂]
   -- The saved registers, and the memory the saves changed.
-  have hm₇ : s₇.mem = ((s₂.mem.writeW (addr (scp s₀) 392) (s₀.gpr .esi)).writeW (addr (scp s₀) 396)
-      (s₀.gpr .edi)).writeW (addr (scp s₀) 400) (s₀.gpr .ebp) := by
-    rw [u₇.mem, u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₄.gpr, u₃.gpr, g₂ _ (by decide) (by decide),
-      g₂ _ (by decide) (by decide), g₂ _ (by decide) (by decide)]
-  have hm₂ : s₂.mem = s₀.mem := by rw [u₂.mem, u₁.mem]
-  have c : ∀ d, 392 ≤ d → d + 4 ≤ 404 → (⟨addr (scp s₀) 392, 12⟩ : Region).Contains (addr (scp s₀) d) 4 :=
-    fun d h1 h2 => sub_contains fC (by omega) h1 (by omega) (by omega)
+  have hm₇ : s₇.mem = Spill.saveMem s₀.mem (addr (scp s₀)) s₀.gpr saved := by
+    rw [u₇.mem, u₆.mem, u₅.mem, e1, u₂.mem, u₁.mem]
+    exact Spill.saveMem_congr _ _ (fun _ _ => rfl) fun p h => g₂ _ (by revert p h; decide) (by revert p h; decide)
   have fr₇ : Frame [⟨addr (scp s₀) 392, 12⟩] s₀.mem s₇.mem := by
-    rw [hm₇, hm₂]
-    have m := List.mem_singleton_self (⟨addr (scp s₀) 392, 12⟩ : Region)
-    exact (((Frame.refl _ _).writeW m _ (c 392 (by omega) (by omega))).writeW m _
-      (c 396 (by omega) (by omega))).writeW m _ (c 400 (by omega) (by omega))
-  have sv₇ : Saved s₀ s₇.mem := by
-    intro p hp'
-    simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
     rw [hm₇]
-    rcases hp' with rfl | rfl | rfl
-    · rw [VG.Proof.Sha256.X86.Stream.readW_writeW_addr _ _ (by omega) (by omega) (by omega),
-        VG.Proof.Sha256.X86.Stream.readW_writeW_addr _ _ (by omega) (by omega) (by omega),
-        Mem.readW_writeW_self32]
-    · rw [VG.Proof.Sha256.X86.Stream.readW_writeW_addr _ _ (by omega) (by omega) (by omega),
-        Mem.readW_writeW_self32]
-    · rw [Mem.readW_writeW_self32]
+    exact Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p h =>
+      sub_contains fC (by omega) (saved_ok p h).1 (saved_ok p h).2 (by omega)
+  have sv₇ : Saved s₀ s₇.mem := by
+    rw [hm₇]; exact Spill.saveMem_saved_addr _ _ saved_fits (by omega)
   have hwr₇ := w₇
   -- The round constants.
   rw [WP.block_append_iff]
@@ -1380,7 +1363,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block prologue) s�
   have fr₁₀ : Frame [⟨addr (scp s₀) 392, 12⟩, ⟨addr (scp s₀) 200, 192⟩] s₀.mem s₁₀.mem := by
     rw [u₁₀.mem, u₉.mem]
     exact (fr₇.mono (by simp)).trans (h₈.frame.mono (by simp))
-  refine ⟨?_, ?_, ?_, fun q hq => ?_, by rw [u₁₀.rd, u₉.rd, h₈.rd, u₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd,
+  refine ⟨?_, ?_, ?_, fun q hq => ?_, by rw [u₁₀.rd, u₉.rd, h₈.rd, u₇.rd, u₆.rd, u₅.rd,
     u₂.rd, u₁.rd], by rw [u₁₀.wr, u₉.wr, h₈.wr, w₇], fun i hi => ?_, ?_,
     sv₇.keep fun d h1 h2 => keep d h1 h2, ?_⟩
   · rw [u₁₀.other _ (by decide), u₉.other _ (by decide), g₈ _ (by decide), u₇.gpr, u₆.other _ (by decide),
@@ -1416,28 +1399,17 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hL : LInv s₀ 24
   have fC := hp.fitC
   have hin : ∀ d, 392 ≤ d → d + 4 ≤ 404 → InRegions (s.rd ++ s.wr) (addr (scp s₀) d) 4 :=
     fun d _ _ => mem_rd (by rw [hL.wr]; exact hp.accC _ (by omega))
-  have sv := hL.saved
-  simp only [Saved, saved, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp,
-    forall_eq] at sv
-  obtain ⟨v1, v2, v3⟩ := sv
-  unfold restore
-  refine wp_ldm hL.edi (hin 392 (by omega) (by omega)) fun s₁ u₁ => ?_
-  refine wp_ldm (by rw [u₁.other _ (by decide), hL.edi]) (by rw [u₁.rd, u₁.wr]; exact hin 400 (by omega) (by omega))
-    fun s₂ u₂ => ?_
-  refine wp_ldm (by rw [u₂.other _ (by decide), u₁.other _ (by decide), hL.edi])
-    (by rw [u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact hin 396 (by omega) (by omega)) fun s₃ u₃ =>
-    WP.block_nil ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl
-    · rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), hL.keep _ (by decide)]
-    · rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr, v1]
-    · rw [u₃.gpr, u₂.mem, u₁.mem, v2]
-    · rw [u₃.other _ (by decide), u₂.gpr, u₁.mem, v3]
-    · rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), hL.keep _ (by decide)]
-  · rw [u₃.mem, u₂.mem, u₁.mem]
+  rw [show restore = Spill.restoreCode .edi ([(.esi, 392), (.ebp, 400)] ++ [(.edi, 396)]) ++ [] from rfl]
+  refine Spill.restoreBase_ok _ (by decide)
+    (fun p h => have hb := saved_ok p (by revert p h; decide); by rw [hL.edi]; exact hin _ hb.1 hb.2)
+    (by rw [hL.edi]; exact hL.saved.sub (by decide)) fun s₃ r₃ => WP.block_nil ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
+  · by_cases h : r ∈ ([(.esi, 392), (.ebp, 400)] ++ [(.edi, 396)] : Spill.Slots).map Prod.fst
+    · exact r₃.regs r h
+    · rw [r₃.other r h, hL.keep r (by revert h; revert hr; revert r; decide)]
+  · rw [r₃.mem]
     exact hL.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_sc⟩) (by decide)
   · show stateAt s₃.mem ((stp s₀).setWidth 64) = keccakF (A₀ s₀)
-    rw [u₃.mem, u₂.mem, u₁.mem]
+    rw [r₃.mem]
     have hc : cur s₀ 24 = stp s₀ := by simp [cur]
     exact stateAt_eq hp.fitS (hc ▸ hL.state)
 
@@ -1545,9 +1517,8 @@ section
 /-!
 # SHA-3 on x86 (32-bit): calling the permutation
 
-Untrusted: everything here is checked by Lean. A call of `vg_keccak_f1600`
-in a frame of its two arguments (`permuteCall`), from its proof of
-`Verified` (`WP.callWith`).
+A call of `vg_keccak_f1600` in a frame of its two arguments (`permuteCall`),
+from its proof of `Verified` (`WP.callWith`).
 -/
 
 namespace VG.Proof.Sha3.X86
@@ -1631,9 +1602,8 @@ end
 /-!
 # The SHA-3 sponge on x86 (32-bit): common lemmas
 
-Untrusted: everything here is checked by Lean. Facts about bytes, the stack
-and the variables `absorb` and `squeeze` keep in their scratch space, which
-the proofs of the streaming functions share.
+Facts about bytes, the stack and the variables `absorb` and `squeeze` keep in
+their scratch space, which the proofs of the streaming functions share.
 -/
 
 namespace VG.Proof.Sha3.X86.Stream

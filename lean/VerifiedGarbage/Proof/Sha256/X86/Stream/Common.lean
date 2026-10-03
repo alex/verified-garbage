@@ -10,11 +10,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # Streaming SHA-256 on x86 (32-bit): common lemmas
 
-Untrusted: everything here is checked by Lean. The compressor-dependent
-correctness proof is generic in `Proof/Sha256/X86/Stream/CompressAt.lean`; this module keeps
-the shared memory, state and scalar constant-time facts. Per-instruction WP rules that
-expose only what changes, the call of the compression function (`compressAt`),
-and arithmetic on 32-bit values.
+Memory, state and constant-time facts shared by the x86 proofs that
+import it. Per-instruction WP rules that expose only what changes, and
+arithmetic on 32-bit values.
 -/
 
 namespace VG.Proof.Sha256.X86.Stream

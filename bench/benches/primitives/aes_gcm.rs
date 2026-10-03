@@ -2,8 +2,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`).
 pub const USES: &[&str] = &["aes_gcm", "aes", "gcm"];
 
 /// One-shot AES-GCM encryption and decryption (setup included), and
@@ -20,7 +18,7 @@ pub fn bench(c: &mut Criterion) {
 
     use criterion::{BenchmarkId, Throughput};
     use openssl::symm::{Cipher, Crypter, Mode, decrypt_aead, encrypt_aead};
-    use verified_garbage::aes_gcm::{AesGcm, AesGcmStream, Direction};
+    use verified_garbage::aes_gcm::AesGcm;
 
     use crate::{OPENSSL, SIZES, VG};
 
@@ -33,7 +31,7 @@ pub fn bench(c: &mut Criterion) {
         let mut buf = data.clone();
         let tag = AesGcm::new(&key)
             .unwrap()
-            .encrypt(&nonce, &aad, &mut buf)
+            .encrypt_in_place(&nonce, &aad, &mut buf)
             .unwrap();
         let ct = buf.clone();
 
@@ -42,7 +40,7 @@ pub fn bench(c: &mut Criterion) {
         g.bench_function(BenchmarkId::new(VG, size), |b| {
             b.iter(|| {
                 let k = AesGcm::new(black_box(&key)).unwrap();
-                k.encrypt(black_box(&nonce), black_box(&aad), black_box(&mut buf))
+                k.encrypt_in_place(black_box(&nonce), black_box(&aad), black_box(&mut buf))
                     .unwrap()
             })
         });
@@ -68,7 +66,7 @@ pub fn bench(c: &mut Criterion) {
             b.iter(|| {
                 buf.copy_from_slice(&ct);
                 let k = AesGcm::new(black_box(&key)).unwrap();
-                k.decrypt(
+                k.decrypt_in_place(
                     black_box(&nonce),
                     black_box(&aad),
                     black_box(&mut buf),
@@ -96,12 +94,11 @@ pub fn bench(c: &mut Criterion) {
         g.throughput(Throughput::Bytes(size as u64));
         g.bench_function(BenchmarkId::new(VG, size), |b| {
             b.iter(|| {
-                let mut s =
-                    AesGcmStream::new(black_box(&key), black_box(&nonce), Direction::Encrypt)
-                        .unwrap();
+                let k = AesGcm::new(black_box(&key)).unwrap();
+                let mut s = k.encryptor(black_box(&nonce)).unwrap();
                 s.update_aad(black_box(&aad)).unwrap();
                 s.update(black_box(&mut buf)).unwrap();
-                s.finalize().unwrap()
+                s.finalize()
             })
         });
         let mut out = vec![0u8; size + cipher.block_size()];
@@ -134,13 +131,13 @@ pub fn bench(c: &mut Criterion) {
     g.throughput(Throughput::Bytes(size as u64));
     g.bench_function(BenchmarkId::new(VG, size), |b| {
         b.iter(|| {
-            let mut s =
-                AesGcmStream::new(black_box(&key), black_box(&nonce), Direction::Encrypt).unwrap();
+            let k = AesGcm::new(black_box(&key)).unwrap();
+            let mut s = k.encryptor(black_box(&nonce)).unwrap();
             s.update_aad(black_box(&aad)).unwrap();
             for byte in buf.chunks_mut(1) {
                 s.update(black_box(byte)).unwrap();
             }
-            s.finalize().unwrap()
+            s.finalize()
         })
     });
     g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {

@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.Blake2.Arm.Stream.Update
 /-!
 # Streaming BLAKE2 on ARMv7: `finalize`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`finalize`, for either word size and any correct compression function
-(`CalleeOk`), piece by piece, as for `update`: the prologue, which zeroes the
-rest of the buffer and sets up the call (`pro_ok`), the call (`call_ok'`)
-and the end, which copies the hash value to `out` (`end_ok`).
+The functional correctness of `finalize`, for either word size and any correct
+compression function (`CalleeOk`), piece by piece, as for `update`: the
+prologue, which zeroes the rest of the buffer and sets up the call (`pro_ok`),
+the call (`call_ok'`) and the end, which copies the hash value to `out`
+(`end_ok`).
 -/
 
 namespace VG.Proof.Blake2.Arm.Stream.Finalize
@@ -103,13 +103,9 @@ theorem Common.of_upd {s₀ : State} {s s' : State} (h : Common w s₀ s) {d : R
 
 theorem saved_frame {s₀ : State} (hp : Pre w s₀) {m m' : Mem} (h : Saved (scA s₀) s₀.gpr m)
     (hf : Frame [stR s₀ w, ⟨scA s₀, 512⟩, below s₀] m m') : Saved (scA s₀) s₀.gpr m' := by
-  intro p hp'
-  have hoff := saved_bound p hp'
   have := hp.scr_fit
-  rw [← h p hp']
-  refine hf.readW (r := ⟨scA s₀ + BitVec.ofNat 64 p.2, 4⟩) (Region.contains_self _ _) ?_ (by decide)
-  have e : Region.Sub ⟨scA s₀ + BitVec.ofNat 64 p.2, 4⟩ (scR s₀) := Offset.sub_base _ (by omega)
-  intro r' hr'
+  refine h.frame saved_slots hf fun r' hr' => ?_
+  have e : Region.Sub ⟨scA s₀ + BitVec.ofNat 64 512, 548 - 512⟩ (scR s₀) := Offset.sub_base _ (by omega)
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
   rcases hr' with rfl | rfl | rfl
   · exact hp.st_scr.symm.sub_left e

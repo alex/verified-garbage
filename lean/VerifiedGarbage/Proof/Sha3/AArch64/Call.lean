@@ -1,11 +1,10 @@
 import VerifiedGarbage.Proof.Sha3.AArch64.Variant
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 
 section
 
 /-!
 # SHA-3 on AArch64: calling the permutation, and saving registers
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha3.AArch64
@@ -98,84 +97,53 @@ theorem Saved.permute {st scr : Addr} {g : Reg → BitVec 64} {m m' : Mem} (h : 
     · exact hd.symm.sub_left (slot_sub scr hk)
     · exact slot_scr scr hk
 
-theorem save_eq : VG.Impl.Sha3.AArch64.Stream.save .x5 = (List.range 6).flatMap fun k => [.str .x (sv k) .x5 (512 + 8 * k)] := by
+theorem saved_mem : ∀ k < 6, (sv k, 512 + 8 * k) ∈ VG.Impl.Sha3.AArch64.Stream.saved := by decide
+
+theorem saved_idx : ∀ p ∈ VG.Impl.Sha3.AArch64.Stream.saved, ∃ k < 6, p = (sv k, 512 + 8 * k) := by
   decide
 
-/-- During the saves. -/
-def SaveInv (s₀ : State) (k : Nat) (s : State) : Prop :=
-  s.gpr = s₀.gpr ∧ s.rd = s₀.rd ∧ s.wr = s₀.wr ∧ s.sp = s₀.sp ∧
-    Frame [⟨s₀.gpr .x5, 640⟩] s₀.mem s.mem ∧ s.v = s₀.v ∧
-    ∀ j < k, s.mem.readW (slot (s₀.gpr .x5) j) 64 = s₀.gpr (sv j)
+theorem Saved.of_spill {scr : Addr} {g : Reg → BitVec 64} {m : Mem}
+    (h : Spill.Saved scr g VG.Impl.Sha3.AArch64.Stream.saved m) : Saved scr g m :=
+  fun k hk => h (sv k, 512 + 8 * k) (saved_mem k hk)
+
+theorem Saved.spill {scr : Addr} {g : Reg → BitVec 64} {m : Mem} (h : Saved scr g m) :
+    Spill.Saved scr g VG.Impl.Sha3.AArch64.Stream.saved m := fun p hp => by
+  obtain ⟨k, hk, rfl⟩ := saved_idx p hp
+  exact h k hk
 
 /-- Saving `x19`–`x24` in the scratch space at `x5`. -/
 theorem saves_ok {s₀ : State} (hin : ∀ k < 6, InRegions s₀.wr (slot (s₀.gpr .x5) k) 8) :
     WP isa (.block (VG.Impl.Sha3.AArch64.Stream.save .x5)) s₀ fun s =>
       s.gpr = s₀.gpr ∧ s.rd = s₀.rd ∧ s.wr = s₀.wr ∧ s.sp = s₀.sp ∧
       Frame [⟨s₀.gpr .x5, 640⟩] s₀.mem s.mem ∧ s.v = s₀.v ∧ Saved (s₀.gpr .x5) s₀.gpr s.mem := by
-  rw [save_eq]
-  refine WP.mono (wp_range_flatMap (M := isa) (SaveInv s₀)
-    (fun k s hk ⟨hg, hrd, hwr, hsp, hf, hvec, hv⟩ => ?_) 6 (Nat.le_refl _) s₀
-    ⟨rfl, rfl, rfl, rfl, Frame.refl _ _, rfl, fun _ h => absurd h (by omega)⟩)
-    fun s ⟨hg, hrd, hwr, hsp, hf, hvec, hv⟩ => ⟨hg, hrd, hwr, hsp, hf, hvec, hv⟩
-  refine wp_str (a := slot (s₀.gpr .x5) k) ⟨by omega, by omega⟩ (by rw [hg])
-    (by rw [hwr]; exact hin k hk) fun s' g' => wp_nil ?_
-  refine ⟨g'.gpr.trans hg, g'.rd.trans hrd, g'.wr.trans hwr, g'.sp.trans hsp, ?_, g'.vec.trans hvec, fun j hj => ?_⟩
-  · rw [g'.mem]
-    exact hf.writeW (List.mem_singleton_self _) _ (contains_offset (by omega) (by omega))
-  · rw [g'.mem, hg]
-    by_cases e : j = k
-    · subst e; rw [Mem.readW_writeW_self64]
-    · rw [Mem.readW_writeW_sep ?_ (by decide)]
-      · exact hv j (by omega)
-      · have := off_disjoint (s₀.gpr .x5) (a := 512 + 8 * j) (n := 8) (b := 512 + 8 * k) (k := 8)
-          (by omega) (by omega) (by omega)
-        exact this.sep (Region.contains_self _ _) (Region.contains_self _ _)
+  rw [← List.append_nil (VG.Impl.Sha3.AArch64.Stream.save .x5)]
+  exact Spill.save_ok (b := .x5) (by decide) (fun p hp => by
+      obtain ⟨k, hk, rfl⟩ := saved_idx p hp; exact hin k hk)
+    (WP.block_nil ⟨rfl, rfl, rfl, rfl, Spill.saveMem_frame_base (by decide) (by decide) _ _ _, rfl,
+      .of_spill (Spill.saveMem_saved (by decide) _ _ _)⟩)
 
 /-- The order of the restores: `x20`, the base, last. -/
-def ri (k : Nat) : Nat := [0, 2, 3, 4, 5, 1].getD k 0
-
-theorem restore_eq : VG.Impl.Sha3.AArch64.Stream.restore = (List.range 6).flatMap fun k =>
-    [.ldr .x (sv (ri k)) .x20 (512 + 8 * ri k)] := by
-  decide
-
-theorem ri_lt : ∀ k < 6, ri k < 6 := by decide
-theorem sv_ri_ne : ∀ j < 6, ∀ k < 6, j ≠ k → sv (ri j) ≠ sv (ri k) := by decide
-theorem sv_ri_x20 : ∀ k < 5, sv (ri k) ≠ .x20 := by decide
-theorem sv_ri_x0 : ∀ k < 6, sv (ri k) ≠ .x0 := by decide
-
-/-- Every saved register is restored. -/
-theorem sv_ri_all : ∀ j < 6, ∃ k < 6, ri k = j := by decide
-
-/-- During the restores. -/
-def ResInv (scr : Addr) (s₁ : State) (k : Nat) (s : State) : Prop :=
-  (k < 6 → s.gpr .x20 = scr) ∧ s.gpr .x0 = s₁.gpr .x0 ∧ s.sp = s₁.sp ∧ s.mem = s₁.mem ∧
-    s.rd = s₁.rd ∧ s.wr = s₁.wr ∧ s.v = s₁.v ∧ ∀ j < k, s.gpr (sv (ri j)) = s₁.mem.readW (slot scr (ri j)) 64
+abbrev restored : List (Reg × Nat) :=
+  [(.x19, 512), (.x21, 528), (.x22, 536), (.x23, 544), (.x24, 552), (.x20, 520)]
 
 /-- Restoring `x19`–`x24` from the scratch space at `x20`. -/
 theorem restores_ok {s₁ : State} {scr : Addr} (h20 : s₁.gpr .x20 = scr)
-    (hin : ∀ k < 6, InRegions (s₁.rd ++ s₁.wr) (slot scr k) 8) :
+    (hin : ∀ k < 6, InRegions (s₁.rd ++ s₁.wr) (slot scr k) 8) {g : Reg → BitVec 64}
+    (hsv : Saved scr g s₁.mem) :
     WP isa (.block VG.Impl.Sha3.AArch64.Stream.restore) s₁ fun s =>
       s.gpr .x0 = s₁.gpr .x0 ∧ s.sp = s₁.sp ∧ s.mem = s₁.mem ∧ s.rd = s₁.rd ∧ s.wr = s₁.wr ∧ s.v = s₁.v ∧
-      (∀ r, (∀ k < 6, r ≠ sv k) → s.gpr r = s₁.gpr r) ∧
-      ∀ k < 6, s.gpr (sv k) = s₁.mem.readW (slot scr k) 64 := by
-  rw [restore_eq]
-  refine WP.mono (wp_range_flatMap (M := isa) (fun k s => ResInv scr s₁ k s ∧
-      ∀ r, (∀ k < 6, r ≠ sv k) → s.gpr r = s₁.gpr r)
-    (fun k s hk ⟨⟨h20', ax, sp, m, rd, wr, hv, v⟩, o⟩ => ?_) 6 (Nat.le_refl _) s₁
-    ⟨⟨fun _ => h20, rfl, rfl, rfl, rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩, fun _ _ => rfl⟩)
-    fun s ⟨⟨_, ax, sp, m, rd, wr, hv, v⟩, o⟩ => ⟨ax, sp, m, rd, wr, hv, o, fun k hk => ?_⟩
-  · have hri := ri_lt k hk
-    refine wp_ldr (a := slot scr (ri k)) ⟨by omega, by omega⟩ (by rw [h20' hk])
-      (by rw [rd, wr]; exact hin _ hri) fun s' u => wp_nil ⟨⟨fun hk' => ?_, ?_, by rw [u.sp, sp],
-        by rw [u.mem, m], by rw [u.rd, rd], by rw [u.wr, wr], u.vec.trans hv, fun j hj => ?_⟩, fun r hr => ?_⟩
-    · rw [u.other _ (sv_ri_x20 k (by omega)).symm, h20' hk]
-    · rw [u.other _ (sv_ri_x0 k hk).symm, ax]
-    · by_cases e : j = k
-      · subst e; rw [u.gpr, m]
-      · rw [u.other _ (sv_ri_ne j (by omega) k hk e), v j (by omega)]
-    · rw [u.other _ (hr _ hri), o r hr]
-  · obtain ⟨j, hj, rfl⟩ := sv_ri_all k hk
-    exact v j hj
+      (∀ r, (∀ k < 6, r ≠ sv k) → s.gpr r = s₁.gpr r) ∧ ∀ k < 6, s.gpr (sv k) = g (sv k) := by
+  have e : VG.Impl.Sha3.AArch64.Stream.restore = Spill.restoreCode .x20 restored := by decide
+  rw [e]
+  refine WP.mono (Spill.restore_wp h20 (by decide) (by decide) (fun p hp => by
+      obtain ⟨k, hk, rfl⟩ := saved_idx p (by revert p; decide); exact hin k hk)
+    (hsv.spill.sub (by decide))) fun s h => ?_
+  have h := h.perm (l' := VG.Impl.Sha3.AArch64.Stream.saved) (by decide) (by decide)
+  refine ⟨h.other _ (by decide), h.sp, h.mem, h.rd, h.wr, h.v, fun r hr => h.other r fun hm => ?_,
+    fun k hk => h.gpr (sv k, 512 + 8 * k) (saved_mem k hk)⟩
+  obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hm
+  obtain ⟨k, hk, rfl⟩ := saved_idx p hp
+  exact hr k hk rfl
 
 /-! ## The frame saving `x30` -/
 

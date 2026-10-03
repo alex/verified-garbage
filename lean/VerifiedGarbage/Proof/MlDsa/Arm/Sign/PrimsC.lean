@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.Prims
 /-!
 # ML-DSA signing on ARMv7: calls of the rounding functions, the norm check and `SimpleBitPack`
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_high_bits`, `vg_mldsa_low_bits`, `vg_mldsa_norm_lt`,
-`vg_mldsa_make_hint` and `vg_mldsa_simple_bit_pack`.
+As `Prims.lean`, for `vg_mldsa_high_bits`, `vg_mldsa_low_bits`,
+`vg_mldsa_norm_lt`, `vg_mldsa_make_hint` and `vg_mldsa_simple_bit_pack`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign
@@ -74,7 +73,7 @@ theorem bitsAt_ok {Q : Nat → Poly → Mem → Addr → Prop} {n : String} {c :
     (fun s1 hA k => bitsPre (ent_R L k (by have := C.hS; omega) _ _) hγ hc
       (by rw [vR _ _ _ nl0]; exact (argsIn3 hA).1) (by rw [vR _ _ _ nl1]; exact (argsIn3 hA).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn3 hA).2.2) rfl rfl hr)
-    (covers_append (L.cR i1) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (L.cR i1) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, k, hq⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e1, e2, e3⟩ := argsIn3 hA
   sig_post [bitsSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hq
@@ -95,9 +94,9 @@ theorem bitsAt_tr {Q : Nat → Poly → Mem → Addr → Prop} {n : String} {c :
       bitsPre (ent_R R.ly ky hS [pR (pa y r)] [pR (pa y out)]) hγ hc
       (by rw [vR _ _ _ nl0]; exact (argsIn3 hAy).1) (by rw [vR _ _ _ nl1]; exact (argsIn3 hAy).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn3 hAy).2.2) rfl rfl ry, ?_,
-      by rw [kx.rd, kx.wr]; exact covers_append (R.lx.cR i1) (covers_wr (R.lx.cW w1)),
+      by rw [kx.rd, kx.wr]; exact Covers.append_left (R.lx.cR i1) (Covers.right (R.lx.cW w1)),
       by rw [kx.wr]; exact R.lx.cW w1,
-      by rw [ky.rd, ky.wr]; exact covers_append (R.ly.cR i1) (covers_wr (R.ly.cW w1)),
+      by rw [ky.rd, ky.wr]; exact Covers.append_left (R.ly.cR i1) (Covers.right (R.ly.cW w1)),
       by rw [ky.wr]; exact R.ly.cW w1⟩
   obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx
   obtain ⟨hy1, hy2, hy3⟩ := argsIn3 hAy
@@ -158,7 +157,7 @@ theorem normCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wb
     (normArgs_ok hc) L.sp (rd := [pR (pa s f)]) (wr := [])
     (fun s1 hA k => normPre (ent_R L k (by have := hP.normLt.hS; omega) _ _) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn2 hA).1) rfl rfl hr)
-    (covers_append (L.cR i1) covers_nil) covers_nil)
+    (Covers.append_left (L.cR i1) Covers.nil) Covers.nil)
     fun s' ⟨hpost, hcs, s1, hA, k, hq⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e1, e2⟩ := argsIn2 hA
   sig_post [normLtContract, normLtSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hq
@@ -175,8 +174,8 @@ theorem normCall_tr {P : Prims} (hP : PrimsOk P D) {f : Ptr} {B : Nat} (hc : nor
     ⟨_, _, _, _, normPre (ent_R R.lx kx hS [pR (pa x f)] []) hc (by rw [vR _ _ _ nl0]; exact (argsIn2 hAx).1)
       rfl rfl rx,
       normPre (ent_R R.ly ky hS [pR (pa y f)] []) hc (by rw [vR _ _ _ nl0]; exact (argsIn2 hAy).1) rfl rfl ry, ?_,
-      by rw [kx.rd, kx.wr]; exact covers_append (R.lx.cR i1) covers_nil, covers_nil,
-      by rw [ky.rd, ky.wr]; exact covers_append (R.ly.cR i1) covers_nil, covers_nil⟩
+      by rw [kx.rd, kx.wr]; exact Covers.append_left (R.lx.cR i1) Covers.nil, Covers.nil,
+      by rw [ky.rd, ky.wr]; exact Covers.append_left (R.ly.cR i1) Covers.nil, Covers.nil⟩
   obtain ⟨hx1, hx2⟩ := argsIn2 hAx
   obtain ⟨hy1, hy2⟩ := argsIn2 hAy
   sig_pub [normLtContract, normLtSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val]
@@ -229,7 +228,7 @@ theorem hintCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wb
     (fun s1 hA k => hintPre (ent_R L k (by have := hP.makeHint.hS; omega) _ _) hγ hc
       (by rw [vR _ _ _ nl0]; exact (argsIn4 hA).1) (by rw [vR _ _ _ nl1]; exact (argsIn4 hA).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn4 hA).2.2.1) (by rw [vR _ _ _ nl3]; exact (argsIn4 hA).2.2.2) rfl rfl rz rr)
-    (covers_append (covers_cons (L.cR i1) (L.cR i2)) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (Covers.cons (L.cR i1) (L.cR i2)) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, k, hq⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e1, e2, e3, e4⟩ := argsIn4 hA
   sig_post [makeHintContract, makeHintSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hq
@@ -254,9 +253,9 @@ theorem hintCall_tr {P : Prims} (hP : PrimsOk P D) {z r h : Ptr} {γ : Nat} (hγ
       (by rw [vR _ _ _ nl0]; exact (argsIn4 hAy).1) (by rw [vR _ _ _ nl1]; exact (argsIn4 hAy).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn4 hAy).2.2.1) (by rw [vR _ _ _ nl3]; exact (argsIn4 hAy).2.2.2) rfl rfl
       rzy rry, ?_,
-      by rw [kx.rd, kx.wr]; exact covers_append (covers_cons (R.lx.cR i1) (R.lx.cR i2)) (covers_wr (R.lx.cW w1)),
+      by rw [kx.rd, kx.wr]; exact Covers.append_left (Covers.cons (R.lx.cR i1) (R.lx.cR i2)) (Covers.right (R.lx.cW w1)),
       by rw [kx.wr]; exact R.lx.cW w1,
-      by rw [ky.rd, ky.wr]; exact covers_append (covers_cons (R.ly.cR i1) (R.ly.cR i2)) (covers_wr (R.ly.cW w1)),
+      by rw [ky.rd, ky.wr]; exact Covers.append_left (Covers.cons (R.ly.cR i1) (R.ly.cR i2)) (Covers.right (R.ly.cW w1)),
       by rw [ky.wr]; exact R.ly.cW w1⟩
   obtain ⟨hx1, hx2, hx3, hx4⟩ := argsIn4 hAx
   obtain ⟨hy1, hy2, hy3, hy4⟩ := argsIn4 hAy
@@ -301,7 +300,7 @@ theorem sbpAt_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s
     (fun s1 hA k => sbpPre (ent_R L k (by have := hP.simpleBitPack.hS; omega) _ _) hb hl hc
       (by rw [vR _ _ _ nl0]; exact (argsIn4 hA).1) (by rw [vR _ _ _ nl1]; exact (argsIn4 hA).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn4 hA).2.2.1) (by rw [vR _ _ _ nl3]; exact (argsIn4 hA).2.2.2) rfl rfl hle)
-    (covers_append (L.cR i1) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (L.cR i1) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, k, hq⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e1, e2, e3, e4⟩ := argsIn4 hA
   sig_post [simpleBitPackContract, simpleBitPackSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hq
@@ -322,9 +321,9 @@ theorem sbpAt_tr {P : Prims} (hP : PrimsOk P D) {f out : Ptr} {b len : Nat}
       sbpPre (ent_R R.ly ky hS [pR (pa y f)] [⟨pa y out, len⟩]) hb hl hc
       (by rw [vR _ _ _ nl0]; exact (argsIn4 hAy).1) (by rw [vR _ _ _ nl1]; exact (argsIn4 hAy).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn4 hAy).2.2.1) (by rw [vR _ _ _ nl3]; exact (argsIn4 hAy).2.2.2) rfl rfl ry, ?_,
-      by rw [kx.rd, kx.wr]; exact covers_append (R.lx.cR i1) (covers_wr (R.lx.cW w1)),
+      by rw [kx.rd, kx.wr]; exact Covers.append_left (R.lx.cR i1) (Covers.right (R.lx.cW w1)),
       by rw [kx.wr]; exact R.lx.cW w1,
-      by rw [ky.rd, ky.wr]; exact covers_append (R.ly.cR i1) (covers_wr (R.ly.cW w1)),
+      by rw [ky.rd, ky.wr]; exact Covers.append_left (R.ly.cR i1) (Covers.right (R.ly.cW w1)),
       by rw [ky.wr]; exact R.ly.cW w1⟩
   obtain ⟨hx1, hx2, hx3, hx4⟩ := argsIn4 hAx
   obtain ⟨hy1, hy2, hy3, hy4⟩ := argsIn4 hAy

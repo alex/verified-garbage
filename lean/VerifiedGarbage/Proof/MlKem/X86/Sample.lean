@@ -3,14 +3,12 @@ import VerifiedGarbage.Proof.MlKem.X86.SampleLoop
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_sample_ntt`
 
-Untrusted: everything here is checked by Lean. The body is the SHAKE128
-output of the seed at `scratch` (`SampleSetup.lean`, `SampleCalls.lean`),
-then the 280 iterations of the loop (`SampleLoop.lean`), which leave
-`sampleAfter [] (xofByte B) 280` at `a` and return whether it has 256
-coefficients; `sampleNTT_of_full`, `sampleNTT_none` and `outcome_of_min`
-(`Proof/MlKem/Sample.lean`) give the contract. Two runs with the same
-pointers and seed leak the same (`Pub`): the contract lets the function
-leak the seed.
+The body is the SHAKE128 output of the seed at `scratch` (`SampleSetup.lean`,
+`SampleCalls.lean`), then the 280 iterations of the loop (`SampleLoop.lean`),
+which leave `sampleAfter [] (xofByte B) 280` at `a` and return whether it has
+256 coefficients; `sampleNTT_of_full`, `sampleNTT_none` and `outcome_of_min`
+(`Proof/MlKem/KPke.lean`) give the contract. Two runs with the same pointers
+and seed leak the same (`Pub`): the contract lets the function leak the seed.
 -/
 
 namespace VG.Proof.MlKem.X86.Sample
@@ -41,14 +39,6 @@ theorem piece : Piece Pre Pub (fun s₀ s => s = s₀) (fun s₀ s' => LeafPost 
   Piece.leaf W (NoSp.of_all (by decide +kernel)) (fun _ hp => ⟨by have := hp.sp; omega, by have := hp.sp'; omega⟩)
     (fun _ hp => hp.hW) (fun _ _ _ _ hq => hq.1)
     (main_piece.mono (fun _ _ _ h => h) fun _ _ _ h => ⟨⟨h.frame, h.esp, h.rd, h.wr⟩, h⟩)
-
-theorem map_toNat_inj : ∀ {l₁ l₂ : List Byte}, l₁.map (·.toNat) = l₂.map (·.toNat) → l₁ = l₂
-  | [], [], _ => rfl
-  | a :: l₁, b :: l₂, h => by
-    simp only [List.map_cons, List.cons.injEq] at h
-    rw [BitVec.eq_of_toNat_eq h.1, map_toNat_inj h.2]
-  | [], _ :: _, h => by simp at h
-  | _ :: _, [], h => by simp at h
 
 /-- The coefficients at `a`, when there are 256. -/
 theorem poly_eq {s₀ s : State} (h : Loop s₀ 280 (LA (Bs s₀) 280) s) (hl : (LA (Bs s₀) 280).length = 256) :

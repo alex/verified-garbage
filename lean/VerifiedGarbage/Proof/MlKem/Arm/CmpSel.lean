@@ -1,13 +1,13 @@
 import VerifiedGarbage.Proof.MlKem.Arm.Prf
 
 /-!
-# ML-KEM-768 on 32-bit ARM: comparing `c` with `c'`, and selecting the key
+# ML-KEM on 32-bit ARM: comparing `c` with `c'`, and selecting the key
 
-Untrusted: everything here is checked by Lean. `compare` ORs the XORs of the
-bytes of two buffers into `r12` (`compare_ok`: 0 exactly when they are
-equal); `selSetup` turns it into a mask, all ones exactly when it is 0
-(`selSetup_ok`); and the loop of `selBody` writes, byte by byte, the first
-source under the mask and the second one otherwise (`select_ok`).
+`compare` ORs the XORs of the bytes of two buffers into `r12` (`compare_ok`: 0
+exactly when they are equal); `selSetup` turns it into a mask, all ones
+exactly when it is 0 (`selSetup_ok`); and the loop of `selBody` writes, byte
+by byte, the first source under the mask and the second one otherwise
+(`select_ok`).
 -/
 
 namespace VG.Proof.MlKem.Arm
@@ -92,31 +92,36 @@ theorem cmp_step {S D : BitVec 32} {len : Nat} {s₀ : State} (fS : S.toNat + le
         BitVec.xor_eq_zero_iff.mpr (congrArg _ (h₁ k (by omega)))⟩
   · rw [z]; exact count_z (k := 1) hk (by decide) (by omega)
 
-theorem cmpArgs_ok {s : State} {P C : BitVec 32} (h7 : s.gpr .r7 = P) (h6 : s.gpr .r6 = C) :
-    WP isa (.block [.mov .r0 (.reg .r6), ptrTo .r1 .r7 oCt, .mov .r12 (.imm 0), .mov .r9 (.imm 1088)]) s
-      fun s' => s'.gpr .r0 = C ∧ s'.gpr .r1 = P + BitVec.ofNat 32 oCt ∧ s'.gpr .r12 = 0 ∧
-        s'.gpr .r9 = BitVec.ofNat 32 1088 ∧ (∀ r ∈ preserved, r ≠ .r9 → s'.gpr r = s.gpr r) ∧
+theorem cmpArgs_ok {K : KemLay} (hK : K.WF) {s : State} {P C : BitVec 32} (h7 : s.gpr .r7 = P)
+    (h6 : s.gpr .r6 = C) :
+    WP isa (.block [.mov .r0 (.reg .r6), ptrTo .r1 .r7 K.oCt, .mov .r12 (.imm 0),
+      .mov .r9 (.imm (BitVec.ofNat 32 K.ctLen))]) s
+      fun s' => s'.gpr .r0 = C ∧ s'.gpr .r1 = P + BitVec.ofNat 32 K.oCt ∧ s'.gpr .r12 = 0 ∧
+        s'.gpr .r9 = BitVec.ofNat 32 K.ctLen ∧ (∀ r ∈ preserved, r ≠ .r9 → s'.gpr r = s.gpr r) ∧
         s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.sp = s.sp := by
-  have e1 : encodable (BitVec.ofNat 32 oCt) = true := by decide
+  have e1 : encodable (BitVec.ofNat 32 K.oCt) = true := hK.enc (by omega)
   have e2 : encodable (0 : BitVec 32) = true := by decide
-  have e3 : encodable (1088 : BitVec 32) = true := by decide
+  have e3 := hK.encCt
   run_block [ptrTo, e1, e2, e3, h7, h6, preserved,
     List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_self, and_true]
 
-/-- `compare`: `r12` is 0 exactly when the 1088 bytes at `C` (in `r6`) and at
-`P + 19456` (`r7 = P`) are equal. -/
-theorem compare_ok {s : State} {P C : BitVec 32} (h7 : s.gpr .r7 = P) (h6 : s.gpr .r6 = C)
-    (fC : C.toNat + 1088 ≤ 2 ^ 32) (fD : (P + BitVec.ofNat 32 oCt).toNat + 1088 ≤ 2 ^ 32)
-    (cr : Covers [⟨State.addr C, 1088⟩, ⟨State.addr (P + BitVec.ofNat 32 oCt), 1088⟩] (s.rd ++ s.wr)) :
-    WP isa compare s fun s' => (∀ r ∈ preserved, r ≠ .r9 → s'.gpr r = s.gpr r) ∧ s'.mem = s.mem ∧
+/-- `compare`: `r12` is 0 exactly when the `K.ctLen` bytes at `C` (in `r6`)
+and at `P + K.oCt` (`r7 = P`) are equal. -/
+theorem compare_ok {K : KemLay} (hK : K.WF) {s : State} {P C : BitVec 32} (h7 : s.gpr .r7 = P)
+    (h6 : s.gpr .r6 = C) (fC : C.toNat + K.ctLen ≤ 2 ^ 32) (fD : (P + BitVec.ofNat 32 K.oCt).toNat + K.ctLen ≤ 2 ^ 32)
+    (cr : Covers [⟨State.addr C, K.ctLen⟩, ⟨State.addr (P + BitVec.ofNat 32 K.oCt), K.ctLen⟩] (s.rd ++ s.wr)) :
+    WP isa K.compare s fun s' => (∀ r ∈ preserved, r ≠ .r9 → s'.gpr r = s.gpr r) ∧ s'.mem = s.mem ∧
       s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.sp = s.sp ∧ (s'.gpr .r12).toNat < 256 ∧
-      (s'.gpr .r12 = 0 ↔ bytesAt s.mem (State.addr C) 1088 = bytesAt s.mem (State.addr (P + BitVec.ofNat 32 oCt)) 1088) := by
-  refine WP.seq (WP.mono (cmpArgs_ok h7 h6) fun s₁ ⟨g0, g1, g12, g9, cs, m, rd, wr, sp⟩ => ?_)
-  refine wp_loop_ne (CmpInv C (P + BitVec.ofNat 32 oCt) 1088 s₁) (N := 1088) (by decide)
-    (fun k hk s h => cmp_step fC fD (by decide) (by rw [rd, wr]; exact cr) hk h)
+      (s'.gpr .r12 = 0 ↔
+        bytesAt s.mem (State.addr C) K.ctLen = bytesAt s.mem (State.addr (P + BitVec.ofNat 32 K.oCt)) K.ctLen) := by
+  have c1 := hK.ct_pos
+  have c2 : K.ctLen < 2 ^ 32 := by have := hK.cin; simp only [oCin] at this; omega
+  refine WP.seq (WP.mono (cmpArgs_ok hK h7 h6) fun s₁ ⟨g0, g1, g12, g9, cs, m, rd, wr, sp⟩ => ?_)
+  refine wp_loop_ne (CmpInv C (P + BitVec.ofNat 32 K.oCt) K.ctLen s₁) (N := K.ctLen) c1
+    (fun k hk s h => cmp_step fC fD c2 (by rw [rd, wr]; exact cr) hk h)
     (fun s' h => ⟨fun r hr h9 => (h.cs r hr h9).trans (cs r hr h9), h.mem.trans m, h.rd.trans rd, h.wr.trans wr,
       h.sp.trans sp, h.lt, ?_⟩)
-    ⟨by rw [g0]; simp, by rw [g1]; simp, by rw [g9], fun _ _ _ => rfl, rfl, rfl, rfl, rfl,
+    ⟨by rw [g0]; simp, by rw [g1]; simp, by rw [g9, Nat.sub_zero, Nat.one_mul], fun _ _ _ => rfl, rfl, rfl, rfl, rfl,
       by rw [g12]; decide, by rw [g12]; exact ⟨fun _ _ h => absurd h (Nat.not_lt_zero _), fun _ => rfl⟩⟩
   rw [h.eq, ← m]
   constructor

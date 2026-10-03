@@ -4,16 +4,16 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseK
 /-!
 # ML-DSA signing on AArch64: the checks leak only the pointers and whether they passed
 
-Untrusted: everything here is checked by Lean. Each check leaks only its
-pointers, given that its inputs are reduced (`zR_trL`, `r0R_trL`,
-`hR_trL`); the branch on their result leaks whether the iteration passed,
-which two runs agree on when they agree on what the iteration leaks
-(`checks_tr`).
+Each check leaks only its pointers, given that its inputs are reduced
+(`zR_trL`, `r0R_trL`, `hR_trL`); the branch on their result leaks whether the
+iteration passed, which two runs agree on when they agree on what the
+iteration leaks (`checks_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -103,7 +103,7 @@ theorem hR_trL {t i : Nat} (hc : hChk2 p i = true) :
   simp only [hChk2, Bool.and_eq_true, decide_eq_true_eq] at hc
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨cm, ci⟩, cn⟩, cc⟩, ca⟩, cs⟩, ch⟩, g1⟩, g2⟩, g3⟩, g4⟩, _⟩, g6⟩, _⟩, _⟩,
     _⟩, _⟩, o1⟩, o2⟩, o3⟩, o4⟩, _⟩, _⟩, t3⟩, t4⟩, u5⟩, _⟩, _⟩, _⟩, hγ'⟩, hγ⟩, hi⟩, _⟩ := hc
-  have f6 : keepB (sgB p) [(t4P, 1024)] (wP p i) 1024 = true := by
+  have f6 : keepB (sgR p) (sgW p) [(t4P, 1024)] (wP p i) 1024 = true := by
     simp only [hfam, Bool.and_eq_true] at g6
     exact famChk_one (b := wBase p) g6.1.1.2 (show i < i + 1 by omega)
   let J : State → Prop := fun s => (∃ σ, IHb p D σ t i i s) ∧ Reduced s.mem (pa s t3P)
@@ -168,15 +168,15 @@ theorem checks_tr (hc : ksChk p = true) {E : State → State → Prop} {t : Nat}
       (fun _ _ _ h => cntt_ok hP hc h) (ipAt_tr (t := ntt) hP.ntt c1)) ?_
   refine RelCT.seq (R := RS p D E fun σ s => IZ p D σ t 0 s)
     (liftT (fun _ _ h => h.b.l.st) (fun _ _ _ h => kInit_ok hc h) (lrel_tr (fun x y h => h) (by taint_decide))) ?_
-  refine RelCT.seq (R := RS p D E fun σ s => IR p D σ t 0 s) (RelCT.mono (seqR_tr (R := fun r => RS p D E
+  refine RelCT.seq (R := RS p D E fun σ s => IR p D σ t 0 s) (RelCT.mono (seqR_tr (Q := fun r => RS p D E
     fun σ s => IZ p D σ t r s) p.ℓ 0 fun r _ hr => liftL (T := fun s => ∃ σ, IZ p D σ t r s)
       (fun σ s h => ⟨h.1.b.l.st, σ, h⟩) (fun _ _ _ h => zR_ok hP (hz r (by omega)) h) (zR_trL hP (hz r (by omega))))
     (fun _ _ h => h) fun x y h => by rw [Nat.zero_add] at h; exact h.mono (fun _ _ h => h) fun _ _ h => h.ir) ?_
-  refine RelCT.seq (R := RS p D E fun σ s => IH p D σ t 0 s) (RelCT.mono (seqR_tr (R := fun i => RS p D E
+  refine RelCT.seq (R := RS p D E fun σ s => IH p D σ t 0 s) (RelCT.mono (seqR_tr (Q := fun i => RS p D E
     fun σ s => IR p D σ t i s) p.k 0 fun i _ hi => liftL (T := fun s => ∃ σ, IR p D σ t i s)
       (fun σ s h => ⟨h.1.b.l.st, σ, h⟩) (fun _ _ _ h => r0R_ok hP (hr i (by omega)) h) (r0R_trL hP (hr i (by omega))))
     (fun _ _ h => h) fun x y h => by rw [Nat.zero_add] at h; exact h.mono (fun _ _ h => h) fun _ _ h => h.ih) ?_
-  refine RelCT.seq (R := RS p D E fun σ s => IH p D σ t p.k s) (RelCT.mono (seqR_tr (R := fun i => RS p D E
+  refine RelCT.seq (R := RS p D E fun σ s => IH p D σ t p.k s) (RelCT.mono (seqR_tr (Q := fun i => RS p D E
     fun σ s => IH p D σ t i s) p.k 0 fun i _ hi => liftL (T := fun s => ∃ σ, IH p D σ t i s)
       (fun σ s h => ⟨h.1.b.l.st, σ, h⟩) (fun _ _ _ h => hR_ok hP (hh i (by omega)) h) (hR_trL hP (hh i (by omega))))
     (fun _ _ h => h) fun x y h => by rwa [Nat.zero_add] at h) ?_

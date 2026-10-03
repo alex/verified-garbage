@@ -280,6 +280,9 @@ inductive Instr
   | bicRor (sz : Size) (d n m : Reg) (sh : Nat)
   /-- `ror d, n, #sh` (alias of EXTR d, n, n, #sh), `sh < size` -/
   | ror (sz : Size) (d n : Reg) (sh : Nat)
+  /-- `extr d, n, m, #lsb` (EXTR), `lsb < size`: bits `lsb + size - 1 : lsb`
+  of the concatenation `n:m` -/
+  | extr (sz : Size) (d n m : Reg) (lsb : Nat)
   /-- `lsr d, n, #sh` (alias of UBFM), `sh < size` -/
   | lsr (sz : Size) (d n : Reg) (sh : Nat)
   /-- `lsl d, n, #sh` (LSL (immediate), alias of UBFM), `sh < size` -/
@@ -651,6 +654,10 @@ def VOp.eval (s : State) : VOp → Option (VReg × BitVec 128)
   https://developer.arm.com/documentation/ddi0596/2020-12/Base-Instructions/BIC--shifted-register---Bitwise-Bit-Clear--shifted-register--;
 * "ROR (immediate)" = "EXTR" with both sources `n`: `(n:n)<sh+size-1:sh>`,
   a rotation right by `sh`;
+* "EXTR": `result = concat<lsb+datasize-1:lsb>` for `concat = X[n]:X[m]`,
+  with `lsb = UInt(imms)`; `imms<5> = 1` is reserved for the 32-bit form,
+  hence `lsb < datasize`. The flags are not set. See Arm DDI 0487 C6.2 and
+  https://developer.arm.com/documentation/ddi0596/2020-12/Base-Instructions/EXTR--Extract-register-;
 * "LSR (immediate)" = "UBFM": a logical shift right by `sh`;
 * "LSL (immediate)" = "UBFM" with `immr = -sh MOD size`, `imms = size - 1 -
   sh`: a logical shift left by `sh` (the bits shifted out are lost, zeros
@@ -703,6 +710,10 @@ def exec : Instr → State → Option State
     else none
   | .ror sz d n sh, s =>
     if sh < sz.bits then some (s.write sz d ((s.read sz n).rotateRight sh)) else none
+  | .extr sz d n m lsb, s =>
+    if lsb < sz.bits then
+      some (s.write sz d ((s.read sz n ++ s.read sz m).extractLsb' lsb sz.bits))
+    else none
   | .lsr sz d n sh, s =>
     if sh < sz.bits then some (s.write sz d (s.read sz n >>> sh)) else none
   | .lsl sz d n sh, s =>

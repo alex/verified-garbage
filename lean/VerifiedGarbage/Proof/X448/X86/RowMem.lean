@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.RowPass
 /-!
 # X448 on x86 (32-bit): multiplication-row memory
 
-Untrusted: everything here is checked by Lean. The public row pointer
-moves through the working space while all field inputs remain unchanged.
+The public row pointer moves through the working space while all field inputs
+remain unchanged.
 -/
 
 namespace VG.Proof.X448.X86

@@ -1,5 +1,5 @@
-import VerifiedGarbage.Impl.Ed25519.X86_64.BaseMultiples
-import VerifiedGarbage.Impl.Ed25519.X86_64.BaseMultiply
+import VerifiedGarbage.Impl.Ed25519.BaseMultiples
+import VerifiedGarbage.Impl.Ed25519.X86_64.Cached
 
 /-!
 # Verification's equation with 4-bit windows
@@ -77,23 +77,24 @@ def addDigit (o : Nat) (add : List Instr) : Prog isa :=
   .ite .ne (.block (([.alu .sub .rbx (.imm 1)] : List Instr) ++ tableAddr o ++ pointFromTableQ ++ add))
     (.block [])
 
-/-- A window of `k` alone. -/
-def windowA (fld : Arith) (digit : List Instr) : Prog isa :=
-  .seq (double4 fld) (.seq (.block digit) (addDigit 5376 (pointAdd fld)))
+/-- A window of `k` alone, with the doublings `dbl` (`double4`, or
+`Ifma.double4`). -/
+def windowA (fld : Arith) (dbl : Prog isa) (digit : List Instr) : Prog isa :=
+  .seq dbl (.seq (.block digit) (addDigit 5376 (pointAdd fld)))
 
 /-- A window of `k` and of `S`. -/
-def windowAB (fld : Arith) (digitA digitB : List Instr) : Prog isa :=
-  .seq (windowA fld digitA) (.seq (.block digitB) (addDigit 2048 (pointAddCached fld)))
+def windowAB (fld : Arith) (dbl : Prog isa) (digitA digitB : List Instr) : Prog isa :=
+  .seq (windowA fld dbl digitA) (.seq (.block digitB) (addDigit 2048 (pointAddCached fld)))
 
 /-- A byte of `k` alone (bytes 63 down to 32). -/
-def byteStepA (fld : Arith) : Prog isa :=
-  .seq (.block batchBegin) (.seq (windowA fld (digitHigh 7952 0))
-    (.seq (windowA fld (digitLow 7952 0)) (.block [.mov .rbx (.mem (sc 56)), .alu .cmp .rbx (.imm 32)])))
+def byteStepA (fld : Arith) (dbl : Prog isa) : Prog isa :=
+  .seq (.block batchBegin) (.seq (windowA fld dbl (digitHigh 7952 0))
+    (.seq (windowA fld dbl (digitLow 7952 0)) (.block [.mov .rbx (.mem (sc 56)), .alu .cmp .rbx (.imm 32)])))
 
 /-- A byte of `k` and of `S` (bytes 31 down to 0). -/
-def byteStepAB (fld : Arith) : Prog isa :=
-  .seq (.block batchBegin) (.seq (windowAB fld (digitHigh 7952 0) (digitHigh 7944 32))
-    (.seq (windowAB fld (digitLow 7952 0) (digitLow 7944 32)) (.block batchTest)))
+def byteStepAB (fld : Arith) (dbl : Prog isa) : Prog isa :=
+  .seq (.block batchBegin) (.seq (windowAB fld dbl (digitHigh 7952 0) (digitHigh 7944 32))
+    (.seq (windowAB fld dbl (digitLow 7952 0) (digitLow 7944 32)) (.block batchTest)))
 
 /-- `-R` from byte 7552 into slots 4–7. -/
 def negR (fld : Arith) : List Instr :=

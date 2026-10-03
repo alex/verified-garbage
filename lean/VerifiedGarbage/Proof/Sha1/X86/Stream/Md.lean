@@ -10,13 +10,13 @@ import VerifiedGarbage.Proof.Sha1.X86.Lit
 /-!
 # Streaming SHA-1 on x86 (32-bit): `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/X86.lean`), so they are verified
-by the generic proofs (`Proof/MdStream/X86/`) for SHA-1's instance
-(`Proof/Sha1/Md.lean`) with 160 bytes of scratch space, given what SHA-1's own
-pieces do: its length field and digest (`shape`), that its compression
-function is verified (`callee`), and that the taint analysis accepts its code
-(which it checks together with the compression function's).
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/X86.lean`), so they are verified by the generic proofs
+(`Proof/MdStream/X86/`) for SHA-1's instance (`Proof/Sha1/Md.lean`) with 160
+bytes of scratch space, given what SHA-1's own pieces do: its length field and
+digest (`shape`), that its compression function is verified (`callee`), and
+that the taint analysis accepts its code (which it checks together with the
+compression function's).
 -/
 
 namespace VG.Proof.Sha1.X86.Stream
@@ -25,11 +25,12 @@ open VG VG.X86 VG.Proof.MdStream VG.Proof.MdStream.X86
 
 abbrev params := Impl.Sha1.X86.Stream.params
 
-theorem dims : Dims params 160 := ⟨by decide, by decide, by decide⟩
+theorem dims : Dims params 160 := ⟨.inl rfl, by decide, by decide, by decide, by decide⟩
 
 theorem shape : Shape (P := params) md where
-  len _ hfit hlo hhi ho₁ ho₂ := len64_ok (so := params.so) (d := params.N + 56) (be := true) (by omega)
-    hlo hhi ho₁ ho₂
+  len _ hfit hlo hhi ho := len64_ok (so := params.so) (d := params.N + params.B - params.L) (be := true)
+    (by have : params.N + params.B - params.L + 8 = params.N + params.B := rfl; omega) hlo hhi
+    (ho _ (Nat.le_refl _) (by decide)) (ho _ (by decide) (by decide))
   out _ hbx hax hin hout hd := by
     refine (out32_ok (n := 5) true (by decide) hbx hax hin hout hd).mono fun s' ⟨g, rd, wr, m⟩ =>
       ⟨g, rd, wr, ?_⟩

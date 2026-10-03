@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.MlKem.Compress1024
 /-!
 # ML-KEM-1024: compressed encodings byte by byte, for every target
 
-Untrusted: everything here is checked by Lean. The analog of the compressed
-encodings of `Encode.lean` for the widths only ML-KEM-1024 compresses to,
-group by group as the arithmetic an implementation does (with `Bits.lean`):
+The analog of the compressed encodings of `Encode.lean` for the widths only
+ML-KEM-1024 compresses to, group by group as the arithmetic an implementation
+does (with `Bits.lean`):
 
 * `ByteEncode₅ ∘ Compress₅`: 8 coefficients per 5 bytes
   (`compressEncode5_group`, the 40-bit number of the group, and
@@ -39,10 +39,8 @@ theorem compressEncode5_group (f : Poly) {g j : Nat} (hg : g < 32) (hj : j < 5) 
       32768 * compress 5 f[8 * g + 3]! + 1048576 * compress 5 f[8 * g + 4]! +
       33554432 * compress 5 f[8 * g + 5]! + 1073741824 * compress 5 f[8 * g + 6]! +
       34359738368 * compress 5 f[8 * g + 7]!) / 2 ^ (8 * j)) := by
-  rw [compressEncode, byteEncode_group (c := 8) (by decide) (by decide)
-    (map_toList_lt f (compress_lt 5)) hj (by omega), take_drop_eq _ 0 (by rw [map_toList_length]; omega)]
+  rw [compressEncode_group (c := 8) (by decide) (by decide) f (by omega) hj]
   simp only [range8, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero]
-  simp (disch := omega) only [map_toList_getD]
   refine congrArg (BitVec.ofNat 8) (congrArg (· / 2 ^ (8 * j)) ?_)
   omega
 
@@ -112,10 +110,8 @@ theorem compressEncode11_group (f : Poly) {g j : Nat} (hg : g < 32) (hj : j < 11
       36028797018963968 * compress 11 f[8 * g + 5]! +
       73786976294838206464 * compress 11 f[8 * g + 6]! +
       151115727451828646838272 * compress 11 f[8 * g + 7]!) / 2 ^ (8 * j)) := by
-  rw [compressEncode, byteEncode_group (c := 8) (by decide) (by decide)
-    (map_toList_lt f (compress_lt 11)) hj (by omega), take_drop_eq _ 0 (by rw [map_toList_length]; omega)]
+  rw [compressEncode_group (c := 8) (by decide) (by decide) f (by omega) hj]
   simp only [range8, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero]
-  simp (disch := omega) only [map_toList_getD]
   refine congrArg (BitVec.ofNat 8) (congrArg (· / 2 ^ (8 * j)) ?_)
   omega
 
@@ -220,10 +216,8 @@ theorem decodeDecompress5_group (B : List Byte) (hB : B.length = 160) {g e : Nat
       256 * (B.getD (5 * g + 1) 0).toNat + 65536 * (B.getD (5 * g + 2) 0).toNat +
       16777216 * (B.getD (5 * g + 3) 0).toNat + 4294967296 * (B.getD (5 * g + 4) 0).toNat) /
         2 ^ (5 * e) % 32) := by
-  rw [decodeDecompress_get 5 B (by rw [n_eq]; omega), byteDecode_group (c := 8) (b := 5) (by decide) B
-    he (by rw [n_eq]; omega), bytes_map_take_drop B (by omega)]
-  simp only [range5, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero,
-    Nat.reduceLT, ↓reduceIte, Nat.mod_mod]
+  rw [decodeDecompress_group (c := 8) (b := 5) (by decide) (by decide) B (by omega) he (by rw [n_eq]; omega)]
+  simp only [range5, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero]
   refine congrArg (decompress 5) (congrArg (· % 32) (congrArg (· / 2 ^ (5 * e)) ?_))
   omega
 
@@ -325,10 +319,8 @@ theorem decodeDecompress11_group (B : List Byte) (hB : B.length = 352) {g e : Na
       18446744073709551616 * (B.getD (11 * g + 8) 0).toNat +
       4722366482869645213696 * (B.getD (11 * g + 9) 0).toNat +
       1208925819614629174706176 * (B.getD (11 * g + 10) 0).toNat) / 2 ^ (11 * e) % 2048) := by
-  rw [decodeDecompress_get 11 B (by rw [n_eq]; omega), byteDecode_group (c := 8) (b := 11) (by decide)
-    B he (by rw [n_eq]; omega), bytes_map_take_drop B (by omega)]
-  simp only [range11, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero,
-    Nat.reduceLT, ↓reduceIte, Nat.mod_mod]
+  rw [decodeDecompress_group (c := 8) (b := 11) (by decide) (by decide) B (by omega) he (by rw [n_eq]; omega)]
+  simp only [range11, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero]
   exact congrArg (decompress 11) (congrArg (· % 2048) (congrArg (· / 2 ^ (11 * e)) (bytes11_eq ..)))
 
 section

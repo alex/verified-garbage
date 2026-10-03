@@ -3,14 +3,15 @@ import VerifiedGarbage.Proof.Blake2.AArch64.Contract
 import VerifiedGarbage.Proof.MdStream.AArch64.Common
 import VerifiedGarbage.Impl.Blake2.AArch64.Stream
 import VerifiedGarbage.Proof.Framework.WriteBytes
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 
 /-!
 # Streaming BLAKE2 on AArch64: common lemmas
 
-Untrusted: everything here is checked by Lean. The contracts the proofs of
-`init`, `update` and `finalize` are written against, what they need of the
-compression function they call (`CalleeOk`), the call (`compressWith_ok`),
-and the loops copying bytes into the buffer and zeroing it.
+The contracts the proofs of `init`, `update` and `finalize` are written
+against, what they need of the compression function they call (`CalleeOk`),
+the call (`compressWith_ok`), and the loops copying bytes into the buffer and
+zeroing it.
 -/
 
 namespace VG.Proof.Blake2
@@ -366,60 +367,32 @@ theorem zeroLoop_ok {s₀ : State} {st : Addr} {r k : Nat} (hN : bufOff w ≤ 64
 /-! ## Saving and restoring the caller's registers -/
 
 /-- The caller's callee-saved registers `g` are saved in the scratch space at `b`. -/
-def Saved (b : Addr) (g : Reg → BitVec 64) (m : Mem) : Prop :=
-  ∀ p ∈ saved, m.readW (b + BitVec.ofNat 64 p.2) 64 = g p.1
+abbrev Saved (b : Addr) (g : Reg → BitVec 64) (m : Mem) : Prop := Spill.Saved b g saved m
 
 /-- The memory after saving `x19`–`x24` (values `g`) at `b + 512 …`. -/
-def saveMem (m : Mem) (b : Addr) (g : Reg → BitVec 64) : Mem :=
-  (((((m.writeW (b + BitVec.ofNat 64 512) (g .x19)).writeW (b + BitVec.ofNat 64 520) (g .x20)).writeW
-    (b + BitVec.ofNat 64 528) (g .x21)).writeW (b + BitVec.ofNat 64 536) (g .x22)).writeW
-    (b + BitVec.ofNat 64 544) (g .x23)).writeW (b + BitVec.ofNat 64 552) (g .x24)
+abbrev saveMem (m : Mem) (b : Addr) (g : Reg → BitVec 64) : Mem := Spill.saveMem m b g saved
 
-theorem save_eq' (b : Reg) : save b = [.str .x .x19 b 512, .str .x .x20 b 520,
-    .str .x .x21 b 528, .str .x .x22 b 536, .str .x .x23 b 544, .str .x .x24 b 552] := rfl
+theorem saved_off : ∀ p ∈ saved, 512 ≤ p.2 ∧ p.2 + 8 ≤ 560 := by decide
 
-theorem saveMem_saved (m : Mem) (b : Addr) (g : Reg → BitVec 64) : Saved b g (saveMem m b g) := by
-  intro p hp
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (disch := decide) only [saveMem, Mem.readW_writeW_self64, MdStream.AArch64.readW_writeW_save]
+theorem saveMem_saved (m : Mem) (b : Addr) (g : Reg → BitVec 64) : Saved b g (saveMem m b g) :=
+  Spill.saveMem_saved (by decide) m b g
 
 theorem saveMem_frame (m : Mem) (b : Addr) (g : Reg → BitVec 64) :
-    Frame [⟨b + BitVec.ofNat 64 512, 48⟩] m (saveMem m b g) := by
-  have c : ∀ d : Nat, d + 8 ≤ 48 →
-      (⟨b + BitVec.ofNat 64 512, 48⟩ : Region).Contains (b + BitVec.ofNat 64 (512 + d)) (64 / 8) :=
-    fun d hd => Offset.contains (k := 48) _ (by omega) (by omega) (by omega)
-  simp only [saveMem]
-  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 0 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 8 (by omega))).writeW (List.mem_singleton_self _) _
-    (c 16 (by omega))).writeW (List.mem_singleton_self _) _ (c 24 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 32 (by omega)) |>.writeW (List.mem_singleton_self _) _
-    (c 40 (by omega))
+    Frame [⟨b + BitVec.ofNat 64 512, 48⟩] m (saveMem m b g) :=
+  Spill.saveMem_frame (by decide) (by decide) m b g
 
 /-- Saving `x19`–`x24` with the scratch pointer in `b`. -/
 theorem save_ok {b : Reg} {rest : List Instr} {s : State} {Q : State → Prop}
     (hin : ∀ d, 512 ≤ d → d + 8 ≤ 560 → InRegions s.wr (s.gpr b + BitVec.ofNat 64 d) 8)
     (k : ∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
       s'.mem = saveMem s.mem (s.gpr b) s.gpr → WP isa (.block rest) s' Q) :
-    WP isa (.block (save b ++ rest)) s Q := by
-  rw [save_eq']
-  simp only [List.cons_append, List.nil_append]
-  refine wp_str (by decide) rfl (hin _ (by omega) (by omega)) fun s₁ g₁ => ?_
-  refine wp_str (by decide) (by rw [g₁.gpr]) (by rw [g₁.wr]; exact hin _ (by omega) (by omega))
-    fun s₂ g₂ => ?_
-  refine wp_str (by decide) (by rw [g₂.gpr, g₁.gpr])
-    (by rw [g₂.wr, g₁.wr]; exact hin _ (by omega) (by omega)) fun s₃ g₃ => ?_
-  refine wp_str (by decide) (by rw [g₃.gpr, g₂.gpr, g₁.gpr])
-    (by rw [g₃.wr, g₂.wr, g₁.wr]; exact hin _ (by omega) (by omega)) fun s₄ g₄ => ?_
-  refine wp_str (by decide) (by rw [g₄.gpr, g₃.gpr, g₂.gpr, g₁.gpr])
-    (by rw [g₄.wr, g₃.wr, g₂.wr, g₁.wr]; exact hin _ (by omega) (by omega)) fun s₅ g₅ => ?_
-  refine wp_str (by decide) (by rw [g₅.gpr, g₄.gpr, g₃.gpr, g₂.gpr, g₁.gpr])
-    (by rw [g₅.wr, g₄.wr, g₃.wr, g₂.wr, g₁.wr]; exact hin _ (by omega) (by omega)) fun s₆ g₆ => ?_
-  refine k s₆ (by rw [g₆.gpr, g₅.gpr, g₄.gpr, g₃.gpr, g₂.gpr, g₁.gpr])
-    (by rw [g₆.rd, g₅.rd, g₄.rd, g₃.rd, g₂.rd, g₁.rd]) (by rw [g₆.wr, g₅.wr, g₄.wr, g₃.wr, g₂.wr, g₁.wr])
-    (by rw [g₆.sp, g₅.sp, g₄.sp, g₃.sp, g₂.sp, g₁.sp]) ?_
-  rw [g₆.mem, g₅.mem, g₄.mem, g₃.mem, g₂.mem, g₁.mem]
-  simp only [saveMem, g₅.gpr, g₄.gpr, g₃.gpr, g₂.gpr, g₁.gpr]
+    WP isa (.block (save b ++ rest)) s Q :=
+  Spill.save_ok (l := saved) (by decide) (fun p hp => hin _ (by revert p; decide) (by revert p; decide))
+    (k _ rfl rfl rfl rfl rfl)
+
+/-- `restore`, `x20` (the base) last. -/
+abbrev restored : List (Reg × Nat) :=
+  [(.x19, 512), (.x21, 528), (.x22, 536), (.x23, 544), (.x24, 552), (.x20, 520)]
 
 /-- Restoring `x19`–`x24` from the save area at `scr`. -/
 theorem restore_ok {s : State} {scr : Addr} (h20 : s.gpr .x20 = scr)
@@ -428,50 +401,11 @@ theorem restore_ok {s : State} {scr : Addr} (h20 : s.gpr .x20 = scr)
     (k : ∀ s', (∀ p ∈ saved, s'.gpr p.1 = g p.1) →
       (∀ r, r ∉ saved.map Prod.fst → s'.gpr r = s.gpr r) →
       s'.mem = s.mem → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp → Q s') :
-    WP isa (.block restore) s Q := by
-  have v : ∀ r d, (r, d) ∈ saved → s.mem.readW (scr + BitVec.ofNat 64 d) 64 = g r :=
-    fun r d h => hsv (r, d) h
-  unfold restore
-  refine wp_ldr (by decide) (by rw [h20]) (hin _ (by omega) (by omega)) fun s₁ u₁ => ?_
-  refine wp_ldr (by decide) (by rw [u₁.other _ (by decide), h20])
-    (by rw [u₁.rd, u₁.wr]; exact hin _ (by omega) (by omega)) fun s₂ u₂ => ?_
-  refine wp_ldr (by decide) (by rw [u₂.other _ (by decide), u₁.other _ (by decide), h20])
-    (by rw [u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact hin _ (by omega) (by omega)) fun s₃ u₃ => ?_
-  refine wp_ldr (by decide)
-    (by rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), h20])
-    (by rw [u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact hin _ (by omega) (by omega))
-    fun s₄ u₄ => ?_
-  refine wp_ldr (by decide)
-    (by rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide),
-      u₁.other _ (by decide), h20])
-    (by rw [u₄.rd, u₄.wr, u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]; exact hin _ (by omega) (by omega))
-    fun s₅ u₅ => ?_
-  refine wp_ldr (by decide)
-    (by rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide),
-      u₂.other _ (by decide), u₁.other _ (by decide), h20])
-    (by rw [u₅.rd, u₅.wr, u₄.rd, u₄.wr, u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]
-        exact hin _ (by omega) (by omega))
-    fun s₆ u₆ => WP.block_nil ?_
-  have m5 : s₅.mem = s.mem := by rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
-  refine k s₆ (fun p hp => ?_) (fun r hr => ?_) (by rw [u₆.mem, m5]) (by rw [u₆.rd, u₅.rd, u₄.rd,
-    u₃.rd, u₂.rd, u₁.rd]) (by rw [u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr])
-    (by rw [u₆.sp, u₅.sp, u₄.sp, u₃.sp, u₂.sp, u₁.sp])
-  · simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with rfl | rfl | rfl | rfl | rfl | rfl <;> dsimp only
-    · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide),
-        u₂.other _ (by decide), u₁.gpr, v .x19 _ (by simp [saved])]
-    · rw [u₆.gpr, m5, v .x20 _ (by simp [saved])]
-    · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide),
-        u₂.gpr, u₁.mem, v .x21 _ (by simp [saved])]
-    · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.mem, u₁.mem,
-        v .x22 _ (by simp [saved])]
-    · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.gpr, u₃.mem, u₂.mem, u₁.mem,
-        v .x23 _ (by simp [saved])]
-    · rw [u₆.other _ (by decide), u₅.gpr, u₄.mem, u₃.mem, u₂.mem, u₁.mem, v .x24 _ (by simp [saved])]
-  · simp only [saved, List.map_cons, List.map_nil, List.mem_cons, List.not_mem_nil, or_false,
-      not_or] at hr
-    obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hr
-    rw [u₆.other _ h2, u₅.other _ h6, u₄.other _ h5, u₃.other _ h4, u₂.other _ h3, u₁.other _ h1]
+    WP isa (.block restore) s Q :=
+  WP.mono (Spill.restore_wp (l := restored) h20 (by decide) (by decide)
+    (fun p hp => hin _ (by revert p; decide) (by revert p; decide)) (hsv.sub (by decide)))
+    fun s' h => have h := h.perm (l' := saved) (by decide) (by decide)
+      k s' h.gpr h.other h.mem h.rd h.wr h.sp
 
 /-- The callee-saved registers our code never touches (but for `x30`, which
 our calls change and the frame restores). -/

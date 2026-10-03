@@ -8,8 +8,8 @@ function PBKDF2, over any pseudorandom function, transcribed from RFC 8018,
 *PKCS #5: Password-Based Cryptography Specification Version 2.1* (January
 2017), §5.2. Passwords, salts and derived keys are sequences of bytes.
 
-Its contract, for the iteration of PBKDF2-HMAC-SHA-256, is in
-`Spec/Pbkdf2/Contract.lean`.
+The contracts of its iteration and of the whole of PBKDF2-HMAC, for any
+streaming hash function, are in `Spec/Pbkdf2/Generic.lean`.
 -/
 
 namespace VG.Spec.Pbkdf2

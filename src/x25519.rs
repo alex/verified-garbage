@@ -159,11 +159,7 @@ impl PrivateKey {
     /// it.
     pub fn diffie_hellman(&self, peer: &[u8; 32]) -> Result<[u8; 32], Error> {
         let mut shared = x25519(&self.bytes, peer);
-        // The OR of every byte, which is zero only for the all-zero secret,
-        // computed without a branch on the secret; only whether it is zero is
-        // revealed.
-        let acc = shared.iter().fold(0u8, |a, &b| a | b);
-        if core::hint::black_box(acc) == 0 {
+        if crate::ct::eq(&shared, &[0; 32]) {
             zeroize(&mut shared);
             return Err(Error::ZeroSharedSecret);
         }

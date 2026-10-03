@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.Call
 /-!
 # ML-DSA on 32-bit ARM: calling `Power2Round` and the encodings of key generation
 
-Untrusted: everything here is checked by Lean. As `ip_ok` and `ip_tr`
-(`Call.lean`), for `vg_mldsa_power2round`, `vg_mldsa_simple_bit_pack` and
-`vg_mldsa_bit_pack`, whose fifth argument, the length, is on the stack.
+As `ip_ok` and `ip_tr` (`Call.lean`), for `vg_mldsa_power2round`,
+`vg_mldsa_simple_bit_pack` and `vg_mldsa_bit_pack`, whose fifth argument, the
+length, is on the stack.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen
@@ -51,8 +51,8 @@ theorem p2rG {s : State} (hs : Site L Wb STK s) (m : P2rOk L Wb t t1 t0) (rd wr 
 
 theorem p2r_cov {s : State} (hs : Site L Wb STK s) (m : P2rOk L Wb t t1 t0) :
     Covers (p2rRd L t ++ p2rWr L t1 t0) (s.rd ++ s.wr) ∧ Covers (p2rWr L t1 t0) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.pt) covers_nil')
-    (covers_wr (covers_cons' (hs.cwE m.p1 m.w1) (covers_cons' (hs.cwE m.p0 m.w0) covers_nil'))),
+  ⟨Covers.append_left (covers_cons' (hs.crE m.pt) covers_nil')
+    (Covers.right (covers_cons' (hs.cwE m.p1 m.w1) (covers_cons' (hs.cwE m.p0 m.w0) covers_nil'))),
     covers_cons' (hs.cwE m.p1 m.w1) (covers_cons' (hs.cwE m.p0 m.w0) covers_nil')⟩
 
 theorem p2r_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : stk ≤ STK) (m : P2rOk L Wb t t1 t0)
@@ -150,7 +150,7 @@ theorem sbpG {s : State} (hs : Site L Wb STK s) (m : SbpOk L Wb f b o l) (rd wr 
 
 theorem sbp_cov {s : State} (hs : Site L Wb STK s) (m : SbpOk L Wb f b o l) :
     Covers (sbpRd L f ++ sbpWr L o l) (s.rd ++ s.wr) ∧ Covers (sbpWr L o l) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.pf) covers_nil') (covers_wr (covers_cons' (hs.cwE m.po m.wo) covers_nil')),
+  ⟨Covers.append_left (covers_cons' (hs.crE m.pf) covers_nil') (Covers.right (covers_cons' (hs.cwE m.po m.wo) covers_nil')),
     covers_cons' (hs.cwE m.po m.wo) covers_nil'⟩
 
 theorem sbp_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : stk ≤ STK) (m : SbpOk L Wb f b o l)
@@ -273,7 +273,7 @@ theorem bpG {s : State} (hs : Site L Wb STK s) (m : BpOk L Wb f a b o l) (rd wr 
 
 theorem bp_cov {s : State} (hs : Site L Wb STK s) (m : BpOk L Wb f a b o l) :
     Covers (sbpRd L f ++ sbpWr L o l) (s.rd ++ s.wr) ∧ Covers (sbpWr L o l) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.pf) covers_nil') (covers_wr (covers_cons' (hs.cwE m.po m.wo) covers_nil')),
+  ⟨Covers.append_left (covers_cons' (hs.crE m.pf) covers_nil') (Covers.right (covers_cons' (hs.cwE m.po m.wo) covers_nil')),
     covers_cons' (hs.cwE m.po m.wo) covers_nil'⟩
 
 theorem bp_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : 4 + stk ≤ STK) (m : BpOk L Wb f a b o l)

@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.Blake2.Arm.Stream.Common
 /-!
 # Streaming BLAKE2 on ARMv7: `update`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`update`, for either word size and any correct compression function
-(`CalleeOk`), piece by piece: the prologue, up to the first call (`pro_ok`),
-the first call (`call₁_ok`), the code between the calls (`mid_ok`), the
-second call (`call₂_ok`) and the end (`end_ok`). Each piece's postcondition
-gives the registers the next one starts from as functions of the arguments,
-which the constant-time proof (`CT.lean`) uses too.
+The functional correctness of `update`, for either word size and any correct
+compression function (`CalleeOk`), piece by piece: the prologue, up to the
+first call (`pro_ok`), the first call (`call₁_ok`), the code between the calls
+(`mid_ok`), the second call (`call₂_ok`) and the end (`end_ok`). Each piece's
+postcondition gives the registers the next one starts from as functions of the
+arguments, which the constant-time proof (`CT.lean`) uses too.
 -/
 
 namespace VG.Proof.Blake2.Arm.Stream.Update
@@ -155,13 +154,9 @@ theorem Common.data {s₀ : State} (hp : Pre w s₀) {c : Nat} {s : State} (h : 
 16 bytes below the stack pointer keep the saved registers. -/
 theorem saved_frame {s₀ : State} (hp : Pre w s₀) {m m' : Mem} (h : Saved (scA s₀) s₀.gpr m)
     (hf : Frame [stR s₀ w, ⟨scA s₀, 512⟩, below s₀] m m') : Saved (scA s₀) s₀.gpr m' := by
-  intro p hp'
-  have hoff := saved_bound p hp'
   have := hp.scr_fit
-  rw [← h p hp']
-  refine hf.readW (r := ⟨scA s₀ + BitVec.ofNat 64 p.2, 4⟩) (Region.contains_self _ _) ?_ (by decide)
-  have e : Region.Sub ⟨scA s₀ + BitVec.ofNat 64 p.2, 4⟩ (scR s₀) := Offset.sub_base _ (by omega)
-  intro r' hr'
+  refine h.frame saved_slots hf fun r' hr' => ?_
+  have e : Region.Sub ⟨scA s₀ + BitVec.ofNat 64 512, 548 - 512⟩ (scR s₀) := Offset.sub_base _ (by omega)
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
   rcases hr' with rfl | rfl | rfl
   · exact hp.st_scr.symm.sub_left e

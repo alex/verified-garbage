@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.Block
 
 /-!
 # AArch64: instruction-level rewrite lemmas for symbolic execution
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.AArch64
@@ -73,6 +71,11 @@ theorem exec_bicRor {sz : Size} {s : State} {d n m : Reg} {sh : Nat}
     (h : sh < sz.bits) :
     exec (.bicRor sz d n m sh) s =
       some (s.write sz d (s.read sz n &&& ~~~((s.read sz m).rotateRight sh))) := by
+  simp only [exec, h, ite_true]
+
+theorem exec_extr {sz : Size} {s : State} {d n m : Reg} {lsb : Nat} (h : lsb < sz.bits) :
+    exec (.extr sz d n m lsb) s =
+      some (s.write sz d ((s.read sz n ++ s.read sz m).extractLsb' lsb sz.bits)) := by
   simp only [exec, h, ite_true]
 
 theorem exec_ror_w {s : State} {d n : Reg} {sh : Nat} (h : sh < 32) :

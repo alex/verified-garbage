@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.FragOf
 /-!
 # ML-KEM-768 on x86-64: the hash functions of the top-level functions
 
-Untrusted: everything here is checked by Lean. `hashAt ps rate suffix out len`
-zeroes the Keccak state, absorbs the pieces `ps`, pads and squeezes `len`
-bytes to `out`: the output of the sponge from the padded state of their
-concatenation (`hash_ok`, which `Proof/MlKem/Hash.lean` relates to `G`, `H`,
-`J` and `PRF`), leaking only the addresses (`hash_tr`).
+`hashAt ps rate suffix out len` zeroes the Keccak state, absorbs the pieces
+`ps`, pads and squeezes `len` bytes to `out`: the output of the sponge from
+the padded state of their concatenation (`hash_ok`, which
+`Proof/MlKem/KPke.lean` relates to `G`, `H`, `J` and `PRF`), leaking only the
+addresses (`hash_tr`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

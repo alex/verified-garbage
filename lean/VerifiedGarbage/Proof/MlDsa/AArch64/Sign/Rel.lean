@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseA
 /-!
 # ML-DSA signing on AArch64: two runs
 
-Untrusted: everything here is checked by Lean. Constant time is proven
-piece by piece (`RelCT`) for two runs from entry states that satisfy
-`signK`'s precondition and agree on its public data, each satisfying the
-invariant `I` of the correctness proof, and related by `E` (`RR`): each
-piece leaks the same, correctness gives each run's next invariant, and the
-piece's own proof the next relation (`relInvE`). The runs are in the same
-layout (`RR.lrel`) and agree on `ρ` (`RR.rho`), which the leakage begins
-with.
+Constant time is proven piece by piece (`RelCT`) for two runs from entry
+states that satisfy `signK`'s precondition and agree on its public data, each
+satisfying the invariant `I` of the correctness proof, and related by `E`
+(`RR`): each piece leaks the same, correctness gives each run's next
+invariant, and the piece's own proof the next relation (`relInvE`). The runs
+are in the same layout (`RR.lrel`) and agree on `ρ` (`RR.rho`), which the
+leakage begins with.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
@@ -31,7 +30,7 @@ variable {p : Params} {D : Nat}
 theorem lrel_of {σ₁ σ₂ x y : State} (hpub : (signK p D).pub σ₁ σ₂) (S₁ : St p D σ₁ x) (S₂ : St p D σ₂ y) :
     LRel D (sgR p) (sgW p) x y := by
   obtain ⟨h1, h2, h3, h4, h5, h6, _⟩ := hpub
-  refine ⟨S₁.lay, S₂.lay, fun r hr => ?_, by rw [S₁.top.sp, S₂.top.sp, h6]⟩
+  refine ⟨S₁.lay, S₂.lay, fun r hr => ?_, by rw [S₁.top.sp, S₂.top.sp, h6], fun b hb => ⟨sgB_bases p b hb, bases_kept _ (sgB_bases p b hb)⟩⟩
   have r₁ := S₁.top.regs
   have r₂ := S₂.top.regs
   simp only [bases, List.mem_cons, List.not_mem_nil, or_false] at hr

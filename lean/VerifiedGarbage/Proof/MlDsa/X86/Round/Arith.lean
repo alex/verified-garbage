@@ -7,12 +7,11 @@ import VerifiedGarbage.Proof.MlDsa.Round.Mem
 /-!
 # ML-DSA on x86 (32-bit): what the rounding code computes
 
-Untrusted: everything here is checked by Lean. Continuation-style rules for
-the pieces of `Impl/MlDsa/X86/Round/Round.lean`: `condAdd` leaves
-`condAddN r x k` (`condAdd_spec`), `hbRaw g` leaves `⌊(a + γ₂ - 1)/(2γ₂)⌋`
-(`hbRaw_spec`, by `hbF_eq` of `Proof/MlDsa/Round/Decompose.lean`) and `hb g`
-its remainder modulo `m` (`hb_spec`), each changing only the registers it
-names (`Only`).
+Continuation-style rules for the pieces of `Impl/MlDsa/X86/Round/Round.lean`:
+`condAdd` leaves `condAddN r x k` (`condAdd_spec`), `hbRaw g` leaves `⌊(a + γ₂ -
+1)/(2γ₂)⌋` (`hbRaw_spec`, by `hbF_eq` of `Proof/MlDsa/Round/Decompose.lean`)
+and `hb g` its remainder modulo `m` (`hb_spec`), each changing only the
+registers it names (`Only`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Round

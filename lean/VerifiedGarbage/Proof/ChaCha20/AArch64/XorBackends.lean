@@ -10,9 +10,11 @@ open VG VG.AArch64
 def scalar : XorImpl where
   callee := .scalar
   features := []
+  notes := ["Calls `vg_chacha20_block` for each 64 bytes."]
   ok := Xor.xor_correct BlockImpl.scalar
   ct := Xor.xor_ct BlockImpl.scalar
   noFrames := BlockImpl.scalar.xorNoFrames
+  keepsV := by lit_decide
   sealTaint := ⟨_, by taint_decide⟩
   openTaint := ⟨_, by taint_decide⟩
 
@@ -20,9 +22,12 @@ def scalar : XorImpl where
 def neon : XorImpl where
   callee := .neon
   features := []
+  notes := ["Uses NEON: five blocks at a time (four in AdvSIMD lanes, one in the integer \
+    registers), then two to four more in lanes, then `vg_chacha20_block` for the rest."]
   ok := Mixed5.xor_correct
   ct := Mixed5.xor_ct
   noFrames := Mixed5.xor_noFrames
+  keepsV := by lit_decide
   sealTaint := ⟨_, by taint_decide⟩
   openTaint := ⟨_, by taint_decide⟩
 

@@ -7,10 +7,9 @@ import VerifiedGarbage.Spec.Cmac.Contract
 /-!
 # AES-CMAC on ARMv7: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness and constant
-time, a state satisfying each precondition, and the shared contracts of
-`Spec/Cmac/Contract.lean`, with 8 bytes of stack: each call of
-`vg_aes_ctr32` pushes its two stack arguments.
+Correctness and constant time, a state satisfying each precondition, and the
+shared contracts of `Spec/Cmac/Contract.lean`, with 8 bytes of stack: each
+call of `vg_aes_ctr32` pushes its two stack arguments.
 -/
 
 namespace VG.Proof.CmacAes.Arm

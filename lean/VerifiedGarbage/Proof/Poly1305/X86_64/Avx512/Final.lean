@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Final
 /-!
 # Poly1305 on x86-64 with AVX-512: the accumulator in, and the lanes summed
 
-Untrusted: everything here is checked by Lean. `loadH` splits the
-accumulator into quadword 0 of `H`; after the last group, `sumLanes` adds
-the quadwords into quadword 0 and carries. The rest (`fullCarry`, `reduce`
-and `storeH`) is `vg_poly1305_blocks_avx2`'s code, on quadword 0 (see
-`Avx2/Final.lean`), whose quadwords are those of `Avx2.qw` (`qz_qw`).
+`loadH` splits the accumulator into quadword 0 of `H`; after the last group,
+`sumLanes` adds the quadwords into quadword 0 and carries. The rest
+(`fullCarry`, `reduce` and `storeH`) is `vg_poly1305_blocks_avx2`'s code, on
+quadword 0 (see `Avx2/Final.lean`), whose quadwords are those of `Avx2.qw`
+(`qz_qw`).
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx512
@@ -110,7 +110,9 @@ def sumB : Bnds :=
     | .xmm0 | .xmm1 | .xmm2 | .xmm3 | .xmm4 => 2 ^ 27 - 1
     | _ => 2 ^ 64 - 1,
    fun _ => 2 ^ 32 - 1,
-   fun g => if g = .r8 then 2 ^ 26 - 1 else 2 ^ 64 - 1⟩
+   fun g => if g = .r8 then 2 ^ 26 - 1 else 2 ^ 64 - 1,
+   fun _ => 2 ^ 64 - 1,
+   fun _ => 2 ^ 32 - 1⟩
 
 def smS : Sym := (Sym.init.run false sumLanes).get (by decide +kernel)
 theorem smS_eq : Sym.init.run false sumLanes = some smS := (Option.some_get _).symm
@@ -133,7 +135,8 @@ theorem smS_nat (E : Env) : ∀ i < 5, (smS.reg (xi (hreg i))).nat E 0 =
 
 theorem sumB_env {s : State} (hr8 : s.gpr .r8 = 0x3ffffff) (hb : ∀ k < 8, ∀ i < 5, hv s k i < 2 ^ 27) :
     EnvOK s sumB := by
-  refine ⟨fun r k hk => ?_, fun r k hk => ?_, fun g => ?_⟩
+  refine ⟨fun r k hk => ?_, fun r k hk => ?_, fun g => ?_, fun _ => Nat.le_sub_one_of_lt (BitVec.isLt _),
+    fun _ => Nat.le_sub_one_of_lt (Nat.mod_lt _ (by decide))⟩
   · have := BitVec.isLt (qz s r k)
     cases r <;> simp only [sumB] <;> first
       | omega

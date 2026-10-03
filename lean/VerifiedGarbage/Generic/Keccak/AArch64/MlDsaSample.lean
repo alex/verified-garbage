@@ -1,27 +1,27 @@
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Rej4.Verified
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.RejNttCT
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.RejBoundedCT
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.ExpandMask
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Ball
 
-/-!
-# ML-DSA (FIPS 204) on AArch64: the sampling primitives
-
-A registration file (see `TCB/Emit.lean`): the artifacts it lists are
-emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`. Each
-artifact is made from its function's `Api` (in `Spec/MlDsa/Poly.lean`,
-reviewed with the contract), and this file adds only notes on the
-implementation. The emitter adds the `# Safety` items that depend on the
-target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract.
--/
+/-! # ML-DSA (FIPS 204) on AArch64: the sampling primitives -/
 
 namespace VG.Generic.Keccak.AArch64.MlDsaSample
 
 open VG
 
 def artifacts (v : Proof.Sha3.AArch64.Permutation) : List Artifact := [
+  { Spec.MlDsa.rejNTT4Api with
+    name := Spec.MlDsa.rejNTT4Api.name ++ v.callee.suffix
+    features := v.features
+    target := AArch64.target
+    doc := Spec.MlDsa.rejNTT4Api.doc (notes := ["Four SHAKE128 streams in two pairs of NEON lanes, \
+      using ARM SHA3 instructions when available. Each stream squeezes 1008 bytes (6 blocks)."])
+    code := Impl.MlDsa.AArch64.Sample.Rej4.rejNTT4With v.callee.pairedSha3
+    contract := Spec.MlDsa.rejNTT4Contract AArch64.abi
+    verified := Proof.MlDsa.AArch64.Sample.Rej4.verified v.callee.pairedSha3
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.MlDsa.rejNTTApi with
     name := Spec.MlDsa.rejNTTApi.name ++ v.callee.suffix
     features := v.features

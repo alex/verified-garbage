@@ -1,18 +1,22 @@
 import VerifiedGarbage.Proof.Hmac.Generic.Implies
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Hash
+import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Calls
 
 /-!
-# PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: `pbkdf2`'s contract
+# HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: the shared contracts
 
-Untrusted: everything here is checked by Lean. `pbkG` is the contract the
-proof of `pbkdf2` is written against: `VG.Spec.Pbkdf2.pbkdf2Contract` with its
-facts spelt out, which it implies for any streaming hash function and
-scratch space (`generic_implies`).
+`pbkG` is the contract the proof of `pbkdf2` is written against:
+`VG.Spec.Pbkdf2.pbkdf2Contract` with its facts spelt out, which it implies for
+any streaming hash function and scratch space (`generic_implies`), as HMAC's
+`initG` and `finG` (`Calls.lean`) imply `VG.Spec.Hmac.initContract` and
+`VG.Spec.Hmac.finalizeContract` (`initImp`, `finImp`). `initSat` and `finSat`
+are states satisfying HMAC's shared contracts' preconditions, from which each
+hash function's instance shows them satisfiable.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64
 
 open VG.X86_64
+open VG.Proof.Pbkdf2.Md.X86_64.Calls (initG finG)
 open Spec.Hmac (StreamingHash)
 open Spec.Sha256 (bytesAt)
 
@@ -84,5 +88,51 @@ theorem pbkImp (h : ∃ s, (Spec.Pbkdf2.pbkdf2Contract S W X86_64.abi 24).pre s)
         rename_i h1 h2 h3 h4 h5 h6 h7 h8
         exact ⟨h2, h3, h4, h5, h6, h7, h8, h, h1⟩
       sat := h }
+
+/-! ## HMAC's `init` and `finalize` -/
+
+/-- A state satisfying `init`'s precondition, with states of `S` bytes and
+`8 sc` bytes of scratch space (and a one-byte key). -/
+def initSat (S sc : Nat) : State where
+  gpr r := match r with
+    | .rdi => 0x10000 | .rsi => 0x20000 | .rdx => 0x30000 | .rcx => 1 | .r8 => 0x40000
+    | .rsp => 0x90000
+    | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem _ := 0
+  rd := [⟨0x30000, 1⟩]
+  wr := [⟨0x10000, S⟩, ⟨0x20000, S⟩, ⟨0x40000, 8 * sc⟩]
+
+/-- A state satisfying `finalize`'s precondition, with states of `S` bytes,
+a digest of `D` bytes and `8 sc` bytes of scratch space. -/
+def finSat (S D sc : Nat) : State where
+  gpr r := match r with
+    | .rdi => 0x10000 | .rsi => 0x20000 | .rcx => 0x30000 | .r8 => 0x40000
+    | .rsp => 0x90000
+    | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem _ := 0
+  rd := [⟨0x20000, S⟩]
+  wr := [⟨0x10000, S⟩, ⟨0x30000, D⟩, ⟨0x40000, 8 * sc⟩]
+
+/-- `initG` implies the shared contract for any hash function and scratch space
+(`generic_implies`), given that the shared contract is satisfiable. -/
+theorem initImp (S : Spec.Hmac.StreamingHash) (W : Nat) (h : ∃ s, (Spec.Hmac.initContract S W X86_64.abi 16).pre s) :
+    (initG S W).Implies (Spec.Hmac.initContract S W X86_64.abi 16) := by
+  generic_implies [
+    Spec.Hmac.initContract, Spec.Hmac.initSig, initG, X86_64.abi, X86_64.argRegs] using h
+
+/-- `finG` implies the shared contract for any hash function and scratch space
+(`generic_implies`), given that the shared contract is satisfiable. -/
+theorem finImp (S : Spec.Hmac.StreamingHash) (W : Nat) (h : ∃ s, (Spec.Hmac.finalizeContract S W X86_64.abi 16).pre s) :
+    (finG S W).Implies (Spec.Hmac.finalizeContract S W X86_64.abi 16) := by
+  generic_implies [
+    Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, finG, X86_64.abi, X86_64.argRegs] using h
 
 end VG.Proof.Pbkdf2.Md.X86_64

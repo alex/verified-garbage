@@ -9,16 +9,14 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # The SHA-512 family on x86-64, as Merkle–Damgård hash functions
 
-Untrusted: everything here is checked by Lean. SHA-384, SHA-512,
-SHA-512/224 and SHA-512/256, each with an implementation `v` of their
-compression function (`Proof/Sha512/X86_64/Variant.lean`), as variants of
-`MdHash` (`sha384 v`, …), from which HMAC and PBKDF2 are emitted
-(`Generic/MdHash/X86_64/`): their streaming code is the generic
-Merkle–Damgård code (`Stream.params`), shared by the four, which differ in
-their initial hash value `iv` and the size `D` of their digest, the first
-`D` bytes of the final hash value. The facts about the code HMAC and PBKDF2
-add, which do not depend on `v`, are checked once for each member
-(`coreOK`).
+SHA-384, SHA-512, SHA-512/224 and SHA-512/256, each with an implementation `v`
+of their compression function (`Proof/Sha512/X86_64/Variant.lean`), as
+variants of `MdHash` (`sha384 v`, …), from which HMAC and PBKDF2 are emitted
+(`Generic/MdHash/X86_64/`): their streaming code is the generic Merkle–Damgård
+code (`Stream.params`), shared by the four, which differ in their initial hash
+value `iv` and the size `D` of their digest, the first `D` bytes of the final
+hash value. The facts about the code HMAC and PBKDF2 add, which do not depend
+on `v`, are checked once for each member (`coreOK`).
 
 `stream v` are the streaming `update` and `finalize` made with `v`, which
 the four share: SHA-512's variant (`sha512 v`) carries them, and
@@ -31,7 +29,6 @@ namespace VG.Proof.Pbkdf2.Md.X86_64.Sha512
 open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Sha512.X86_64 (Compress)
-open VG.Proof.Hmac.Generic.X86_64.Instances (initSat finSat)
 open Spec.Sha512 (H0_384 H0_512 H0_512_224 H0_512_256)
 
 /-- The member of the SHA-512 family of instance `I`, with a `D`-byte digest,
@@ -66,15 +63,14 @@ theorem coreOK (D : Nat) (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) : CoreOK
       iter := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
         ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
       hinit := {
-        keys := ⟨_, by taint_decide⟩
+        pro := ⟨_, by taint_decide⟩
         argI := by
           simp only [List.mem_cons, List.not_mem_nil, or_false]
           rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-        argU₁ := ⟨_, by taint_decide⟩
-        argU₂ := ⟨_, by taint_decide⟩
+        keys := ⟨_, by taint_decide⟩
+        mid := ⟨_, by taint_decide⟩
         restore := ⟨_, by taint_decide⟩ }
-      hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
-        ⟨_, by taint_decide⟩⟩
+      hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
       pbkMx := by decide +kernel
       pbkSp := by decide +kernel
       hinitMx := by decide +kernel

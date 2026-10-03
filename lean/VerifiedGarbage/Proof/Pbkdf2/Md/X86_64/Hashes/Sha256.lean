@@ -7,13 +7,12 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # SHA-256 on x86-64, as a Merkle–Damgård hash function
 
-Untrusted: everything here is checked by Lean. SHA-256 with an
-implementation `v` of its compression function (`Proof/Sha256/X86_64/Variant.lean`),
-as a variant of `MdHash` (`variant v`), from which HMAC and PBKDF2 are
-emitted (`Generic/MdHash/X86_64/`): its streaming code is the generic
-Merkle–Damgård code (`Stream.params`), its specification `Spec.Hmac.sha256S`.
-The facts about the code HMAC and PBKDF2 add, which do not depend on `v`,
-are checked once (`coreOK`).
+SHA-256 with an implementation `v` of its compression function
+(`Proof/Sha256/X86_64/Variant.lean`), as a variant of `MdHash` (`variant v`),
+from which HMAC and PBKDF2 are emitted (`Generic/MdHash/X86_64/`): its streaming
+code is the generic Merkle–Damgård code (`Stream.params`), its specification
+`Spec.Hmac.sha256S`. The facts about the code HMAC and PBKDF2 add, which do not
+depend on `v`, are checked once (`coreOK`).
 
 `stream v` are the streaming `update` and `finalize` made with `v`, which
 `Generic/MdHash/X86_64/Stream.lean` emits from their `Api`s, named with
@@ -25,7 +24,6 @@ namespace VG.Proof.Pbkdf2.Md.X86_64.Sha256
 open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Sha256.X86_64 (Compress)
-open VG.Proof.Hmac.Generic.X86_64.Instances (initSat finSat)
 
 /-- SHA-256's functions, calling the implementation `v` of the compression
 function, named with its suffix. -/
@@ -55,15 +53,14 @@ theorem coreOK : CoreOK coreH where
   iter := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   hinit := {
-    keys := ⟨_, by taint_decide⟩
+    pro := ⟨_, by taint_decide⟩
     argI := by
       simp only [List.mem_cons, List.not_mem_nil, or_false]
       rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-    argU₁ := ⟨_, by taint_decide⟩
-    argU₂ := ⟨_, by taint_decide⟩
+    keys := ⟨_, by taint_decide⟩
+    mid := ⟨_, by taint_decide⟩
     restore := ⟨_, by taint_decide⟩ }
-  hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
-    ⟨_, by taint_decide⟩⟩
+  hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   pbkMx := by decide +kernel
   pbkSp := by decide +kernel
   hinitMx := by decide +kernel
@@ -175,8 +172,10 @@ def stream : List StreamFn := [
     verified := Proof.Sha256.X86_64.Shared.finalize v.ok v.mxcsr
     spSafe := Proof.Sha256.X86_64.Shared.finalize_spSafe v.spSafe }]
 
-/-- SHA-256 with the implementation `v` of its compression function. -/
+/-- SHA-256 with the implementation `v` of its compression function, which it
+carries for the functions built on SHA-256 alone (`MdHash.sha256`). -/
 def variant : MdHash :=
-  MdHash.of (ok v) coreOK (callees v) rfl rfl satI satF satT satP v.suffix v.features (stream v)
+  { MdHash.of (ok v) coreOK (callees v) rfl rfl satI satF satT satP v.suffix v.features (stream v) with
+    sha256 := some v }
 
 end VG.Proof.Pbkdf2.Md.X86_64.Sha256

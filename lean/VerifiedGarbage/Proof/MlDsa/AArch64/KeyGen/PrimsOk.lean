@@ -3,12 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Top
 /-!
 # ML-DSA on AArch64: what the proofs need of the primitives
 
-Untrusted: everything here is checked by Lean. `PrimsOk P S`: each
-primitive of `P` is correct and constant time under its shared contract with
-`S` bytes of stack, and its frames use at most those `S` bytes (`CalleeOk`,
-from its `Verified` proof by `CalleeOk.of_verified`); `S` is at least the 16
-bytes the sponge functions' frames use. The proofs of `vg_mldsa*_keygen` and
-`vg_mldsa*_verify` hold for any such `P`, with their contracts' stack `S`.
+`PrimsOk P S`: each primitive of `P` is correct and constant time under its
+shared contract with `S` bytes of stack, and its frames use at most those `S`
+bytes (`CalleeOk`, from its `Verified` proof by `CalleeOk.of_verified`); `S`
+is at least the 16 bytes the sponge functions' frames use. The proofs of
+`vg_mldsa*_keygen` and `vg_mldsa*_verify` hold for any such `P`, with their
+contracts' stack `S`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
@@ -28,6 +28,7 @@ structure PrimsOk (P : Prims) (S : Nat) : Prop where
   add : CalleeOk S P.add (addContract AArch64.abi S)
   sub : CalleeOk S P.sub (subContract AArch64.abi S)
   rejNtt : CalleeOk S P.rejNtt (rejNTTContract AArch64.abi S)
+  rej4 : CalleeOk S P.rej4 (rejNTT4Contract AArch64.abi S)
   rejBounded : CalleeOk S P.rejBounded (rejBoundedContract AArch64.abi S)
   ball : CalleeOk S P.ball (sampleInBallContract AArch64.abi S)
   power2Round : CalleeOk S P.power2Round (power2RoundContract AArch64.abi S)

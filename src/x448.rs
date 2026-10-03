@@ -3,8 +3,10 @@
 //! The whole function is the verified assembly `vg_x448` (contract
 //! `VG.Spec.X448.x448Contract`): `X448(k, u)` of RFC 7748 §5, the
 //! scalar decoded (clamped) and all 448 bits of the u-coordinate reduced
-//! modulo the field prime, in constant time. This module gives it working
-//! space, and destroys what it leaves there.
+//! modulo the field prime, in constant time. On x86-64 CPUs with BMI2 and
+//! ADX it is `vg_x448_adx`, with the same contract and faster field
+//! multiplications. This module gives it working space, and destroys what it
+//! leaves there.
 //!
 //! [`diffie_hellman`](PrivateKey::diffie_hellman) rejects the all-zero
 //! shared secret that a public key of small order gives (RFC 7748 §6.2), in
@@ -18,7 +20,39 @@
 ))]
 
 use crate::arch::x448::vg_x448;
+#[cfg(target_arch = "x86_64")]
+use crate::arch::x448::{VG_X448_ADX_FEATURES, vg_x448_adx};
+use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
+
+/// The implementations of `vg_x448`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Backend {
+    /// The target's baseline ISA.
+    Baseline,
+    /// BMI2's `mulx` and ADX's `adcx` and `adox`.
+    #[cfg(target_arch = "x86_64")]
+    Adx,
+}
+
+impl Backend {
+    /// The best implementation a CPU with the features `f` can run.
+    #[cfg(target_arch = "x86_64")]
+    fn select(f: Features) -> Backend {
+        if f.contains(Features::of(VG_X448_ADX_FEATURES)) {
+            Backend::Adx
+        } else {
+            Backend::Baseline
+        }
+    }
+
+    /// The best implementation a CPU with the features `f` can run: there
+    /// is only one here.
+    #[cfg(not(target_arch = "x86_64"))]
+    fn select(_: Features) -> Backend {
+        Backend::Baseline
+    }
+}
 
 /// Why an operation failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,11 +75,18 @@ pub const BASE_POINT: [u8; 56] = {
 pub fn x448(scalar: &[u8; 56], u: &[u8; 56]) -> [u8; 56] {
     let mut out = [0u8; 56];
     let mut scratch = [0u64; 1024];
+    let f = match Backend::select(detected()) {
+        Backend::Baseline => vg_x448,
+        // `select` chose it because the CPU has the features it needs.
+        #[cfg(target_arch = "x86_64")]
+        Backend::Adx => vg_x448_adx,
+    };
     // SAFETY: `out` and `scratch` are valid for reads and writes of 56 and
     // 8192 bytes, and `scalar` and `u` for reads of 56 bytes; the writable
     // buffers are disjoint from each other and from the inputs.
     // No buffer overlaps the callee's stack or wraps around the address space.
-    unsafe { vg_x448(&mut out, scalar, u, &mut scratch) };
+    // The CPU has the features of the function `select` chose.
+    unsafe { f(&mut out, scalar, u, &mut scratch) };
     zeroize(&mut scratch);
     out
 }
@@ -106,11 +147,7 @@ impl PrivateKey {
     /// it.
     pub fn diffie_hellman(&self, peer: &[u8; 56]) -> Result<[u8; 56], Error> {
         let mut shared = x448(&self.bytes, peer);
-        // The OR of every byte, which is zero only for the all-zero secret,
-        // computed without a branch on the secret; only whether it is zero is
-        // revealed.
-        let acc = shared.iter().fold(0u8, |a, &b| a | b);
-        if core::hint::black_box(acc) == 0 {
+        if crate::ct::eq(&shared, &[0; 56]) {
             zeroize(&mut shared);
             return Err(Error::ZeroSharedSecret);
         }
@@ -134,6 +171,26 @@ mod tests {
         assert_eq!(a.diffie_hellman(&kb), b.diffie_hellman(&ka));
         assert_eq!(PrivateKey::from_bytes(a.as_bytes()).public_key(), ka);
         assert_eq!(a.clone().public_key(), ka);
+    }
+
+    /// The baseline agrees with the implementation chosen for this CPU,
+    /// and the choice follows the features.
+    #[test]
+    fn backends() {
+        let k = [0x42; 56];
+        let u = PrivateKey::from_bytes(&[0x24; 56]).public_key();
+        let mut out = [0u8; 56];
+        let mut scratch = [0u64; 1024];
+        // SAFETY: as in `x448`, and the baseline needs no CPU feature.
+        unsafe { vg_x448(&mut out, &k, &u, &mut scratch) };
+        assert_eq!(out, x448(&k, &u));
+        assert_eq!(Backend::select(Features(0)), Backend::Baseline);
+        #[cfg(target_arch = "x86_64")]
+        {
+            let adx = Features::of(VG_X448_ADX_FEATURES);
+            assert_eq!(Backend::select(adx), Backend::Adx);
+            assert_eq!(Backend::select(Features::of(&["bmi2"])), Backend::Baseline);
+        }
     }
 
     /// The point 0 has small order: the shared secret is zero.

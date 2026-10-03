@@ -5,8 +5,6 @@ import VerifiedGarbage.TCB.Arm.Target
 /-!
 # Moving a proof to a shared contract, on Arm
 
-Untrusted: everything here is checked by Lean.
-
 `contract_implies` unfolds `Arm.classify` on the signature's argument widths.
 Unfolded by `dsimp`, every recursive call is duplicated (its result is used
 twice), so a signature of a few words costs hundreds of unfoldings, once per

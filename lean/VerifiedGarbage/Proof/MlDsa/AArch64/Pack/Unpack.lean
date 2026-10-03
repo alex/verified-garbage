@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Pack.BitPack
 /-!
 # ML-DSA on AArch64: `vg_mldsa_bit_unpack` and `vg_mldsa_unpack_t1`
 
-Untrusted: everything here is checked by Lean. The coefficient of a field
-`y` is `b - y` in 64 bits, plus `q` times its sign bit (`subModQ`), which is
-`b - y` in `ℤ_q` (`Pack/Arith.lean`), or `y · 2¹³`. The loop is proven once
-for every width (`unpackLoop_ok`), and `vg_mldsa_bit_unpack` by its five
-cases, which the length chooses.
+The coefficient of a field `y` is `b - y` in 64 bits, plus `q` times its sign
+bit (`subModQ`), which is `b - y` in `ℤ_q` (`Pack/Arith.lean`), or `y · 2¹³`.
+The loop is proven once for every width (`unpackLoop_ok`), and
+`vg_mldsa_bit_unpack` by its five cases, which the length chooses.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Pack

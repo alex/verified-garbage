@@ -6,7 +6,7 @@ open VG VG.AArch64 VG.Impl.Ed25519.AArch64.VerifyMessage
 
 theorem verifyMessage_ok (backend : Whole.Backend) {s : State} (h : verifyMessageLocal.pre s) :
     WP isa (code backend.code backend.suffix) s fun u => abiPreserved s u ∧ verifyMessageLocal.post s u := by
-  have hw := Whole.wrap_ok (body_noFrames backend) (entry_below h) (entry_writes h)
+  have hw := Whole.wrap_ok (body_depth backend) (entry_below h) (entry_writes h)
     (P := fun m _ r => r = signWord (Spec.Ed25519.verify
       (Spec.Ed25519.bytesAt m (s.gpr .x0) 32)
       (Spec.Ed25519.bytesAt m (s.gpr .x1) (s.gpr .x2).toNat)

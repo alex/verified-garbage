@@ -5,12 +5,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNttCT
 /-!
 # ML-DSA on x86-64: `vg_mldsa_expand_mask_poly`
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `H(ρ′, 640)` (`J6`), the
-branch on `γ₁`, and the loop for `c = 1 + bitlen (γ₁ - 1)`, iteration `g`
-of which starts from `EAt σ c g` with the coefficients of the first `g`
-groups stored. It is constant time: the taint analysis proves each piece but
-the sponge, whose proof is `sponge_ct`, from the pointers and `γ₁`.
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`H(ρ′, 640)` (`J6`), the branch on `γ₁`, and the loop for `c = 1 + bitlen (γ₁ -
+1)`, iteration `g` of which starts from `EAt σ c g` with the coefficients of
+the first `g` groups stored. It is constant time: the taint analysis proves
+each piece but the sponge, whose proof is `sponge_ct`, from the pointers and
+`γ₁`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample
@@ -91,7 +91,8 @@ structure EAt (σ : State) (c g : Nat) (s : State) : Prop where
 theorem gpre {c g : Nat} (hg : g < 64) {s : State} (h : EAt σ c g s) :
     GPre c (X σ) ((spOf σ).at' 840) (σ.gpr .rdx) g s := by
   have hp' := spOk hp
-  refine ⟨h.rsi, h.rdi, hg, fun j hj => ?_, fun j hj => ?_, by rw [h.env.wr, hp.2.1]; simp, fun j hj hc => ?_⟩
+  refine ⟨h.rsi, h.rdi, hg, fun j hj => ?_, fun j hj => ?_,
+    fun i hi => ⟨_, by rw [h.env.wr, hp.2.1]; simp, coeff_contains _ hi⟩, fun j hj hc => ?_⟩
   · have := congrArg (fun L => L.getD j 0) h.out
     rw [MlKem.bytesAt_getD _ _ hj] at this
     exact this

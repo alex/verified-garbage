@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.Framework.AArch64.Taint
 /-!
 # VReg code as literals
 
-Untrusted: everything here is checked by Lean. The instances `materialize_code`
-needs to write this ISA's code as a literal (`Proof/Framework/Lit.lean`).
+The instances `materialize_code` needs to write this ISA's code as a literal
+(`Proof/Framework/Lit.lean`).
 -/
 
 namespace VG.AArch64

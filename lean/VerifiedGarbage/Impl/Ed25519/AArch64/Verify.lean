@@ -1,18 +1,11 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.PointDecode
 import VerifiedGarbage.Impl.Ed25519.AArch64.ScalarBase
-import VerifiedGarbage.Impl.Ed25519.AArch64.PointMulVar
+import VerifiedGarbage.Impl.Ed25519.AArch64.VerifyWindow
 
 /-! Canonical point/scalar checks and the uncofactored verification equation
-with the caller's full 512-bit SHA-512 challenge. A challenge below `2^256`
-(a reduced one) takes half the doublings. -/
+with the caller's full 512-bit SHA-512 challenge. -/
 namespace VG.Impl.Ed25519.AArch64
 open VG.AArch64
-
-def pointTableWrite (o : Nat) : List Instr :=
-  [.movz .w .x19 0 0] ++ tableAddr o ++ pointToTable
-
-def pointTableRead (o : Nat) : List Instr :=
-  [.movz .w .x19 0 0] ++ tableAddr o ++ pointFromTable
 
 def loadScalarWords : List Instr :=
   [.ldr .x .x4 .x2 0, .ldr .x .x5 .x2 8, .ldr .x .x6 .x2 16, .ldr .x .x7 .x2 24]
@@ -29,30 +22,12 @@ def pointEqual : Prog isa :=
     (.seq (.block (fieldEqual 10 11))
       (.ite (.zero .x .x8) (.block [.movz .w .x8 1 0]) recoverInvalid)) recoverInvalid)
 
-def verifyLhs : Prog isa :=
-  .seq (.block [ld .x1 7944, .addImm .x .x1 .x1 32])
-    (.seq baseFromScalarVar (.block (pointTableWrite 7680)))
+/-- Returns 1 in x8 if `[S]B = R + [k]A`, for `A` at byte 7424 and `R` at byte 7552. -/
+def verifyEquationPoints : Prog isa :=
+  .seq (.block windowSetup) (.seq aTable (.seq (.block bTable) (.seq (.block windowInit)
+    (.seq skipZero (.seq windowsA (.seq (.loop byteStepAB (.nonzero .x .x19))
+      (.seq (.block negR) pointEqual)))))))
 
-def verifyCombine : List Instr :=
-  copyPointToQ ++ pointTableRead 7552 ++ pointAdd ++ copyPointToQ ++ pointTableRead 7680
-
-/-- `x8` is zero exactly when the challenge at `x1` is below `2^256`: its
-upper 32 bytes are zero, as after `vg_ed25519_scalar_reduce`. -/
-def challengeHigh : List Instr :=
-  ([.addImm .x .x2 .x1 32] : List Instr) ++ loadScalarWords ++
-    [.logic .orr .x .x8 .x4 .x5, .logic .orr .x .x9 .x6 .x7, .logic .orr .x .x8 .x8 .x9]
-
-/-- `[k]A` for the challenge `k` at `x1`, with sixteen batches of bits when
-`k < 2^256` (the challenge is public), or thirty-two. -/
-def challengeMul : Prog isa :=
-  .seq (.block challengeHigh) (.ite (.zero .x .x8) (pointFromScalarVar 16) (pointFromScalarVar 32))
-
-def verifyRhsPrepare : Prog isa :=
-  .seq (.block [ld .x1 7952]) (.seq (.block (pointTableRead 7424))
-    (.seq challengeMul (.block verifyCombine)))
-
-def verifyRhs : Prog isa := .seq verifyRhsPrepare pointEqual
-def verifyEquationPoints : Prog isa := .seq verifyLhs verifyRhs
 def decodedThen (next : Prog isa) : Prog isa := .ite (.nonzero .x .x8) next recoverInvalid
 
 def verifyDecodeR : Prog isa :=

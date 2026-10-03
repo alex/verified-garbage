@@ -3,15 +3,14 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.PbkLoop
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: `pbkdf2`, constant time
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Md/X86_64/Pbkdf2CT.lean`): the pieces between the calls are
-checked by the taint analysis (`Checks`, `by taint_decide` for each hash
-function), each from registers that the correctness proof fixes to public
+As on x86-64 (`Proof/Pbkdf2/Md/X86_64/Pbkdf2CT.lean`): the pieces between the
+calls are checked by the taint analysis (`Checks`, `by taint_decide` for each
+hash function), each from registers that the correctness proof fixes to public
 values (`KE`, `Mid`, `KR`): they are the same in two runs that agree on the
 public arguments. The calls are constant time by their callees' proofs
-(`RelCT.call`, with arguments the correctness proof fixes to the same
-values), and the branches and the loop go the same way in both runs, by the
-facts the correctness proof gives about the registers they test.
+(`RelCT.call`, with arguments the correctness proof fixes to the same values),
+and the branches and the loop go the same way in both runs, by the facts the
+correctness proof gives about the registers they test.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64.Pbk
@@ -20,7 +19,7 @@ open VG.AArch64
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
 open VG.Proof.Pbkdf2.Md.AArch64 (HashOK pbkG)
 open VG.Proof.Pbkdf2.AArch64 (iterK)
-open VG.Proof.Hmac.Generic.AArch64 (initG finG rel_taint rel_wp)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (initG finG rel_taint rel_wp)
 open VG.Proof.MdStream.AArch64 (wp_lsr wp_subImm)
 open Spec.Sha256 (bytesAt)
 
@@ -166,7 +165,7 @@ theorem hashKey_rel : RelCT isa (fun s s' => KE (H := H) s₀ s ∧ KE (H := H) 
       Covers [⟨A σ₀ H.stWO, H.stream.S⟩] s.wr :=
     fun hp h => Covers.of_sub fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr; exact cov_part hp h.kr (by omega)
-  have c₂ := rel_wp (VG.Proof.Hmac.Generic.AArch64.init_rel hH.stream (st := A s₀ H.stWO)
+  have c₂ := rel_wp (VG.Proof.Pbkdf2.Md.AArch64.Calls.init_rel hH.stream (st := A s₀ H.stWO)
       (P := fun s s' => (KE (H := H) s₀ s ∧ s.gpr .x0 = A s₀ H.stWO) ∧
         (KE (H := H) s₀' s' ∧ s'.gpr .x0 = A s₀' H.stWO))
       fun s s' h => by
@@ -192,13 +191,13 @@ theorem hashKey_rel : RelCT isa (fun s s' => KE (H := H) s₀ s ∧ KE (H := H) 
     (fun _ h => WP.mono (hk7_ok hz h.1) fun _ _ => trivial) (fun _ h => WP.mono (hk7_ok hz h.1) fun _ _ => trivial)
   refine (r₁.seq (c₂.seq (r₃.seq (RelCT.seq ?_ (r₅.seq (RelCT.seq ?_ r₇)))))).mono (fun _ _ h => h)
     fun _ _ _ => trivial
-  · exact rel_wp (VG.Proof.Hmac.Generic.AArch64.upd_rel hH.stream fun s s' h => by
+  · exact rel_wp (VG.Proof.Pbkdf2.Md.AArch64.Calls.upd_rel hH.stream fun s s' h => by
           obtain ⟨⟨k, a, i, -⟩, ⟨k', a', i', -⟩⟩ := h
           rw [A_eq hq, pw_eq hq, scr_eq hq, pwl_eq hq] at a'
           exact ⟨a, a', by rw [i, i'], (ke_agree hq k k').1⟩)
         (fun _ h => hk4_ok hp hz hH h.1 h.2.1 h.2.2.1 h.2.2.2)
         (fun _ h => hk4_ok hp' hz hH h.1 h.2.1 h.2.2.1 h.2.2.2)
-  · exact rel_wp (VG.Proof.Hmac.Generic.AArch64.fin_rel hH.stream fun s s' h => by
+  · exact rel_wp (VG.Proof.Pbkdf2.Md.AArch64.Calls.fin_rel hH.stream fun s s' h => by
           obtain ⟨⟨k, a, i, -⟩, ⟨k', a', i', -⟩⟩ := h
           rw [A_eq hq, A_eq hq, scr_eq hq] at a'
           exact ⟨a, a', by rw [i, i', hq.x1], (ke_agree hq k k').1⟩)
@@ -275,7 +274,7 @@ theorem setup_rel (hIn : Verified AArch64.target H.hmacInit (initG hH.SH H.W))
         exact ⟨a, a', (ke_agree hq k k').1⟩)
       (fun _ h => su2_ok hp hz hH hIn hInd h.1 h.2.1 h.2.2)
       (fun _ h => su2_ok hp' hz hH hIn hInd h.1 h.2.1 h.2.2)
-  · exact rel_wp (VG.Proof.Hmac.Generic.AArch64.upd_rel hH.stream fun s s' h => by
+  · exact rel_wp (VG.Proof.Pbkdf2.Md.AArch64.Calls.upd_rel hH.stream fun s s' h => by
         obtain ⟨⟨k, a, i, -⟩, ⟨k', a', i', -⟩⟩ := h
         rw [A_eq hq, salt_eq hq, scr_eq hq, sl_eq hq] at a'
         exact ⟨a, a', by rw [i, i'], (ke_agree hq k k').1⟩)
@@ -335,7 +334,7 @@ theorem block_mid_rel {k : Nat} (hk : k < nb H s₀) (hg : (G hH s₀ k).length 
     (fun _ h => WP.mono (tail_ok hp' hz hH hk' hg' h.1 h.2) fun _ _ => trivial)
   refine (pA.seq (RelCT.seq ?_ (fA.seq (RelCT.seq ?_ (pC.seq (RelCT.seq ?_ tl)))))).mono
     (fun _ _ h => h) fun _ _ _ => trivial
-  · exact rel_wp (VG.Proof.Hmac.Generic.AArch64.upd_rel hH.stream fun s s' h => by
+  · exact rel_wp (VG.Proof.Pbkdf2.Md.AArch64.Calls.upd_rel hH.stream fun s s' h => by
         obtain ⟨a, a'⟩ := h
         have x := a'.args
         rw [A_eq hq, A_eq hq, scr_eq hq] at x

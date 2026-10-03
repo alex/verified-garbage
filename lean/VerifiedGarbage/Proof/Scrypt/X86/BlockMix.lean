@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.Scrypt.X86.Common
 /-!
 # scryptBlockMix on x86 (32-bit): the loop
 
-Untrusted: everything here is checked by Lean. As on 32-bit ARM
-(`Proof/Scrypt/Arm/BlockMix.lean`), the calls of `vg_salsa20_8` are used
-through `SalsaSpec`, what its proof says about a call in a frame of its
-arguments; the proof of this file holds for any code meeting it. Pointers are
-read from the arguments on the stack, which nothing writes; the calls use the
-12 bytes below `esp` (`stkR`), which the memory frames include, as on x86-64
-(`Proof/Scrypt/X86_64/BlockMix.lean`).
+As on 32-bit ARM (`Proof/Scrypt/Arm/BlockMixVerified.lean`), the calls of
+`vg_salsa20_8` are used through `SalsaSpec`, what its proof says about a call in
+a frame of its arguments; the proof of this file holds for any code meeting it.
+Pointers are read from the arguments on the stack, which nothing writes; the
+calls use the 12 bytes below `esp` (`stkR`), which the memory frames include, as
+on x86-64 (`Proof/Scrypt/X86_64/BlockMixCT.lean`).
 -/
 
 namespace VG.Proof.Scrypt.X86.BlockMix
@@ -77,8 +76,7 @@ def xP32 : Nat → BitVec 32
   | k + 1 => yP s₀ + BitVec.ofNat 32 (64 * (rr s₀ + k))
 
 /-- Our caller's `ebx`, `esi`, `edi` and `ebp` are saved in the scratch space. -/
-def Saved (m : Mem) : Prop :=
-  ∀ p ∈ bmSaved, m.readW (scA s₀ + BitVec.ofNat 64 p.2) 32 = s₀.gpr p.1
+abbrev Saved (m : Mem) : Prop := Spill.Saved m (scA s₀ + BitVec.ofNat 64 ·) s₀.gpr bmSaved
 
 end
 

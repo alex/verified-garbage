@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.Verify
 import VerifiedGarbage.Proof.Ed25519.AArch64.RecoverSign
 
-/-! Untrusted: projective comparison implements the specification's pointEqual. -/
+/-! Projective comparison implements the specification's pointEqual. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

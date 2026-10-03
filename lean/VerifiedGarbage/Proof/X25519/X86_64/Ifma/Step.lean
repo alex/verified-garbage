@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Part2
 /-!
 # X25519 on x86-64 with AVX512_IFMA: the ladder's loop
 
-Untrusted: everything here is checked by Lean. The loop invariant (`VInv`):
-the counter `rbx` counts down to `n`, the lanes of `ymm0–ymm4` hold the
-ladder's `(x₂, z₂, x₃, z₃)` after the bits 254 down to `n`, and `swap` its
-`swap`; since the loop's start only the registers `rax`, `rbx`, `rcx`,
-`rdx`, the vector registers, `swap` and the operand slots changed.
+The loop invariant (`VInv`): the counter `rbx` counts down to `n`, the lanes
+of `ymm0–ymm4` hold the ladder's `(x₂, z₂, x₃, z₃)` after the bits 254 down to
+`n`, and `swap` its `swap`; since the loop's start only the registers `rax`,
+`rbx`, `rcx`, `rdx`, the vector registers, `swap` and the operand slots
+changed.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

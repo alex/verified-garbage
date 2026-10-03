@@ -1,8 +1,8 @@
 //! The scrypt test vectors of RFC 7914 (§12), and scrypt's parameter checks.
 //!
-//! The RFC is vendored under `vectors/rfc7914/` (see `vectors/sources.toml`
-//! for where it comes from) and compiled into the test binary, so these tests
-//! always run.
+//! The RFC is vendored under `vectors/rfc7914/` (see
+//! `vectors/sources/rfc7914.toml` for where it comes from) and compiled into
+//! the test binary, so these tests always run.
 
 #![cfg(all(
     any(
@@ -14,7 +14,7 @@
     feature = "alloc"
 ))]
 
-use verified_garbage::scrypt::{Error, scrypt};
+use verified_garbage::scrypt::{Error, scrypt, verify};
 
 /// One `scrypt (P="…", S="…", N=…, r=…, p=…, dkLen=…) = <hex>` vector.
 struct Vector {
@@ -169,6 +169,71 @@ fn invalid_parameters() {
         Error::AllocationFailed.to_string(),
         "could not allocate scrypt's memory"
     );
+    assert_eq!(
+        Error::KeyMismatch.to_string(),
+        "scrypt derived key does not match"
+    );
+}
+
+/// `verify` of the vector `v` with the parameters `n` and the memory limit
+/// `max_memory`, for a key of `N` bytes.
+fn check_verify<const N: usize>(
+    v: &Vector,
+    n: u64,
+    max_memory: usize,
+    expected: &[u8; N],
+) -> Result<(), Error> {
+    verify(&v.password, &v.salt, n, v.r, v.p, max_memory, expected)
+}
+
+/// `verify` accepts the RFC's keys, and the key derived at each length it
+/// checks (scrypt's keys of different lengths share prefixes, so each length
+/// checks its own), and rejects any other: with a bit flipped in its first,
+/// a middle or its last byte, with a byte appended that is not the next one
+/// derived, and from another password.
+#[test]
+fn verify_keys() {
+    let vs = vectors();
+    for v in &vs[..2] {
+        let dk: [u8; 64] = v.dk[..].try_into().unwrap();
+        assert_eq!(check_verify(v, v.n, usize::MAX, &dk), Ok(()));
+        for i in [0, 32, 63] {
+            let mut bad = dk;
+            bad[i] ^= 1;
+            assert_eq!(
+                check_verify(v, v.n, usize::MAX, &bad),
+                Err(Error::KeyMismatch)
+            );
+        }
+        let short: [u8; 16] = dk[..16].try_into().unwrap();
+        assert_eq!(check_verify(v, v.n, usize::MAX, &short), Ok(()));
+        let mut longer = [0u8; 65];
+        scrypt(&v.password, &v.salt, v.n, v.r, v.p, usize::MAX, &mut longer).unwrap();
+        assert_eq!(longer[..64], dk);
+        assert_eq!(check_verify(v, v.n, usize::MAX, &longer), Ok(()));
+        longer[64] ^= 1;
+        assert_eq!(
+            check_verify(v, v.n, usize::MAX, &longer),
+            Err(Error::KeyMismatch)
+        );
+        let other = verify(b"passwore", &v.salt, v.n, v.r, v.p, usize::MAX, &dk);
+        assert_eq!(other, Err(Error::KeyMismatch));
+    }
+}
+
+/// `verify` refuses what `scrypt` refuses: invalid parameters and more
+/// memory than the limit.
+#[test]
+fn verify_errors() {
+    let v = &vectors()[0];
+    let need = 128 * (v.r as usize * (v.n as usize + v.p as usize) + v.r as usize + 2);
+    let dk: [u8; 64] = v.dk[..].try_into().unwrap();
+    assert_eq!(check_verify(v, 3, need, &dk), Err(Error::InvalidParameters));
+    assert_eq!(
+        check_verify(v, v.n, need - 1, &dk),
+        Err(Error::MemoryLimitExceeded)
+    );
+    assert_eq!(check_verify(v, v.n, need, &dk), Ok(()));
 }
 
 /// The largest `n` for `r = 1` and the largest `p` are accepted (and then

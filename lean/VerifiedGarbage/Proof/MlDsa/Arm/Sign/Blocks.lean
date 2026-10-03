@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.Arm.Loops
 /-!
 # ML-DSA signing on ARMv7: the blocks between the calls
 
-Untrusted: everything here is checked by Lean. As on x86-64: what the
-function's own instructions do, in its layout: copies (`copy_okB`, with
-ML-KEM's `copy_loop`), stores of a byte or of a word (`setB_okB`,
-`setW_okB`), the AND of a result into `r11` (`and11_ok`), and the counters
-in `scratch` (`addW_ok`, `decW_ok`).
+As on x86-64: what the function's own instructions do, in its layout: copies
+(`copy_okB`, with ML-KEM's `copy_loop`), stores of a byte or of a word
+(`setB_okB`, `setW_okB`), the AND of a result into `r11` (`and11_ok`), and the
+counters in `scratch` (`addW_ok`, `decW_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign
@@ -164,8 +163,7 @@ theorem addW_ok (p : Ptr) (v : Nat) (ho : p.2 < 4096) (h0 : p.1 ≠ .r0) (hv : e
     WP isa (.block [.ldr .r0 p.1 p.2, .dp .add .r0 .r0 (.imm (BitVec.ofNat 32 v)), .str .r0 p.1 p.2]) s fun s' =>
       s'.mem = s.mem.writeW (State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2))
         (s.mem.readW (State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2)) 32 + BitVec.ofNat 32 v) ∧ KeepM [.r0] s s' := by
-  have hr : InRegions (s.rd ++ s.wr) (State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2)) 4 := covers_wr (covers_one hw
-    (by decide)) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
+  have hr : InRegions (s.rd ++ s.wr) (State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2)) 4 := Covers.right (Covers.one hw) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
   run_block [hw, hr, ho, h0, hv]
   refine ⟨trivial, fun r hr => ?_, rfl, rfl, rfl⟩
   simp only [List.mem_singleton] at hr; simp [hr]
@@ -177,8 +175,7 @@ theorem decW_ok (p : Ptr) (ho : p.2 < 4096) (h0 : p.1 ≠ .r0) (s : State)
       (s'.mem = s.mem.writeW (State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2))
         (s.mem.readW (State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2)) 32 - 1) ∧
         s'.z = (s.mem.readW (State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2)) 32 - 1 == 0)) ∧ KeepM [.r0] s s' := by
-  have hr : InRegions (s.rd ++ s.wr) (State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2)) 4 := covers_wr (covers_one hw
-    (by decide)) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
+  have hr : InRegions (s.rd ++ s.wr) (State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2)) 4 := Covers.right (Covers.one hw) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
   run_block [hw, hr, ho, h0]
   refine ⟨trivial, fun r hr => ?_, rfl, rfl, rfl⟩
   simp only [List.mem_singleton] at hr; simp [hr]

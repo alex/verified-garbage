@@ -1,17 +1,17 @@
 import VerifiedGarbage.Proof.Blake2.X86.Contract
 import VerifiedGarbage.Proof.MdStream.X86.Common
 import VerifiedGarbage.Proof.Framework.X86.Wp
+import VerifiedGarbage.Proof.Framework.X86.Spill
 import VerifiedGarbage.Proof.Framework.WriteBytes
 import VerifiedGarbage.Impl.Blake2.X86.Stream
 
 /-!
 # Streaming BLAKE2 on x86 (32-bit): common lemmas
 
-Untrusted: everything here is checked by Lean. What the proofs of `init`,
-`update` and `finalize` need of the parameters (`Ok`) and of the compression
-function they call (`CalleeOk`: BLAKE2s's or BLAKE2b's, verified against
-`compressX86`), the call (`call_ok`), and the loop copying bytes into the
-buffer (`copyLoop_ok`).
+What the proofs of `init`, `update` and `finalize` need of the parameters
+(`Ok`) and of the compression function they call (`CalleeOk`: BLAKE2s's or
+BLAKE2b's, verified against `compressX86`), the call (`call_ok`), and the loop
+copying bytes into the buffer (`copyLoop_ok`).
 -/
 
 namespace VG.Proof.Blake2.X86.Stream
@@ -252,13 +252,14 @@ theorem mask_ofNat (hP : Ok P) {T : Nat} (hT : T ≠ 0) :
 /-! ## Our caller's registers, saved in `scratch[512..528)` -/
 
 /-- Our caller's registers are saved in the scratch space at `scr`. -/
-def Saved (scr : BitVec 32) (s₀ : State) (m : Mem) : Prop :=
-  ∀ p ∈ saved, m.readW (addr scr p.2) 32 = s₀.gpr p.1
+abbrev Saved (scr : BitVec 32) (s₀ : State) (m : Mem) : Prop := Spill.Saved m (addr scr) s₀.gpr saved
 
 /-- The memory after saving them. -/
-def saveMem (scr : BitVec 32) (s₀ : State) : Mem :=
-  (((s₀.mem.writeW (addr scr 512) (s₀.gpr .ebx)).writeW (addr scr 516) (s₀.gpr .esi)).writeW
-    (addr scr 520) (s₀.gpr .edi)).writeW (addr scr 524) (s₀.gpr .ebp)
+abbrev saveMem (scr : BitVec 32) (s₀ : State) : Mem := Spill.saveMem s₀.mem (addr scr) s₀.gpr saved
+
+theorem saved_fits : Spill.Fits 528 saved := by decide
+
+theorem saved_bound : ∀ p ∈ saved, 512 ≤ p.2 ∧ p.2 + 4 ≤ 528 := by decide
 
 section
 variable {scr : BitVec 32} (hfit : scr.toNat + 576 ≤ 2 ^ 32)
@@ -273,26 +274,12 @@ theorem rw_scr (m : Mem) (v : BitVec 32) {d e : Nat} (hd : d + 4 ≤ 576) (he : 
     (m.writeW (addr scr e) v).readW (addr scr d) 32 = m.readW (addr scr d) 32 :=
   MdStream.X86.readW_writeW_addr m v (by omega) (by omega) h
 
-theorem saveMem_frame (s₀ : State) : Frame [⟨scr.setWidth 64, 576⟩] s₀.mem (saveMem scr s₀) := by
-  have c : ∀ d, d + 4 ≤ 576 → (⟨scr.setWidth 64, 576⟩ : Region).Contains (addr scr d) (32 / 8) :=
-    fun d hd => scr_contains hfit hd (by omega)
-  simp only [saveMem]
-  exact ((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 512 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 516 (by omega))).writeW (List.mem_singleton_self _) _
-    (c 520 (by omega))).writeW (List.mem_singleton_self _) _ (c 524 (by omega))
+theorem saveMem_frame (s₀ : State) : Frame [⟨scr.setWidth 64, 576⟩] s₀.mem (saveMem scr s₀) :=
+  Spill.saveMem_frame List.mem_cons_self _ _ _ _ fun p h =>
+    scr_contains hfit (by have := saved_bound p h; omega) (by omega)
 
-theorem saveMem_saved (s₀ : State) : Saved scr s₀ (saveMem scr s₀) := by
-  have w := rw_scr hfit
-  intro p hp'
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
-  rcases hp' with rfl | rfl | rfl | rfl <;> simp only [saveMem]
-  · rw [w _ _ (d := 512) (e := 524) (by omega) (by omega) (by omega),
-      w _ _ (d := 512) (e := 520) (by omega) (by omega) (by omega),
-      w _ _ (d := 512) (e := 516) (by omega) (by omega) (by omega), Mem.readW_writeW_self32]
-  · rw [w _ _ (d := 516) (e := 524) (by omega) (by omega) (by omega),
-      w _ _ (d := 516) (e := 520) (by omega) (by omega) (by omega), Mem.readW_writeW_self32]
-  · rw [w _ _ (d := 520) (e := 524) (by omega) (by omega) (by omega), Mem.readW_writeW_self32]
-  · rw [Mem.readW_writeW_self32]
+theorem saveMem_saved (s₀ : State) : Saved scr s₀ (saveMem scr s₀) :=
+  Spill.saveMem_saved_addr _ _ saved_fits (by omega)
 
 /-- A word of the scratch space from offset `d ≥ 512` on is kept by writes
 elsewhere: to regions disjoint from the scratch space, or to its first 512
@@ -310,14 +297,24 @@ theorem keep_hi {rs : List Region} {m m' : Mem} (hf : Frame (⟨scr.setWidth 64,
 
 theorem Saved.keep {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved scr s₀ m)
     (hf : Frame (⟨scr.setWidth 64, 512⟩ :: rs) m m')
-    (hd : ∀ r ∈ rs, Region.Disjoint ⟨scr.setWidth 64, 576⟩ r) : Saved scr s₀ m' := by
-  intro p hp
-  have : 512 ≤ p.2 ∧ p.2 + 4 ≤ 528 := by
-    simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with rfl | rfl | rfl | rfl <;> decide
-  rw [keep_hi hfit hf hd this.1 (by omega)]; exact h p hp
+    (hd : ∀ r ∈ rs, Region.Disjoint ⟨scr.setWidth 64, 576⟩ r) : Saved scr s₀ m' :=
+  h.of_readW fun p hp => have := saved_bound p hp; keep_hi hfit hf hd this.1 (by omega)
 
 end
+
+/-- Restoring our caller's registers from the scratch space at `scr`, in `ebp`. -/
+theorem restore_saved {s₀ s : State} {scr : BitVec 32} (hbp : s.gpr .ebp = scr)
+    (hin : ∀ d, 512 ≤ d → d + 4 ≤ 528 → InRegions (s.rd ++ s.wr) (addr scr d) 4) (hsv : Saved scr s₀ s.mem) :
+    WP isa (.block restore) s fun s' =>
+      (∀ r ∈ calleeSaved, r ≠ .esp → s'.gpr r = s₀.gpr r) ∧ s'.gpr .esp = s.gpr .esp ∧ s'.mem = s.mem := by
+  rw [show restore = .mov .eax (.reg .ebp) :: (Spill.restoreCode .eax saved ++ []) from rfl]
+  refine Wp.wp_mov fun s₁ u₁ => ?_
+  have e₁ : s₁.gpr .eax = scr := by rw [u₁.gpr, hbp]
+  refine Spill.restore_ok saved (by decide)
+    (fun p h => by rw [e₁, u₁.rd, u₁.wr]; exact hin _ (saved_bound p h).1 (saved_bound p h).2)
+    (by rw [e₁, u₁.mem]; exact hsv) fun s' r' =>
+      WP.block_nil ⟨fun r hr hsp => r'.regs r (by revert hsp; revert hr; revert r; decide),
+        by rw [r'.other _ (by decide), u₁.other _ (by decide)], by rw [r'.mem, u₁.mem]⟩
 
 /-! ## The call -/
 

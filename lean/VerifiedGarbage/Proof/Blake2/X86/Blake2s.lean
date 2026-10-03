@@ -7,10 +7,10 @@ import VerifiedGarbage.Spec.Blake2.Contract
 /-!
 # BLAKE2s on x86 (32-bit): the instance
 
-Untrusted: everything here is checked by Lean. The compression function's
-proof (`CompressS/`) and the generic streaming proofs (`Stream/`) for
-BLAKE2s: the constant-time checks, states satisfying the preconditions, and
-`Verified` against the shared contracts of `Spec/Blake2/Contract.lean`.
+The compression function's proof (`CompressS/`) and the generic streaming
+proofs (`Stream/`) for BLAKE2s: the constant-time checks, states satisfying
+the preconditions, and `Verified` against the shared contracts of
+`Spec/Blake2/Contract.lean`.
 -/
 
 namespace VG.Proof.Blake2.X86.S

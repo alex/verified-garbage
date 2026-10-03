@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.X86.Round.Hint
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_make_hint` and `vg_mldsa_use_hint`
 
-Untrusted: everything here is checked by Lean. Both functions are the
-prologue and the loops of `Hint.lean`; `makeHint` then returns the count in
-`ecx`, which is the number of 1s (`sumV_ones`).
+Both functions are the prologue and the loops of `Hint.lean`; `makeHint` then
+returns the count in `ecx`, which is the number of 1s (`sumV_ones`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Round

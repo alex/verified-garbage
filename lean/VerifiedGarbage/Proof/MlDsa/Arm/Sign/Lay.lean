@@ -7,18 +7,17 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # ML-DSA signing on ARMv7: the buffers of the function
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/MlDsa/X86_64/Sign/Lay.lean`): the function keeps the address of each
-buffer it works in (its arguments and its working space) in a callee-saved
-register; a layout (`Lay`) lists these registers with the lengths of their
-buffers, which are apart from each other and from the `D` bytes of stack
-below the stack pointer that the calls use, and do not wrap around the
-32-bit address space. A pointer (a register and an offset) into a buffer,
-and two pointers into the same buffer or different ones, are then checked
-by evaluation (`inB`, `sepB`): each pair of regions a call needs apart is,
-and each region is readable or writable (`Lay.disj`, `Lay.stkD`, `Lay.cR`,
-`Lay.cW`). A call leaves the layout as it was (`Lay.post`), and the bytes of
-a region apart from those it writes (`Lay.keepBytes`, `Lay.keepPoly`).
+As on x86-64 (`Proof/MlDsa/X86_64/Sign/Lay.lean`): the function keeps the
+address of each buffer it works in (its arguments and its working space) in a
+callee-saved register; a layout (`Lay`) lists these registers with the lengths
+of their buffers, which are apart from each other and from the `D` bytes of
+stack below the stack pointer that the calls use, and do not wrap around the
+32-bit address space. A pointer (a register and an offset) into a buffer, and
+two pointers into the same buffer or different ones, are then checked by
+evaluation (`inB`, `sepB`): each pair of regions a call needs apart is, and
+each region is readable or writable (`Lay.disj`, `Lay.stkD`, `Lay.cR`,
+`Lay.cW`). A call leaves the layout as it was (`Lay.post`), and the bytes of a
+region apart from those it writes (`Lay.keepBytes`, `Lay.keepPoly`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign
@@ -97,38 +96,6 @@ theorem inRegions_sub {X : List Region} {a : Addr} {n off l : Nat} (h : InRegion
     (hn : n < 2 ^ 64) : InRegions X (a + BitVec.ofNat 64 off) l := by
   obtain ⟨r, hr, hc⟩ := h
   exact ⟨r, hr, contains_sub hc hl hn⟩
-
-theorem covers_one {X : List Region} {a : Addr} {l : Nat} (h : InRegions X a l) (hl : l < 2 ^ 64) :
-    Covers [⟨a, l⟩] X := by
-  intro a' n' ⟨r0, hr0, hc⟩
-  simp only [List.mem_singleton] at hr0
-  subst hr0
-  obtain ⟨r, hr, hc'⟩ := h
-  refine ⟨r, hr, ?_⟩
-  have e : a' = a + BitVec.ofNat 64 (a' - a).toNat := by rw [BitVec.ofNat_toNat, BitVec.setWidth_eq]; bv_omega
-  rw [e]
-  simp only [Region.Contains] at hc
-  exact contains_sub hc' hc hl
-
-theorem covers_nil {X : List Region} : Covers [] X := fun _ _ ⟨_, h, _⟩ => absurd h List.not_mem_nil
-
-theorem covers_cons {r : Region} {rs X : List Region} (h : Covers [r] X) (h' : Covers rs X) :
-    Covers (r :: rs) X := by
-  intro a n ⟨r0, hr0, hc⟩
-  rcases List.mem_cons.mp hr0 with rfl | hr0
-  · exact h a n ⟨r0, List.mem_singleton_self _, hc⟩
-  · exact h' a n ⟨r0, hr0, hc⟩
-
-theorem covers_append {rs ts X : List Region} (h : Covers rs X) (h' : Covers ts X) : Covers (rs ++ ts) X := by
-  intro a n ⟨r0, hr0, hc⟩
-  rcases List.mem_append.mp hr0 with hr0 | hr0
-  · exact h a n ⟨r0, hr0, hc⟩
-  · exact h' a n ⟨r0, hr0, hc⟩
-
-theorem covers_wr {rs : List Region} {s : State} (h : Covers rs s.wr) : Covers rs (s.rd ++ s.wr) :=
-  fun a n hi => by
-    obtain ⟨r, hr, hc⟩ := h a n hi
-    exact ⟨r, List.mem_append_right _ hr, hc⟩
 
 /-! ## Layouts -/
 
@@ -226,10 +193,10 @@ theorem Lay.iW {p : Ptr} {l : Nat} (h : inB wbs p l = true) : InRegions s.wr (pa
   exact inRegions_sub (L.wr (p.1, n) hn) hl (by have := L.small _ (List.mem_append_right _ hn); omega)
 
 theorem Lay.cR {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) : Covers [⟨pa s p, l⟩] (s.rd ++ s.wr) :=
-  covers_one (L.iR h) (by have := L.nwp h; omega)
+  Covers.one (L.iR h)
 
 theorem Lay.cW {p : Ptr} {l : Nat} (h : inB wbs p l = true) : Covers [⟨pa s p, l⟩] s.wr :=
-  covers_one (L.iW h) (by obtain ⟨n, hn, hl⟩ := inB_spec h; have := L.small _ (List.mem_append_right _ hn); omega)
+  Covers.one (L.iW h)
 
 end
 

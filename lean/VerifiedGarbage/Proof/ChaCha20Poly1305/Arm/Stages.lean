@@ -16,8 +16,6 @@ section
 
 /-!
 # ChaCha20-Poly1305 on ARMv7: the entry state, regions and invariant
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -50,9 +48,7 @@ def pubArm (s₁ s₂ : Arm.State) : Prop :=
   s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
+/-- `vg_chacha20_poly1305_seal(ctx, aad, aad_len, data, len)`. -/
 def sealArm : Contract Arm.isa where
   pre := preArm
   post s s' :=
@@ -64,9 +60,7 @@ def sealArm : Contract Arm.isa where
   pub := pubArm
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-`vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
+/-- `vg_chacha20_poly1305_open(ctx, aad, aad_len, data, len) -> u32`. -/
 def openArm : Contract Arm.isa where
   pre := preArm
   post s s' :=
@@ -212,17 +206,12 @@ theorem covers_sub {s₀ s : State} (hp : APre s₀) (hwr : s.wr = s₀.wr) (rs 
   obtain ⟨k, hrk, hk⟩ := h r hr
   exact ⟨ctxR s₀, by simp [hwr, hp.wr], k, by rw [hrk], hk⟩
 
-theorem covers_left {rs wr : List Region} (rd : List Region) (h : Covers rs wr) : Covers rs (rd ++ wr) :=
-  fun a n hi => by
-    obtain ⟨r, hr, hc⟩ := h a n hi
-    exact ⟨r, List.mem_append_right _ hr, hc⟩
-
 /-- A callee's working space (at `ctx + a`, `n` bytes) and argument (at
 `ctx + b`, `m` bytes) in the context. -/
 theorem covers2 {s₀ s : State} (hp : APre s₀) (hwr : s.wr = s₀.wr) {a n b m : Nat}
     (ha : a + n ≤ 1024) (hb : b + m ≤ 1024) :
     Covers ([sub s₀ b m] ++ [sub s₀ a n]) (s.rd ++ s.wr) :=
-  covers_left _ (covers_sub hp hwr _ fun r hr => by
+  Covers.right (covers_sub hp hwr _ fun r hr => by
     simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
     · exact ⟨b, rfl, hb⟩
@@ -344,12 +333,12 @@ end
 /-!
 # ChaCha20-Poly1305 on ARMv7: the calls
 
-Untrusted: everything here is checked by Lean. Each call of a verified
-function, from its proof of `Verified` (with `WP.call`): what it needs of the
-state it is called from, and what holds when it returns. A call (`bl`)
-stores nothing in memory, so the callee changes memory only within the
-regions it may write; the frame around `vg_poly1305_finalize` also stores
-its stack arguments below the stack pointer.
+Each call of a verified function, from its proof of `Verified` (with
+`WP.call`): what it needs of the state it is called from, and what holds when
+it returns. A call (`bl`) stores nothing in memory, so the callee changes
+memory only within the regions it may write; the frame around
+`vg_poly1305_finalize` also stores its stack arguments below the stack
+pointer.
 -/
 
 open VG.PowLit
@@ -683,9 +672,8 @@ section
 /-!
 # ChaCha20-Poly1305 on ARMv7: the prologue
 
-Untrusted: everything here is checked by Lean. Saving the registers, moving
-the arguments, copying words of the context, the ChaCha20 state for counter
-0, the one-time key and the Poly1305 state for it.
+Saving the registers, moving the arguments, copying words of the context, the
+ChaCha20 state for counter 0, the one-time key and the Poly1305 state for it.
 -/
 
 open VG.PowLit
@@ -718,13 +706,9 @@ end
 
 /-! ## Saving the registers -/
 
-set_option simprocs false in
 theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
-    ∀ p ∈ saved, (saveMem m B g saved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 := by
-  intro p hp
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (config := {decide := true}) only [saved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+    ∀ p ∈ saved, (saveMem m B g saved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 :=
+  Spill.saveMem_saved (lo := 480) (hi := 516) B g m saved (by decide)
 
 theorem saveMem_frame (s₀ : State) (m : Mem) (g : Reg → BitVec 32) :
     ∀ (l : List (Reg × Nat)), (∀ p ∈ l, savOff ≤ p.2 ∧ p.2 + 4 ≤ savOff + 36) →
@@ -1221,9 +1205,8 @@ end
 /-!
 # ChaCha20-Poly1305 on ARMv7: absorbing padded data
 
-Untrusted: everything here is checked by Lean. `macPad p n` absorbs the `n`
-bytes at `p` into the Poly1305 state (at `ctx`), and zeros to a multiple of
-16: `msg ++ x ++ pad16 x`.
+`macPad p n` absorbs the `n` bytes at `p` into the Poly1305 state (at `ctx`),
+and zeros to a multiple of 16: `msg ++ x ++ pad16 x`.
 -/
 
 open VG.PowLit
@@ -1283,7 +1266,7 @@ theorem absorb_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) {
     rcases hr with rfl | rfl
     · rw [i₁.rd, i₁.wr]; exact hc a w ⟨_, List.mem_singleton_self _, hcn⟩
     · rw [← sub_zero] at hcn
-      exact covers_left _ (covers1 hp i₁.wr (a := 0) (n := 128) (by lit_omega)) a w ⟨_, List.mem_singleton_self _, hcn⟩
+      exact Covers.right (covers1 hp i₁.wr (a := 0) (n := 128) (by lit_omega)) a w ⟨_, List.mem_singleton_self _, hcn⟩
   rw [← sub_zero] at k₂
   have i₂ := i₁.step1 k₂ (by lit_omega) (by simp [savOff])
   refine WP.mono (anchor_ok i₂ r0₂) fun s₃ ⟨i₃, k₃⟩ => ⟨i₃, (k₁.sub fun _ hr => absurd hr List.not_mem_nil).trans
@@ -1535,7 +1518,7 @@ theorem padTail_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) 
         exact sub_disj s₀ (a := 0) (n := 128) (by simp [padOff]) (by lit_omega) (by simp [padOff]))
     (by rw [hp.ptr_toNat (by simp [padOff])]; have := hp.fit_c; simp [padOff]; omega)
     (by rw [hp.addr_ptr (by simp [padOff])]
-        exact covers_left _ (covers1 hp rfl (a := padOff) (n := 16 * 1) (by simp [padOff]))))
+        exact Covers.right (covers1 hp rfl (a := padOff) (n := 16 * 1) (by simp [padOff]))))
     fun s₅ ⟨i₅, k₅, repr₅⟩ => ⟨i₅, (kept_mac hk₂ (.inr ⟨rfl, rfl⟩)).trans ((kept_mac hk₃ (.inr ⟨rfl, rfl⟩)).trans
       ((kept_mac0 k₄).trans (kept_mac k₅ (.inl ⟨rfl, rfl⟩)))), fun key msg hr => ?_⟩
   have m₄ := k₄.mem_eq
@@ -1721,9 +1704,8 @@ end VG.Proof.ChaCha20Poly1305.Arm
 /-!
 # ChaCha20-Poly1305 on ARMv7: the other parts
 
-Untrusted: everything here is checked by Lean. The encryption, the lengths
-block, the arguments of `vg_poly1305_finalize` and the tag, copying and
-comparing tags, and restoring the registers.
+The encryption, the lengths block, the arguments of `vg_poly1305_finalize` and
+the tag, copying and comparing tags, and restoring the registers.
 -/
 
 open VG.PowLit
@@ -1816,7 +1798,7 @@ theorem crypt_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s)
     (by rw [← sub_zero]; exact (hp.c_d.symm.sub_right (sub_ctx s₀ (by lit_omega))))
     (by rw [hp.ptr_toNat (by simp [stOff])]; have := hp.fit_c; simp [stOff]; omega)
     hp.fit_d (by have := hp.fit_c; omega)
-    (by simpa using covers_left _ hw) hw fun s₂ k₂ r1₂ data₂ => ?_)
+    (by simpa using Covers.right hw) hw fun s₂ k₂ r1₂ data₂ => ?_)
   have hsub : ∀ r ∈ [⟨State.addr (ptr s₀ stOff), 64⟩, ⟨State.addr (dP s₀), L s₀⟩, ⟨State.addr (cP s₀), 320⟩],
       ∃ r' ∈ [sub s₀ 0 (stOff + 64), dR s₀], Region.Sub r r' := by
     intro r hr
@@ -1942,7 +1924,7 @@ theorem lengths_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) 
         exact sub_disj s₀ (a := 0) (n := 128) (by simp [lenOff]) (by lit_omega) (by simp [lenOff]))
     (by rw [hp.ptr_toNat (by simp [lenOff])]; have := hp.fit_c; simp [lenOff]; omega)
     (by rw [hp.addr_ptr (by simp [lenOff])]
-        exact covers_left _ (covers1 hp rfl (a := lenOff) (n := 16 * 1) (by simp [lenOff]))))
+        exact Covers.right (covers1 hp rfl (a := lenOff) (n := 16 * 1) (by simp [lenOff]))))
     fun s₂ ⟨i₂, k₂, repr₂⟩ => ⟨i₂, (k₁.sub fun r hr => by
         simp only [List.mem_singleton] at hr; subst hr; exact ⟨_, by simp, fun _ h => h⟩).trans
       (k₂.sub fun r hr => by

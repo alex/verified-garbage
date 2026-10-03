@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.ChaCha20.X86_64.Block
 import VerifiedGarbage.Proof.ChaCha20.Keystream
 import VerifiedGarbage.Proof.Framework.X86_64.Call
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
 import VerifiedGarbage.Proof.Framework.Offset
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Lit
@@ -9,20 +10,15 @@ import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # ChaCha20 keystream XOR on x86-64
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20
 
 open Spec.ChaCha20 VG.X86_64
 
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for
-`vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`:
-XORs the first `len` bytes of the keystream of the state at `state` into the
-`len` bytes at `data`.
+/-- X86-64 contract for `vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8,
+len: usize, buf: *mut [u32; 80])`: XORs the first `len` bytes of the keystream
+of the state at `state` into the `len` bytes at `data`.
 
 The code may read and write `state` (64 bytes; its contents on exit are
 unspecified), `data` (`len` bytes) and `buf` (320 bytes of working space).
@@ -126,9 +122,9 @@ theorem XPre.of (s₀ : State) (h : Proof.ChaCha20.xorX86_64.pre s₀) : XPre s�
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12⟩
 
 /-- Our caller's `rbx, rbp, r12`, saved in `buf[256, 280)`. -/
-def Saved (s₀ : State) (m : Mem) : Prop :=
-  m.readW (off (bp s₀) 256) 64 = s₀.gpr .rbx ∧ m.readW (off (bp s₀) 264) 64 = s₀.gpr .rbp ∧
-  m.readW (off (bp s₀) 272) 64 = s₀.gpr .r12
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (bp s₀) s₀.gpr saved
+
+theorem saved_bound : ∀ p ∈ saved, 256 ≤ p.2 ∧ p.2 + 8 ≤ 280 := by decide
 
 /-- The regions the code writes: its buffers and the return address of its calls. -/
 abbrev frameR (s₀ : State) : List Region := [stR s₀, dR s₀, bR s₀, stackR s₀]
@@ -182,11 +178,6 @@ theorem stateAt_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : 
   simp only [stateAt, Vector.getElem_ofFn]
   exact hf.readW (contains_ofNat (by lit_omega) (by lit_omega)) hd (by decide)
 
-theorem readW64_off (m : Mem) (p : Addr) (v : BitVec 64) {d e : Nat} (hd : d < 2 ^ 32)
-    (he : e < 2 ^ 32) (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
-    (m.writeW (off p e) v).readW (off p d) 64 = m.readW (off p d) 64 :=
-  Mem.readW_writeW_sep (VG.Proof.ChaCha20.X86_64.off_sep p hd he (by lit_omega) (by lit_omega) h) (by decide)
-
 /-! ## The prologue -/
 
 theorem save_eq : save ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
@@ -195,28 +186,19 @@ theorem save_eq : save ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .
     .mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
     .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)] := rfl
 
-theorem bR_contains (s₀ : State) {d n : Nat} (h : d + n ≤ 320) : (bR s₀).Contains (off (bp s₀) d) n :=
-  contains_off h (by lit_omega)
-
-set_option simprocs false in
 theorem prologue_ok {s₀ : State} (hp : XPre s₀) :
     WP isa (.block (save ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
       .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)] : List Instr))) s₀ fun s =>
       OInv s₀ 0 s ∧ s.zf = some (decide (L s₀ = 0)) := by
-  have o : ∀ d, d + 8 ≤ 320 → InRegions s₀.wr (off (bp s₀) d) 8 :=
-    fun d hd => ⟨_, hp.w_b, bR_contains s₀ hd⟩
-  have o0 := o 256 (by lit_omega); have o1 := o 264 (by lit_omega); have o2 := o 272 (by lit_omega)
-  simp only [off] at o0 o1 o2
+  refine Spill.save_then .rcx saved (fun p hp' => ?_) ?_
+  · have := saved_bound p hp'
+    exact ⟨_, hp.w_b, Offset.contains_base _ (by omega) (by lit_omega)⟩
   apply WP.of_runBlock
-  rw [save_eq]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, ea_at,
-    readSrc, execAlu, arithFlags, State.setReg, State.setFlags, State.store64, o0, o1, o2, ite_true,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec,
+    readSrc, execAlu, arithFlags, State.setReg, State.setFlags, ite_true,
     ite_false, Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
-  have hf : Frame [bR s₀] s₀.mem (((s₀.mem.writeW (off (bp s₀) 256) (s₀.gpr .rbx)).writeW
-      (off (bp s₀) 264) (s₀.gpr .rbp)).writeW (off (bp s₀) 272) (s₀.gpr .r12)) :=
-    (((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (bR_contains s₀ (by lit_omega))).writeW
-      (List.mem_singleton_self _) _ (bR_contains s₀ (by lit_omega))).writeW
-      (List.mem_singleton_self _) _ (bR_contains s₀ (by lit_omega))
+  have hf : Frame [bR s₀] s₀.mem (Spill.saveMem s₀.mem (bp s₀) s₀.gpr saved) :=
+    Spill.saveMem_frame_base _ _ _ _ (fun p hp => by have := saved_bound p hp; omega) (by decide)
   refine ⟨⟨by simp (config := {decide := true}), by simp (config := {decide := true}) [P],
     by simp (config := {decide := true}) [P], by simp (config := {decide := true}), fun r hr => ?_, rfl,
     rfl, ?_, fun k hk => ?_, ?_, hf.mono (by simp)⟩, ?_⟩
@@ -225,11 +207,7 @@ theorem prologue_ok {s₀ : State} (hp : XPre s₀) :
   · rw [stateAt_frame hf (by simpa using hp.st_b), ctr_zero]
   · simp only [P, Nat.mul_zero, Nat.zero_min, Nat.not_lt_zero, ite_false]
     exact hf.bytes (R := dR s₀) (by simpa using hp.d_b) (Nat.le_of_lt (s₀.gpr .rdx).isLt) hk
-  · refine ⟨?_, ?_, ?_⟩
-    · rw [readW64_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega),
-        readW64_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self64]
-    · rw [readW64_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self64]
-    · rw [Mem.readW_writeW_self64]
+  · exact Spill.saveMem_saved _ _ _ _ (by decide)
   · simp only [BitVec.and_self, L]
     by_cases h : (s₀.gpr .rdx).toNat = 0
     · simp [BitVec.eq_of_toNat_eq (x := s₀.gpr .rdx) (y := 0) h]
@@ -253,15 +231,12 @@ theorem savR_b256 (s₀ : State) : (savR s₀).Disjoint (b256 s₀) := by
 
 /-- The saved registers survive a frame that does not touch them. -/
 theorem Saved.frame {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved s₀ m)
-    (hf : Frame rs m m') (hd : ∀ r ∈ rs, (savR s₀).Disjoint r) : Saved s₀ m' := by
-  have c : ∀ d, 256 ≤ d → d + 8 ≤ 280 → (savR s₀).Contains (off (bp s₀) d) (64 / 8) := by
-    intro d h₁ h₂
+    (hf : Frame rs m m') (hd : ∀ r ∈ rs, (savR s₀).Disjoint r) : Saved s₀ m' :=
+  Spill.Saved.frame h hf fun p hp r hr => by
+    have := saved_bound p hp
+    refine (hd r hr).sub_left ?_
     simp only [savR, off, ofInt_natCast]
-    exact Offset.contains _ h₁ (by lit_omega) (by lit_omega)
-  obtain ⟨h1, h2, h3⟩ := h
-  exact ⟨by rw [hf.readW (c 256 (Nat.le_refl _) (by lit_omega)) hd (by decide), h1],
-    by rw [hf.readW (c 264 (by lit_omega) (by lit_omega)) hd (by decide), h2],
-    by rw [hf.readW (c 272 (by lit_omega) (by lit_omega)) hd (by decide), h3]⟩
+    exact Offset.sub _ (by omega) (by omega)
 
 /-! ## Calling the block function -/
 
@@ -654,43 +629,36 @@ theorem body_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j < L s�
 
 /-! ## The epilogue -/
 
-theorem restore_eq : restore =
-    [.mov .rbx (.mem (at_ .rsi 256)), .mov .rbp (.mem (at_ .rsi 264)), .mov .r12 (.mem (at_ .rsi 272))] :=
-  rfl
-
 theorem ret_stack (s₀ : State) : (retR s₀).Disjoint (stackR s₀) := by
   have := Offset.disjoint_base (s₀.gpr .rsp - BitVec.ofNat 64 8) (d := 8) (n := 8) (k := 8) (by decide) (by decide)
   rwa [BitVec.sub_add_cancel] at this
 
-set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j = L s₀) {s : State}
     (h : OInv s₀ j s) :
     WP isa (.block restore) s fun s' =>
       (gprPreserved s₀ s' ∧ Proof.ChaCha20.xorX86_64.post s₀ s') ∧ s'.gpr .rsi = bp s₀ := by
-  have i : ∀ d, d + 8 ≤ 320 → InRegions (s.rd ++ s.wr) (off (bp s₀) d) 8 :=
-    fun d hd => ⟨bR s₀, by simp [h.rd, h.wr, hp.rd, hp.wr], bR_contains s₀ hd⟩
-  have i0 := i 256 (by lit_omega); have i1 := i 264 (by lit_omega); have i2 := i 272 (by lit_omega)
-  simp only [off] at i0 i1 i2
-  obtain ⟨sv1, sv2, sv3⟩ := h.saved
-  simp only [off] at sv1 sv2 sv3
-  apply WP.of_runBlock
-  rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, ea_at,
-    readSrc, State.load64, State.setReg, h.rsi, i0, i1, i2, sv1, sv2, sv3, ite_true, ite_false,
-    Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨⟨⟨fun r hr => ?_, ?_⟩, ?_⟩, by simp (config := {decide := true})⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-      simp (config := {decide := true}) only [ite_true, ite_false] <;>
-      exact h.keep _ (by simp)
-  · refine h.frame.readW (Region.contains_self _ _) ?_ (by decide)
+  refine WP.mono (Spill.restore_ok .rsi saved s₀.gpr s (by decide) (fun p hp' => ?_)
+    (by rw [h.rsi]; exact h.saved)) fun s' ⟨h₁, h₂, hm, _⟩ => ?_
+  · have := saved_bound p hp'
+    rw [h.rsi]
+    exact ⟨bR s₀, by simp [h.rd, h.wr, hp.rd, hp.wr], Offset.contains_base _ (by omega) (by lit_omega)⟩
+  refine ⟨⟨⟨fun r hr => ?_, ?_⟩, ?_⟩, by rw [h₂ _ (by decide), h.rsi]⟩
+  · by_cases hs : r ∈ saved.map Prod.fst
+    · exact h₁ r hs
+    · rw [h₂ r hs]
+      revert hs; revert r; exact fun r hr hs => h.keep r (by revert r hr; decide)
+  · show s'.mem.readW _ _ = _
+    rw [hm]
+    refine h.frame.readW (Region.contains_self _ _) ?_ (by decide)
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl | rfl)
     · exact hp.ret_st
     · exact hp.ret_d
     · exact hp.ret_b
     · exact ret_stack s₀
-  · refine bytesAt_xor (length_keystream _ _) fun k hk => ?_
+  · show bytesAt s'.mem _ _ = _
+    rw [hm]
+    refine bytesAt_xor (length_keystream _ _) fun k hk => ?_
     have hk' : k < L s₀ := hk
     rw [h.data k hk']
     simp only [show k < P s₀ j by omega, ite_true]

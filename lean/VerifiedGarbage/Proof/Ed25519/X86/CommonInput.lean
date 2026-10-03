@@ -6,7 +6,7 @@ open VG VG.X86 VG.Impl.X25519.X86 VG.Impl.Ed25519.X86
 structure InputPre (s₀ : State) (scidx i n : Nat) : Prop where
   rd : (sub (arg s₀ i) 0 (4 * n)) ∈ s₀.rd ++ s₀.wr
   fit : (arg s₀ i).toNat + 4 * n ≤ 2 ^ 32
-  sep : (sub (arg s₀ i) 0 (4 * n)).Disjoint (scR (arg s₀ scidx))
+  sep : (sub (arg s₀ i) 0 (4 * n)).Disjoint (scR 8192 (arg s₀ scidx))
 
 theorem inputWord_contains {s₀ : State} {scidx i n : Nat} (hp : InputPre s₀ scidx i n)
     {k : Nat} (hk : k < n) : (sub (arg s₀ i) 0 (4 * n)).Contains (addr (arg s₀ i) (4 * k)) 4 :=
@@ -38,7 +38,7 @@ theorem loadInput_ok {s₀ s : State} {scidx argc i n dst : Nat}
       exact Offset.sub_base _ (by omega_using [hk])
     · rw [scR_eq]; exact sub_sub hp.fit (Nat.zero_le _) hd hd'
   refine WP.mono (copyWords_ok cu eu hd hread hsep n (Nat.le_refl _)) fun t ht => ?_
-  refine ⟨hu.of_offset hp.fit ht.keep.scalar ht.frame hd0 hd hd', fun k hk => ?_, ?_⟩
+  refine ⟨hu.of_offset hp.fit (Keep.scalar ht.keep) ht.frame hd0 hd hd', fun k hk => ?_, ?_⟩
   · rw [ht.words k hk]; exact inputWord_same hi hu hk
   · have hf := ht.frame; rw [mu] at hf; exact hf
 end VG.Proof.Ed25519.X86

@@ -5,13 +5,12 @@ import VerifiedGarbage.Spec.MlDsa.Contract
 /-!
 # ML-DSA verification on x86-64: the contract, the layout and the invariant
 
-Untrusted: everything here is checked by Lean. The precondition of the
-shared contract `verifyContract p X86_64.abi 24`, spelled out (`VPre`); the
-layout of the function's buffers (`pk`, `mu`, `sig` read in `rbp`, `r12`,
-`r13`; `scratch` written, in `rbx`: `vR p`, `vW p`); what holds throughout
-(`T`: the permissions and stack pointer of entry, the pointers, the caller's
-callee-saved registers saved in `scratch`, the return address and the
-inputs); the prologue and the epilogue.
+The precondition of the shared contract `verifyContract p X86_64.abi 32`,
+spelled out (`VPre`); the layout of the function's buffers (`pk`, `mu`, `sig`
+read in `rbp`, `r12`, `r13`; `scratch` written, in `rbx`: `vR p`, `vW p`);
+what holds throughout (`T`: the permissions and stack pointer of entry, the
+pointers, the caller's callee-saved registers saved in `scratch`, the return
+address and the inputs); the prologue and the epilogue.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -28,9 +27,9 @@ def params : List Params := [mlDsa44, mlDsa65, mlDsa87]
 /-- The size of `scratch` in bytes. -/
 abbrev scrLen (p : Params) : Nat := scratchWords p * 8
 
-/-- The precondition of `verifyContract p X86_64.abi 24`. -/
+/-- The precondition of `verifyContract p X86_64.abi 32`. -/
 structure VPre (p : Params) (σ : State) : Prop where
-  sp : 24 ≤ (σ.gpr .rsp).toNat
+  sp : 32 ≤ (σ.gpr .rsp).toNat
   rd : σ.rd = [⟨σ.gpr .rdi, p.pkLen⟩, ⟨σ.gpr .rsi, 64⟩, ⟨σ.gpr .rdx, p.sigLen⟩]
   wr : σ.wr = [⟨σ.gpr .rcx, scrLen p⟩]
   d1 : Region.Disjoint ⟨σ.gpr .rdi, p.pkLen⟩ ⟨σ.gpr .rcx, scrLen p⟩
@@ -40,10 +39,10 @@ structure VPre (p : Params) (σ : State) : Prop where
   r2 : Region.Disjoint ⟨σ.gpr .rsp, 8⟩ ⟨σ.gpr .rsi, 64⟩
   r3 : Region.Disjoint ⟨σ.gpr .rsp, 8⟩ ⟨σ.gpr .rdx, p.sigLen⟩
   r4 : Region.Disjoint ⟨σ.gpr .rsp, 8⟩ ⟨σ.gpr .rcx, scrLen p⟩
-  k1 : (below (σ.gpr .rsp) 24).Disjoint ⟨σ.gpr .rdi, p.pkLen⟩
-  k2 : (below (σ.gpr .rsp) 24).Disjoint ⟨σ.gpr .rsi, 64⟩
-  k3 : (below (σ.gpr .rsp) 24).Disjoint ⟨σ.gpr .rdx, p.sigLen⟩
-  k4 : (below (σ.gpr .rsp) 24).Disjoint ⟨σ.gpr .rcx, scrLen p⟩
+  k1 : (below (σ.gpr .rsp) 32).Disjoint ⟨σ.gpr .rdi, p.pkLen⟩
+  k2 : (below (σ.gpr .rsp) 32).Disjoint ⟨σ.gpr .rsi, 64⟩
+  k3 : (below (σ.gpr .rsp) 32).Disjoint ⟨σ.gpr .rdx, p.sigLen⟩
+  k4 : (below (σ.gpr .rsp) 32).Disjoint ⟨σ.gpr .rcx, scrLen p⟩
   n1 : (σ.gpr .rdi).toNat + p.pkLen ≤ 2 ^ 64
   n2 : (σ.gpr .rsi).toNat + 64 ≤ 2 ^ 64
   n3 : (σ.gpr .rdx).toNat + p.sigLen ≤ 2 ^ 64

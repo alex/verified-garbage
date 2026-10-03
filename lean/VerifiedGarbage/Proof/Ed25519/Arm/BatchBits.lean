@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.BatchDigit
 import VerifiedGarbage.Proof.Ed25519.Arm.ExpandBits
 import VerifiedGarbage.Proof.Ed25519.Arm.AccumulateStep
 
-/-! Untrusted: each expanded digit contains the corresponding scalar bits. -/
+/-! Each expanded digit contains the corresponding scalar bits. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

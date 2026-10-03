@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Poly
 /-!
 # ML-DSA key generation on x86-64: calling the primitives
 
-Untrusted: everything here is checked by Lean. A call of a primitive
-(`primOk`, `primTr`), with the moves of its arguments (`glue3_ok`, …): the
-callee's precondition on entry, from the layout (`ceD1`, `ceD2`, `ceWf`
-for the stack, and the memory of the callee's entry, `ce_polyAt`, …), and
-what its postcondition says once it returns.
+A call of a primitive (`primOk`, `primTr`), with the moves of its arguments
+(`glue3_ok`, …): the callee's precondition on entry, from the layout (`ceD1`,
+`ceD2`, `ceWf` for the stack, and the memory of the callee's entry,
+`ce_polyAt`, …), and what its postcondition says once it returns.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen
@@ -43,6 +42,19 @@ theorem ceWf (h24 : 24 ≤ (s.gpr .rsp).toNat) {n : Nat} (hn : n + 1 ≤ 16) : n
   rw [this]
   have := (s.gpr .rsp).isLt
   omega
+
+omit L in
+theorem ceWf24 (h32 : 32 ≤ (s.gpr .rsp).toNat) : 24 ≤ (s1.gpr .rsp - 8).toNat := by
+  rw [hsp, BitVec.toNat_sub]
+  have : (8 : BitVec 64).toNat = 8 := rfl
+  rw [this]
+  have := (s.gpr .rsp).isLt
+  omega
+
+theorem ceD24 {q : Ptr} {l : Nat} (h : inB (kgB p) q l = true) :
+    Region.Disjoint (below (s1.gpr .rsp - 8) 24) ⟨pa s q, l⟩ := by
+  have := stk_disj24 s1 (R := ⟨pa s q, l⟩) (by rw [hsp]; exact L.stkD h)
+  simpa only [State.callEntry_rsp] using this
 
 end
 
@@ -93,7 +105,7 @@ theorem primOk {c : Prog isa} {kk : Nat → Contract isa} (hc : Callee c kk) {gl
         ∃ s₂ : State, s₂.mem = s'.mem ∧ (∀ r, r ≠ .rsp → s₂.gpr r = s'.gpr r) ∧
           (kk stk).post (s1.callEntry.withRegions rd wr) s₂ := by
   obtain ⟨stk, hs, hver⟩ := hc.verified
-  exact WP.mono (glueCallMx_ok hver.1 hc.nosp hc.depth hgl hg (hpre stk hs) hcov hw)
+  exact WP.mono (glueCallMx_ok hver.1 hc.nosp (Nat.le_succ_of_le hc.depth) hgl hg (hpre stk hs) hcov hw)
     fun s' ⟨h1, h2, h3⟩ => ⟨h1, h2, stk, hs, h3⟩
 
 /-- A block of moves leaks nothing. -/
@@ -183,12 +195,14 @@ macro_rules
 
 theorem covers2 {s : State} {p : Params} (L : Lay kgR (kgW p) s) {a b : Ptr} {la lb : Nat}
     (ha : inB (kgW p) a la = true) (hb : inB (kgW p) b lb = true) :
-    Covers [⟨pa s a, la⟩, ⟨pa s b, lb⟩] s.wr := covers_cons (L.cW ha) (covers_cons (L.cW hb) covers_nil)
+    Covers [⟨pa s a, la⟩, ⟨pa s b, lb⟩] s.wr := Covers.cons (L.cW ha) (Covers.cons (L.cW hb) Covers.nil)
 
 /-- A state of the function, where a call can be made. -/
 structure Site (p : Params) (s : State) : Prop where
   lay : Lay kgR (kgW p) s
-  h24 : 24 ≤ (s.gpr .rsp).toNat
+  h32 : 32 ≤ (s.gpr .rsp).toNat
+
+theorem Site.h24 {p : Params} {s : State} (S : Site p s) : 24 ≤ (s.gpr .rsp).toNat := by have := S.h32; omega
 
 /-- The registers that hold the pointers of the layout. -/
 abbrev kgRegs : List Reg := [.rbx, .rbp, .r12, .r13]
@@ -294,7 +308,7 @@ theorem add_pre {stk : Nat} (hstk : stk ≤ 16) {s s1 : State} (S : Site p s)
 theorem covers_rw {s : State} {p : Params} (L : Lay kgR (kgW p) s) {a b : Ptr} {la lb : Nat}
     (ha : inB (kgB p) a la = true) (hb : inB (kgW p) b lb = true) :
     Covers ([⟨pa s a, la⟩] ++ [⟨pa s b, lb⟩]) (s.rd ++ s.wr) :=
-  covers_append (covers_cons (L.cR ha) covers_nil) (covers_cons (L.cR (inB_mono hb)) covers_nil)
+  Covers.append_left (Covers.cons (L.cR ha) Covers.nil) (Covers.cons (L.cR (inB_mono hb)) Covers.nil)
 
 include hf hg h1 w1 in
 theorem addAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.addContract X86_64.abi stk) {s : State}
@@ -306,7 +320,7 @@ theorem addAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.Ml
   have L := S.lay
   refine WP.mono (primOk hc (noLd_append (lea_noLd _ _) (lea_noLd _ _)) (glue2_ok hf hg s)
     (fun stk hs s1 hv hm k => add_pre h1 hs S rf rg hv hm k) (covers_rw L i2 w1)
-    (covers_cons (L.cW w1) covers_nil))
+    (Covers.cons (L.cW w1) Covers.nil))
     fun s' ⟨hP, hx, stk, _, s1, hv, hm, k, s₂, hm₂, _, hpost⟩ => ⟨hP, hx, ?_⟩
   have hsp := keep_rsp k
   sig_post [Spec.MlDsa.addContract, Spec.MlDsa.accSig, X86_64.abi, VG.X86_64.argRegs] at hpost
@@ -323,9 +337,9 @@ theorem addAt_tr {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.Ml
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
       ⟨_, _, _, _, add_pre h1 hs T.sx rx.1 rx.2 hv1 hm1 k1, add_pre h1 hs T.sy ry.1 ry.2 hv2 hm2 k2, ?_,
         by rw [k1.2.1, k1.2.2]; exact covers_rw T.sx.lay i2 w1,
-        by rw [k1.2.2]; exact covers_cons (T.sx.lay.cW w1) covers_nil,
+        by rw [k1.2.2]; exact Covers.cons (T.sx.lay.cW w1) Covers.nil,
         by rw [k2.2.1, k2.2.2]; exact covers_rw T.sy.lay i2 w1,
-        by rw [k2.2.2]; exact covers_cons (T.sy.lay.cW w1) covers_nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+        by rw [k2.2.2]; exact Covers.cons (T.sy.lay.cW w1) Covers.nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
   sig_pub [Spec.MlDsa.addContract, Spec.MlDsa.accSig, X86_64.abi, VG.X86_64.argRegs]
   simp only [hv1.1, hv1.2, hv2.1, hv2.2, keep_rsp k1, keep_rsp k2, T.rsp, T.pa hbf, T.pa hbg, and_self]
 
@@ -341,7 +355,7 @@ variable {p : Params} {h f g : Ptr} (hh : PtrOk h) (hf : PtrOk f) (hg : PtrOk g)
 theorem covers_rrw {s : State} {p : Params} (L : Lay kgR (kgW p) s) {a b c : Ptr} {la lb lc : Nat}
     (ha : inB (kgB p) a la = true) (hb : inB (kgB p) b lb = true) (hc : inB (kgW p) c lc = true) :
     Covers ([⟨pa s a, la⟩, ⟨pa s b, lb⟩] ++ [⟨pa s c, lc⟩]) (s.rd ++ s.wr) :=
-  covers_append (covers_cons (L.cR ha) (covers_cons (L.cR hb) covers_nil)) (covers_cons (L.cR (inB_mono hc)) covers_nil)
+  Covers.append_left (Covers.cons (L.cR ha) (Covers.cons (L.cR hb) Covers.nil)) (Covers.cons (L.cR (inB_mono hc)) Covers.nil)
 
 include h1 h2 in
 theorem mul_pre {stk : Nat} (hstk : stk ≤ 16) {s s1 : State} (S : Site p s)
@@ -371,7 +385,7 @@ theorem mulAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.Ml
   have L := S.lay
   refine WP.mono (primOk hc (noLd_append (noLd_append (lea_noLd _ _) (lea_noLd _ _)) (lea_noLd _ _))
     (glue3_ok hh hf hg s) (fun stk hs s1 hv hm k => mul_pre h1 h2 hs S rf rg hv hm k) (covers_rrw L i2 i3 w1)
-    (covers_cons (L.cW w1) covers_nil))
+    (Covers.cons (L.cW w1) Covers.nil))
     fun s' ⟨hP, hx, stk, _, s1, hv, hm, k, s₂, hm₂, _, hpost⟩ => ⟨hP, hx, ?_⟩
   have hsp := keep_rsp k
   sig_post [Spec.MlDsa.mulContract, Spec.MlDsa.mulSig, X86_64.abi, VG.X86_64.argRegs] at hpost
@@ -389,9 +403,9 @@ theorem mulAt_tr {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.Ml
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
       ⟨_, _, _, _, mul_pre h1 h2 hs T.sx rx.1 rx.2 hv1 hm1 k1, mul_pre h1 h2 hs T.sy ry.1 ry.2 hv2 hm2 k2, ?_,
         by rw [k1.2.1, k1.2.2]; exact covers_rrw T.sx.lay i2 i3 w1,
-        by rw [k1.2.2]; exact covers_cons (T.sx.lay.cW w1) covers_nil,
+        by rw [k1.2.2]; exact Covers.cons (T.sx.lay.cW w1) Covers.nil,
         by rw [k2.2.1, k2.2.2]; exact covers_rrw T.sy.lay i2 i3 w1,
-        by rw [k2.2.2]; exact covers_cons (T.sy.lay.cW w1) covers_nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+        by rw [k2.2.2]; exact Covers.cons (T.sy.lay.cW w1) Covers.nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
   sig_pub [Spec.MlDsa.mulContract, Spec.MlDsa.mulSig, X86_64.abi, VG.X86_64.argRegs]
   simp only [hv1.1, hv1.2.1, hv1.2.2, hv2.1, hv2.2.1, hv2.2.2, keep_rsp k1, keep_rsp k2, T.rsp, T.pa hbh, T.pa hbf,
     T.pa hbg, and_self]
@@ -434,7 +448,7 @@ theorem mulAddAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec
   have L := S.lay
   refine WP.mono (primOk hc (noLd_append (noLd_append (lea_noLd _ _) (lea_noLd _ _)) (lea_noLd _ _))
     (glue3_ok hh hf hg s) (fun stk hs s1 hv hm k => mulAdd_pre h1 h2 hs S rh rf rg hv hm k) (covers_rrw L i2 i3 w1)
-    (covers_cons (L.cW w1) covers_nil))
+    (Covers.cons (L.cW w1) Covers.nil))
     fun s' ⟨hP, hx, stk, _, s1, hv, hm, k, s₂, hm₂, _, hpost⟩ => ⟨hP, hx, ?_⟩
   have hsp := keep_rsp k
   sig_post [Spec.MlDsa.mulAddContract, Spec.MlDsa.mulSig, X86_64.abi, VG.X86_64.argRegs] at hpost
@@ -452,9 +466,9 @@ theorem mulAddAt_tr {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
       ⟨_, _, _, _, mulAdd_pre h1 h2 hs T.sx rx.1 rx.2.1 rx.2.2 hv1 hm1 k1, mulAdd_pre h1 h2 hs T.sy ry.1 ry.2.1 ry.2.2 hv2 hm2 k2, ?_,
         by rw [k1.2.1, k1.2.2]; exact covers_rrw T.sx.lay i2 i3 w1,
-        by rw [k1.2.2]; exact covers_cons (T.sx.lay.cW w1) covers_nil,
+        by rw [k1.2.2]; exact Covers.cons (T.sx.lay.cW w1) Covers.nil,
         by rw [k2.2.1, k2.2.2]; exact covers_rrw T.sy.lay i2 i3 w1,
-        by rw [k2.2.2]; exact covers_cons (T.sy.lay.cW w1) covers_nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+        by rw [k2.2.2]; exact Covers.cons (T.sy.lay.cW w1) Covers.nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
   sig_pub [Spec.MlDsa.mulAddContract, Spec.MlDsa.mulSig, X86_64.abi, VG.X86_64.argRegs]
   simp only [hv1.1, hv1.2.1, hv1.2.2, hv2.1, hv2.2.1, hv2.2.2, keep_rsp k1, keep_rsp k2, T.rsp, T.pa hbh, T.pa hbf,
     T.pa hbg, and_self]
@@ -472,8 +486,8 @@ variable {p : Params} {t t1 t0 : Ptr} (ht : PtrOk t) (ht1 : PtrOk t1) (ht0 : Ptr
 theorem covers_rww {s : State} {p : Params} (L : Lay kgR (kgW p) s) {a b c : Ptr} {la lb lc : Nat}
     (ha : inB (kgB p) a la = true) (hb : inB (kgW p) b lb = true) (hc : inB (kgW p) c lc = true) :
     Covers ([⟨pa s a, la⟩] ++ [⟨pa s b, lb⟩, ⟨pa s c, lc⟩]) (s.rd ++ s.wr) :=
-  covers_append (covers_cons (L.cR ha) covers_nil)
-    (covers_cons (L.cR (inB_mono hb)) (covers_cons (L.cR (inB_mono hc)) covers_nil))
+  Covers.append_left (Covers.cons (L.cR ha) Covers.nil)
+    (Covers.cons (L.cR (inB_mono hb)) (Covers.cons (L.cR (inB_mono hc)) Covers.nil))
 
 include h1 h2 h3 in
 theorem p2r_pre {stk : Nat} (hstk : stk ≤ 16) {s s1 : State} (S : Site p s)
@@ -590,6 +604,86 @@ theorem rejNttAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.rejNTTCo
   refine ⟨by rw [keep_rsp k1, keep_rsp k2, T.rsp], ?_⟩
   rw [T.pa hbs] at e
   rw [ce_bytesAt' (by decide) (by rw [keep_rsp k1, ← T.pa hbs]; exact T.sx.lay.stkD i1),
+    ce_bytesAt' (by decide) (by rw [keep_rsp k2]; exact T.sy.lay.stkD i1), hm1, hm2, e]
+
+end
+
+/-! ## `RejNTTPoly` four times -/
+
+section
+variable {p : Params} {a w : Ptr} (ha : PtrOk a) (hw : PtrOk w)
+  (h1 : sepB (kgB p) (sc oSA4) 136 a 4096 = true) (h2 : sepB (kgB p) (sc oSA4) 136 w 8192 = true)
+  (h3 : sepB (kgB p) a 4096 w 8192 = true)
+  (w1 : inB (kgW p) a 4096 = true) (w2 : inB (kgW p) w 8192 = true)
+
+include h1 h2 h3 in
+theorem rej4_pre {s s1 : State} (S : Site p s)
+    (hv : s1.gpr .rdi = pa s (sc oSA4) ∧ s1.gpr .rsi = pa s a ∧ s1.gpr .rdx = pa s w)
+    (k : Keep MlKem.X86_64.argRegs s s1) :
+    (Spec.MlDsa.rejNTT4Contract X86_64.abi 24).pre
+      (s1.callEntry.withRegions [⟨pa s (sc oSA4), 136⟩] [⟨pa s a, 4096⟩, ⟨pa s w, 8192⟩]) := by
+  obtain ⟨i1, i2, _⟩ := sepB_spec h1
+  obtain ⟨_, i3, _⟩ := sepB_spec h3
+  have L := S.lay
+  have hsp := keep_rsp k
+  sig_pre [Spec.MlDsa.rejNTT4Contract, Spec.MlDsa.rejNTT4Sig, X86_64.abi, VG.X86_64.argRegs]
+  simp only [hv.1, hv.2.1, hv.2.2]
+  exact ⟨ceWf24 hsp S.h32, trivial, trivial, L.disj h1, L.disj h2, L.disj h3, ceD1 L hsp i1, ceD1 L hsp i2,
+    ceD1 L hsp i3, ceD24 L hsp i1, ceD24 L hsp i2, ceD24 L hsp i3, L.nwp i1, L.nwp i2, L.nwp i3⟩
+
+include ha hw h1 h2 h3 w1 w2 in
+theorem rej4At_ok {c : Prog isa} {sfx : String} (hc : Callee4 c) {s : State} (S : Site p s) :
+    WP isa (rej4At c sfx a w) s fun s' => Post s s' [⟨pa s a, 4096⟩, ⟨pa s w, 8192⟩] ∧ MX s' = MX s ∧
+      ((s'.gpr .rax).setWidth 32 = 1 → ∀ k < 4, Spec.MlDsa.Reduced s'.mem (Spec.MlDsa.poly4 (pa s a) k)) ∧
+      (((s'.gpr .rax).setWidth 32 = 1 ∧ ∀ k < 4, ∃ b : Spec.MlDsa.Bounds,
+          Spec.MlDsa.rejNTTPoly b.rejNTT (Spec.MlDsa.seed4 s.mem (pa s (sc oSA4)) k) =
+            some (Spec.MlDsa.polyAt s'.mem (Spec.MlDsa.poly4 (pa s a) k))) ∨
+        ((s'.gpr .rax).setWidth 32 = 0 ∧ ∃ k < 4,
+          Spec.MlDsa.rejNTTPoly Spec.MlDsa.minBounds.rejNTT (Spec.MlDsa.seed4 s.mem (pa s (sc oSA4)) k) = none)) := by
+  obtain ⟨i1, _, _⟩ := sepB_spec h1
+  have L := S.lay
+  refine WP.mono (glueCallMx_ok hc.verified.1 hc.nosp hc.depth
+    (noLd_append (noLd_append (lea_noLd _ _) (lea_noLd _ _)) (lea_noLd _ _))
+    (glue3_ok (sc_ok oSA4 (by decide)) ha hw s) (fun s1 hv _ k => rej4_pre h1 h2 h3 S hv k)
+    (covers_rww L i1 w1 w2) (covers2 L w1 w2))
+    fun s' ⟨hP, hx, s1, hv, hm, k, s₂, hm₂, hg₂, hpost⟩ => ⟨hP, hx, ?_⟩
+  have hsp := keep_rsp k
+  sig_post [Spec.MlDsa.rejNTT4Contract, Spec.MlDsa.rejNTT4Sig, X86_64.abi, VG.X86_64.argRegs] at hpost
+  simp only [hv.1, hv.2.1, hm₂, hg₂ .rax (by decide)] at hpost
+  have hseed : ∀ k < 4, Spec.MlDsa.seed4 (ceM s1) (pa s (sc oSA4)) k = Spec.MlDsa.seed4 s.mem (pa s (sc oSA4)) k :=
+    fun k hk => by
+      unfold Spec.MlDsa.seed4
+      rw [← hm]
+      refine Proof.MlKem.bytesAt_congr fun i hi => ?_
+      rw [BitVec.add_assoc, ← BitVec.ofNat_add]
+      exact callEntry_bytes s1 (R := ⟨pa s (sc oSA4), 136⟩) (k16 s1 (by rw [hsp]; exact L.stkD i1))
+        (show 136 ≤ 2 ^ 64 by decide) (show 34 * k + i < 136 by omega)
+  obtain ⟨hr, ho⟩ := hpost
+  refine ⟨hr, ?_⟩
+  rcases ho with ⟨h1', hb⟩ | ⟨h0, k, hk, hn⟩
+  · exact .inl ⟨h1', fun k hk => by rw [← hseed k hk]; exact hb k hk⟩
+  · exact .inr ⟨h0, k, hk, by rw [← hseed k hk]; exact hn⟩
+
+include ha hw h1 h2 h3 w1 w2 in
+theorem rej4At_tr {c : Prog isa} {sfx : String} (hc : Callee4 c) (hba : a.1 ∈ kgRegs) (hbw : w.1 ∈ kgRegs) :
+    RelCT isa (fun x y => Two p x y ∧ bytesAt x.mem (pa x (sc oSA4)) 136 = bytesAt y.mem (pa y (sc oSA4)) 136)
+      (rej4At c sfx a w) fun _ _ => True := by
+  obtain ⟨i1, _, _⟩ := sepB_spec h1
+  have g := fun x => glue3_ok (sc_ok oSA4 (by decide)) ha hw x
+  refine glueCall_tr hc.verified.1 hc.verified.2.1
+    (moves_tr (nomem_append (nomem_append (lea_nomem _ _) (lea_nomem _ _)) (lea_nomem _ _)))
+    (fun x y _ => ⟨g x, g y⟩)
+    fun x y x1 y1 ⟨T, e⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
+      ⟨_, _, _, _, rej4_pre h1 h2 h3 T.sx hv1 k1, rej4_pre h1 h2 h3 T.sy hv2 k2, ?_,
+        by rw [k1.2.1, k1.2.2]; exact covers_rww T.sx.lay i1 w1 w2, by rw [k1.2.2]; exact covers2 T.sx.lay w1 w2,
+        by rw [k2.2.1, k2.2.2]; exact covers_rww T.sy.lay i1 w1 w2, by rw [k2.2.2]; exact covers2 T.sy.lay w1 w2,
+        by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+  sig_pub [Spec.MlDsa.rejNTT4Contract, Spec.MlDsa.rejNTT4Sig, X86_64.abi, VG.X86_64.argRegs]
+  simp only [hv1.1, hv1.2.1, hv1.2.2, hv2.1, hv2.2.1, hv2.2.2, T.pa hba, T.pa hbw,
+    T.pa (q := sc oSA4) (by decide), and_true]
+  refine ⟨by rw [keep_rsp k1, keep_rsp k2, T.rsp], ?_⟩
+  rw [T.pa (q := sc oSA4) (by decide)] at e
+  rw [ce_bytesAt' (by decide) (by rw [keep_rsp k1, ← T.pa (q := sc oSA4) (by decide)]; exact T.sx.lay.stkD i1),
     ce_bytesAt' (by decide) (by rw [keep_rsp k2]; exact T.sy.lay.stkD i1), hm1, hm2, e]
 
 end
@@ -746,7 +840,7 @@ theorem sbpAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.simpleBitPa
   refine WP.mono (primOk hc (noLd_append (noLd_append (noLd_append (lea_noLd _ _) (imm_noLd _ _)) (lea_noLd _ _))
       (imm_noLd _ _))
     (glueSB_ok b len (sbp_lt hb) (sbpLen_lt hb hl) hf ho s) (fun stk hs s1 hv hm k => sbp_pre hb hl h1 hs S hbd hv hm k)
-    (covers_rw L i1 w1) (covers_cons (L.cW w1) covers_nil))
+    (covers_rw L i1 w1) (Covers.cons (L.cW w1) Covers.nil))
     fun s' ⟨hP, hx, stk, _, s1, hv, hm, k, s₂, hm₂, _, hpost⟩ => ⟨hP, hx, ?_⟩
   have hsp := keep_rsp k
   sig_post [Spec.MlDsa.simpleBitPackContract, Spec.MlDsa.simpleBitPackSig, X86_64.abi, VG.X86_64.argRegs] at hpost
@@ -766,9 +860,9 @@ theorem sbpAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.simpleBitPa
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
       ⟨_, _, _, _, sbp_pre hb hl h1 hs T.sx rx hv1 hm1 k1, sbp_pre hb hl h1 hs T.sy ry hv2 hm2 k2, ?_,
         by rw [k1.2.1, k1.2.2]; exact covers_rw T.sx.lay i1 w1,
-        by rw [k1.2.2]; exact covers_cons (T.sx.lay.cW w1) covers_nil,
+        by rw [k1.2.2]; exact Covers.cons (T.sx.lay.cW w1) Covers.nil,
         by rw [k2.2.1, k2.2.2]; exact covers_rw T.sy.lay i1 w1,
-        by rw [k2.2.2]; exact covers_cons (T.sy.lay.cW w1) covers_nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+        by rw [k2.2.2]; exact Covers.cons (T.sy.lay.cW w1) Covers.nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
   sig_pub [Spec.MlDsa.simpleBitPackContract, Spec.MlDsa.simpleBitPackSig, X86_64.abi, VG.X86_64.argRegs]
   simp only [hv1.1, hv1.2.1, hv1.2.2.1, hv1.2.2.2, hv2.1, hv2.2.1, hv2.2.2.1, hv2.2.2.2, keep_rsp k1, keep_rsp k2,
     T.rsp, T.pa hbf, T.pa hbo, and_self]
@@ -831,7 +925,7 @@ theorem bpAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.bitPackContr
       (imm_noLd _ _)) (lea_noLd _ _)) (imm_noLd _ _))
     (glueBP_ok a b len (bp_lt hab).1 (bp_lt hab).2 (bpLen_lt hab hl) hf ho s)
     (fun stk hs s1 hv hm k => bp_pre hab hl h1 hs S hin hv hm k)
-    (covers_rw L i1 w1) (covers_cons (L.cW w1) covers_nil))
+    (covers_rw L i1 w1) (Covers.cons (L.cW w1) Covers.nil))
     fun s' ⟨hP, hx, stk, _, s1, hv, hm, k, s₂, hm₂, _, hpost⟩ => ⟨hP, hx, ?_⟩
   have hsp := keep_rsp k
   sig_post [Spec.MlDsa.bitPackContract, Spec.MlDsa.bitPackSig, X86_64.abi, VG.X86_64.argRegs] at hpost
@@ -852,9 +946,9 @@ theorem bpAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.bitPackContr
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
       ⟨_, _, _, _, bp_pre hab hl h1 hs T.sx rx hv1 hm1 k1, bp_pre hab hl h1 hs T.sy ry hv2 hm2 k2, ?_,
         by rw [k1.2.1, k1.2.2]; exact covers_rw T.sx.lay i1 w1,
-        by rw [k1.2.2]; exact covers_cons (T.sx.lay.cW w1) covers_nil,
+        by rw [k1.2.2]; exact Covers.cons (T.sx.lay.cW w1) Covers.nil,
         by rw [k2.2.1, k2.2.2]; exact covers_rw T.sy.lay i1 w1,
-        by rw [k2.2.2]; exact covers_cons (T.sy.lay.cW w1) covers_nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
+        by rw [k2.2.2]; exact Covers.cons (T.sy.lay.cW w1) Covers.nil, by rw [keep_rsp k1, keep_rsp k2, T.rsp]⟩
   sig_pub [Spec.MlDsa.bitPackContract, Spec.MlDsa.bitPackSig, X86_64.abi, VG.X86_64.argRegs]
   simp only [hv1.1, hv1.2.1, hv1.2.2.1, hv1.2.2.2.1, hv1.2.2.2.2, hv2.1, hv2.2.1, hv2.2.2.1, hv2.2.2.2.1, hv2.2.2.2.2,
     keep_rsp k1, keep_rsp k2, T.rsp, T.pa hbf, T.pa hbo, and_self]

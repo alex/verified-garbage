@@ -5,9 +5,9 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # X25519 on x86 (32-bit): the contract the proof is written against
 
-Untrusted: everything here is checked by Lean. The facts of the shared
-contract (`Spec.X25519.x25519Contract`) the proof uses, stated for x86; the
-shared contract implies it (`sig_implies`, in `Main.lean`).
+The facts of the shared contract (`Spec.X25519.x25519Contract`) the proof
+uses, stated for x86; the shared contract implies it (`sig_implies`, in
+`Main.lean`).
 -/
 
 namespace VG.Proof.X25519
@@ -53,14 +53,14 @@ end
 /-- The precondition, by name. -/
 structure Pre (s₀ : State) : Prop where
   rd : s₀.rd = [scalarR s₀, pointR s₀, argsR s₀]
-  wr : s₀.wr = [outR s₀, scR (arg s₀ 3)]
-  out_sc : (outR s₀).Disjoint (scR (arg s₀ 3))
-  scalar_sc : (scalarR s₀).Disjoint (scR (arg s₀ 3))
-  point_sc : (pointR s₀).Disjoint (scR (arg s₀ 3))
+  wr : s₀.wr = [outR s₀, scR 4096 (arg s₀ 3)]
+  out_sc : (outR s₀).Disjoint (scR 4096 (arg s₀ 3))
+  scalar_sc : (scalarR s₀).Disjoint (scR 4096 (arg s₀ 3))
+  point_sc : (pointR s₀).Disjoint (scR 4096 (arg s₀ 3))
   args_out : (argsR s₀).Disjoint (outR s₀)
-  args_sc : (argsR s₀).Disjoint (scR (arg s₀ 3))
+  args_sc : (argsR s₀).Disjoint (scR 4096 (arg s₀ 3))
   ret_out : (retR s₀).Disjoint (outR s₀)
-  ret_sc : (retR s₀).Disjoint (scR (arg s₀ 3))
+  ret_sc : (retR s₀).Disjoint (scR 4096 (arg s₀ 3))
   out_fit : (arg s₀ 0).toNat + 32 ≤ 2 ^ 32
   scalar_fit : (arg s₀ 1).toNat + 32 ≤ 2 ^ 32
   point_fit : (arg s₀ 2).toNat + 32 ≤ 2 ^ 32
@@ -87,12 +87,12 @@ theorem argIn {i : Nat} (hi : i < 4) : InRegions (s₀.rd ++ s₀.wr) (addr (s�
   ⟨argsR s₀, by rw [hp.rd]; simp, arg_contains hp.sp_fit hi⟩
 
 /-- An argument, in memory the code has written only in the working space. -/
-theorem arg_same {m : Mem} (hf : Frame [scR (arg s₀ 3)] s₀.mem m) {i : Nat} (hi : i < 4) :
+theorem arg_same {m : Mem} (hf : Frame [scR 4096 (arg s₀ 3)] s₀.mem m) {i : Nat} (hi : i < 4) :
     m.readW (addr (s₀.gpr .esp) (4 + 4 * i)) 32 = arg s₀ i :=
   hf.readW (arg_contains hp.sp_fit hi)
     (by simp only [List.mem_singleton]; rintro r rfl; exact hp.args_sc) (by decide)
 
-theorem sc_in : scR (arg s₀ 3) ∈ s₀.wr := by rw [hp.wr]; simp
+theorem sc_in : scR 4096 (arg s₀ 3) ∈ s₀.wr := by rw [hp.wr]; simp
 
 theorem out_in : outR s₀ ∈ s₀.wr := by rw [hp.wr]; simp
 

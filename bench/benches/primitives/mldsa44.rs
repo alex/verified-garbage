@@ -1,15 +1,11 @@
 //! ML-DSA-44: key generation from a seed, signing and verification.
 //!
-//! OpenSSL implements ML-DSA from version 3.5, which the runners' OpenSSL
-//! (3.0) predates, so there is nothing of OpenSSL's to compare with: these
-//! benchmark this library alone. The ids' sizes are the bytes of the output
-//! (the public key and its seed, the signature) or, for verification, of
-//! the message.
+//! OpenSSL implements ML-DSA from version 3.5; the runners use 3.0.
+//! Enable `openssl-mldsa` on a supported host for the comparison. The ids'
+//! sizes are the output bytes for keygen/sign and message bytes for verify.
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`): this one and those it calls.
 pub const USES: &[&str] = &["mldsa44", "mldsa_common", "mldsa", "sha3"];
 
 #[cfg(any(
@@ -29,14 +25,63 @@ pub fn bench(c: &mut Criterion) {
     let key = SigningKey44::from_seed(&seed).unwrap();
     let msg = [0x5a; 64];
     let sig = key.sign(&msg, b"").unwrap();
+    #[cfg(feature = "openssl-mldsa")]
+    let (openssl_key, openssl_public) = {
+        use openssl::pkey::{KeyType, PKey};
+        use openssl::sign::{Signer, Verifier};
+
+        let key_type = KeyType::ML_DSA_44;
+        let openssl_key = PKey::private_key_from_seed(None, key_type, None, &seed).unwrap();
+        let public = openssl_key.raw_public_key().unwrap();
+        assert_eq!(public.as_slice(), key.verifying_key().as_bytes());
+        let openssl_public =
+            PKey::public_key_from_raw_bytes_ex(None, key_type, None, &public).unwrap();
+        assert!(
+            Verifier::new_without_digest(&openssl_public)
+                .unwrap()
+                .verify_oneshot(&sig, &msg)
+                .unwrap()
+        );
+        let openssl_sig = Signer::new_without_digest(&openssl_key)
+            .unwrap()
+            .sign_oneshot_to_vec(&msg)
+            .unwrap();
+        key.verifying_key()
+            .verify(&msg, b"", openssl_sig.as_slice().try_into().unwrap())
+            .unwrap();
+        (openssl_key, openssl_public)
+    };
     let mut g = c.benchmark_group("mldsa44_keygen");
     g.bench_function(BenchmarkId::new(VG, 1312 + 32), |b| {
         b.iter(|| SigningKey44::from_seed(black_box(&seed)).unwrap())
+    });
+    #[cfg(feature = "openssl-mldsa")]
+    g.bench_function(BenchmarkId::new(crate::OPENSSL, 1344), |b| {
+        b.iter(|| {
+            openssl::pkey::PKey::private_key_from_seed(
+                None,
+                openssl::pkey::KeyType::ML_DSA_44,
+                None,
+                black_box(&seed),
+            )
+            .unwrap()
+            .raw_public_key()
+            .unwrap()
+        })
     });
     g.finish();
     let mut g = c.benchmark_group("mldsa44_sign");
     g.bench_function(BenchmarkId::new(VG, 2420), |b| {
         b.iter(|| key.sign(black_box(&msg), b"").unwrap())
+    });
+    #[cfg(feature = "openssl-mldsa")]
+    g.bench_function(BenchmarkId::new(crate::OPENSSL, 2420), |b| {
+        b.iter(|| {
+            openssl::sign::Signer::new_without_digest(&openssl_key)
+                .unwrap()
+                .sign_oneshot_to_vec(black_box(&msg))
+                .unwrap()
+        })
     });
     g.finish();
     let mut g = c.benchmark_group("mldsa44_verify");
@@ -45,6 +90,17 @@ pub fn bench(c: &mut Criterion) {
             key.verifying_key()
                 .verify(black_box(&msg), b"", &sig)
                 .unwrap()
+        })
+    });
+    #[cfg(feature = "openssl-mldsa")]
+    g.bench_function(BenchmarkId::new(crate::OPENSSL, 64), |b| {
+        b.iter(|| {
+            assert!(
+                openssl::sign::Verifier::new_without_digest(&openssl_public)
+                    .unwrap()
+                    .verify_oneshot(black_box(&sig), black_box(&msg))
+                    .unwrap()
+            )
         })
     });
     g.finish();

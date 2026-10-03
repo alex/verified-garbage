@@ -5,8 +5,7 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Encode
 /-!
 # ML-KEM on AArch64: `vg_mlkem_encode12`
 
-Untrusted: everything here is checked by Lean. Three bytes per pair of
-coefficients (`encode12_byte0`–`encode12_byte2`).
+Three bytes per pair of coefficients (`encode12_byte0`–`encode12_byte2`).
 -/
 
 namespace VG.Proof.MlKem
@@ -14,11 +13,9 @@ namespace VG.Proof.MlKem
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against (and verified callers use);
-the artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_mlkem_encode12(f = x0, out = x1)`: if the
-polynomial at `f` is reduced, writes `ByteEncode₁₂` of it to the 384 bytes
-at `out`. The code may read `f` and write `out`, which do not overlap. -/
+/-- AArch64 contract for `vg_mlkem_encode12(f = x0, out = x1)`: if the
+polynomial at `f` is reduced, writes `ByteEncode₁₂` of it to the 384 bytes at
+`out`. The code may read `f` and write `out`, which do not overlap. -/
 def encode12AArch64 : Contract AArch64.isa where
   pre s :=
     s.rd = [⟨s.gpr .x0, 1024⟩] ∧ s.wr = [⟨s.gpr .x1, 384⟩] ∧

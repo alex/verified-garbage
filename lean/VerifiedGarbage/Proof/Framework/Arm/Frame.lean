@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Arm.RelCT
 /-!
 # Frames (ARMv7)
 
-Untrusted: everything here is checked by Lean.
-
 A frame `push {rs}; body; ldr r, [sp], #n` stores the registers `rs` below
 the stack pointer, which becomes a writable region (`pushed`), runs `body`,
 and loads `r` from the frame as it removes it (`popped`). `WP.frame` runs

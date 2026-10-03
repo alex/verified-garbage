@@ -9,12 +9,12 @@ import VerifiedGarbage.Impl.Md5.Arm.Stream
 /-!
 # Streaming MD5 on ARMv7: `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/Arm.lean`), so they are verified
-by the generic proofs (`Proof/MdStream/Arm/`) for MD5's instance
-(`Proof/Md5/Md.lean`), given what MD5's own pieces do: its length field and
-digest (`shape`), that its compression function is verified (`callee`), and
-that the taint analysis accepts its code.
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/Arm.lean`), so they are verified by the generic proofs
+(`Proof/MdStream/Arm/`) for MD5's instance (`Proof/Md5/Md.lean`), given what
+MD5's own pieces do: its length field and digest (`shape`), that its
+compression function is verified (`callee`), and that the taint analysis
+accepts its code.
 -/
 
 namespace VG.Proof.Md5.Arm.Stream
@@ -23,13 +23,14 @@ open VG VG.Arm VG.Proof.MdStream VG.Proof.MdStream.Arm
 
 abbrev params := Impl.Md5.Arm.Stream.params
 
-theorem dims : Dims params := ⟨by decide, by decide, by decide⟩
+theorem dims : Dims params := ⟨.inl rfl, by decide, by decide, by decide, by decide, by decide⟩
 
 theorem shape : Shape (P := params) md where
-  len _ hfit hout := len64_ok (d := params.N + 56) (be := false) (by decide) (by omega) hout
+  len _ hfit hout := len64_ok (d := params.N + (params.B - params.L)) (be := false) (by decide)
+    (by have : params.B = 64 := rfl; have : params.L = 8 := rfl; omega) hout
   out _ f₀ f₆ hin hout hd := by
     refine (out32_ok (n := 4) false (by decide) f₀ f₆ hin hout hd).mono fun s' ⟨g, rd, wr, sp, m⟩ =>
-      ⟨g, rd, wr, sp, ?_⟩
+      ⟨fun r h _ => g r h, rd, wr, sp, ?_⟩
     rw [m, digest_eq]
 
 theorem callee : CalleeOk (P := params) md Impl.Md5.Arm.compress :=

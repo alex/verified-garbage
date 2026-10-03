@@ -5,8 +5,6 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # Taint tracking for AArch64
 
-Untrusted: everything here is checked by Lean.
-
 The abstract state is the set of registers known to be public; the stack
 pointer is always public. Memory is always secret: a loaded value is secret,
 and an address must be computed from public registers or the stack pointer.
@@ -38,7 +36,8 @@ def set (τ : T) (r : Reg) (p : Bool) : T :=
 
 def step (τ : T) : Instr → Option T
   | .add _ d n m | .sub _ d n m | .adds _ d n m | .subs _ d n m
-  | .logic _ _ d n m | .logicRor _ _ d n m _ | .bicRor _ d n m _ | .mul _ d n m | .umulh d n m =>
+  | .logic _ _ d n m | .logicRor _ _ d n m _ | .bicRor _ d n m _ | .extr _ d n m _
+  | .mul _ d n m | .umulh d n m =>
     some (set τ d (pub τ n && pub τ m))
   -- This register-only domain conservatively treats the carry as secret.
   | .adcs _ d _ _ | .sbcs _ d _ _ => some (set τ d false)
@@ -54,7 +53,8 @@ def step (τ : T) : Instr → Option T
   | .vop _ => some τ
   | .ldrq _ n _ | .strq _ n _ => if pub τ n then some τ else none
   | .umov _ d _ _ => some (set τ d false)
-  -- Frames are not analysed yet.
+  -- Frames are analysed by the `push` and `pop` hooks (`Taint.push`,
+  -- `Taint.pop`), not here.
   | .push .. | .pop .. | .alloc _ | .free _ => none
 
 def condPub (τ : T) : Cond → Bool
@@ -122,7 +122,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     refine ⟨rfl, ha.write sz d fun hp => ?_⟩
     simp only [Bool.and_eq_true] at hp
     rw [ha.read hp.1, ha.read hp.2]
-  | logicRor op sz d n m sh | bicRor sz d n m sh =>
+  | logicRor op sz d n m sh | bicRor sz d n m sh | extr sz d n m sh =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec] at e₁ e₂
     split at e₁ <;> [skip; cases e₁]

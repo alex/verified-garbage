@@ -1,13 +1,12 @@
 import VerifiedGarbage.Proof.MlKem.Arm.HashCT
 
 /-!
-# ML-KEM-768 on 32-bit ARM: calling the primitives in constant time
+# ML-KEM on 32-bit ARM: calling the primitives in constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis proves
-the primitives constant time from any state whose argument registers are
-public (`addT`, …), so two runs that call one with the same arguments leak
-the same trace (`RelCT.callT`), whatever else holds of them.
-`vg_mlkem_sample_ntt` leaks its seed, so two runs that call it must also
+The taint analysis proves the primitives constant time from any state whose
+argument registers are public (`addT`, …), so two runs that call one with the
+same arguments leak the same trace (`RelCT.callT`), whatever else holds of
+them. `vg_mlkem_sample_ntt` leaks its seed, so two runs that call it must also
 have the same seed (`sample_ct`).
 -/
 
@@ -39,6 +38,15 @@ theorem taint_prog {P : State → State → Prop} {c : Prog isa} (rs : List Reg)
     (h : (VG.Arm.taint.check (Taint.ofRegs rs) c hc).isSome = true) :
     RelCT isa P c fun _ _ => True :=
   RelCT.taint (A := VG.Arm.taint) (Taint.ofRegs rs) (fun a b hab => Taint.agree_ofRegs (hP a b hab)) h
+
+/-- `c` is constant time from any two states that agree on the registers `rs`,
+by the taint analysis. -/
+def RegsCT (rs : List Reg) (c : Prog isa) : Prop :=
+  ∃ hc : VG.Taint.Hint VG.Arm.taint.T, (VG.Arm.taint.check (Taint.ofRegs rs) c hc).isSome = true
+
+theorem RegsCT.relct {rs : List Reg} {c : Prog isa} (h : RegsCT rs c) {P : State → State → Prop}
+    (hP : ∀ a b, P a b → ∀ r ∈ rs, a.gpr r = b.gpr r) : RelCT isa P c fun _ _ => True :=
+  h.elim fun _ h => taint_prog rs hP h
 
 /-- A contract with no precondition, whose public data is the registers `rs`. -/
 def kT (rs : List Reg) : Contract isa := mkK (fun _ => True) (fun _ _ => True) (regsEq rs)
@@ -200,5 +208,45 @@ theorem relct_loop_ne {body : Prog isa} {I₁ I₂ : Nat → State → Prop} {N 
       · exact RelCT.of_false fun _ _ hab => hn hab.2.1
     · exact RelCT.of_false fun _ _ hab => ht hab.1
   · exact fun a b hab => ⟨0, hN, rfl, hab⟩
+
+/-! ## What each parameter set checks by evaluation -/
+
+/-- What each parameter set proves of its code by evaluation: the contracts of
+its primitives that compress to `d_u` and `d_v` bits (and decompress from
+them), as calls on regions of a layout (as `compressL` and `decompressL`), and
+their constant time; and the taint analyses of the code whose immediates
+depend on the parameters (`taint_decide` evaluates closed code only). -/
+structure _root_.VG.Impl.MlKem.Arm.KemLay.CallsOk (K : KemLay) : Prop where
+  cu : ∀ {L : Lay} {s : State}, L.Ok → ∀ {i o j o' d : Nat}, s.gpr .r0 = L.ptr i + BitVec.ofNat 32 o →
+    s.gpr .r1 = BitVec.ofNat 32 d → s.gpr .r2 = L.ptr j + BitVec.ofNat 32 o' → s.gpr .r3 = BitVec.ofNat 32 (32 * d) →
+    d = K.du ∨ d = K.dv → sepB L.sizes (i, o, 1024) (j, o', 32 * d) = true → L.buf i ∈ s.rd ++ s.wr →
+    L.buf j ∈ s.wr → ∀ {f : Poly}, PolyIs s.mem (L.A i o) f → ∀ {Q : State → Prop},
+    (∀ s', Kept (L.RL [(j, o', 32 * d)]) s s' → bytesAt s'.mem (L.A j o') (32 * d) = compressEncode d f → Q s') →
+    WP isa K.callCU s Q
+  du : ∀ {L : Lay} {s : State}, L.Ok → ∀ {i o j o' d : Nat}, s.gpr .r0 = L.ptr i + BitVec.ofNat 32 o →
+    s.gpr .r1 = BitVec.ofNat 32 (32 * d) → s.gpr .r2 = BitVec.ofNat 32 d → s.gpr .r3 = L.ptr j + BitVec.ofNat 32 o' →
+    d = K.du ∨ d = K.dv → sepB L.sizes (i, o, 32 * d) (j, o', 1024) = true → L.buf i ∈ s.rd ++ s.wr →
+    L.buf j ∈ s.wr → ∀ {Q : State → Prop},
+    (∀ s', Kept (L.RL [(j, o', 1024)]) s s' →
+      PolyIs s'.mem (L.A j o') (decodeDecompress d (bytesAt s.mem (L.A i o) (32 * d))) → Q s') →
+    WP isa K.callDU s Q
+  cuT : ConstantTime isa (fun _ => True) (regsEq [.r0, .r1, .r2, .r3]) K.compress
+  duT : ConstantTime isa (fun _ => True) (regsEq [.r0, .r1, .r2, .r3]) K.decompress
+  seedT : ∀ t, RegsCT [.r7] (.block (seedBytes t ++ [ptrTo .r0 .r7 oSeed, ptrTo .r1 .r7 K.oAhat, ptrTo .r2 .r7 K.oSample]))
+  zeroT : RegsCT [.r7] (zeroPoly K.oAcc)
+  kgSetupT : RegsCT [.r0, .r1, .r2, .r3] (.block K.kgSetup)
+  rhoT : RegsCT [.r5, .r7] (copy .r7 oSeed .r5 (384 * K.k) 32)
+  ekT : RegsCT [.r5, .r6] (copy .r5 0 .r6 (384 * K.k) K.ekLen)
+  zT : RegsCT [.r4, .r6] (copy .r4 32 .r6 (768 * K.k + 64) 32)
+  encSeedT : RegsCT [.r4, .r7] (copy .r4 (384 * K.k) .r7 oSeed 32)
+  ctT : RegsCT [.r6, .r7] (copy .r6 0 .r7 oCin K.ctLen)
+  cmpT : RegsCT [.r6, .r7] K.compare
+
+theorem kl768_calls : kl768.CallsOk :=
+  ⟨fun hL _ _ _ _ _ g0 g1 g2 g3 hd => compressL hL g0 g1 g2 g3 (by rcases hd with rfl | rfl <;> decide),
+    fun hL _ _ _ _ _ g0 g1 g2 g3 hd => decompressL hL g0 g1 g2 g3 (by rcases hd with rfl | rfl <;> decide),
+    compressT, decompressT, fun t => by cases t <;> exact ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
+    ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
+    ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
 
 end VG.Proof.MlKem.Arm

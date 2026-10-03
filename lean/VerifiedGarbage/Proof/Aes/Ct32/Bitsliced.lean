@@ -6,8 +6,6 @@ import Mathlib.Tactic.SplitIfs
 /-!
 # Bitsliced AES on 32-bit words: the layout and the round transformations
 
-Untrusted: everything here is checked by Lean.
-
 Two AES states in eight 32-bit words, as in BearSSL's `aes_ct` (Thomas
 Pornin, MIT licence): bit `j` of byte `i = r + 4c` of block `b` is bit
 `pos b i = 8r + 2c + b` of word `j`. `BsRel Q S` says the words `Q` hold

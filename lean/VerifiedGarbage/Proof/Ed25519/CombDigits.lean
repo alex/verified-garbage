@@ -7,12 +7,10 @@ import Mathlib.Algebra.Module.NatInt
 /-!
 # The comb's digits and partial sums
 
-Untrusted. The scalar `S < 2^256` has 64 nibbles `n_i`; the comb's digits are
-`d_i = n_i - 8`, from `-8` to `7`. Step `c < 64` adds the digit `combIdx c`
-(the odd digits `2c + 1` first, then the even digits `2(c - 32)`) times
-`256^(c mod 32)`, and before the even digits the sum is multiplied by 16 and
-`G = combGVal` added again. After step `c` the sum is `combVal S c`, and
-`combVal S 64 = S` (`comb_sum`), since `G = 8 Σ_{j < 32} 256^j`.
+The scalar `S < 2^256` has 64 nibbles `n_i`; the comb's digits are `d_i = n_i -
+8`, from `-8` to `7`. Step `j < 32` adds `d_{2j+1} 256^j` to one accumulator
+and `d_{2j} 256^j` to another, both starting at `G = combGVal`; 16 times the
+first plus the second is `S` (`comb_total`), since `G = 8 Σ_{j < 32} 256^j`.
 
 A negative digit adds the negation of the table entry `|d|`: the cached
 negation `negCached` swaps `Y - X` and `Y + X` and negates `2dT`.
@@ -84,46 +82,16 @@ theorem evenSumZ_eq (S : Nat) : ∀ c, evenSumZ S c = evenSum S c - 8 * geom c
     simp only [evenSumZ, evenSum, geom, evenSumZ_eq S c, sdig]
     push_cast; ring
 
-/-- The accumulator's multiple of `B` after `c` steps. -/
-def combVal (S c : Nat) : ℤ :=
-  if c ≤ 32 then combGVal + oddSumZ S c
-  else 16 * (combGVal + oddSumZ S 32) + combGVal + evenSumZ S (c - 32)
-
-theorem combVal_zero (S : Nat) : combVal S 0 = combGVal := by
-  simp [combVal, oddSumZ]
-
-theorem comb_sum {S : Nat} (hS : S < 2 ^ 256) : combVal S 64 = S := by
-  simp only [combVal, show ¬ 64 ≤ 32 by decide, ↓reduceIte, show 64 - 32 = 32 from rfl, oddSumZ_eq,
-    evenSumZ_eq, combGVal_eq]
+/-- The two accumulators' multiples of `B` give the scalar: `16 (G + Σ_j d_{2j+1} 256^j) +
+(G + Σ_j d_{2j} 256^j) = S`. -/
+theorem comb_total {S : Nat} (hS : S < 2 ^ 256) :
+    16 * ((combGVal : ℤ) + oddSumZ S 32) + (combGVal + evenSumZ S 32) = S := by
+  simp only [oddSumZ_eq, evenSumZ_eq, combGVal_eq]
   have h := comb_partial S 32
   rw [Nat.mod_eq_of_lt (by simpa using hS)] at h
   have h' : (16 * oddSum S 32 + evenSum S 32 : ℤ) = S := by exact_mod_cast h
   push_cast
   linear_combination h'
-
-/-- The digit step `c` reads. -/
-def combIdx (c : Nat) : Nat := if c < 32 then 2 * c + 1 else 2 * (c - 32)
-
-theorem combIdx_lt {c : Nat} (hc : c < 64) : combIdx c < 64 := by
-  unfold combIdx; split <;> omega
-
-theorem combIdx_nib (S c : Nat) (hc : c < 64) :
-    sdig S (combIdx c) * 256 ^ (c % 32) +
-      (if c = 32 then 16 * combVal S c + combGVal else combVal S c) = combVal S (c + 1) := by
-  unfold combIdx combVal
-  by_cases h : c < 32
-  · simp only [h, ↓reduceIte, show c ≠ 32 by omega, show c ≤ 32 by omega, show c + 1 ≤ 32 by omega,
-      oddSumZ, Nat.mod_eq_of_lt h]
-    ring
-  · have hs : c + 1 - 32 = (c - 32) + 1 := by omega
-    by_cases h32 : c = 32
-    · subst h32
-      simp only [show ¬ 32 < 32 by decide, ↓reduceIte, le_refl, show ¬ 33 ≤ 32 by decide,
-        show 33 - 32 = 0 + 1 from rfl, evenSumZ]
-      ring
-    · simp only [h, h32, ↓reduceIte, show ¬ c ≤ 32 by omega, show ¬ c + 1 ≤ 32 by omega, hs, evenSumZ,
-        show c % 32 = c - 32 by omega]
-      ring
 
 /-- A nibble from its four bits. -/
 theorem nib_bits (S i : Nat) :
@@ -189,8 +157,8 @@ theorem Rep.affine_y {p : Spec.Ed25519.Point} {a : EPoint dZ} (h : Rep p a) :
   show toZ (p.Y * Spec.X25519.pow p.Z (Spec.X25519.P - 2)) = a.y
   rw [toZ_mul, toZ_pow, h.y, mul_pow_inv h.z]
 
-theorem zsmul_16 (v : ℤ) (g : Nat) (P : EPoint dZ) :
-    (16 : Nat) • (v • P) + g • P = (16 * v + g) • P := by
-  rw [add_smul, mul_smul, ← natCast_zsmul, ← natCast_zsmul]; rfl
+theorem zsmul_16 (v w : ℤ) (P : EPoint dZ) :
+    (16 : Nat) • (v • P) + w • P = (16 * v + w) • P := by
+  rw [add_smul, mul_smul, ← natCast_zsmul]; rfl
 
 end VG.Proof.Ed25519

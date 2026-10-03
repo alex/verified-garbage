@@ -10,8 +10,9 @@ Each instruction's semantics here must agree with the Intel SDM; when adding
 an instruction, cite the SDM pseudocode it transcribes.
 
 The model is split by instruction family: `State.lean` holds the registers,
-the state and memory operands; `Gpr.lean`, `Sse.lean` and `Avx.lean` the
-semantics of the general-purpose, SSE and AVX instructions; and this file the
+the state and memory operands; `Gpr.lean`, `Sse.lean`, `Avx.lean` and
+`Avx512.lean` the semantics of the general-purpose, SSE, AVX and AVX-512
+instructions; and this file the
 instructions themselves, the CPU features they require, and `exec`, which
 dispatches to those semantics.
 
@@ -101,8 +102,8 @@ Modelling choices:
   between Intel's prologue and epilogue:
   `stmxcsr` (save the caller's MXCSR), `ldmxcsr` of `0x1FBF`, `lfence`, then
   the code that uses them, then `lfence` and `ldmxcsr` of the saved value.
-  Reviewers of an implementation check this; `lfence` and the MXCSR
-  instructions exist in the model for it.
+  `ci/check_mcdt.py` checks this in the generated code; `lfence` and the
+  MXCSR instructions exist in the model for it.
 -/
 
 namespace VG.X86_64
@@ -266,7 +267,20 @@ CC /r`, `VEX.256.F2.0F38.W0 CD /r`). AVX512_IFMA and AVX512VL for the
 EVEX.128 and EVEX.256 forms of VPMADD52LUQ and VPMADD52HUQ
 (`EVEX.256.66.0F38.W1 B4 /r`, `EVEX.256.66.0F38.W1 B5 /r`; the SDM's
 "CPUID Feature Flag" column lists both, AVX512VL for the vector lengths
-below 512 bits). -/
+below 512 bits).
+
+Vector AES/GCM additions: SDM Vol. 2, "AESENC", "AESENCLAST", "PCLMULQDQ",
+"PSHUFB", "PSLLDQ" and "PSRLDQ", opcode tables' "CPUID Feature Flag":
+VEX.128 VAESENC/VAESENCLAST (`VEX.128.66.0F38.WIG DC/DD /r`) require AES
+and AVX; VEX.256 (`VEX.256.66.0F38.WIG DC/DD /r`) require VAES and AVX.
+VEX.128 VPCLMULQDQ (`VEX.128.66.0F3A.WIG 44 /r ib`) requires PCLMULQDQ
+and AVX; VEX.256 requires VPCLMULQDQ and AVX. EVEX.512 VAESENC/VAESENCLAST
+(`EVEX.512.66.0F38.WIG DC/DD /r`) require VAES and AVX512F; EVEX.512
+VPCLMULQDQ (`EVEX.512.66.0F3A.WIG 44 /r ib`) requires VPCLMULQDQ and
+AVX512F. EVEX.512 VPSHUFB (`EVEX.512.66.0F38.WIG 00 /r`), VPSLLDQ and
+VPSRLDQ (`EVEX.512.66.0F.WIG 73 /7 ib`, `/3 ib`) require AVX512BW.
+AVX and AVX512F requirements also ensure the vector state is enabled,
+following the model's existing feature convention. -/
 def Instr.requires : Instr → List String
   | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
   | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..) | .xop (.sha256rnds2 ..) => ["sha"]
@@ -275,6 +289,10 @@ def Instr.requires : Instr → List String
   | .xop (.bin .aesenc ..) | .xop (.bin .aesenclast ..) | .xop (.bin .aesdec ..)
   | .xop (.bin .aesdeclast ..) | .xop (.bin .aesimc ..) | .xop (.aeskeygenassist ..) => ["aes"]
   | .xop (.pclmulqdq ..) => ["pclmulqdq"]
+  | .vop (.vbin .vaesenc .l128 ..) | .vop (.vbin .vaesenclast .l128 ..) => ["aes", "avx"]
+  | .vop (.vbin .vaesenc .l256 ..) | .vop (.vbin .vaesenclast .l256 ..) => ["vaes", "avx"]
+  | .vop (.vpclmulqdq .l128 ..) => ["pclmulqdq", "avx"]
+  | .vop (.vpclmulqdq .l256 ..) => ["vpclmulqdq", "avx"]
   | .vop (.vbin _ .l256 ..) | .vop (.vshift _ .l256 ..) | .vop (.vpshufd .l256 ..)
   | .vop (.vpalignr .l256 ..) => ["avx2"]
   | .vop (.vbin _ .l128 ..) | .vop (.vshift _ .l128 ..) | .vop (.vpshufd .l128 ..)
@@ -287,6 +305,10 @@ def Instr.requires : Instr → List String
   | .rorx32 .. | .rorx .. | .mulx .. => ["bmi2"]
   | .adcx .. | .adox .. => ["adx"]
   | .andn32 .. | .andn .. => ["bmi1"]
+  | .zop (.zbin .vaesenc ..) | .zop (.zbin .vaesenclast ..) => ["vaes", "avx512f"]
+  | .zop (.vpclmulqdq ..) => ["vpclmulqdq", "avx512f"]
+  | .zop (.zbin .vpshufb ..) | .zop (.vpslldq ..) | .zop (.vpsrldq ..) =>
+    ["avx512bw"]
   | .zop _ | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .zbcst .. =>
     ["avx512f"]
   | .vop (.vsha512rnds2 ..) | .vop (.vsha512msg1 ..) | .vop (.vsha512msg2 ..) => ["sha512"]

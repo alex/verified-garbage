@@ -3,16 +3,16 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Rel
 /-!
 # ML-DSA signing on AArch64: blocks that leak only their pointers
 
-Untrusted: everything here is checked by Lean. The taint analysis of a block
-does not look at its offsets and immediates, so its check evaluates for code
-in which they are variables (`setKappa_taint`); a copy's moves of its
-addresses and length depend on their values only through the choice of
-instructions (`copy_taint`), each of which leaves them public.
+The taint analysis of a block does not look at its offsets and immediates, so
+its check evaluates for code in which they are variables (`setKappa_taint`); a
+copy's moves of its addresses and length depend on their values only through
+the choice of instructions (`copy_taint`), each of which leaves them public.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 
 /-- The hint of a copy: its pointers and its counter are public in its loop. -/
 abbrev copyHint : VG.Taint.Hint AArch64.Taint.T :=

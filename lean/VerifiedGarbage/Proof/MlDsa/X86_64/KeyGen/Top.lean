@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.KeyGen.RestRow
 /-!
 # ML-DSA key generation on x86-64: `vg_mldsa44_keygen`, `vg_mldsa65_keygen`, `vg_mldsa87_keygen`
 
-Untrusted: everything here is checked by Lean. The function, piece by piece,
-for any parameter set of Table 1 and any verified implementations of the
-primitives (`keyGen_piece`): it returns 1 with `KeyGen_internal(ξ)` in `pk`
-and `sk` if every sampler succeeded (for some bounds), and 0 if key
-generation fails within the least bounds; it leaks only the pointers, `ρ`
-and what `RejBoundedPoly` leaks; so it meets the shared contract
-(`keyGen_verified`).
+The function, piece by piece, for any parameter set of Table 1 and any
+verified implementations of the primitives (`keyGen_piece`): it returns 1 with
+`KeyGen_internal(ξ)` in `pk` and `sk` if every sampler succeeded (for some
+bounds), and 0 if key generation fails within the least bounds; it leaks only
+the pointers, `ρ` and what `RejBoundedPoly` leaks; so it meets the shared
+contract (`keyGen_verified`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen
@@ -140,7 +139,7 @@ theorem rest_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) :
 
 theorem keyGen_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) :
     Piece p (fun σ s => s = σ) (fun σ s => abiPreserved σ s ∧ (kgK p).post σ s) (keyGen P p) :=
-  (pro_piece hF).seq ((seeds_piece hF).seq ((sampA_piece hP hF).seq ((sampS_piece hP hF).seq
+  (pro_piece hF).seq ((seeds_piece hF).seq ((sampAll_piece hP hF).seq ((sampS_piece hP hF).seq
     ((rest_piece hP hF).seq (epi_piece hF)))))
 
 theorem keyGen_correct {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) (σ : State) (hp : (kgK p).pre σ) :

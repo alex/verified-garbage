@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Pairs
 /-!
 # X448 on AArch64: decoding the u-coordinate
 
-Untrusted: everything here is checked by Lean. Seven byte loads form each
-pair of 28-bit limbs; no load extends past the 56-byte input.
+Seven byte loads form each pair of 28-bit limbs; no load extends past the
+56-byte input.
 -/
 
 namespace VG.Proof.X448.AArch64

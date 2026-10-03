@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Iter
 /-!
 # X448 on x86 (32-bit): all 448 ladder iterations
 
-Untrusted: everything here is checked by Lean. A decreasing public counter
-connects the loop to the specification's descending fold over scalar bits.
+A decreasing public counter connects the loop to the specification's
+descending fold over scalar bits.
 -/
 
 namespace VG.Proof.X448.X86

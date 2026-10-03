@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlKem.Arm.Sample
 /-!
 # ML-DSA signing on ARMv7: SHAKE256 through the sponge functions
 
-Untrusted: everything here is checked by Lean. As on x86-64: zeroing the
-Keccak state at `scratch` (`kzero_ok`, from ML-KEM's `zeroWords_ok`), and
-the calls of `vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze` on
-it, with the working space at `scratch + 200` (`kabs_ok`, `kpad_ok`,
-`ksqz_ok`, from ML-KEM's call lemmas of the sponge functions in their
-frames, `Proof/MlKem/Arm/Keccak.lean`), and that two runs in the same layout
-leak the same (`kabs_tr`, …).
+As on x86-64: zeroing the Keccak state at `scratch` (`kzero_ok`, from ML-KEM's
+`zeroWords_ok`), and the calls of `vg_keccak_absorb`, `vg_keccak_pad` and
+`vg_keccak_squeeze` on it, with the working space at `scratch + 200`
+(`kabs_ok`, `kpad_ok`, `ksqz_ok`, from ML-KEM's call lemmas of the sponge
+functions in their frames, `Proof/MlKem/Arm/Keccak.lean`), and that two runs
+in the same layout leak the same (`kabs_tr`, …).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign
@@ -143,7 +142,7 @@ theorem kabsArgs {s s1 : State} (L : Lay D rbs wbs s) (hD : 8 ≤ D) (hk : kChk 
   · simp only [regA, a0]; exact k8 L hD i0 k.sp
   · simp only [regA, a1]; exact k8 L hD i1 k.sp
   · simp only [regA, as]; exact k8 L hD is k.sp
-  · simp only [regA, a0, a1]; rw [k.wr]; exact covers_cons (L.cW w0) (L.cW w1)
+  · simp only [regA, a0, a1]; rw [k.wr]; exact Covers.cons (L.cW w0) (L.cW w1)
   · simp only [regA, as]; rw [k.rd, k.wr]; exact L.cR is
 
 theorem kabs_ok {s : State} (L : Lay D rbs wbs s) (hD : 8 ≤ D) (hk : kChk (rbs ++ wbs) wbs = true)
@@ -203,7 +202,7 @@ theorem kpadArgs {s s1 : State} (L : Lay D rbs wbs s) (hD : 8 ≤ D) (hk : kChk 
   · simp only [regA, a0, a1]; exact L.disj d01
   · simp only [regA, a0]; exact k8 L hD i0 k.sp
   · simp only [regA, a1]; exact k8 L hD i1 k.sp
-  · simp only [regA, a0, a1]; rw [k.wr]; exact covers_cons (L.cW w0) (L.cW w1)
+  · simp only [regA, a0, a1]; rw [k.wr]; exact Covers.cons (L.cW w0) (L.cW w1)
 
 theorem b8_ofNat32 {v : Nat} (_hv : v < 256) : BitVec.setWidth 8 (BitVec.ofNat 32 v) = BitVec.ofNat 8 v := by
   apply BitVec.eq_of_toNat_eq
@@ -272,7 +271,7 @@ theorem ksqzArgs {s s1 : State} (L : Lay D rbs wbs s) (hD : 8 ≤ D) (hk : kChk 
   · simp only [regA, a0]; exact k8 L hD i0 k.sp
   · simp only [regA, ad]; exact k8 L hD id k.sp
   · simp only [regA, a1]; exact k8 L hD i1 k.sp
-  · simp only [regA, a0, a1, ad]; rw [k.wr]; exact covers_cons (L.cW w0) (covers_cons (L.cW wd) (L.cW w1))
+  · simp only [regA, a0, a1, ad]; rw [k.wr]; exact Covers.cons (L.cW w0) (Covers.cons (L.cW wd) (L.cW w1))
 
 theorem ksqz_ok {s : State} (L : Lay D rbs wbs s) (hD : 8 ≤ D) (hk : kChk (rbs ++ wbs) wbs = true)
     {dst : Ptr} {len rate : Nat} (hc : ksqzChk (rbs ++ wbs) wbs dst len = true) (hrate : rate ∈ rates) :

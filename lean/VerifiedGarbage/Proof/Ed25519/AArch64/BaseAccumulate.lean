@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.PointAccumulateLoop
 /-!
 # Adding cached points
 
-Untrusted. The cached addition is the specification's `pointAdd` (`ring`);
-a table's cached point is loaded straight into slots 4–7.
+The cached addition is the specification's `pointAdd` (`ring`); a table's
+cached point is loaded straight into slots 4–7.
 -/
 
 namespace VG.Proof.Ed25519.AArch64
@@ -53,6 +53,7 @@ theorem fromTableQuarterQ_ok {s : State} {base : Addr} (hs : Scr s base) {o : Na
     WP isa (.block (fromTableWords (32 * j) ++ stores (192 + 32 * j) .x4 .x5 .x6 .x7)) s fun t =>
       env t.mem base ⟨4 + j, by omega⟩ = F s.mem base (o + 32 * j) ∧
       TableKeep base (192 + 32 * j) 32 s t := by
+  have _hcap : workSize true = 8192 := rfl
   rw [WP.block_append_iff]
   refine WP.mono (fromTableWords_ok hs hp (32 * j) (by omega) (by omega)) fun t ⟨hv, hk⟩ => ?_
   have ht := hs.of_keeps hk (by decide)

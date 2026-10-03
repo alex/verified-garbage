@@ -5,10 +5,9 @@ import VerifiedGarbage.Impl.MlDsa.Arm.Arith.Ntt
 /-!
 # ML-DSA on 32-bit ARM: the butterflies of `NTT` and `NTT⁻¹`
 
-Untrusted: everything here is checked by Lean. Each butterfly is three
-blocks, each symbolically executed once for any state: before `mulz`,
-`mulz` (`mulz_ok`), and after it; their values are those of `bfly` and
-`bflyInv` (`bfly_spec`, `bflyInv_spec`): what `BflyOk` states of a
+Each butterfly is three blocks, each symbolically executed once for any state:
+before `mulz`, `mulz` (`mulz_ok`), and after it; their values are those of
+`bfly` and `bflyInv` (`bfly_spec`, `bflyInv_spec`): what `BflyOk` states of a
 butterfly's code, for the loops (`NttLoop.lean`).
 -/
 

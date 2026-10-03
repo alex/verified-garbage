@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Iter
 /-!
 # X448 on x86 (32-bit): the final ladder swap
 
-Untrusted: everything here is checked by Lean. The last swap bit selects
-the coordinates that are converted back to affine form.
+The last swap bit selects the coordinates that are converted back to affine
+form.
 -/
 
 namespace VG.Proof.X448.X86

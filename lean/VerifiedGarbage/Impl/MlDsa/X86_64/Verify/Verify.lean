@@ -16,8 +16,10 @@ in `scratch`.
    returns 0 at once if the hint is malformed.
 2. `z[i] = BitUnpack` of the `i`-th piece of `σ` (polynomial `8 + i`), and
    `r15 ← r15 ∧ (‖z[i]‖∞ < γ₁ - β)`; it returns 0 if one of them is not.
-3. `ρ` (`pk[0 : 32]`) to `SB`, and `Â[r, s] = RejNTTPoly(ρ ‖ s ‖ r)`
-   (polynomial `20 + 8r + s`); `c = SampleInBall(c̃)` (polynomial 15). Each
+3. `ρ` (`pk[0 : 32]`) to `SB` and to each seed of `SB4`, and
+   `Â[r, s] = RejNTTPoly(ρ ‖ s ‖ r)` (entry `e = ℓr + s`, polynomial
+   `20 + e`), four entries at a time (`vg_mldsa_rej_ntt_poly4`), then the
+   last `kℓ mod 4` one at a time; `c = SampleInBall(c̃)` (polynomial 15). Each
    sampler's result is ANDed into `r15`, and its output masked with it
    (`sampled`): a sampler that fails leaves its output unspecified, and
    masking makes it reduced (zero) without a branch on the result, which
@@ -68,22 +70,36 @@ def zOne (i : Nat) : Prog isa :=
   .seq (bitUnpackAt P (.r13, p.ctildeLen + lenZ p * i) (lenZ p) (p.γ₁ - 1) p.γ₁ (pZ i))
     (.seq (normLtAt P (pZ i) (p.γ₁ - p.β)) (.block and15))
 
-/-- `Â[r, s]`, entry `e = 8r + s`. -/
+/-- Entry `e` of `Â`, `Â[e / ℓ, e mod ℓ]`. -/
 def aOne (e : Nat) : Prog isa :=
-  .seq (.block (setB (sc (oSB + 32)) (e % 8) ++ setB (sc (oSB + 33)) (e / 8)))
+  .seq (.block (setB (sc (oSB + 32)) (e % p.ℓ) ++ setB (sc (oSB + 33)) (e / p.ℓ)))
     (sampled (rejNttAt P (pS (20 + e))) (pS (20 + e)))
 
-/-- The entries `8r + s` of row `r` of `Â`. -/
-def aRow (r : Nat) : Prog isa := seqR (aOne P) (8 * r) p.ℓ
+/-- Where `vg_mldsa_rej_ntt_poly4` works: after the last row of `Â`. -/
+def oR4 : Nat := oP (20 + 8 * p.k)
 
-/-- `ρ` to `SB`, `Â`, and `c`. -/
+/-- The bytes `s ‖ r` of entry `e + k` to seed `k` of `SB4`. -/
+def setSR (e k : Nat) : List Instr :=
+  setB (sc (oSB4 + 34 * k + 32)) ((e + k) % p.ℓ) ++ setB (sc (oSB4 + 34 * k + 33)) ((e + k) / p.ℓ)
+
+/-- Entries `4g, …, 4g + 3` of `Â`. -/
+def aGrp (g : Nat) : Prog isa :=
+  .seq (.block (setSR p (4 * g) 0)) (.seq (.block (setSR p (4 * g) 1)) (.seq (.block (setSR p (4 * g) 2))
+    (.seq (.block (setSR p (4 * g) 3)) (sampled4 (rej4At P (pS (20 + 4 * g)) (sc (oR4 p))) (pS (20 + 4 * g))))))
+
+/-- `ρ` to `SB` and to the four seeds of `SB4`. -/
+def rhos : Prog isa :=
+  .seq (copy (sc oSB) (.rbp, 0) 32) (.seq (copy (sc oSB4) (.rbp, 0) 32) (.seq (copy (sc (oSB4 + 34)) (.rbp, 0) 32)
+    (.seq (copy (sc (oSB4 + 68)) (.rbp, 0) 32) (copy (sc (oSB4 + 102)) (.rbp, 0) 32))))
+
+/-- `ρ` to `SB` and `SB4`, `Â`, and `c`. -/
 def samples : Prog isa :=
-  .seq (copy (sc oSB) (.rbp, 0) 32) (.seq (seqR (aRow P p) 0 p.k)
-    (sampled (ballAt P (.r13, 0) p.ctildeLen p.τ pC) pC))
+  .seq rhos (.seq (seqR (aGrp P p) 0 (p.k * p.ℓ / 4)) (.seq (seqR (aOne P p) (4 * (p.k * p.ℓ / 4)) (p.k * p.ℓ % 4))
+    (sampled (ballAt P (.r13, 0) p.ctildeLen p.τ pC) pC)))
 
 /-- `Σₛ Â[r, s] ẑ[s]` to `W`. -/
 def dot (r : Nat) : Prog isa :=
-  .seq (mulAt P pW (pA r 0) (pZ 0)) (seqR (fun s => mulAddAt P pW (pA r s) (pZ s)) 1 (p.ℓ - 1))
+  .seq (mulAt P pW (pA p.ℓ r 0) (pZ 0)) (seqR (fun s => mulAddAt P pW (pA p.ℓ r s) (pZ s)) 1 (p.ℓ - 1))
 
 /-- Row `r` of `w′`, `w′₁`, packed to `B`. -/
 def row (r : Nat) : Prog isa :=

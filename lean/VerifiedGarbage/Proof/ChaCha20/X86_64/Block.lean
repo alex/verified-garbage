@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 import VerifiedGarbage.Proof.Framework.Mem
@@ -15,8 +16,6 @@ section
 
 /-!
 # ChaCha20 block function on x86-64: the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64
@@ -288,18 +287,15 @@ end
 
 /-!
 # ChaCha20 block function on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20
 
 open Spec.ChaCha20 VG.X86_64
 
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`:
-writes `block` of the state at `state` to the first 16 words of `buf`.
+/-- X86-64 contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut
+[u32; 64])`: writes `block` of the state at `state` to the first 16 words of
+`buf`.
 
 The code may read `state` (64 bytes) and read and write `buf` (256 bytes; its
 first 64 bytes hold the result on exit, and the rest is scratch space whose
@@ -597,79 +593,39 @@ theorem add_step {p : Addr} {R v : CState} {sB : State} (hw : bufR p ∈ sB.wr) 
 
 /-! ## Phase 1: saving the callee-saved registers -/
 
-theorem readW64_writeW_off (m : Mem) (p : Addr) (v : BitVec 64) {d e : Nat} (hd : d < 2 ^ 32)
-    (he : e < 2 ^ 32) (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
-    (m.writeW (bufAt p e) v).readW (bufAt p d) 64 = m.readW (bufAt p d) 64 :=
-  Mem.readW_writeW_sep (off_sep p hd he (by lit_omega) (by lit_omega) h) (by decide)
+theorem saved_bound : ∀ p ∈ saved, 144 ≤ p.2 ∧ p.2 + 8 ≤ 192 := by decide
+
+theorem slot_buf {ws : List Region} {buf : Addr} (hw : bufR buf ∈ ws) {p : Reg × Nat}
+    (hp : p ∈ saved) : InRegions ws (Spill.slot buf p.2) 8 := by
+  have := saved_bound p hp
+  exact ⟨bufR buf, hw, Offset.contains_base _ (by omega) (by omega)⟩
 
 /-- The memory after the prologue's stores. -/
-def saveMem (s₀ : State) : Mem :=
-  (((((s₀.mem.writeW (bufAt (buf s₀) 144) (s₀.gpr .rbx)).writeW (bufAt (buf s₀) 152)
-    (s₀.gpr .rbp)).writeW (bufAt (buf s₀) 160) (s₀.gpr .r12)).writeW (bufAt (buf s₀) 168)
-    (s₀.gpr .r13)).writeW (bufAt (buf s₀) 176) (s₀.gpr .r14)).writeW (bufAt (buf s₀) 184)
-    (s₀.gpr .r15)
+abbrev saveMem (s₀ : State) : Mem := Spill.saveMem s₀.mem (buf s₀) s₀.gpr saved
 
 /-- The callee-saved registers are saved in `buf`. -/
-def Saved (s₀ : State) (m : Mem) : Prop :=
-  m.readW (bufAt (buf s₀) 144) 64 = s₀.gpr .rbx ∧ m.readW (bufAt (buf s₀) 152) 64 = s₀.gpr .rbp ∧
-  m.readW (bufAt (buf s₀) 160) 64 = s₀.gpr .r12 ∧ m.readW (bufAt (buf s₀) 168) 64 = s₀.gpr .r13 ∧
-  m.readW (bufAt (buf s₀) 176) 64 = s₀.gpr .r14 ∧ m.readW (bufAt (buf s₀) 184) 64 = s₀.gpr .r15
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (buf s₀) s₀.gpr saved
 
-theorem save_eq : save = [
-    .store (at_ .rsi 144) .rbx, .store (at_ .rsi 152) .rbp, .store (at_ .rsi 160) .r12,
-    .store (at_ .rsi 168) .r13, .store (at_ .rsi 176) .r14, .store (at_ .rsi 184) .r15] := rfl
-
-theorem restore_eq : restore = [
-    .mov .rbx (.mem (at_ .rsi 144)), .mov .rbp (.mem (at_ .rsi 152)), .mov .r12 (.mem (at_ .rsi 160)),
-    .mov .r13 (.mem (at_ .rsi 168)), .mov .r14 (.mem (at_ .rsi 176)), .mov .r15 (.mem (at_ .rsi 184))] :=
-  rfl
-
-set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block save) s₀ fun s₁ =>
-      s₁.gpr = s₀.gpr ∧ s₁.rd = s₀.rd ∧ s₁.wr = s₀.wr ∧ s₁.mem = saveMem s₀ := by
-  have o0 := out_buf hp.hw (d := 144) (n := 8) (by lit_omega)
-  have o1 := out_buf hp.hw (d := 152) (n := 8) (by lit_omega)
-  have o2 := out_buf hp.hw (d := 160) (n := 8) (by lit_omega)
-  have o3 := out_buf hp.hw (d := 168) (n := 8) (by lit_omega)
-  have o4 := out_buf hp.hw (d := 176) (n := 8) (by lit_omega)
-  have o5 := out_buf hp.hw (d := 184) (n := 8) (by lit_omega)
-  apply WP.of_runBlock
-  rw [save_eq]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
-    runBlock_nil, exec, isa, ea_at, State.store64, o0, o1, o2,
-    o3, o4, o5, ite_true, Option.some.injEq, exists_eq_left']
-  exact ⟨trivial, trivial, trivial, rfl⟩
+      s₁.gpr = s₀.gpr ∧ s₁.rd = s₀.rd ∧ s₁.wr = s₀.wr ∧ s₁.mem = saveMem s₀ :=
+  Spill.save_ok .rsi saved s₀ fun _ hp' => slot_buf hp.hw hp'
 
-set_option simprocs false in
-theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) := by
-  simp only [Saved, saveMem]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-  simp (config := {decide := true}) only [Mem.readW_writeW_self64, readW64_writeW_off]
+theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) :=
+  Spill.saveMem_saved _ _ _ _ (by decide)
 
-theorem saveMem_frame (s₀ : State) : Frame [bufR (buf s₀)] s₀.mem (saveMem s₀) := by
-  have c : ∀ d : Nat, d + 8 ≤ 256 → (bufR (buf s₀)).Contains (bufAt (buf s₀) d) (64 / 8) :=
-    fun d hd => contains_off hd (by lit_omega)
-  simp only [saveMem]
-  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 144 (by lit_omega))).writeW
-    (List.mem_singleton_self _) _ (c 152 (by lit_omega))).writeW (List.mem_singleton_self _) _
-    (c 160 (by lit_omega))).writeW (List.mem_singleton_self _) _ (c 168 (by lit_omega))).writeW
-    (List.mem_singleton_self _) _ (c 176 (by lit_omega)) |>.writeW (List.mem_singleton_self _) _
-    (c 184 (by lit_omega))
+theorem saveMem_frame (s₀ : State) : Frame [bufR (buf s₀)] s₀.mem (saveMem s₀) :=
+  Spill.saveMem_frame_base _ _ _ _ (fun p hp => by have := saved_bound p hp; omega) (by decide)
 
 theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) (hf : Frame [workR (buf s₀)] m m') :
     Saved s₀ m' := by
-  have key : ∀ d : Nat, 144 ≤ d → d + 8 ≤ 192 →
-      m'.readW (bufAt (buf s₀) d) 64 = m.readW (bufAt (buf s₀) d) 64 := by
-    intro d h1 h2
-    have hd := disjoint_sub (buf s₀) (a := d) (la := 8) (b := 0) (lb := 144) (by lit_omega) (by lit_omega)
-      (by lit_omega)
-    exact hf.readW (r := ⟨bufAt (buf s₀) d, 8⟩) (Region.contains_self _ _) (by simpa using hd)
-      (by decide)
-  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h
-  exact ⟨(key 144 (by lit_omega) (by lit_omega)).trans h1, (key 152 (by lit_omega) (by lit_omega)).trans h2,
-    (key 160 (by lit_omega) (by lit_omega)).trans h3, (key 168 (by lit_omega) (by lit_omega)).trans h4,
-    (key 176 (by lit_omega) (by lit_omega)).trans h5, (key 184 (by lit_omega) (by lit_omega)).trans h6⟩
+  refine Spill.Saved.frame h hf fun p hp r hr => ?_
+  rw [List.mem_singleton.mp hr]
+  have := saved_bound p hp
+  have hd := disjoint_sub (buf s₀) (a := p.2) (la := 8) (b := 0) (lb := 144) (by omega) (by omega)
+    (by lit_omega)
+  simp only [bufAt, ofInt_natCast] at hd
+  exact hd
 
 /-! ## Phase 3: loading the registers -/
 
@@ -724,28 +680,15 @@ theorem load_ok {s₀ s₁ : State} (hp : Pre s₀) (h₁ : s₁.gpr = s₀.gpr)
 
 /-! ## Phase 7: restoring the callee-saved registers -/
 
-set_option simprocs false in
 theorem restore_ok {s₀ : State} {s : State} (hs : Saved s₀ s.mem) (hrsi : s.gpr .rsi = buf s₀)
     (hw : bufR (buf s₀) ∈ s.wr) :
     WP isa (.block restore) s fun s' =>
       s'.mem = s.mem ∧ s'.gpr .rsp = s.gpr .rsp ∧
       ∀ r ∈ [Reg.rbx, .rbp, .r12, .r13, .r14, .r15], s'.gpr r = s₀.gpr r := by
-  have i0 := in_buf (rs := s.rd) hw (d := 144) (n := 8) (by lit_omega)
-  have i1 := in_buf (rs := s.rd) hw (d := 152) (n := 8) (by lit_omega)
-  have i2 := in_buf (rs := s.rd) hw (d := 160) (n := 8) (by lit_omega)
-  have i3 := in_buf (rs := s.rd) hw (d := 168) (n := 8) (by lit_omega)
-  have i4 := in_buf (rs := s.rd) hw (d := 176) (n := 8) (by lit_omega)
-  have i5 := in_buf (rs := s.rd) hw (d := 184) (n := 8) (by lit_omega)
-  obtain ⟨g0, g1, g2, g3, g4, g5⟩ := hs
-  apply WP.of_runBlock
-  rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
-    runBlock_nil, exec, readSrc, isa, ea_at, State.load64,
-    State.setReg, hrsi, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,
-    Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨trivial, trivial, fun r hr => ?_⟩
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true})
+  have hsub : ∀ r ∈ [Reg.rbx, .rbp, .r12, .r13, .r14, .r15], r ∈ saved.map Prod.fst := by decide
+  refine WP.mono (Spill.restore_ok .rsi saved s₀.gpr s (by decide)
+    (fun p hp => by rw [hrsi]; exact slot_buf (List.mem_append_right _ hw) hp) (by rw [hrsi]; exact hs))
+    fun s' ⟨h₁, h₂, hm, _⟩ => ⟨hm, h₂ _ (by decide), fun r hr => h₁ r (hsub r hr)⟩
 
 /-! ## The whole function -/
 
@@ -859,16 +802,18 @@ theorem block_correct (s : State) (hs : Proof.ChaCha20.blockX86_64.pre s) :
   obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
   exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
 
-theorem block_verified :
-    Verified X86_64.target Impl.ChaCha20.X86_64.block (Spec.ChaCha20.blockContract X86_64.abi) := by
-  refine Verified.of_correct block_correct ?_ (by
-    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, X86_64.abi, X86_64.argRegs,
-      Proof.ChaCha20.blockX86_64]
-      [satState] using satState)
+theorem block_ct : ConstantTime isa Proof.ChaCha20.blockX86_64.pre Proof.ChaCha20.blockX86_64.pub block := by
   refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
   intro s₁ s₂ _ _ ⟨h1, h2⟩
   refine Taint.agree_ofRegs fun r hr => ?_
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl <;> assumption
+
+theorem block_verified :
+    Verified X86_64.target Impl.ChaCha20.X86_64.block (Spec.ChaCha20.blockContract X86_64.abi) :=
+  Verified.of_correct block_correct block_ct (by
+    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, X86_64.abi, X86_64.argRegs,
+      Proof.ChaCha20.blockX86_64]
+      [satState] using satState)
 
 end VG.Proof.ChaCha20.X86_64

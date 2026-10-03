@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Cmac.Block
 /-!
 # CMAC: blocks formed a 32-bit word at a time
 
-Untrusted: everything here is checked by Lean. What the 32-bit targets'
-stores leave: the XOR of two blocks stored a word at a time (`xor4Mem`; the
-block written may be one of those read, as long as no word written is read
-afterwards, `Sep4`), a zeroed block (`zero4`), and a counter block `C = P ⊕ Q`
-with `P` zeroed (`chainMem4`).
+What the 32-bit targets' stores leave: the XOR of two blocks stored a word at
+a time (`xor4Mem`; the block written may be one of those read, as long as no
+word written is read afterwards, `Sep4`), a zeroed block (`zero4`), and a
+counter block `C = P ⊕ Q` with `P` zeroed (`chainMem4`).
 -/
 
 namespace VG.Proof.Cmac

@@ -6,12 +6,11 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024 on 32-bit ARM: `vg_mlkem1024_compress_encode`
 
-Untrusted: everything here is checked by Lean. A loop for each width
-`d ∈ {5, 11}` over the 32 groups of 8 coefficients, whose body is the 8
-fields of a group, each run once for any field (`field_step`) from the
-steps of its code: the coefficient compressed (`coeff5_ok`, `coeff11_ok`),
-its low bits added to (or stored in) its first byte (`head0_ok`,
-`headT_ok`), and each next byte stored (`next_ok`).
+A loop for each width `d ∈ {5, 11}` over the 32 groups of 8 coefficients,
+whose body is the 8 fields of a group, each run once for any field
+(`field_step`) from the steps of its code: the coefficient compressed
+(`coeff5_ok`, `coeff11_ok`), its low bits added to (or stored in) its first
+byte (`head0_ok`, `headT_ok`), and each next byte stored (`next_ok`).
 
 The bytes of the group written so far are those of the number `acc` of
 its first fields (`GB`, `acc`): `acc` of the first `k` fields is less than

@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.Mem
 /-!
 # The SHA-3 sponge: facts about the specification
 
-Untrusted: everything here is checked by Lean. The state byte by byte, how
-the streaming representation `Repr` evolves as bytes are absorbed one at a
-time, how padding is absorbed, and the output of `squeeze` byte by byte,
-independently of any target.
+The state byte by byte, how the streaming representation `Repr` evolves as
+bytes are absorbed one at a time, how padding is absorbed, and the output of
+`squeeze` byte by byte, independently of any target.
 -/
 
 namespace VG.Proof.Sha3
@@ -444,8 +443,7 @@ section
 /-!
 # The SHA-3 sponge: output squeezed from an offset
 
-Untrusted: everything here is checked by Lean. `squeezeFrom` byte by byte,
-and after permutations.
+`squeezeFrom` byte by byte, and after permutations.
 -/
 
 namespace VG.Proof.Sha3

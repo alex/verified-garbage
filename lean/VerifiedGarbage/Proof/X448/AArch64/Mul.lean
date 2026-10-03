@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.X448.AArch64.Reduce
 /-!
 # X448 on AArch64: field multiplication
 
-Untrusted: everything here is checked by Lean. The row loop, coefficient
-folds and carry passes together compute multiplication modulo the field
-prime, with bounded output limbs. Either input may also be the output.
+The row loop, coefficient folds and carry passes together compute
+multiplication modulo the field prime, with bounded output limbs. Either input
+may also be the output.
 -/
 
 namespace VG.Proof.X448.AArch64
@@ -16,7 +16,7 @@ open VG VG.AArch64 VG.Impl.X448.AArch64
 
 abbrev F (m : Mem) (base : Addr) (o : Nat) : Spec.X448.Fe := toFe (fe m base o)
 
-def clob : List Reg := [.x4, .x6, .x5, .x9, .x10, .x11]
+def clob : List Reg := [.x4, .x6, .x5, .x9, .x10, .x11, .x7, .x8, .x13, .x14, .x15, .x16]
 
 structure Op (base : Addr) (o : Nat) (s t : State) : Prop where
   keeps : Keeps clob s t
@@ -67,7 +67,7 @@ theorem mul_ok {s : State} {base : Addr} (hs : Scr s base) {o a b : Nat}
       intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl <;> decide)
-    exact k₁.trans (uk.trans (k₃.trans k₄))
+    exact k₁.trans ((uk.mono (by decide)).trans (k₃.trans k₄))
   · exact (FieldMem.work tm (by omega) (by omega)).trans
       ((FieldMem.work um (by omega) (by omega)).trans
       ((FieldMem.work vm (by decide) (by decide)).trans wm))

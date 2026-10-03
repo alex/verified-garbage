@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # X448 on x86-64: `Verified`
 
-Untrusted: everything here is checked by Lean. Constant time (by taint
-tracking: the only branches are on the loop counters, and every address is
-an argument plus a constant or a counter), satisfiability, and the shared
-contract of `Spec/`.
+Constant time (by taint tracking: the only branches are on the loop counters,
+and every address is an argument plus a constant or a counter),
+satisfiability, and the shared contract of `Spec/`.
 -/
 
 namespace VG.Proof.X448.X86_64
@@ -31,7 +30,7 @@ def satState : State where
 theorem x448_ok (s : State) (hs : Proof.X448.x448X86_64.pre s) :
     ∃ t s', Exec isa Impl.X448.X86_64.x448 s t s' ∧ abiPreserved s s' ∧
       Proof.X448.x448X86_64.post s s' := by
-  obtain ⟨t, s', he, h⟩ := correct (Pre.of s hs)
+  obtain ⟨t, s', he, h⟩ := correct baseline_ok (Pre.of s hs)
   exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h.1, h.2⟩
 
 theorem x448_ct : ConstantTime isa Proof.X448.x448X86_64.pre Proof.X448.x448X86_64.pub

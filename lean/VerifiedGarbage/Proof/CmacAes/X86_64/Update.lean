@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.Cmac.Mem
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 
 /-!
 # AES-CMAC on x86-64: `vg_cmac_aes_update`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.CmacAes.X86_64
@@ -17,8 +16,9 @@ open VG VG.X86_64 VG.X86_64.RegUpd VG.Impl.CmacAes.X86_64
 theorem offset_nat (i : Nat) : BitVec.ofInt 64 (i : Int) = BitVec.ofNat 64 i := rfl
 
 /-- The memory after saving the registers. -/
-def savedMem (s : State) : Mem :=
-  saved.foldl (fun m (r, d) => m.writeW (s.gpr .r9 + BitVec.ofNat 64 d) (s.gpr r)) s.mem
+abbrev savedMem (s : State) : Mem := Spill.saveMem s.mem (s.gpr .r9) s.gpr saved
+
+theorem saved_bound : ∀ p ∈ saved, 2064 ≤ p.2 ∧ p.2 + 8 ≤ 2112 := by decide
 
 theorem prologue_ok (s : State)
     (hw : ∀ d, 2064 ≤ d → d + 8 ≤ 2112 → InRegions s.wr (s.gpr .r9 + BitVec.ofNat 64 d) 8) :

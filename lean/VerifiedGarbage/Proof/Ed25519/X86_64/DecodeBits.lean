@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.RecoverParity
 import VerifiedGarbage.Proof.Ed25519.Bytes
 import VerifiedGarbage.Proof.X25519.X86_64.Setup
 
-/-! Untrusted: load the encoded y-coordinate and its separate sign bit. -/
+/-! Load the encoded y-coordinate and its separate sign bit. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

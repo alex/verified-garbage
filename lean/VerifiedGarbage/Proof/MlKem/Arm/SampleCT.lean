@@ -3,16 +3,15 @@ import VerifiedGarbage.Proof.MlKem.Arm.Sample
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_sample_ntt`, constant time and `Verified`
 
-Untrusted: everything here is checked by Lean. Two runs from states that
-agree on the public data (the pointers, the stack pointer and the seed,
-which the contract lets the function leak) leak the same trace (`RelCT`),
-phase by phase: the blocks by the taint analysis, from registers that hold
-pointers in both runs (`taint_block`); the calls of the sponge functions by
-`absorb_ct`, …, from their arguments, which are the same in both runs; and
-the loop of Algorithm 7 iteration by iteration, whose branches are on the
-same values in both runs because the XOF output is the same, being that of
-the same seed (`body_ct`). What each run is at each point comes from the
-correctness proof (`RelCT.wp`).
+Two runs from states that agree on the public data (the pointers, the stack
+pointer and the seed, which the contract lets the function leak) leak the same
+trace (`RelCT`), phase by phase: the blocks by the taint analysis, from
+registers that hold pointers in both runs (`taint_block`); the calls of the
+sponge functions by `absorb_ct`, …, from their arguments, which are the same
+in both runs; and the loop of Algorithm 7 iteration by iteration, whose
+branches are on the same values in both runs because the XOF output is the
+same, being that of the same seed (`body_ct`). What each run is at each point
+comes from the correctness proof (`RelCT.wp`).
 -/
 
 namespace VG.Proof.MlKem.Arm.Sample

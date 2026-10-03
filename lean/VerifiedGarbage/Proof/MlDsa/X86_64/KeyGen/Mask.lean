@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.KeyGen.Call
 /-!
 # ML-DSA key generation on x86-64: masking a sampled polynomial
 
-Untrusted: everything here is checked by Lean. After each sampler, `mask a`
-ANDs its result (0 or 1, in `eax`) into `r15`, and each coefficient of the
-polynomial at `a` with `-eax`: the polynomial is kept if the sampler
-succeeded, and zeroed if it failed (`mask_ok`), without a branch
-(`mask_tr`).
+After each sampler, `mask a` ANDs its result (0 or 1, in `eax`) into `r15`,
+and each coefficient of the polynomial at `a` with `-eax`: the polynomial is
+kept if the sampler succeeded, and zeroed if it failed (`mask_ok`), without a
+branch (`mask_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen
@@ -19,7 +18,8 @@ open VG.Spec.MlDsa (Params coeffAt)
 
 /-! ## Coefficients in memory -/
 
-theorem coeffAt_writeW32 (m : Mem) (q : Addr) {i j : Nat} (hi : i < 256) (hj : j < 256) (v : BitVec 32) :
+theorem coeffAt_writeW32 (m : Mem) (q : Addr) {N i j : Nat} (hN : N ≤ 2 ^ 20) (hi : i < N) (hj : j < N)
+    (v : BitVec 32) :
     coeffAt (m.writeW (q + BitVec.ofNat 64 (4 * j)) v) q i = if j = i then v else coeffAt m q i := by
   unfold coeffAt
   split
@@ -50,38 +50,39 @@ theorem and_mask {r : BitVec 32} (hr : r = 0 ∨ r = 1) (x : BitVec 32) :
   · rw [ifp rfl, show (BitVec.setWidth 64 (0 - (1 : BitVec 32))).setWidth 32 = BitVec.allOnes 32 by decide]
     exact BitVec.and_allOnes
 
-abbrev maskPre (a : Ptr) : List Instr :=
-  [.alu32 .and .r15 (.reg .rax), .mov32 .r8 (.imm 0), .alu32 .sub .r8 (.reg .rax)] ++ lea .rdi a ++ imm .rcx 256
+abbrev maskPre (a : Ptr) (N : Nat) : List Instr :=
+  [.alu32 .and .r15 (.reg .rax), .mov32 .r8 (.imm 0), .alu32 .sub .r8 (.reg .rax)] ++ lea .rdi a ++ imm .rcx N
 
-theorem maskPre_ok {a : Ptr} (ha : PtrOk a) (h15 : a.1 ≠ .r15) (s : State) :
-    WP isa (.block (maskPre a)) s fun s' =>
+theorem maskPre_ok {a : Ptr} (ha : PtrOk a) (h15 : a.1 ≠ .r15) {N : Nat} (hN : N < 2 ^ 32) (s : State) :
+    WP isa (.block (maskPre a N)) s fun s' =>
       (s'.mem = s.mem ∧ s'.gpr .r15 = BitVec.setWidth 64 ((s.gpr .r15).setWidth 32 &&& (s.gpr .rax).setWidth 32) ∧
         s'.gpr .r8 = BitVec.setWidth 64 (0 - (s.gpr .rax).setWidth 32) ∧ s'.gpr .rdi = pa s a ∧
-        s'.gpr .rcx = BitVec.ofNat 64 256) ∧ Keep [.r15, .r8, .rdi, .rcx] s s' := by
+        s'.gpr .rcx = BitVec.ofNat 64 N) ∧ Keep [.r15, .r8, .rdi, .rcx] s s' := by
   refine WP.keep _ ?_ (by rfl)
   unfold maskPre lea imm
-  xrun [sx_ofNat ha.off, imm_eq (show 256 < 2 ^ 32 by decide), h15, ha.ne (r := .r8) (by decide),
+  xrun [sx_ofNat ha.off, imm_eq hN, h15, ha.ne (r := .r8) (by decide),
     ha.ne (r := .rdi) (by decide), List.cons_append, List.nil_append]
 
-theorem mask_ok {p : Params} {s : State} (L : Lay kgR (kgW p) s) {a : Ptr} (ha : PtrOk a) (ha15 : a.1 ≠ .r15)
-    (w : inB (kgW p) a 1024 = true) (hr : (s.gpr .rax).setWidth 32 = 0 ∨ (s.gpr .rax).setWidth 32 = 1) :
-    WP isa (mask a) s fun s' => PostB s s' [⟨pa s a, 1024⟩] ∧ MX s' = MX s ∧
+theorem maskN_ok {p : Params} {s : State} (L : Lay kgR (kgW p) s) {a : Ptr} (ha : PtrOk a) (ha15 : a.1 ≠ .r15)
+    {N : Nat} (hN0 : 0 < N) (hN : N ≤ 2 ^ 20) (w : inB (kgW p) a (4 * N) = true)
+    (hr : (s.gpr .rax).setWidth 32 = 0 ∨ (s.gpr .rax).setWidth 32 = 1) :
+    WP isa (mask a N) s fun s' => PostB s s' [⟨pa s a, 4 * N⟩] ∧ MX s' = MX s ∧
       s'.gpr .r15 = BitVec.setWidth 64 ((s.gpr .r15).setWidth 32 &&& (s.gpr .rax).setWidth 32) ∧
-      ∀ i < 256, coeffAt s'.mem (pa s a) i =
+      ∀ i < N, coeffAt s'.mem (pa s a) i =
         if (s.gpr .rax).setWidth 32 = 1 then coeffAt s.mem (pa s a) i else 0 := by
-  have hW : InRegions s.wr (pa s a) 1024 := L.cW w _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
-  have hn : (pa s a).toNat + 1024 ≤ 2 ^ 64 := L.nwp (inB_mono w)
-  refine WP.mono (WP.mx (c := mask a) (noLd_spec (by rfl)) (Q := fun s' => PostB s s' [⟨pa s a, 1024⟩] ∧
+  have hW : InRegions s.wr (pa s a) (4 * N) := L.cW w _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
+  have hn : (pa s a).toNat + 4 * N ≤ 2 ^ 64 := L.nwp (inB_mono w)
+  refine WP.mono (WP.mx (c := mask a N) (noLd_spec (by rfl)) (Q := fun s' => PostB s s' [⟨pa s a, 4 * N⟩] ∧
       s'.gpr .r15 = BitVec.setWidth 64 ((s.gpr .r15).setWidth 32 &&& (s.gpr .rax).setWidth 32) ∧
-      ∀ i < 256, coeffAt s'.mem (pa s a) i =
+      ∀ i < N, coeffAt s'.mem (pa s a) i =
         if (s.gpr .rax).setWidth 32 = 1 then coeffAt s.mem (pa s a) i else 0) ?_)
     fun s' ⟨⟨hP, h15, hc⟩, hx⟩ => ⟨hP, hx, h15, hc⟩
   unfold mask
-  refine WP.seq (WP.mono (maskPre_ok ha ha15 s) fun s1 ⟨⟨hm1, h15, h8, hdi, hcx⟩, k1⟩ => ?_)
-  refine WP.mono (wp_countdown (cnt := .rcx) (N := 256) (by decide) (by decide) (fun i s' =>
+  refine WP.seq (WP.mono (maskPre_ok ha ha15 (N := N) (by omega) s) fun s1 ⟨⟨hm1, h15, h8, hdi, hcx⟩, k1⟩ => ?_)
+  refine WP.mono (wp_countdown (cnt := .rcx) (N := N) (by omega) hN0 (fun i s' =>
       s'.gpr .rdi = pa s a + BitVec.ofNat 64 (4 * i) ∧ s'.gpr .r8 = s1.gpr .r8 ∧ s'.gpr .r15 = s1.gpr .r15 ∧
-      s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame [⟨pa s a, 1024⟩] s.mem s'.mem ∧
-      (∀ j < 256, coeffAt s'.mem (pa s a) j =
+      s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame [⟨pa s a, 4 * N⟩] s.mem s'.mem ∧
+      (∀ j < N, coeffAt s'.mem (pa s a) j =
         if j < i then coeffAt s.mem (pa s a) j &&& (s1.gpr .r8).setWidth 32 else coeffAt s.mem (pa s a) j) ∧
       Keep [.r15, .r8, .rdi, .rcx, .rax] s s')
     (fun i hi s' ⟨hdi', h8', h15', hrd', hwr', hf, hc, kk⟩ _ => ?_) (fun _ h => h)
@@ -89,7 +90,7 @@ theorem mask_ok {p : Params} {s : State} (L : Lay kgR (kgW p) s) {a : Ptr} (ha :
       fun j _ => by rw [ifn (Nat.not_lt_zero j), hm1], k1.mono (by decide)⟩ hcx)
     fun s' ⟨_, h8', h15', hrd', hwr', hf, hc, kk⟩ => ⟨⟨hrd', hwr', fun r hr => kk.gpr ?_, kk.gpr (by decide),
       hf.mono fun _ hr => List.mem_append_left _ hr⟩, ?_, ?_⟩
-  · have hc4 : (⟨pa s a, 1024⟩ : Region).Contains (pa s a + BitVec.ofNat 64 (4 * i)) 4 :=
+  · have hc4 : (⟨pa s a, 4 * N⟩ : Region).Contains (pa s a + BitVec.ofNat 64 (4 * i)) 4 :=
       contains_offset' (by omega) (by omega)
     have hin : InRegions s'.wr (s'.gpr .rdi) 4 := by
       rw [hwr', hdi']; exact inRegions_sub hW (by omega) (by omega)
@@ -101,7 +102,7 @@ theorem mask_ok {p : Params} {s : State} (L : Lay kgR (kgW p) s) {a : Ptr} (ha :
         (kk.trans k').mono (by decide)⟩, hcx'', hz⟩
     · rw [hdi'', hdi', show (4 : BitVec 64) = BitVec.ofNat 64 4 from rfl, off_add]; rfl
     · rw [hm, hdi']; exact hf.writeW (List.mem_singleton_self _) _ hc4
-    · rw [hm, hdi', coeffAt_writeW32 _ _ hj (by omega), h8']
+    · rw [hm, hdi', coeffAt_writeW32 _ _ hN hj (by omega), h8']
       by_cases e : i = j
       · subst e
         rw [ifp rfl, ifp (Nat.lt_succ_self _)]
@@ -117,6 +118,14 @@ theorem mask_ok {p : Params} {s : State} (L : Lay kgR (kgW p) s) {a : Ptr} (ha :
   · rw [h15', h15]
   · intro j hj
     rw [hc j hj, ifp hj, h8, and_mask hr]
+theorem mask_ok {p : Params} {s : State} (L : Lay kgR (kgW p) s) {a : Ptr} (ha : PtrOk a) (ha15 : a.1 ≠ .r15)
+    (w : inB (kgW p) a 1024 = true) (hr : (s.gpr .rax).setWidth 32 = 0 ∨ (s.gpr .rax).setWidth 32 = 1) :
+    WP isa (mask a) s fun s' => PostB s s' [⟨pa s a, 1024⟩] ∧ MX s' = MX s ∧
+      s'.gpr .r15 = BitVec.setWidth 64 ((s.gpr .r15).setWidth 32 &&& (s.gpr .rax).setWidth 32) ∧
+      ∀ i < 256, coeffAt s'.mem (pa s a) i =
+        if (s.gpr .rax).setWidth 32 = 1 then coeffAt s.mem (pa s a) i else 0 :=
+  maskN_ok L ha ha15 (N := 256) (by decide) (by decide) w hr
+
 /-! ## Constant time -/
 
 /-- The check is the same for every offset: its hint is computed once, for offset 0. -/
@@ -127,5 +136,14 @@ theorem mask_tr {j : Nat} (hj : j < 128) {P : State → State → Prop} (h : ∀
     RelCT isa P (mask (sc (oP j))) fun _ _ => True :=
   taintRel [.rbx] (fun x y hp r hr => by simp only [List.mem_singleton] at hr; subst hr; exact h x y hp)
     (mask_taint j hj)
+
+/-- The same for the four polynomials from `oP j`. -/
+theorem mask4_taint : ∀ j < 128, (taint.check (X86_64.Taint.ofRegs [.rbx]) (mask (sc (oP j)) 1024)
+    (VG.Taint.hintOf taint (X86_64.Taint.ofRegs [.rbx]) (mask (sc 0) 1024))).isSome = true := by decide +kernel
+
+theorem mask4_tr {j : Nat} (hj : j < 128) {P : State → State → Prop} (h : ∀ x y, P x y → x.gpr .rbx = y.gpr .rbx) :
+    RelCT isa P (mask (sc (oP j)) 1024) fun _ _ => True :=
+  taintRel [.rbx] (fun x y hp r hr => by simp only [List.mem_singleton] at hr; subst hr; exact h x y hp)
+    (mask4_taint j hj)
 
 end VG.Proof.MlDsa.X86_64.KeyGen

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Field
 
-/-! Untrusted: field programs which also use the public loop counter x19. -/
+/-! Field programs which also use the public loop counter x19. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64
 

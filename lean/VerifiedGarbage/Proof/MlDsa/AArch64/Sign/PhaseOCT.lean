@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseDCT
 /-!
 # ML-DSA signing on AArch64: the signature leaks only the hint
 
-Untrusted: everything here is checked by Lean. Writing the signature leaks
-its pointers and the hint (`output_tr`), on which two runs whose loops
-leaked the same agree (`OX`); so all but `Â` leaks what `signLeakT` says
-(`rest_tr`).
+Writing the signature leaks its pointers and the hint (`output_tr`), on which
+two runs whose loops leaked the same agree (`OX`); so all but `Â` leaks what
+`signLeakT` says (`rest_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
@@ -16,6 +15,7 @@ namespace VG.Proof.MlDsa.AArch64.Sign
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -73,7 +73,7 @@ theorem output_tr {P : Prims} (hP : PrimsOk P D) (hc : oChk p = true) {E : State
     fun σ₁ σ₂ x y x' y' p₁ p₂ hpub he _ _ ⟨f, hx, hy⟩ j₁ j₂ g₁ g₂ _ =>
       ⟨⟨σ₁, σ₂, p₁, p₂, hpub, he, j₁, j₂⟩, f, g₁ f hx, g₂ f hy⟩) ?_
   refine RelCT.seq (R := fun x y => RS p D E (IOr p D p.ℓ) x y ∧ HJ p x y) (RelCT.mono (seqR_tr
-    (R := fun r x y => RS p D E (IOr p D r) x y ∧ HJ p x y) p.ℓ 0 fun r _ hr => liftQ
+    (Q := fun r x y => RS p D E (IOr p D r) x y ∧ HJ p x y) p.ℓ 0 fun r _ hr => liftQ
       (F := fun s s' => ∀ f, HFam s 5 p.k f → HFam s' 5 p.k f)
       (fun σ s _ ⟨κ, h, hpass⟩ => WP.mono (packZ_ok hP hc (by omega) h hpass) fun _ h => ⟨⟨κ, h.1, hpass⟩, h.2⟩)
       (RelCT.mono (bpAt_tr hP hbp hzl (cz r (by omega)).1.1) (fun x y ⟨h, _⟩ =>

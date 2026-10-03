@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlKem.Arm.HashTop
 /-!
 # ML-KEM-768 on 32-bit ARM: calling the primitives on buffers
 
-Untrusted: everything here is checked by Lean. For each primitive, a
-contract written with the precondition of its proof and what its
-correctness proof shows (`kNtt`, …, as `kAdd` in `Prims.lean`), and the
-call of it with its arguments at offsets in the buffers of a layout
-(`addL`, …): what it needs (the arguments in the registers, the regions
-apart and permitted), what it changes (`Kept`, with the regions as triples)
-and what it computes.
+For each primitive, a contract written with the precondition of its proof and
+what its correctness proof shows (`kNtt`, …, as `kAdd` in `Prims.lean`), and
+the call of it with its arguments at offsets in the buffers of a layout
+(`addL`, …): what it needs (the arguments in the registers, the regions apart
+and permitted), what it changes (`Kept`, with the regions as triples) and what
+it computes.
 -/
 
 namespace VG.Proof.MlKem.Arm

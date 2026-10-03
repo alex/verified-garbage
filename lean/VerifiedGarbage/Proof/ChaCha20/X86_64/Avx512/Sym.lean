@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx512.Rounds
 /-!
 # ChaCha20 on x86-64 with AVX-512: straight-line code, doubleword by doubleword
 
-Untrusted: everything here is checked by Lean. Outside the rounds, every
-instruction of the code moves, adds or XORs doublewords of `zmm` registers
-and of three regions of memory: the state (at `rdi`), `buf` (at `rcx`) and
-1024 bytes of data (at `rsi`). `Sym.run` computes each doubleword after a
-block of such instructions as a term (`T`) in the doublewords before it, and
-`run_ok` proves the machine agrees; the terms themselves are then compared
-by the kernel.
+Outside the rounds, every instruction of the code moves, adds or XORs
+doublewords of `zmm` registers and of three regions of memory: the state (at
+`rdi`), `buf` (at `rcx`) and 1024 bytes of data (at `rsi`). `Sym.run` computes
+each doubleword after a block of such instructions as a term (`T`) in the
+doublewords before it, and `run_ok` proves the machine agrees; the terms
+themselves are then compared by the kernel.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64.Avx512
@@ -74,11 +73,11 @@ def Sym.setReg (σ : Sym) (d : Nat) (f : Nat → T) : Sym :=
 /-- The two-bit field `i` of `o`. -/
 def sel2 (o i : Nat) : Nat := o / 4 ^ i % 4
 
-/-- Whether doubleword `p` of `op a b` is a term in doublewords of `a` and
-`b` (`zbinT`): not for the quadword operations, which ChaCha20 does not use. -/
+/-- Whether `zbinT` represents doubleword `p` of `op a b` as a term in
+doublewords of `a` and `b`. Only its supported operations are accepted. -/
 def dwordwise : ZBinOp → Bool
-  | .vpaddq | .vpmuludq | .vpandq | .vporq | .vpandnq => false
-  | _ => true
+  | .vpaddd | .vpxord | .vpunpckldq | .vpunpckhdq | .vpunpcklqdq | .vpunpckhqdq => true
+  | _ => false
 
 /-- Doubleword `p` of `op a b`, for an operation that is `dwordwise`. -/
 def zbinT (op : ZBinOp) (A B : Nat → T) (p : Nat) : T :=

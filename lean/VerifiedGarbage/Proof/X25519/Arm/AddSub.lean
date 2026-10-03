@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.X25519.Arm.Field
 /-!
 # X25519 on 32-bit ARM: sums and differences
 
-Untrusted: everything here is checked by Lean. `add o x y` and `sub o x y`
-store at `o` a number congruent to `[x] + [y]` and `[x] - [y]` (as
-`[x] + 4p - [y]`), with limbs below `2¹⁶`; `o` may be `x` or `y`.
+`add o x y` and `sub o x y` store at `o` a number congruent to `[x] + [y]` and
+`[x] - [y]` (as `[x] + 4p - [y]`), with limbs below `2¹⁶`; `o` may be `x` or
+`y`.
 -/
 
 namespace VG.Proof.X25519.Arm
@@ -14,10 +14,10 @@ open VG VG.Arm VG.Impl.X25519.Arm
 open VG.Spec.X25519 (P)
 
 section
-variable {b : BitVec 32}
+variable {e : Nat} {b : BitVec 32}
 
 /-- A word the pass has not written yet (the pass writes `[o, o + 4k)`). -/
-theorem wd_pass {s0 s : State} (hc : Ctx b s0) {o k d : Nat}
+theorem wd_pass {s0 s : State} (hc : CtxN e b s0) {o k d : Nat}
     (hf : Frame [⟨State.addr (s0.gpr .r0) + BitVec.ofNat 64 o, 4 * k⟩] s0.mem s.mem)
     (hd : d + 4 ≤ o ∨ o + 4 * k ≤ d) (hd' : d + 4 ≤ 4096) (ho : o + 4 * k ≤ 4096) :
     wd s.mem (State.addr b) d = wd s0.mem (State.addr b) d := by
@@ -33,7 +33,7 @@ theorem subK : ∀ k < 16, encodable (subHi k) = true ∧ encodable (subLo k) = 
 carry in `r5`. -/
 theorem passTail'_ok {o : Nat} (ho : o + 64 ≤ 4096) {src : Nat → List Instr} {c : Nat → Nat}
     (hc : ∀ k < 16, c k + 65536 ≤ 2 ^ 32) (hv : val16 c 16 < 39 * 2 ^ 256) {s1 : State}
-    (hc1 : Ctx b s1) (h6 : s1.gpr .r6 = mask16) (h8 : s1.gpr .r8 = 38) (h5 : s1.gpr .r5 = 0)
+    (hc1 : CtxN e b s1) (h6 : s1.gpr .r6 = mask16) (h8 : s1.gpr .r8 = 38) (h5 : s1.gpr .r5 = 0)
     (hsrc : ∀ k < 16, ∀ s', PassInv .r0 o s1 c 0 k s' → WP isa (.block (src k)) s' fun s'' =>
         (s''.gpr .r3).toNat = c k ∧ Rest [.r2, .r3, .r4] s' s'' ∧ s''.mem = s'.mem) :
     WP isa (.block (pass .r0 o src ++ tail o)) s1 fun s' =>
@@ -42,7 +42,7 @@ theorem passTail'_ok {o : Nat} (ho : o + 64 ≤ 4096) {src : Nat → List Instr}
   refine WP.append (pass_ok (s0 := s1) (c := c) (cin := 0) (by decide) ho
     (by rw [hc1.r0]; have := hc1.fit; omega) (fun k hk => by rw [hc1.r0]; exact hc1.inW (by omega))
     h6 (by rw [h5]; rfl) hc (by decide) hsrc) fun s2 hp => ?_
-  have hc2 : Ctx b s2 := hc1.of_rest hp.rest (by decide)
+  have hc2 : CtxN e b s2 := hc1.of_rest hp.rest (by decide)
   have hpo : ∀ j < 16, wd s2.mem (State.addr b) (o + 4 * j) = out c 0 j := fun j hj => by
     have := hp.outs j hj; rwa [hc1.r0] at this
   have hpf : Frame [⟨State.addr b + BitVec.ofNat 64 o, 64⟩] s1.mem s2.mem := by
@@ -58,8 +58,8 @@ theorem passTail'_ok {o : Nat} (ho : o + 64 ≤ 4096) {src : Nat → List Instr}
 /-- The operations built from a `pass` of sums and the `tail`. -/
 theorem passTail_ok {o : Nat} (ho : o + 64 ≤ 4096) {src : Nat → List Instr} {c : Nat → Nat}
     (hc : ∀ k < 16, c k + 65536 ≤ 2 ^ 32) (hv : val16 c 16 < 39 * 2 ^ 256) {s : State}
-    (hctx : Ctx b s)
-    (hsrc : ∀ s1 : State, Ctx b s1 → Rest clob s s1 → s1.mem = s.mem → ∀ k < 16, ∀ s',
+    (hctx : CtxN e b s)
+    (hsrc : ∀ s1 : State, CtxN e b s1 → Rest clob s s1 → s1.mem = s.mem → ∀ k < 16, ∀ s',
       PassInv .r0 o s1 c 0 k s' → WP isa (.block (src k)) s' fun s'' =>
         (s''.gpr .r3).toNat = c k ∧ Rest [.r2, .r3, .r4] s' s'' ∧ s''.mem = s'.mem) :
     WP isa (.block (prologue ++ pass .r0 o src ++ tail o)) s fun s' =>
@@ -67,14 +67,14 @@ theorem passTail_ok {o : Nat} (ho : o + 64 ≤ 4096) {src : Nat → List Instr} 
       Lim s'.mem (State.addr b) o ∧ V s'.mem (State.addr b) o % P = val16 c 16 % P := by
   rw [List.append_assoc]
   refine WP.append prologue_ok fun s1 ⟨h6, h8, h5, hr1, hm1⟩ => ?_
-  have hc1 : Ctx b s1 := hctx.of_rest hr1 (by decide)
+  have hc1 : CtxN e b s1 := hctx.of_rest hr1 (by decide)
   refine WP.mono (passTail'_ok ho hc hv hc1 h6 h8 h5 (hsrc s1 hc1 (hr1.mono (by decide)) hm1))
     fun s3 ⟨hr3, hf3, hl3, hv3⟩ => ⟨(hr1.mono (by decide)).trans (hr3.mono (by decide)),
       by rw [← hm1]; exact hf3, hl3, hv3⟩
 
 theorem add_ok {o x y : Nat} (ho : o + 64 ≤ 4096) (hx : x + 64 ≤ 4096) (hy : y + 64 ≤ 4096)
     (hox : o = x ∨ o + 64 ≤ x ∨ x + 64 ≤ o) (hoy : o = y ∨ o + 64 ≤ y ∨ y + 64 ≤ o)
-    {s : State} (hc : Ctx b s) (hlx : Lim s.mem (State.addr b) x) (hly : Lim s.mem (State.addr b) y) :
+    {s : State} (hc : CtxN e b s) (hlx : Lim s.mem (State.addr b) x) (hly : Lim s.mem (State.addr b) y) :
     WP isa (.block (add o x y)) s fun s' =>
       Rest clob s s' ∧ Frame [⟨State.addr b + BitVec.ofNat 64 o, 64⟩] s.mem s'.mem ∧
       Lim s'.mem (State.addr b) o ∧
@@ -86,9 +86,9 @@ theorem add_ok {o x y : Nat} (ho : o + 64 ≤ 4096) (hx : x + 64 ≤ 4096) (hy :
     (by rw [val16_add]; exact Nat.lt_of_lt_of_le (Nat.add_lt_add hvx hvy) (by omega)) hc ?_)
     fun s' ⟨h1, h2, h3, h4⟩ => ⟨h1, h2, h3, by rw [h4, val16_add]; rfl⟩
   intro s1 hc1 _ hm1 k hk s' hp
-  have hc' : Ctx b s' := hc1.of_rest hp.rest (by decide)
+  have hc' : CtxN e b s' := hc1.of_rest hp.rest (by decide)
   refine ldr0_ok hc' (d := x + 4 * k) (by omega) fun t1 v1 => ?_
-  have hc1' : Ctx b t1 := hc'.of_rest (v1.rest (ws := [.r3]) (by decide)) (by decide)
+  have hc1' : CtxN e b t1 := hc'.of_rest (v1.rest (ws := [.r3]) (by decide)) (by decide)
   refine ldr0_ok hc1' (d := y + 4 * k) (by omega) fun t2 v2 => ?_
   refine wp_dp (op2_reg _ _) fun t3 v3 => WP.block_nil ⟨?_, ?_, by rw [v3.mem, v2.mem, v1.mem]⟩
   · have ex : wd s'.mem (State.addr b) (x + 4 * k) = limb s.mem (State.addr b) x k := by
@@ -105,7 +105,7 @@ theorem add_ok {o x y : Nat} (ho : o + 64 ≤ 4096) (hx : x + 64 ≤ 4096) (hy :
 
 theorem sub_ok {o x y : Nat} (ho : o + 64 ≤ 4096) (hx : x + 64 ≤ 4096) (hy : y + 64 ≤ 4096)
     (hox : o = x ∨ o + 64 ≤ x ∨ x + 64 ≤ o) (hoy : o = y ∨ o + 64 ≤ y ∨ y + 64 ≤ o)
-    {s : State} (hc : Ctx b s) (hlx : Lim s.mem (State.addr b) x) (hly : Lim s.mem (State.addr b) y) :
+    {s : State} (hc : CtxN e b s) (hlx : Lim s.mem (State.addr b) x) (hly : Lim s.mem (State.addr b) y) :
     WP isa (.block (sub o x y)) s fun s' =>
       Rest clob s s' ∧ Frame [⟨State.addr b + BitVec.ofNat 64 o, 64⟩] s.mem s'.mem ∧
       Lim s'.mem (State.addr b) o ∧
@@ -119,7 +119,7 @@ theorem sub_ok {o x y : Nat} (ho : o + 64 ≤ 4096) (hx : x + 64 ≤ 4096) (hy :
     ho hcb (by omega) hc ?_) fun s' ⟨h1, h2, h3, h4⟩ => ⟨h1, h2, h3, by
       rw [Nat.add_mod, h4, ← Nat.add_mod, hcv, Nat.mul_comm, Nat.add_mul_mod_self_left]⟩
   intro s1 hc1 _ hm1 k hk s' hp
-  have hc' : Ctx b s' := hc1.of_rest hp.rest (by decide)
+  have hc' : CtxN e b s' := hc1.of_rest hp.rest (by decide)
   obtain ⟨e1, e2, e3, e4, e5⟩ := subK k hk
   have ex : wd s'.mem (State.addr b) (x + 4 * k) = limb s.mem (State.addr b) x k := by
     rw [wd_pass hc1 hp.frame (by omega) (by omega) (by omega), hm1]; rfl
@@ -128,7 +128,7 @@ theorem sub_ok {o x y : Nat} (ho : o + 64 ≤ 4096) (hx : x + 64 ≤ 4096) (hy :
   have hK := fourP_ge k hk
   refine ldr0_ok hc' (d := x + 4 * k) (by omega) fun t1 v1 => ?_
   refine wp_dp (op2_imm e1) fun t2 v2 => wp_dp (op2_imm e2) fun t3 v3 => ?_
-  have hc3 : Ctx b t3 :=
+  have hc3 : CtxN e b t3 :=
     hc'.of_rest ((v1.rest (ws := [.r3]) (by decide)).trans ((v2.rest (by decide)).trans
       (v3.rest (by decide)))) (by decide)
   refine ldr0_ok hc3 (d := y + 4 * k) (by omega) fun t4 v4 => ?_

@@ -21,8 +21,6 @@ section
 
 /-!
 # ChaCha20 block function on AArch64: the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20.AArch64
@@ -135,18 +133,15 @@ end
 
 /-!
 # ChaCha20 block function on AArch64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20
 
 open Spec.ChaCha20 VG.AArch64
 
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`:
-writes `block` of the state at `state` to the first 16 words of `buf`.
+/-- AArch64 contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut
+[u32; 64])`: writes `block` of the state at `state` to the first 16 words of
+`buf`.
 
 The same function and Rust signature on every target: the code may
 read `state` (64 bytes) and read and write `buf` (256 bytes; its first 64
@@ -432,18 +427,20 @@ theorem block_correct (s : State) (hs : Proof.ChaCha20.blockAArch64.pre s) :
   obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
   exact ⟨t, s', he, ⟨h₁, Exec.sp he, Exec.preservedV he⟩, h₂⟩
 
-theorem block_verified :
-    Verified AArch64.target Impl.ChaCha20.AArch64.block (Spec.ChaCha20.blockContract AArch64.abi) :=
-      by
-  refine Verified.of_correct block_correct ?_ (by
-    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, AArch64.abi, AArch64.argRegs,
-      Proof.ChaCha20.blockAArch64]
-      [satState] using satState)
+theorem block_ct : ConstantTime isa Proof.ChaCha20.blockAArch64.pre Proof.ChaCha20.blockAArch64.pub
+    Impl.ChaCha20.AArch64.block := by
   refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1]) ?_ (by taint_decide)
   intro s₁ s₂ _ _ ⟨h1, h2, hsp⟩
   refine ⟨hsp, fun r hr => ?_⟩
   simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl <;> assumption
+
+theorem block_verified :
+    Verified AArch64.target Impl.ChaCha20.AArch64.block (Spec.ChaCha20.blockContract AArch64.abi) :=
+  Verified.of_correct block_correct block_ct (by
+    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, AArch64.abi, AArch64.argRegs,
+      Proof.ChaCha20.blockAArch64]
+      [satState] using satState)
 
 end VG.Proof.ChaCha20.AArch64
 

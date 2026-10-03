@@ -3,16 +3,16 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseL
 /-!
 # ML-DSA signing on AArch64: the signature
 
-Untrusted: everything here is checked by Lean. Once an iteration passed:
-`c̃`, then `BitPack(z[r], γ₁ - 1, γ₁)` for each `r` (in range, as `z`
-passed its norm check: `inRange_of_norm`), then `HintBitPack(h)` (with at
-most `ω` 1s) to `sig`, which then holds `sigEncode(c̃, z mod± q, h)`
-(`output_ok`).
+Once an iteration passed: `c̃`, then `BitPack(z[r], γ₁ - 1, γ₁)` for each `r`
+(in range, as `z` passed its norm check: `inRange_of_norm`), then
+`HintBitPack(h)` (with at most `ω` 1s) to `sig`, which then holds
+`sigEncode(c̃, z mod± q, h)` (`output_ok`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -66,8 +66,8 @@ theorem pS_hint (s : State) (i : Nat) :
   show s.gpr .x28 + BitVec.ofNat 64 (oP (5 + i)) = s.gpr .x28 + BitVec.ofNat 64 (oP (5 + 0)) + BitVec.ofNat 64 (1024 * i)
   rw [BitVec.add_assoc, ← BitVec.ofNat_add, show oP (5 + 0) + 1024 * i = oP (5 + i) by simp only [oP]; omega]
 
-theorem r14_bases (o : Nat) : ((.x23, o) : Ptr).1 ∈ bases := by
-  show Reg.x23 ∈ bases; decide
+theorem r14_bases (o : Nat) : ((.x23, o) : Ptr).1 ∈ keptRegs := by
+  show Reg.x23 ∈ keptRegs; decide
 
 /-- The encodings of the first `r` polynomials of `z`. -/
 abbrev zEnc (p : Params) (σ : State) (κ r : Nat) : List Byte :=
@@ -82,11 +82,11 @@ structure OS (p : Params) (D : Nat) (σ : State) (κ r : Nat) (s : State) : Prop
   x24 : s.gpr .x24 = 1
 
 def ofam (p : Params) (ws : List (Ptr × Nat)) : Bool :=
-  ikChk p ws && famChk (sgB p) ws (yBase p) p.ℓ && famChk (sgB p) ws 5 p.k
+  ikChk p ws && famChk (sgR p) (sgW p) ws (yBase p) p.ℓ && famChk (sgR p) (sgW p) ws 5 p.k
 
 theorem OS.step {p : Params} {D : Nat} {σ s s' : State} {κ r : Nat} (h : OS p D σ κ r s)
     {ws : List (Ptr × Nat)} (hP : PPostB D s s' ws) (hc : ofam p ws = true)
-    (hs : keepB (sgB p) ws (.x23, 0) (cLen p + zLen p * r) = true) (h15 : s'.gpr .x24 = s.gpr .x24) :
+    (hs : keepB (sgR p) (sgW p) ws (.x23, 0) (cLen p + zLen p * r) = true) (h15 : s'.gpr .x24 = s.gpr .x24) :
     OS p D σ κ r s' := by
   simp only [ofam, Bool.and_eq_true] at hc
   have L := h.k.d.im.st.lay
@@ -95,14 +95,14 @@ theorem OS.step {p : Params} {D : Nat} {σ s s' : State} {κ r : Nat} (h : OS p 
 
 /-- What the signature needs of the layout. -/
 def oChk (p : Params) : Bool :=
-  copyChk (sgB p) (sgW p) (.x23, 0) (sc oCT) (cLen p) && ofam p [((.x23, 0), cLen p)] &&
+  copyChk (sgR p) (sgW p) (.x23, 0) (sc oCT) (cLen p) && ofam p [((.x23, 0), cLen p)] &&
     (List.range p.ℓ).all (fun r => rwChk (sgR p) (sgW p) (yP p r) 1024 (.x23, sigZ p r) (zLen p) &&
-      ofam p [((.x23, sigZ p r), zLen p)] && keepB (sgB p) [((.x23, sigZ p r), zLen p)] (.x23, 0) (cLen p + zLen p * r)) &&
+      ofam p [((.x23, sigZ p r), zLen p)] && keepB (sgR p) (sgW p) [((.x23, sigZ p r), zLen p)] (.x23, 0) (cLen p + zLen p * r)) &&
     rwChk (sgR p) (sgW p) (hP 0) (256 * p.k * 4) (.x23, sigH p) (p.ω + p.k) &&
     decide ((p.ω, p.k) ∈ hintParams) && decide ((p.γ₁ - 1, p.γ₁) ∈ bitPackParams) &&
     decide (zLen p = 32 * bitlen (p.γ₁ - 1 + p.γ₁)) && decide (p.sigLen = cLen p + zLen p * p.ℓ + (p.ω + p.k)) &&
     ikChk p [((.x23, sigH p), p.ω + p.k)] &&
-    keepB (sgB p) [((.x23, sigH p), p.ω + p.k)] (.x23, 0) (cLen p + zLen p * p.ℓ)
+    keepB (sgR p) (sgW p) [((.x23, sigH p), p.ω + p.k)] (.x23, 0) (cLen p + zLen p * p.ℓ)
 
 theorem oChk_ok {p : Params} (h : Ok3 p) : oChk p = true := by
   rcases h with rfl | rfl | rfl <;> decide

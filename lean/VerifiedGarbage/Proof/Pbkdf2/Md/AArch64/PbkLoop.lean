@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MdStream.AArch64.Words
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: `pbkdf2`'s loop
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Md/X86_64/PbkLoop.lean`): after `k` blocks of the output
-(`Inv`), `out` holds the first `min (k D) out_len` bytes of `T₁ ‖ … ‖ T_k`;
-a step computes `T_{k+1}` (`U₁` by `update` with `INT (k + 1)` and HMAC's
-`finalize`, then `iterate`) and copies as much of it as the output still
-needs.
+As on x86-64 (`Proof/Pbkdf2/Md/X86_64/PbkLoop.lean`): after `k` blocks of the
+output (`Inv`), `out` holds the first `min (k D) out_len` bytes of `T₁ ‖ … ‖
+T_k`; a step computes `T_{k+1}` (`U₁` by `update` with `INT (k + 1)` and
+HMAC's `finalize`, then `iterate`) and copies as much of it as the output
+still needs.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64.Pbk
@@ -21,9 +20,9 @@ open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_addImm wp_subImm wp_movz wp_l
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
 open VG.Proof.Pbkdf2.Md.AArch64 (HashOK pbkG)
 open VG.Proof.Pbkdf2.AArch64 (copy32_ok iterK)
-open VG.Proof.Hmac.Generic.AArch64 (initG finG After UpdArgs restore_ok savedRegs CopyInv clob nm count_loop
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (initG finG After UpdArgs restore_ok savedRegs CopyInv clob nm count_loop
   movz_ofNat ofNat_ne_zero)
-open VG.Proof.Hmac.Generic.AArch64.Init (untouched)
+open VG.Proof.Pbkdf2.Md.AArch64.Calls (untouched)
 open VG.Proof.Hmac.Generic.Common (bytes_keep bytesAt_take bytesAt_snoc' writeBytes_snoc not_mem_of_disjoint
   bytesAt_writeBytes_self')
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_add xorPad_length)
@@ -409,7 +408,7 @@ theorem callA_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) {s : State} (h :
   have hl := layout (H := H); have he := end_le hz; have hWb := hH.wb_le
   have hSS : H.stream.S = H.P.N + H.P.B := rfl
   have hk' : k * H.D ≤ ol s₀ := Nat.le_of_lt ((lt_nb hz.z.D0).1 hk)
-  refine VG.Proof.Hmac.Generic.AArch64.upd_call hH.stream h.args fun s₁ a₁ r₁ => ⟨?_, ?_⟩
+  refine VG.Proof.Pbkdf2.Md.AArch64.Calls.upd_call hH.stream h.args fun s₁ a₁ r₁ => ⟨?_, ?_⟩
   · exact h.mid.call hp hz hH hk' a₁ fun r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl

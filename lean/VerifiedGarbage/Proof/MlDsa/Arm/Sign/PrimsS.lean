@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.Prims
 /-!
 # ML-DSA signing on ARMv7: calls of the samplers
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_rej_ntt_poly`, `vg_mldsa_expand_mask_poly` and
-`vg_mldsa_sample_in_ball` (whose fifth argument is on the stack). The
-results of `RejNTTPoly` and `SampleInBall` are public in two runs whose
-seeds agree (`rejCall_tr`, `ballCall_tr`), and they succeed only if the
-algorithm finishes within `maxBounds` (`rejCall_ok`, `ballCall_ok`).
+As `Prims.lean`, for `vg_mldsa_rej_ntt_poly`, `vg_mldsa_expand_mask_poly` and
+`vg_mldsa_sample_in_ball` (whose fifth argument is on the stack). The results
+of `RejNTTPoly` and `SampleInBall` are public in two runs whose seeds agree
+(`rejCall_tr`, `ballCall_tr`), and they succeed only if the algorithm finishes
+within `maxBounds` (`rejCall_ok`, `ballCall_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign
@@ -67,7 +66,7 @@ theorem rejCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs
     (fun s1 hA k => rejPre (ent_R L k (by have := hP.rejNTT.hS; omega) _ _) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn3 hA).1) (by rw [vR _ _ _ nl1]; exact (argsIn3 hA).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn3 hA).2.2) rfl rfl)
-    (covers_append (L.cR i1) (covers_wr (covers_cons (L.cW w1) (L.cW w2)))) (covers_cons (L.cW w1) (L.cW w2)))
+    (Covers.append_left (L.cR i1) (Covers.right (Covers.cons (L.cW w1) (L.cW w2)))) (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, k, hq, hx⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e1, e2, e3⟩ := argsIn3 hA
   sig_post [rejNTTContract, rejNTTSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hq
@@ -91,10 +90,10 @@ theorem rejCall_tr {P : Prims} (hP : PrimsOk P D) {a : Ptr} (hc : rejChk (rbs ++
       rejPre (ent_R R.ly ky hS [⟨pa y (sc oRS), 34⟩] [pR (pa y a), ⟨pa y (sc oPS), 2048⟩]) hc
       (by rw [vR _ _ _ nl0]; exact (argsIn3 hAy).1) (by rw [vR _ _ _ nl1]; exact (argsIn3 hAy).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn3 hAy).2.2) rfl rfl, ?_,
-      by rw [kx.rd, kx.wr]; exact covers_append (R.lx.cR i1) (covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2))),
-      by rw [kx.wr]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
-      by rw [ky.rd, ky.wr]; exact covers_append (R.ly.cR i1) (covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2))),
-      by rw [ky.wr]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2)⟩
+      by rw [kx.rd, kx.wr]; exact Covers.append_left (R.lx.cR i1) (Covers.right (Covers.cons (R.lx.cW w1) (R.lx.cW w2))),
+      by rw [kx.wr]; exact Covers.cons (R.lx.cW w1) (R.lx.cW w2),
+      by rw [ky.rd, ky.wr]; exact Covers.append_left (R.ly.cR i1) (Covers.right (Covers.cons (R.ly.cW w1) (R.ly.cW w2))),
+      by rw [ky.wr]; exact Covers.cons (R.ly.cW w1) (R.ly.cW w2)⟩
   obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx
   obtain ⟨hy1, hy2, hy3⟩ := argsIn3 hAy
   sig_pub [rejNTTContract, rejNTTSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val]
@@ -149,7 +148,7 @@ theorem maskAt_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs 
     (fun s1 hA k => maskPre (ent_R L k (by have := hP.expandMask.hS; omega) _ _) hγ hc
       (by rw [vR _ _ _ nl0]; exact (argsIn4 hA).1) (by rw [vR _ _ _ nl1]; exact (argsIn4 hA).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn4 hA).2.2.1) (by rw [vR _ _ _ nl3]; exact (argsIn4 hA).2.2.2) rfl rfl)
-    (covers_append (L.cR i1) (covers_wr (covers_cons (L.cW w1) (L.cW w2)))) (covers_cons (L.cW w1) (L.cW w2)))
+    (Covers.append_left (L.cR i1) (Covers.right (Covers.cons (L.cW w1) (L.cW w2)))) (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, k, hq⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e1, e2, e3, _⟩ := argsIn4 hA
   sig_post [expandMaskContract, expandMaskSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hq
@@ -169,10 +168,10 @@ theorem maskAt_tr {P : Prims} (hP : PrimsOk P D) {γ : Nat} {a : Ptr} (hγ : γ 
       maskPre (ent_R R.ly ky hS [⟨pa y (sc oMS), 66⟩] [pR (pa y a), ⟨pa y (sc oPS), 2048⟩]) hγ hc
       (by rw [vR _ _ _ nl0]; exact (argsIn4 hAy).1) (by rw [vR _ _ _ nl1]; exact (argsIn4 hAy).2.1)
       (by rw [vR _ _ _ nl2]; exact (argsIn4 hAy).2.2.1) (by rw [vR _ _ _ nl3]; exact (argsIn4 hAy).2.2.2) rfl rfl, ?_,
-      by rw [kx.rd, kx.wr]; exact covers_append (R.lx.cR i1) (covers_wr (covers_cons (R.lx.cW w1) (R.lx.cW w2))),
-      by rw [kx.wr]; exact covers_cons (R.lx.cW w1) (R.lx.cW w2),
-      by rw [ky.rd, ky.wr]; exact covers_append (R.ly.cR i1) (covers_wr (covers_cons (R.ly.cW w1) (R.ly.cW w2))),
-      by rw [ky.wr]; exact covers_cons (R.ly.cW w1) (R.ly.cW w2)⟩
+      by rw [kx.rd, kx.wr]; exact Covers.append_left (R.lx.cR i1) (Covers.right (Covers.cons (R.lx.cW w1) (R.lx.cW w2))),
+      by rw [kx.wr]; exact Covers.cons (R.lx.cW w1) (R.lx.cW w2),
+      by rw [ky.rd, ky.wr]; exact Covers.append_left (R.ly.cR i1) (Covers.right (Covers.cons (R.ly.cW w1) (R.ly.cW w2))),
+      by rw [ky.wr]; exact Covers.cons (R.ly.cW w1) (R.ly.cW w2)⟩
   obtain ⟨hx1, hx2, hx3, hx4⟩ := argsIn4 hAx
   obtain ⟨hy1, hy2, hy3, hy4⟩ := argsIn4 hAy
   sig_pub [expandMaskContract, expandMaskSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val]
@@ -254,7 +253,7 @@ theorem ballCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wb
   obtain ⟨l0, l1, l2⟩ := ballParams_lt hp
   refine WP.mono (callS_ok (hv_with hP.ball.ver.1 hP.ballMax) (by have := hP.ball.su; have := hP.ball.hS; omega)
     (ballArgs_ok b1) L.sp (rd := ballRd s len) (wr := ballWr s c)
-    (fun s1 hA k => ballPre' hP L k hp hc hA) (L.cR i1) (covers_cons (L.cW w1) (L.cW w2)))
+    (fun s1 hA k => ballPre' hP L k hp hc hA) (L.cR i1) (Covers.cons (L.cW w1) (L.cW w2)))
     fun s' ⟨hpost, hcs, s1, hA, k, s₂, hm₂, hg₂, hq, hx⟩ => ⟨hpost, hcs, ?_⟩
   obtain ⟨e0, e1, e2, e3, _⟩ := argsIn5 hA
   have En := ent_S (S := hP.ball.S) L k hP.ball.hS (ballRd s len ++ [argR s]) (ballWr s c)
@@ -306,10 +305,10 @@ theorem ballCall_tr {P : Prims} (hP : PrimsOk P D) {len tau : Nat} {c : Ptr} (hp
       hx0, hx1, hx2, hx3, hy0, hy1, hy2, hy3, vx, vy, hx4, hy4, Arg.val, toNat32 l1]
     rw [R.lx.w (p := sc oCT) i1 (by omega), R.ly.w (p := sc oCT) i1 (by omega), bx, bY, hb]
     simp only [R.eq i1, R.eq i2, R.sp, and_self]
-  · exact (cov_S R.lx kx (by omega) (R.lx.cR i1) (covers_cons (R.lx.cW w1) (R.lx.cW w2))).1
-  · exact (cov_S R.lx kx (by omega) (R.lx.cR i1) (covers_cons (R.lx.cW w1) (R.lx.cW w2))).2
-  · exact (cov_S R.ly ky (by omega) (R.ly.cR i1) (covers_cons (R.ly.cW w1) (R.ly.cW w2))).1
-  · exact (cov_S R.ly ky (by omega) (R.ly.cR i1) (covers_cons (R.ly.cW w1) (R.ly.cW w2))).2
+  · exact (cov_S R.lx kx (by omega) (R.lx.cR i1) (Covers.cons (R.lx.cW w1) (R.lx.cW w2))).1
+  · exact (cov_S R.lx kx (by omega) (R.lx.cR i1) (Covers.cons (R.lx.cW w1) (R.lx.cW w2))).2
+  · exact (cov_S R.ly ky (by omega) (R.ly.cR i1) (Covers.cons (R.ly.cW w1) (R.ly.cW w2))).1
+  · exact (cov_S R.ly ky (by omega) (R.ly.cR i1) (Covers.cons (R.ly.cW w1) (R.ly.cW w2))).2
 
 end
 

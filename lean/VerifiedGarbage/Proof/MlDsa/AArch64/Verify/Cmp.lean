@@ -4,16 +4,16 @@ import VerifiedGarbage.Proof.MlKem.AArch64.DecapsCmp
 /-!
 # ML-DSA verification on AArch64: the comparison of `c̃′` with `c̃`
 
-Untrusted: everything here is checked by Lean. `cmpAnd a b n` ORs the XORs
-of the `n` bytes at `a` and `b` into `x10`, then ANDs `(x10 - 1) >> 63`, 1
-exactly when they are equal, into `x24` (`cmpAnd_ok`), without a branch on
-the bytes: its addresses and branches depend only on the pointers
-(`cmpAnd_taint`).
+`cmpAnd a b n` ORs the XORs of the `n` bytes at `a` and `b` into `x10`, then
+ANDs `(x10 - 1) >> 63`, 1 exactly when they are equal, into `x24`
+(`cmpAnd_ok`), without a branch on the bytes: its addresses and branches
+depend only on the pointers (`cmp_taint`, in `Final.lean`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Verify
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Proof.MlKem.AArch64 (Keep Only wp_ldrb wp_eor wp_orr wp_addImm wp_subImm wp_lsr wp_movz wp_nil count_loop
   ptr_add ptr_zero)
@@ -95,7 +95,7 @@ theorem cmpAnd_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S
         (if bytesAt s.mem (pa s a) n = bytesAt s.mem (pa s b) n then (1 : BitVec 64) else 0).setWidth 32).setWidth 64 := by
   have hA := L.inR ha
   have hB := L.inR hb
-  have hok : ∀ x ∈ [(Reg.x0, Arg.ptr a), (.x1, .ptr b), (.x2, .imm n)], x.2.Ok ∧ x.1 ∈ KeyGen.argRegs := by
+  have hok : ∀ x ∈ [(Reg.x0, Arg.ptr a), (.x1, .ptr b), (.x2, .imm n)], x.2.Ok ∧ x.1 ∈ argRegs := by
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro x (rfl | rfl | rfl)
     exacts [⟨ptr_ok (L.ptrBs ha), .inl rfl⟩, ⟨ptr_ok (L.ptrBs hb), .inr (.inl rfl)⟩, ⟨trivial, .inr (.inr (.inl rfl))⟩]

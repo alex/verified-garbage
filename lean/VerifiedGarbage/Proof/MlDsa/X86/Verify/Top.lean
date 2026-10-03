@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.NoSp
 /-!
 # ML-DSA verification on x86 (32-bit): the body
 
-Untrusted: everything here is checked by Lean. The body, piece by piece
-(`body_piece`), for any parameter set of Table 1 and any verified
-implementations of the primitives: `HintBitUnpack`, a branch on its result
-(which depends only on the signature), `z` and its norms, a branch on them
-(which depend only on the signature), the samplers and the rest; it returns
-the result, as the contract says (`VFin`).
+The body, piece by piece (`body_piece`), for any parameter set of Table 1 and
+any verified implementations of the primitives: `HintBitUnpack`, a branch on
+its result (which depends only on the signature), `z` and its norms, a branch
+on them (which depend only on the signature), the samplers and the rest; it
+returns the result, as the contract says (`VFin`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify
@@ -102,7 +101,7 @@ end
 /-! ## The stack -/
 
 theorem NoSp.ite {cnd : Cond} {a b : Prog isa} (ha : NoSp a) (hb : NoSp b) : NoSp (.ite cnd a b) := fun i hi => by
-  simp only [X86.instrs, List.mem_append] at hi
+  simp only [VG.instrs, List.mem_append] at hi
   rcases hi with h | h
   exacts [ha i h, hb i h]
 

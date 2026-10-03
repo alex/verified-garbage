@@ -4,16 +4,15 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Table
 /-!
 # The specification's S-box, on all 256 inputs at once
 
-Untrusted: everything here is checked by Lean.
-
 Evaluating `Spec.Aes.sbox` in the kernel takes about 0.1 s per input. Here
 the specification's own computation (the inverse as `b²⁵⁴` by square and
 multiply with `mul`, then the affine transformation) is transcribed on
 *truth tables*: a byte is eight natural numbers, the `j`-th holding bit `j`
 of the byte on each of 256 inputs, so that one evaluation computes the
 S-box of every byte. `row_sboxT` proves the transcription right, input by
-input; the kernel then evaluates it on the 256 bytes at once
-(`Proof/Aes/Sbox.lean`) in a fraction of a second.
+input; the kernel then evaluates it on the 256 bytes at once (in each
+target's proof of its S-box, e.g. `Proof/Aes/X86/Sbox.lean`) in a fraction
+of a second.
 -/
 
 namespace VG.Proof.Aes

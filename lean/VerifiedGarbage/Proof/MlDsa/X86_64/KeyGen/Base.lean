@@ -5,12 +5,12 @@ import VerifiedGarbage.Spec.MlDsa.Contract
 /-!
 # ML-DSA key generation on x86-64: the primitives, and calling them
 
-Untrusted: everything here is checked by Lean. Key generation is proven for
-any implementations of the primitives it calls (`Prims`) that are verified
-against their contracts, with at most 16 bytes of stack, and that change the
-stack pointer only by calls nested at most twice (`Callee`, `PrimsOk`): as
-ML-KEM's top-level functions on x86-64 (`Proof/MlKem/X86_64/`), whose
-framework (layouts of buffers, calls, the sponge) the proofs use.
+Key generation is proven for any implementations of the primitives it calls
+(`Prims`) that are verified against their contracts, with at most 16 bytes of
+stack, and that change the stack pointer only by calls nested at most twice
+(`Callee`, `PrimsOk`): as ML-KEM's top-level functions on x86-64
+(`Proof/MlKem/X86_64/`), whose framework (layouts of buffers, calls, the
+sponge) the proofs use.
 
 A primitive may load MXCSR (as the MXCSR prologue of Intel's MCDT does), so
 MXCSR's control bits (`MX`) are carried from its `abiPreserved`
@@ -32,6 +32,13 @@ structure Callee (c : Prog isa) (k : Nat → Contract isa) : Prop where
   nosp : NoSp c
   depth : c.depth ≤ 2
 
+/-- `vg_mldsa_rej_ntt_poly4`: verified with 24 bytes of stack, never writing `rsp` but by calls nested at
+most three deep. -/
+structure Callee4 (c : Prog isa) : Prop where
+  verified : Verified X86_64.target c (Spec.MlDsa.rejNTT4Contract X86_64.abi 24)
+  nosp : NoSp c
+  depth : c.depth ≤ 3
+
 /-- Verified implementations of the primitives key generation calls. -/
 structure PrimsOk (P : Prims) : Prop where
   ntt : Callee P.ntt (fun stk => Spec.MlDsa.nttContract X86_64.abi stk)
@@ -44,6 +51,7 @@ structure PrimsOk (P : Prims) : Prop where
   power2Round : Callee P.power2Round (fun stk => Spec.MlDsa.power2RoundContract X86_64.abi stk)
   simpleBitPack : Callee P.simpleBitPack (fun stk => Spec.MlDsa.simpleBitPackContract X86_64.abi stk)
   bitPack : Callee P.bitPack (fun stk => Spec.MlDsa.bitPackContract X86_64.abi stk)
+  rej4 : Callee4 P.rej4
 
 /-! ## MXCSR -/
 
@@ -118,7 +126,7 @@ theorem WP.callMx {n : String} {c : Prog isa} {k : Contract isa}
 /-- `glueCall_ok`, keeping MXCSR's control bits. -/
 theorem glueCallMx_ok {glue : List Instr} {n : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
-    (hsp : NoSp c) (hd : c.depth ≤ 2) (hgl : ∀ i ∈ glue, loadsMxcsr i = false) {s : State}
+    (hsp : NoSp c) (hd : c.depth ≤ 3) (hgl : ∀ i ∈ glue, loadsMxcsr i = false) {s : State}
     {V : State → Prop}
     (hg : WP isa (.block glue) s fun s1 => (V s1 ∧ s1.mem = s.mem) ∧ Keep MlKem.X86_64.argRegs s s1)
     {rd wr : List Region} (hpre : ∀ s1, V s1 → s1.mem = s.mem → Keep MlKem.X86_64.argRegs s s1 →

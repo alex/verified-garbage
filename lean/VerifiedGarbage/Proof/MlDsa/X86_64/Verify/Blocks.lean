@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.HashCT
 /-!
 # ML-DSA verification on x86-64: the blocks between the calls
 
-Untrusted: everything here is checked by Lean. A byte store (`setB_ok`), a
-copy (`copy_ok`), the mask of a sampler's output by its result (`mask_ok`:
-unchanged if 1, zero if 0), and the updates of the result in `r15`
-(`and15_ok`, `mov15_ok`).
+A byte store (`setB_ok`), a copy (`copy_ok`), the mask of a sampler's output
+by its result (`mask_ok`: unchanged if 1, zero if 0), and the updates of the
+result in `r15` (`and15_ok`, `mov15_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -119,18 +118,24 @@ theorem maskBody_ok (s : State) (h0 : InRegions (s.rd ++ s.wr) (s.gpr .rdi) 4) (
   refine WP.keep _ ?_ (by decide)
   xrun [h0, h1]
 
-/-- The mask of the polynomial at `a` by `eax`: each coefficient `∧ -eax`. -/
-theorem mask_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {a : Ptr}
-    (hi : inB (rbs ++ wbs) a 1024 = true) (hw : inB wbs a 1024 = true) :
-    WP isa (mask a) s fun s' => PPostB s s' [(a, 1024)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
-      ∀ i < n, coeffAt s'.mem (pa s a) i = coeffAt s.mem (pa s a) i &&& (0 - (s.gpr .rax).setWidth 32) := by
+theorem coeffAt_writeW' (m : Mem) (p : Addr) {N i j : Nat} (hN : 4 * N ≤ 2 ^ 64) (hi : i < N) (hj : j < N)
+    (v : BitVec 32) :
+    coeffAt (m.writeW (p + BitVec.ofNat 64 (4 * j)) v) p i = if j = i then v else coeffAt m p i := by
+  split
+  · subst j; exact Mem.readW_writeW_self32 m _ v
+  · exact Mem.readW_writeW_sep (Offset.sep p (by omega) (by omega) (by omega)) (by decide)
+
+/-- The mask of the `N` coefficients from `a` by `eax`: each `∧ -eax`. -/
+theorem maskN_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {a : Ptr} {N : Nat} (hN0 : 0 < N)
+    (hN : N < 2 ^ 29) (hi : inB (rbs ++ wbs) a (4 * N) = true) (hw : inB wbs a (4 * N) = true) :
+    WP isa (mask a N) s fun s' => PPostB s s' [(a, 4 * N)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
+      ∀ i < N, coeffAt s'.mem (pa s a) i = coeffAt s.mem (pa s a) i &&& (0 - (s.gpr .rax).setWidth 32) := by
   have hS := L.ok
-  have hok : ∀ x ∈ ([(.rdi, .ptr a), (.rcx, .imm 256)] : List (Reg × Arg)), x.2.Ok ∧ x.1 ∈ argRegs := by
+  have hok : ∀ x ∈ ([(.rdi, .ptr a), (.rcx, .imm N)] : List (Reg × Arg)), x.2.Ok ∧ x.1 ∈ argRegs := by
     simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-    exact ⟨⟨ptr_ok hS hi, by decide⟩, ⟨show 256 < 2 ^ 31 by decide, by decide⟩⟩
+    exact ⟨⟨ptr_ok hS hi, by decide⟩, ⟨show N < 2 ^ 31 by omega, by decide⟩⟩
   have hrd := L.inR hi
   have hwr := L.inW hw
-  have nn : n = 256 := rfl
   unfold mask
   refine WP.seq ?_
   rw [WP.block_append_iff]
@@ -142,14 +147,14 @@ theorem mask_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {a
     simp only [List.mem_singleton]; intro h; rw [h] at hb; exact absurd hb (by decide)
   have e1 : s1.gpr .rdi = pa s a := by
     rw [hv1 _ (List.mem_cons_self ..)]; simp only [Arg.val, pa]; rw [k₀.gpr nb]
-  have e2 : s1.gpr .rcx = BitVec.ofNat 64 256 := hv1 _ (List.mem_cons_of_mem _ (List.mem_cons_self ..))
+  have e2 : s1.gpr .rcx = BitVec.ofNat 64 N := hv1 _ (List.mem_cons_of_mem _ (List.mem_cons_self ..))
   have hd1 : (s1.gpr .rdx).setWidth 32 = 0 - (s.gpr .rax).setWidth 32 := by rw [k1.gpr (by simp), hd₀]
   have k01 : Keep [.rdx, .rdi, .rcx] s s1 := (k₀.trans k1).mono (by simp)
   have hm01 : s1.mem = s.mem := hm1.trans hm₀
-  refine WP.mono (wp_countdown (cnt := .rcx) (N := 256) (by decide) (by decide) (fun k s' =>
+  refine WP.mono (wp_countdown (cnt := .rcx) (N := N) (by omega) hN0 (fun k s' =>
       s'.gpr .rdi = pa s a + BitVec.ofNat 64 (4 * k) ∧ (s'.gpr .rdx).setWidth 32 = 0 - (s.gpr .rax).setWidth 32 ∧
-      Frame [⟨pa s a, 1024⟩] s.mem s'.mem ∧
-      (∀ i < n, coeffAt s'.mem (pa s a) i =
+      Frame [⟨pa s a, 4 * N⟩] s.mem s'.mem ∧
+      (∀ i < N, coeffAt s'.mem (pa s a) i =
         if i < k then coeffAt s.mem (pa s a) i &&& (0 - (s.gpr .rax).setWidth 32) else coeffAt s.mem (pa s a) i) ∧
       Keep [.rdx, .rdi, .rcx, .rax] s s')
     (fun k hk s' ⟨hdi, hdx, hf, hc, kk⟩ _ => ?_) (fun _ h => h)
@@ -169,12 +174,19 @@ theorem mask_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {a
       have := hc k (by omega)
       rw [ifn (Nat.lt_irrefl _)] at this
       exact this
-    rw [hm, hdi, hck, hdx, Proof.MlDsa.Verify.coeffAt_writeW _ _ hi (by omega)]
+    rw [hm, hdi, hck, hdx, coeffAt_writeW' _ _ (N := N) (by omega) hi (by omega)]
     by_cases e : k = i
     · subst e; rw [ifp rfl, ifp (Nat.lt_succ_self _)]
     · rw [ifn e, hc i hi]
       by_cases h' : i < k
       · rw [ifp h', ifp (by omega)]
       · rw [ifn h', ifn (by omega)]
+
+/-- The mask of the polynomial at `a` by `eax`: each coefficient `∧ -eax`. -/
+theorem mask_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {a : Ptr}
+    (hi : inB (rbs ++ wbs) a 1024 = true) (hw : inB wbs a 1024 = true) :
+    WP isa (mask a) s fun s' => PPostB s s' [(a, 1024)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
+      ∀ i < n, coeffAt s'.mem (pa s a) i = coeffAt s.mem (pa s a) i &&& (0 - (s.gpr .rax).setWidth 32) :=
+  maskN_ok L (N := 256) (by decide) (by decide) hi hw
 
 end VG.Proof.MlDsa.X86_64.Verify

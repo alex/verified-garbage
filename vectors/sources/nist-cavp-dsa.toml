@@ -1,0 +1,5 @@
+name = "NIST CAVP DSA FIPS 186-4 parameter and signature test vectors"
+directories = ["nist-cavp-dsa"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/dss/186-3dsatestvectors.zip"
+sha256 = "10783936d5f2b00434f7ca393ab52df5700ff2166e97bde0d2fcb288e3aa67c3"
+retrieved = "2026-10-02"

@@ -2,16 +2,11 @@
 """Checks that every test and benchmark is built on exactly the
 architectures whose library code it runs.
 
-The architectures an algorithm supports are stated once, in the inner
-`#![cfg(...)]` of its library module (`src/<module>.rs`, see CLAUDE.md);
-a test or benchmark that repeats that list can drift from it, e.g. keep
-benchmarking MD5 only on x86-64 after ARM64 support lands, or lose a
-platform in a merge. So each test file (its inner `#![cfg(...)]`, within
-those of the files that declare it) and each benchmark (the `#[cfg(...)]`
-of its `pub fn bench`, and the `#[cfg(not(...))]` of the empty one for the
-other architectures) must name exactly the architectures of the library
-modules it uses (`verified_garbage::<path>`): all of them, where it uses
-several. Where a construction over hash functions has a file per hash
+Each test file (its inner `#![cfg(...)]`, within those of the files that
+declare it) and each benchmark (the `#[cfg(...)]` of its `pub fn bench`,
+and the `#[cfg(not(...))]` of the empty one for the other architectures)
+must name exactly the architectures that every library module it uses
+(`verified_garbage::<path>`) states in its inner `#![cfg(...)]`. Where a construction over hash functions has a file per hash
 (`src/<family>/<hash>.rs`, e.g. `src/hmac/sha256.rs`), a file that uses
 both `<family>` and `hashes::<hash>` needs that file's architectures too.
 

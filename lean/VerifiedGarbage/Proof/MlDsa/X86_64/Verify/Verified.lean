@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.CTCompute
 /-!
 # ML-DSA verification on x86-64: `vg_mldsa44_verify`, `vg_mldsa65_verify`, `vg_mldsa87_verify`
 
-Untrusted: everything here is checked by Lean. For primitives `P` that meet
-their contracts (`PrimsOk`), `verify P p` meets `verifyContract p`
-(`verify_verified`): it is correct (`verify_correct`) and leaks only its
-inputs, which the contract makes public (`verify_ct`).
+For primitives `P` that meet their contracts (`PrimsOk`), `verify P p` meets
+`verifyContract p` (`verify_verified`): it is correct (`verify_correct`) and
+leaks only its inputs, which the contract makes public (`verify_ct`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -70,7 +69,7 @@ def verifySat (p : Params) : State where
   rd := [⟨0x10000, p.pkLen⟩, ⟨0x20000, 64⟩, ⟨0x30000, p.sigLen⟩]
   wr := [⟨0x40000, scrLen p⟩]
 
-theorem verify_sat : ∀ p ∈ params, ∃ s, (verifyContract p X86_64.abi 24).pre s := by
+theorem verify_sat : ∀ p ∈ params, ∃ s, (verifyContract p X86_64.abi 32).pre s := by
   intro p hp
   simp only [params, List.mem_cons, List.not_mem_nil, or_false] at hp
   rcases hp with rfl | rfl | rfl
@@ -78,7 +77,7 @@ theorem verify_sat : ∀ p ∈ params, ∃ s, (verifyContract p X86_64.abi 24).p
   · sig_implies_sat [verifyContract, verifySig, X86_64.abi, VG.X86_64.argRegs] [verifySat] using verifySat mlDsa65
   · sig_implies_sat [verifyContract, verifySig, X86_64.abi, VG.X86_64.argRegs] [verifySat] using verifySat mlDsa87
 
-theorem verify_implies {p : Params} (hp : p ∈ params) : (verifyK p).Implies (verifyContract p X86_64.abi 24) where
+theorem verify_implies {p : Params} (hp : p ∈ params) : (verifyK p).Implies (verifyContract p X86_64.abi 32) where
   pre s h := by
     sig_pre [verifyContract, verifySig, X86_64.abi, VG.X86_64.argRegs] at h
     obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18⟩ := h
@@ -95,9 +94,9 @@ theorem verify_implies {p : Params} (hp : p ∈ params) : (verifyK p).Implies (v
     exact ⟨hdi, hsi, hdx, hcx, hsp, e₁, e₂, e₃⟩
   sat := verify_sat p hp
 
-/-- `verify P p` meets `verifyContract p` with 24 bytes of stack. -/
+/-- `verify P p` meets `verifyContract p` with 32 bytes of stack. -/
 theorem verify_verified {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) :
-    Verified X86_64.target (verify P p) (verifyContract p X86_64.abi 24) :=
+    Verified X86_64.target (verify P p) (verifyContract p X86_64.abi 32) :=
   Verified.of_correct (verify_correct C hp) (verify_ct C hp) (verify_implies hp)
 
 end VG.Proof.MlDsa.X86_64.Verify

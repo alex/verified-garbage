@@ -7,10 +7,9 @@ import VerifiedGarbage.Impl.MlDsa.Arm.Arith.AddSub
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_add` and `vg_mldsa_sub`
 
-Untrusted: everything here is checked by Lean. One symbolic execution of
-each loop body, for any pointers (`addBody_ok`, `subBody_ok`); the loop
-invariant says which coefficients of `f` are done (`Inv`); the arithmetic
-is `fixS_add` and `fixS_sub`.
+One symbolic execution of each loop body, for any pointers (`addBody_ok`,
+`subBody_ok`); the loop invariant says which coefficients of `f` are done
+(`Inv`); the arithmetic is `fixS_add` and `fixS_sub`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Arith.AddSub

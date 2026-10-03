@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # Keccak-f[1600]: states in memory, for every target
 
-Untrusted: everything here is checked by Lean. The lanes of a state stored
-as `[u64; 25]`, where a round of the implementations reads and writes (`Env`),
-the state a round computes (`outState`), and offsets from a pointer, none of
-which depend on the target.
+The lanes of a state stored as `[u64; 25]`, where a round of the
+implementations reads and writes (`Env`), the state a round computes
+(`outState`), and offsets from a pointer, none of which depend on the target.
 -/
 
 namespace VG.Proof.Sha3

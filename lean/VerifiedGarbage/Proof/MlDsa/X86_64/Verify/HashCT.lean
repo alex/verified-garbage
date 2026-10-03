@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # ML-DSA verification on x86-64: the sponge leaks only addresses
 
-Untrusted: everything here is checked by Lean. Two runs in the same layout
-(`LRel`: layouts whose registers and stack pointer agree) stay in it across
-code that keeps the layout (`LRel.step`), and `hash2` leaks the same in both
-(`hash2_tr`).
+Two runs in the same layout (`LRel`: layouts whose registers and stack pointer
+agree) stay in it across code that keeps the layout (`LRel.step`), and `hash2`
+leaks the same in both (`hash2_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -51,7 +50,7 @@ theorem k_in {bs wbs : List (Reg × Nat)} (hk : kChk bs wbs = true) :
     inB bs (sc 0) 200 = true ∧ inB bs (sc 200) 640 = true := by
   simp only [kChk, Bool.and_eq_true] at hk; exact ⟨hk.1.1.1.2, hk.1.1.2⟩
 
-theorem kk16 {s s1 : State} (hsp : s1.gpr .rsp = s.gpr .rsp) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) :
+theorem kk16 {s s1 : State} (hsp : s1.gpr .rsp = s.gpr .rsp) {R : Region} (h : (below (s.gpr .rsp) 32).Disjoint R) :
     (below (s1.gpr .rsp) 16).Disjoint R := by
   rw [hsp]; exact h.sub_left (below_sub (by omega) (by omega))
 
@@ -133,8 +132,8 @@ theorem kabs_tr {rbs wbs : List (Reg × Nat)} (hS : LayOk (rbs ++ wbs)) (hk : kC
   · obtain ⟨_, _, _, w1, w2⟩ := kChk_spec h.1 hk
     obtain ⟨_, _, _, w1', w2'⟩ := kChk_spec h.2.1 hk
     refine ⟨_, _, _, _, absorb_pre (kabs_args h.1 hk hp hpos h1), absorb_pre (kabs_args h.2.1 hk hp hpos h2), ?_,
-      covers_append (h.1.cR p3) (covers_wr (covers_cons w1 w2)), covers_cons w1 w2,
-      covers_append (h.2.1.cR p3) (covers_wr (covers_cons w1' w2')), covers_cons w1' w2', h.2.2.2⟩
+      Covers.append_left (h.1.cR p3) (Covers.right (Covers.cons w1 w2)), Covers.cons w1 w2,
+      Covers.append_left (h.2.1.cR p3) (Covers.right (Covers.cons w1' w2')), Covers.cons w1' w2', h.2.2.2⟩
     simp only [Proof.Sha3.absorbX86_64, State.withRegions_gpr, State.callEntry_rsp,
       State.callEntry_gpr _ (show Reg.rdi ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.rsi ≠ .rsp by decide),
       State.callEntry_gpr _ (show Reg.rdx ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.rcx ≠ .rsp by decide),
@@ -152,8 +151,8 @@ theorem kpad_tr {rbs wbs : List (Reg × Nat)} (hS : LayOk (rbs ++ wbs)) (hk : kC
   obtain ⟨_, _, _, w1, w2⟩ := kChk_spec h.1 hk
   obtain ⟨_, _, _, w1', w2'⟩ := kChk_spec h.2.1 hk
   refine ⟨_, _, _, _, pad_pre (kpad_args h.1 hk hpos h1), pad_pre (kpad_args h.2.1 hk hpos h2), ?_,
-    covers_append covers_nil (covers_wr (covers_cons w1 w2)), covers_cons w1 w2,
-    covers_append covers_nil (covers_wr (covers_cons w1' w2')), covers_cons w1' w2', h.2.2.2⟩
+    Covers.append_left Covers.nil (Covers.right (Covers.cons w1 w2)), Covers.cons w1 w2,
+    Covers.append_left Covers.nil (Covers.right (Covers.cons w1' w2')), Covers.cons w1' w2', h.2.2.2⟩
   simp only [Proof.Sha3.padX86_64, State.withRegions_gpr, State.callEntry_rsp,
     State.callEntry_gpr _ (show Reg.rdi ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.rsi ≠ .rsp by decide),
     State.callEntry_gpr _ (show Reg.rdx ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.r8 ≠ .rsp by decide)]
@@ -173,10 +172,10 @@ theorem ksqz_tr {rbs wbs : List (Reg × Nat)} (hS : LayOk (rbs ++ wbs)) (hk : kC
   obtain ⟨_, _, _, w1, w2⟩ := kChk_spec h.1 hk
   obtain ⟨_, _, _, w1', w2'⟩ := kChk_spec h.2.1 hk
   refine ⟨_, _, _, _, squeeze_pre (ksqz_args h.1 hk ho h1), squeeze_pre (ksqz_args h.2.1 hk ho h2), ?_,
-    covers_append covers_nil (covers_wr (covers_cons w1 (covers_cons (h.1.cW o4) w2))),
-    covers_cons w1 (covers_cons (h.1.cW o4) w2),
-    covers_append covers_nil (covers_wr (covers_cons w1' (covers_cons (h.2.1.cW o4) w2'))),
-    covers_cons w1' (covers_cons (h.2.1.cW o4) w2'), h.2.2.2⟩
+    Covers.append_left Covers.nil (Covers.right (Covers.cons w1 (Covers.cons (h.1.cW o4) w2))),
+    Covers.cons w1 (Covers.cons (h.1.cW o4) w2),
+    Covers.append_left Covers.nil (Covers.right (Covers.cons w1' (Covers.cons (h.2.1.cW o4) w2'))),
+    Covers.cons w1' (Covers.cons (h.2.1.cW o4) w2'), h.2.2.2⟩
   simp only [Proof.Sha3.squeezeX86_64, State.withRegions_gpr, State.callEntry_rsp,
     State.callEntry_gpr _ (show Reg.rdi ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.rsi ≠ .rsp by decide),
     State.callEntry_gpr _ (show Reg.rdx ≠ .rsp by decide), State.callEntry_gpr _ (show Reg.rcx ≠ .rsp by decide),

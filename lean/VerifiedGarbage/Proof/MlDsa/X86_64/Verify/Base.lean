@@ -7,8 +7,6 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # ML-DSA verification on x86-64: moves, layouts and calls
 
-Untrusted: everything here is checked by Lean.
-
 * The moves of a call's arguments (`glue_ok`): each argument register holds
   the argument's value (`Arg.val`: a pointer's address `pa`, or an integer).
 * Layouts (`Lay`): the function keeps the address of each buffer it works in
@@ -20,7 +18,7 @@ Untrusted: everything here is checked by Lean.
   checked by evaluation (`inB`, `sepB`).
 * What a piece of code leaves (`PostB`): the permissions, the registers of
   the layout and the stack pointer, and memory but within the regions it
-  writes and the 24 bytes of stack below `rsp` (its calls' return
+  writes and the 32 bytes of stack below `rsp` (its calls' return
   addresses).
 * A call of verified code, with the moves of its arguments before it
   (`callAt_ok`, `callAt_tr`).
@@ -121,7 +119,7 @@ structure Post (s s' : State) (W : List Region) : Prop where
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
   cs : ∀ r ∈ calleeSaved, s'.gpr r = s.gpr r
-  frame : Frame (W ++ [below (s.gpr .rsp) 24]) s.mem s'.mem
+  frame : Frame (W ++ [below (s.gpr .rsp) 32]) s.mem s'.mem
 
 /-- What a piece of code leaves: the permissions, the registers `bases` and
 the stack pointer, and memory but within `W` and the stack. -/
@@ -130,7 +128,7 @@ structure PostB (s s' : State) (W : List Region) : Prop where
   wr : s'.wr = s.wr
   bs : ∀ r ∈ bases, s'.gpr r = s.gpr r
   rsp : s'.gpr .rsp = s.gpr .rsp
-  frame : Frame (W ++ [below (s.gpr .rsp) 24]) s.mem s'.mem
+  frame : Frame (W ++ [below (s.gpr .rsp) 32]) s.mem s'.mem
 
 theorem Post.rsp {s s' : State} {W : List Region} (h : Post s s' W) : s'.gpr .rsp = s.gpr .rsp :=
   h.cs .rsp (by decide)
@@ -219,37 +217,6 @@ theorem inRegions_sub {X : List Region} {a : Addr} {n off l : Nat} (h : InRegion
   have := Nat.mod_le ((a - r.base).toNat + off) (2 ^ 64)
   omega
 
-theorem covers_one {X : List Region} {a : Addr} {l : Nat} (h : InRegions X a l) : Covers [⟨a, l⟩] X := by
-  intro a' n' ⟨r0, hr0, hc⟩
-  simp only [List.mem_singleton] at hr0
-  subst hr0
-  obtain ⟨r, hr, hc'⟩ := h
-  refine ⟨r, hr, ?_⟩
-  simp only [Region.Contains] at hc hc' ⊢
-  rw [show a' - r.base = (a' - a) + (a - r.base) by bv_omega, BitVec.toNat_add]
-  have := Nat.mod_le ((a' - a).toNat + (a - r.base).toNat) (2 ^ 64)
-  omega
-
-theorem covers_nil {X : List Region} : Covers [] X := fun _ _ ⟨_, h, _⟩ => absurd h List.not_mem_nil
-
-theorem covers_cons {r : Region} {rs X : List Region} (h : Covers [r] X) (h' : Covers rs X) :
-    Covers (r :: rs) X := by
-  intro a n ⟨r0, hr0, hc⟩
-  rcases List.mem_cons.mp hr0 with rfl | hr0
-  · exact h a n ⟨r0, List.mem_singleton_self _, hc⟩
-  · exact h' a n ⟨r0, hr0, hc⟩
-
-theorem covers_append {rs ts X : List Region} (h : Covers rs X) (h' : Covers ts X) : Covers (rs ++ ts) X := by
-  intro a n ⟨r0, hr0, hc⟩
-  rcases List.mem_append.mp hr0 with hr0 | hr0
-  · exact h a n ⟨r0, hr0, hc⟩
-  · exact h' a n ⟨r0, hr0, hc⟩
-
-theorem covers_wr {rs : List Region} {s : State} (h : Covers rs s.wr) : Covers rs (s.rd ++ s.wr) :=
-  fun a n hi => by
-    obtain ⟨r, hr, hc⟩ := h a n hi
-    exact ⟨r, List.mem_append_right _ hr, hc⟩
-
 /-! ## Layouts -/
 
 /-- The buffers of `rbs` (read) and `wbs` (written), at the addresses in
@@ -259,13 +226,13 @@ structure Lay (rbs wbs : List (Reg × Nat)) (s : State) : Prop where
   small : ∀ b ∈ rbs ++ wbs, b.2 < 2 ^ 31
   dj : ∀ b ∈ rbs ++ wbs, ∀ b' ∈ rbs ++ wbs, b.1 ≠ b'.1 → (b.1 ∈ wRegs ∨ b'.1 ∈ wRegs) →
     Region.Disjoint ⟨s.gpr b.1, b.2⟩ ⟨s.gpr b'.1, b'.2⟩
-  stk : ∀ b ∈ rbs ++ wbs, (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr b.1, b.2⟩
+  stk : ∀ b ∈ rbs ++ wbs, (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr b.1, b.2⟩
   nw : ∀ b ∈ rbs ++ wbs, (s.gpr b.1).toNat + b.2 ≤ 2 ^ 64
   rd : ∀ b ∈ rbs ++ wbs, InRegions (s.rd ++ s.wr) (s.gpr b.1) b.2
   wr : ∀ b ∈ wbs, InRegions s.wr (s.gpr b.1) b.2
   ret : ∀ b ∈ rbs ++ wbs, (Region.mk (s.gpr .rsp) 8).Disjoint ⟨s.gpr b.1, b.2⟩
   bs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases
-  sp24 : 24 ≤ (s.gpr .rsp).toNat
+  sp32 : 32 ≤ (s.gpr .rsp).toNat
 
 section
 variable {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
@@ -292,7 +259,7 @@ theorem Lay.disj {p q : Ptr} {l k : Nat} (h : sepB (rbs ++ wbs) p l q k = true) 
     · exact (off_disj h2 (by omega)).symm
 
 theorem Lay.stkD {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) :
-    (below (s.gpr .rsp) 24).Disjoint ⟨pa s p, l⟩ := by
+    (below (s.gpr .rsp) 32).Disjoint ⟨pa s p, l⟩ := by
   obtain ⟨n, hn, hsub⟩ := L.sub h
   exact (L.stk _ hn).sub_right hsub
 
@@ -319,15 +286,15 @@ theorem Lay.inW {p : Ptr} {l : Nat} (h : inB wbs p l = true) : InRegions s.wr (p
   exact inRegions_sub (L.wr (p.1, n) hn) hl (by have := L.small _ (List.mem_append_right _ hn); omega)
 
 theorem Lay.cR {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) : Covers [⟨pa s p, l⟩] (s.rd ++ s.wr) :=
-  covers_one (L.inR h)
+  Covers.one (L.inR h)
 
 theorem Lay.cW {p : Ptr} {l : Nat} (h : inB wbs p l = true) : Covers [⟨pa s p, l⟩] s.wr :=
-  covers_one (L.inW h)
+  Covers.one (L.inW h)
 
 theorem Lay.post {s' : State} {W : List Region} (hP : PostB s s' W) : Lay rbs wbs s' := by
   have e : ∀ b ∈ rbs ++ wbs, s'.gpr b.1 = s.gpr b.1 := fun b hb => hP.bs _ (L.bs b hb)
   refine ⟨L.small, fun b hb b' hb' hne hw => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_,
-    fun b hb => ?_, L.bs, by rw [hP.rsp]; exact L.sp24⟩
+    fun b hb => ?_, L.bs, by rw [hP.rsp]; exact L.sp32⟩
   · rw [e b hb, e b' hb']; exact L.dj b hb b' hb' hne hw
   · rw [e b hb, hP.rsp]; exact L.stk b hb
   · rw [e b hb]; exact L.nw b hb
@@ -388,7 +355,7 @@ variable {rbs wbs : List (Reg × Nat)} {s s' : State} (L : Lay rbs wbs s) {ws : 
 include L
 
 theorem Lay.fdisj (hc : keepB (rbs ++ wbs) ws p l = true) :
-    ∀ r ∈ ws.map (toR s) ++ [below (s.gpr .rsp) 24], Region.Disjoint ⟨pa s p, l⟩ r := by
+    ∀ r ∈ ws.map (toR s) ++ [below (s.gpr .rsp) 32], Region.Disjoint ⟨pa s p, l⟩ r := by
   simp only [keepB, Bool.and_eq_true, List.all_eq_true] at hc
   obtain ⟨⟨_, hin⟩, hall⟩ := hc
   intro r hr

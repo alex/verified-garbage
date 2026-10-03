@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.MlKem.AArch64.MemTaint
 /-!
 # ML-KEM on AArch64: `vg_mlkem_sample_ntt`
 
-Untrusted: everything here is checked by Lean. `sampleFull`, from any state
-satisfying the precondition, is `phaseA_ok` (the SHAKE128 output, `a` zero)
-followed by `loop_ok` (`full_ok`). `sampleFast` is the same with 504 bytes
-and 168 iterations (`fast_ok`); if they leave 256 coefficients, they are
-`SampleNTT`'s (`sampleNTT_of_full`), and otherwise `sampleFull` runs from
-the original arguments, which `sampleRetry` restores (`retry_ok`).
+`sampleFull`, from any state satisfying the precondition, is `phaseA_ok` (the
+SHAKE128 output, `a` zero) followed by `loop_ok` (`full_ok`). `sampleFast` is
+the same with 504 bytes and 168 iterations (`fast_ok`); if they leave 256
+coefficients, they are `SampleNTT`'s (`sampleNTT_of_full`), and otherwise
+`sampleFull` runs from the original arguments, which `sampleRetry` restores
+(`retry_ok`).
 
 Constant time up to the seed, relating two runs (`RelCT`) from states that
 agree on the pointers and on the seed: up to each loop, the taint analysis
@@ -147,14 +147,6 @@ theorem correct (v : Proof.Sha3.AArch64.Permutation) {s₀ : State} (hp : Pre s�
     rw [r0] at h; cases h
 
 /-! ## Constant time -/
-
-theorem map_toNat_inj : ∀ {l₁ l₂ : List Byte}, l₁.map (·.toNat) = l₂.map (·.toNat) → l₁ = l₂
-  | [], [], _ => rfl
-  | a :: l₁, b :: l₂, h => by
-    simp only [List.map_cons, List.cons.injEq] at h
-    rw [BitVec.eq_of_toNat_eq h.1, map_toNat_inj h.2]
-  | [], _ :: _, h => by simp at h
-  | _ :: _, [], h => by simp at h
 
 /-- The bytes of a polynomial of zeros are zero. -/
 theorem byte_zero {m : Mem} {p : Addr} (h : ∀ i < 256, coeffAt m p i = 0) {y : Addr}

@@ -6,11 +6,11 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # X25519 on AArch64: the whole function
 
-Untrusted: everything here is checked by Lean. The contract the proof is
-written against (the facts of `Spec.X25519.x25519Contract` it uses, stated
-for AArch64), and the correctness of `vg_x25519` against it: every write is
-in the working space but the result's, so the arguments are read unchanged,
-and the callee-saved registers it uses are restored from the working space.
+The contract the proof is written against (the facts of
+`Spec.X25519.x25519Contract` it uses, stated for AArch64), and the correctness
+of `vg_x25519` against it: every write is in the working space but the
+result's, so the arguments are read unchanged, and the callee-saved registers
+it uses are restored from the working space.
 -/
 
 namespace VG.Proof.X25519
@@ -196,13 +196,13 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   refine WP.seq (WP.mono (ladder_ok hs₁ sl₁ bits₁) fun s₂ ⟨hs₂, sl₂, sw₂, k₂, f₂⟩ => ?_)
   refine WP.seq (WP.mono (lastSwap_ok hs₂ sl₂ (ladderAfter_swap_le _ _ (by decide)) sw₂)
     fun s₃ ⟨hs₃, ⟨vals, sl₃, e1, e2⟩, k₃, f₃⟩ => ?_)
-  refine WP.seq (WP.mono (invert_ok hs₃ sl₃ e2 (by decide)) fun s₄ ⟨hs₄, sl₄, k₄, f₄⟩ => ?_)
+  refine WP.seq (WP.mono (invert_ok hs₃ sl₃ e2 (by decide) (by decide)) fun s₄ ⟨hs₄, sl₄, k₄, f₄⟩ => ?_)
   have hx0 : s₄.gpr .x0 = s₀.gpr .x0 := by
     rw [k₄.gpr _ (by decide), k₃.gpr _ (by decide), k₂.gpr _ (by decide), k₁.gpr _ (by decide)]
   have hw : outR (s₀.gpr .x0) ∈ s₄.wr := by rw [k₄.wr, k₃.wr, k₂.wr, k₁.wr, hp.wr]; simp
   have hdo : (saveR b).Disjoint (outR (s₀.gpr .x0)) :=
     (hb ▸ hp.out_sc).symm.sub_left (Region.sub_of_ble rfl)
-  refine WP.mono (finish_ok hs₄ sl₄ (by simp [lbnds]) (by simp) hx0 hw hdo)
+  refine WP.mono (finish_ok hs₄ sl₄ (by simp [fbnds]) (by simp [fbnds]) hx0 hw hdo)
     fun s' ⟨r', sv', k', _⟩ => ⟨fun r hr => ?_, ?_⟩
   · rcases preserved_cases r hr with ⟨k, hk, rfl⟩ | hn
     · rw [sv' k hk]

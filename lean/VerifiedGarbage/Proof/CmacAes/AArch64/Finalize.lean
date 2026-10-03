@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.Cmac.Block
 /-!
 # AES-CMAC on AArch64: `vg_cmac_aes_finalize`, the last block
 
-Untrusted: everything here is checked by Lean. The steps that form the
-counter block `C ⊕ Mₙ` in the scratch buffer before the call.
+The steps that form the counter block `C ⊕ Mₙ` in the scratch buffer before
+the call.
 -/
 
 namespace VG.Proof.CmacAes.AArch64

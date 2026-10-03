@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Framework.RelCTAssoc
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: `pbkdf2`'s loop
 
-Untrusted: everything here is checked by Lean. After `k` blocks of the
-output (`Inv`), `out` holds the first `min (k D) out_len` bytes of
-`T₁ ‖ … ‖ T_k`; a step computes `T_{k+1}` (`U₁` by `update` with
-`INT (k + 1)` and HMAC's `finalize`, then `iterate`) and copies as much of
-it as the output still needs.
+After `k` blocks of the output (`Inv`), `out` holds the first `min (k D)
+out_len` bytes of `T₁ ‖ … ‖ T_k`; a step computes `T_{k+1}` (`U₁` by `update`
+with `INT (k + 1)` and HMAC's `finalize`, then `iterate`) and copies as much
+of it as the output still needs.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64.Pbk
@@ -18,7 +17,7 @@ open VG.Impl.MdStream.X86_64 (at_)
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Pbkdf2.Md.X86_64 (HashOK ea_nat wp_mov32r zx32 contains_pre)
 open VG.Proof.Pbkdf2.X86_64 (iterK)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG After SavedRegs SavedRegs.frame)
+open VG.Proof.Pbkdf2.Md.X86_64.Calls (initG finG After SavedRegs SavedRegs.frame)
 open VG.Proof.Hmac.Generic.Common (bytes_keep readW_writeW_ne InRegions.right' sub_of_off sub_of_self bytesAt_take)
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_add bytesAt_writeBytes_sep bytesAt_getD' writeBytes_at xorPad_length)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_frame)
@@ -222,25 +221,25 @@ theorem outLoop_ok {n : Nat} (hn : 0 < n) (hn' : n < 2 ^ 31) {s : State} (hc : s
     (hin : ∀ k < n, InRegions (s.rd ++ s.wr) (s.gpr .r15 + BitVec.ofNat 64 H.tO + BitVec.ofNat 64 k) 1)
     (hout : ∀ k < n, InRegions s.wr (s.gpr .r13 + BitVec.ofNat 64 k) 1)
     (hsep : Region.Disjoint ⟨s.gpr .r15 + BitVec.ofNat 64 H.tO, n⟩ ⟨s.gpr .r13, n⟩) :
-    WP isa H.outLoop s fun t => VG.Proof.Hmac.Generic.X86_64.Copied s (s.gpr .r13)
+    WP isa H.outLoop s fun t => VG.Proof.Pbkdf2.Md.X86_64.Calls.Copied s (s.gpr .r13)
       (bytesAt s.mem (s.gpr .r15 + BitVec.ofNat 64 H.tO) n) t := by
   generalize eA : s.gpr .r15 + BitVec.ofNat 64 H.tO = A at hin hsep ⊢
   generalize eB : s.gpr .r13 = B at hout hsep ⊢
   refine WP.seq (wp_mov32i fun s₀ u₀ _ _ => WP.block_nil ?_)
-  have i0 : VG.Proof.Hmac.Generic.X86_64.CopyInv s A B 0 s₀ :=
+  have i0 : VG.Proof.Pbkdf2.Md.X86_64.Calls.CopyInv s A B 0 s₀ :=
     ⟨u₀.rd, u₀.wr, fun r _ h => u₀.other r h, by rw [u₀.gpr]; rfl,
       by rw [u₀.mem, bytesAt, List.range_zero, List.map_nil, writeBytes_nil]⟩
-  refine WP.mono (VG.Proof.Hmac.Generic.X86_64.count_loop hn _ (fun k hk t h => ?_) i0)
+  refine WP.mono (VG.Proof.Pbkdf2.Md.X86_64.Calls.count_loop hn _ (fun k hk t h => ?_) i0)
     fun t h => ⟨h.rd, h.wr, h.other, h.mem⟩
   refine wp_movzx8 (a := A + BitVec.ofNat 64 k)
-    (by rw [VG.Proof.Hmac.Generic.X86_64.ea_byteAt _ _ _ _ h.r14, h.other _ (by decide) (by decide), eA])
+    (by rw [VG.Proof.Pbkdf2.Md.X86_64.Calls.ea_byteAt _ _ _ _ h.r14, h.other _ (by decide) (by decide), eA])
     (by rw [h.rd, h.wr]; exact hin k hk) fun t₁ u₁ => ?_
   refine wp_store8 (a := B + BitVec.ofNat 64 k)
     (by rw [ea_r13 _ k (by rw [u₁.other _ (by decide), h.r14]), u₁.other _ (by decide),
       h.other _ (by decide) (by decide), eB]) (by rw [u₁.wr, h.wr]; exact hout k hk) fun t₂ g₂ m₂ rd₂ wr₂ => ?_
   refine wp_addi fun t₃ u₃ => wp_cmp fun t₄ g₄ m₄ rd₄ wr₄ _ z₄ => WP.block_nil ?_
   have h14 : t₃.gpr .r14 = BitVec.ofNat 64 (k + 1) := by
-    rw [u₃.gpr, g₂, u₁.other _ (by decide), h.r14, VG.Proof.Hmac.Generic.X86_64.sx_one, ← ofNat_succ]
+    rw [u₃.gpr, g₂, u₁.other _ (by decide), h.r14, VG.Proof.Pbkdf2.Md.X86_64.Calls.sx_one, ← ofNat_succ]
   have hcx : t₃.gpr .rcx = BitVec.ofNat 64 n := by
     rw [u₃.other _ (by decide), g₂, u₁.other _ (by decide), h.other _ (by decide) (by decide), hc]
   refine ⟨⟨by rw [rd₄, u₃.rd, rd₂, u₁.rd, h.rd], by rw [wr₄, u₃.wr, wr₂, u₁.wr, h.wr],
@@ -270,7 +269,7 @@ abbrev U1 (hH : HashOK H) (s₀ : State) (k : Nat) : List Byte :=
 /-- Before `update` with `INT (k + 1)`. -/
 structure AtUpd (hH : HashOK H) (s₀ : State) (k : Nat) (s : State) : Prop where
   mid : Mid hH s₀ k s
-  args : VG.Proof.Hmac.Generic.X86_64.UpdArgs hH.stream s (A s₀ H.stWO) (A s₀ H.intO) (scr s₀) 4
+  args : VG.Proof.Pbkdf2.Md.X86_64.Calls.UpdArgs hH.stream s (A s₀ H.stWO) (A s₀ H.intO) (scr s₀) 4
   rsi : s.gpr .rsi = s₀.gpr .rcx + (BitVec.ofNat 32 H.P.B).signExtend 64
   repr : hH.SH.Repr s.mem (A s₀ H.stWO) (xorPad (K0 hH s₀) ipad ++ saltB s₀)
   int : bytesAt s.mem (A s₀ H.intO) 4 = Spec.Pbkdf2.int (k + 1)
@@ -291,7 +290,7 @@ structure AtIter (hH : HashOK H) (s₀ : State) (k : Nat) (s : State) : Prop whe
 
 /-- A copy of the salted inner state, `INT (k + 1)`, and `update`'s arguments. -/
 theorem pieceA_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) {s : State} (h : Mid hH s₀ k s) :
-    WP isa (.seq (VG.Impl.Hmac.Generic.X86_64.copy .r15 H.stSO .r15 H.stWO H.S) (.block H.intArgs)) s
+    WP isa (.seq (VG.Impl.Pbkdf2.Md.X86_64.copy .r15 H.stSO .r15 H.stWO H.S) (.block H.intArgs)) s
       (AtUpd hH s₀ k) := by
   have hl := layout (H := H); have he := end_le hz; have hL := L_lt hz; have hW := hz.W
   have hB := hz.z.B_le; have hN := hz.z.N; have hD := hz.z.D; have hfit := hz.z.fits
@@ -302,7 +301,7 @@ theorem pieceA_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) {s : State} (h 
   have hk32 : k + 1 < 2 ^ 32 := by have := nb_lt hD.1 hp.olD; omega
   have hsl : sl s₀ + (H.W + H.S) * 8 ≤ 2 ^ 64 := len_add_le hp.sa_s hp.sanw hp.snw
   -- The working state, copied.
-  refine WP.seq (WP.mono (VG.Proof.Hmac.Generic.X86_64.copy_ok (src := .r15) (dst := .r15) (by decide)
+  refine WP.seq (WP.mono (VG.Proof.Pbkdf2.Md.X86_64.Calls.copy_ok (src := .r15) (dst := .r15) (by decide)
     (by decide) (so := H.stSO) (d := H.stWO) (n := H.S) (by omega) (by omega) (s := s)
     (fun j hj => by rw [h.kr.r15, add_ofNat]; exact InRegions.right' (in_sc hp hz h.kr.wr (by omega)))
     (fun j hj => by rw [h.kr.r15, add_ofNat]; exact in_sc hp hz h.kr.wr (by omega))
@@ -336,7 +335,7 @@ theorem pieceA_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) {s : State} (h 
     WP.block_nil ?_
   have m₁₀ := ((m₇.upd u₈ (by decide)).upd u₉ (by decide)).upd u₁₀ (by decide)
   have e₁₀ : s₁₀.mem = s₄.mem := by rw [u₁₀.mem, u₉.mem, u₈.mem, u₇.mem, u₆.mem, u₅.mem]
-  have ua : VG.Proof.Hmac.Generic.X86_64.UpdArgs hH.stream s₁₀ (A s₀ H.stWO) (A s₀ H.intO) (scr s₀) 4 :=
+  have ua : VG.Proof.Pbkdf2.Md.X86_64.Calls.UpdArgs hH.stream s₁₀ (A s₀ H.stWO) (A s₀ H.intO) (scr s₀) 4 :=
     { rdi := by rw [u₁₀.other _ (by decide), u₉.other _ (by decide), u₈.other _ (by decide),
           u₇.other _ (by decide), u₆.other _ (by decide), u₅.gpr]
       rdx := by rw [u₁₀.other _ (by decide), u₉.other _ (by decide), u₈.gpr]
@@ -376,7 +375,7 @@ theorem callA_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) {s : State} (h :
   have hk' := Nat.le_of_lt hkD
   have hk32 : k + 1 < 2 ^ 32 := by have := nb_lt hD.1 hp.olD; omega
   have hsl : sl s₀ + (H.W + H.S) * 8 ≤ 2 ^ 64 := len_add_le hp.sa_s hp.sanw hp.snw
-  refine VG.Proof.Hmac.Generic.X86_64.upd_call hH.stream h.args (by omega) fun s₁₁ a₁₁ r₁₁ => ⟨?_, ?_⟩
+  refine VG.Proof.Pbkdf2.Md.X86_64.Calls.upd_call hH.stream h.args (by omega) fun s₁₁ a₁₁ r₁₁ => ⟨?_, ?_⟩
   · exact h.mid.call hp hz hH hk' a₁₁.rd a₁₁.wr (fun r hr => a₁₁.cs r (mregs_saved r hr)) (by omega)
       a₁₁.frame fun r hr => by
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -481,7 +480,7 @@ theorem callB_ok (hH : HashOK H) (hF : Verified X86_64.target H.hmacFin (finG hH
 /-- `U` copied to `T`, and `iterate`'s arguments. -/
 theorem pieceC_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) {s₇ : State} (m₇ : Mid hH s₀ k s₇)
     (hU : bytesAt s₇.mem (A s₀ H.uO) H.D = U1 hH s₀ k) :
-    WP isa (.seq (VG.Impl.Hmac.Generic.X86_64.copy .r15 H.uO .r15 H.tO H.D) (.block H.iterArgs)) s₇
+    WP isa (.seq (VG.Impl.Pbkdf2.Md.X86_64.copy .r15 H.uO .r15 H.tO H.D) (.block H.iterArgs)) s₇
       (AtIter hH s₀ k) := by
   have hl := layout (H := H); have he := end_le hz; have hL := L_lt hz; have hW := hz.W
   have hB := hz.z.B_le; have hN := hz.z.N; have hD := hz.z.D; have hfit := hz.z.fits
@@ -492,7 +491,7 @@ theorem pieceC_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) {s₇ : State} 
   have hk32 : k + 1 < 2 ^ 32 := by have := nb_lt hD.1 hp.olD; omega
   have hsl : sl s₀ + (H.W + H.S) * 8 ≤ 2 ^ 64 := len_add_le hp.sa_s hp.sanw hp.snw
   -- `U` copied to `T`.
-  refine WP.seq (WP.mono (VG.Proof.Hmac.Generic.X86_64.copy_ok (src := .r15) (dst := .r15) (by decide)
+  refine WP.seq (WP.mono (VG.Proof.Pbkdf2.Md.X86_64.Calls.copy_ok (src := .r15) (dst := .r15) (by decide)
     (by decide) (so := H.uO) (d := H.tO) (n := H.D) hD.1 (by omega) (s := s₇)
     (fun j hj => by rw [m₇.kr.r15, add_ofNat]; exact InRegions.right' (in_sc hp hz m₇.kr.wr (by omega)))
     (fun j hj => by rw [m₇.kr.r15, add_ofNat]; exact in_sc hp hz m₇.kr.wr (by omega))
@@ -659,7 +658,7 @@ theorem tail_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) (hg : (G hH s₀ 
   refine ⟨⟨((k₂.upd u₃ (by decide)).upd u₄ (by decide)).upd u₅ (by decide), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
   · rw [e₅]; exact m₁.st.keep hz hH f₂ (od (part_sub (by omega)))
   · rw [u₅.other _ (by decide), u₄.gpr, u₃.other _ (by decide), c₂.other _ (by decide) (by decide), m₁.rbx,
-      VG.Proof.Hmac.Generic.X86_64.sx_one, ← ofNat_succ]
+      VG.Proof.Pbkdf2.Md.X86_64.Calls.sx_one, ← ofNat_succ]
   · rw [u₅.other _ (by decide), g₄ _ (by decide) (by decide) (by decide) (by decide), m₁.rbp]
   · rw [u₅.gpr, g₄ _ (by decide) (by decide) (by decide) (by decide), g₄ _ (by decide) (by decide) (by decide)
       (by decide), m₁.r12, rc₁, sub_ofNat (by omega), hdn]
@@ -710,7 +709,7 @@ theorem loop_ok (hH : HashOK H) (hF : Verified X86_64.target H.hmacFin (finG hH.
   refine WP.ite (decide (ol s₀ = 0)) (by simp [eval, hz0]) (fun h0 => WP.block_nil ?_) fun h0 => ?_
   · rw [(nb_zero hD).2 (of_decide_eq_true h0)]; exact h
   · have : nb H s₀ ≠ 0 := fun e => by simp [(nb_zero hD).1 e] at h0
-    exact VG.Proof.Hmac.Generic.X86_64.count_loop (Nat.pos_of_ne_zero this) (Inv hH s₀)
+    exact VG.Proof.Pbkdf2.Md.X86_64.Calls.count_loop (Nat.pos_of_ne_zero this) (Inv hH s₀)
       (fun k hk t ht => block_ok hp hz hH hF hFsp hFd hI hIsp hId hk ht) h
 
 theorem correct (hH : HashOK H) (hIn : Verified X86_64.target H.hmacInit (initG hH.SH H.W))
@@ -728,7 +727,7 @@ theorem correct (hH : HashOK H) (hIn : Verified X86_64.target H.hmacInit (initG 
   refine WP.seq (WP.mono (loopRegs_ok hp hz hH k₃.kr k₃.r13 st₃) fun s₄ ⟨i₄, z₄⟩ => ?_)
   refine WP.seq (WP.mono (loop_ok hp hz hH hF hFsp hFd hI hIsp hId i₄ z₄) fun s₅ i₅ => ?_)
   have k₅ := i₅.kr
-  refine WP.mono (VG.Proof.Hmac.Generic.X86_64.restore_ok H.hh k₅.r15 hW k₅.saved (in_wr hp k₅)
+  refine WP.mono (VG.Proof.Pbkdf2.Md.X86_64.Calls.restore_ok H.hh k₅.r15 hW k₅.saved (in_wr hp k₅)
     (by have : H.S = H.P.N + H.P.B := rfl; have := hz.z.B; show 8 * H.W + 48 ≤ (H.W + H.S) * 8; omega))
     fun s' ⟨hm, _, _, hg, ho⟩ => ⟨⟨fun r hr => ?_, by rw [hm, k₅.ret hp]⟩, ?_⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr

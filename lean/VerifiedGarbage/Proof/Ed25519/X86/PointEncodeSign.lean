@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.X86.PointAffine
 import VerifiedGarbage.Proof.Ed25519.X86.FreezeField
 import VerifiedGarbage.Proof.Ed25519.X86.ScalarCodec
 
-/-! Untrusted: place the affine x parity in the high bit of the canonical y encoding. -/
+/-! Place the affine x parity in the high bit of the canonical y encoding. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

@@ -4,9 +4,9 @@ import VerifiedGarbage.Impl.MlDsa.X86.KeyGen.Call
 /-!
 # ML-DSA on x86 (32-bit): calls of the primitives from the top-level functions
 
-Untrusted: everything here is checked by Lean. The top-level functions are
-proven as ML-KEM's (`Proof/MlKem/X86/Top.lean`: `Lay`, `Buf`, `Ctx`,
-`Piece`), for any verified implementations of the primitives (`Callee`).
+The top-level functions are proven as ML-KEM's (`Proof/MlKem/X86/Top.lean`:
+`Lay`, `Buf`, `Ctx`, `Piece`), for any verified implementations of the
+primitives (`Callee`).
 
 A call (`callP`, `callPR`) sets its arguments (`setArgs_ok`: each register
 holds its argument's value, `Arg.val`), pushes them and calls. The callee's

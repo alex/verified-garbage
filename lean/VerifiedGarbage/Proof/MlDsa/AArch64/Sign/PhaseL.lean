@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseK
 /-!
 # ML-DSA signing on AArch64: the rejection sampling loop
 
-Untrusted: everything here is checked by Lean. An iteration (`iter_ok`)
-either continues, with the next iteration's head (`IL`), or ends the loop
-(`XS`): with `x24 = 1` when it passed, as `signIteration` does within
-`maxBounds` after the iterations before were rejected; with `x24 = 0`
-when `signLoop` returns nothing within `minBounds` (its `SampleInBall`
-did not finish, or it was the 814th rejected). So the loop (`signLoop_ok`)
-ends in `XS`.
+An iteration (`iter_ok`) either continues, with the next iteration's head
+(`IL`), or ends the loop (`XS`): with `x24 = 1` when it passed, as
+`signIteration` does within `maxBounds` after the iterations before were
+rejected; with `x24 = 0` when `signLoop` returns nothing within `minBounds`
+(its `SampleInBall` did not finish, or it was the 814th rejected). So the loop
+(`signLoop_ok`) ends in `XS`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
@@ -17,6 +16,7 @@ namespace VG.Proof.MlDsa.AArch64.Sign
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep wp_movz wp_nil)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -109,11 +109,11 @@ def LP (p : Params) (D : Nat) (σ : State) (t : Nat) (s : State) : Prop :=
 
 /-- What the end of an iteration needs of the layout. -/
 def lChk (p : Params) : Bool :=
-  inB (sgW p) (sc oCNT) 8 && inB (sgB p) (sc oCNT) 8 && ikChk p [(sc oCNT, 8)] && keepB (sgB p) [(sc oCNT, 8)] (sc oKAP) 8 &&
-    keepB (sgB p) [(sc oCNT, 8)] (sc oCT) (cLen p) && famChk (sgB p) [(sc oCNT, 8)] (yBase p) p.ℓ &&
-    famChk (sgB p) [(sc oCNT, 8)] 5 p.k && icwChk p [] p.k && keepB (sgB p) [] (sc oCT) (cLen p) &&
-    keepB (sgB p) [] cP 1024 && ikChk p [] &&
-    keepB (sgB p) [(sc oKAP, 8)] (sc oCNT) 8 && inB (sgW p) (sc oKAP) 8 && ikChk p [(sc oKAP, 8)]
+  inB (sgW p) (sc oCNT) 8 && inB (sgB p) (sc oCNT) 8 && ikChk p [(sc oCNT, 8)] && keepB (sgR p) (sgW p) [(sc oCNT, 8)] (sc oKAP) 8 &&
+    keepB (sgR p) (sgW p) [(sc oCNT, 8)] (sc oCT) (cLen p) && famChk (sgR p) (sgW p) [(sc oCNT, 8)] (yBase p) p.ℓ &&
+    famChk (sgR p) (sgW p) [(sc oCNT, 8)] 5 p.k && icwChk p [] p.k && keepB (sgR p) (sgW p) [] (sc oCT) (cLen p) &&
+    keepB (sgR p) (sgW p) [] cP 1024 && ikChk p [] &&
+    keepB (sgR p) (sgW p) [(sc oKAP, 8)] (sc oCNT) 8 && inB (sgW p) (sc oKAP) 8 && ikChk p [(sc oKAP, 8)]
 
 theorem lChk_ok {p : Params} (h : Ok3 p) : lChk p = true := by
   rcases h with rfl | rfl | rfl <;> decide

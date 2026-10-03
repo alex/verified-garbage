@@ -5,12 +5,12 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Iter
 /-!
 # ML-DSA signing on AArch64: the commitment of an iteration
 
-Untrusted: everything here is checked by Lean. At the head of iteration
-`t` of the loop (`IL`): what decoding left, `κ = ℓt` at `KAP`, `814 - t` at
-`CNT`, and the `t` iterations before rejected (within `maxBounds`). Then
-`y[r]` from `ExpandMask(ρ″, κ + r)` and `ŷ[r] = NTT(y[r])` (`maskR_ok`),
-`w[i] = NTT⁻¹(∑_j Â[i, j] ŷ[j])` (`rowW_ok`), `w1Encode(HighBits(w[i]))` at
-`W1` (`w1R_ok`), and `c̃ = H(μ ‖ w1Encode(w₁), λ/4)` at `CT` (`commit_ok`).
+At the head of iteration `t` of the loop (`IL`): what decoding left, `κ = ℓt`
+at `KAP`, `814 - t` at `CNT`, and the `t` iterations before rejected (within
+`maxBounds`). Then `y[r]` from `ExpandMask(ρ″, κ + r)` and `ŷ[r] = NTT(y[r])`
+(`maskR_ok`), `w[i] = NTT⁻¹(∑_j Â[i, j] ŷ[j])` (`rowW_ok`),
+`w1Encode(HighBits(w[i]))` at `W1` (`w1R_ok`), and `c̃ = H(μ ‖ w1Encode(w₁),
+λ/4)` at `CT` (`commit_ok`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign
@@ -18,6 +18,7 @@ namespace VG.Proof.MlDsa.AArch64.Sign
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -67,11 +68,11 @@ structure IL (p : Params) (D : Nat) (σ : State) (t : Nat) (s : State) : Prop wh
 
 /-- A piece that writes `ws` keeps what decoding left (but `KAP` and `CNT`). -/
 def ikChk (p : Params) (ws : List (Ptr × Nat)) : Bool :=
-  idChk p ws p.ℓ p.k p.k && keepB (sgB p) ws (sc oMS) 64
+  idChk p ws p.ℓ p.k p.k && keepB (sgR p) (sgW p) ws (sc oMS) 64
 
 /-- A piece that writes `ws` keeps `IL`. -/
 def ilChk (p : Params) (ws : List (Ptr × Nat)) : Bool :=
-  ikChk p ws && keepB (sgB p) ws (sc oKAP) 8 && keepB (sgB p) ws (sc oCNT) 8
+  ikChk p ws && keepB (sgR p) (sgW p) ws (sc oKAP) 8 && keepB (sgR p) (sgW p) ws (sc oCNT) 8
 
 theorem IK.step {p : Params} {D : Nat} {σ s s' : State} (h : IK p D σ s) {ws : List (Ptr × Nat)}
     (hP : PPostB D s s' ws) (hc : ikChk p ws = true) : IK p D σ s' := by
@@ -155,7 +156,7 @@ structure ICm (p : Params) (D : Nat) (σ : State) (t r : Nat) (s : State) : Prop
   yh : Fam s (yhBase p) r (YHv p σ (p.ℓ * t))
 
 def icmChk (p : Params) (ws : List (Ptr × Nat)) (r : Nat) : Bool :=
-  ilChk p ws && famChk (sgB p) ws (yBase p) r && famChk (sgB p) ws (yhBase p) r
+  ilChk p ws && famChk (sgR p) (sgW p) ws (yBase p) r && famChk (sgR p) (sgW p) ws (yhBase p) r
 
 theorem ICm.step {p : Params} {D : Nat} {σ s s' : State} {t r : Nat} (h : ICm p D σ t r s)
     {ws : List (Ptr × Nat)} (hP : PPostB D s s' ws) (hc : icmChk p ws r = true) : ICm p D σ t r s' := by
@@ -172,8 +173,8 @@ def mChk (p : Params) (r : Nat) : Bool :=
   let w3 : List (Ptr × Nat) := [(yh, 1024)]
   let w4 : List (Ptr × Nat) := [(yh, 1024), (sc oPS, 1024)]
   icmChk p w1 r && inB (sgB p) (sc oKAP) 8 && inB (sgW p) (sc (oMS + 64)) 2 && maskChkS (sgR p) (sgW p) y &&
-    icmChk p w2 r && copyChk (sgB p) (sgW p) yh y 1024 && icmChk p w3 r && famChk (sgB p) w3 (yBase p) (r + 1) &&
-    ipChkS (sgR p) (sgW p) yh && icmChk p w4 r && famChk (sgB p) w4 (yBase p) (r + 1) &&
+    icmChk p w2 r && copyChk (sgR p) (sgW p) yh y 1024 && icmChk p w3 r && famChk (sgR p) (sgW p) w3 (yBase p) (r + 1) &&
+    ipChkS (sgR p) (sgW p) yh && icmChk p w4 r && famChk (sgR p) (sgW p) w4 (yBase p) (r + 1) &&
     decide (p.ℓ * 813 + r < 2 ^ 16) && decide (r < 4096) && decide (p.γ₁ = 2 ^ 17 ∨ p.γ₁ = 2 ^ 19)
 
 theorem maskR_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : State} {t r : Nat}
@@ -218,7 +219,7 @@ structure ICw (p : Params) (D : Nat) (σ : State) (t i : Nat) (s : State) : Prop
   w : Fam s (wBase p) i (Wv p σ (p.ℓ * t))
 
 def icwChk (p : Params) (ws : List (Ptr × Nat)) (i : Nat) : Bool :=
-  icmChk p ws p.ℓ && famChk (sgB p) ws (wBase p) i
+  icmChk p ws p.ℓ && famChk (sgR p) (sgW p) ws (wBase p) i
 
 theorem ICw.step {p : Params} {D : Nat} {σ s s' : State} {t i : Nat} (h : ICw p D σ t i s)
     {ws : List (Ptr × Nat)} (hP : PPostB D s s' ws) (hc : icwChk p ws i = true) : ICw p D σ t i s' := by
@@ -306,8 +307,8 @@ def hChk (p : Params) (i : Nat) : Bool :=
   let w := pS (wBase p + i)
   let o := sc (oW1 + w1Len p * i)
   rwChk (sgR p) (sgW p) w 1024 t1P 1024 && rwChk (sgR p) (sgW p) t1P 1024 o (w1Len p) &&
-    icwChk p [(t1P, 1024)] p.k && icwChk p [(o, w1Len p)] p.k && keepB (sgB p) [(t1P, 1024)] (sc oW1) (w1Len p * i) &&
-    keepB (sgB p) [(o, w1Len p)] (sc oW1) (w1Len p * i) && decide (w1Max p ∈ simpleBitPackBounds) &&
+    icwChk p [(t1P, 1024)] p.k && icwChk p [(o, w1Len p)] p.k && keepB (sgR p) (sgW p) [(t1P, 1024)] (sc oW1) (w1Len p * i) &&
+    keepB (sgR p) (sgW p) [(o, w1Len p)] (sc oW1) (w1Len p * i) && decide (w1Max p ∈ simpleBitPackBounds) &&
     decide (p.γ₂ ∈ gamma2s)
 
 theorem natPolyIs_coeff {m : Mem} {a : Addr} {f : Vector Nat n} (h : NatPolyIs m a f) {j : Nat} (hj : j < 256) :

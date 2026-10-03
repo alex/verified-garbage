@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyHeaders
 
-/-! Untrusted: combine R + [k]A and load [S]B for the final point comparison. -/
+/-! Combine R + [k]A and load [S]B for the final point comparison. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

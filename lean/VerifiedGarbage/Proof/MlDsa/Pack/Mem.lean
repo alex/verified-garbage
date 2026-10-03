@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # ML-DSA: polynomials in memory, for the encodings, on every target
 
-Untrusted: everything here is checked by Lean. The coefficients of the
-stored representations of `Spec/MlDsa/Poly.lean` (`coeffAt`, `polyAt`,
-`natPolyAt`, `PolyIs`), as the encodings read and write them: the words of
-a polynomial, their frame, and `PolyIs` from what each word holds.
+The coefficients of the stored representations of `Spec/MlDsa/Poly.lean`
+(`coeffAt`, `polyAt`, `natPolyAt`, `PolyIs`), as the encodings read and write
+them: the words of a polynomial, their frame, and `PolyIs` from what each word
+holds.
 -/
 
 namespace VG.Proof.MlDsa.Pack

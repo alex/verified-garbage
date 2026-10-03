@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Ed25519.X86.Arith
+import VerifiedGarbage.Proof.Ed25519.X86.Workspace
 import VerifiedGarbage.Impl.Ed25519.X86.MulAdd
 
 namespace VG.Proof.Ed25519.X86
@@ -43,7 +43,7 @@ theorem scalarMulTerms_bound (m : Mem) (x : BitVec 32) (k : Nat) :
   split <;> omega_using [hp, hm, hw]
 
 theorem scalarMulTerms_reads {k : Nat} (hk : k < 16) {t : Term} (ht : t ∈ scalarMulTerms k)
-    {d : Nat} (hd : d ∈ treads t) : d + 4 ≤ 8192 ∧ 128 + 4 * k ≤ d := by
+    {d : Nat} (hd : d ∈ treads t) : d + 4 ≤ 4096 ∧ 128 + 4 * k ≤ d := by
   simp only [scalarMulTerms, List.mem_append] at ht
   rcases ht with ht | ht
   · simp only [prodTerms, List.mem_map, List.mem_filter, List.mem_range, Bool.and_eq_true,

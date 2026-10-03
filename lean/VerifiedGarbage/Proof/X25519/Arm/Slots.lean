@@ -4,11 +4,12 @@ import VerifiedGarbage.Proof.X25519.Arm.Cswap
 /-!
 # X25519 on 32-bit ARM: the field elements the working space holds
 
-Untrusted: everything here is checked by Lean. `SlotsOk m B qs v`: each slot
-`q` of `qs` holds limbs below `2¹⁶` of the element `v q`. The field
-operations as updates of `v` (`mulS`, `addS`, `subS`, `cswapS`), for slots
-whose separation from the output is decided on their offsets (`Sep1`), and
-writing only the field area `[64, 1280)` of the working space (`FA`).
+`SlotsOk m B qs v`: each slot `q` of `qs` holds limbs below `2¹⁶` of the
+element `v q`. The field operations as updates of `v` (`mulS`, `addS`, `subS`,
+`cswapS`), for slots whose separation from the output is decided on their
+offsets (`Sep1`), and writing only the field area `[64, acc + 128)` of the
+working space (`FA`), for the product at any `acc` (X25519's `ACC` or
+Ed25519's).
 -/
 
 namespace VG.Proof.X25519.Arm
@@ -34,30 +35,31 @@ theorem upd_self (v : Nat → Fe) (o : Nat) (x : Fe) : upd v o x o = x := by sim
 
 theorem upd_of_ne (v : Nat → Fe) {o q : Nat} (x : Fe) (h : q ≠ o) : upd v o x q = v q := by simp [upd, h]
 
-/-- Every slot of `qs` is `o` or separate from it, and in `[64, ACC)`. -/
-def Sep1 (o : Nat) (qs : List Nat) : Bool :=
-  qs.all fun q => (q == o || q + 64 ≤ o || o + 64 ≤ q) && 64 ≤ q && q + 64 ≤ ACC
+/-- Every slot of `qs` is `o` or separate from it, and in `[64, acc)`. -/
+def Sep1 (acc o : Nat) (qs : List Nat) : Bool :=
+  qs.all fun q => (q == o || q + 64 ≤ o || o + 64 ≤ q) && 64 ≤ q && q + 64 ≤ acc
 
-theorem sep1_get {o : Nat} {qs : List Nat} (h : Sep1 o qs = true) {q : Nat} (hq : q ∈ qs) :
-    (q = o ∨ q + 64 ≤ o ∨ o + 64 ≤ q) ∧ 64 ≤ q ∧ q + 64 ≤ ACC := by
+theorem sep1_get {acc o : Nat} {qs : List Nat} (h : Sep1 acc o qs = true) {q : Nat} (hq : q ∈ qs) :
+    (q = o ∨ q + 64 ≤ o ∨ o + 64 ≤ q) ∧ 64 ≤ q ∧ q + 64 ≤ acc := by
   have := List.all_eq_true.mp h q hq
   simp only [Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq, decide_eq_true_eq] at this
   exact ⟨this.1.1.elim (fun h => h.elim .inl (fun h => .inr (.inl h))) (fun h => .inr (.inr h)),
     this.1.2, this.2⟩
 
-/-- The field area `[64, 1280)` of the working space: the elements and `ACC`. -/
-abbrev FA (b : BitVec 32) : Region := ⟨State.addr b + BitVec.ofNat 64 64, 1216⟩
+/-- The field area `[64, acc + 128)` of the working space: the elements and
+the product at `acc`. -/
+abbrev FA (acc : Nat) (b : BitVec 32) : Region := ⟨State.addr b + BitVec.ofNat 64 64, acc + 64⟩
 
 section
-variable {b : BitVec 32}
+variable {e acc : Nat} {b : BitVec 32}
 
-/-- The slots of `qs` other than `o` after a write of `o` (and `ACC`). -/
-theorem slots_after {o : Nat} {qs : List Nat} (hq : Sep1 o qs = true) (ho : o + 64 ≤ ACC) {m m' : Mem}
-    (hf : Frame [⟨State.addr b + BitVec.ofNat 64 o, 64⟩, ⟨State.addr b + BitVec.ofNat 64 ACC, 128⟩] m m')
+/-- The slots of `qs` other than `o` after a write of `o` (and `acc`). -/
+theorem slots_after (hA : acc + 128 ≤ 4096) {o : Nat} {qs : List Nat} (hq : Sep1 acc o qs = true)
+    (ho : o + 64 ≤ acc) {m m' : Mem}
+    (hf : Frame [⟨State.addr b + BitVec.ofNat 64 o, 64⟩, ⟨State.addr b + BitVec.ofNat 64 acc, 128⟩] m m')
     {v : Nat → Fe} (hS : SlotsOk m (State.addr b) qs v) {q : Nat} (hq' : q ∈ qs) (hqo : q ≠ o) :
     Lim m' (State.addr b) q ∧ FS m' (State.addr b) q = v q := by
   obtain ⟨h1, h2, h3⟩ := sep1_get hq hq'
-  have hA := ACC_eq
   have e : ∀ k < 16, limb m' (State.addr b) q k = limb m (State.addr b) q k :=
     limb_frame hf fun r hr k hk => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -67,81 +69,81 @@ theorem slots_after {o : Nat} {qs : List Nat} (hq : Sep1 o qs = true) (ho : o + 
   refine ⟨fun k hk => by rw [e k hk]; exact (hS q hq').1 k hk, ?_⟩
   rw [FS, V, val16_congr e]; exact (hS q hq').2
 
-theorem frame_FA {o : Nat} (ho : 64 ≤ o ∧ o + 64 ≤ ACC) {m m' : Mem}
-    (hf : Frame [⟨State.addr b + BitVec.ofNat 64 o, 64⟩, ⟨State.addr b + BitVec.ofNat 64 ACC, 128⟩] m m') :
-    Frame [FA b] m m' := by
-  have hA := ACC_eq
+theorem frame_FA (hA : acc + 128 ≤ 4096) {o : Nat} (ho : 64 ≤ o ∧ o + 64 ≤ acc) {m m' : Mem}
+    (hf : Frame [⟨State.addr b + BitVec.ofNat 64 o, 64⟩, ⟨State.addr b + BitVec.ofNat 64 acc, 128⟩] m m') :
+    Frame [FA acc b] m m' := by
   refine hf.sub fun r hr => ⟨_, List.mem_singleton_self _, ?_⟩
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl <;> exact Offset.sub _ (by omega) (by omega)
 
-theorem mulS {o x y : Nat} {qs : List Nat} {v : Nat → Fe} (hq : Sep1 o qs = true)
-    (ho : 64 ≤ o ∧ o + 64 ≤ ACC) (hx : x ∈ qs) (hy : y ∈ qs) {s : State} (hc : Ctx b s)
+theorem mulS (hA : acc + 128 ≤ 4096) {o x y : Nat} {qs : List Nat} {v : Nat → Fe}
+    (hq : Sep1 acc o qs = true)
+    (ho : 64 ≤ o ∧ o + 64 ≤ acc) (hx : x ∈ qs) (hy : y ∈ qs) {s : State} (hc : CtxN e b s)
     (hS : SlotsOk s.mem (State.addr b) qs v) :
-    WP isa (mul o x y) s fun s' => Rest clob s s' ∧ Frame [FA b] s.mem s'.mem ∧
+    WP isa (mulAt acc o x y) s fun s' => Rest clob s s' ∧ Frame [FA acc b] s.mem s'.mem ∧
       SlotsOk s'.mem (State.addr b) (o :: qs) (upd v o (v x * v y)) := by
-  refine WP.mono (mul_ok ho.2 (sep1_get hq hx).2.2 (sep1_get hq hy).2.2 hc (hS x hx).1 (hS y hy).1)
-    fun s' ⟨hr, hf, hl, hv⟩ => ⟨hr, frame_FA ho hf, fun q hq' => ?_⟩
+  refine WP.mono (mul_ok hA ho.2 (sep1_get hq hx).2.2 (sep1_get hq hy).2.2 hc (hS x hx).1 (hS y hy).1)
+    fun s' ⟨hr, hf, hl, hv⟩ => ⟨hr, frame_FA hA ho hf, fun q hq' => ?_⟩
   by_cases hqo : q = o
   · subst hqo
     refine ⟨hl, ?_⟩
     rw [upd_self, ← (hS x hx).2, ← (hS y hy).2]
     exact toFe_mul hv
   · rw [upd_of_ne _ _ hqo]
-    exact slots_after hq ho.2 hf hS ((List.mem_cons.mp hq').resolve_left hqo) hqo
+    exact slots_after hA hq ho.2 hf hS ((List.mem_cons.mp hq').resolve_left hqo) hqo
 
 theorem frame_o {o : Nat} {m m' : Mem} (hf : Frame [⟨State.addr b + BitVec.ofNat 64 o, 64⟩] m m') :
-    Frame [⟨State.addr b + BitVec.ofNat 64 o, 64⟩, ⟨State.addr b + BitVec.ofNat 64 ACC, 128⟩] m m' :=
+    Frame [⟨State.addr b + BitVec.ofNat 64 o, 64⟩, ⟨State.addr b + BitVec.ofNat 64 acc, 128⟩] m m' :=
   hf.mono fun r hr => by simp [List.mem_singleton.mp hr]
 
-theorem addS {o x y : Nat} {qs : List Nat} {v : Nat → Fe} (hq : Sep1 o qs = true)
-    (ho : 64 ≤ o ∧ o + 64 ≤ ACC) (hx : x ∈ qs) (hy : y ∈ qs) {s : State} (hc : Ctx b s)
+theorem addS (hA : acc + 128 ≤ 4096) {o x y : Nat} {qs : List Nat} {v : Nat → Fe}
+    (hq : Sep1 acc o qs = true)
+    (ho : 64 ≤ o ∧ o + 64 ≤ acc) (hx : x ∈ qs) (hy : y ∈ qs) {s : State} (hc : CtxN e b s)
     (hS : SlotsOk s.mem (State.addr b) qs v) :
-    WP isa (.block (add o x y)) s fun s' => Rest clob s s' ∧ Frame [FA b] s.mem s'.mem ∧
+    WP isa (.block (add o x y)) s fun s' => Rest clob s s' ∧ Frame [FA acc b] s.mem s'.mem ∧
       SlotsOk s'.mem (State.addr b) (o :: qs) (upd v o (v x + v y)) := by
-  have hA := ACC_eq
   have hx' := sep1_get hq hx
   have hy' := sep1_get hq hy
   refine WP.mono (add_ok (by omega) (by omega) (by omega)
     (hx'.1.elim (fun h => .inl h.symm) fun h => .inr h.symm) (hy'.1.elim (fun h => .inl h.symm) fun h => .inr h.symm)
-    hc (hS x hx).1 (hS y hy).1) fun s' ⟨hr, hf, hl, hv⟩ => ⟨hr, frame_FA ho (frame_o hf), fun q hq' => ?_⟩
+    hc (hS x hx).1 (hS y hy).1) fun s' ⟨hr, hf, hl, hv⟩ => ⟨hr, frame_FA hA ho (frame_o hf), fun q hq' => ?_⟩
   by_cases hqo : q = o
   · subst hqo
     refine ⟨hl, ?_⟩
     rw [upd_self, ← (hS x hx).2, ← (hS y hy).2]
     exact toFe_add hv
   · rw [upd_of_ne _ _ hqo]
-    exact slots_after hq ho.2 (frame_o hf) hS ((List.mem_cons.mp hq').resolve_left hqo) hqo
+    exact slots_after hA hq ho.2 (frame_o hf) hS ((List.mem_cons.mp hq').resolve_left hqo) hqo
 
-theorem subS {o x y : Nat} {qs : List Nat} {v : Nat → Fe} (hq : Sep1 o qs = true)
-    (ho : 64 ≤ o ∧ o + 64 ≤ ACC) (hx : x ∈ qs) (hy : y ∈ qs) {s : State} (hc : Ctx b s)
+theorem subS (hA : acc + 128 ≤ 4096) {o x y : Nat} {qs : List Nat} {v : Nat → Fe}
+    (hq : Sep1 acc o qs = true)
+    (ho : 64 ≤ o ∧ o + 64 ≤ acc) (hx : x ∈ qs) (hy : y ∈ qs) {s : State} (hc : CtxN e b s)
     (hS : SlotsOk s.mem (State.addr b) qs v) :
-    WP isa (.block (sub o x y)) s fun s' => Rest clob s s' ∧ Frame [FA b] s.mem s'.mem ∧
+    WP isa (.block (sub o x y)) s fun s' => Rest clob s s' ∧ Frame [FA acc b] s.mem s'.mem ∧
       SlotsOk s'.mem (State.addr b) (o :: qs) (upd v o (v x - v y)) := by
-  have hA := ACC_eq
   have hx' := sep1_get hq hx
   have hy' := sep1_get hq hy
   refine WP.mono (sub_ok (by omega) (by omega) (by omega)
     (hx'.1.elim (fun h => .inl h.symm) fun h => .inr h.symm) (hy'.1.elim (fun h => .inl h.symm) fun h => .inr h.symm)
-    hc (hS x hx).1 (hS y hy).1) fun s' ⟨hr, hf, hl, hv⟩ => ⟨hr, frame_FA ho (frame_o hf), fun q hq' => ?_⟩
+    hc (hS x hx).1 (hS y hy).1) fun s' ⟨hr, hf, hl, hv⟩ => ⟨hr, frame_FA hA ho (frame_o hf), fun q hq' => ?_⟩
   by_cases hqo : q = o
   · subst hqo
     refine ⟨hl, ?_⟩
     rw [upd_self, ← (hS x hx).2, ← (hS y hy).2]
     exact toFe_sub hv
   · rw [upd_of_ne _ _ hqo]
-    exact slots_after hq ho.2 (frame_o hf) hS ((List.mem_cons.mp hq').resolve_left hqo) hqo
+    exact slots_after hA hq ho.2 (frame_o hf) hS ((List.mem_cons.mp hq').resolve_left hqo) hqo
 
 /-- The elements after swapping `x` and `y` if `sw = 1`. -/
 def swapV (x y sw : Nat) (v : Nat → Fe) (q : Nat) : Fe :=
   if q = x then sel sw (v x) (v y) else if q = y then sel sw (v y) (v x) else v q
 
-theorem cswapS {x y : Nat} {qs : List Nat} {v : Nat → Fe} (hq : Sep1 x qs = true) (hq' : Sep1 y qs = true)
-    (hx : x ∈ qs) (hy : y ∈ qs) (hxy : x + 64 ≤ y ∨ y + 64 ≤ x) {s : State} (hc : Ctx b s) {sw : Nat}
+theorem cswapS (hA : acc + 128 ≤ 4096) {x y : Nat} {qs : List Nat} {v : Nat → Fe}
+    (hq : Sep1 acc x qs = true) (hq' : Sep1 acc y qs = true)
+    (hx : x ∈ qs) (hy : y ∈ qs) (hxy : x + 64 ≤ y ∨ y + 64 ≤ x) {s : State} (hc : CtxN e b s) {sw : Nat}
     (hsw : sw ≤ 1) (h9 : s.gpr .r9 = 0 - BitVec.ofNat 32 sw) (hS : SlotsOk s.mem (State.addr b) qs v) :
-    WP isa (.block (cswap x y)) s fun s' => Rest [.r2, .r3, .r4] s s' ∧ Frame [FA b] s.mem s'.mem ∧
+    WP isa (.block (cswap x y)) s fun s' => Rest [.r2, .r3, .r4] s s' ∧ Frame [FA acc b] s.mem s'.mem ∧
       SlotsOk s'.mem (State.addr b) qs (swapV x y sw v) := by
-  have hA := ACC_eq
   have hx' := sep1_get hq hx
   have hy' := sep1_get hq hy
   refine WP.mono (cswap_ok (b := b) (by omega) (by omega) hxy hc hsw h9) fun s' h => ⟨h.rest, ?_, ?_⟩

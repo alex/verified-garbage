@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.Packed
 
-/-! Untrusted: load a compact field into bounded sixteen-bit limbs. -/
+/-! Load a compact field into bounded sixteen-bit limbs. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

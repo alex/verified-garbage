@@ -5,12 +5,12 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on AArch64: the contracts of the encodings, for the proofs
 
-Untrusted: everything here is checked by Lean. For each packing function, a
-contract with the facts of its shared contract (`Spec/MlDsa/Poly.lean`)
-spelled out for AArch64: the arguments in their registers, the permitted
-regions, their disjointness, and the postcondition. The proofs are written
-against these, and `Verified.of_correct` moves them to the shared contracts,
-which imply them. Also: `sel_ok`, the branch of `sel` on a length.
+For each packing function, a contract with the facts of its shared contract
+(`Spec/MlDsa/Poly.lean`) spelled out for AArch64: the arguments in their
+registers, the permitted regions, their disjointness, and the postcondition.
+The proofs are written against these, and `Verified.of_correct` moves them to
+the shared contracts, which imply them. Also: `sel_ok`, the branch of `sel` on
+a length.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Pack

@@ -1,17 +1,18 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Core
 import VerifiedGarbage.TCB.Artifact
 import VerifiedGarbage.Proof.Sha512.AArch64.Variant
+import VerifiedGarbage.Proof.Sha256.AArch64.Variant
 
 /-!
 # Merkle–Damgård hash functions on AArch64, as variants
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Md/X86_64/Variant.lean`): an `MdHash` is one Merkle–Damgård
-hash function with one implementation of its compression function, a
-variant of the interface `MdHash` on AArch64 (`Variants/MdHash/AArch64/`),
-and each function built on the hash function (in `Generic/MdHash/AArch64/`)
-is emitted once for each of them: HMAC's `init` and `finalize`, and
-PBKDF2's `iterate` and `pbkdf2`, named with the variant's `suffix`.
+As on x86-64 (`Proof/Pbkdf2/Md/X86_64/Variant.lean`): an `MdHash` is one
+Merkle–Damgård hash function with one implementation of its compression
+function, a variant of the interface `MdHash` on AArch64
+(`Variants/MdHash/AArch64/`), and each function built on the hash function (in
+`Generic/MdHash/AArch64/`) is emitted once for each of them: HMAC's `init` and
+`finalize`, and PBKDF2's `iterate` and `pbkdf2`, named with the variant's
+`suffix`.
 
 `MdHash.of` builds one from what the proofs need of the hash function's
 code (`HashOK`), what the kernel checks of the code HMAC and PBKDF2 add to
@@ -66,6 +67,11 @@ structure MdHash where
   stream : List StreamFn := []
   /-- SHA-512 compression backend for constructions that require this hash. -/
   sha512 : Option Proof.Sha512.AArch64.Compress := none
+  /-- For SHA-256's variants, the implementation of the compression
+  function, from which the functions built on SHA-256 alone (scrypt's) are
+  made (`Generic/MdHash/AArch64/Scrypt.lean`); `none` for the other hash
+  functions. -/
+  sha256 : Option Proof.Sha256.AArch64.Compress := none
 
 namespace MdHash
 

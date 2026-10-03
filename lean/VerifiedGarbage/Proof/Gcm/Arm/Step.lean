@@ -8,9 +8,9 @@ import VerifiedGarbage.Proof.MdStream.Arm.Common
 /-!
 # GHASH on ARMv7: the steps of Algorithm 1
 
-Untrusted: everything here is checked by Lean. What the instructions of a
-step (`Impl.Gcm.Arm.step`) compute on the four words of a 128-bit value,
-stated on the whole value; a byte of `x` (8 steps); and the 16 bytes.
+What the instructions of a step (`Impl.Gcm.Arm.step`) compute on the four
+words of a 128-bit value, stated on the whole value; a byte of `x` (8 steps);
+and the 16 bytes.
 -/
 
 namespace VG.Proof.Gcm.Arm

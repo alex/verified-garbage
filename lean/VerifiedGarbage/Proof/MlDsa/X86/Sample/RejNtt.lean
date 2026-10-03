@@ -6,16 +6,15 @@ import VerifiedGarbage.Proof.MlKem.X86.Sample
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_rej_ntt_poly`
 
-Untrusted: everything here is checked by Lean. The body is the SHAKE128
-output of the seed at `scratch + 840` (`sponge_piece`), then the 336
-iterations of the loop, iteration `t` of which starts with the coefficients
-`LA B t = rnFold [] ((G(B, 1008)).take (3t))` (`Proof/MlDsa/Sample/RejNtt.lean`)
-stored at `a`, `edi` after them and `ecx` counting them (`Loop`); the end
-returns whether there are 256. An iteration computes the value of its 3
-bytes in `eax` (`load_piece`) and, while there are fewer than 256
-coefficients, stores it if it is less than `q` (`try_piece`); its branches
-depend on the XOF output, a function of the seed, and so agree in two runs
-from the same seed (`Pub`), which the contract lets the function leak.
+The body is the SHAKE128 output of the seed at `scratch + 840` (`sponge_piece`),
+then the 336 iterations of the loop, iteration `t` of which starts with the
+coefficients `LA B t = rnFold [] ((G(B, 1008)).take (3t))`
+(`Proof/MlDsa/Sample/RejNtt.lean`) stored at `a`, `edi` after them and `ecx`
+counting them (`Loop`); the end returns whether there are 256. An iteration
+computes the value of its 3 bytes in `eax` (`load_piece`) and, while there are
+fewer than 256 coefficients, stores it if it is less than `q` (`try_piece`); its
+branches depend on the XOF output, a function of the seed, and so agree in two
+runs from the same seed (`Pub`), which the contract lets the function leak.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sample.RejNtt
@@ -345,7 +344,7 @@ theorem Pre.of {s₀ : State} (h : (Spec.MlDsa.rejNTTContract X86.abi 56).pre s�
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21, show (34 : Nat) < 168 by decide⟩
 
 theorem map_toNat_inj : ∀ {l₁ l₂ : List Byte}, l₁.map (·.toNat) = l₂.map (·.toNat) → l₁ = l₂ :=
-  VG.Proof.MlKem.X86.Sample.map_toNat_inj
+  VG.Proof.MlKem.map_toNat_inj
 
 /-- The coefficients at `a`, when there are 256. -/
 theorem poly_eq {s₀ s : State} (h : Loop s₀ 336 (LA (L.Msg s₀) 336) s) (hl : (LA (L.Msg s₀) 336).length = 256) :

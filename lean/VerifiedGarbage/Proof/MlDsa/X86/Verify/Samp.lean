@@ -4,13 +4,13 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.Samp
 /-!
 # ML-DSA verification on x86 (32-bit): the samplers
 
-Untrusted: everything here is checked by Lean. Once the hint is well formed
-and the norms of `z` within the bound (`VB`), `ρ` is copied to the seed, and
-each entry `e = 8r + s` of `Â` sampled from `ρ ‖ s ‖ r` (`aOne_piece`), the
-sampler's result ANDed into the result and the polynomial masked with it, as
-in key generation; then `c` from `c̃` (`samples_piece`). The result is 1 if
-the samplers' outputs are those of the standard for some bounds, and 0 if
-verification is not true within the least bounds (`GA`, `GC`).
+Once the hint is well formed and the norms of `z` within the bound (`VB`), `ρ`
+is copied to the seed, and each entry `e = 8r + s` of `Â` sampled from `ρ ‖ s
+‖ r` (`aOne_piece`), the sampler's result ANDed into the result and the
+polynomial masked with it, as in key generation; then `c` from `c̃`
+(`samples_piece`). The result is 1 if the samplers' outputs are those of the
+standard for some bounds, and 0 if verification is not true within the least
+bounds (`GA`, `GC`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

@@ -52,9 +52,7 @@ globs = ["VerifiedGarbage.*"]
 # library is compiled from its modules' `.olean`s, and a module runs only the
 # code of what it imports, whose `.olean`s its trace already has: leave the
 # shared library out of the trace (it is still loaded), so a module is
-# rebuilt only when something it imports changes. (`platformIndependent` also
-# leaves the platform out of the trace, and CI's cache keys have it; and
-# shares outputs across platforms in Lake's artifact cache, which is off.)
+# rebuilt only when something it imports changes.
 platformIndependent = true
 
 [[lean_lib]]
@@ -80,8 +78,10 @@ globs = ["VerifiedGarbage.Spec.Sha1", "VerifiedGarbage.Spec.Sha256",
   "VerifiedGarbage.Spec.Gcm", "VerifiedGarbage.Spec.MlKem", "VerifiedGarbage.Spec.X25519",
   "VerifiedGarbage.Spec.MlDsa", "VerifiedGarbage.Spec.Ed25519", "VerifiedGarbage.Spec.Blake2",
   "VerifiedGarbage.Spec.X448", "VerifiedGarbage.Spec.Rc2", "VerifiedGarbage.Spec.TripleDes",
-  "VerifiedGarbage.Spec.Argon2",
-  "VerifiedGarbage.Spec.Cmac"]
+  "VerifiedGarbage.Spec.Argon2", "VerifiedGarbage.Spec.Rc4",
+  "VerifiedGarbage.Spec.Cmac", "VerifiedGarbage.Spec.Weierstrass", "VerifiedGarbage.Spec.P256",
+  "VerifiedGarbage.Spec.Ecdsa", "VerifiedGarbage.Spec.Dsa", "VerifiedGarbage.Spec.EcKey",
+  "VerifiedGarbage.Spec.Ecdh"]
 precompileModules = true
 
 # The evaluator of `sig_eval` (`Proof/Framework/SigEval.lean`), a tactic run

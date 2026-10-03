@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.X25519.Invert
 /-!
 # X25519: the ladder one iteration at a time
 
-Untrusted: everything here is checked by Lean. `X25519` of the spec folds
-`ladderStep` over the bits `254, …, 0` of the scalar; implementations loop
-over them with a counter. `ladderAfter k x1 n` is the ladder's state after
-the iterations for the bits `254` down to `n` (so `ladderAfter k x1 255` is
-the initial state and `ladderAfter k x1 0` the final one), and each
-iteration takes it from `n + 1` to `n` (`ladderAfter_step`). `x25519_eq`
-states the spec with it, and with the inversion as `invert`.
+`X25519` of the spec folds `ladderStep` over the bits `254, …, 0` of the
+scalar; implementations loop over them with a counter. `ladderAfter k x1 n` is
+the ladder's state after the iterations for the bits `254` down to `n` (so
+`ladderAfter k x1 255` is the initial state and `ladderAfter k x1 0` the final
+one), and each iteration takes it from `n + 1` to `n` (`ladderAfter_step`).
+`x25519_eq` states the spec with it, and with the inversion as `invert`.
 -/
 
 namespace VG.Proof.X25519

@@ -6,10 +6,12 @@ import VerifiedGarbage.Proof.MlKem.X86.DecodeDecompress
 /-!
 # ML-KEM on x86 (32-bit): calls of `vg_mlkem_sample_ntt`, `vg_mlkem_compress_encode` and `vg_mlkem_decode_decompress`
 
-Untrusted: everything here is checked by Lean. As `TopPrim.lean`.
-`vg_mlkem_sample_ntt` returns a value, so its arguments are popped into
-`ecx` (`callRet`), and its public data includes its seed: two runs agree on
-it when the caller's seeds agree (`hseed`).
+As `TopPrim.lean`. `vg_mlkem_sample_ntt` returns a value, so its arguments are
+popped into `ecx` (`callRet`), and its public data includes its seed: two runs
+agree on it when the caller's seeds agree (`hseed`). The calls of compression
+are proven for any leaf with the contract of `vg_mlkem_compress_encode` or
+`vg_mlkem_decode_decompress` for some widths (`CeFn`, `DdFn`: `ce768` and
+`dd768` for 1, 4 and 10 bits; ML-KEM-1024's own leaves for 5 and 11).
 -/
 
 namespace VG.Proof.MlKem.X86.Top
@@ -143,9 +145,48 @@ theorem width_lt {d : Nat} (hd : d ∈ compressWidths) : 32 * d < 2 ^ 32 := by
   simp only [compressWidths, List.mem_cons, List.not_mem_nil, or_false] at hd
   rcases hd with rfl | rfl | rfl <;> decide
 
+/-- The contract of `vg_mlkem_compress_encode` (`compressEncodeContract`), for the widths `ws`. -/
+def ceCon (ws : List Nat) {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
+  compressEncodeSig.contract A
+    (pre := fun f d _out len m => d.toNat ∈ ws ∧ len.toNat = 32 * d.toNat ∧ Reduced m f)
+    (post := fun f d out len m m' _ => Spec.Sha3.bytesAt m' out len.toNat = compressEncode d.toNat (polyAt m f))
+    (writeArgs := true)
+    (stack := stack)
+
+/-- The contract of `vg_mlkem_decode_decompress` (`decodeDecompressContract`), for the widths `ws`. -/
+def ddCon (ws : List Nat) {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
+  decodeDecompressSig.contract A
+    (pre := fun _b len d _f _m => d.toNat ∈ ws ∧ len.toNat = 32 * d.toNat)
+    (post := fun b len d f m m' _ => PolyIs m' f (decodeDecompress d.toNat (Spec.Sha3.bytesAt m b len.toNat)))
+    (writeArgs := true)
+    (stack := stack)
+
+/-- A leaf that compresses to the widths `ws` and encodes, as `vg_mlkem_compress_encode`
+(`ce768`) for 1, 4 and 10 bits. -/
+structure CeFn (c : Prog isa) (ws : List Nat) : Prop where
+  verified : Verified X86.target c (ceCon ws X86.abi 16)
+  nosp : NoSp c
+  stack : stackUse c = 16
+  width : ∀ d ∈ ws, 32 * d < 2 ^ 32
+
+/-- A leaf that decodes and decompresses from the widths `ws`, as `vg_mlkem_decode_decompress`
+(`dd768`). -/
+structure DdFn (c : Prog isa) (ws : List Nat) : Prop where
+  verified : Verified X86.target c (ddCon ws X86.abi 16)
+  nosp : NoSp c
+  stack : stackUse c = 16
+  width : ∀ d ∈ ws, 32 * d < 2 ^ 32
+
+theorem ce768 : CeFn Impl.MlKem.X86.compressEncode compressWidths :=
+  ⟨CompressEncode.verified, ce_nosp, ce_stack, fun _ => width_lt⟩
+
+theorem dd768 : DdFn Impl.MlKem.X86.decodeDecompress compressWidths :=
+  ⟨DecodeDecompress.verified, dd_nosp, dd_stack, fun _ => width_lt⟩
+
 /-- `out ← ByteEncode_d(Compress_d(f))`, with `f` at `(fa, fo)` and the `32d` bytes `out` at `(oa, oo)`,
 and `f`, `d`, `out`, `32d` in `eax`, `ecx`, `edx` and `edi`. -/
-theorem ce_call (d : Nat) (hd : d ∈ compressWidths) (fa fo oa oo : Nat)
+theorem ce_call {nm : String} {c : Prog isa} {ws : List Nat} (F : CeFn c ws) (d : Nat) (hd : d ∈ ws)
+    (fa fo oa oo : Nat)
     (hc : (Y.ok ⟨fa, fo, 1024⟩ && Y.okW ⟨oa, oo, 32 * d⟩ && Y.sep ⟨fa, fo, 1024⟩ ⟨oa, oo, 32 * d⟩) = true)
     (hN : 52 ≤ Y.stk)
     (hA : ∀ s₀ s, TPre Y s₀ → A s₀ s → Ctx Y s₀ s ∧ s.gpr .eax = Buf.ptr s₀ ⟨fa, fo, 1024⟩ ∧
@@ -156,11 +197,11 @@ theorem ce_call (d : Nat) (hd : d ∈ compressWidths) (fa fo oa oo : Nat)
       Spec.Sha3.bytesAt s'.mem (Buf.addr s₀ ⟨oa, oo, 32 * d⟩) (32 * d) =
         compressEncode d (polyAt s.mem (Buf.addr s₀ ⟨fa, fo, 1024⟩)) → B s₀ s') :
     Piece (TPre Y) (TPub Y lk) A B
-      (callWith [.edi, .edx, .ecx, .eax] "vg_mlkem_compress_encode" Impl.MlKem.X86.compressEncode) := by
+      (callWith [.edi, .edx, .ecx, .eax] nm c) := by
   simp only [Bool.and_eq_true] at hc
   obtain ⟨⟨hF, hO⟩, dFO⟩ := hc
   have hO₁ := (Lay.okW_iff.mp hO).1
-  have hd32 := width_lt hd
+  have hd32 := F.width d hd
   have hd' : d < 2 ^ 32 := by omega
   have entry : ∀ s₀ s, TPre Y s₀ → A s₀ s →
       4 * [Reg.edi, Reg.edx, Reg.ecx, Reg.eax].length + 4 ≤ (s.gpr .esp).toNat ∧
@@ -176,8 +217,8 @@ theorem ce_call (d : Nat) (hd : d ∈ compressWidths) (fa fo oa oo : Nat)
     · rw [callEntry_arg fit (by decide) (by decide)]; exact hcx
     · rw [callEntry_arg fit (by decide) (by decide)]; exact hdx
     · rw [callEntry_arg fit (by decide) (by decide)]; exact hdi
-  refine call_piece CompressEncode.verified ce_nosp (by decide) (by decide)
-    (by rw [ce_stack]; simp only [List.length_cons, List.length_nil]; omega)
+  refine call_piece F.verified F.nosp (by decide) (by decide)
+    (by rw [F.stack]; simp only [List.length_cons, List.length_nil]; omega)
     (fun s₀ => [Buf.rgn s₀ ⟨fa, fo, 1024⟩])
     (fun s₀ => [Buf.rgn s₀ ⟨oa, oo, 32 * d⟩] ++ [below (E1 s₀) 16])
     (fun s₀ s hp ha => ?_) (fun s₀ s₀' s s' hp hp' hq ha ha' => ?_)
@@ -208,7 +249,7 @@ theorem ce_call (d : Nat) (hd : d ∈ compressWidths) (fa fo oa oo : Nat)
     refine ⟨h, ?_, cv.1, cv.2⟩
     -- The callee's entry state stays opaque to `sig_pre`, which would unfold it.
     generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e
-    sig_pre [compressEncodeContract, compressEncodeSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+    sig_pre [ceCon, compressEncodeSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     subst he
     simp only [arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp, toNat_ofNat32 hd',
       toNat_ofNat32 hd32]
@@ -232,7 +273,7 @@ theorem ce_call (d : Nat) (hd : d ∈ compressWidths) (fa fo oa oo : Nat)
     refine ⟨by simp only [Buf.rgn, hq.ptr hF], by simp only [Buf.rgn, hq.ptr hO₁, hq.E1], ?_⟩
     generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e
     generalize he' : (pushed [.edi, .edx, .ecx, .eax] s').callEntry = e'
-    sig_pub [compressEncodeContract, compressEncodeSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+    sig_pub [ceCon, compressEncodeSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     subst he he'
     simp only [arg_withRegions, callEntry_esp', hsp]
     exact ⟨trivial, callEntry_arg_eq (by decide) fit hsp hr (by decide),
@@ -243,16 +284,17 @@ theorem ce_call (d : Nat) (hd : d ∈ compressWidths) (fa fo oa oo : Nat)
     obtain ⟨s₂, m₂, post⟩ := post
     have ek := @ent_keep Y s₀ s hp h [.edi, .edx, .ecx, .eax] (by decide) (by simp; omega)
     generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e at post
-    sig_post [compressEncodeContract, compressEncodeSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
+    sig_post [ceCon, compressEncodeSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
     subst he
     simp only [arg_withRegions, a0, a1, a2, a3, m₂, toNat_ofNat32 hd', toNat_ofNat32 hd32] at post
     rw [polyAt_congr (ek hF)] at post
     exact hQ s₀ s s' hp ha h' e₃ (fr_conv hp (a := 16) (N := 36) (by omega) (by omega)
-      (by rw [ce_stack] at fr; exact fr)) post
+      (by rw [F.stack] at fr; exact fr)) post
 
 /-- `f ← Decompress_d(ByteDecode_d(b))`, with the `32d` bytes `b` at `(ba, bo)` and `f` at `(fa, fo)`,
 and `b`, `32d`, `d`, `f` in `eax`, `ecx`, `edx` and `edi`. -/
-theorem dd_call (d : Nat) (hd : d ∈ compressWidths) (ba bo fa fo : Nat)
+theorem dd_call {nm : String} {c : Prog isa} {ws : List Nat} (F : DdFn c ws) (d : Nat) (hd : d ∈ ws)
+    (ba bo fa fo : Nat)
     (hc : (Y.ok ⟨ba, bo, 32 * d⟩ && Y.okW ⟨fa, fo, 1024⟩ && Y.sep ⟨ba, bo, 32 * d⟩ ⟨fa, fo, 1024⟩) = true)
     (hN : 52 ≤ Y.stk)
     (hA : ∀ s₀ s, TPre Y s₀ → A s₀ s → Ctx Y s₀ s ∧ s.gpr .eax = Buf.ptr s₀ ⟨ba, bo, 32 * d⟩ ∧
@@ -263,11 +305,11 @@ theorem dd_call (d : Nat) (hd : d ∈ compressWidths) (ba bo fa fo : Nat)
       PolyIs s'.mem (Buf.addr s₀ ⟨fa, fo, 1024⟩)
         (decodeDecompress d (Spec.Sha3.bytesAt s.mem (Buf.addr s₀ ⟨ba, bo, 32 * d⟩) (32 * d))) → B s₀ s') :
     Piece (TPre Y) (TPub Y lk) A B
-      (callWith [.edi, .edx, .ecx, .eax] "vg_mlkem_decode_decompress" Impl.MlKem.X86.decodeDecompress) := by
+      (callWith [.edi, .edx, .ecx, .eax] nm c) := by
   simp only [Bool.and_eq_true] at hc
   obtain ⟨⟨hB, hF⟩, dBF⟩ := hc
   have hF₁ := (Lay.okW_iff.mp hF).1
-  have hd32 := width_lt hd
+  have hd32 := F.width d hd
   have hd' : d < 2 ^ 32 := by omega
   have entry : ∀ s₀ s, TPre Y s₀ → A s₀ s →
       4 * [Reg.edi, Reg.edx, Reg.ecx, Reg.eax].length + 4 ≤ (s.gpr .esp).toNat ∧
@@ -283,8 +325,8 @@ theorem dd_call (d : Nat) (hd : d ∈ compressWidths) (ba bo fa fo : Nat)
     · rw [callEntry_arg fit (by decide) (by decide)]; exact hcx
     · rw [callEntry_arg fit (by decide) (by decide)]; exact hdx
     · rw [callEntry_arg fit (by decide) (by decide)]; exact hdi
-  refine call_piece DecodeDecompress.verified dd_nosp (by decide) (by decide)
-    (by rw [dd_stack]; simp only [List.length_cons, List.length_nil]; omega)
+  refine call_piece F.verified F.nosp (by decide) (by decide)
+    (by rw [F.stack]; simp only [List.length_cons, List.length_nil]; omega)
     (fun s₀ => [Buf.rgn s₀ ⟨ba, bo, 32 * d⟩])
     (fun s₀ => [Buf.rgn s₀ ⟨fa, fo, 1024⟩] ++ [below (E1 s₀) 16])
     (fun s₀ s hp ha => ?_) (fun s₀ s₀' s s' hp hp' hq ha ha' => ?_)
@@ -315,7 +357,7 @@ theorem dd_call (d : Nat) (hd : d ∈ compressWidths) (ba bo fa fo : Nat)
     refine ⟨h, ?_, cv.1, cv.2⟩
     -- The callee's entry state stays opaque to `sig_pre`, which would unfold it.
     generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e
-    sig_pre [decodeDecompressContract, decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+    sig_pre [ddCon, decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     subst he
     simp only [arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp, toNat_ofNat32 hd',
       toNat_ofNat32 hd32]
@@ -338,7 +380,7 @@ theorem dd_call (d : Nat) (hd : d ∈ compressWidths) (ba bo fa fo : Nat)
     refine ⟨by simp only [Buf.rgn, hq.ptr hB], by simp only [Buf.rgn, hq.ptr hF₁, hq.E1], ?_⟩
     generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e
     generalize he' : (pushed [.edi, .edx, .ecx, .eax] s').callEntry = e'
-    sig_pub [decodeDecompressContract, decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+    sig_pub [ddCon, decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     subst he he'
     simp only [arg_withRegions, callEntry_esp', hsp]
     exact ⟨trivial, callEntry_arg_eq (by decide) fit hsp hr (by decide),
@@ -349,12 +391,12 @@ theorem dd_call (d : Nat) (hd : d ∈ compressWidths) (ba bo fa fo : Nat)
     obtain ⟨s₂, m₂, post⟩ := post
     have ek := @ent_keep Y s₀ s hp h [.edi, .edx, .ecx, .eax] (by decide) (by simp; omega)
     generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e at post
-    sig_post [decodeDecompressContract, decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal,
+    sig_post [ddCon, decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal,
       X86.argBytes] at post
     subst he
     simp only [arg_withRegions, a0, a1, a2, a3, m₂, toNat_ofNat32 hd', toNat_ofNat32 hd32] at post
     rw [bytesAt_congr (ek hB)] at post
     exact hQ s₀ s s' hp ha h' e₃ (fr_conv hp (a := 16) (N := 36) (by omega) (by omega)
-      (by rw [dd_stack] at fr; exact fr)) post
+      (by rw [F.stack] at fr; exact fr)) post
 
 end VG.Proof.MlKem.X86.Top

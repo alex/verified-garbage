@@ -14,8 +14,6 @@ import VerifiedGarbage.Proof.Sha256.X86.Lit
 
 /-!
 # Streaming SHA-256 on x86 (32-bit): `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha256.X86.Stream
@@ -166,15 +164,14 @@ end VG.Proof.Sha256.X86.Stream
 /-!
 # Streaming SHA-256 on x86 (32-bit): `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. `update` and `finalize` are
-the generic streaming code (`Impl/MdStream/X86.lean`) for SHA-256's sizes,
-length field and digest (`params`), instruction for instruction
-(`update_eq`, `finalize_eq`), so they are verified by the generic proofs
-(`Proof/MdStream/X86/`) for SHA-256's instance (`Proof/Sha256/Md.lean`) with
-160 bytes of scratch space, given what SHA-256's own pieces do: its length
-field and digest (`shape`), that its compression function is verified
-(`callee`), and that the taint analysis accepts its code (which it checks
-together with the compression function's).
+`update` and `finalize` are the generic streaming code
+(`Impl/MdStream/X86.lean`) for SHA-256's sizes, length field and digest
+(`params`), instruction for instruction (`update_eq`, `finalize_eq`), so they
+are verified by the generic proofs (`Proof/MdStream/X86/`) for SHA-256's
+instance (`Proof/Sha256/Md.lean`) with 160 bytes of scratch space, given what
+SHA-256's own pieces do: its length field and digest (`shape`), that its
+compression function is verified (`callee`), and that the taint analysis
+accepts its code (which it checks together with the compression function's).
 -/
 
 namespace VG.Proof.Sha256.X86.Stream
@@ -185,6 +182,8 @@ open VG.Impl.MdStream.X86 (Params len64 out32)
 /-- SHA-256's sizes, length field and digest in the generic streaming code. -/
 def params : Params where
   N := 32
+  B := 64
+  L := 8
   so := 112
   len := len64 112 88 true
   out := out32 8 true
@@ -198,11 +197,12 @@ theorem finalize_eq :
       Impl.MdStream.X86.finalize params "vg_sha256_compress" Impl.Sha256.X86.compress :=
   rfl
 
-theorem dims : Dims params 160 := ⟨by decide, by decide, by decide⟩
+theorem dims : Dims params 160 := ⟨.inl rfl, by decide, by decide, by decide, by decide⟩
 
 theorem shape : Shape (P := params) md where
-  len _ hfit hlo hhi ho₁ ho₂ := len64_ok (so := params.so) (d := params.N + 56) (be := true) (by omega)
-    hlo hhi ho₁ ho₂
+  len _ hfit hlo hhi ho := len64_ok (so := params.so) (d := params.N + params.B - params.L) (be := true)
+    (by have : params.N + params.B - params.L + 8 = params.N + params.B := rfl; omega) hlo hhi
+    (ho _ (Nat.le_refl _) (by decide)) (ho _ (by decide) (by decide))
   out _ hbx hax hin hout hd := by
     refine (out32_ok (n := 8) true (by decide) hbx hax hin hout hd).mono fun s' ⟨g, rd, wr, m⟩ =>
       ⟨g, rd, wr, ?_⟩
@@ -250,10 +250,10 @@ end VG.Proof.Sha256.X86.Stream
 /-!
 # Sha256 on X86: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha256/X86/Contract.lean`); these theorems move
-them to the shared contracts of `Spec/Sha256/Contract.lean`, which the
-artifacts are emitted with.
+The proofs are written against per-target contracts
+(`Proof/Sha256/X86/Contract.lean`); these theorems move them to the shared
+contracts of `Spec/Sha256/Contract.lean`, which the artifacts are emitted
+with.
 
 The shared contracts give the functions more scratch than these ones use (560
 bytes for `compress`, 608 for `update` and `finalize`, sized for the x86-64
@@ -333,9 +333,10 @@ macro "narrow" loc:(Lean.Parser.Tactic.location)? : tactic =>
     compressWide, updateWide, finalizeWide, VG.X86.arg_withRegions, VG.X86.argAddr_withRegions, State.withRegions_gpr,
     State.withRegions_mem, State.withRegions_rd, State.withRegions_wr] $(loc)?)
 
-theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
-    Verified X86.target Impl.Sha256.X86.compress compressWide :=
-  Verified.widen Proof.Sha256.X86.compress_verified
+theorem compressWide_of {code : Prog isa} (hv : Verified X86.target code Proof.Sha256.compressX86)
+    (hsat : ∃ s, compressWide.pre s) :
+    Verified X86.target code compressWide :=
+  Verified.widen hv
     (fun s => [⟨(arg s 0).setWidth 64, 32⟩, ⟨(arg s 3).setWidth 64, 112⟩])
     (fun _ h => by
       obtain ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃⟩ := h
@@ -347,6 +348,10 @@ theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
       rw [h₂]; exact .cons (pfx rfl) (.cons (pfx rfl) .nil))
     (fun _ _ _ h => by narrow at h ⊢; exact h)
     (fun _ _ _ _ h => by narrow; exact h) hsat
+
+theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
+    Verified X86.target Impl.Sha256.X86.compress compressWide :=
+  compressWide_of Proof.Sha256.X86.compress_verified hsat
 
 /-- `update` only reads its arguments. -/
 theorem updateWide_of {code : Prog isa} (hv : Verified X86.target code Proof.Sha256.updateX86)

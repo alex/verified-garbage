@@ -6,14 +6,13 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Top
 /-!
 # ML-KEM-768 on AArch64: the hash routine
 
-Untrusted: everything here is checked by Lean. `hash` (`Impl/MlKem/AArch64/Top.lean`)
-computes the sponge of the concatenation of its input pieces, and writes
-consecutive output to its output pieces (`hash_ok`): from the all-zero state
-(`repr_nil`), each `absorb` continues the message from the position the
-previous one returned, the padding, and each `squeeze` continues the output.
-It changes only the Keccak state and working space, the outputs, the 16
-bytes below the stack pointer, and registers that are not callee-saved (or
-`x30`).
+`hash` (`Impl/MlKem/AArch64/Top.lean`) computes the sponge of the
+concatenation of its input pieces, and writes consecutive output to its output
+pieces (`hash_ok`): from the all-zero state (`repr_nil`), each `absorb`
+continues the message from the position the previous one returned, the
+padding, and each `squeeze` continues the output. It changes only the Keccak
+state and working space, the outputs, the 16 bytes below the stack pointer,
+and registers that are not callee-saved (or `x30`).
 -/
 
 namespace VG.Proof.MlKem.AArch64
@@ -279,14 +278,6 @@ def Outs (s₀ : State) (m : Mem) (rate : Nat) (P : Spec.Sha3.State) : Nat → L
   | _, [] => True
   | c, p :: ps => bytesAt m (s₀.gpr p.base + BitVec.ofNat 64 p.off) p.len = squeezeFrom rate P c p.len ∧
       Outs s₀ m rate P (c + p.len) ps
-
-theorem squeezeFrom_shift {rate : Nat} (hr : 0 < rate) (hr' : rate ≤ 200) {S P : Spec.Sha3.State}
-    {p c : Nat} (h : ∀ d, squeezeFrom rate S p d = squeezeFrom rate P c d) (a d : Nat) :
-    squeezeFrom rate S (p + a) d = squeezeFrom rate P (c + a) d := by
-  have e : ∀ (T : Spec.Sha3.State) (x : Nat), squeezeFrom rate T (x + a) d = (squeezeFrom rate T x (a + d)).drop a :=
-    fun T x => by
-      rw [← squeezeFrom_append hr hr' T x a d, List.drop_left' (VG.Proof.Sha3.length_squeezeFrom hr hr' T x a)]
-  rw [e S p, e P c, h]
 
 theorem squeezesWith_ok (v : Proof.Sha3.AArch64.Permutation) {sc : Reg} {st wk rate : Nat} {s₀ : State} (hS : HSetup sc st wk rate s₀)
     {P : Spec.Sha3.State} :

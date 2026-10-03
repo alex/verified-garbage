@@ -1,19 +1,20 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyCTDecodeR
 
-/-! Untrusted: decoding the public key selects the public verification continuation. -/
+/-! Decoding the public key selects the public verification continuation. -/
 
 namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64 Edwards
 
 variable {fld : Arith} [EdArith fld]
+variable {dbl : Prog isa} [EdDouble dbl]
 
 theorem verifyStoreA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte)
     (a : Spec.Ed25519.Point) {Aa : EPoint dZ} (hA : Rep a Aa) :
     RelCT isa (fun s t => (VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
       point (env s.mem base) 0 1 2 3 = a) ∧ (VerifyPublic base pk sig challenge pkbs rbs sbs kbs t ∧
       point (env t.mem base) 0 1 2 3 = a))
-      (.seq (.block (pointTableWrite 7424)) (verifyDecodeR fld)) (fun _ _ => True) := by
+      (.seq (.block (pointTableWrite 7424)) (verifyDecodeR fld dbl)) (fun _ _ => True) := by
   have ht := (pointTableWrite_ct base 7424 (by decide)).mono
     (fun s t (h : (VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
       point (env s.mem base) 0 1 2 3 = a) ∧ (VerifyPublic base pk sig challenge pkbs rbs sbs kbs t ∧
@@ -30,7 +31,7 @@ theorem verifyStoreA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List 
 
 theorem verifyDecodeA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte) :
     RelCT isa (fun s t => VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
-      VerifyPublic base pk sig challenge pkbs rbs sbs kbs t) (verifyDecodeA fld) (fun _ _ => True) := by
+      VerifyPublic base pk sig challenge pkbs rbs sbs kbs t) (verifyDecodeA fld dbl) (fun _ _ => True) := by
   let P := VerifyPublic base pk sig challenge pkbs rbs sbs kbs
   have loadCT : RelCT isa (fun s t => P s ∧ P t)
       (.block [.mov .rdx (.mem (Impl.X25519.X86_64.sc 7936))]) (fun _ _ => True) := by

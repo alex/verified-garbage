@@ -15,8 +15,6 @@ section
 /-!
 # The bitsliced S-box on x86-64
 
-Untrusted: everything here is checked by Lean.
-
 `sboxCode` only combines words bitwise, so it computes the same Boolean
 function at each of the 64 bit positions: the kernel evaluates it once on
 truth tables of the 256 inputs (`Bitslice.table`) and compares the result
@@ -116,8 +114,6 @@ end
 
 /-!
 # The linear layers of bitsliced AES on x86-64
-
-Untrusted: everything here is checked by Lean.
 
 Each layer is checked by evaluation over the lane domain
 (`Framework/X86_64/Linear.lean`): the kernel runs it on the input words
@@ -274,13 +270,11 @@ end
 /-!
 # Encrypting four blocks, bitsliced, on x86-64
 
-Untrusted: everything here is checked by Lean.
-
 `encrypt4_ok`: from four blocks in the registers (`InRel`), with the
 bitsliced round keys in the scratch buffer (`KeysAt`), `encrypt4` leaves
 the four ciphertexts, having written only the first 384 bytes of the
-scratch buffer. The layers are composed from their proofs
-(`Sbox.lean`, `Linear.lean`); the round loop's invariant is the
+scratch buffer. The layers are composed from their proofs (above);
+the round loop's invariant is the
 specification's `foldl` over the rounds done.
 -/
 

@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.Sample.Mem
 /-!
 # ML-DSA on x86-64: the sampling functions' prologue and epilogue
 
-Untrusted: everything here is checked by Lean. The prologue (`pro`) saves
-`rbx`, `rbp` and `r12` in the working space and sets up the layout: from
-what running it leaves, `J0` holds (`pro_J0`). The epilogue (`epi`) restores
-them: with `Env`, the calling convention's obligations hold at the end
-(`epi_ok`). A coefficient store of a loop (`[rbp + 4 rdi]`) is apart from
-everything `Env` keeps (`ea_aJ`, `Env.store`).
+The prologue (`pro`) saves `rbx`, `rbp` and `r12` in the working space and
+sets up the layout: from what running it leaves, `J0` holds (`pro_J0`). The
+epilogue (`epi`) restores them: with `Env`, the calling convention's
+obligations hold at the end (`epi_ok`). A coefficient store of a loop (`[rbp +
+4 rdi]`) is apart from everything `Env` keeps (`ea_aJ`, `Env.store`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

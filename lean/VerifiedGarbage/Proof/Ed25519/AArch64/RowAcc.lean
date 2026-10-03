@@ -1,9 +1,11 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Mem
 
-/-! Untrusted: rows of a four-by-four word product with the words of one
+/-! Rows of a four-by-four word product with the words of one
 operand in registers (`rowFirst`, `rowAcc`), and the instances the field
 multiplication and reduction use. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 
 /-- The high word of a product, as `umulh` computes it. -/

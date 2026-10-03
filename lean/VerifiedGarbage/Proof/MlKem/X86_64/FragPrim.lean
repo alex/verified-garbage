@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlKem.X86_64.ArithOk
 /-!
 # ML-KEM-768 on x86-64: the calls of the polynomial primitives
 
-Untrusted: everything here is checked by Lean. For each call of a
-polynomial primitive from a top-level function: what it needs of the state
-(`…H`), what it does (`…_ok`), and that two runs that agree on its public
-data leak the same (`…_tr`).
+For each call of a polynomial primitive from a top-level function: what it
+needs of the state (`…H`), what it does (`…_ok`), and that two runs that agree
+on its public data leak the same (`…_tr`).
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -413,13 +412,30 @@ theorem sw32_64' (d : Nat) (hd : d < 2 ^ 32) : ((BitVec.ofNat 64 d).setWidth 32)
   rw [BitVec.toNat_setWidth, BitVec.toNat_ofNat]
   omega
 
-theorem widths_lt {d : Nat} (h : d ∈ compressWidths) : d ≤ 10 := by
-  simp only [compressWidths, List.mem_cons, List.not_mem_nil, or_false] at h; omega
+/-- A verified implementation `c`, named `n`, of the compression for the
+widths `ws` (`vg_mlkem_compress_encode`, `vg_mlkem1024_compress_encode`). -/
+structure CEImpl (n : String) (c : Prog isa) (ws : List Nat) : Prop where
+  le : ∀ d ∈ ws, d ≤ 11
+  correct : ∀ s, (compressEncodeWK ws).pre s →
+    ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ (compressEncodeWK ws).post s s'
+  ct : ConstantTime isa (compressEncodeWK ws).pre (compressEncodeWK ws).pub c
+  nosp : NoSp c
+  depth : c.depth = 0
 
-/-- What a call of `vg_mlkem_compress_encode` of `f` to `out` with width `d` needs. -/
-structure CEH (f out : Ptr) (d : Nat) (s : State) : Prop where
+/-- A verified implementation `c`, named `n`, of the decompression for the
+widths `ws` (`vg_mlkem_decode_decompress`, `vg_mlkem1024_decode_decompress`). -/
+structure DDImpl (n : String) (c : Prog isa) (ws : List Nat) : Prop where
+  le : ∀ d ∈ ws, d ≤ 11
+  correct : ∀ s, (decodeDecompressWK ws).pre s →
+    ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ (decodeDecompressWK ws).post s s'
+  ct : ConstantTime isa (decodeDecompressWK ws).pre (decodeDecompressWK ws).pub c
+  nosp : NoSp c
+  depth : c.depth = 0
+
+/-- What a call of a compression of `f` to `out` with width `d` in `ws` needs. -/
+structure CEH (ws : List Nat) (f out : Ptr) (d : Nat) (s : State) : Prop where
   off : f.2 < 2 ^ 31 ∧ out.2 < 2 ^ 31
-  dw : d ∈ compressWidths
+  dw : d ∈ ws
   red : Reduced s.mem (pa s f)
   dj : Region.Disjoint (pR (pa s f)) ⟨pa s out, 32 * d⟩
   kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
@@ -427,7 +443,7 @@ structure CEH (f out : Ptr) (d : Nat) (s : State) : Prop where
   c : Covers ([pR (pa s f)] ++ [⟨pa s out, 32 * d⟩]) (s.rd ++ s.wr)
   w : Covers [⟨pa s out, 32 * d⟩] s.wr
 
-theorem ceGlue_ok (f out : Ptr) (d : Nat) (ho : f.2 < 2 ^ 31 ∧ out.2 < 2 ^ 31) (hd : d ≤ 10) (hout : NA out) (s : State) :
+theorem ceGlue_ok (f out : Ptr) (d : Nat) (ho : f.2 < 2 ^ 31 ∧ out.2 < 2 ^ 31) (hd : d ≤ 11) (hout : NA out) (s : State) :
     WP isa (.block (lea .rdi f ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 d))] : List Instr) ++ lea .rdx out ++
       ([.mov32 .rcx (.imm (BitVec.ofNat 32 (32 * d)))] : List Instr))) s fun s1 =>
       ((s1.gpr .rdi = pa s f ∧ s1.gpr .rsi = BitVec.ofNat 64 d ∧ s1.gpr .rdx = pa s out ∧
@@ -439,13 +455,13 @@ theorem ceGlue_ok (f out : Ptr) (d : Nat) (ho : f.2 < 2 ^ 31 ∧ out.2 < 2 ^ 31)
   xrun [sx_ofNat ho.1, sx_ofNat ho.2, o1, o2, sw_ofNat (show d < 2 ^ 32 by omega),
     sw_ofNat (show 32 * d < 2 ^ 32 by omega), List.cons_append, List.nil_append]
 
-theorem cePre {f out : Ptr} {d : Nat} {s s1 : State} (h : CEH f out d s)
+theorem cePre {ws : List Nat} (hle : ∀ d ∈ ws, d ≤ 11) {f out : Ptr} {d : Nat} {s s1 : State} (h : CEH ws f out d s)
     (hv : s1.gpr .rdi = pa s f ∧ s1.gpr .rsi = BitVec.ofNat 64 d ∧ s1.gpr .rdx = pa s out ∧
       s1.gpr .rcx = BitVec.ofNat 64 (32 * d)) (hm : s1.mem = s.mem) (k : Keep argRegs s s1) :
-    compressEncodeK.pre (s1.callEntry.withRegions [pR (pa s f)] [⟨pa s out, 32 * d⟩]) := by
+    (compressEncodeWK ws).pre (s1.callEntry.withRegions [pR (pa s f)] [⟨pa s out, 32 * d⟩]) := by
   have hsp : s1.gpr .rsp = s.gpr .rsp := k.gpr (by decide)
-  have hd := widths_lt h.dw
-  simp only [compressEncodeK, dArg, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
+  have hd := hle d h.dw
+  simp only [compressEncodeWK, dArg, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
     State.withRegions_mem, ce_gpr' s1 (by decide : Reg.rdi ≠ .rsp), ce_gpr' s1 (by decide : Reg.rsi ≠ .rsp),
     ce_gpr' s1 (by decide : Reg.rdx ≠ .rsp), ce_gpr' s1 (by decide : Reg.rcx ≠ .rsp), hv.1, hv.2.1, hv.2.2.1, hv.2.2.2,
     ofNat_toNat' (show 32 * d < 2 ^ 64 by omega), sw32_64' d (by omega)]
@@ -453,52 +469,54 @@ theorem cePre {f out : Ptr} {d : Nat} {s s1 : State} (h : CEH f out d s)
     h.dw, trivial, ?_⟩
   rw [ce_reduced s1 (by rw [hsp]; exact h.kF), hm]; exact h.red
 
-theorem ceAt_ok {f out : Ptr} {d : Nat} (hout : NA out) {s : State} (h : CEH f out d s) :
-    WP isa (ceAt f d out) s fun s' => Post s s' [⟨pa s out, 32 * d⟩] ∧
+theorem ceCall_ok {n : String} {c : Prog isa} {ws : List Nat} (I : CEImpl n c ws) {f out : Ptr} {d : Nat}
+    (hout : NA out) {s : State} (h : CEH ws f out d s) :
+    WP isa (ceCall n c f d out) s fun s' => Post s s' [⟨pa s out, 32 * d⟩] ∧
       bytesAt s'.mem (pa s out) (32 * d) = compressEncode d (polyAt s.mem (pa s f)) := by
-  have hd := widths_lt h.dw
-  refine WP.mono (glueCall_ok compressEncode_correct ce_nosp (by rw [ce_depth]; decide)
-    (ceGlue_ok f out d h.off hd hout s) (fun s1 hv hm k => cePre h hv hm k) h.c h.w)
+  have hd := I.le d h.dw
+  refine WP.mono (glueCall_ok I.correct I.nosp (by rw [I.depth]; decide)
+    (ceGlue_ok f out d h.off hd hout s) (fun s1 hv hm k => cePre I.le h hv hm k) h.c h.w)
     fun s' ⟨hpost, s1, hV, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, ?_⟩
   have hsp : s1.gpr .rsp = s.gpr .rsp := k.gpr (by decide)
-  simp only [compressEncodeK, dArg, State.withRegions_gpr, State.withRegions_mem,
+  simp only [compressEncodeWK, dArg, State.withRegions_gpr, State.withRegions_mem,
     ce_gpr' s1 (by decide : Reg.rdi ≠ .rsp), ce_gpr' s1 (by decide : Reg.rsi ≠ .rsp),
     ce_gpr' s1 (by decide : Reg.rdx ≠ .rsp), ce_gpr' s1 (by decide : Reg.rcx ≠ .rsp), hV.1, hV.2.1, hV.2.2.1,
     hV.2.2.2, hm₂, ofNat_toNat' (show 32 * d < 2 ^ 64 by omega), sw32_64' d (by omega),
     ce_polyAt s1 (by rw [hsp]; exact h.kF), hm] at hq
   exact hq
 
-theorem ceAt_tr {f out : Ptr} {d : Nat} (hout : NA out) :
-    RelCT isa (fun x y => CEH f out d x ∧ CEH f out d y ∧ x.gpr f.1 = y.gpr f.1 ∧ x.gpr out.1 = y.gpr out.1 ∧
-      x.gpr .rsp = y.gpr .rsp) (ceAt f d out) fun _ _ => True :=
-  glueCall_tr compressEncode_correct compressEncode_ct (V := fun x x1 => ((x1.gpr .rdi = pa x f ∧
+theorem ceCall_tr {n : String} {c : Prog isa} {ws : List Nat} (I : CEImpl n c ws) {f out : Ptr} {d : Nat}
+    (hout : NA out) :
+    RelCT isa (fun x y => CEH ws f out d x ∧ CEH ws f out d y ∧ x.gpr f.1 = y.gpr f.1 ∧ x.gpr out.1 = y.gpr out.1 ∧
+      x.gpr .rsp = y.gpr .rsp) (ceCall n c f d out) fun _ _ => True :=
+  glueCall_tr I.correct I.ct (V := fun x x1 => ((x1.gpr .rdi = pa x f ∧
       x1.gpr .rsi = BitVec.ofNat 64 d ∧ x1.gpr .rdx = pa x out ∧ x1.gpr .rcx = BitVec.ofNat 64 (32 * d)) ∧
       x1.mem = x.mem) ∧ Keep argRegs x x1)
     (block_nomem_tr (nomem_append (nomem_append (nomem_append (lea_nomem _ _) (mov32i_nomem _ _)) (lea_nomem _ _))
       (mov32i_nomem _ _)))
-    (fun x y ⟨hx, hy, _⟩ => ⟨ceGlue_ok f out d hx.off (widths_lt hx.dw) hout x,
-      ceGlue_ok f out d hy.off (widths_lt hy.dw) hout y⟩)
+    (fun x y ⟨hx, hy, _⟩ => ⟨ceGlue_ok f out d hx.off (I.le d hx.dw) hout x,
+      ceGlue_ok f out d hy.off (I.le d hy.dw) hout y⟩)
     fun x y x1 y1 ⟨hx, hy, e1, e2, e3⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ => by
-      refine ⟨_, _, _, _, cePre hx hv1 hm1 k1, cePre hy hv2 hm2 k2, ?_, by rw [k1.2.1, k1.2.2]; exact hx.c,
+      refine ⟨_, _, _, _, cePre I.le hx hv1 hm1 k1, cePre I.le hy hv2 hm2 k2, ?_, by rw [k1.2.1, k1.2.2]; exact hx.c,
         by rw [k1.2.2]; exact hx.w, by rw [k2.2.1, k2.2.2]; exact hy.c, by rw [k2.2.2]; exact hy.w,
         by rw [k1.gpr (by decide), k2.gpr (by decide), e3]⟩
-      simp only [compressEncodeK, State.withRegions_gpr, State.callEntry_rsp,
+      simp only [compressEncodeWK, State.withRegions_gpr, State.callEntry_rsp,
         ce_gpr' _ (by decide : Reg.rdi ≠ .rsp), ce_gpr' _ (by decide : Reg.rsi ≠ .rsp),
         ce_gpr' _ (by decide : Reg.rdx ≠ .rsp), ce_gpr' _ (by decide : Reg.rcx ≠ .rsp), hv1.1, hv1.2.1, hv1.2.2.1,
         hv1.2.2.2, hv2.1, hv2.2.1, hv2.2.2.1, hv2.2.2.2, pa, e1, e2, k1.gpr (r := .rsp) (by decide),
         k2.gpr (r := .rsp) (by decide), e3, and_self]
 
-/-- What a call of `vg_mlkem_decode_decompress` of the `32d` bytes at `b` to `f` needs. -/
-structure DDH (b f : Ptr) (d : Nat) (s : State) : Prop where
+/-- What a call of a decompression of the `32d` bytes at `b` to `f`, with `d` in `ws`, needs. -/
+structure DDH (ws : List Nat) (b f : Ptr) (d : Nat) (s : State) : Prop where
   off : b.2 < 2 ^ 31 ∧ f.2 < 2 ^ 31
-  dw : d ∈ compressWidths
+  dw : d ∈ ws
   dj : Region.Disjoint ⟨pa s b, 32 * d⟩ (pR (pa s f))
   kB : (below (s.gpr .rsp) 32).Disjoint ⟨pa s b, 32 * d⟩
   kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
   c : Covers ([⟨pa s b, 32 * d⟩] ++ [pR (pa s f)]) (s.rd ++ s.wr)
   w : Covers [pR (pa s f)] s.wr
 
-theorem ddGlue_ok (b f : Ptr) (d : Nat) (ho : b.2 < 2 ^ 31 ∧ f.2 < 2 ^ 31) (hd : d ≤ 10) (hf : NA f) (s : State) :
+theorem ddGlue_ok (b f : Ptr) (d : Nat) (ho : b.2 < 2 ^ 31 ∧ f.2 < 2 ^ 31) (hd : d ≤ 11) (hf : NA f) (s : State) :
     WP isa (.block (lea .rdi b ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 (32 * d))),
       .mov32 .rdx (.imm (BitVec.ofNat 32 d))] : List Instr) ++ lea .rcx f)) s fun s1 =>
       ((s1.gpr .rdi = pa s b ∧ s1.gpr .rsi = BitVec.ofNat 64 (32 * d) ∧ s1.gpr .rdx = BitVec.ofNat 64 d ∧
@@ -511,54 +529,64 @@ theorem ddGlue_ok (b f : Ptr) (d : Nat) (ho : b.2 < 2 ^ 31 ∧ f.2 < 2 ^ 31) (hd
   xrun [sx_ofNat ho.1, sx_ofNat ho.2, o1, o2, o3, sw_ofNat (show d < 2 ^ 32 by omega),
     sw_ofNat (show 32 * d < 2 ^ 32 by omega), List.cons_append, List.nil_append]
 
-theorem ddPre {b f : Ptr} {d : Nat} {s s1 : State} (h : DDH b f d s)
+theorem ddPre {ws : List Nat} (hle : ∀ d ∈ ws, d ≤ 11) {b f : Ptr} {d : Nat} {s s1 : State} (h : DDH ws b f d s)
     (hv : s1.gpr .rdi = pa s b ∧ s1.gpr .rsi = BitVec.ofNat 64 (32 * d) ∧ s1.gpr .rdx = BitVec.ofNat 64 d ∧
       s1.gpr .rcx = pa s f) (k : Keep argRegs s s1) :
-    decodeDecompressK.pre (s1.callEntry.withRegions [⟨pa s b, 32 * d⟩] [pR (pa s f)]) := by
+    (decodeDecompressWK ws).pre (s1.callEntry.withRegions [⟨pa s b, 32 * d⟩] [pR (pa s f)]) := by
   have hsp : s1.gpr .rsp = s.gpr .rsp := k.gpr (by decide)
-  have hd := widths_lt h.dw
-  simp only [decodeDecompressK, dArg, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
+  have hd := hle d h.dw
+  simp only [decodeDecompressWK, dArg, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
     ce_gpr' s1 (by decide : Reg.rdi ≠ .rsp), ce_gpr' s1 (by decide : Reg.rsi ≠ .rsp),
     ce_gpr' s1 (by decide : Reg.rdx ≠ .rsp), ce_gpr' s1 (by decide : Reg.rcx ≠ .rsp), hv.1, hv.2.1, hv.2.2.1, hv.2.2.2,
     ofNat_toNat' (show 32 * d < 2 ^ 64 by omega), sw32_64' d (by omega)]
   exact ⟨trivial, trivial, h.dj, ret_disj s1 (by rw [hsp]; exact h.kB), ret_disj s1 (by rw [hsp]; exact h.kF),
     h.dw, trivial⟩
 
-theorem ddAt_ok {b f : Ptr} {d : Nat} (hf : NA f) {s : State} (h : DDH b f d s) :
-    WP isa (ddAt b d f) s fun s' => Post s s' [pR (pa s f)] ∧
+theorem ddCall_ok {n : String} {c : Prog isa} {ws : List Nat} (I : DDImpl n c ws) {b f : Ptr} {d : Nat} (hf : NA f)
+    {s : State} (h : DDH ws b f d s) :
+    WP isa (ddCall n c b d f) s fun s' => Post s s' [pR (pa s f)] ∧
       PolyIs s'.mem (pa s f) (decodeDecompress d (bytesAt s.mem (pa s b) (32 * d))) := by
-  have hd := widths_lt h.dw
-  refine WP.mono (glueCall_ok decodeDecompress_correct dd_nosp (by rw [dd_depth]; decide)
-    (ddGlue_ok b f d h.off hd hf s) (fun s1 hv _ k => ddPre h hv k) h.c h.w)
+  have hd := I.le d h.dw
+  refine WP.mono (glueCall_ok I.correct I.nosp (by rw [I.depth]; decide)
+    (ddGlue_ok b f d h.off hd hf s) (fun s1 hv _ k => ddPre I.le h hv k) h.c h.w)
     fun s' ⟨hpost, s1, hV, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, ?_⟩
   have hsp : s1.gpr .rsp = s.gpr .rsp := k.gpr (by decide)
-  simp only [decodeDecompressK, dArg, State.withRegions_gpr, State.withRegions_mem,
+  simp only [decodeDecompressWK, dArg, State.withRegions_gpr, State.withRegions_mem,
     ce_gpr' s1 (by decide : Reg.rdi ≠ .rsp), ce_gpr' s1 (by decide : Reg.rsi ≠ .rsp),
     ce_gpr' s1 (by decide : Reg.rdx ≠ .rsp), ce_gpr' s1 (by decide : Reg.rcx ≠ .rsp), hV.1, hV.2.1, hV.2.2.1,
     hV.2.2.2, hm₂, ofNat_toNat' (show 32 * d < 2 ^ 64 by omega), sw32_64' d (by omega),
     ce_bytesAt s1 (n := 32 * d) (by omega) (by rw [hsp]; exact h.kB), hm] at hq
   exact hq
 
-theorem ddAt_tr {b f : Ptr} {d : Nat} (hf : NA f) :
-    RelCT isa (fun x y => DDH b f d x ∧ DDH b f d y ∧ x.gpr b.1 = y.gpr b.1 ∧ x.gpr f.1 = y.gpr f.1 ∧
-      x.gpr .rsp = y.gpr .rsp) (ddAt b d f) fun _ _ => True :=
-  glueCall_tr decodeDecompress_correct decodeDecompress_ct (V := fun x x1 => ((x1.gpr .rdi = pa x b ∧
+theorem ddCall_tr {n : String} {c : Prog isa} {ws : List Nat} (I : DDImpl n c ws) {b f : Ptr} {d : Nat} (hf : NA f) :
+    RelCT isa (fun x y => DDH ws b f d x ∧ DDH ws b f d y ∧ x.gpr b.1 = y.gpr b.1 ∧ x.gpr f.1 = y.gpr f.1 ∧
+      x.gpr .rsp = y.gpr .rsp) (ddCall n c b d f) fun _ _ => True :=
+  glueCall_tr I.correct I.ct (V := fun x x1 => ((x1.gpr .rdi = pa x b ∧
       x1.gpr .rsi = BitVec.ofNat 64 (32 * d) ∧ x1.gpr .rdx = BitVec.ofNat 64 d ∧ x1.gpr .rcx = pa x f) ∧
       x1.mem = x.mem) ∧ Keep argRegs x x1)
     (block_nomem_tr (nomem_append (nomem_append (lea_nomem _ _) (fun i hi s => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hi; rcases hi with rfl | rfl <;> rfl)) (lea_nomem _ _)))
-    (fun x y ⟨hx, hy, _⟩ => ⟨ddGlue_ok b f d hx.off (widths_lt hx.dw) hf x,
-      ddGlue_ok b f d hy.off (widths_lt hy.dw) hf y⟩)
+    (fun x y ⟨hx, hy, _⟩ => ⟨ddGlue_ok b f d hx.off (I.le d hx.dw) hf x,
+      ddGlue_ok b f d hy.off (I.le d hy.dw) hf y⟩)
     fun x y x1 y1 ⟨hx, hy, e1, e2, e3⟩ ⟨⟨hv1, _⟩, k1⟩ ⟨⟨hv2, _⟩, k2⟩ => by
-      refine ⟨_, _, _, _, ddPre hx hv1 k1, ddPre hy hv2 k2, ?_, by rw [k1.2.1, k1.2.2]; exact hx.c,
+      refine ⟨_, _, _, _, ddPre I.le hx hv1 k1, ddPre I.le hy hv2 k2, ?_, by rw [k1.2.1, k1.2.2]; exact hx.c,
         by rw [k1.2.2]; exact hx.w, by rw [k2.2.1, k2.2.2]; exact hy.c, by rw [k2.2.2]; exact hy.w,
         by rw [k1.gpr (by decide), k2.gpr (by decide), e3]⟩
-      simp only [decodeDecompressK, State.withRegions_gpr, State.callEntry_rsp,
+      simp only [decodeDecompressWK, State.withRegions_gpr, State.callEntry_rsp,
         ce_gpr' _ (by decide : Reg.rdi ≠ .rsp), ce_gpr' _ (by decide : Reg.rsi ≠ .rsp),
         ce_gpr' _ (by decide : Reg.rdx ≠ .rsp), ce_gpr' _ (by decide : Reg.rcx ≠ .rsp), hv1.1, hv1.2.1, hv1.2.2.1,
         hv1.2.2.2, hv2.1, hv2.2.1, hv2.2.2.1, hv2.2.2.2, pa, e1, e2, k1.gpr (r := .rsp) (by decide),
         k2.gpr (r := .rsp) (by decide), e3, and_self]
 
+theorem widths_lt {d : Nat} (h : d ∈ compressWidths) : d ≤ 11 := by
+  simp only [compressWidths, List.mem_cons, List.not_mem_nil, or_false] at h; omega
+
+/-- `vg_mlkem_compress_encode` and `vg_mlkem_decode_decompress`. -/
+theorem ceImpl : CEImpl "vg_mlkem_compress_encode" compressEncode compressWidths :=
+  ⟨fun _ => widths_lt, compressEncode_correct, compressEncode_ct, ce_nosp, ce_depth⟩
+
+theorem ddImpl : DDImpl "vg_mlkem_decode_decompress" decodeDecompress compressWidths :=
+  ⟨fun _ => widths_lt, decodeDecompress_correct, decodeDecompress_ct, dd_nosp, dd_depth⟩
 
 /-! ## `SampleNTT` -/
 

@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.Arm.PointPowers
 import VerifiedGarbage.Proof.Ed25519.Arm.PointTableLoad
 import VerifiedGarbage.Proof.Ed25519.Arm.PointLoop
 
-/-! Untrusted: public table addresses and bounded counters. -/
+/-! Public table addresses and bounded counters. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

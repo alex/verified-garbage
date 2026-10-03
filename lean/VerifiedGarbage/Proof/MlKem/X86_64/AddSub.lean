@@ -9,9 +9,8 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86-64: `vg_mlkem_add` and `vg_mlkem_sub`
 
-Untrusted: everything here is checked by Lean. A doubleword of the result
-is `condSub` of the sum (`add_lane`, `sub_lane`); the loop stores four of
-them at a time to `f` (`AddSub.Inv`).
+A doubleword of the result is `condSub` of the sum (`add_lane`, `sub_lane`);
+the loop stores four of them at a time to `f` (`AddSub.Inv`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

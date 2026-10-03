@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.Blake2.AArch64.Stream.Common
 /-!
 # Streaming BLAKE2 on AArch64: `update`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`update`, for either word size and any correct compression function
-(`CalleeOk`). The same structure as the x86-64 proof
+The functional correctness of `update`, for either word size and any correct
+compression function (`CalleeOk`). The same structure as the x86-64 proof
 (`VG.Proof.Blake2.X86_64.Stream.Update`), inside the frame saving `x30`
 (`WP.frameReg`).
 -/
@@ -138,19 +137,13 @@ theorem Common.data {s₀ : State} (hp : Pre w s₀) {c : Nat} {s : State} (h : 
 /-- Writes to the state and the compression function's scratch space keep the
 saved registers. -/
 theorem saved_frame {s₀ : State} (hp : Pre w s₀) {m m' : Mem} (h : Saved (scr s₀) s₀.gpr m)
-    (hf : Frame [stR s₀ w, ⟨scr s₀, 512⟩] m m') : Saved (scr s₀) s₀.gpr m' := by
-  intro p hp'
-  have hoff : 512 ≤ p.2 ∧ p.2 + 8 ≤ 560 := by
-    simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
-    rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-  rw [← h p hp']
-  refine hf.readW (r := ⟨scr s₀ + BitVec.ofNat 64 p.2, 8⟩) (Region.contains_self _ _) ?_ (by decide)
-  have e : Region.Sub ⟨scr s₀ + BitVec.ofNat 64 p.2, 8⟩ (scR s₀) := Offset.sub_base _ (by omega)
-  intro r' hr'
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
-  rcases hr' with rfl | rfl
-  · exact hp.st_scr.symm.sub_left e
-  · exact Offset.disjoint_base _ (by omega) (by omega)
+    (hf : Frame [stR s₀ w, ⟨scr s₀, 512⟩] m m') : Saved (scr s₀) s₀.gpr m' :=
+  Spill.Saved.frame h hf fun p hp' r' hr' => by
+    have hoff := saved_off p hp'
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
+    rcases hr' with rfl | rfl
+    · exact hp.st_scr.symm.sub_left (Offset.sub_base _ (by omega))
+    · exact Offset.disjoint_base _ (by omega) (by omega)
 
 /-! ## Prologue -/
 

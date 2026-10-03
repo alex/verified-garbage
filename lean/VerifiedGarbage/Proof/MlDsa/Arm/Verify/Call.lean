@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.CallPack
 /-!
 # ML-DSA on 32-bit ARM: calling the primitives only verification uses
 
-Untrusted: everything here is checked by Lean. As `ip_ok` and `ip_tr`
-(`KeyGen/Call.lean`), in the buffers of a `Site`: `vg_mldsa_hint_bit_unpack`,
-`vg_mldsa_bit_unpack` and `vg_mldsa_sample_in_ball` (whose fifth argument
-is on the stack), `vg_mldsa_norm_lt`, `vg_mldsa_use_hint` and
-`vg_mldsa_unpack_t1`.
+As `ip_ok` and `ip_tr` (`KeyGen/Call.lean`), in the buffers of a `Site`:
+`vg_mldsa_hint_bit_unpack`, `vg_mldsa_bit_unpack` and
+`vg_mldsa_sample_in_ball` (whose fifth argument is on the stack),
+`vg_mldsa_norm_lt`, `vg_mldsa_use_hint` and `vg_mldsa_unpack_t1`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen
@@ -60,7 +59,7 @@ theorem hbuG {s : State} (hs : Site L Wb STK s) (m : HbuOk L Wb y len om h hl) (
 
 theorem hbu_cov {s : State} (hs : Site L Wb STK s) (m : HbuOk L Wb y len om h hl) :
     Covers (hbuRd L y len ++ hbuWr L h hl) (s.rd ++ s.wr) ∧ Covers (hbuWr L h hl) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.py) covers_nil') (covers_wr (covers_cons' (hs.cwE m.ph m.wh) covers_nil')),
+  ⟨Covers.append_left (covers_cons' (hs.crE m.py) covers_nil') (Covers.right (covers_cons' (hs.cwE m.ph m.wh) covers_nil')),
     covers_cons' (hs.cwE m.ph m.wh) covers_nil'⟩
 
 theorem hbu_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : 4 + stk ≤ STK) (m : HbuOk L Wb y len om h hl) :
@@ -179,7 +178,7 @@ theorem buG {s : State} (hs : Site L Wb STK s) (m : BuOk L Wb v len a b f) (rd w
 
 theorem bu_cov {s : State} (hs : Site L Wb STK s) (m : BuOk L Wb v len a b f) :
     Covers (buRd L v len ++ buWr L f) (s.rd ++ s.wr) ∧ Covers (buWr L f) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.pv) covers_nil') (covers_wr (covers_cons' (hs.cwE m.pf m.wf) covers_nil')),
+  ⟨Covers.append_left (covers_cons' (hs.crE m.pv) covers_nil') (Covers.right (covers_cons' (hs.cwE m.pf m.wf) covers_nil')),
     covers_cons' (hs.cwE m.pf m.wf) covers_nil'⟩
 
 theorem bu_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : 4 + stk ≤ STK) (m : BuOk L Wb v len a b f) :
@@ -291,8 +290,8 @@ theorem ballG {s : State} (hs : Site L Wb STK s) (m : BallOk L Wb ct len tau c w
 
 theorem ball_cov {s : State} (hs : Site L Wb STK s) (m : BallOk L Wb ct len tau c w) :
     Covers (ballRd L ct len ++ ballWr L c w) (s.rd ++ s.wr) ∧ Covers (ballWr L c w) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.pct) covers_nil')
-    (covers_wr (covers_cons' (hs.cwE m.pc m.wc) (covers_cons' (hs.cwE m.pw m.ww) covers_nil'))),
+  ⟨Covers.append_left (covers_cons' (hs.crE m.pct) covers_nil')
+    (Covers.right (covers_cons' (hs.cwE m.pc m.wc) (covers_cons' (hs.cwE m.pw m.ww) covers_nil'))),
     covers_cons' (hs.cwE m.pc m.wc) (covers_cons' (hs.cwE m.pw m.ww) covers_nil')⟩
 
 theorem ball_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : 4 + stk ≤ STK)
@@ -402,7 +401,7 @@ theorem nl_ok {c : Prog isa} (hc : Callee c (fun stk => normLtContract Arm.abi s
     WP isa (callAt name c (nlArgs f bd)) s Q := by
   obtain ⟨stk, hstk, hver⟩ := hc.verified
   refine callV hver.1 (nl_hg pf) (nl_preS hs (Nat.le_trans hstk hS) pf hr)
-    (covers_append (covers_cons' (hs.crE pf) covers_nil') covers_nil') covers_nil'
+    (Covers.append_left (covers_cons' (hs.crE pf) covers_nil') covers_nil') covers_nil'
     (by have := hs.spk; have := hc.stack; omega) fun s' hk hp =>
       hQ s' (hs.keptW [] (Nat.le_trans hc.stack hS) hk) ?_
   have := normLt_post hp
@@ -424,8 +423,8 @@ theorem nl_tr {c : Prog isa} (hc : Callee c (fun stk => normLtContract Arm.abi s
       (by rw [view_r0, view_r0, hx.gE (nl_hg pf) nlArgs_nodup (by simp) pf.1,
         hy.gE (nl_hg pf) nlArgs_nodup (by simp) pf.1])
       (by rw [view_r1, view_r1]; exact hx.gpr_eq hy (nl_hg pf) nlArgs_nodup (a := .imm bd) (by simp)),
-    covers_append (covers_cons' (hx.crE pf) covers_nil') covers_nil', covers_nil',
-    covers_append (covers_cons' (hy.crE pf) covers_nil') covers_nil', covers_nil'⟩
+    Covers.append_left (covers_cons' (hx.crE pf) covers_nil') covers_nil', covers_nil',
+    Covers.append_left (covers_cons' (hy.crE pf) covers_nil') covers_nil', covers_nil'⟩
 
 end
 
@@ -468,8 +467,8 @@ theorem uhG {s : State} (hs : Site L Wb STK s) (m : UhOk L Wb h r g2 o) (rd wr :
 
 theorem uh_cov {s : State} (hs : Site L Wb STK s) (m : UhOk L Wb h r g2 o) :
     Covers (uhRd L h r ++ uhWr L o) (s.rd ++ s.wr) ∧ Covers (uhWr L o) s.wr :=
-  ⟨covers_append (covers_cons' (hs.crE m.ph) (covers_cons' (hs.crE m.pr) covers_nil'))
-    (covers_wr (covers_cons' (hs.cwE m.po m.wo) covers_nil')), covers_cons' (hs.cwE m.po m.wo) covers_nil'⟩
+  ⟨Covers.append_left (covers_cons' (hs.crE m.ph) (covers_cons' (hs.crE m.pr) covers_nil'))
+    (Covers.right (covers_cons' (hs.cwE m.po m.wo) covers_nil')), covers_cons' (hs.cwE m.po m.wo) covers_nil'⟩
 
 theorem uh_preS {s : State} (hs : Site L Wb STK s) {stk : Nat} (hstk : stk ≤ STK) (m : UhOk L Wb h r g2 o)
     (hr : Reduced s.mem (lpa L r)) :
@@ -567,7 +566,7 @@ theorem t1_ok {c : Prog isa} (hc : Callee c (fun stk => unpackT1Contract Arm.abi
   obtain ⟨stk, hstk, hver⟩ := hc.verified
   have cw : Covers (t1Wr L f) s.wr := covers_cons' (hs.cwE m.pf m.wf) covers_nil'
   refine callV hver.1 m.hg (t1_preS hs (Nat.le_trans hstk hS) m)
-    (covers_append (covers_cons' (hs.crE m.pv) covers_nil') (covers_wr cw)) cw
+    (Covers.append_left (covers_cons' (hs.crE m.pv) covers_nil') (Covers.right cw)) cw
     (by have := hs.spk; have := hc.stack; omega) fun s' hk hp =>
       hQ s' (hs.keptW [tri f 1024] (Nat.le_trans hc.stack hS) hk) ?_
   obtain ⟨g0, g1⟩ := t1G hs m (t1Rd L v) (t1Wr L f)
@@ -588,8 +587,8 @@ theorem t1_tr {c : Prog isa} (hc : Callee c (fun stk => unpackT1Contract Arm.abi
     t1_pub (by rw [view_glue_sp, view_glue_sp, hsp])
       (by rw [view_r0, view_r0, hx.gE m.hg t1Args_nodup (by simp) m.pv.1, hy.gE m.hg t1Args_nodup (by simp) m.pv.1])
       (by rw [view_r1, view_r1, hx.gE m.hg t1Args_nodup (by simp) m.pf.1, hy.gE m.hg t1Args_nodup (by simp) m.pf.1]),
-    covers_append (covers_cons' (hx.crE m.pv) covers_nil') (covers_wr cx), cx,
-    covers_append (covers_cons' (hy.crE m.pv) covers_nil') (covers_wr cy), cy⟩
+    Covers.append_left (covers_cons' (hx.crE m.pv) covers_nil') (Covers.right cx), cx,
+    Covers.append_left (covers_cons' (hy.crE m.pv) covers_nil') (Covers.right cy), cy⟩
 
 end
 

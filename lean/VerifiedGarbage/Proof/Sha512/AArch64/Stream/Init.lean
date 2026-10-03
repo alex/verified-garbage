@@ -1,12 +1,14 @@
 import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Framework.KernelRfl
-import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Common
+import VerifiedGarbage.Proof.Sha512.AArch64.Compress
+import VerifiedGarbage.Proof.MdStream.AArch64.Common
+import VerifiedGarbage.Proof.Sha512.Stream
+import VerifiedGarbage.Impl.Sha512.AArch64.Stream
 
 /-!
 # Streaming SHA-512 on AArch64: `init`
 
-Untrusted: everything here is checked by Lean. One proof for every initial
-hash value `iv`.
+One proof for every initial hash value `iv`.
 -/
 
 namespace VG.Proof.Sha512.AArch64.Stream
@@ -28,8 +30,8 @@ theorem word_ok {x : BitVec 64} {off : Nat} (ho : off % 8 = 0 ∧ off < 32768) {
       s'.mem = s.mem.writeW (s.gpr .x0 + BitVec.ofNat 64 off) x → WP isa (.block rest) s' Q) :
     WP isa (.block (word x off ++ rest)) s Q := by
   simp only [word, movImm64, List.cons_append, List.nil_append]
-  refine WP.cons rfl (WP.cons rfl (WP.cons rfl (WP.cons rfl
-    (WP.cons (exec_str_x ho ?_) (k _ ?_ rfl rfl rfl ?_)))))
+  refine MdStream.AArch64.WP.cons rfl (MdStream.AArch64.WP.cons rfl (MdStream.AArch64.WP.cons rfl (MdStream.AArch64.WP.cons rfl
+    (MdStream.AArch64.WP.cons (exec_str_x ho ?_) (k _ ?_ rfl rfl rfl ?_)))))
   · simpa [State.write] using hout
   · intro r hr; simp [State.write, hr]
   · simp only [State.write, State.read, Size.bits, BitVec.setWidth_eq, ite_true]

@@ -1,7 +1,8 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.Verify
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulBatch
+import VerifiedGarbage.Proof.Ed25519.AArch64.PointAccumulate
 
-/-! Untrusted: store and reload verification points beyond the multiplication workspace. -/
+/-! Store and reload verification points beyond the multiplication workspace. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.PrimsC
 /-!
 # ML-DSA signing on x86-64: calls of the packing primitives
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_pack`, `vg_mldsa_bit_unpack` and
-`vg_mldsa_hint_bit_pack` (which may leak the hint: two runs leak the same
-when their hints agree, `hintPackAt_tr`).
+As `Prims.lean`, for `vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_pack`,
+`vg_mldsa_bit_unpack` and `vg_mldsa_hint_bit_pack` (which may leak the hint:
+two runs leak the same when their hints agree, `hbpAt_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign
@@ -61,7 +60,7 @@ theorem sbpAt_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s
     rcases hb with rfl | rfl | rfl <;> subst hl <;> decide
   refine WP.mono (callP_ok hP.simpleBitPack.ver.1 hP.simpleBitPack.nosp hP.simpleBitPack.depth L.dsm
     (sbpArgs_ok hb'.1 hb'.2 hc) (fun s1 hA hm k => sbpPre hP.simpleBitPack.hS (At.of L hm k) hb hl hc hA hle)
-    (covers_append (L.cR i1) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (L.cR i1) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3, e4⟩ := argsIn4 hA
@@ -81,9 +80,9 @@ theorem sbpAt_tr {P : Prims} (hP : PrimsOk P D) {f out : Ptr} {b len : Nat}
     fun x y x1 y1 ⟨R, rx, ry⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, sbpPre hP.simpleBitPack.hS (At.of R.lx hmx kx) hb hl hc hAx rx,
         sbpPre hP.simpleBitPack.hS (At.of R.ly hmy ky) hb hl hc hAy ry, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (R.ly.cW w1)),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (R.ly.cW w1)),
         by rw [ky.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3, hx4⟩ := argsIn4 hAx
@@ -140,7 +139,7 @@ theorem bpAt_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s)
   rw [← hl] at hl'
   refine WP.mono (callP_ok hP.bitPack.ver.1 hP.bitPack.nosp hP.bitPack.depth L.dsm (bpArgs_ok ha' hb' hl' hc)
     (fun s1 hA hm k => bpPre hP.bitPack.hS (At.of L hm k) hp hl hc hA hr hrg)
-    (covers_append (L.cR i1) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (L.cR i1) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3, e4, e5⟩ := argsIn5 hA
@@ -159,9 +158,9 @@ theorem bpAt_tr {P : Prims} (hP : PrimsOk P D) {f out : Ptr} {a b len : Nat}
     fun x y x1 y1 ⟨R, ⟨rx, gx⟩, ⟨ry, gy⟩⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, bpPre hP.bitPack.hS (At.of R.lx hmx kx) hp hl hc hAx rx gx,
         bpPre hP.bitPack.hS (At.of R.ly hmy ky) hp hl hc hAy ry gy, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (R.ly.cW w1)),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (R.ly.cW w1)),
         by rw [ky.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3, hx4, hx5⟩ := argsIn5 hAx
@@ -206,7 +205,7 @@ theorem bupAt_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s
   rw [← hl] at hl'
   refine WP.mono (callP_ok hP.bitUnpack.ver.1 hP.bitUnpack.nosp hP.bitUnpack.depth L.dsm (bupArgs_ok ha' hb' hl' hc)
     (fun s1 hA hm k => bupPre hP.bitUnpack.hS (At.of L hm k) hp hl hc hA)
-    (covers_append (L.cR i1) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (L.cR i1) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3, e4, e5⟩ := argsIn5 hA
@@ -224,9 +223,9 @@ theorem bupAt_tr {P : Prims} (hP : PrimsOk P D) {v f : Ptr} {a b len : Nat}
     fun x y x1 y1 R ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, bupPre hP.bitUnpack.hS (At.of R.lx hmx kx) hp hl hc hAx,
         bupPre hP.bitUnpack.hS (At.of R.ly hmy ky) hp hl hc hAy, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (R.ly.cW w1)),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (R.ly.cW w1)),
         by rw [ky.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3, hx4, hx5⟩ := argsIn5 hAx
@@ -283,7 +282,7 @@ theorem hbpAt_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s
   have i1' : inB (rbs ++ wbs) h (1024 * k) = true := by rw [show 1024 * k = 256 * k * 4 by omega]; exact i1
   refine WP.mono (callP_ok hP.hintBitPack.ver.1 hP.hintBitPack.nosp hP.hintBitPack.depth L.dsm
     (hbpArgs_ok h3 h1 h2 hc) (fun s1 hA hm k => hbpPre hP.hintBitPack.hS (At.of L hm k) hp hc hA hones)
-    (covers_append (L.cR i1) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (L.cR i1) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k', s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k'
   obtain ⟨e1, e2, e3, e4, e5⟩ := argsIn5 hA
@@ -306,9 +305,9 @@ theorem hbpAt_tr {P : Prims} (hP : PrimsOk P D) {h y : Ptr} {ω k : Nat} (hp : (
     fun x z x1 z1 ⟨R, ox, oz, hl⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAz, hmz⟩, kz⟩ =>
       ⟨_, _, _, _, hbpPre hP.hintBitPack.hS (At.of R.lx hmx kx) hp hc hAx ox,
         hbpPre hP.hintBitPack.hS (At.of R.ly hmz kz) hp hc hAz oz, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [kz.2.1, kz.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (R.ly.cW w1)),
+        by rw [kz.2.1, kz.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (R.ly.cW w1)),
         by rw [kz.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmz kz).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3, hx4, hx5⟩ := argsIn5 hAx

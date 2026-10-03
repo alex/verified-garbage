@@ -110,12 +110,14 @@ def VBinOp.name : VBinOp → String
   | .vpaddw => "vpaddw" | .vpsubw => "vpsubw" | .vpsubd => "vpsubd" | .vpmullw => "vpmullw"
   | .vpmulhw => "vpmulhw" | .vpackssdw => "vpackssdw" | .vpunpcklwd => "vpunpcklwd"
   | .vpunpckhwd => "vpunpckhwd" | .vpsubq => "vpsubq"
+  | .vaesenc => "vaesenc" | .vaesenclast => "vaesenclast"
 
 def VVarOp.name : VVarOp → String
   | .vpsllvd => "vpsllvd" | .vpsrlvd => "vpsrlvd" | .vpsllvq => "vpsllvq" | .vpsrlvq => "vpsrlvq"
 
 def VOp.asm : VOp → String
   | .vbin op l d a b => s!"{op.name} {d.vname l}, {a.vname l}, {b.vname l}"
+  | .vpclmulqdq l d a b n => s!"vpclmulqdq {d.vname l}, {a.vname l}, {b.vname l}, {n.toNat}"
   | .vmovdqa l d r => s!"vmovdqa {d.vname l}, {r.vname l}"
   | .vshift op l d r n => s!"v{op.name} {d.vname l}, {r.vname l}, {n.toNat}"
   | .vpshufd l d r o => s!"vpshufd {d.vname l}, {r.vname l}, {o.toNat}"
@@ -143,6 +145,7 @@ def ZBinOp.name : ZBinOp → String
   | .vpunpcklqdq => "vpunpcklqdq" | .vpunpckhqdq => "vpunpckhqdq"
   | .vpaddq => "vpaddq" | .vpmuludq => "vpmuludq" | .vpandq => "vpandq" | .vporq => "vporq"
   | .vpandnq => "vpandnq"
+  | .vaesenc => "vaesenc" | .vaesenclast => "vaesenclast" | .vpshufb => "vpshufb"
 
 def ZShiftOp.name : ZShiftOp → String
   | .vpsllq => "vpsllq" | .vpsrlq => "vpsrlq"
@@ -152,10 +155,13 @@ def ZBcstOp.name : ZBcstOp → String
 
 def ZOp.asm : ZOp → String
   | .zbin op d a b => s!"{op.name} {d.zname}, {a.zname}, {b.zname}"
+  | .vpclmulqdq d a b n => s!"vpclmulqdq {d.zname}, {a.zname}, {b.zname}, {n.toNat}"
   | .vprold d r n => s!"vprold {d.zname}, {r.zname}, {n.toNat}"
   | .vpshufd d r o => s!"vpshufd {d.zname}, {r.zname}, {o.toNat}"
   | .vshufi32x4 d a b n => s!"vshufi32x4 {d.zname}, {a.zname}, {b.zname}, {n.toNat}"
   | .vshift op d r n => s!"{op.name} {d.zname}, {r.zname}, {n.toNat}"
+  | .vpslldq d r n => s!"vpslldq {d.zname}, {r.zname}, {n.toNat}"
+  | .vpsrldq d r n => s!"vpsrldq {d.zname}, {r.zname}, {n.toNat}"
   | .vpbroadcastq d r => s!"vpbroadcastq {d.zname}, {r.name}"
   | .vmovdqa64 d r => s!"vmovdqa64 {d.zname}, {r.zname}"
 
@@ -255,6 +261,13 @@ def printer : Printer isa where
   jump l := s!"jmp {l}"
   ret := ["ret"]
   call := "call"
+  /- Every function starts on a 64-byte boundary, a cache line: the unit
+  AMD's op cache builds its entries from (Zen 4 Software Optimization Guide,
+  57647, §2.9.1), and one of the 16- and 32-byte windows Intel's decoders and
+  decoded ICache work in. So where a function's code, and its loops, lie
+  relative to them is fixed by the function alone: a change to other code
+  cannot move them, and with them its performance. -/
+  funcAlign := [".p2align 6"]
   unencodable i := match i.memOps.filter (!·.dispOk) with
     | [] => none
     | m :: _ => some s!"the displacement of the memory operand {m.addr} does not fit in 32 bits"

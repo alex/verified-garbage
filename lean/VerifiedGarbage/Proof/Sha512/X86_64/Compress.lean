@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Sha512.Spec
 import VerifiedGarbage.Impl.Sha512.X86_64
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
+import VerifiedGarbage.Proof.Framework.X86_64.Spill
 import VerifiedGarbage.Proof.Framework.X86_64.Bswap
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Sha512
@@ -13,8 +14,6 @@ import VerifiedGarbage.Proof.Sha512.X86_64.Lit
 
 /-!
 # SHA-512 compression function on x86-64: the message schedule and the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha512.X86_64
@@ -229,16 +228,15 @@ end VG.Proof.Sha512.X86_64
 
 /-!
 # SHA-512 compression function on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!
 ## SHA-512: the x86-64 contracts
 
-**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86-64
-implementations of the compression function and the streaming interface, in
-terms of `Spec/Sha512.lean`.
+The contracts the proofs are written against; the artifacts are emitted with the
+shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the x86-64 implementations of the compression function and the
+streaming interface, in terms of `Spec/Sha512.lean`.
 -/
 
 namespace VG.Proof.Sha512
@@ -384,18 +382,6 @@ theorem readW_writeW_word (m : Mem) (p : Addr) (v : Word) {j k : Nat} (hj : j < 
     m.readW (p + BitVec.ofInt 64 ((8 * j : Nat) : Int)) 64 :=
   Mem.readW_writeW_sep (word_sep p hj hk h) (by decide)
 
-theorem save_sep (p : Addr) {d e : Nat} (hd : d < 2 ^ 32) (he : e < 2 ^ 32)
-    (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
-    Mem.Sep (p + BitVec.ofInt 64 (d : Int)) 8 (p + BitVec.ofInt 64 (e : Int)) 8 := by
-  rw [ofInt_natCast, ofInt_natCast]
-  exact Offset.sep p h (by omega) (by omega)
-
-theorem readW_writeW_save (m : Mem) (p : Addr) (v : BitVec 64) {d e : Nat} (hd : d < 2 ^ 32)
-    (he : e < 2 ^ 32) (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
-    (m.writeW (p + BitVec.ofInt 64 (e : Int)) v).readW (p + BitVec.ofInt 64 (d : Int)) 64 =
-    m.readW (p + BitVec.ofInt 64 (d : Int)) 64 :=
-  Mem.readW_writeW_sep (save_sep p hd he h) (by decide)
-
 theorem stateAt_eq {m : Mem} {p : Addr} {v : HashValue}
     (h : ∀ k : Nat, (hk : k < 8) → m.readW (p + BitVec.ofInt 64 ((8 * k : Nat) : Int)) 64 = v[k]) :
     stateAt m p = v := by
@@ -471,14 +457,6 @@ theorem in_slot (j : Nat) : InRegions (s₀.rd ++ s₀.wr) (slotAddr (scr s₀) 
 theorem out_slot (j : Nat) : InRegions s₀.wr (slotAddr (scr s₀) j) 8 :=
   ⟨scrR s₀, by simp [h.wr], contains_offset' (by omega) (by omega)⟩
 
-theorem in_save {d : Nat} (hd : d + 8 ≤ 176) :
-    InRegions (s₀.rd ++ s₀.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
-  ⟨scrR s₀, by simp [h.wr], contains_offset' hd (by omega)⟩
-
-theorem out_save {d : Nat} (hd : d + 8 ≤ 176) :
-    InRegions s₀.wr (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
-  ⟨scrR s₀, by simp [h.wr], contains_offset' hd (by omega)⟩
-
 theorem blk_contains {i t : Nat} (hi : i < nb s₀) (ht : t < 16) :
     (blR s₀).Contains (blkAddr s₀ i + BitVec.ofInt 64 ((8 * t : Nat) : Int)) 8 := by
   have := h.nb_lt
@@ -495,13 +473,9 @@ end Pre
 /-! ## The loop invariant -/
 
 /-- The callee-saved registers are saved in the scratch buffer. -/
-def Saved (s₀ : State) (m : Mem) : Prop :=
-  m.readW (scr s₀ + BitVec.ofInt 64 ((128 : Nat) : Int)) 64 = s₀.gpr .rbx ∧
-  m.readW (scr s₀ + BitVec.ofInt 64 ((136 : Nat) : Int)) 64 = s₀.gpr .rbp ∧
-  m.readW (scr s₀ + BitVec.ofInt 64 ((144 : Nat) : Int)) 64 = s₀.gpr .r12 ∧
-  m.readW (scr s₀ + BitVec.ofInt 64 ((152 : Nat) : Int)) 64 = s₀.gpr .r13 ∧
-  m.readW (scr s₀ + BitVec.ofInt 64 ((160 : Nat) : Int)) 64 = s₀.gpr .r14 ∧
-  m.readW (scr s₀ + BitVec.ofInt 64 ((168 : Nat) : Int)) 64 = s₀.gpr .r15
+abbrev Saved (s₀ : State) (m : Mem) : Prop := Spill.Saved m (scr s₀) s₀.gpr saved
+
+theorem saved_bound : ∀ p ∈ saved, 128 ≤ p.2 ∧ p.2 + 8 ≤ 176 := by decide
 
 /-- What holds between blocks, after `i` of them. -/
 structure Common (s₀ : State) (i : Nat) (s : State) : Prop where
@@ -637,29 +611,12 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (
   refine ⟨?_, by rw [e128], by rw [e1], by rw [e1], trivial⟩
   simp only [writeState, Vector.getElem_zipWith]
 
-/-- A saved register's slot `⟨scr + d, 8⟩`. -/
-theorem saveSlot_sub (p : Addr) {d : Nat} (hd : d + 8 ≤ 176) :
-    Region.Sub ⟨p + BitVec.ofInt 64 (d : Int), 8⟩ ⟨p, 176⟩ := by
-  rw [ofInt_natCast]; exact sub_offset hd (by omega)
-
-theorem saveSlot_win (p : Addr) {d : Nat} (hd : 128 ≤ d) (hd' : d + 8 ≤ 176) :
-    Region.Disjoint ⟨p + BitVec.ofInt 64 (d : Int), 8⟩ (winRegion p) := by
-  rw [ofInt_natCast]
-  exact Offset.disjoint_base _ hd (by omega)
-
 theorem saved_frame {s₀ : State} (hp : Pre s₀) {m m' : Mem} (h : Saved s₀ m)
     (hf : Frame [winRegion (scr s₀)] m m' ∨ Frame [stR s₀] m m') : Saved s₀ m' := by
-  have key : ∀ d : Nat, 128 ≤ d → d + 8 ≤ 176 →
-      m'.readW (scr s₀ + BitVec.ofInt 64 (d : Int)) 64 = m.readW (scr s₀ + BitVec.ofInt 64 (d : Int)) 64 := by
-    intro d hd hd'
-    rcases hf with hf | hf
-    · exact hf.readW (Region.contains_self _ _) (by simpa using saveSlot_win (scr s₀) hd hd') (by decide)
-    · exact hf.readW (Region.contains_self _ _)
-        (by simpa using Region.Disjoint.sub_left hp.st_scr.symm (saveSlot_sub (scr s₀) hd')) (by decide)
-  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h
-  exact ⟨(key 128 (by omega) (by omega)).trans h1, (key 136 (by omega) (by omega)).trans h2,
-    (key 144 (by omega) (by omega)).trans h3, (key 152 (by omega) (by omega)).trans h4,
-    (key 160 (by omega) (by omega)).trans h5, (key 168 (by omega) (by omega)).trans h6⟩
+  rcases hf with hf | hf <;> refine Spill.Saved.frame h hf fun p hp' r hr => ?_ <;>
+    rw [List.mem_singleton.mp hr] <;> have := saved_bound p hp'
+  · exact Offset.disjoint_base _ (by omega) (by omega)
+  · exact Region.Disjoint.sub_left hp.st_scr.symm (Offset.sub_base _ (by omega))
 
 theorem compressBlocks_succ (H : HashValue) (m : Mem) (p : Addr) (i : Nat) :
     compressBlocks H m p (i + 1) =
@@ -751,55 +708,27 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
 
 /-! ## Prologue and epilogue -/
 
-theorem save_eq : save ++ ([.alu .test .rdx (.reg .rdx)] : List Instr) = [
-    .store (at_ .rcx 128) .rbx, .store (at_ .rcx 136) .rbp, .store (at_ .rcx 144) .r12,
-    .store (at_ .rcx 152) .r13, .store (at_ .rcx 160) .r14, .store (at_ .rcx 168) .r15,
-    .alu .test .rdx (.reg .rdx)] := rfl
-
-theorem restore_eq : restore = [
-    .mov .rbx (.mem (at_ .rcx 128)), .mov .rbp (.mem (at_ .rcx 136)), .mov .r12 (.mem (at_ .rcx 144)),
-    .mov .r13 (.mem (at_ .rcx 152)), .mov .r14 (.mem (at_ .rcx 160)), .mov .r15 (.mem (at_ .rcx 168))] := rfl
-
 /-- The memory after the prologue. -/
-def saveMem (s₀ : State) : Mem :=
-  (((((s₀.mem.writeW (scr s₀ + BitVec.ofInt 64 ((128 : Nat) : Int)) (s₀.gpr .rbx)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((136 : Nat) : Int)) (s₀.gpr .rbp)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((144 : Nat) : Int)) (s₀.gpr .r12)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((152 : Nat) : Int)) (s₀.gpr .r13)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((160 : Nat) : Int)) (s₀.gpr .r14)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((168 : Nat) : Int)) (s₀.gpr .r15)
+abbrev saveMem (s₀ : State) : Mem := Spill.saveMem s₀.mem (scr s₀) s₀.gpr saved
 
-set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save ++ ([.alu .test .rdx (.reg .rdx)] : List Instr))) s₀ fun s₁ =>
       s₁.gpr = s₀.gpr ∧ s₁.rd = s₀.rd ∧ s₁.wr = s₀.wr ∧ s₁.mem = saveMem s₀ ∧
       s₁.zf = some (s₀.gpr .rdx &&& s₀.gpr .rdx == 0) := by
-  have o0 := hp.out_save (d := 128) (by omega); have o1 := hp.out_save (d := 136) (by omega)
-  have o2 := hp.out_save (d := 144) (by omega); have o3 := hp.out_save (d := 152) (by omega)
-  have o4 := hp.out_save (d := 160) (by omega); have o5 := hp.out_save (d := 168) (by omega)
-  apply WP.of_runBlock
-  rw [save_eq]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
-    runBlock_nil, exec, execAlu, readSrc, isa, ea_at,
-    State.store64, RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags, RegUpd.zf_arithFlags, o0, o1, o2, o3, o4, o5, ite_true,
-    Option.bind_some, Option.some.injEq, exists_eq_left']
-  refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> trivial
+  rw [WP.block_append_iff]
+  refine WP.mono (Spill.save_ok .rcx saved s₀ fun p hp' => ?_) fun s₁ ⟨hg, hrd, hwr, hm⟩ => ?_
+  · have := saved_bound p hp'
+    exact ⟨scrR s₀, by simp [hp.wr], Offset.contains_base _ (by omega) (by omega)⟩
+  · apply WP.of_runBlock
+    simp only [runBlock_cons, runStep_some, runBlock_nil, exec, execAlu, readSrc, arithFlags,
+      State.setFlags, Option.bind_some, Option.some.injEq, exists_eq_left']
+    exact ⟨hg, hrd, hwr, hm, by rw [hg]⟩
 
-theorem saveMem_saved {s₀ : State} : Saved s₀ (saveMem s₀) := by
-  simp only [Saved, saveMem]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-  simp (config := {decide := true}) only [Mem.readW_writeW_self64, readW_writeW_save]
+theorem saveMem_saved {s₀ : State} : Saved s₀ (saveMem s₀) :=
+  Spill.saveMem_saved _ _ _ _ (by decide)
 
-theorem saveMem_frame {s₀ : State} : Frame [scrR s₀] s₀.mem (saveMem s₀) := by
-  have c : ∀ d : Nat, d + 8 ≤ 176 →
-      (scrR s₀).Contains (scr s₀ + BitVec.ofInt 64 (d : Int)) (64 / 8) :=
-    fun d hd => contains_offset' hd (by omega)
-  simp only [saveMem]
-  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 128 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 136 (by omega))).writeW (List.mem_singleton_self _) _
-    (c 144 (by omega))).writeW (List.mem_singleton_self _) _ (c 152 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 160 (by omega)) |>.writeW (List.mem_singleton_self _) _
-    (c 168 (by omega))
+theorem saveMem_frame {s₀ : State} : Frame [scrR s₀] s₀.mem (saveMem s₀) :=
+  Spill.saveMem_frame_base _ _ _ _ (fun p hp => by have := saved_bound p hp; omega) (by decide)
 
 theorem common_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hg : s₁.gpr = s₀.gpr)
     (hrd : s₁.rd = s₀.rd) (hwr : s₁.wr = s₀.wr) (hm : s₁.mem = saveMem s₀) : Common s₀ 0 s₁ := by
@@ -813,31 +742,18 @@ theorem common_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hg : s₁.gpr
       (by decide), ← stateAt_get _ _ hk]
     rfl
 
-set_option simprocs false in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block restore) s fun s' =>
       gprPreserved s₀ s' ∧ Proof.Sha512.compressX86_64.post s₀ s' := by
-  have i0 := hp.in_save (d := 128) (by omega); have i1 := hp.in_save (d := 136) (by omega)
-  have i2 := hp.in_save (d := 144) (by omega); have i3 := hp.in_save (d := 152) (by omega)
-  have i4 := hp.in_save (d := 160) (by omega); have i5 := hp.in_save (d := 168) (by omega)
-  rw [← hc.rd, ← hc.wr] at i0 i1 i2 i3 i4 i5
-  obtain ⟨g0, g1, g2, g3, g4, g5⟩ := hc.saved
   have hret : s.mem.readW (s₀.gpr .rsp) 64 = s₀.mem.readW (s₀.gpr .rsp) 64 :=
     hc.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr⟩) (by decide)
-  have hrsp := hc.rsp
-  have hstate := hc.state
-  have hrcx := hc.rcx
-  apply WP.of_runBlock
-  rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
-    runBlock_nil, exec, readSrc, isa, ea_at, State.load64,
-    RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, hrcx, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,
-    Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hrsp, RegUpd.gpr_setReg]
-  · exact hret
-  · exact hstate
+  refine WP.mono (Spill.restore_ok .rcx saved s₀.gpr s (by decide) (fun p hp' => ?_)
+    (by rw [hc.rcx]; exact hc.saved)) fun s' ⟨h₁, h₂, hm, _⟩ => ?_
+  · have := saved_bound p hp'
+    rw [hc.rcx, hc.rd, hc.wr]
+    exact ⟨scrR s₀, by simp [hp.wr], Offset.contains_base _ (by omega) (by omega)⟩
+  · exact ⟨⟨Spill.calleeSaved_ok h₁ h₂ (by decide) hc.rsp, by rw [hm]; exact hret⟩,
+      by show stateAt _ _ = _; rw [hm]; exact hc.state⟩
 
 /-! ## The whole function -/
 

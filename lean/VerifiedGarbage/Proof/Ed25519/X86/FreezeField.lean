@@ -1,7 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.Field
-import VerifiedGarbage.Proof.Ed25519.X86.Freeze
 
-/-! Untrusted: canonical reduction preserves the field environment. -/
+/-! Canonical reduction preserves the field environment. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 open VG.Impl.X25519.X86 (freeze T)
@@ -12,14 +11,7 @@ theorem freezeField_ok {x : BitVec 32} {s : State} (hc : Ctx x s) (a : Slot) :
       env t.mem x = env s.mem x ∧ fe t.mem x (offset a) = (env s.mem x a).val := by
   refine WP.mono (freeze_ok hc (slot_valid a)) fun t ⟨hk, hf, hv⟩ => ?_
   have fit := hc.fit
-  have wide : Frame [sub x 64 864] s.mem t.mem := hf.sub fun r hr => by
-    refine ⟨sub x 64 864, List.mem_singleton_self _, ?_⟩
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl
-    · exact sub_sub fit (by simp only [offset]; omega) (by simp only [offset]; omega)
-        (by simp only [offset]; omega)
-    · exact sub_sub fit (by decide) (by decide) (by decide)
-  refine ⟨⟨hk, wide⟩, ?_, hv⟩
+  refine ⟨⟨hk, frame_wide hc.fit4 (slot_valid a) (by decide) hf⟩, ?_, hv⟩
   funext i
   by_cases hi : i = a
   · subst i

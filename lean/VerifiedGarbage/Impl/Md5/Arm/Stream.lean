@@ -31,6 +31,8 @@ The generic streaming code (`Impl/MdStream/Arm.lean`). -/
 
 def params : MdStream.Arm.Params where
   N := 16
+  B := 64
+  L := 8
   so := 64
   len := MdStream.Arm.len64 72 false
   out := MdStream.Arm.out32 4 false

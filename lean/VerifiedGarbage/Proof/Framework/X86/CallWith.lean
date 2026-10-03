@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.X86.Call
 /-!
 # Calls in a frame of their arguments (x86, 32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 cdecl code passes a callee's arguments in a frame of their own around the
 call, `push rs; call n; pop r` (`rs.length` words). `WP.callWith` runs one,
 combining `WP.frame` and `WP.call`, from what the callee's contract needs of
@@ -14,15 +12,12 @@ registers pushed as its arguments, the last one first (`callEntry_arg`).
 
 namespace VG.X86
 
-theorem instrs_eq_instrs (c : Prog isa) : instrs c = VG.instrs c := by
-  induction c <;> simp [instrs, VG.instrs, *]
-
 /-- `NoSp`, from a check the kernel evaluates (`by decide +kernel`). -/
 theorem NoSp.of_all {c : Prog isa} (h : c.allInstrs (fun i => !Taint.clobbers i .esp) = true) :
     NoSp c := by
   intro i hi
   rw [Code.allInstrs_eq, List.all_eq_true] at h
-  simpa using h i (instrs_eq_instrs c ▸ hi)
+  simpa using h i hi
 
 /-! ## The frame's pop -/
 

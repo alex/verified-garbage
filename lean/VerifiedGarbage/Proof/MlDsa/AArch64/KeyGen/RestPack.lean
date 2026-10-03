@@ -3,14 +3,14 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.RestBase
 /-!
 # ML-DSA key generation on AArch64: `s₁ ‖ s₂` to `sk`, and `ŝ₁`
 
-Untrusted: everything here is checked by Lean. Each entry of `s₁ ‖ s₂`,
-`BitPack`ed to `sk` (`packS_piece`), then `ŝ₁[j] = NTT(s₁[j])` in place
-(`nttS_piece`).
+Each entry of `s₁ ‖ s₂`, `BitPack`ed to `sk` (`packS_piece`), then `ŝ₁[j] =
+NTT(s₁[j])` in place (`nttS_piece`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG.Impl.MlDsa.AArch64.Call (Ptr sc Arg glue callAt setB and24 seqR movV lea)
 open VG.Spec.MlDsa (Params Poly IPoly toRq ntt polyAt coeffAt Reduced PolyIs bitPack)
 open VG.Proof.MlDsa.KeyGen (Small ifp ifn)
 open VG.Spec.Sha3 (bytesAt)
@@ -81,7 +81,7 @@ theorem packS_ok {P : Prims} {S' : Nat} (hP : PrimsOk P S') {p : Params} (hF : P
     fun r' hr' => ?_, hk'.rows⟩
   rcases (by omega : r' < r ∨ r' = r) with hr' | rfl
   · exact hk'.packs r' hr'
-  · rw [hP'.pa (show Reg.x27 ∈ bases by decide), hb, hS.2,
+  · rw [hP'.pa (show Reg.x27 ∈ keptRegs by decide), hb, hS.2,
       Proof.MlDsa.KeyGen.modPm_toRq (small_big (eta_le hF) (h.small r' hr))]
 
 /-- The states after the copies, and the first `np` entries packed, `nj` in the NTT domain and `nr` rows. -/
@@ -123,7 +123,7 @@ theorem nttS_ok {P : Prims} {S' : Nat} (hP : PrimsOk P S') {p : Params} (hF : PF
     h.small, fun e he => L.keepPoly hP' (by lay [hF.pk, hF.sk, hlen]) (h.aS e he),
     fun i hi => L.keepPoly hP' (by lay [hF.pk, hF.sk, hlen]) (h.s2 i hi),
     fun j' hj' => if e : j' = j then by
-        subst e; rw [ifp (Nat.lt_succ_self j'), hP'.pa (p := sP p j') (show Reg.x28 ∈ bases by decide), ← hS.2]
+        subst e; rw [ifp (Nat.lt_succ_self j'), hP'.pa (p := sP p j') (show Reg.x28 ∈ keptRegs by decide), ← hS.2]
         exact hb
       else by
         have := L.keepPoly hP' (by lay [hF.pk, hF.sk, hlen]) (h.s1 j' hj')

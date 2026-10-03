@@ -3,17 +3,16 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Bounds
 /-!
 # ML-DSA: the signing loop
 
-Untrusted: everything here is checked by Lean. An iteration of the signing
-loop (`signIteration`) is its commitment, `SampleInBall` of its `c̃`, and
-the validity checks (`iterOut`), all computed from `c` (`signIteration_eq`):
-so it depends on the bounds only through `SampleInBall`, and a larger bound
-gives the same result once a smaller one finishes (`signIteration_mono`,
-`signIteration_min`). The loop (`signLoop`) returns the first iteration that
-passes after iterations that were rejected (`signLoop_pass`), and nothing if
-all of them were rejected (`signLoop_exhaust`); within smaller bounds, it
-returns nothing if the larger bounds reject every iteration before one
-whose `SampleInBall` does not finish within the smaller ones
-(`signLoop_min_none`).
+An iteration of the signing loop (`signIteration`) is its commitment,
+`SampleInBall` of its `c̃`, and the validity checks (`iterOut`), all computed
+from `c` (`signIteration_eq`): so it depends on the bounds only through
+`SampleInBall`, and a larger bound gives the same result once a smaller one
+finishes (`signIteration_mono`, `signIteration_min`). The loop (`signLoop`)
+returns the first iteration that passes after iterations that were rejected
+(`signLoop_pass`), and nothing if all of them were rejected
+(`signLoop_exhaust`); within smaller bounds, it returns nothing if the larger
+bounds reject every iteration before one whose `SampleInBall` does not finish
+within the smaller ones (`signLoop_min_none`).
 -/
 
 namespace VG.Proof.MlDsa.Sign

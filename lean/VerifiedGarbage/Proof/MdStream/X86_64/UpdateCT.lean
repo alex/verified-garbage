@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 /-!
 # Streaming Merkle–Damgård hash functions on x86-64: `update`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`update`, for any hash function (`Md`) and any correct compression function
-(`CalleeOk`).
+The functional correctness of `update`, for any hash function (`Md`) and any
+correct compression function (`CalleeOk`).
 -/
 
 namespace VG.Proof.MdStream.X86_64.Update
@@ -837,8 +836,6 @@ end VG.Proof.MdStream.X86_64.Update
 
 /-!
 # Streaming Merkle–Damgård hash functions on x86-64: `update` is constant time
-
-Untrusted: everything here is checked by Lean.
 
 This holds for any compression function (`CalleeOk`), so it is proven once
 for every implementation. The taint analysis cannot prove it without

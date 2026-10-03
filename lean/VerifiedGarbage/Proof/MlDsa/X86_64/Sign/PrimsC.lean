@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.Prims
 /-!
 # ML-DSA signing on x86-64: calls of rounding, norms, hints and packing
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_high_bits`, `vg_mldsa_low_bits`, `vg_mldsa_norm_lt`,
-`vg_mldsa_make_hint`, `vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_pack`,
-`vg_mldsa_bit_unpack` and `vg_mldsa_hint_bit_pack`.
+As `Prims.lean`, for `vg_mldsa_high_bits`, `vg_mldsa_low_bits`,
+`vg_mldsa_norm_lt`, `vg_mldsa_make_hint`, `vg_mldsa_simple_bit_pack`,
+`vg_mldsa_bit_pack`, `vg_mldsa_bit_unpack` and `vg_mldsa_hint_bit_pack`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign
@@ -79,7 +78,7 @@ theorem bitsAt_ok {Q : Nat → Poly → Mem → Addr → Prop} {n : String} {c :
   have hD : 8 ≤ D := by have := C.hS; omega
   refine WP.mono (callP_ok C.ver.1 C.nosp C.depth L.dsm (bitsArgs_ok hγ hc)
     (fun s1 hA hm k => bitsPre C.hS (At.of L hm k) hγ hc hA hr)
-    (covers_append (L.cR i1) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (L.cR i1) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3⟩ := argsIn3 hA
@@ -96,9 +95,9 @@ theorem bitsAt_tr {Q : Nat → Poly → Mem → Addr → Prop} {n : String} {c :
   refine callP_tr C.ver.1 C.ver.2.1 (bitsArgs_ok hγ hc)
     fun x y x1 y1 ⟨R, rx, ry⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, bitsPre C.hS (At.of R.lx hmx kx) hγ hc hAx rx, bitsPre C.hS (At.of R.ly hmy ky) hγ hc hAy ry, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) (covers_wr (R.ly.cW w1)),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) (Covers.right (R.ly.cW w1)),
         by rw [ky.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3⟩ := argsIn3 hAx
@@ -160,9 +159,9 @@ theorem normArgs_ok {bs : List (Reg × Nat)} {f : Ptr} {B : Nat} (hB : B < 2 ^ 3
   simp only [normChk, Bool.and_eq_true, decide_eq_true_eq] at hc
   simp only [List.all_cons, List.all_nil, Arg.ok, hc.1.2, hc.2, decide_true, Bool.and_true, decide_eq_true hB]
 
-theorem normCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s) {f : Ptr} {B : Nat}
+theorem normCall_ok {nm : String} {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s) {f : Ptr} {B : Nat}
     (hB : B < 2 ^ 32) (hc : normChk (rbs ++ wbs) f = true) (hr : Reduced s.mem (pa s f)) :
-    WP isa (callP "vg_mldsa_norm_lt" P.normLt [.ptr f, .imm B]) s fun s' => PPostB D s s' [] ∧
+    WP isa (callP nm P.normLt [.ptr f, .imm B]) s fun s' => PPostB D s s' [] ∧
       (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
       (s'.gpr .rax).setWidth 32 = if normRq [polyAt s.mem (pa s f)] < B then 1 else 0 := by
   have i1 : inB (rbs ++ wbs) f 1024 = true := by
@@ -170,7 +169,7 @@ theorem normCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wb
   have hD : 8 ≤ D := by have := hP.normLt.hS; omega
   refine WP.mono (callP_ok hP.normLt.ver.1 hP.normLt.nosp hP.normLt.depth L.dsm (normArgs_ok hB hc)
     (fun s1 hA hm k => normPre hP.normLt.hS (At.of L hm k) hc hA hr)
-    (covers_append (L.cR i1) covers_nil) covers_nil)
+    (Covers.append_left (L.cR i1) Covers.nil) Covers.nil)
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, hg₂, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2⟩ := argsIn2 hA
@@ -179,18 +178,18 @@ theorem normCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wb
   simp only [e1, e2, Arg.val, er, A.poly' i1 hD, sw32_ofNat hB] at hq
   exact hq
 
-theorem normCall_tr {P : Prims} (hP : PrimsOk P D) {f : Ptr} {B : Nat} (hB : B < 2 ^ 32)
+theorem normCall_tr {nm : String} {P : Prims} (hP : PrimsOk P D) {f : Ptr} {B : Nat} (hB : B < 2 ^ 32)
     (hc : normChk (rbs ++ wbs) f = true) :
     RelCT isa (fun x y => LRel D rbs wbs x y ∧ Reduced x.mem (pa x f) ∧ Reduced y.mem (pa y f))
-      (callP "vg_mldsa_norm_lt" P.normLt [.ptr f, .imm B]) fun _ _ => True := by
+      (callP nm P.normLt [.ptr f, .imm B]) fun _ _ => True := by
   have i1 : inB (rbs ++ wbs) f 1024 = true := by
     simp only [normChk, Bool.and_eq_true] at hc; exact hc.1.1
   refine callP_tr hP.normLt.ver.1 hP.normLt.ver.2.1 (normArgs_ok hB hc)
     fun x y x1 y1 ⟨R, rx, ry⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, normPre hP.normLt.hS (At.of R.lx hmx kx) hc hAx rx,
         normPre hP.normLt.hS (At.of R.ly hmy ky) hc hAy ry, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (R.lx.cR i1) covers_nil, covers_nil,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (R.ly.cR i1) covers_nil, covers_nil,
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (R.lx.cR i1) Covers.nil, Covers.nil,
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (R.ly.cR i1) Covers.nil, Covers.nil,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2⟩ := argsIn2 hAx
   obtain ⟨hy1, hy2⟩ := argsIn2 hAy
@@ -238,10 +237,10 @@ theorem hintPre {S : Nat} (hS : S + 8 ≤ D) {s s1 : State} (A : At D rbs wbs s 
   simp only [List.mem_cons, List.mem_nil_iff, or_false, forall_eq_or_imp, forall_eq]
   exact ⟨A.stk hS i1, A.stk hS i2, A.stk hS i3⟩
 
-theorem hintCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s) {z r h : Ptr} {γ : Nat}
+theorem hintCall_ok {nm : String} {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wbs s) {z r h : Ptr} {γ : Nat}
     (hγ : γ ∈ gamma2s) (hc : hintChk (rbs ++ wbs) wbs z r h = true) (rz : Reduced s.mem (pa s z))
     (rr : Reduced s.mem (pa s r)) :
-    WP isa (callP "vg_mldsa_make_hint" P.makeHint [.ptr z, .ptr r, .imm γ, .ptr h]) s fun s' =>
+    WP isa (callP nm P.makeHint [.ptr z, .ptr r, .imm γ, .ptr h]) s fun s' =>
       PPostB D s s' [(h, 1024)] ∧ (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
       HintIs s'.mem (pa s h) 1 [Vector.zipWith (makeHint γ) (polyAt s.mem (pa s z)) (polyAt s.mem (pa s r))] ∧
       ((s'.gpr .rax).setWidth 32).toNat =
@@ -250,7 +249,7 @@ theorem hintCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wb
   have hD : 8 ≤ D := by have := hP.makeHint.hS; omega
   refine WP.mono (callP_ok hP.makeHint.ver.1 hP.makeHint.nosp hP.makeHint.depth L.dsm (hintArgs_ok hγ hc)
     (fun s1 hA hm k => hintPre hP.makeHint.hS (At.of L hm k) hγ hc hA rz rr)
-    (covers_append (covers_cons (L.cR i1) (L.cR i2)) (covers_wr (L.cW w1))) (L.cW w1))
+    (Covers.append_left (Covers.cons (L.cR i1) (L.cR i2)) (Covers.right (L.cW w1))) (L.cW w1))
     fun s' ⟨hpost, hcs, s1, hA, hm, k, s₂, hm₂, hg₂, hq⟩ => ⟨hpost, hcs, ?_⟩
   have A := At.of L hm k
   obtain ⟨e1, e2, e3, e4⟩ := argsIn4 hA
@@ -259,19 +258,19 @@ theorem hintCall_ok {P : Prims} (hP : PrimsOk P D) {s : State} (L : Lay D rbs wb
   simp only [e1, e2, e3, e4, Arg.val, hm₂, er, A.poly' i1 hD, A.poly' i2 hD, sw32_ofNat (gamma2_lt hγ)] at hq
   exact hq
 
-theorem hintCall_tr {P : Prims} (hP : PrimsOk P D) {z r h : Ptr} {γ : Nat} (hγ : γ ∈ gamma2s)
+theorem hintCall_tr {nm : String} {P : Prims} (hP : PrimsOk P D) {z r h : Ptr} {γ : Nat} (hγ : γ ∈ gamma2s)
     (hc : hintChk (rbs ++ wbs) wbs z r h = true) :
     RelCT isa (fun x y => LRel D rbs wbs x y ∧ (Reduced x.mem (pa x z) ∧ Reduced x.mem (pa x r)) ∧
       (Reduced y.mem (pa y z) ∧ Reduced y.mem (pa y r)))
-      (callP "vg_mldsa_make_hint" P.makeHint [.ptr z, .ptr r, .imm γ, .ptr h]) fun _ _ => True := by
+      (callP nm P.makeHint [.ptr z, .ptr r, .imm γ, .ptr h]) fun _ _ => True := by
   obtain ⟨w1, i1, i2, i3, _⟩ := hintChk_spec hc
   refine callP_tr hP.makeHint.ver.1 hP.makeHint.ver.2.1 (hintArgs_ok hγ hc)
     fun x y x1 y1 ⟨R, ⟨rzx, rrx⟩, ⟨rzy, rry⟩⟩ ⟨⟨hAx, hmx⟩, kx⟩ ⟨⟨hAy, hmy⟩, ky⟩ =>
       ⟨_, _, _, _, hintPre hP.makeHint.hS (At.of R.lx hmx kx) hγ hc hAx rzx rrx,
         hintPre hP.makeHint.hS (At.of R.ly hmy ky) hγ hc hAy rzy rry, ?_,
-        by rw [kx.2.1, kx.2.2]; exact covers_append (covers_cons (R.lx.cR i1) (R.lx.cR i2)) (covers_wr (R.lx.cW w1)),
+        by rw [kx.2.1, kx.2.2]; exact Covers.append_left (Covers.cons (R.lx.cR i1) (R.lx.cR i2)) (Covers.right (R.lx.cW w1)),
         by rw [kx.2.2]; exact R.lx.cW w1,
-        by rw [ky.2.1, ky.2.2]; exact covers_append (covers_cons (R.ly.cR i1) (R.ly.cR i2)) (covers_wr (R.ly.cW w1)),
+        by rw [ky.2.1, ky.2.2]; exact Covers.append_left (Covers.cons (R.ly.cR i1) (R.ly.cR i2)) (Covers.right (R.ly.cW w1)),
         by rw [ky.2.2]; exact R.ly.cW w1,
         by rw [(At.of R.lx hmx kx).rsp, (At.of R.ly hmy ky).rsp, R.rsp]⟩
   obtain ⟨hx1, hx2, hx3, hx4⟩ := argsIn4 hAx

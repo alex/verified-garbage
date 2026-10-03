@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-KEM-1024 on AArch64: `vg_mlkem1024_decode_decompress`
 
-Untrusted: everything here is checked by Lean. Group `g` of the input is
-the number whose bytes are its `d` bytes (`num g d`), and coefficient `e`
-of the group is its base-`2ᵈ` digit `e` (`byteDecode_group`), decompressed.
-Before coefficient `e`, `x9` holds the bits of the first `⌈d e / 8⌉` bytes
-above the first `d e` (`DInv`); the bytes coefficient `e` needs are added
-above them (`byte_step`), and its digit is decompressed and shifted out
-(`coeff_step`).
+Group `g` of the input is the number whose bytes are its `d` bytes (`num g
+d`), and coefficient `e` of the group is its base-`2ᵈ` digit `e`
+(`byteDecode_group`), decompressed. Before coefficient `e`, `x9` holds the
+bits of the first `⌈d e / 8⌉` bytes above the first `d e` (`DInv`); the bytes
+coefficient `e` needs are added above them (`byte_step`), and its digit is
+decompressed and shifted out (`coeff_step`).
 -/
 
 namespace VG.Proof.MlKem1024
@@ -18,12 +17,10 @@ namespace VG.Proof.MlKem1024
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against (and verified callers use);
-the artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_mlkem1024_decode_decompress(b = x0, len = x1,
-d = w2, f = x3)`: if `d` is 5 or 11 and `len = 32 d`, writes
-`Decompress_d(ByteDecode_d(B))` of the `len` bytes `B` at `b` to `f`,
-reduced. The code may read `b` and write `f`, which do not overlap. -/
+/-- AArch64 contract for `vg_mlkem1024_decode_decompress(b = x0, len = x1, d =
+w2, f = x3)`: if `d` is 5 or 11 and `len = 32 d`, writes
+`Decompress_d(ByteDecode_d(B))` of the `len` bytes `B` at `b` to `f`, reduced.
+The code may read `b` and write `f`, which do not overlap. -/
 def decodeDecompressAArch64 : Contract AArch64.isa where
   pre s :=
     s.rd = [⟨s.gpr .x0, (s.gpr .x1).toNat⟩] ∧ s.wr = [⟨s.gpr .x3, 1024⟩] ∧

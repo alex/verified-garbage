@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.Blake2.Arm.RoundsB
 /-!
 # BLAKE2b on ARMv7: one block
 
-Untrusted: everything here is checked by Lean. Initializing the work vector
-in `scratch` (`init_ok`), XORing it into the state (`fin_ok`), and advancing
-the counter, the block pointer and the count (`advance_ok`).
+Initializing the work vector in `scratch` (`init_ok`), XORing it into the
+state (`fin_ok`), and advancing the counter, the block pointer and the count
+(`advance_ok`).
 -/
 
 namespace VG.Proof.Blake2.ArmB

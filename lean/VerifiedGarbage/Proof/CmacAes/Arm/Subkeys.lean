@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.CmacAes.Arm.UpdateCorrect
 /-!
 # AES-CMAC on ARMv7: `vg_cmac_aes_subkeys`
 
-Untrusted: everything here is checked by Lean. `L = CIPH_K(0)` is computed
-into the first block of the subkeys (a zero counter block and a zero data
-block), then doubled there (`K1`) and into the second block (`K2`).
+`L = CIPH_K(0)` is computed into the first block of the subkeys (a zero
+counter block and a zero data block), then doubled there (`K1`) and into the
+second block (`K2`).
 -/
 
 namespace VG.Proof.CmacAes.Arm
@@ -60,12 +60,9 @@ theorem subkeysPost_eq : subkeysPost = dbl 0 0 ++ (dbl 0 16 ++
     ([(.r4, 2064), (.r6, 2072), (.lr, 2076)].map (fun (p : Reg × Nat) => Instr.ldr p.1 .r5 p.2) ++
       ([.ldr .r5 .r5 2068] : List Instr))) := rfl
 
-set_option simprocs false in
 theorem saved4_slot (m : Mem) (B : Addr) (g : Reg → BitVec 32) {r : Reg} {d : Nat} (h : (r, d) ∈ saved4) :
-    (saveMem m B g saved4).readW (B + BitVec.ofNat 64 d) 32 = g r := by
-  simp only [saved4, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at h
-  rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
-  simp (disch := decide) only [saved4, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+    (saveMem m B g saved4).readW (B + BitVec.ofNat 64 d) 32 = g r :=
+  Spill.saveMem_saved (lo := 2064) (hi := 2080) B g m saved4 (by decide) (r, d) h
 
 /-- The memory before the call. -/
 def preMem (s₀ : State) : Mem :=
@@ -262,7 +259,7 @@ theorem subkeys_wp {s₀ : State} (h0 : subkeysArm.pre s₀) :
     fun d hd => by
       rw [rdwr₁₂]
       exact rw' (cS d 4 hd) ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
-  refine restoreB_ok [(.r4, 2064), (.r6, 2072), (.lr, 2076)] s₁₂ _ (by decide) (fun p hp' => ?_)
+  refine Spill.restoreList_ok [(.r4, 2064), (.r6, 2072), (.lr, 2076)] s₁₂ _ (by decide) (fun p hp' => ?_)
     fun s₁₃ ld₁₃ ho₁₃ m₁₃ rd₁₃ wr₁₃ sp₁₃ => ?_
   · have hb : 2064 ≤ p.2 ∧ p.2 + 4 ≤ 2080 ∧ p.1 ≠ .r5 := by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hp'
