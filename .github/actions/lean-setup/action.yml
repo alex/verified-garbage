@@ -1,8 +1,20 @@
 name: Set up Lean and Mathlib
 description: >
-  Installs elan (and so the toolchain `lean/lean-toolchain` names) and
-  Mathlib and its dependencies, with the prebuilt files for the modules the
-  proofs import, in `lean/.lake/packages`.
+  Installs elan (and so the toolchain `lean/lean-toolchain` names), and
+  restores (or clones) Mathlib and its dependencies in `lean/.lake/packages`.
+  It runs no Lake command, so a job can restore `lean/.lake/build` at the
+  same time; `lean-mathlib`, after that, makes sure Mathlib is built.
+
+outputs:
+  mods:
+    description: The modules the proofs import from outside the project.
+    value: ${{ steps.mods.outputs.mods }}
+  cache-hit:
+    description: Whether Mathlib and its dependencies were restored.
+    value: ${{ steps.lake-packages.outputs.cache-hit }}
+  cache-key:
+    description: The key to save Mathlib and its dependencies under.
+    value: ${{ steps.lake-packages.outputs.cache-primary-key }}
 
 runs:
   using: composite
@@ -49,28 +61,3 @@ runs:
         git remote add origin https://github.com/leanprover-community/mathlib4
         git fetch -q --depth 1 origin "$rev"
         git checkout -q FETCH_HEAD
-    # `cache get` fetches these modules and what they import, not all of
-    # Mathlib.
-    - name: Fetch the Mathlib build cache for what the proofs import
-      if: ${{ steps.lake-packages.outputs.cache-hit != 'true' }}
-      shell: bash
-      working-directory: lean
-      env:
-        MODS: ${{ steps.mods.outputs.mods }}
-      run: lake exe cache get $MODS
-    # Fail, rather than quietly build part of Mathlib from source, if the
-    # cache left any of them (or what they import) unbuilt.
-    - name: Check Mathlib is built for every import
-      shell: bash
-      working-directory: lean
-      env:
-        MODS: ${{ steps.mods.outputs.mods }}
-      run: lake build --no-build $MODS
-    # Every job that uses this action saves on a miss; one of them wins, and
-    # the others only warn that the key is taken.
-    - name: Save Mathlib and its dependencies
-      if: ${{ steps.lake-packages.outputs.cache-hit != 'true' && github.event_name != 'merge_group' }}
-      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: lean/.lake/packages
-        key: ${{ steps.lake-packages.outputs.cache-primary-key }}
