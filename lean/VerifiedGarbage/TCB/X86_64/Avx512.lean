@@ -126,14 +126,6 @@ doubleword of each quadword, and the low doubleword of `SRC2[63:0]` is
 def ZBcstOp.sse : ZBcstOp → XBinOp
   | .vpmuludq => .pmuludq | .vpandq => .pand | .vporq => .por
 
-/-- SDM Vol. 2, "VPROLD/VPROLVD/VPROLQ/VPROLVQ", for one lane:
-`LEFT_ROTATE_DWORDS(SRC, COUNT_SRC) { COUNT := COUNT_SRC modulo 32;
-DEST[31:0] := (SRC << COUNT) | (SRC >> (32 - COUNT)); }` for each
-doubleword. -/
-def rolDwords (x : BitVec 128) (n : BitVec 8) : BitVec 128 :=
-  let r (i : Nat) := (dword x i).rotateLeft (n.toNat % 32)
-  ofDwords (r 0) (r 1) (r 2) (r 3)
-
 /-- SDM Vol. 2, "VSHUFF32x4/VSHUFF64x2/VSHUFI32x4/VSHUFI64x2", 512-bit form:
 `Select4(SRC, control) { CASE (control[1:0]) OF 0: TMP := SRC[127:0]; 1:
 TMP := SRC[255:128]; 2: TMP := SRC[383:256]; 3: TMP := SRC[511:384]; }`,

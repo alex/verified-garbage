@@ -267,7 +267,10 @@ CC /r`, `VEX.256.F2.0F38.W0 CD /r`). AVX512_IFMA and AVX512VL for the
 EVEX.128 and EVEX.256 forms of VPMADD52LUQ and VPMADD52HUQ
 (`EVEX.256.66.0F38.W1 B4 /r`, `EVEX.256.66.0F38.W1 B5 /r`; the SDM's
 "CPUID Feature Flag" column lists both, AVX512VL for the vector lengths
-below 512 bits).
+below 512 bits). AVX512VL and AVX512F for the EVEX.128 and EVEX.256 forms
+of VPROLD (`EVEX.128.66.0F.W0 72 /1 ib`, `EVEX.256.66.0F.W0 72 /1 ib`) and
+VPTERNLOGD (`EVEX.128.66.0F3A.W0 25 /r ib`, `EVEX.256.66.0F3A.W0 25 /r ib`),
+likewise.
 
 Vector AES/GCM additions: SDM Vol. 2, "AESENC", "AESENCLAST", "PCLMULQDQ",
 "PSHUFB", "PSLLDQ" and "PSRLDQ", opcode tables' "CPUID Feature Flag":
@@ -313,6 +316,7 @@ def Instr.requires : Instr → List String
     ["avx512f"]
   | .vop (.vsha512rnds2 ..) | .vop (.vsha512msg1 ..) | .vop (.vsha512msg2 ..) => ["sha512"]
   | .vop (.vpmadd52luq ..) | .vop (.vpmadd52huq ..) => ["avx512ifma", "avx512vl"]
+  | .vop (.vprold ..) | .vop (.vpternlogd ..) => ["avx512f", "avx512vl"]
   | _ => []
 
 /-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
