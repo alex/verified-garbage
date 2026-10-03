@@ -287,7 +287,7 @@ theorem bytesAt114_len (m : Mem) (p : Addr) : (Spec.Ed448.bytesAt m p 114).lengt
   simp [Spec.Ed448.bytesAt]
 
 /-- Bytes far from the working space, after writes only to it. -/
-theorem bytes_far {base p : Addr} {n : Nat} {m m' : Mem} (h : Outside base 0 8192 m m')
+theorem far_bytes {base p : Addr} {n : Nat} {m m' : Mem} (h : Outside base 0 8192 m m')
     (hf : ∀ i < n, 8192 ≤ ofs base (p + BitVec.ofNat 64 i)) :
     Spec.Ed448.bytesAt m' p n = Spec.Ed448.bytesAt m p n := by
   simp only [Spec.Ed448.bytesAt]
@@ -484,8 +484,8 @@ theorem verifyEquation_correct {s : State} (hp : verifyEquationLocal.pre s) :
     (fun q hq => by rw [rr1, Offset.add_add]; exact rsg _ _ (by omega))
     (fun q hq => by rw [rr1]; exact rch _ _ (by omega)) fs fch)
     fun s2 ⟨bs2, bk2, si2, g2, rd2, wr2, o2⟩ => ?_
-  rw [bytes_far O1 fs, hS] at bs2
-  rw [bytes_far O1 fch, hK] at bk2
+  rw [far_bytes O1 fs, hS] at bs2
+  rw [far_bytes O1 fch, hK] at bk2
   have hs2 : Scr s2 base := ⟨(g2 _ (by decide)).trans hs1.rdi, wr2 ▸ hs1.wr, hn⟩
   have rr2 : s2.rd ++ s2.wr = s.rd ++ s.wr := by rw [rd2, wr2, rd1, wr1]
   have O2 : Outside base 0 8192 s.mem s2.mem := O1.trans (o2.mono (by decide) (by decide))
@@ -495,7 +495,7 @@ theorem verifyEquation_correct {s : State} (hp : verifyEquationLocal.pre s) :
     (fun i hi => by rw [rr2, Offset.add_add]; exact rsg _ _ (by omega))
     (by rw [rr2, Offset.add_add]; exact rsg _ _ (by omega)) fs)
     fun s3 ⟨pk3, sig3, ⟨c0, hc0, b3⟩, g3, rd3, wr3, o3⟩ => ?_
-  rw [bytes_far O2 fs, hS] at hc0
+  rw [far_bytes O2 fs, hS] at hc0
   have hs3 : Scr s3 base := ⟨(g3 _ (by decide)).trans hs2.rdi, wr3 ▸ hs2.wr, hn⟩
   have rr3 : s3.rd ++ s3.wr = s.rd ++ s.wr := by rw [rd3, wr3, rr2]
   have O3 : Outside base 0 8192 s.mem s3.mem := O2.trans (o3.mono (by decide) (by decide))
@@ -504,7 +504,7 @@ theorem verifyEquation_correct {s : State} (hp : verifyEquationLocal.pre s) :
   refine WP.mono (vdecodeA_ok hf hs3 pk3 (fun i hi => by rw [rr3]; exact rpk _ _ (by omega))
     (by rw [rr3]; exact rpk _ _ (by omega)) fpk)
     fun s4 ⟨⟨cA, hcA, b4⟩, na4, p4, q4, d4, g4, rd4, wr4, o4⟩ => ?_
-  rw [bytes_far O3 fpk] at hcA na4
+  rw [far_bytes O3 fpk] at hcA na4
   have hs4 : Scr s4 base := ⟨(g4 _ (by decide)).trans hs3.rdi, wr4 ▸ hs3.wr, hn⟩
   have O4 : Outside base 0 8192 s.mem s4.mem := O3.trans ((wide o4).mono (by decide) (by decide))
   -- The loop.
@@ -549,7 +549,7 @@ theorem verifyEquation_correct {s : State} (hp : verifyEquationLocal.pre s) :
   refine WP.mono (decode_ok hf hs7 hsig7 8 9 (Or.inr ⟨rfl, rfl⟩) h10 h11
     (fun i hi => by rw [rr7]; exact rsg _ _ (by omega)) (by rw [rr7]; exact rsg _ _ (by omega)) fsg)
     fun s8 ⟨⟨cR, hcR, b8⟩, v8, k8, g8, rd8, wr8, o8⟩ => ?_
-  rw [bytes_far O7 fsg, ← bytesAt_take57] at hcR v8
+  rw [far_bytes O7 fsg, ← bytesAt_take57] at hcR v8
   have hs8 : Scr s8 base := ⟨(g8 _ (by decide)).trans hs7.rdi, wr8 ▸ hs7.wr, hn⟩
   have sv8 : Saved base s.gpr s8.mem := by
     have sv4 := ((sv1.outside o2 (by decide)).outside o3 (by decide)).outside (wide o4) (by decide)
