@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Rc4.AArch64.Lit
 import VerifiedGarbage.Proof.Rc4.AArch64.ApplyCT
+import VerifiedGarbage.Proof.Rc4.AArch64.Apply
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Rc4.Contract
 
@@ -24,17 +25,15 @@ theorem apply_verified : Verified AArch64.target VG.Impl.Rc4.AArch64.apply
       refine ⟨⟨s.gpr .x0, 258⟩, ?_, ?_⟩
       · rw [hwr]; exact List.mem_cons_self
       · simp only [Region.Contains, BitVec.sub_self]; decide
-    have hd : InRegions s.wr (s.gpr .x1) (s.gpr .x2).toNat := by
-      refine ⟨⟨s.gpr .x1, (s.gpr .x2).toNat⟩, ?_, ?_⟩
-      · rw [hwr]; exact List.mem_cons_of_mem _ List.mem_cons_self
-      · simp [Region.Contains]
+    have hd : (⟨s.gpr .x1, (s.gpr .x2).toNat⟩ : Region) ∈ s.wr := by
+      rw [hwr]; exact List.mem_cons_of_mem _ List.mem_cons_self
     have hsep' : Mem.Sep (s.gpr .x0) 258 (s.gpr .x1) (s.gpr .x2).toNat :=
       hsep.sep (by simp [Region.Contains]) (by simp [Region.Contains])
     obtain ⟨tr, t, he, hpost, hregs⟩ := WP.gprs (rs := preserved) (apply_ok s hp hd hsep')
       (by lit_decide) (by rfl)
-    refine ⟨tr, t, he, ⟨hregs, Exec.sp he, Exec.preservedV he⟩, ?_⟩
+    refine ⟨tr, t, he, ⟨hregs, Exec.sp he, hpost.2⟩, ?_⟩
     sig_post [Spec.Rc4.applyContract, Spec.Rc4.applySig, AArch64.abi, AArch64.argRegs]
-    exact hpost
+    exact hpost.1
   · intro s₁ s₂ tr₁ tr₂ t₁ t₂ hpre₁ hpre₂ hpub he₁ he₂
     sig_pre [Spec.Rc4.applyContract, Spec.Rc4.applySig, AArch64.abi, AArch64.argRegs] at hpre₁ hpre₂
     sig_pub [Spec.Rc4.applyContract, Spec.Rc4.applySig, AArch64.abi, AArch64.argRegs] at hpub
