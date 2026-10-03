@@ -3712,7 +3712,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_finalize(state: *mut [u8; 96], count: 
 }
 
 /// The CPU features `vg_sha256_compress_shani` requires (`Artifact.features`).
-pub(crate) const VG_SHA256_COMPRESS_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
+pub(crate) const VG_SHA256_COMPRESS_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha", "ssse3"]);
 
 /// The SHA-256 compression function (FIPS 180-4 §6.2.2): updates the hash value `*state` with the `n` 64-byte blocks starting at `blocks`, in order.
 ///
@@ -4120,7 +4120,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress_shani(state: *mut [u32; 8], b
 }
 
 /// The CPU features `vg_sha256_update_shani` requires (`Artifact.features`).
-pub(crate) const VG_SHA256_UPDATE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
+pub(crate) const VG_SHA256_UPDATE_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha", "ssse3"]);
 
 /// Absorbs data into a SHA-224 or SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
@@ -4266,7 +4266,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_update_shani(state: *mut [u8; 96], cou
 }
 
 /// The CPU features `vg_sha256_finalize_shani` requires (`Artifact.features`).
-pub(crate) const VG_SHA256_FINALIZE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
+pub(crate) const VG_SHA256_FINALIZE_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha", "ssse3"]);
 
 /// Finishes a SHA-224 or SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), hashed from an initial hash value, writes the final hash value `H⁽ᴺ⁾` of that message (32 bytes) to `*out`. The SHA-256 digest is all of it; the SHA-224 digest is its first 28 bytes.
 ///

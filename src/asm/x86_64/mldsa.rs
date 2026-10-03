@@ -1761,7 +1761,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_sub(f: *mut [u32; 256], g: *const 
 }
 
 /// The CPU features `vg_mldsa_ntt_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_NTT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_NTT_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// The ML-DSA number-theoretic transform, `NTT` (FIPS 204 Algorithm 41), of the polynomial `*f` (256 coefficients less than `q` = 8380417), in place.
 ///
@@ -2436,7 +2436,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_ntt_avx2(f: *mut [u32; 256], scrat
 }
 
 /// The CPU features `vg_mldsa_inv_ntt_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_INV_NTT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_INV_NTT_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// The inverse of the ML-DSA number-theoretic transform, `NTT⁻¹` (FIPS 204 Algorithm 42), of `*f` (256 coefficients less than `q` = 8380417), in place.
 ///
@@ -3115,7 +3115,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_inv_ntt_avx2(f: *mut [u32; 256], s
 }
 
 /// The CPU features `vg_mldsa_multiply_ntt_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_MULTIPLY_NTT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_MULTIPLY_NTT_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// The product of two elements of `T_q`, `MultiplyNTT` (FIPS 204 Algorithm 45): writes the coefficientwise product of `*f` and `*g` modulo `q` = 8380417 to `*h`.
 ///
@@ -3233,7 +3233,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_multiply_ntt_avx2(h: *mut [u32; 25
 }
 
 /// The CPU features `vg_mldsa_multiply_add_ntt_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_MULTIPLY_ADD_NTT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_MULTIPLY_ADD_NTT_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// Adds the product of two elements of `T_q` to a third, `AddNTT(h, MultiplyNTT(f, g))` (FIPS 204 Algorithms 44 and 45): adds the coefficientwise product of `*f` and `*g` to `*h`, modulo `q` = 8380417.
 ///
@@ -3362,7 +3362,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_multiply_add_ntt_avx2(h: *mut [u32
 }
 
 /// The CPU features `vg_mldsa_add_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_ADD_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_ADD_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// Adds the polynomial `*g` to `*f` modulo `q` = 8380417, coefficient by coefficient (FIPS 204 Algorithm 44).
 ///
@@ -3406,7 +3406,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_add_avx2(f: *mut [u32; 256], g: *c
 }
 
 /// The CPU features `vg_mldsa_sub_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_SUB_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_SUB_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// Subtracts the polynomial `*g` from `*f` modulo `q` = 8380417, coefficient by coefficient.
 ///
@@ -4610,7 +4610,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_low_bits(r: *const [u32; 256], gam
 }
 
 /// The CPU features `vg_mldsa_high_bits_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_HIGH_BITS_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_HIGH_BITS_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// `HighBits` (FIPS 204 Algorithm 37) of each coefficient of `*r`, with `gamma2` = `γ₂`: writes the `r1`s to `*out`.
 ///
@@ -4712,7 +4712,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_high_bits_avx2(r: *const [u32; 256
 }
 
 /// The CPU features `vg_mldsa_low_bits_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_LOW_BITS_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_LOW_BITS_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// `LowBits` (FIPS 204 Algorithm 38) of each coefficient of `*r`, with `gamma2` = `γ₂`: writes the `r0`s, modulo `q` = 8380417, to `*out`.
 ///
@@ -4973,7 +4973,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_make_hint(z: *const [u32; 256], r:
 }
 
 /// The CPU features `vg_mldsa_norm_lt_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_NORM_LT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_NORM_LT_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// Returns 1 if the infinity norm of the polynomial `*f` (FIPS 204 §2.3: the largest `|fᵢ mod± q|`) is less than `bound`, and 0 otherwise.
 ///
@@ -5028,7 +5028,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_norm_lt_avx2(f: *const [u32; 256],
 }
 
 /// The CPU features `vg_mldsa_make_hint_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_MAKE_HINT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_MAKE_HINT_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// `MakeHint` (FIPS 204 Algorithm 39) of each pair of coefficients of `*z` and `*r`, with `gamma2` = `γ₂`: writes 1 for true and 0 for false to `*h`, and returns the number of 1s.
 ///
@@ -5316,7 +5316,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_use_hint(h: *const [u32; 256], r: 
 }
 
 /// The CPU features `vg_mldsa_use_hint_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_USE_HINT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_USE_HINT_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// `UseHint` (FIPS 204 Algorithm 40) of each pair of coefficients of `*h` (a hint bit: true if it is not 0) and `*r`, with `gamma2` = `γ₂`: writes the results to `*out`.
 ///
@@ -5653,7 +5653,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_rej_ntt_poly4(seeds: *const [u8; 1
 }
 
 /// The CPU features `vg_mldsa_rej_ntt_poly4_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_REJ_NTT_POLY4_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_REJ_NTT_POLY4_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// `RejNTTPoly` (FIPS 204 Algorithm 30) four times: for each `k` < 4, writes the element of `T_q` sampled from the SHAKE128 output of the 34 bytes of `*seeds` from byte `34 k` to the 256 coefficients of `*a` from coefficient `256 k` (each less than `q` = 8380417), and returns 1. Returns 0 if the loop reaches its bound, which is at least 894 bytes of SHAKE128 output for each (FIPS 204 Appendix C; this happens with probability about 2^-256 or less): `*a` is then unspecified, and the caller must destroy it and treat the operation as failed. The four are independent, so an implementation may compute them together (e.g. four SHAKE128 instances at once in vector registers).
 ///
@@ -10875,7 +10875,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_expand_mask_poly4(seeds: *const [u
 }
 
 /// The CPU features `vg_mldsa_expand_mask_poly4_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA_EXPAND_MASK_POLY4_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA_EXPAND_MASK_POLY4_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// Four polynomials of `ExpandMask` (FIPS 204 Algorithm 34, lines 4 and 5): for each `k` < 4, writes `BitUnpack(H(seed, 32c), gamma1 - 1, gamma1)`, for the 66 bytes `seed` of `*seeds` from byte `66 k` and `c = 1 + bitlen (gamma1 - 1)`, to the 256 coefficients of `*a` from coefficient `256 k` (each modulo `q` = 8380417). The four are independent, so an implementation may compute them together (e.g. four SHAKE256 instances at once in vector registers).
 ///

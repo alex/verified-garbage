@@ -435,6 +435,7 @@ def safeDoc : String := "Does things.\n\n# Safety\n\n* `p` must be valid."
 #guard Rust.featuresConst "vg_f" [] == ""
 #guard Rust.featuresConst "vg_sha256_compress_shani" ["sha", "ssse3"] ==
   "/// The CPU features `vg_sha256_compress_shani` requires (`Artifact.features`).\n\
-  pub(crate) const VG_SHA256_COMPRESS_SHANI_FEATURES: &[&str] = &[\"sha\", \"ssse3\"];\n\n"
+  pub(crate) const VG_SHA256_COMPRESS_SHANI_FEATURES: crate::cpu::Features = \
+  crate::cpu::Features::of(&[\"sha\", \"ssse3\"]);\n\n"
 
 end VG.Test

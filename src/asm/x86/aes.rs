@@ -2781,7 +2781,7 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32(schedule: *const [u8; 240], rounds:
 }
 
 /// The CPU features `vg_aes_ctr32_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_CTR32_AESNI_FEATURES: &[&str] = &["aes"];
+pub(crate) const VG_AES_CTR32_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes"]);
 
 /// AES counter mode with GCM's 32-bit increment (NIST SP 800-38D §6.5, on whole blocks): XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
 ///
@@ -3092,7 +3092,7 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32_aesni(schedule: *const [u8; 240], r
 }
 
 /// The CPU features `vg_aes_expand_key_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_EXPAND_KEY_AESNI_FEATURES: &[&str] = &["aes"];
+pub(crate) const VG_AES_EXPAND_KEY_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes"]);
 
 /// The AES key expansion (FIPS 197 §5.2, `KEYEXPANSION`): writes the key schedule of the `key_len`-byte key at `key`, the words `w[0] … w[4 * Nr + 3]` for `Nr = key_len / 4 + 6` rounds, each as its 4 bytes (`16 * (Nr + 1)` bytes in all), to the start of `*schedule`, as `vg_aes_ctr32` reads it.
 ///

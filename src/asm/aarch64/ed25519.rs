@@ -61761,7 +61761,7 @@ pub(crate) unsafe extern "C" fn vg_ed25519_verify(pk: *const [u8; 32], message: 
 }
 
 /// The CPU features `vg_ed25519_public_key_sha3` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_PUBLIC_KEY_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_ED25519_PUBLIC_KEY_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// Ed25519 public-key derivation (RFC 8032 §5.1.5): writes the 32-byte public key to `*out`, from the 32-byte private seed at `seed`, including SHA-512 and pruning. Contract: `VG.Spec.Ed25519.publicKeyContract`. Constant time: only pointers may affect timing.
 ///
@@ -61938,7 +61938,7 @@ pub(crate) unsafe extern "C" fn vg_ed25519_public_key_sha3(out: *mut [u8; 32], s
 }
 
 /// The CPU features `vg_ed25519_sign_cached_sha3` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_SIGN_CACHED_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_ED25519_SIGN_CACHED_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// Deterministic Ed25519 signing (RFC 8032 §5.1.6): writes the 64-byte signature to `*out`, for the `len` bytes at `message` and the 32-byte private seed at `seed`, using its cached public key at `pk`. Includes all hashing, pruning and scalar/group operations. Uses pure Ed25519, with no context or prehash. Contract: `VG.Spec.Ed25519.signCachedContract`. Constant time: only pointers and the message length may affect timing, not any buffer contents.
 ///
@@ -62218,7 +62218,7 @@ pub(crate) unsafe extern "C" fn vg_ed25519_sign_cached_sha3(out: *mut [u8; 64], 
 }
 
 /// The CPU features `vg_ed25519_verify_sha3` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_ED25519_VERIFY_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///

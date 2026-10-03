@@ -97,7 +97,7 @@ macro_rules! ml_dsa {
                 return Backend::Scalar;
             }
             #[cfg(target_arch = "x86_64")]
-            const AVX2: &[&[&str]] = &[
+            const AVX2: &[$crate::cpu::Features] = &[
                 $keygen_avx2_features,
                 $sign_avx2_features,
                 $verify_avx2_features,
@@ -105,7 +105,7 @@ macro_rules! ml_dsa {
                 $verify_message_avx2_features,
             ];
             #[cfg(not(target_arch = "x86_64"))]
-            const AVX2: &[&[&str]] = &[];
+            const AVX2: &[$crate::cpu::Features] = &[];
             Backend::select(
                 $crate::hashes::sha3::Backend::detected(),
                 $crate::cpu::detected(),

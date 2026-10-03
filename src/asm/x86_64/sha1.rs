@@ -1477,7 +1477,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_init(state: *mut [u8; 84]) {
 }
 
 /// The CPU features `vg_sha1_compress_shani` requires (`Artifact.features`).
-pub(crate) const VG_SHA1_COMPRESS_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
+pub(crate) const VG_SHA1_COMPRESS_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha", "ssse3"]);
 
 /// The SHA-1 compression function (FIPS 180-4 §6.1.2): updates the hash value `*state` with the `n` 64-byte blocks starting at `blocks`, in order.
 ///
@@ -1907,7 +1907,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_finalize(state: *mut [u8; 84], coun
 }
 
 /// The CPU features `vg_sha1_update_shani` requires (`Artifact.features`).
-pub(crate) const VG_SHA1_UPDATE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
+pub(crate) const VG_SHA1_UPDATE_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha", "ssse3"]);
 
 /// Absorbs data into a SHA-1 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
@@ -2044,7 +2044,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_update_shani(state: *mut [u8; 84], 
 }
 
 /// The CPU features `vg_sha1_finalize_shani` requires (`Artifact.features`).
-pub(crate) const VG_SHA1_FINALIZE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
+pub(crate) const VG_SHA1_FINALIZE_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha", "ssse3"]);
 
 /// Finishes a SHA-1 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), writes the SHA-1 digest of that message to `*out`.
 ///

@@ -128,8 +128,11 @@ BENCH = re.compile(r"bench/benches/primitives/(?!main\.rs$)([a-z0-9_]+)\.rs$")
 BENCH_TEST = re.compile(r"bench/tests/([a-z0-9_]+)\.rs$")
 USES = re.compile(r"pub const USES: &\[&str\] = &\[([^\]]*)\];")
 QUOTED = re.compile(r'"([a-z0-9_]+)"')
-# A generated variant's CPU features, and the features `src/cpu.rs` knows.
-FEATURES = re.compile(r"_FEATURES: &\[&str\] = &\[([^\]]*)\];")
+# A generated variant's CPU features (a `Features` constant, or a list of
+# names at a base revision from before it was one), and the features
+# `src/cpu.rs` knows.
+FEATURES = re.compile(
+    r"_FEATURES: (?:&\[&str\] = &\[|crate::cpu::Features = crate::cpu::Features::of\(&\[)([^\]]*)\]")
 NAMES = re.compile(r"const NAMES: \[&str; \d+\] = \[([^\]]*)\];")
 # Each architecture's feature detection in `src/cpu.rs`: its `cfg`, and the
 # body, which names each feature in quotes or as a `let`.

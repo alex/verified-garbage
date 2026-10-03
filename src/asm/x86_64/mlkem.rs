@@ -885,7 +885,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mlkem_inv_ntt(f: *mut [u32; 256], scratc
 }
 
 /// The CPU features `vg_mlkem_ntt_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLKEM_NTT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLKEM_NTT_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// The ML-KEM number-theoretic transform, `NTT` (FIPS 203 Algorithm 9), of the polynomial `*f` (256 coefficients less than `q` = 3329), in place.
 ///
@@ -1308,7 +1308,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mlkem_ntt_avx2(f: *mut [u32; 256], scrat
 }
 
 /// The CPU features `vg_mlkem_inv_ntt_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLKEM_INV_NTT_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLKEM_INV_NTT_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// The inverse of the ML-KEM number-theoretic transform, `NTT⁻¹` (FIPS 203 Algorithm 10), of `*f` (256 coefficients less than `q` = 3329), in place.
 ///
@@ -2018,7 +2018,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mlkem_multiply_ntts(h: *mut [u32; 256], 
 }
 
 /// The CPU features `vg_mlkem_multiply_ntts_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLKEM_MULTIPLY_NTTS_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLKEM_MULTIPLY_NTTS_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// The product of two NTT representations, `MultiplyNTTs` (FIPS 203 Algorithm 11): writes the product of `*f` and `*g` to `*h`, each of 256 coefficients less than `q` = 3329.
 ///
@@ -3078,7 +3078,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mlkem_sample_ntt4(seeds: *const [u8; 136
 }
 
 /// The CPU features `vg_mlkem_sample_ntt4_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLKEM_SAMPLE_NTT4_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLKEM_SAMPLE_NTT4_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// `SampleNTT` (FIPS 203 Algorithm 7) four times: for each `k` < 4, writes the element of `T_q` sampled from the SHAKE128 output of the 34 bytes of `*seeds` from byte `34 k` to the 256 coefficients of `*a` from coefficient `256 k` (each less than `q` = 3329), and returns 1. Returns 0 if the loop reaches its bound for one of them, which is at least 280 iterations (FIPS 203 Appendix B; this happens with probability less than 2^-261 for each): `*a` is then unspecified, and the caller must destroy it and treat the operation as failed. The four are independent, so an implementation may compute them together (e.g. four SHAKE128 instances at once in vector registers).
 ///

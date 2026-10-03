@@ -1,17 +1,17 @@
 //! CPU features, for choosing among implementations of a primitive.
 //!
 //! Some artifacts use instructions beyond their target's baseline ISA. Lean
-//! checks which CPU features those need, and the emitter lists them in a
-//! generated `<NAME>_FEATURES` constant next to the function (and in its
-//! `# Safety` section): the function may only be called on a CPU that has
-//! all of them. They are detected once: with `cpuid` on x86 and x86-64; on AArch64,
+//! checks which CPU features those need, and the emitter generates a
+//! [`Features`] constant of them, `<NAME>_FEATURES`, next to the function
+//! (and lists them in its `# Safety` section): the function may only be
+//! called on a CPU that has all of them. They are detected once: with `cpuid` on x86 and x86-64; on AArch64,
 //! by asking the operating system with the `cpu-features-env` feature (which
 //! links `std`), and otherwise from the target features the code was
 //! compiled for. Each object that can use such a function chooses its
 //! implementation when it is created, from the features detected. A feature
 //! detection does not know ([`NAMES`]) cannot be checked for:
-//! [`Features::of`] panics on it, so the constants that choose
-//! implementations fail to compile.
+//! [`Features::of`] panics on it, so a generated constant naming one fails
+//! to compile.
 //!
 //! With the `cpu-features-env` Cargo feature, the environment variable
 //! `VG_CPU_FEATURES` restricts the features detected, so that tests and
@@ -74,9 +74,9 @@ const fn eq(a: &str, b: &str) -> bool {
 pub(crate) struct Features(pub(crate) u32);
 
 impl Features {
-    /// The features named in `names` (a generated `_FEATURES` constant). A
-    /// `const fn`, so that choosing an implementation can compare
-    /// precomputed sets rather than names.
+    /// The features named in `names` (as each generated `_FEATURES`
+    /// constant is made). A `const fn`, so that choosing an implementation
+    /// can compare precomputed sets rather than names.
     ///
     /// # Panics
     ///
@@ -102,16 +102,16 @@ impl Features {
         Features(acc)
     }
 
-    /// The features named in any of `lists`.
+    /// The features in any of `sets`.
     #[cfg_attr(
         not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
         allow(dead_code)
     )]
-    pub(crate) const fn all(lists: &[&[&str]]) -> Features {
+    pub(crate) const fn all(sets: &[Features]) -> Features {
         let mut acc = 0;
         let mut i = 0;
-        while i < lists.len() {
-            acc |= Features::of(lists[i]).0;
+        while i < sets.len() {
+            acc |= sets[i].0;
             i += 1;
         }
         Features(acc)
@@ -356,7 +356,11 @@ mod tests {
             Features((1 << 18) | (1 << 17))
         );
         assert_eq!(
-            Features::all(&[&["sha"], &[], &["ssse3", "sha"]]),
+            Features::all(&[
+                Features::of(&["sha"]),
+                Features::of(&[]),
+                Features::of(&["ssse3", "sha"])
+            ]),
             Features(0b11)
         );
     }

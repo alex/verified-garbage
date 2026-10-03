@@ -1875,7 +1875,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem_sample_ntt(seed: *const [u8; 34], a: *m
 }
 
 /// The CPU features `vg_mlkem_sample_ntt_sha3` requires (`Artifact.features`).
-pub(crate) const VG_MLKEM_SAMPLE_NTT_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_MLKEM_SAMPLE_NTT_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// `SampleNTT` (FIPS 203 Algorithm 7): writes the element of `T_q` sampled from the SHAKE128 output of the 34 bytes `*seed` to `*a` (256 coefficients less than `q` = 3329), and returns 1. Returns 0 if the loop reaches its bound, which is at least 280 iterations (FIPS 203 Appendix B; this happens with probability less than 2^-261): `*a` is then unspecified, and the caller must destroy it and treat the operation as failed.
 ///

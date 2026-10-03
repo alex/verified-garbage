@@ -40,9 +40,14 @@ mod tests {
 """
 
 
-def asm(*features):
-    """A generated module with a variant needing each of `features`."""
-    return "".join(f"pub(crate) const VG_F{i}_FEATURES: &[&str] = &{json.dumps(f)};\n"
+def asm(*features, old=False):
+    """A generated module with a variant needing each of `features`: as a
+    `Features` constant, or with `old` as the list of names generated before."""
+    if old:
+        return "".join(f"pub(crate) const VG_F{i}_FEATURES: &[&str] = &{json.dumps(f)};\n"
+                       for i, f in enumerate(features))
+    return "".join(f"pub(crate) const VG_F{i}_FEATURES: crate::cpu::Features = "
+                   f"crate::cpu::Features::of(&{json.dumps(f)});\n"
                    for i, f in enumerate(features))
 
 
@@ -156,6 +161,13 @@ class Selection(unittest.TestCase):
         # (`aes,ssse3`), or with one the architecture never detects (`sha3`).
         self.assertEqual(self.configurations(rows, 'x86_64'), ['', 'avx,avx2,bmi1,bmi2', 'none'])
         self.assertEqual({r['modules'] for r in rows}, {'x448'})
+
+    def test_features_listed_by_names_at_base_count(self):
+        # Only the base has the variant needing ADX, as a list of names.
+        self.files['src/asm/x86_64/x448.rs'] = asm(['bmi2'])
+        self.base_files['src/asm/x86_64/x448.rs'] = asm(['bmi2'], ['bmi2', 'adx'], old=True)
+        rows = self.rows(['src/asm/x86_64/x448.rs'])
+        self.assertEqual(self.configurations(rows, 'x86_64'), ['', 'avx,avx2,bmi1,bmi2', 'none'])
 
     def test_features_named_in_rust_count_where_detected(self):
         rows = self.rows(['src/chacha.rs'])
