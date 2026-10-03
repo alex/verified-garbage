@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.TripleDes.X86_64.ExpandKey
-import VerifiedGarbage.Impl.TripleDes.X86_64.Ecb
+import VerifiedGarbage.Impl.TripleDes.X86_64.Block
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbageTest.TripleDes
 

@@ -166,7 +166,9 @@ fn batches_match_single_blocks() {
     for key_len in [16, 24] {
         let key: Vec<_> = (0..key_len).map(|i| (29 * i + 11) as u8).collect();
         let ctx = TripleDesEcb::new(&key).unwrap();
-        let plaintext: Vec<_> = (0..8 * 300).map(|i| (i * 131 + 7 + i / 256) as u8).collect();
+        let plaintext: Vec<_> = (0..8 * 300)
+            .map(|i| (i * 131 + 7 + i / 256) as u8)
+            .collect();
         let mut expected = plaintext.clone();
         for block in expected.chunks_mut(8) {
             ctx.encrypt(block).unwrap();
