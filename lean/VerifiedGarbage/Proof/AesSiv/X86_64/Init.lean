@@ -285,4 +285,175 @@ theorem keyRepr_of {m m₀ : Mem} {Ct Kp : Addr} {KL : Nat} (hl : KL = 32 ∨ KL
   · rw [hlen, k1]; exact hs2
   · rw [hlen, k2, e8]; exact h2
 
+/-! ## The whole function -/
+
+theorem initSaved_slots : Spill.Slots initSaved := by decide
+
+theorem initSaved_le : ∀ p ∈ initSaved, p.2 + 8 ≤ 256 := by decide
+
+theorem initRestored_sub : ∀ p ∈ initRestored, p ∈ initSaved := by decide
+
+theorem initRestored_fst {r : Reg} (h : r ∉ initRestored.map Prod.fst) : r ∉ initSaved.map Prod.fst := by
+  intro h'; apply h
+  simp only [initSaved, initRestored, List.map_cons, List.map_nil, List.mem_cons, List.not_mem_nil,
+    or_false] at h' ⊢
+  rcases h' with h' | h' | h' | h' | h' <;> simp [h']
+
+theorem init_wp (v : Ctr32Impl) {s₀ : State} (h0 : initX86_64.pre s₀) :
+    WP isa (init v.expand v.callee v.suffix) s₀ fun s' => gprPreserved s₀ s' ∧ initX86_64.post s₀ s' := by
+  have hp := IPre.of h0
+  generalize s₀.gpr .rdi = Kp at hp
+  generalize s₀.gpr .rdx = Ct at hp
+  generalize s₀.gpr .rcx = S at hp
+  generalize (s₀.gpr .rsi).toNat = KL at hp
+  have hwC := hp.wC
+  have hwS := hp.wS
+  have hwK := hp.wK
+  have hH := hp.half
+  have cs : ∀ r ∈ [Reg.rbx, .rbp, .r12, .r13, .r14, .rsp], r ∈ calleeSaved := by decide
+  refine WP.seq (WP.mono (initPre_wp hp) fun s₁ h₁ => ?_)
+  refine WP.seq (WP.mono (ek_call v h₁.args) fun s₂ h₂ => ?_)
+  have g₂ (r : Reg) (hr : r ∈ calleeSaved) : s₂.gpr r = s₁.gpr r := h₂.saved r hr
+  obtain ⟨s₃, run₃, rdi₃, rsi₃, rdx₃, rcx₃, g₃, m₃, rd₃, wr₃⟩ := initMid₁_ok (s := s₂)
+    (by rw [g₂ _ (cs _ (by simp)), h₁.r12]) (by rw [g₂ _ (cs _ (by simp)), h₁.r13])
+    (by rw [g₂ _ (cs _ (by simp)), h₁.r14])
+  refine WP.seq (WP.of_runBlock ⟨s₃, run₃, ?_⟩)
+  have rsp₃ : s₃.gpr .rsp = s₀.gpr .rsp := by rw [g₃ _ (cs _ (by simp)), g₂ _ (cs _ (by simp)), h₁.rsp]
+  have rd₃' : s₃.rd = s₀.rd := by rw [rd₃, h₂.rd, h₁.rd]
+  have wr₃' : s₃.wr = s₀.wr := by rw [wr₃, h₂.wr, h₁.wr]
+  refine WP.seq (WP.mono (sub_call v _ (hp.sargs rdi₃ rsi₃ rdx₃ rcx₃ rsp₃ rd₃' wr₃')) fun s₄ h₄ => ?_)
+  have g₄ (r : Reg) (hr : r ∈ calleeSaved) : s₄.gpr r = s₁.gpr r := by rw [h₄.saved r hr, g₃ r hr, g₂ r hr]
+  obtain ⟨s₅, run₅, rdi₅, rsi₅, rdx₅, rcx₅, g₅, m₅, rd₅, wr₅⟩ := initMid₂_ok (s := s₄)
+    (by rw [g₄ _ (cs _ (by simp)), h₁.rbx]) (by rw [g₄ _ (cs _ (by simp)), h₁.rbp])
+    (by rw [g₄ _ (cs _ (by simp)), h₁.r12]) (by rw [g₄ _ (cs _ (by simp)), h₁.r13])
+  refine WP.seq (WP.of_runBlock ⟨s₅, run₅, ?_⟩)
+  have rsp₅ : s₅.gpr .rsp = s₀.gpr .rsp := by rw [g₅ _ (cs _ (by simp)), g₄ _ (cs _ (by simp)), h₁.rsp]
+  have rd₅' : s₅.rd = s₀.rd := by rw [rd₅, h₄.rd, rd₃']
+  have wr₅' : s₅.wr = s₀.wr := by rw [wr₅, h₄.wr, wr₃']
+  refine WP.seq (WP.mono (ek_call v (hp.eargs (a := KL / 2) (c := 272) (by omega) (by decide) rdi₅ rsi₅ rdx₅
+    rcx₅ rsp₅ rd₅' wr₅')) fun s₆ h₆ => ?_)
+  have g₆ (r : Reg) (hr : r ∈ calleeSaved) : s₆.gpr r = s₁.gpr r := by rw [h₆.saved r hr, g₅ r hr, g₄ r hr]
+  have r13₆ : s₆.gpr .r13 = S := by rw [g₆ _ (cs _ (by simp)), h₁.r13]
+  -- The memory, call by call.
+  have f₁ : Frame [⟨S, 2560⟩] s₀.mem s₁.mem := by
+    rw [h₁.mem]; exact Spill.saveMem_frame_base _ _ _ _ (fun p hp' => by have := initSaved_le p hp'; omega)
+      (by decide)
+  have f₂ : Frame [⟨Ct, 240⟩, ⟨S + BitVec.ofNat 64 256, 512⟩, below (s₀.gpr .rsp) 16] s₁.mem s₂.mem := by
+    rw [← h₁.rsp]; exact h₂.frame
+  have f₄ : Frame [⟨Ct + BitVec.ofNat 64 240, 32⟩, ⟨S + BitVec.ofNat 64 256, 2176⟩, below (s₀.gpr .rsp) 16]
+      s₃.mem s₄.mem := by
+    rw [← rsp₃]; exact h₄.frame
+  have f₆ : Frame [⟨Ct + BitVec.ofNat 64 272, 240⟩, ⟨S + BitVec.ofNat 64 256, 512⟩, below (s₀.gpr .rsp) 16]
+      s₅.mem s₆.mem := by
+    rw [← rsp₅]; exact h₆.frame
+  -- The saved registers.
+  have dSv {d : Nat} (hd : d + 8 ≤ 256) (r : Region) (hr : r ∈ [⟨Ct, 240⟩, ⟨S + BitVec.ofNat 64 256, 512⟩,
+      below (s₀.gpr .rsp) 16, ⟨Ct + BitVec.ofNat 64 240, 32⟩, ⟨S + BitVec.ofNat 64 256, 2176⟩,
+      ⟨Ct + BitVec.ofNat 64 272, 240⟩]) : (⟨S + BitVec.ofNat 64 d, 8⟩ : Region).Disjoint r := by
+    have sub : Region.Sub ⟨S + BitVec.ofNat 64 d, 8⟩ ⟨S, 2560⟩ := hp.sS (by omega)
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl
+    · exact (hp.c_s.sub_left (Region.sub_prefix (by decide))).symm.sub_left sub
+    · exact Offset.disjoint S (by omega) (by omega) (by omega)
+    · exact hp.stk_s.symm.sub_left sub
+    · exact (hp.c_s.sub_left (hp.sC (by decide))).symm.sub_left sub
+    · exact Offset.disjoint S (by omega) (by omega) (by omega)
+    · exact (hp.c_s.sub_left (hp.sC (by decide))).symm.sub_left sub
+  have sv₁ : Spill.Saved s₁.mem S s₀.gpr initSaved := by
+    rw [h₁.mem]; exact Spill.saveMem_saved _ _ _ _ initSaved_slots
+  have sv₆ : Spill.Saved s₆.mem S s₀.gpr initSaved := by
+    refine ((sv₁.frame f₂ fun p hp' r hr => dSv (initSaved_le p hp') r (by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; rcases hr with rfl | rfl | rfl <;> simp)).frame
+      (m' := s₄.mem) (by rw [← m₃]; exact f₄) fun p hp' r hr => dSv (initSaved_le p hp') r (by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; rcases hr with rfl | rfl | rfl <;> simp)).frame
+      (by rw [← m₅]; exact f₆) fun p hp' r hr => dSv (initSaved_le p hp') r (by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; rcases hr with rfl | rfl | rfl <;> simp)
+  have inR : ∀ p ∈ initRestored, InRegions (s₆.rd ++ s₆.wr) (Spill.slot (s₆.gpr .r13) p.2) 8 := by
+    intro p hp'
+    have := initSaved_le p (initRestored_sub p hp')
+    rw [r13₆, h₆.rd, h₆.wr, rd₅', wr₅', hp.wr]
+    exact ⟨⟨S, 2560⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩
+  refine WP.mono (Spill.restore_ok .r13 initRestored s₀.gpr s₆ (by decide) inR
+    (by rw [r13₆]; exact fun p hp' => sv₆ p (initRestored_sub p hp'))) fun s₇ ⟨h₇a, h₇b, m₇, _, _⟩ => ?_
+  have hRb : 16 * (Spec.Aes.rounds (KL / 2 / 4) + 1) ≤ 240 := by simp only [Spec.Aes.rounds]; omega
+  refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
+  · by_cases hm : r ∈ initRestored.map Prod.fst
+    · exact h₇a r hm
+    · rw [h₇b r hm, g₆ r hr, h₁.other r hr (initRestored_fst hm)]
+  · have c := Region.contains_self (s₀.gpr .rsp) 8
+    have dR (r : Region) (hr : r ∈ [⟨Ct, 240⟩, ⟨S + BitVec.ofNat 64 256, 512⟩,
+        below (s₀.gpr .rsp) 16, ⟨Ct + BitVec.ofNat 64 240, 32⟩, ⟨S + BitVec.ofNat 64 256, 2176⟩,
+        ⟨Ct + BitVec.ofNat 64 272, 240⟩, ⟨S, 2560⟩]) : (⟨s₀.gpr .rsp, 8⟩ : Region).Disjoint r := by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
+      · exact hp.ret_c.sub_right (Region.sub_prefix (by decide))
+      · exact hp.ret_s.sub_right (hp.sS (by decide))
+      · exact Offset.base_disjoint_below _ (by decide)
+      · exact hp.ret_c.sub_right (hp.sC (by decide))
+      · exact hp.ret_s.sub_right (hp.sS (by decide))
+      · exact hp.ret_c.sub_right (hp.sC (by decide))
+      · exact hp.ret_s
+    rw [m₇, f₆.readW c (fun r hr => dR r (by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; rcases hr with rfl | rfl | rfl <;> simp))
+        (by decide), m₅,
+      f₄.readW c (fun r hr => dR r (by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; rcases hr with rfl | rfl | rfl <;> simp))
+        (by decide), m₃,
+      f₂.readW c (fun r hr => dR r (by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; rcases hr with rfl | rfl | rfl <;> simp))
+        (by decide),
+      f₁.readW c (fun r hr => dR r (by simp only [List.mem_singleton] at hr; subst hr; simp)) (by decide)]
+  · show Spec.Siv.KeyRepr s₇.mem (s₀.gpr .rdx) (Spec.Aes.bytesAt s₀.mem (s₀.gpr .rdi) (s₀.gpr .rsi).toNat)
+    rw [hp.rdx, hp.rdi, hp.rsi, m₇]
+    -- The key, outside everything the code writes.
+    have dK {a n : Nat} (ha : a + n ≤ KL) (r : Region) (hr : r ∈ [⟨Ct, 240⟩, ⟨S + BitVec.ofNat 64 256, 512⟩,
+        below (s₀.gpr .rsp) 16, ⟨Ct + BitVec.ofNat 64 240, 32⟩, ⟨S + BitVec.ofNat 64 256, 2176⟩,
+        ⟨S, 2560⟩]) : (⟨Kp + BitVec.ofNat 64 a, n⟩ : Region).Disjoint r := by
+      have sub := hp.sK ha
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl
+      · exact (hp.k_c.sub_left sub).sub_right (Region.sub_prefix (by decide))
+      · exact (hp.k_s.sub_left sub).sub_right (hp.sS (by decide))
+      · exact (hp.stk_k.sub_right sub).symm
+      · exact (hp.k_c.sub_left sub).sub_right (hp.sC (by decide))
+      · exact (hp.k_s.sub_left sub).sub_right (hp.sS (by decide))
+      · exact hp.k_s.sub_left sub
+    have key {a : Nat} (ha : a + KL / 2 ≤ KL) :
+        Spec.Aes.bytesAt s₅.mem (Kp + BitVec.ofNat 64 a) (KL / 2) =
+          Spec.Aes.bytesAt s₀.mem (Kp + BitVec.ofNat 64 a) (KL / 2) := by
+      rw [m₅, bytesAt_frame f₄ (fun r hr => dK ha r (by
+          simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; rcases hr with rfl | rfl | rfl <;> simp))
+          (by omega), m₃,
+        bytesAt_frame f₂ (fun r hr => dK ha r (by
+          simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; rcases hr with rfl | rfl | rfl <;> simp))
+          (by omega),
+        bytesAt_frame f₁ (fun r hr => dK ha r (by simp only [List.mem_singleton] at hr; subst hr; simp)) (by omega)]
+    have key₁ : Spec.Aes.bytesAt s₁.mem Kp (KL / 2) = Spec.Aes.bytesAt s₀.mem Kp (KL / 2) := by
+      have := bytesAt_frame f₁ (fun r hr => dK (a := 0) (n := KL / 2) (by omega) r (by simp only [List.mem_singleton] at hr; subst hr; simp)) (by omega)
+      rwa [k0] at this
+    have key₂ := key (a := KL / 2) (by omega)
+    have sch : Spec.Aes.bytesAt s₂.mem Ct (16 * (Spec.Aes.rounds (KL / 2 / 4) + 1)) =
+        Spec.Aes.expandKey (Spec.Aes.bytesAt s₀.mem Kp (KL / 2)) := by rw [h₂.out, key₁]
+    refine keyRepr_of hp.klen ?_ ?_ ?_
+    · rw [bytesAt_frame f₆ (fun r hr => by
+          simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+          rcases hr with rfl | rfl | rfl
+          · exact Offset.base_disjoint Ct (by omega) (by omega)
+          · exact (hp.c_s.sub_left (Region.sub_prefix (by omega))).sub_right (hp.sS (by decide))
+          · exact (hp.stk_c.sub_right (Region.sub_prefix (by omega))).symm) (by omega), m₅,
+        bytesAt_frame f₄ (fun r hr => by
+          simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+          rcases hr with rfl | rfl | rfl
+          · exact Offset.base_disjoint Ct (by omega) (by omega)
+          · exact (hp.c_s.sub_left (Region.sub_prefix (by omega))).sub_right (hp.sS (by decide))
+          · exact (hp.stk_c.sub_right (Region.sub_prefix (by omega))).symm) (by omega), m₃, sch]
+    · rw [bytesAt_frame f₆ (fun r hr => by
+          simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+          rcases hr with rfl | rfl | rfl
+          · exact Offset.disjoint Ct (by omega) (by omega) (by omega)
+          · exact (hp.c_s.sub_left (hp.sC (by decide))).sub_right (hp.sS (by decide))
+          · exact (hp.stk_c.sub_right (hp.sC (by decide))).symm) (by decide), m₅, h₄.out, m₃,
+        show 16 * (KL / 8 + 6 + 1) = 16 * (Spec.Aes.rounds (KL / 2 / 4) + 1) by
+          simp only [Spec.Aes.rounds]; omega, sch]
+    · rw [h₆.out, key₂]
 end VG.Proof.AesSiv.X86_64
