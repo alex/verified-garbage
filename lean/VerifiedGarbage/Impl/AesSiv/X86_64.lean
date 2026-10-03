@@ -317,7 +317,7 @@ advanced past the block (ZF set when no data is left). -/
 def ctrPost : List Instr :=
   [.mov .rax (.mem (at_ .r15 (cntOff + 8))), .bswap .rax, .mov .rdx (.mem (at_ .r15 cntOff)), .bswap .rdx,
    .alu .add .rax (imm 1), .alu .adc .rdx (imm 0), .bswap .rax, .bswap .rdx,
-   .store (at_ .r15 (cntOff + 8)) .rax, .store (at_ .r15 cntOff) .rdx,
+   .store (at_ .r15 cntOff) .rdx, .store (at_ .r15 (cntOff + 8)) .rax,
    .alu .add .r13 (imm 16), .alu .sub .r14 (.reg .rcx)]
 
 /-- One block of CTR. -/
