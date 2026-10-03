@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Bignum.X86_64.PubCode
+import VerifiedGarbage.Proof.Bignum.X86_64.MontMul
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 import VerifiedGarbage.Proof.Framework.RelCTAssoc
 
@@ -18,6 +18,12 @@ namespace VG.Proof.Bignum.X86_64
 
 open VG VG.X86_64 VG.Impl.Bignum.X86_64
 open VG.Proof.MlKem.X86_64
+
+/-- The working space at `B`, its base in `rdi`, and the header. -/
+structure Good (t : State) (B : Addr) (Z w : Nat) (minv : BitVec 64) : Prop where
+  scr : Scr t B Z
+  rdi : t.gpr .rdi = B
+  hdr : Hdr t.mem B w minv
 
 theorem execBlock_append {M : ISA} (l₁ l₂ : List M.Instr) (s : M.State) :
     execBlock M (l₁ ++ l₂) s = (execBlock M l₁ s).bind fun p =>
@@ -181,5 +187,69 @@ theorem montMul_ct {mo acc tmp o a b : Nat} (hmo : mo < 8) (hacc : acc < 8) (htm
   refine RelCT.seq (two_piece (Ψ := BasesL mo acc tmp o a b) _ pins_good h fun L s hs => ?_) (mmTail_ct mo acc tmp o a b)
   exact WP.mono (bases_ok hs.1.scr hs.1.rdi hs.1.hdr hs.2 ho ha hb hmo hacc htmp)
     fun t ⟨h1, h2, h3, h4, h5, h6, _, h8, _⟩ => ⟨h1, h2, h3, h4, h5, h6, h8⟩
+
+/-! ## Implementations of Montgomery multiplication -/
+
+open VG.Impl.Bignum.X86_64.Public in
+/-- The multiplications RSA makes, `[o] = [a] [b] R⁻¹ mod m`. -/
+def MmUse (o a b : Nat) : Prop :=
+  (o = aR2 ∧ a = aR2 ∧ b = aR2) ∨ (o = aY ∧ a = aY ∧ b = aY) ∨ (o = aY ∧ a = aY ∧ b = aXm) ∨
+  (o = aY ∧ a = aR2 ∧ b = aOne) ∨ (o = aXm ∧ a = aX ∧ b = aR2) ∨ (o = aY ∧ a = aY ∧ b = aOne)
+
+open VG.Impl.Bignum.X86_64.Public in
+/-- An implementation `mm o a b` of Montgomery multiplication in the working
+space of `vg_rsa_public` (with `m` in array `aN` and working arrays `aAcc`
+and `aTmp`), what RSA's proofs need of it: `[o] = [a] [b] R⁻¹ mod m`
+changing only `aAcc`, `aTmp` and `o`, and constant time for each
+multiplication RSA makes. The baseline `montMul` (`Mont.base`), or one for
+other CPU features. -/
+structure Mont where
+  mm : Nat → Nat → Nat → Prog isa
+  ok : ∀ {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64}, Good t B Z w minv → slot w 8 ≤ Z → 2 ≤ w →
+    w < 2 ^ 31 → ∀ {o a b : Nat}, o < 8 → a < 8 → b < 8 → o ≠ aAcc → o ≠ aTmp → a ≠ aAcc → a ≠ aTmp →
+    b ≠ aAcc → b ≠ aTmp → ((word t.mem B (slot w aN)).toNat * minv.toNat + 1) % 2 ^ 64 = 0 →
+    wv t.mem B (slot w b) w < wv t.mem B (slot w aN) w →
+    WP isa (mm o a b) t fun t' =>
+      Good t' B Z w minv ∧ wv t'.mem B (slot w o) w < wv t.mem B (slot w aN) w ∧
+      wv t'.mem B (slot w o) w * 2 ^ (64 * w) % wv t.mem B (slot w aN) w =
+        wv t.mem B (slot w a) w * wv t.mem B (slot w b) w % wv t.mem B (slot w aN) w ∧
+      Arrays B w [aAcc, aTmp, o] t.mem t'.mem ∧ Keep mmRegs t t'
+  ct : ∀ {o a b : Nat}, MmUse o a b → RelCT isa (Two GoodL) (mm o a b) fun _ _ => True
+
+open VG.Impl.Bignum.X86_64.Public
+
+/-- `M.mm o a b`, for arrays that are not `aAcc` or `aTmp`. -/
+theorem Mont.mm_ok (M : Mont) {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} (hg : Good t B Z w minv)
+    (hZ : slot w 8 ≤ Z) (hw : 2 ≤ w) (hw' : w < 2 ^ 31) {o a b : Nat} (ho : o < 8) (ha : a < 8) (hb : b < 8)
+    (d1 : o ≠ aAcc) (d2 : o ≠ aTmp) (d3 : a ≠ aAcc) (d4 : b ≠ aAcc)
+    (hinv : ((word t.mem B (slot w aN)).toNat * minv.toNat + 1) % 2 ^ 64 = 0)
+    (hB : wv t.mem B (slot w b) w < wv t.mem B (slot w aN) w) (d5 : a ≠ aTmp := by decide)
+    (d6 : b ≠ aTmp := by decide) :
+    WP isa (M.mm o a b) t fun t' =>
+      Good t' B Z w minv ∧ wv t'.mem B (slot w o) w < wv t.mem B (slot w aN) w ∧
+      wv t'.mem B (slot w o) w * 2 ^ (64 * w) % wv t.mem B (slot w aN) w =
+        wv t.mem B (slot w a) w * wv t.mem B (slot w b) w % wv t.mem B (slot w aN) w ∧
+      Arrays B w [aAcc, aTmp, o] t.mem t'.mem ∧ Keep mmRegs t t' :=
+  M.ok hg hZ hw hw' ho ha hb d1 d2 d3 d5 d4 d6 hinv hB
+
+theorem mm_ct {o a b : Nat} (ho : o < 8) (ha : a < 8) (hb : b < 8) {hc : VG.Taint.Hint VG.X86_64.Taint.T}
+    (h : (taint.check (Taint.ofRegs [.rdi]) (.block (bases o a b aN aAcc aTmp)) hc).isSome = true) :
+    RelCT isa (Two GoodL) (mm o a b) fun _ _ => True :=
+  montMul_ct (by decide) (by decide) (by decide) ho ha hb h
+
+/-- The baseline: `montMul` with `m`, the accumulator and the temporary of
+`vg_rsa_public` (`mm`). -/
+def Mont.base : Mont where
+  mm := VG.Impl.Bignum.X86_64.Public.mm
+  ok hg hZ hw hw' _ _ _ ho ha hb d1 d2 d3 _ d4 _ hinv hB :=
+    WP.mono (montMul_ok hg.scr hg.rdi hg.hdr hZ hw hw' (by decide) (by decide) (by decide) ho ha hb (by decide)
+      (by decide) (Ne.symm d1) (Ne.symm d3) (Ne.symm d4) (by decide) (Ne.symm d2) hinv hB)
+      fun t' ⟨h1, h2, h3, k⟩ => ⟨⟨hg.scr.congr k.2.2, (k.gpr (by decide)).trans hg.rdi, h3.hdr hg.hdr⟩,
+        h1, h2, h3, k⟩
+  ct := by
+    intro o a b h
+    rcases h with ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ |
+      ⟨rfl, rfl, rfl⟩ <;>
+    exact mm_ct (by decide) (by decide) (by decide) (by taint_decide)
 
 end VG.Proof.Bignum.X86_64

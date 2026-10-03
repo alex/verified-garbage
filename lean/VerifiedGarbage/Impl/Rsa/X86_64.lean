@@ -6,7 +6,9 @@ import VerifiedGarbage.Impl.Bignum.X86_64
 `vg_rsa_public_precompute` writes what Montgomery multiplication needs of a
 modulus, `m` and `R² mod m`, once per key; `vg_rsa_public_precomputed`
 computes RSAEP from them. Both use the working space, header and arrays of
-`vg_rsa_public` (`Impl/Bignum/X86_64.lean`).
+`vg_rsa_public` (`Impl/Bignum/X86_64.lean`), and Montgomery multiplication
+`mul o a b` (`[o] = [a] [b] R⁻¹ mod m`): the baseline `mm`, or one for other
+CPU features (`Impl/Bignum/X86_64/Adx.lean`).
 -/
 
 namespace VG.Impl.Rsa.X86_64
@@ -35,6 +37,8 @@ def head : List Instr :=
 in slot `sOut`, `n` in `sN` and `n_len` in `sK`. -/
 
 namespace Precompute
+
+variable (mul : Nat → Nat → Nat → Prog isa)
 
 /-- Save the callee-saved registers and the arguments in the header at
 `scratch` (`r8`), with its base in `rdi`. -/
@@ -67,7 +71,7 @@ def main : Prog isa := seqs [
   -- `2^w R mod m`, then six squarings: `R² mod m`.
   .block [.mov .rcx (.mem (hdr sCnt)), .alu .add .rcx (.mem (hdr sW))],
   doubles aN aAcc aTmp aR2 sCnt,
-  mm aR2 aR2 aR2, mm aR2 aR2 aR2, mm aR2 aR2 aR2, mm aR2 aR2 aR2, mm aR2 aR2 aR2, mm aR2 aR2 aR2,
+  mul aR2 aR2 aR2, mul aR2 aR2 aR2, mul aR2 aR2 aR2, mul aR2 aR2 aR2, mul aR2 aR2 aR2, mul aR2 aR2 aR2,
   -- `m`, then `R² mod m`, to `pre`.
   .block [.mov .r12 (.mem (hdr sW)), .mov .rsi (.mem (hdr (sArr aN))), .mov .rbx (.mem (hdr sOut))],
   copyWords,
@@ -77,7 +81,7 @@ def main : Prog isa := seqs [
 
 /-- `vg_rsa_public_precompute`. -/
 def code : Prog isa :=
-  .seq (.block (entry ++ invalid)) (.ite .ne fail main)
+  .seq (.block (entry ++ invalid)) (.ite .ne fail (main mul))
 
 end Precompute
 
@@ -88,6 +92,8 @@ scratch_len)`, as `vg_rsa_public`'s with `pre` for `n` and the modulus'
 length `k = out_len`: `pre` in slot `sN` and `out_len` in `sK`. -/
 
 namespace Precomputed
+
+variable (mul : Nat → Nat → Nat → Prog isa)
 
 /-- Whether the exponentiation has met a set bit of `e`: 0 or 1. -/
 def sStarted : Nat := sFn 11
@@ -129,21 +135,21 @@ def start : Prog isa :=
 `Y := Y X` once started, or `Y := X` and started. Before the first set bit
 `Y` is not used, and squaring 1 is skipped. -/
 def expBit : Prog isa :=
-  .seq (.block startedTest) (.seq (.ite .ne (mm aY aY aY) (.block []))
+  .seq (.block startedTest) (.seq (.ite .ne (mul aY aY aY) (.block []))
     (.seq (.block bitTest)
-      (.seq (.ite .ne (.seq (.block startedTest) (.ite .ne (mm aY aY aXm) start)) (.block []))
+      (.seq (.ite .ne (.seq (.block startedTest) (.ite .ne (mul aY aY aXm) start)) (.block []))
         (.block bitNext))))
 
 /-- The exponentiation, over the bytes of `e` and their bits, most
 significant first. -/
 def expLoop : Prog isa :=
   .seq (.block [.mov32 .rax (.imm 0), .store (hdr sI) .rax, .store (hdr sStarted) .rax])
-    (.loop (.seq (.block byteHead) (.seq (.loop expBit .ne) (.block byteNext))) .ne)
+    (.loop (.seq (.block byteHead) (.seq (.loop (expBit mul) .ne) (.block byteNext))) .ne)
 
 /-- `Y R⁻¹`, or 1 if `e = 0`. -/
 def finish : Prog isa :=
   .seq (.block startedTest)
-    (.ite .ne (mm aY aY aOne)
+    (.ite .ne (mul aY aY aOne)
       (.seq (.block [.mov .r12 (.mem (hdr sW)), .mov32 .rdx (.imm 1), .mov32 .rcx (.imm 0)]) (setWord aY .rcx)))
 
 /-- The computation, once the values are accepted. -/
@@ -160,7 +166,7 @@ def rest : Prog isa := seqs [
     [.store (hdr sMinv) .r15, .mov32 .rdx (.imm 1), .mov32 .rcx (.imm 0)]),
   setWord aOne .rcx,
   -- `X = input R mod m`, the exponentiation, and the result.
-  mm aXm aX aR2, expLoop, finish,
+  mul aXm aX aR2, expLoop mul, finish mul,
   .block [.mov .rbx (.mem (hdr (sArr aY))), .mov .rsi (.mem (hdr sOut)), .mov .rcx (.mem (hdr sK)),
     .mov .r15 (.mem (hdr sMask))],
   storeBE,
@@ -168,7 +174,7 @@ def rest : Prog isa := seqs [
 
 /-- `vg_rsa_public_precomputed`. -/
 def code : Prog isa :=
-  .seq (.block entry) (.seq (seqs load) (.ite .e fail rest))
+  .seq (.block entry) (.seq (seqs load) (.ite .e fail (rest mul)))
 
 end Precomputed
 
