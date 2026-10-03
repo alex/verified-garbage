@@ -68,8 +68,8 @@ class Matches(unittest.TestCase):
                 self.assertEqual(shards.matches(entry, module, self.closure), expected)
 
 
-class Plan(unittest.TestCase):
-    """`plan` on a small project, against the manifest of its build."""
+class Project(unittest.TestCase):
+    """A small project, and the manifest of its build."""
 
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
@@ -94,6 +94,10 @@ class Plan(unittest.TestCase):
             "inputs": shards.inputs(),
             "sources": {m: shards.digest(f) for m, f in shards.modules().items()},
         }
+
+
+class Plan(Project):
+    """`plan` on the small project, against the manifest of its build."""
 
     def stale(self):
         return shards.plan(self.manifest)["stale"]
@@ -125,6 +129,40 @@ class Plan(unittest.TestCase):
     def test_an_older_manifest_rebuilds_everything(self):
         self.manifest["inputs"] = {f: shards.digest(self.lean / f) for f in shards.INPUTS}
         self.assertEqual(self.stale(), 5)
+
+
+class Prune(Project):
+    """`prune` on the build of the small project, after a module is gone."""
+
+    KEPT = [
+        "lib/lean/VerifiedGarbage.olean",
+        "lib/lean/VerifiedGarbage/Spec/A.olean",
+        "lib/lean/VerifiedGarbage/Spec/A.olean.hash",
+        "ir/VerifiedGarbage/Spec/A.c",
+        "ir/VerifiedGarbage/Spec/A.c.o.export",
+        # Outputs of no module of the libraries.
+        "lib/libVerifiedGarbage_NativeSpec.so",
+        "ir/Emit.c",
+        "bin/emit",
+    ]
+    DELETED = [
+        "lib/lean/VerifiedGarbage/Old.olean",
+        "lib/lean/VerifiedGarbage/Old.trace",
+        "lib/lean/VerifiedGarbage/Gone/X.ilean",
+        "ir/VerifiedGarbage/Gone/X.c",
+        "lib/lean/VerifiedGarbageTest/Old.olean",
+    ]
+
+    def test_deletes_the_outputs_of_deleted_modules(self):
+        build = self.lean / ".lake" / "build"
+        for name in self.KEPT + self.DELETED:
+            (build / name).parent.mkdir(parents=True, exist_ok=True)
+            (build / name).write_text("")
+        self.assertEqual(shards.main(["prune", str(build)]), 0)
+        left = sorted(f.relative_to(build).as_posix() for f in build.rglob("*") if f.is_file())
+        self.assertEqual(left, sorted(self.KEPT))
+        self.assertFalse((build / "lib/lean/VerifiedGarbage/Gone").exists())
+        self.assertFalse((build / "lib/lean/VerifiedGarbageTest").exists())
 
 
 if __name__ == "__main__":

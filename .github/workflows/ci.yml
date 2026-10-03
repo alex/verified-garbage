@@ -252,6 +252,12 @@ jobs:
           mkdir -p ../.lean-manifest
           mv "$RUNNER_TEMP/manifest.json" ../.lean-manifest/manifest.json
           echo "key=lean-manifest-${KEY#lean-build-}" >> "$GITHUB_OUTPUT"
+      # Lake never deletes the outputs of a module that was deleted or
+      # renamed, and each build starts from the last one saved: without
+      # this, they would be saved again until the toolchain changes.
+      - name: Remove the outputs of modules that no longer exist
+        if: ${{ steps.manifest.outcome == 'success' }}
+        run: python3 ../ci/lean_shards.py prune .lake/build
       - name: Save this project's build
         if: ${{ steps.manifest.outcome == 'success' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
