@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.TripleDes.X86_64.VerifiedBlock
 import VerifiedGarbage.Proof.TripleDes.X86_64.Key.Verified
 import VerifiedGarbage.Proof.TripleDes.X86_64.Bitsliced.Verified
+import VerifiedGarbage.Proof.TripleDes.X86_64.BitslicedAvx2.Verified
 
 namespace VG.Artifacts.TripleDes.X86_64
 
@@ -51,6 +52,30 @@ def artifacts : List Artifact := [
     stack := 0
     ofSig := ⟨_, _, _, by unfold Spec.TripleDes.ecbDecryptContract Spec.TripleDes.ecbContract; rfl⟩
     verified := Proof.TripleDes.X86_64.Bitsliced.decrypt_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.TripleDes.ecbEncryptApi with
+    name := Spec.TripleDes.ecbEncryptApi.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.TripleDes.ecbEncryptApi.doc
+      (notes := ["Bitsliced with AVX2: 256 blocks at a time, in place in the data, in 256-bit words; the 64-block code for the rest."])
+    code := Impl.TripleDes.X86_64.BitsliceAvx2.encrypt
+    contract := Spec.TripleDes.ecbEncryptContract X86_64.abi
+    stack := 0
+    ofSig := ⟨_, _, _, by unfold Spec.TripleDes.ecbEncryptContract Spec.TripleDes.ecbContract; rfl⟩
+    verified := Proof.TripleDes.X86_64.BitslicedAvx2.encrypt_verified
+    features := ["avx", "avx2"]
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.TripleDes.ecbDecryptApi with
+    name := Spec.TripleDes.ecbDecryptApi.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.TripleDes.ecbDecryptApi.doc
+      (notes := ["Bitsliced with AVX2: 256 blocks at a time, in place in the data, in 256-bit words; the 64-block code for the rest."])
+    code := Impl.TripleDes.X86_64.BitsliceAvx2.decrypt
+    contract := Spec.TripleDes.ecbDecryptContract X86_64.abi
+    stack := 0
+    ofSig := ⟨_, _, _, by unfold Spec.TripleDes.ecbDecryptContract Spec.TripleDes.ecbContract; rfl⟩
+    verified := Proof.TripleDes.X86_64.BitslicedAvx2.decrypt_verified
+    features := ["avx", "avx2"]
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.TripleDes.X86_64

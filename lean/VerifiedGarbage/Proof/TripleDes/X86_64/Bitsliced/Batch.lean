@@ -22,7 +22,7 @@ def blockOut (K : Schedule) : Direction → Block → Block
   | .encrypt => encryptBlock K
   | .decrypt => decryptBlock K
 
-theorem ipLane_congr {W W' : Nat → BitVec 64} (hW : ∀ x < 64, W x = W' x) (b : Nat) :
+theorem ipLane_congr {w : Nat} {W W' : Nat → BitVec w} (hW : ∀ x < 64, W x = W' x) (b : Nat) :
     ipLane W b = ipLane W' b := by
   apply BitVec.eq_of_getLsbD_eq
   intro t ht

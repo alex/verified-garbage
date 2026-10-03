@@ -79,7 +79,7 @@ theorem decCode_ok {s : State} (h : Room s) {k : Nat} (hk : k < 128) :
 
 /-! ## A pair of rounds -/
 
-theorem roundW_congr (ρ : Role) (k : BitVec 48) {W W' : Nat → BitVec 64}
+theorem roundW_congr {w : Nat} (ρ : Role) (k : BitVec 48) {W W' : Nat → BitVec w}
     (hW : ∀ x < 64, W x = W' x) : ∀ x < 64, roundW ρ k W x = roundW ρ k W' x :=
   VG.Proof.TripleDes.Bitslice.steps_congr ρ k (Nat.le_refl 8) hW
 
@@ -135,7 +135,7 @@ theorem kptr_succ (a₀ δ : Addr) (r : Nat) :
   rw [BitVec.add_assoc, BitVec.ofNat_add, BitVec.add_mul]
   simp
 
-theorem pairs_congr (key : Nat → BitVec 48) (n : Nat) {W W' : Nat → BitVec 64}
+theorem pairs_congr {w : Nat} (key : Nat → BitVec 48) (n : Nat) {W W' : Nat → BitVec w}
     (hW : ∀ x < 64, W x = W' x) : ∀ x < 64, pairs key n W x = pairs key n W' x := by
   induction n with
   | zero => exact hW
@@ -430,8 +430,8 @@ theorem passStart_ok (d : Spec.TripleDes.Direction) {p : Nat} (hp : 1 ≤ p ∧ 
 
 theorem passEnd_eq : passEnd = decCode passSlot := rfl
 
-theorem pairs_keys_congr {key key' : Nat → BitVec 48} (n : Nat) (hk : ∀ r < 2 * n, key r = key' r)
-    (W : Nat → BitVec 64) : pairs key n W = pairs key' n W := by
+theorem pairs_keys_congr {w : Nat} {key key' : Nat → BitVec 48} (n : Nat)
+    (hk : ∀ r < 2 * n, key r = key' r) (W : Nat → BitVec w) : pairs key n W = pairs key' n W := by
   induction n with
   | zero => rfl
   | succ n ih =>
@@ -445,7 +445,7 @@ theorem partner_lt : ∀ k < 128, ∀ y, partner k = some y → y < 64 := by
   rw [h] at this
   simpa using this
 
-theorem swapW_congr {W W' : Nat → BitVec 64} (hW : ∀ y < 64, W y = W' y) :
+theorem swapW_congr {w : Nat} {W W' : Nat → BitVec w} (hW : ∀ y < 64, W y = W' y) :
     ∀ x < 64, swapW W x = swapW W' x := by
   intro x hx
   simp only [swapW]
