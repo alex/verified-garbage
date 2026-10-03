@@ -462,7 +462,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ bitsliced, 64 blocks at a time</td>
 
 <td>✅</td>
 
