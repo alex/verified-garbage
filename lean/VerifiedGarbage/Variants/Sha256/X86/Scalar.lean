@@ -12,8 +12,8 @@ namespace VG.Variants.Sha256.X86.Scalar
 
 open VG.X86
 open VG.Proof.Pbkdf2.Stream.X86 (Sha256Stream)
-open VG.Proof.Pbkdf2.Md.X86 (sha256M)
-open VG.Proof.Sha256.X86.Variants (pbkdf2Fns)
+open VG.Proof.Pbkdf2.Md.X86 (sha256M sha224M)
+open VG.Proof.Sha256.X86.Variants (pbkdf2Fns pbkdf2Fns224)
 
 /-- The streaming functions made with the scalar compression function. -/
 def stream : Sha256Stream where
@@ -31,6 +31,10 @@ materialize_code sha256HInit := (sha256M stream "vg_sha256_compress" Impl.Sha256
 materialize_code sha256HFinalize := (sha256M stream "vg_sha256_compress" Impl.Sha256.X86.compress).hmacFin
 materialize_code sha256HIterate := (sha256M stream "vg_sha256_compress" Impl.Sha256.X86.compress).iterate
 materialize_code sha256HPbkdf2 := (pbkdf2Fns stream "vg_sha256_compress" Impl.Sha256.X86.compress).pbkdf2
+materialize_code sha224HInit := (sha224M stream "vg_sha256_compress" Impl.Sha256.X86.compress).hmacInit
+materialize_code sha224HFinalize := (sha224M stream "vg_sha256_compress" Impl.Sha256.X86.compress).hmacFin
+materialize_code sha224HIterate := (sha224M stream "vg_sha256_compress" Impl.Sha256.X86.compress).iterate
+materialize_code sha224HPbkdf2 := (pbkdf2Fns224 stream "vg_sha256_compress" Impl.Sha256.X86.compress).pbkdf2
 
 def variant : Proof.Sha256.X86.Variants.Backend where
   cmpN := "vg_sha256_compress"
@@ -74,5 +78,15 @@ def variant : Proof.Sha256.X86.Variants.Backend where
   finalizeStack := by lit_decide
   iterNoSp := NoSp.of_all (by lit_decide)
   iterStack := by lit_decide
+  init224Sp := Code.all_of_allInstrs (by lit_decide)
+  fin224Sp := Code.all_of_allInstrs (by lit_decide)
+  iter224Sp := Code.all_of_allInstrs (by lit_decide)
+  pbkdf2_224Sp := Code.all_of_allInstrs (by lit_decide)
+  init224NoSp := NoSp.of_all (by lit_decide)
+  init224Stack := by lit_decide
+  finalize224NoSp := NoSp.of_all (by lit_decide)
+  finalize224Stack := by lit_decide
+  iter224NoSp := NoSp.of_all (by lit_decide)
+  iter224Stack := by lit_decide
 
 end VG.Variants.Sha256.X86.Scalar

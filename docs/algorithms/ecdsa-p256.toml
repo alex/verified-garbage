@@ -1,5 +1,5 @@
 name = "ECDSA P-256"
 family = "Signatures"
-specs = ["Weierstrass", "P256", "Ecdsa", "Ecdsa/Rfc6979"]
+specs = ["Weierstrass", "P256", "EcKey", "Ecdsa", "Ecdsa/Rfc6979"]
 modules = ["src/ecdsa/p256.rs"]
-asm = ["ecdsa_p256"]
+asm = ["ec_p256", "ecdsa_p256", "ecdsa_p256_sha256"]
