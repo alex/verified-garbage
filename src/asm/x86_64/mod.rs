@@ -41,6 +41,9 @@ pub(crate) mod ecdsa_p256_sha256;
 pub(crate) mod ed25519;
 
 #[rustfmt::skip]
+pub(crate) mod ed448;
+
+#[rustfmt::skip]
 pub(crate) mod gcm;
 
 #[rustfmt::skip]
