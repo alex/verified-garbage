@@ -93,18 +93,21 @@ theorem arg_sub : Region.Sub ⟨s.gpr .rsp, 8⟩ ⟨s.gpr .rsp - 16, 24⟩ := by
   conv => lhs; rw [e]
   exact Offset.sub_base _ (by decide)
 
+theorem arg_eq : stackArg (s.callEntry.withRegions (rd s K) (wr C Y D S q)) 0 = S := by
+  have hsa := stackArgAddr_eq (s := s) (rd s K) (wr C Y D S q)
+  have sep : Mem.Sep (s.gpr .rsp) (64 / 8) (s.gpr .rsp - 8) (64 / 8) := by
+    have := Offset.sep_below (s.gpr .rsp) 8 (a := 0) (n := 8) (b := 8) (k := 8) (by decide) (by decide)
+      (.inr (by decide)) (by decide) (by decide)
+    simpa using this
+  unfold stackArg; rw [hsa, State.withRegions_mem, State.callEntry_mem, Mem.readW_writeW_sep sep (by decide), h.arg]
+
 theorem pre : Proof.AesGcm.blocksPre (s.callEntry.withRegions (rd s K) (wr C Y D S q)) := by
   have hq : (BitVec.ofNat 64 q).toNat = q := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by have := h.w_d; omega)
   have hR : (BitVec.ofNat 64 R).toNat = R := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by rcases h.rounds with h | h | h <;> omega)
   have hsa := stackArgAddr_eq (s := s) (rd s K) (wr C Y D S q)
-  have sep : Mem.Sep (s.gpr .rsp) (64 / 8) (s.gpr .rsp - 8) (64 / 8) := by
-    have := Offset.sep_below (s.gpr .rsp) 8 (a := 0) (n := 8) (b := 8) (k := 8) (by decide) (by decide)
-      (.inr (by decide)) (by decide) (by decide)
-    simpa using this
-  have harg : stackArg (s.callEntry.withRegions (rd s K) (wr C Y D S q)) 0 = S := by
-    unfold stackArg; rw [hsa, State.withRegions_mem, State.callEntry_mem, Mem.readW_writeW_sep sep (by decide), h.arg]
+  have harg := h.arg_eq
   simp only [Proof.AesGcm.blocksPre, Proof.AesGcm.args, Proof.AesGcm.arg, Proof.AesGcm.ret, Proof.AesGcm.stk,
     Proof.AesGcm.rounds, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr, State.callEntry_rsp,
     State.callEntry_gpr s (by decide : Reg.rdi ≠ .rsp), State.callEntry_gpr s (by decide : Reg.rsi ≠ .rsp),
@@ -246,5 +249,37 @@ theorem blkD_call (v : GcmImpl) {s : State} {K C Y D S : Addr} {R q : Nat} (h : 
     State.callEntry_gpr s (by decide : Reg.r9 ≠ .rsp), h.rdi, h.rsi, h.rdx, h.rcx, h.r8, h.r9, hq, hR, hm₂,
     eK, eC, eY, eD, eH] at hpost
   exact ⟨⟨hrd, hwr, hcs, hf⟩, hpost.1, hpost.2.1, hpost.2.2⟩
+
+/-- Two calls of `vg_aes_gcm_encrypt_blocks` or `_decrypt_blocks` with the same
+arguments leak the same. -/
+theorem blk_pub {s₁ s₂ : State} {K C Y D S : Addr} {R q : Nat} (h₁ : BlkCall s₁ K C Y D S R q)
+    (h₂ : BlkCall s₂ K C Y D S R q) (hsp : s₁.gpr .rsp = s₂.gpr .rsp) :
+    Proof.AesGcm.blocksPub (s₁.callEntry.withRegions (BlkCall.rd s₁ K) (BlkCall.wr C Y D S q))
+      (s₂.callEntry.withRegions (BlkCall.rd s₂ K) (BlkCall.wr C Y D S q)) := by
+  simp only [Proof.AesGcm.blocksPub, Proof.AesGcm.arg, h₁.arg_eq, h₂.arg_eq, State.withRegions_gpr,
+    State.callEntry_rsp, State.callEntry_gpr _ (by decide : Reg.rdi ≠ .rsp),
+    State.callEntry_gpr _ (by decide : Reg.rsi ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rdx ≠ .rsp),
+    State.callEntry_gpr _ (by decide : Reg.rcx ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.r8 ≠ .rsp),
+    State.callEntry_gpr _ (by decide : Reg.r9 ≠ .rsp), h₁.rdi, h₁.rsi, h₁.rdx, h₁.rcx, h₁.r8, h₁.r9, h₂.rdi,
+    h₂.rsi, h₂.rdx, h₂.rcx, h₂.r8, h₂.r9, hsp]
+  exact ⟨trivial, trivial, trivial, trivial, trivial, trivial, trivial, trivial⟩
+
+theorem blkE_rel (v : GcmImpl) {P : State → State → Prop}
+    (h : ∀ s₁ s₂, P s₁ s₂ → ∃ K C Y D S : Addr, ∃ R q : Nat,
+      BlkCall s₁ K C Y D S R q ∧ BlkCall s₂ K C Y D S R q ∧ s₁.gpr .rsp = s₂.gpr .rsp) :
+    RelCT isa P (.call v.callees.enc.name v.callees.enc.code) fun _ _ => True := by
+  refine RelCT.callEx (k := Proof.AesGcm.encryptBlocksX86_64) (encryptBlocks_correct v v.stitch)
+    (Blocks.encrypt_ct v v.stitch) fun s₁ s₂ hp => ?_
+  obtain ⟨K, C, Y, D, S, R, q, h₁, h₂, hsp⟩ := h s₁ s₂ hp
+  exact ⟨_, _, _, _, h₁.pre, h₂.pre, blk_pub h₁ h₂ hsp, h₁.reads, h₁.writes, h₂.reads, h₂.writes, hsp⟩
+
+theorem blkD_rel (v : GcmImpl) {P : State → State → Prop}
+    (h : ∀ s₁ s₂, P s₁ s₂ → ∃ K C Y D S : Addr, ∃ R q : Nat,
+      BlkCall s₁ K C Y D S R q ∧ BlkCall s₂ K C Y D S R q ∧ s₁.gpr .rsp = s₂.gpr .rsp) :
+    RelCT isa P (.call v.callees.dec.name v.callees.dec.code) fun _ _ => True := by
+  refine RelCT.callEx (k := Proof.AesGcm.decryptBlocksX86_64) (decryptBlocks_correct v v.stitch)
+    (Blocks.decrypt_ct v v.stitch) fun s₁ s₂ hp => ?_
+  obtain ⟨K, C, Y, D, S, R, q, h₁, h₂, hsp⟩ := h s₁ s₂ hp
+  exact ⟨_, _, _, _, h₁.pre, h₂.pre, blk_pub h₁ h₂ hsp, h₁.reads, h₁.writes, h₂.reads, h₂.writes, hsp⟩
 
 end VG.Proof.AesGcm.X86_64
