@@ -462,7 +462,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; bitsliced, 64 or 256 blocks at a time</td>
+<td>✅ AVX-512F, AVX2; bitsliced, 64, 256 or 512 blocks at a time</td>
 
 <td>✅</td>
 
