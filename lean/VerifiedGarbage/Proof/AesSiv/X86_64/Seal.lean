@@ -114,7 +114,7 @@ theorem cnt_out {X : Region} (hw : X.Disjoint ⟨W, 2560⟩) : ∀ r ∈ cntRegi
   · exact hw.sub_right (Offset.sub_base W (by decide))
   · exact hw.sub_right (Offset.sub_base W (by decide))
 
-theorem one_out {X : Region} (hw : X.Disjoint ⟨W, 2560⟩) : ∀ r ∈ [(⟨W, 2560⟩ : Region)], X.Disjoint r := by
+theorem one_out {X Y : Region} (hw : X.Disjoint Y) : ∀ r ∈ [Y], X.Disjoint r := by
   intro r hr
   simp only [List.mem_singleton] at hr
   subst hr
