@@ -27,8 +27,8 @@ secret.
   continued over the ciphertext as `vg_ghash` (the blocks written when
   encrypting, the blocks read when decrypting). An implementation can then
   interleave the two, which are independent but for the ciphertext. Their
-  working space has room for `vg_aes_ctr32`'s and 512 bytes more, as the
-  functions of AES-GCM's.
+  working space is the size of `vg_aes_ctr32`'s, so that the other
+  functions of AES-GCM can pass them part of theirs.
 
 Each takes a `scratch` buffer of working space, sized for the target that
 needs the most.
@@ -67,7 +67,8 @@ data is encrypted or decrypted in place. The fixed-size secrets travel in
 buffers that are also working space, so that fewer arguments are passed in
 memory: the tags in the first 16 bytes of `work`. Each function's working
 space (`scratch` or `work`) has room for `vg_aes_ctr32`'s (2048 bytes) and
-512 bytes more.
+512 bytes more, but that of `vg_aes_gcm_encrypt_blocks` and
+`vg_aes_gcm_decrypt_blocks`, which is `vg_aes_ctr32`'s.
 
 Every contract takes the number of bytes of stack below the stack pointer
 that an implementation's calls and frames use (`stack`, see `Sig.contract`),
@@ -145,13 +146,13 @@ def ghashApi : Api where
     timing, not `H`, `Y` or the data."
   safety := ["The contents of `scratch` on return are unspecified."]
 
-/-- `vg_aes_gcm_encrypt_blocks(ctx: *const [u64; 32], rounds: usize, counter: *mut [u8; 16], y: *mut [u8; 16], data: *mut [u8; 16], n: usize, scratch: *mut [u64; 320])`,
+/-- `vg_aes_gcm_encrypt_blocks(ctx: *const [u64; 32], rounds: usize, counter: *mut [u8; 16], y: *mut [u8; 16], data: *mut [u8; 16], n: usize, scratch: *mut [u64; 256])`,
 and `vg_aes_gcm_decrypt_blocks` with the same signature. `rounds` is public;
 `scratch` is working space. -/
 def cryptBlocksSig : Sig where
   params := [("ctx", .array false .u64 32), ("rounds", .int .usize true),
     ("counter", .array true .u8 16), ("y", .array true .u8 16),
-    ("data", .slice true (.array .u8 16) "n"), ("scratch", .array true .u64 320)]
+    ("data", .slice true (.array .u8 16) "n"), ("scratch", .array true .u64 256)]
 
 /-- For `rounds` of 10, 12 or 14, with the key context at `ctx`: replaces the
 `n` blocks `P` at `data` with `C = ctr32 CIPH_K CB₁ P`, where `CB₁` is the
