@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.Framework.KernelList
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Arm.Exec
 import VerifiedGarbage.TCB.Arm.Target
-import Mathlib.Tactic.Tauto
+import Batteries.Logic
 
 /-!
 # Taint tracking for ARMv7

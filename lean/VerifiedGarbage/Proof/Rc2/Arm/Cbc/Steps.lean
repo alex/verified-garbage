@@ -33,7 +33,7 @@ theorem copy64_ok (s : State) (src dst : Reg) (a b : Nat)
   constructor
   · intro r hr
     exact (keep₂.reg r (by simp)).trans (keep₁.reg r (by
-      intro h; exact hr (by simp only [temps, List.mem_cons, List.not_mem_nil, or_false] at h ⊢; tauto)))
+      intro h; exact hr (by simp only [temps, List.mem_cons, List.not_mem_nil, or_false] at h ⊢; grind)))
   · rw [keep₂.mem, ptr, hi₁, lo₁, keep₁.mem, ← Offset.add_ofNat_add_ofNat, ← read64_pair]
   · exact keep₂.rd.trans keep₁.rd
   · exact keep₂.wr.trans keep₁.wr

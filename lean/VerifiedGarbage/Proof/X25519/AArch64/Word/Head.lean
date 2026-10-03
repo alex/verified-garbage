@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.X25519.AArch64.Word.Memory
-import Mathlib.Tactic.Tauto
 
 /-! Load a scalar bit and turn the old/new swap XOR into a selection mask. -/
 namespace VG.Proof.X25519.AArch64.Word
@@ -55,7 +54,7 @@ theorem loadBit_ok {base : Addr} {s : State} (hs : Scratch s base) {i kt : Nat}
   · rw [RegUpd.gpr_write_of_ne _ _ _ (by decide), ht]
   · exact RegUpd.gpr_write_self _ _ _ _ |>.trans hv
   · refine ⟨fun r hr => ?_, rfl, rfl, rfl, rfl⟩
-    exact RegUpd.gpr_write_of_ne _ _ _ (by simp only [List.mem_cons, List.not_mem_nil, or_false] at hr; tauto)
+    exact RegUpd.gpr_write_of_ne _ _ _ (by simp only [List.mem_cons, List.not_mem_nil, or_false] at hr; grind)
 
 
 theorem storeSwap_ok {base : Addr} {s : State} (hs : Scratch s base) :

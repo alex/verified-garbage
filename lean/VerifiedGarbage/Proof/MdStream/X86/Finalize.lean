@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.MdStream.X86.Common
-import Mathlib.Tactic.Tauto
 import VerifiedGarbage.Proof.Framework.Offset
 import VerifiedGarbage.Proof.Framework.Omega
 import VerifiedGarbage.Proof.Framework.X86.Inline
@@ -196,7 +195,7 @@ theorem Common.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Common P S s�
 theorem Inv.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Inv S H s₀ c s)
     (hg : ∀ r ∈ [Reg.ebx, .esp, .ebp, .esi, .edi], s'.gpr r = s.gpr r)
     (hm : s'.mem = s.mem) (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) : Inv S H s₀ c s' :=
-  { h.toCommon.of_gpr (fun r hr => hg r (by simp at hr ⊢; tauto)) hm hrd hwr with
+  { h.toCommon.of_gpr (fun r hr => hg r (by simp at hr ⊢; grind)) hm hrd hwr with
     edi := by rw [hg _ (by simp)]; exact h.edi
     repr := by rw [hm]; exact h.repr }
 

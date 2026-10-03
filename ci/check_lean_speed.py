@@ -16,6 +16,14 @@ without building. Exits non-zero on violations.
     precompiled library (`NativeTactics` in the lakefile): otherwise the
     interpreter runs it, an order of magnitude slower, in every module that
     uses it.
+  * No `tauto` (a Mathlib tactic, so interpreted: seconds per call in the
+    large contexts of these proofs); `grind`, `simp`, `omega` or `decide`
+    prove the same goals.
+  * Heavy Mathlib algebra (`HEAVY_MATHLIB`) is imported only by modules that
+    few others import (at most `HEAVY_IMPORTERS` modules import them,
+    directly or not): every module that reaches it pays about 1.5e9 more
+    instructions to import (a quarter of a typical module's build), and its
+    simp lemmas slow `simp` down.
 """
 
 import pathlib
@@ -24,7 +32,6 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LEAN = ROOT / "lean"
-FRAMEWORK = LEAN / "VerifiedGarbage" / "Proof" / "Framework"
 
 LIMITS = r"(?:maxHeartbeats|maxRecDepth|synthInstance\.maxHeartbeats|synthInstance\.maxSize)"
 SET_LIMIT = re.compile(rf"\bset_option\s+{LIMITS}\b")
@@ -32,7 +39,6 @@ LAKEFILE_LIMIT = re.compile(rf"^\s*{LIMITS}\s*=", re.M)
 BIG_IMPORT = re.compile(r"^\s*import\s+(Mathlib|Mathlib\.Tactic)\s*$", re.M)
 SIMP_ARGS = re.compile(r"\bsimp(?:_all|a)?\b[^\[\n]*\[([^\]]*)\]")
 UNFOLD = re.compile(r"(?<![\w.])(runBlock|runStep)(?![\w.])")
-PROOF = LEAN / "VerifiedGarbage" / "Proof"
 THEOREM = re.compile(r"^(?:private |protected )?(?:theorem|lemma) ", re.M)
 DOT_LIST = re.compile(r"\[\s*\.")
 META = re.compile(
@@ -41,7 +47,26 @@ META = re.compile(
     r"\b(?:CoreM|MetaM|SimpM|TermElabM|TacticM|CommandElabM)\b",
     re.M,
 )
+META_WORDS = ("elab", "simproc", "CoreM", "MetaM", "SimpM", "TermElabM", "TacticM", "CommandElabM")
 IMPORT = re.compile(r"^import\s+([\w.]+)", re.M)
+TAUTO = re.compile(r"(?<![\w.])tauto(?![\w.])")
+HEAVY_MATHLIB = (
+    "Mathlib.Algebra", "Mathlib.RingTheory", "Mathlib.FieldTheory", "Mathlib.NumberTheory",
+    "Mathlib.Data.ZMod", "Mathlib.Data.List.Dedup", "Mathlib.Data.Nat.ModEq",
+    "Mathlib.Tactic.Ring", "Mathlib.Tactic.NormNum", "Mathlib.Tactic.Linarith",
+    "Mathlib.Tactic.LinearCombination", "Mathlib.Tactic.FieldSimp", "Mathlib.Tactic.Module",
+    "Mathlib.Tactic.IntervalCases", "Mathlib.Tactic.ComputeDegree", "Mathlib.Tactic.Polyrith",
+)
+HEAVY_IMPORTERS = 40
+# Modules that import heavy algebra and more than `HEAVY_IMPORTERS` modules
+# import: the Edwards group law needs it; the other two are to be moved out of
+# their hubs. Never add to this list.
+HEAVY_HUBS_ALLOWED = {
+    "VerifiedGarbage.Proof.Ed25519.Group.Edwards",
+    "VerifiedGarbage.Proof.Ed25519.Group.Extended",
+    "VerifiedGarbage.Proof.Sha3.AArch64.Sha3.Vector.Theta",
+    "VerifiedGarbage.Proof.MlKem.X86_64.VMul",
+}
 LIB = re.compile(r"^\[\[lean_lib\]\]\n(.*?)(?=^\[\[|\Z)", re.M | re.S)
 
 
@@ -97,20 +122,57 @@ def in_globs(module: str, globs: list[str]) -> bool:
 def uncompiled_meta(rel_module: str, text: str, globs: list[str]) -> bool:
     """Whether the module defines meta code, could be compiled (it imports only
     Lean core and precompiled modules), and is not."""
-    if not META.search(text) or in_globs(rel_module, globs):
+    if not any(k in text for k in META_WORDS) or not META.search(text) or in_globs(rel_module, globs):
         return False
     core = ("Init", "Std", "Lean")
     return all(i.split(".")[0] in core or in_globs(i, globs) for i in IMPORT.findall(text))
 
 
+def strip_comments(text: str) -> str:
+    """`text` with its comments blanked out (keeping line numbers)."""
+    text = re.sub(r"/-.*?-/", lambda m: re.sub(r"[^\n]", " ", m.group(0)), text, flags=re.S)
+    return re.sub(r"--[^\n]*", "", text)
+
+
+def heavy_hubs(imports: dict[str, list[str]]) -> list[tuple[str, list[str], int]]:
+    """The modules that import heavy Mathlib algebra and are imported, directly
+    or not, by more than `HEAVY_IMPORTERS` modules: (module, heavy imports, importers)."""
+    importers: dict[str, set[str]] = {m: set() for m in imports}
+    for m, imps in imports.items():
+        for i in imps:
+            if i in importers:
+                importers[i].add(m)
+    out = []
+    for m, imps in imports.items():
+        heavy = [i for i in imps if i.startswith(HEAVY_MATHLIB)]
+        if not heavy or m in HEAVY_HUBS_ALLOWED:
+            continue
+        seen, todo = set(), [m]
+        while todo:
+            for i in importers[todo.pop()]:
+                if i not in seen:
+                    seen.add(i)
+                    todo.append(i)
+        if len(seen) > HEAVY_IMPORTERS:
+            out.append((m, heavy, len(seen)))
+    return out
+
+
 def main() -> int:
     errors = []
+    imports: dict[str, list[str]] = {}
+    paths: dict[str, pathlib.Path] = {}
     globs = precompiled_globs((LEAN / "lakefile.toml").read_text())
     sources = [f for f in LEAN.rglob("*.lean") if ".lake" not in f.parts]
     for f in sorted(sources):
         text = f.read_text()
         rel = f.relative_to(ROOT)
         module = ".".join(f.relative_to(LEAN).with_suffix("").parts)
+        imports[module] = IMPORT.findall(text)
+        paths[module] = rel
+        code = strip_comments(text) if "tauto" in text else ""
+        for m in TAUTO.finditer(code):
+            errors.append(f"{rel}:{line_of(code, m.start())}: `tauto` runs interpreted; use `grind`, `simp` or `decide`")
         if uncompiled_meta(module, text, globs):
             errors.append(
                 f"{rel}: defines meta code and imports only Lean core and precompiled modules; "
@@ -120,13 +182,15 @@ def main() -> int:
             errors.append(f"{rel}:{line_of(text, m.start())}: changes a resource limit; make the proof faster instead")
         for m in BIG_IMPORT.finditer(text):
             errors.append(f"{rel}:{line_of(text, m.start())}: imports {m.group(1)}; import the modules you use")
-        if PROOF in f.parents:
+        if module.startswith("VerifiedGarbage.Proof."):
             for i in unascribed_lists(text):
                 errors.append(
                     f"{rel}:{line_of(text, i)}: instruction list next to `++` in a theorem statement; "
                     "ascribe it: `([.op …] : List Instr)`"
                 )
-        if FRAMEWORK in f.parents:
+        if module.startswith("VerifiedGarbage.Proof.Framework."):
+            continue
+        if "runBlock" not in text and "runStep" not in text:
             continue
         for m in SIMP_ARGS.finditer(text):
             for u in UNFOLD.finditer(m.group(1)):
@@ -134,6 +198,11 @@ def main() -> int:
                     f"{rel}:{line_of(text, m.start(1) + u.start())}: simp unfolds {u.group(1)}; "
                     "step with runBlock_cons, runStep_some and runBlock_nil"
                 )
+    for m, heavy, n in heavy_hubs(imports):
+        errors.append(
+            f"{paths[m]}: imports {', '.join(heavy)} and {n} modules import it (more than "
+            f"{HEAVY_IMPORTERS}); move what needs that algebra into the few modules that use it"
+        )
     lakefile = LEAN / "lakefile.toml"
     text = lakefile.read_text()
     for m in LAKEFILE_LIMIT.finditer(text):

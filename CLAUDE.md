@@ -224,6 +224,10 @@ Avoid these patterns (each has cost tens of seconds in one proof):
   `Mathlib.Data.List.*` each add about half a second to every module that
   imports them, even indirectly: keep them out of modules that many others
   import (a framework file, an algorithm's `Spec` or `Stream` lemmas).
+  `ci/check_lean_speed.py` fails when a module importing heavy algebra
+  (`HEAVY_MATHLIB`: `Ring`, `ZMod`, `NormNum`, `Linarith`, polynomials, …)
+  is imported by more than 40 others; core `grind` proves the ring
+  identities `ring` is used for.
 * **Imports across targets:** a module of one target (a path with a
   directory of `TCB/`, e.g. `Proof/Sha256/Arm/…`) never imports a module of
   another target, even for a lemma that mentions no ISA: a change to one

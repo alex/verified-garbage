@@ -144,7 +144,7 @@ theorem body_rel (hc : Checks H) {m : Nat} (hm : 1 ≤ m) (hn : m < 2 ^ 32) :
     (fun _ h => b2_ok hO hp h) (fun _ h => b2_ok hO hp' h)
   have b3 := rel_agree (F := KP H sc s₀ m) (F' := KP H sc s₀' m) (argTaint [.ebp, .ebx, .esi, .edi] (4 + 4 * 5)) (fun s s' k k' =>
       agree_argTaint (fun r hr => kr_agree hq k.toKR k'.toKR r (by
-          simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto))
+          simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; grind))
         (kr_agree hq k.toKR k'.toKR .esp (by simp)) (args_out hp k.esp k.wr) (args_out hp' k'.esp k'.wr)
         fun j hj => by rw [k.toKR.argEq hp hj, k'.toKR.argEq hp' hj, hq.args j hj]) hc.tail
     (fun _ h => b3_ok hO hp hm hn h) (fun _ h => b3_ok hO hp' hm hn h)
