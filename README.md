@@ -202,6 +202,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -218,6 +220,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -233,6 +237,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -291,6 +297,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅ AES-NI</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -359,6 +367,8 @@ yours to keep:
 <td>✅ SHA extensions</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 <td>❌</td>
 
@@ -564,6 +574,8 @@ yours to keep:
 
 <td>❌</td>
 
+<td>❌</td>
+
 </tr>
 
 </table>
@@ -751,6 +763,8 @@ yours to keep:
 <td>✅ SHA extensions</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 <td>❌</td>
 
@@ -962,6 +976,8 @@ yours to keep:
 
 <td>❌</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -1038,6 +1054,8 @@ yours to keep:
 
 <td>❌</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -1045,6 +1063,8 @@ yours to keep:
 <td>ECDSA P-256</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 <td>❌</td>
 
