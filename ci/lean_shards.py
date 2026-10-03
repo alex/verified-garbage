@@ -3,10 +3,10 @@
 
 CI restores the last build `main` saved, and Lake rebuilds only the modules
 whose sources changed since, and the modules importing them. The build is
-limited by throughput, not by the depth of its import graph, so the modules
-to rebuild are split into shards that build in parallel on separate runners,
-as many as the work needs: none when one would do (the final job builds it),
-up to `MAX_SHARDS` when everything changed.
+limited mostly by throughput, so the modules to rebuild are split into
+shards that build in parallel on separate runners, as many as the work
+needs: none when one would do (the final job builds it), up to `MAX_SHARDS`
+when everything changed.
 
 `main` saves a manifest next to its build: the hash of every module's source,
 of the build's inputs, and how long each module took to build (from the shards' build logs, kept
@@ -14,15 +14,22 @@ from earlier builds for the modules this one did not rebuild). A plan
 compares the sources with the manifest's to find the modules to rebuild,
 estimates each from its time, and packs them into shards: a shard builds the
 modules that nothing imports ("sinks") it is given, and so everything they
-import, so the sinks are packed by the time to rebuild their imports, largest
-first, each into the shard it adds the least to. A change to the inputs
-(the toolchain, the dependencies or the lakefile's settings) rebuilds every
-module, but not one that only adds a module to a library or removes one
-(the lakefile's `globs` and `roots`): that rebuilds just the modules it moves
-(and, through their imports, what imports them). Every module is in exactly
-one shard (the first that builds it), so the shards' outputs together are
-the whole build. A plan is only an estimate: whatever the shards leave
-unbuilt, the final job builds.
+import. A shard's build takes at least its modules' time divided by the
+number a runner builds at once, and at least its longest chain of imports
+(the "critical path": a module waits for those it imports), so its time is
+estimated as the larger of the two. The sinks are packed by the time to
+rebuild their imports, largest first, each into the shard where the estimate
+it leaves, plus the work it adds there (as time on a runner), is the least:
+a shard with a long chain takes other work only until it would finish after
+the chain, and a sink goes where much of what it imports is built already,
+rather than building it again elsewhere, unless that shard is the slower by
+more than the work it saves. A change to the inputs (the toolchain, the
+dependencies or the lakefile's settings) rebuilds every module, but not one
+that only adds a module to a library or removes one (the lakefile's `globs`
+and `roots`): that rebuilds just the modules it moves (and, through their
+imports, what imports them). Every module is in exactly one shard (the first
+that builds it), so the shards' outputs together are the whole build. A plan
+is only an estimate: whatever the shards leave unbuilt, the final job builds.
 
   lean_shards.py plan MANIFEST PLAN     write the plan for the sources (with
                                         the manifest's build, which may be
@@ -74,6 +81,9 @@ MODULE_LISTS = ("globs", "roots")
 # nothing, so the final job builds that much itself.
 WORK_PER_SHARD = 800.0
 MAX_SHARDS = 16
+# How many modules a runner's build runs at once (about five, as above): a
+# shard's time is at least its work divided by this.
+PARALLELISM = 5.0
 # The time to check that a module is up to date, and to build one the
 # manifest has no time for when it has none at all.
 UP_TO_DATE = 0.02
@@ -154,6 +164,39 @@ def closures(imps: dict[str, list[str]]) -> dict[str, frozenset[str]]:
     return done
 
 
+def paths(imps: dict[str, list[str]], cost: dict[str, float]) -> dict[str, float]:
+    """For each module of `cost`, the time of the longest chain of imports
+    ending in it through modules of `cost` (those a build builds), each
+    taking its time there: the least time a build takes to get to it,
+    however many modules it builds at once."""
+    done: dict[str, float] = {}
+    for root in cost:
+        stack = [(root, False)]
+        while stack:
+            m, ready = stack.pop()
+            if m in done:
+                continue
+            within = [i for i in imps[m] if i in cost]
+            if ready:
+                done[m] = cost[m] + max((done[i] for i in within), default=0.0)
+            else:
+                stack.append((m, True))
+                stack += [(i, False) for i in within if i not in done]
+    return done
+
+
+def estimate(work: float, path: float) -> float:
+    """The time a runner takes to build modules taking `work` in all, whose
+    longest chain of imports (critical path) takes `path`."""
+    return max(work / PARALLELISM, path)
+
+
+def wall_time(imps: dict[str, list[str]], cost: dict[str, float]) -> float:
+    """The estimated time of a build of the modules of `cost`, each taking
+    its time there."""
+    return estimate(sum(cost.values()), max(paths(imps, cost).values(), default=0.0))
+
+
 def read_json(path: str) -> dict:
     p = pathlib.Path(path)
     return json.loads(p.read_text()) if p.is_file() else {}
@@ -183,19 +226,30 @@ def plan(manifest: dict) -> dict:
     if count == 1:
         count = 0
 
+    # A shard is closed under imports (it builds its sinks' closures), so its
+    # critical path is the longest of its sinks'.
+    path = paths(imps, cost)
     imported = {i for m in mods for i in imps[m]}
-    sinks = sorted(
-        (m for m in mods if m not in imported),
-        key=lambda m: (-sum(cost[x] for x in closure[m]), m),
-    )
+    total = {m: sum(cost[x] for x in closure[m]) for m in mods if m not in imported}
+    # Largest first by work, not by estimate: taking long chains first spreads
+    # what they import over more shards, which then build it more than once.
+    sinks = sorted(total, key=lambda m: (-total[m], m))
     shards: list[set[str]] = [set() for _ in range(count)]
     loads = [0.0] * count
+    longest = [0.0] * count
     targets: list[list[str]] = [[] for _ in range(count)]
     for s in sinks if count else []:
         added = [sum(cost[x] for x in closure[s] - shard) for shard in shards]
-        best = min(range(count), key=lambda i: (loads[i] + added[i], i))
+        # The work a sink adds counts on its own too, not only through the
+        # estimate: a shard whose chain hides it would otherwise take sinks
+        # whose imports another shard builds already, and build them again.
+        best = min(
+            range(count),
+            key=lambda i: (estimate(loads[i] + added[i], max(longest[i], path[s])) + added[i] / PARALLELISM, i),
+        )
         shards[best] |= closure[s]
         loads[best] += added[best]
+        longest[best] = max(longest[best], path[s])
         targets[best].append(s)
     owner = {}
     for i, shard in enumerate(shards):
@@ -204,7 +258,7 @@ def plan(manifest: dict) -> dict:
     return {
         "stale": len(stale),
         "work": round(work),
-        "loads": [round(x) for x in loads],
+        "loads": [round(estimate(w, p)) for w, p in zip(loads, longest)],
         "targets": [sorted(t) for t in targets],
         "owner": owner,
     }
@@ -249,7 +303,10 @@ def main(args: list[str]) -> int:
         p = plan(read_json(args[1]))
         pathlib.Path(args[2]).write_text(json.dumps(p, indent=1) + "\n")
         count = len(p["targets"])
-        print(f"{p['stale']} modules to build, about {p['work']} s; shards: {p['loads']}", file=sys.stderr)
+        print(
+            f"{p['stale']} modules to build, about {p['work']} s; shards' estimated times: {p['loads']}",
+            file=sys.stderr,
+        )
         print(f"count={count}")
         print(f"shards={json.dumps([str(i + 1) for i in range(count)])}")
         return 0

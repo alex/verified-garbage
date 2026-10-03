@@ -139,6 +139,64 @@ class Plan(Project):
                 self.assertEqual(len(shards.plan(self.manifest)["targets"]), count)
 
 
+class WallTime(unittest.TestCase):
+    # D imports B and C, which import A.
+    imps = {"A": [], "B": ["A"], "C": ["A"], "D": ["B", "C"]}
+
+    def test_critical_path(self):
+        cost = {"A": 10.0, "B": 20.0, "C": 5.0, "D": 10.0}
+        self.assertEqual(shards.paths(self.imps, cost), {"A": 10.0, "B": 30.0, "C": 15.0, "D": 40.0})
+        self.assertEqual(shards.wall_time(self.imps, cost), 40.0)
+
+    def test_only_the_modules_built(self):
+        # B is not built: D's chain is through C.
+        cost = {"A": 10.0, "C": 5.0, "D": 10.0}
+        self.assertEqual(shards.wall_time(self.imps, cost), 25.0)
+
+    def test_throughput(self):
+        imps = {str(i): [] for i in range(10)}
+        cost = {m: 10.0 for m in imps}
+        self.assertEqual(shards.wall_time(imps, cost), 100.0 / shards.PARALLELISM)
+        self.assertEqual(shards.wall_time({}, {}), 0.0)
+
+
+class Chain(Project):
+    """`plan` with a long chain of imports and many short modules."""
+
+    CHAIN = [f"VerifiedGarbage.Chain{i}" for i in range(3)]
+    SHORT = [f"VerifiedGarbage.Short{i}" for i in range(20)]
+
+    def setUp(self):
+        super().setUp()
+        for i, m in enumerate(self.CHAIN):
+            text = f"import {self.CHAIN[i - 1]}\n" if i else "\n"
+            (self.lean / f"{m.replace('.', '/')}.lean").write_text(text)
+        for m in self.SHORT:
+            (self.lean / f"{m.replace('.', '/')}.lean").write_text("\n")
+        self.manifest["inputs"] = {}
+        self.manifest["times"] = {m: 1.0 for m in shards.modules()}
+        self.manifest["times"].update({m: 100.0 for m in self.CHAIN})
+        self.manifest["times"].update({m: 30.0 for m in self.SHORT})
+
+    def test_the_chain_takes_no_other_work(self):
+        # Balancing the work alone would give the chain's shard a quarter of
+        # the short modules (each shard about 450 s of work); but the chain
+        # takes 300 s however many modules the runner builds at once, and
+        # the other shard builds all the short ones in less.
+        p = shards.plan(self.manifest)
+        self.assertEqual(len(p["targets"]), 2)
+        chain = p["owner"][self.CHAIN[-1]]
+        self.assertEqual(p["targets"][chain], [self.CHAIN[-1]])
+        self.assertLessEqual(set(self.SHORT), set(p["targets"][1 - chain]))
+        self.assertEqual(p["loads"][chain], 300)
+        # The plan's estimates are the shards' wall times.
+        imps = shards.imports(shards.modules())
+        closure = shards.closures(imps)
+        for targets, load in zip(p["targets"], p["loads"]):
+            built = set().union(*(closure[t] for t in targets))
+            self.assertEqual(load, round(shards.wall_time(imps, {m: self.manifest["times"][m] for m in built})))
+
+
 class Prune(Project):
     """`prune` on the build of the small project, after a module is gone."""
 
