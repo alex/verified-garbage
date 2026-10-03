@@ -33,7 +33,7 @@ theorem map_sl_disj (hn : 0 < c.n) {l₁ l₂ : List Nat} (h : ∀ i ∈ l₁, i
   exact h i hi ((sl_mem_map hn).mp hx')
 
 theorem map_sl_nodup (hn : 0 < c.n) {l : List Nat} (h : l.Nodup) : (l.map c.sl).Nodup :=
-  h.map fun _ _ e => sl_inj c hn e
+  List.Pairwise.map c.sl (fun _ _ hab e => hab (sl_inj c hn e)) h
 
 /-- Numbered slots, apart from the modulus's and the temporary area. -/
 theorem lay_map (hc : CfgOk c) {M : Mod} (hmo : M.mo = c.sl MP) (htmp : M.tmp = c.sl TMP)

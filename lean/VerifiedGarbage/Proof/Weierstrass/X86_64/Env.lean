@@ -1,17 +1,23 @@
 import VerifiedGarbage.Impl.Weierstrass.X86_64
 import VerifiedGarbage.Proof.Weierstrass.Rcb
-import Mathlib.Data.ZMod.Basic
+import Mathlib.Logic.Function.Basic
 
 /-!
 # Field programs on slots, as functions on environments
 
 A slot holding `x` stands for `x R⁻¹ mod m` (`toM`, Montgomery's form,
-`R = 2^(64 n)`), and the results of `mul_ok`, `add_ok` and `sub_ok` stand for
-the product, sum and difference of what their operands stand for (`toM_mul`,
-`toM_add`, `toM_sub`). A field operation is then a function on environments,
-the values of all slots (`FOp.run`), and the complete addition `rcb` computes
-`rcbAdd` of its inputs' values (`rcb_run`): for any slots, as long as the
-slots it writes (`rcbW`) are distinct and none is one it only reads (`rcbR`).
+`R = 2^(64 n)`), an element of `Fin m`, and the results of `mul_ok`, `add_ok`
+and `sub_ok` stand for the product, sum and difference of what their
+operands stand for (`toM_mul`, `toM_add`, `toM_sub`). A field operation is
+then a function on environments, the values of all slots (`FOp.run`), and the
+complete addition `rcb` computes `rcbAdd` of its inputs' values (`rcb_run`):
+for any slots, as long as the slots it writes (`rcbW`) are distinct and none
+is one it only reads (`rcbR`).
+
+Everything here is over `Fin m` and Lean's core rings
+(`Lean.Grind.CommRing`), without Mathlib's algebra: the proofs of the code
+need none of it, and only the proofs of the group law
+(`Proof/Weierstrass/Complete.lean`) import it.
 -/
 
 namespace VG.Impl.Weierstrass.X86_64
@@ -32,7 +38,7 @@ def FOp.rename (σ : Nat → Nat) : FOp → FOp
 
 /-- The operation on an environment: the output slot gets the product, sum
 or difference of the inputs' values. -/
-def FOp.run {F : Type*} [CommRing F] : FOp → (Nat → F) → Nat → F
+def FOp.run {F : Type _} [Lean.Grind.CommRing F] : FOp → (Nat → F) → Nat → F
   | .mul o a b, e => Function.update e o (e a * e b)
   | .add o a b, e => Function.update e o (e a + e b)
   | .sub o a b, e => Function.update e o (e a - e b)
@@ -43,48 +49,104 @@ namespace VG.Proof.Weierstrass.X86_64
 
 open VG.Impl.Weierstrass.X86_64
 
+/-! ## Arithmetic modulo `m` -/
+
+section
+variable {m : Nat} [NeZero m]
+
+theorem ofNat_eq_ofNat {a b : Nat} : Fin.ofNat m a = Fin.ofNat m b ↔ a % m = b % m := by
+  rw [Fin.ext_iff, Fin.val_ofNat, Fin.val_ofNat]
+
+theorem ofNat_mul' (a b : Nat) : Fin.ofNat m (a * b) = Fin.ofNat m a * Fin.ofNat m b := by
+  apply Fin.ext
+  rw [Fin.val_ofNat, Fin.val_mul, Fin.val_ofNat, Fin.val_ofNat, Nat.mul_mod]
+
+theorem ofNat_add' (a b : Nat) : Fin.ofNat m (a + b) = Fin.ofNat m a + Fin.ofNat m b := by
+  apply Fin.ext
+  rw [Fin.val_ofNat, Fin.val_add, Fin.val_ofNat, Fin.val_ofNat, Nat.add_mod]
+
+theorem ofNat_mod (a : Nat) : Fin.ofNat m (a % m) = Fin.ofNat m a := by
+  rw [ofNat_eq_ofNat, Nat.mod_mod]
+
+theorem ofNat_pow' (a k : Nat) : Fin.ofNat m (a ^ k) = Fin.ofNat m a ^ k := by
+  induction k with
+  | zero => rw [Nat.pow_zero, Lean.Grind.Semiring.pow_zero]; rfl
+  | succ k ih => rw [Nat.pow_succ, ofNat_mul', ih, Lean.Grind.Semiring.pow_succ]
+
+/-- `R` is invertible modulo `m`. -/
+def UnitMod (m R : Nat) [NeZero m] : Prop := ∃ i : Fin m, Fin.ofNat m R * i = 1
+
+/-- The inverse of `R` modulo `m`, if there is one (else `0`). -/
+def rinv (m R : Nat) [NeZero m] : Fin m :=
+  ((List.finRange m).find? fun i => Fin.ofNat m R * i == 1).getD 0
+
+theorem mul_rinv {R : Nat} (h : UnitMod m R) : Fin.ofNat m R * rinv m R = 1 := by
+  obtain ⟨i, hi⟩ := h
+  unfold rinv
+  cases e : (List.finRange m).find? fun i => Fin.ofNat m R * i == 1 with
+  | none =>
+    rw [List.find?_eq_none] at e
+    exact absurd (beq_iff_eq.mpr hi) (e i (List.mem_finRange i))
+  | some j =>
+    have hj := List.find?_some (p := fun i => Fin.ofNat m R * i == 1) e
+    exact beq_iff_eq.mp hj
+
+/-- `2^k` is invertible modulo an odd `m`: `2 (m + 1) / 2 = 1` modulo `m`. -/
+theorem unitMod_pow_two (hm : m % 2 = 1) (k : Nat) : UnitMod m (2 ^ k) := by
+  refine ⟨Fin.ofNat m ((m + 1) / 2) ^ k, ?_⟩
+  have h2 : Fin.ofNat m 2 * Fin.ofNat m ((m + 1) / 2) = 1 := by
+    rw [← ofNat_mul', show 2 * ((m + 1) / 2) = m + 1 by omega]
+    apply Fin.ext
+    rw [Fin.val_ofNat, Nat.add_mod_left]
+    rfl
+  rw [ofNat_pow', ← Lean.Grind.CommSemiring.mul_pow, h2, Lean.Grind.Semiring.one_pow]
+
+end
+
 /-! ## Montgomery's form -/
 
 /-- What a slot holding `x` stands for: `x R⁻¹ mod m`. -/
-def toM (m R x : Nat) : ZMod m := (x : ZMod m) * (R : ZMod m)⁻¹
+def toM (m R x : Nat) [NeZero m] : Fin m := Fin.ofNat m x * rinv m R
 
-theorem toM_mul {m R r A B : Nat} (hR : Nat.Coprime R m) (h : r * R % m = A * B % m) :
+section
+variable {m : Nat} [NeZero m]
+
+theorem toM_mul {R r A B : Nat} (hR : UnitMod m R) (h : r * R % m = A * B % m) :
     toM m R r = toM m R A * toM m R B := by
-  have h' : (r : ZMod m) * R = A * B := by
-    have := (ZMod.natCast_eq_natCast_iff' (r * R) (A * B) m).mpr h
-    rwa [Nat.cast_mul, Nat.cast_mul] at this
-  have hu : (R : ZMod m) * (R : ZMod m)⁻¹ = 1 := ZMod.coe_mul_inv_eq_one R hR
+  have h' : Fin.ofNat m r * Fin.ofNat m R = Fin.ofNat m A * Fin.ofNat m B := by
+    rw [← ofNat_mul', ← ofNat_mul', ofNat_eq_ofNat, h]
+  have hu := mul_rinv hR
   unfold toM
-  rw [mul_mul_mul_comm, ← h', ← mul_one ((r : ZMod m) * (R : ZMod m)⁻¹), ← hu]
-  simp only [mul_assoc, mul_comm (R : ZMod m)⁻¹]
+  grind
 
-theorem toM_add (m R A B : Nat) : toM m R ((A + B) % m) = toM m R A + toM m R B := by
+theorem toM_add (R A B : Nat) : toM m R ((A + B) % m) = toM m R A + toM m R B := by
   unfold toM
-  rw [ZMod.natCast_mod, Nat.cast_add, add_mul]
+  rw [ofNat_mod, ofNat_add', Lean.Grind.Semiring.right_distrib]
 
-theorem toM_sub {m R A B : Nat} (h : B ≤ A + m) :
+theorem toM_sub {R A B : Nat} (h : B ≤ A + m) :
     toM m R ((A + m - B) % m) = toM m R A - toM m R B := by
+  have e : Fin.ofNat m (A + m - B) + Fin.ofNat m B = Fin.ofNat m A := by
+    rw [← ofNat_add', Nat.sub_add_cancel h, ofNat_eq_ofNat, Nat.add_mod_right]
   unfold toM
-  rw [ZMod.natCast_mod, Nat.cast_sub h, Nat.cast_add, ZMod.natCast_self, add_zero, sub_mul]
+  rw [ofNat_mod]
+  grind
 
-/-- `2^k` and an odd `m` are coprime. -/
-theorem coprime_pow_two {m : Nat} (hm : m % 2 = 1) (k : Nat) : Nat.Coprime (2 ^ k) m :=
-  Nat.Coprime.pow_left _ (show Nat.gcd 2 m = 1 by rw [Nat.gcd_rec, hm]; rfl)
+end
 
 /-! ## Programs on environments -/
 
 /-- Running a program on an environment. -/
-def runOps {F : Type*} [CommRing F] (ops : List FOp) (e : Nat → F) : Nat → F :=
+def runOps {F : Type _} [Lean.Grind.CommRing F] (ops : List FOp) (e : Nat → F) : Nat → F :=
   ops.foldl (fun e op => op.run e) e
 
-theorem runOps_nil {F : Type*} [CommRing F] (e : Nat → F) : runOps [] e = e := rfl
+theorem runOps_nil {F : Type _} [Lean.Grind.CommRing F] (e : Nat → F) : runOps [] e = e := rfl
 
-theorem runOps_cons {F : Type*} [CommRing F] (op : FOp) (ops : List FOp) (e : Nat → F) :
+theorem runOps_cons {F : Type _} [Lean.Grind.CommRing F] (op : FOp) (ops : List FOp) (e : Nat → F) :
     runOps (op :: ops) e = runOps ops (op.run e) := rfl
 
 /-- Renaming the slots of an operation whose output no other slot is renamed
 to. -/
-theorem FOp.run_rename {F : Type*} [CommRing F] (σ : Nat → Nat) (op : FOp) (e : Nat → F)
+theorem FOp.run_rename {F : Type _} [Lean.Grind.CommRing F] (σ : Nat → Nat) (op : FOp) (e : Nat → F)
     (h : ∀ y, σ y = σ op.out → y = op.out) :
     (fun y => (op.rename σ).run e (σ y)) = op.run (fun y => e (σ y)) := by
   funext y
@@ -92,7 +154,7 @@ theorem FOp.run_rename {F : Type*} [CommRing F] (σ : Nat → Nat) (op : FOp) (e
   cases op <;> simp only [FOp.rename, FOp.run, FOp.out, Function.update_apply] at hy ⊢ <;>
     simp only [hy]
 
-theorem runOps_rename {F : Type*} [CommRing F] (σ : Nat → Nat) :
+theorem runOps_rename {F : Type _} [Lean.Grind.CommRing F] (σ : Nat → Nat) :
     ∀ (ops : List FOp) (e : Nat → F), (∀ op ∈ ops, ∀ y, σ y = σ op.out → y = op.out) →
       (fun y => runOps (ops.map (FOp.rename σ)) e (σ y)) = runOps ops (fun y => e (σ y))
   | [], _, _ => rfl
@@ -121,7 +183,7 @@ theorem rcb_eq_rename (S : RcbSlots) (p q o : Pt) :
 theorem rcbN_out : ∀ op ∈ rcbN, op.out < 9 := by decide
 
 /-- `rcbN` on any environment. -/
-theorem rcbN_run {F : Type*} [CommRing F] (e : Nat → F) :
+theorem rcbN_run {F : Type _} [Lean.Grind.CommRing F] (e : Nat → F) :
     (runOps rcbN e 6, runOps rcbN e 7, runOps rcbN e 8) =
       VG.Proof.Weierstrass.rcbAdd (e 9) (e 10) (e 11) (e 12) (e 13) (e 14) (e 15) (e 16) := rfl
 
@@ -204,7 +266,7 @@ theorem rcb_out_mem {S : RcbSlots} {p q o : Pt} {x : Nat} (hx : x ∈ rcbW S o) 
   exact List.mem_map.mpr ⟨op, hop, by rw [Function.comp_apply, FOp.out_rename, h]; rfl⟩
 
 /-- `rcb S p q o` computes `rcbAdd` of what its inputs hold. -/
-theorem rcb_run {F : Type*} [CommRing F] {S : RcbSlots} {p q o : Pt} (h : RcbApart S p q o)
+theorem rcb_run {F : Type _} [Lean.Grind.CommRing F] {S : RcbSlots} {p q o : Pt} (h : RcbApart S p q o)
     (e : Nat → F) :
     (runOps (rcb S p q o) e o.x, runOps (rcb S p q o) e o.y, runOps (rcb S p q o) e o.z) =
       VG.Proof.Weierstrass.rcbAdd (e S.a) (e S.b3) (e p.x) (e p.y) (e p.z) (e q.x) (e q.y)
@@ -215,7 +277,7 @@ theorem rcb_run {F : Type*} [CommRing F] {S : RcbSlots} {p q o : Pt} (h : RcbApa
   exact this
 
 /-- What `rcb` does not write, it keeps. -/
-theorem runOps_of_not_out {F : Type*} [CommRing F] {x : Nat} :
+theorem runOps_of_not_out {F : Type _} [Lean.Grind.CommRing F] {x : Nat} :
     ∀ (ops : List FOp) (e : Nat → F), (∀ op ∈ ops, op.out ≠ x) → runOps ops e x = e x
   | [], _, _ => rfl
   | op :: ops, e, h => by

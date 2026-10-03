@@ -206,10 +206,10 @@ structure OpsPost (c : Cfg) (base : Addr) (s s' : State) : Prop where
   wr : s'.wr = s.wr
   unch : Unch base ([XM, X, YM, Y, TMP].map fun i => (c.sl i, 8 * c.n)) s.mem s'.mem
   x_lt : sv c base s' X < c.C.p
-  x : (sv c base s' X : ZMod c.C.p) =
+  x : Fin.ofNat c.C.p (sv c base s' X) =
     toM c.C.p (2 ^ (64 * c.n)) (sv c base s RX) * toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC)
   y_lt : sv c base s' Y < c.C.p
-  y : (sv c base s' Y : ZMod c.C.p) =
+  y : Fin.ofNat c.C.p (sv c base s' Y) =
     toM c.C.p (2 ^ (64 * c.n)) (sv c base s RY) * toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC)
 
 /-- The four field operations of `middle`. -/
@@ -222,7 +222,7 @@ theorem pkOps_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size)
       (.seq (.block (mul c.MP' (c.sl Y) (c.sl YM) (c.sl ONE))) rest)))) s Q := by
   have h7 := hc.n7
   have hn := hs.nowrap
-  have hpR := coprime_pow_two hc.p_odd (64 * c.n)
+  have hpR := unitMod_pow_two hc.p_odd (64 * c.n)
   have hp3 := hc.p_ge
   -- `XM = X · ACC`.
   refine WP.seq (WP.mono (slMul_ok (MP'_n c) h7 hs hMP (o := XM) (a := RX) (b := ACC) (by decide)
@@ -239,7 +239,7 @@ theorem pkOps_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size)
   have kP₂ := kP₁.keep (j := MP) (by decide) rfl rfl rfl rfl h7 hn k₂ (by decide) (by decide)
   have v₂ : ∀ {i}, i < 45 → i ≠ XM → i ≠ X → i ≠ TMP → sv c base s₂ i = sv c base s i := fun hi h₁ h₂ h₃ =>
     (sv_keep (MP'_n c) rfl h7 hn k₂ hi h₂ h₃).trans (v₁ hi h₁ h₃)
-  have x₂ : (sv c base s₂ X : ZMod c.C.p) =
+  have x₂ : Fin.ofNat c.C.p (sv c base s₂ X) =
       toM c.C.p (2 ^ (64 * c.n)) (sv c base s RX) * toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC) := by
     rw [toM_one_mul hpR (by rw [e₂, v₁ (i := ONE) (by decide) (by decide) (by decide), hone]),
       toM_mul hpR e₁]
@@ -286,9 +286,9 @@ theorem middle_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size
     (hr14 : s.gpr .r14 = out) (hw : (⟨out, 1 + 16 * c.n⟩ : Region) ∈ s.wr)
     (hd : Region.Disjoint ⟨out, 1 + 16 * c.n⟩ ⟨base, size⟩) :
     WP isa (Impl.EcKey.X86_64.Cfg.middle c) s fun s' => ∃ xv yv, xv < c.C.p ∧
-      (xv : ZMod c.C.p) =
+      Fin.ofNat c.C.p xv =
         toM c.C.p (2 ^ (64 * c.n)) (sv c base s RX) * toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC) ∧
-      yv < c.C.p ∧ (yv : ZMod c.C.p) =
+      yv < c.C.p ∧ Fin.ofNat c.C.p yv =
         toM c.C.p (2 ^ (64 * c.n)) (sv c base s RY) * toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC) ∧
       Spec.Ecdsa.bytesAt s'.mem out (1 + 16 * c.n) =
         (if ok c base s then 4 :: (toBytes (8 * c.n) xv ++ toBytes (8 * c.n) yv)
@@ -391,12 +391,11 @@ theorem args_ok (s : State) :
 
 /-- `vg_ec_<curve>_public_key` computes the specification's public key and
 restores the callee-saved registers. -/
-theorem publicKey_ok (hc : CfgOk c) {s₀ : State} (hp : PkPre c s₀) :
+theorem publicKey_ok (hc : CfgOk c) (hC : Good c.C) {s₀ : State} (hp : PkPre c s₀) :
     WP isa (Impl.EcKey.X86_64.Cfg.publicKey c) s₀ fun s' =>
       (∀ r ∈ Cfg.saved.map Prod.fst, s'.gpr r = s₀.gpr r) ∧ PkPost c s₀ s' := by
   have h0 := hc.n0
-  have : Fact c.C.p.Prime := ⟨hc.good.prime⟩
-  have hpR := coprime_pow_two hc.p_odd (64 * c.n)
+  have hpR := unitMod_pow_two hc.p_odd (64 * c.n)
   refine WP.seq (WP.mono (args_ok s₀) fun s₁ ⟨r8₁, rcx₁, rdx₁, k₁⟩ => ?_)
   have rsi₁ : s₁.gpr .rsi = s₀.gpr .rsi := k₁.1 _ (by decide)
   have rdi₁ : s₁.gpr .rdi = s₀.gpr .rdi := k₁.1 _ (by decide)
@@ -423,7 +422,7 @@ theorem publicKey_ok (hc : CfgOk c) {s₀ : State} (hp : PkPre c s₀) :
     · exact hp.sc_fit
   have hb : sN.gpr .r8 = s₀.gpr .rdx := by rw [g, r8₁]
   obtain ⟨t, s₂N, ex, S₂⟩ := stage₁ hc (hpN.setup hc.n7) (rest := .seq (ladder c.ladderCfg) (.seq (pow c.powP) (.block [])))
-    (Q := St₂ c sN (sN.gpr .r8)) fun _ S₁ => stage₂ hc S₁ fun _ S₂ => WP.block_nil S₂
+    (Q := St₂ c sN (sN.gpr .r8)) fun _ S₁ => stage₂ hc hC S₁ fun _ S₂ => WP.block_nil S₂
   rw [hb] at S₂
   -- The same run, with the public key's regions.
   have hrd₁ : s₁.rd = [⟨s₀.gpr .rsi, 8 * c.n⟩] := by rw [k₁.2.2.1, hp.rd]
@@ -474,13 +473,13 @@ theorem publicKey_ok (hc : CfgOk c) {s₀ : State} (hp : PkPre c s₀) :
   have acc := S₂.acc
   rw [← sv₂, hZ] at acc
   rw [hZ, hZ, hZ] at hR
-  have hxX : (xv : ZMod c.C.p) = toM c.C.p (2 ^ (64 * c.n)) (sv c (s₀.gpr .rdx) s₂ RX) *
+  have hxX : Fin.ofNat c.C.p xv = toM c.C.p (2 ^ (64 * c.n)) (sv c (s₀.gpr .rdx) s₂ RX) *
       toM c.C.p (2 ^ (64 * c.n)) (sv c (s₀.gpr .rdx) s₂ RZ) ^ (c.C.p - 2) := by rw [hx, acc]
-  have hyY : (yv : ZMod c.C.p) = toM c.C.p (2 ^ (64 * c.n)) (sv c (s₀.gpr .rdx) s₂ RY) *
+  have hyY : Fin.ofNat c.C.p yv = toM c.C.p (2 ^ (64 * c.n)) (sv c (s₀.gpr .rdx) s₂ RY) *
       toM c.C.p (2 ^ (64 * c.n)) (sv c (s₀.gpr .rdx) s₂ RZ) ^ (c.C.p - 2) := by rw [hy, acc]
   have hz := toM_eq_zero_iff hpR (x := sv c (s₀.gpr .rdx) s₂ RZ) (by rw [sv₂]; exact S₂.rz_lt)
   unfold PkPost
-  rw [publicKey_eq hR hxl hxX hyl hyY]
+  rw [publicKey_eq hC hR hxl hxX hyl hyY]
   by_cases hd : 1 ≤ dk c s₀ ∧ dk c s₀ < c.C.n
   · rw [ite_eq_left_of_eq_true _ _ (eq_true hd)]
     by_cases h0 : sv c (s₀.gpr .rdx) s₂ RZ = 0

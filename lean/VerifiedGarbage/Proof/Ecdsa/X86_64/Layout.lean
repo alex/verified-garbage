@@ -24,17 +24,17 @@ open VG.Proof.Mont.X86_64 VG.Proof.Weierstrass.X86_64 VG.Proof.Weierstrass Spec.
 /-- The size of the working space, in bytes. -/
 abbrev size : Nat := 8192
 
-/-- What the proof needs of a curve: its field and order are odd and fit in
-`n` words (`n < 7`), the field is prime and the curve has no point of order 2
-(`Good`), `p < 2n` (so `x mod n` is one conditional subtraction), the
-Montgomery constants are right, encodings are `8 n` bytes, and a hash of
-`8 n` bytes is not truncated. `n ≤ 4`: the code keeps `out` in `r14`, which
-the multiplications of more words use. -/
+/-- What the proof of the code needs of a curve: its field and order are odd
+and fit in `n` words (`n < 7`), `G` is on the curve, `p < 2n` (so `x mod n`
+is one conditional subtraction), the Montgomery constants are right,
+encodings are `8 n` bytes, and a hash of `8 n` bytes is not truncated.
+`n ≤ 4`: the code keeps `out` in `r14`, which the multiplications of more
+words use. The group law needs more (`Weierstrass.Good`: a prime field and
+no point of order 2), which only the proofs of the results take. -/
 structure CfgOk (c : Cfg) : Prop where
   n0 : 0 < c.n
   n7 : c.n < 7
   n4 : c.n ≤ 4
-  good : Good c.C
   onG : onCurve c.C (G c.C) = true
   p_odd : c.C.p % 2 = 1
   n_odd : c.C.n % 2 = 1

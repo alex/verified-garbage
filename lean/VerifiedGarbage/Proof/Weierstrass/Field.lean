@@ -7,7 +7,8 @@ import VerifiedGarbage.Spec.Weierstrass
 The specification computes with `Fin m`, arithmetic modulo `m`; the proofs
 compute in `ZMod m`, which is a field when `m` is prime. `toF` maps one to
 the other: it is an injective ring homomorphism, maps the specification's
-`pow` to powers (for any modulus, as ECDSA's scalars modulo `n` need), and,
+`pow` and the powers of `Fin m` to powers (for any modulus, as ECDSA's
+scalars modulo `n` need), and,
 for a prime `p > 2`, its `inv` to the field's inverse (Fermat's little
 theorem; `inv 0 = 0`).
 -/
@@ -80,6 +81,17 @@ theorem toF_pow (x : Fin m) (e : Nat) : toF (pow x e) = toF x ^ e := by
         rw [ih _ hlt, toF_mul, hsplit, h2, _root_.pow_zero, mul_one]
       · simp only [h2, ↓reduceIte]
         rw [toF_mul, ih _ hlt, toF_mul, hsplit, show e % 2 = 1 by omega, pow_one, mul_comm]
+
+/-- Powers in `Fin m` (Lean's core's, which the proofs of the code compute
+with) as powers in `ZMod m`. -/
+theorem toF_npow (x : Fin m) (e : Nat) : toF (x ^ e) = toF x ^ e := by
+  induction e with
+  | zero => rw [_root_.pow_zero, _root_.pow_zero, toF_one]
+  | succ e ih => rw [_root_.pow_succ, _root_.pow_succ, toF_mul, ih]
+
+/-- The specification's `pow` is the power. -/
+theorem pow_eq_npow (x : Fin m) (e : Nat) : pow x e = x ^ e :=
+  toF_injective (by rw [toF_pow, toF_npow])
 
 /-- `pow` modulo any `m`, as a power in `ZMod m`. -/
 theorem val_pow (x : Fin m) (e : Nat) : ((pow x e).val : ZMod m) = (x.val : ZMod m) ^ e :=
