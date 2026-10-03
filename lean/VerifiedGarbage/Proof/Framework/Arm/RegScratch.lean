@@ -102,10 +102,11 @@ abbrev FitsR (bytes : Nat) (e : Elem) (n : Nat) : Prop :=
 /-- The precondition of the contract without the buffer gives the one with it
 in `narrowR`. -/
 theorem narrowR_pre (hcl : ScratchInReg sig r) (hloc : (locs sig).all (Loc.avoids r) = true)
-    (hb : FitsR bytes e n) {s : State} (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) :
+    (hb : FitsR bytes e n) {s : State} (hs : (sig.contract abi pre post wa (stack + bytes)).pre s)
+    (hl : Sig.noLists sig.params = true) :
     (Sig.scratchContract abi sig nm e n pre post wa stack).pre (narrowR e n bytes r s) := by
   obtain ⟨hb0, -, -, -, hb4⟩ := hb
-  rw [pre_arm] at hs
+  rw [pre_arm hl] at hs
   obtain ⟨⟨hst, -⟩, hrd, hwr, hpw, hres, hnw, hpr⟩ := hs
   have hsb : stack + bytes ≤ s.sp.toNat := by omega
   have hlt := s.sp.isLt
@@ -130,7 +131,8 @@ theorem narrowR_pre (hcl : ScratchInReg sig r) (hloc : (locs sig).all (Loc.avoid
     (Region.Disjoint.symm (hres _ hbelow a ha)).sub_right (Offset.sub_below _ hx hk)
   refine (pre_arm (sig := sig.withScratch nm e n)
     (pre := Curry.withScratch abi.ptrBits nm e n sig.params pre)
-    (post := Curry.withScratch abi.ptrBits nm e n sig.params post)).mpr ?_
+    (post := Curry.withScratch abi.ptrBits nm e n sig.params post)
+    (Sig.noLists_withScratch nm e n hl)).mpr ?_
   rw [allRegions, narrowR_armArgs hcl hloc, argArea_eq_nil (nsaa_withScratch_reg hcl nm e n), hbufs,
     nsaa_withScratch_reg hcl, narrowR_sp, List.append_nil]
   refine ⟨⟨.inr ?_, ?_⟩, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -163,14 +165,15 @@ theorem narrowR_pre (hcl : ScratchInReg sig r) (hloc : (locs sig).all (Loc.avoid
 /-- The public data of the contract without the buffer is public in
 `narrowR` for the contract with it. -/
 theorem narrowR_pub (hcl : ScratchInReg sig r) (hloc : (locs sig).all (Loc.avoids r) = true)
-    {s₁ s₂ : State} (hp : (sig.contract abi pre post wa (stack + bytes)).pub s₁ s₂) :
+    {s₁ s₂ : State} (hp : (sig.contract abi pre post wa (stack + bytes)).pub s₁ s₂) (hl : Sig.noLists sig.params = true) :
     (Sig.scratchContract abi sig nm e n pre post wa stack).pub (narrowR e n bytes r s₁)
       (narrowR e n bytes r s₂) := by
-  rw [pub_arm] at hp
+  rw [pub_arm hl] at hp
   obtain ⟨hsp, hpa⟩ := hp
   refine (pub_arm (sig := sig.withScratch nm e n)
     (pre := Curry.withScratch abi.ptrBits nm e n sig.params pre)
-    (post := Curry.withScratch abi.ptrBits nm e n sig.params post)).mpr ?_
+    (post := Curry.withScratch abi.ptrBits nm e n sig.params post)
+    (Sig.noLists_withScratch nm e n hl)).mpr ?_
   rw [narrowR_armArgs hcl hloc, narrowR_armArgs hcl hloc, narrowR_sp, narrowR_sp, hsp]
   refine ⟨rfl, fun i hi => ?_⟩
   have l₁ := armArgs_length sig s₁
@@ -201,12 +204,13 @@ with the same trace, which keeps what the calling convention requires, and
 whose memory and registers are those of the code's run. -/
 theorem withRegScratch_run {c : Prog isa} (hcl : ScratchInReg sig r) (hb : FitsR bytes e n)
     {s : State} (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) {t : List Leak} {s₃ : State}
-    (he : Exec isa c (narrowR e n bytes r s) t s₃) (ha : abiPreserved (narrowR e n bytes r s) s₃) :
+    (he : Exec isa c (narrowR e n bytes r s) t s₃) (ha : abiPreserved (narrowR e n bytes r s) s₃)
+    (hl : Sig.noLists sig.params = true) :
     Exec isa (withRegScratch bytes r c) s t (popState bytes s s₃) ∧
       abiPreserved s (popState bytes s s₃) ∧ (popState bytes s s₃).mem = s₃.mem ∧
       (popState bytes s s₃).gpr = s₃.gpr := by
   obtain ⟨hb0, hb1, hb2, hb3, hb4⟩ := hb
-  rw [pre_arm] at hs
+  rw [pre_arm hl] at hs
   obtain ⟨⟨hst, -⟩, -, -, -, -, -, -⟩ := hs
   have hsb : stack + bytes ≤ s.sp.toNat := by omega
   have hsp : State.addr (s.sp - BitVec.ofNat 32 bytes) = State.addr s.sp - BitVec.ofNat 64 bytes :=
@@ -251,7 +255,8 @@ registers too (`hcl`, `hloc`). -/
 theorem Verified.regScratch {c : Prog isa}
     (h : Verified target c (Sig.scratchContract abi sig nm e n pre post wa stack))
     (hcl : ScratchInReg sig r) (hloc : (locs sig).all (Loc.avoids r) = true) (hb : FitsR bytes e n)
-    (hsat : ∃ s, (sig.contract abi pre post wa (stack + bytes)).pre s) :
+    (hsat : ∃ s, (sig.contract abi pre post wa (stack + bytes)).pre s)
+    (hl : Sig.noLists sig.params = true := by decide) :
     Verified target (withRegScratch bytes r c) (sig.contract abi pre post wa (stack + bytes)) := by
   obtain ⟨hcor, hct, -⟩ := h
   have hlen := armArgs_length sig
@@ -262,8 +267,8 @@ theorem Verified.regScratch {c : Prog isa}
       abiPreserved s (popState bytes s s₃) ∧ (popState bytes s s₃).mem = s₃.mem ∧
       (popState bytes s s₃).gpr = s₃.gpr := by
     intro s hs
-    obtain ⟨t, s₃, he, ha, hq⟩ := hcor _ (narrowR_pre hcl hloc hb hs)
-    exact ⟨t, s₃, he, hq, withRegScratch_run hcl hb hs he ha⟩
+    obtain ⟨t, s₃, he, ha, hq⟩ := hcor _ (narrowR_pre hcl hloc hb hs hl)
+    exact ⟨t, s₃, he, hq, withRegScratch_run hcl hb hs he ha hl⟩
   refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hp e₁ e₂ => ?_, hsat⟩
   · obtain ⟨t, s₃, -, hq, hex, ha, hm, hg⟩ := hrun s hs
     refine ⟨t, _, hex, ha, ?_⟩
@@ -278,8 +283,8 @@ theorem Verified.regScratch {c : Prog isa}
   · obtain ⟨u₁, r₁, f₁, -, x₁, -⟩ := hrun s₁ h₁
     obtain ⟨u₂, r₂, f₂, -, x₂, -⟩ := hrun s₂ h₂
     rw [(Exec.det e₁ x₁).1, (Exec.det e₂ x₂).1]
-    exact hct _ _ _ _ _ _ (narrowR_pre hcl hloc hb h₁) (narrowR_pre hcl hloc hb h₂)
-      (narrowR_pub hcl hloc hp) f₁ f₂
+    exact hct _ _ _ _ _ _ (narrowR_pre hcl hloc hb h₁ hl) (narrowR_pre hcl hloc hb h₂ hl)
+      (narrowR_pub hcl hloc hp hl) f₁ f₂
 
 end
 
