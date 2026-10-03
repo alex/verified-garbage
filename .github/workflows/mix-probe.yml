@@ -20,6 +20,6 @@ jobs:
       - name: Time
         run: |
           grep -m1 -E "CPU part" /proc/cpuinfo
-          gcc -O1 -march=armv8.5-a+sve2 -o mix probe/mix.c
+          gcc -O1 -o mix probe/mix.c probe/kernels.S
           for i in 1 2 3; do ./mix; done | tee out.txt
           { echo '```'; cat out.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
