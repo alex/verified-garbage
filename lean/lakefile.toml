@@ -73,6 +73,7 @@ name = "NativeSpec"
 roots = []
 globs = ["VerifiedGarbage.Spec.Sha1", "VerifiedGarbage.Spec.Sha256",
   "VerifiedGarbage.Spec.Sha512", "VerifiedGarbage.Spec.Md5", "VerifiedGarbage.Spec.Sha3",
+  "VerifiedGarbage.Spec.GcmSiv",
   "VerifiedGarbage.Spec.Hmac", "VerifiedGarbage.Spec.Pbkdf2", "VerifiedGarbage.Spec.Scrypt",
   "VerifiedGarbage.Spec.ChaCha20", "VerifiedGarbage.Spec.Poly1305", "VerifiedGarbage.Spec.Aes",
   "VerifiedGarbage.Spec.Gcm", "VerifiedGarbage.Spec.MlKem", "VerifiedGarbage.Spec.X25519",

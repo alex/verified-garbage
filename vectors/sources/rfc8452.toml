@@ -1,0 +1,5 @@
+name = "RFC 8452, AES-GCM-SIV (POLYVAL example in Appendix A, test vectors in Appendix C)"
+directories = ["rfc8452"]
+url = "https://www.rfc-editor.org/rfc/rfc8452.txt"
+sha256 = "ca48ec466b401ce5d68d6d1628127a1800adcc16f2573646aaa3d7df284d3c17"
+retrieved = 2026-10-03
