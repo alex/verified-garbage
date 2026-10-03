@@ -27,6 +27,8 @@ open VG.Spec.ChaCha20 (innerBlock)
 open VG.Spec.Poly1305 (bytesAt)
 open VG.Proof.Poly1305 (absorbAll)
 
+variable {sve : Bool}
+
 /-- The accumulator's registers, apart from the pointer `x20`. -/
 abbrev accRegs : List Reg := [.x21, .x22, .x23, .x24, .x25, .x27, .x28, .x30]
 
@@ -249,7 +251,7 @@ theorem acc_regs_keep {s u : State} (h : ∀ r ∈ accRegs, u.gpr r = s.gpr r) :
 
 theorem chunk_ok (enc : Bool) {R a : Nat} {B : Addr} (s : State) (hp : ChunkPre enc B s)
     (ha : Acc R a s) :
-    WP isa (chunk enc) s fun g =>
+    WP isa (chunk sve enc) s fun g =>
       Chunked (rebase s g) g ∧ Acc R (absorbAll R a (bytesAt s.mem B 512)) g := by
   have hcp := hp.cp
   have hkey (rs : List Region) (h : ∀ r ∈ rs, r ∈ [sr s, scalarBuf s, VG.Proof.ChaCha20.AArch64.Mixed8.dr s]) :

@@ -30,4 +30,18 @@ def neon : XorImpl where
   sealTaint := ⟨_, by taint_decide⟩
   openTaint := ⟨_, by taint_decide⟩
 
+/-- The eight-block kernel with SVE2: each AdvSIMD XOR and rotation of the
+vector blocks is one XAR. -/
+def sve2 : XorImpl where
+  callee := .sve2
+  features := ["sve2"]
+  notes := ["Interleaves six NEON blocks with two integer blocks, processing 512 bytes at a time; " ++
+    "each XOR and rotation of the NEON blocks is one SVE2 XAR."]
+  ok := Mixed8.xor_correct
+  ct := Mixed8.xor_ct
+  noFrames := Mixed8.xor_noFrames
+  stitched := true
+  sealTaint := ⟨_, by taint_decide⟩
+  openTaint := ⟨_, by taint_decide⟩
+
 end VG.Proof.ChaCha20.AArch64.XorImpl

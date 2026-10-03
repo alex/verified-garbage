@@ -5,6 +5,8 @@ open VG VG.AArch64 VG.Impl.ChaCha20.AArch64.Mixed8
 open VG.Spec.ChaCha20 (innerBlock)
 open VG.Proof.ChaCha20.AArch64 (Words not_words_x1)
 
+variable {sve : Bool}
+
 /-- Arithmetic state during the counted phase; x1 holds its public counter. -/
 structure PhaseInv (blocks : Nat → CState) (v : CState) (s₀ s : State) (i : Nat) : Prop where
   vec : N (VG.Proof.ChaCha20.AArch64.Rows6.pack
@@ -31,13 +33,13 @@ theorem PhaseInv.writeCounter {blocks : Nat → CState} {v : CState} {s₀ s : S
 
 theorem phase_loop_ok {blocks : Nat → CState} {v : CState} {s₀ s : State}
     (h : PhaseInv blocks v s₀ s 0) (hx : s.gpr .x1 = 5) :
-    WP isa (.loop (.seq parallelRound (.block [.subImm .x .x1 .x1 1])) (.nonzero .x .x1)) s
+    WP isa (.loop (.seq (parallelRound sve) (.block [.subImm .x .x1 .x1 1])) (.nonzero .x .x1)) s
       (fun u => PhaseInv blocks v s₀ u 5) := by
   let Inv : Nat → State → Prop := fun n a =>
     ∃ i, i < 5 ∧ n = 5 - i ∧ PhaseInv blocks v s₀ a i ∧
       a.gpr .x1 = BitVec.ofNat 64 (5 - i)
   have hstep : ∀ n a, Inv n a → WP isa
-      (.seq parallelRound (.block [.subImm .x .x1 .x1 1])) a (fun u =>
+      (.seq (parallelRound sve) (.block [.subImm .x .x1 .x1 1])) a (fun u =>
       (eval (.nonzero .x .x1) u = some false ∧ PhaseInv blocks v s₀ u 5) ∨
       (eval (.nonzero .x .x1) u = some true ∧ ∃ m < n, Inv m u)) := by
     rintro n a ⟨i,hi,rfl,ha,hcount⟩
@@ -77,7 +79,7 @@ theorem counted_phase_ok {blocks : Nat → CState} {v : CState} {s : State} {res
     (ht : s.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table)
     (hr : ¬ Words restore) (hr1 : restore ≠ .x1)
     (hx : s.gpr .x1 = s.gpr restore) :
-    WP isa (phase restore) s fun u =>
+    WP isa (phase sve restore) s fun u =>
       N (VG.Proof.ChaCha20.AArch64.Rows6.pack
         (fun b => Nat.repeat innerBlock 5 (blocks b))) u ∧
       RI (Nat.repeat innerBlock 10 v) s u ∧ u.sp = s.sp ∧

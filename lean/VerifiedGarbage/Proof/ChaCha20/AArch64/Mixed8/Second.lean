@@ -6,6 +6,8 @@ open VG.Proof.ChaCha20.AArch64.Mixed5 (SavedArgs counter_ok scalarLoad_ok keeps_
 open VG.Proof.ChaCha20 (ctr)
 open VG.Spec.ChaCha20 (stateAt innerBlock block)
 
+variable {sve : Bool}
+
 structure Second (s₀ s : State) (n : Nat := 0) : Prop where
   vec : VG.Proof.ChaCha20.AArch64.Rows6.Holds (VG.Proof.ChaCha20.AArch64.Rows6.pack
     (fun j => Nat.repeat innerBlock (5 + n) (ctr (source s₀) j))) s
@@ -94,7 +96,7 @@ theorem second_ok {s₀ s : State} (hp : CP s₀) (h : Prepared s₀ s 5) :
   exact (spill_ok hp h).mono fun _ h => reload_ok hp h
 
 theorem compute_second_ok {s₀ s : State} (hp : CP s₀) (h : Second s₀ s) :
-    WP isa (phase .x20) s fun u => Second s₀ u 5 := by
+    WP isa (phase sve .x20) s fun u => Second s₀ u 5 := by
   refine (counted_phase_ok h.vec h.scalar h.table
     (VG.Proof.ChaCha20.AArch64.not_words_preserved (by decide)) (by decide)
     (h.x1.trans ((h.keep _ (VG.Proof.ChaCha20.AArch64.not_words_preserved (by decide))

@@ -3,7 +3,8 @@ import VerifiedGarbage.Impl.ChaCha20.AArch64.Mixed5
 
 /-! Six row-vector blocks share execution with two integer blocks.
 Each phase performs one vector double round and two integer double rounds.
-Five phases finish one integer block and half of the vector rounds. -/
+Five phases finish one integer block and half of the vector rounds. With
+SVE2 (`sve`), each vector XOR and rotation is one XAR. -/
 namespace VG.Impl.ChaCha20.AArch64.Mixed8
 open VG VG.AArch64
 
@@ -11,8 +12,9 @@ inductive Op
   | vector (op : Rows6.Op)
   | scalar (op : Neon4.Op)
 
-def Op.code : Op → List Instr
-  | .vector op => op.code
+/-- The code of an operation; the vector ones use SVE2 if `sve`. -/
+def Op.code (sve : Bool) : Op → List Instr
+  | .vector op => op.codeFor sve
   | .scalar op => Mixed5.scalarCode op
 
 def interleave : List Rows6.Op → List Neon4.Op → List Op
@@ -20,21 +22,21 @@ def interleave : List Rows6.Op → List Neon4.Op → List Op
   | v :: vs, [] => Op.vector v :: interleave vs []
   | v :: vs, s :: ss => Op.vector v :: Op.scalar s :: interleave vs ss
 
-def scheduled : List Op → Prog isa
+def scheduled (sve : Bool) : List Op → Prog isa
   | [] => .block []
-  | op :: ops => .seq (.block op.code) (scheduled ops)
+  | op :: ops => .seq (.block (op.code sve)) (scheduled sve ops)
 
 def roundOps : List Op := interleave Rows6.roundOps (Mixed5.roundOps ++ Mixed5.roundOps)
-def parallelRound : Prog isa := scheduled roundOps
+def parallelRound (sve : Bool) : Prog isa := scheduled sve roundOps
 
-def rounds : Nat → Prog isa
+def rounds (sve : Bool) : Nat → Prog isa
   | 0 => .block []
-  | n + 1 => .seq (rounds n) parallelRound
+  | n + 1 => .seq (rounds sve n) (parallelRound sve)
 
 /-- Keep one phase in the instruction cache; x1 is free until the scalar spill. -/
-def phase (restore : Reg) : Prog isa :=
+def phase (sve : Bool) (restore : Reg) : Prog isa :=
   .seq (.block [.movz .x .x1 5 0])
-    (.seq (.loop (.seq parallelRound (.block [.subImm .x .x1 .x1 1])) (.nonzero .x .x1))
+    (.seq (.loop (.seq (parallelRound sve) (.block [.subImm .x .x1 .x1 1])) (.nonzero .x .x1))
       (.block [.addImm .x .x1 restore 0]))
 
 def prepare : Prog isa := .seq (.block Mixed5.saveArgs)
@@ -57,8 +59,8 @@ def vectorFinish : Prog isa := .seq (.block Mixed5.restoreArgs)
 
 def finish : Prog isa := .seq vectorFinish (.block ((List.finRange 8).flatMap xorScalarRow))
 
-def chunk : Prog isa := .seq prepare (.seq (phase .x26)
-  (.seq second (.seq (phase .x20) (.seq (spill 64) finish))))
+def chunk (sve : Bool) : Prog isa := .seq prepare (.seq (phase sve .x26)
+  (.seq second (.seq (phase sve .x20) (.seq (spill 64) finish))))
 
 def check : List Instr :=
   [.lsr .x .x5 .x2 6,.subImm .x .x5 .x5 8,.lsr .x .x5 .x5 63]
@@ -69,11 +71,12 @@ def leave : List Instr := [.ldrq .v8 .x3 128,.ldrq .v9 .x3 144] ++ Mixed5.leave
 def next : List Instr := Mixed5.counter 8 ++
   [.addImm .x .x1 .x1 512,.subImm .x .x2 .x2 512] ++ check
 
-def body : Prog isa := .seq chunk (.block next)
+def body (sve : Bool) : Prog isa := .seq (chunk sve) (.block next)
 
-def xor : Prog isa := .seq (.block check)
+/-- The stream; its vector rounds use SVE2 if `sve`. -/
+def xor (sve : Bool) : Prog isa := .seq (.block check)
   (.seq (.ite (.nonzero .x .x5) (.block [])
-    (.seq (.block enter) (.seq (.loop body (.zero .x .x5)) (.block leave))))
+    (.seq (.block enter) (.seq (.loop (body sve) (.zero .x .x5)) (.block leave))))
     VG.Impl.ChaCha20.AArch64.Small.xor)
 
 end VG.Impl.ChaCha20.AArch64.Mixed8

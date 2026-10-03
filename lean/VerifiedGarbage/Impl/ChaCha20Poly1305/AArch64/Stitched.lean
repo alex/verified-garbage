@@ -19,7 +19,7 @@ and only the rest with those calls:
   and stored, `x21` (the context) recomputed from `x0`, `x27` and `x28`
   restored, and `x22`, `x23` set to the data not yet absorbed: everything
   after the chunks when decrypting, and also the last chunk when encrypting
-  (`polyOut`);
+  (`polyOut`); the chunks use SVE2 as the stream does (`XorCallee.sve`);
 * the rest of the data is encrypted (`vg_chacha20_xor`, from where the
   chunks stopped) and absorbed (from `x22`), in the order the direction
   needs.
@@ -61,10 +61,10 @@ def polyOut (enc : Bool) : List Instr :=
   (if enc then [.subImm .x .x22 .x1 512, .addImm .x .x23 .x2 512] else [mov .x22 .x1, mov .x23 .x2])
 
 /-- The whole chunks. -/
-def cryptStitched (enc : Bool) : Prog isa :=
+def cryptStitched (sve enc : Bool) : Prog isa :=
   .seq (.block cryptSetup)
     (.ite (.nonzero .x .x5) (.block [])
-      (.seq (.block polyIn) (.seq (Stitch.bulk enc) (.block (polyOut enc)))))
+      (.seq (.block polyIn) (.seq (Stitch.bulk sve enc) (.block (polyOut enc)))))
 
 /-- The data from `x22` (`x23` bytes) encrypted or decrypted, continuing the
 stream's counter. -/
@@ -76,7 +76,7 @@ def sealStitched (c : XorCallee) : Prog isa :=
   .seq prologue
   (.seq (macPad .x24 .x25)
   (.seq (.block lengths)
-  (.seq (cryptStitched true)
+  (.seq (cryptStitched c.sve true)
   (.seq (.call c.name c.code)
   (.seq (macPad .x22 .x23)
   (.seq absorbLengths
@@ -87,7 +87,7 @@ def openStitched (c : XorCallee) : Prog isa :=
   .seq prologue
   (.seq (macPad .x24 .x25)
   (.seq (.block lengths)
-  (.seq (cryptStitched false)
+  (.seq (cryptStitched c.sve false)
   (.seq (macPad .x22 .x23)
   (.seq (cryptRest c)
   (.seq absorbLengths

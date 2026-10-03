@@ -6,6 +6,8 @@ open VG.Proof.ChaCha20 (ctr keystream_getD)
 open VG.Proof.ChaCha20.AArch64.Xor (XPre st dp L bp stR dR bR S0 D0 KS)
 open VG.Spec.ChaCha20 (stateAt keystream serialize block)
 
+variable {sve : Bool}
+
 structure LInv (s₀ : State) (t : Nat) (s : State) : Prop where
   x0 : s.gpr .x0 = st s₀
   x1 : s.gpr .x1 = dp s₀ + BitVec.ofNat 64 (512 * t)
@@ -166,7 +168,7 @@ theorem guardV_chunk {s₀ s : State} {t : Nat} (hp : XPre s₀) (h : BulkInv s�
 
  theorem body_ok {s₀ : State} (hp : XPre s₀) {t : Nat}
     (hge : 512 * t + 512 ≤ L s₀) {s : State} (h : BulkInv s₀ t s) :
-    WP isa body s fun u => BulkInv s₀ (t + 1) u ∧
+    WP isa (body sve) s fun u => BulkInv s₀ (t + 1) u ∧
       u.gpr .x5 = BitVec.ofNat 64 (if L s₀ - 512 * (t + 1) < 512 then 1 else 0) := by
   have hL := VG.Proof.ChaCha20.AArch64.Xor.L_lt s₀
   apply WP.seq
@@ -285,7 +287,7 @@ theorem init_ok (s : State) : WP isa (.block check) s fun u =>
     simp [hnn]
 
  theorem bulk_ok {s₀ : State} (hp : XPre s₀) {s : State} (h : BulkInv s₀ 0 s)
-    (hge : 512 ≤ L s₀) : WP isa (.loop body (.zero .x .x5)) s fun u =>
+    (hge : 512 ≤ L s₀) : WP isa (.loop (body sve) (.zero .x .x5)) s fun u =>
       ∃ t, L s₀ - 512 * t < 512 ∧ BulkInv s₀ t u := by
   let Inv : Nat → State → Prop := fun n s =>
     ∃ t, n = L s₀ - 512 * t ∧ 512 ≤ n ∧ BulkInv s₀ t s

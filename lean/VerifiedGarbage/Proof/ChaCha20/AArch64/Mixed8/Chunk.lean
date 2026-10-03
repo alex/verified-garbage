@@ -5,6 +5,8 @@ open VG VG.AArch64 VG.Impl.ChaCha20.AArch64.Mixed8
 open VG.Proof.ChaCha20 (ctr)
 open VG.Spec.ChaCha20 (serialize block)
 
+variable {sve : Bool}
+
 abbrev lastR (s : State) : Region := ⟨s.gpr .x1 + BitVec.ofNat 64 384,128⟩
 
 structure Chunked (s₀ s : State) : Prop where
@@ -95,11 +97,11 @@ theorem last_ok {s₀ s : State} (hp : CP s₀) (h : Finished s₀ s) :
       intro r hr; have he := List.mem_singleton.mp hr; subst r
       exact ⟨dr s₀,by simp,Offset.sub_base _ (by decide : 384 + 128 ≤ 512)⟩))
 
-theorem chunk_ok (s : State) (hp : CP s) : WP isa chunk s (Chunked s) := by
+theorem chunk_ok (s : State) (hp : CP s) : WP isa (chunk sve) s (Chunked s) := by
   apply WP.seq
   refine (prepare_ok s hp).mono fun a ha => ?_
   apply WP.seq
-  have first : WP isa (phase .x26) a fun b => Prepared s b 5 := by
+  have first : WP isa (phase sve .x26) a fun b => Prepared s b 5 := by
     refine (counted_phase_ok ha.vec ha.scalar ha.table
       (VG.Proof.ChaCha20.AArch64.not_words_preserved (by decide)) (by decide)
       ((ha.keep _ VG.Proof.ChaCha20.AArch64.not_words_x1 (by decide) (by decide)).trans ha.saved.data.symm)).mono fun b ⟨hv,hc,hsp,ht⟩ => ?_

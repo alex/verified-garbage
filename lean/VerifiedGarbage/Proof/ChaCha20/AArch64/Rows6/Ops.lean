@@ -120,4 +120,50 @@ theorem ops_ok : ∀ (ops : List Op) {vs : Nat → Rows} {s : State}, Holds vs s
     exact WP.block_append ((op_ok op h ht).mono fun _ ⟨h', hs⟩ =>
       (ops_ok ops h' (hs.v30.trans ht)).mono fun _ ⟨h'', hs'⟩ => ⟨h'', hs.trans hs'⟩)
 
+theorem ror_sub (x : BitVec 32) {n : Nat} (h0 : 0 < n) (hn : n < 32) :
+    x.rotateRight (32 - n) = x.rotateLeft n := by
+  rw [BitVec.rotateRight_def, BitVec.rotateLeft_def, Nat.mod_eq_of_lt (show 32 - n < 32 by omega),
+    Nat.mod_eq_of_lt hn, show 32 - (32 - n) = n by omega, BitVec.or_comm]
+
+/-- `op_ok` for the code with SVE2: an XAR in place of an `xorRol` whose
+destination is its first source. -/
+theorem op_ok_for (sve : Bool) (op : Op) {vs : Nat → Rows} {s : State} (h : Holds vs s)
+    (ht : s.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table) :
+    WP isa (.block (op.codeFor sve)) s fun s' => Holds (step vs op) s' ∧ RoundSame s s' := by
+  cases sve with
+  | false => exact op_ok op h ht
+  | true =>
+    cases op with
+    | add d a b =>
+      rw [show Op.codeFor true (.add d a b) = (Op.add d a b).code from rfl]; exact op_ok _ h ht
+    | permute d n =>
+      rw [show Op.codeFor true (.permute d n) = (Op.permute d n).code from rfl]; exact op_ok _ h ht
+    | xorRol d a b n =>
+      by_cases hda : d = a ∧ 0 < n.val
+      · obtain ⟨rfl, h0⟩ := hda
+        have hn : n.val < 32 := n.isLt
+        have hr : 1 ≤ 32 - n.val ∧ 32 - n.val ≤ 32 := ⟨by omega, by omega⟩
+        rw [show Op.codeFor true (.xorRol d d b n) = [.vop (.xarS (vreg d) (vreg b) (32 - n.val))]
+          from ite_eq_left ⟨rfl, h0⟩]
+        apply WP.of_runBlock
+        simp only [runBlock_cons, runBlock_nil, exec, VOp.eval, isa, runStep_some, hr, and_self,
+          ite_true, Option.map_some, Option.some.injEq, exists_eq_left']
+        refine ⟨fun k j hj => ?_, ⟨⟨rfl, rfl, rfl, rfl, rfl⟩,
+          by simp (config := {decide := true}) only [RegUpd.v_setV, Ne.symm (vreg_ne30 d), ite_false]⟩⟩
+        simp only [RegUpd.v_setV, step, get_set, vreg_inj]
+        split
+        · rw [vword_map2 _ _ _ hj, h d j hj, h b j hj, ror_sub _ h0 hn]
+        · exact h k j hj
+      · rw [show Op.codeFor true (.xorRol d a b n) = (Op.xorRol d a b n).code from ite_eq_right hda]
+        exact op_ok _ h ht
+
+theorem ops_ok_for (sve : Bool) : ∀ (ops : List Op) {vs : Nat → Rows} {s : State}, Holds vs s →
+    s.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table →
+    WP isa (.block (ops.flatMap (Op.codeFor sve))) s fun s' =>
+      Holds (ops.foldl step vs) s' ∧ RoundSame s s'
+  | [], _, _, h, _ => WP.block_nil ⟨h, ⟨⟨rfl,rfl,rfl,rfl,rfl⟩,rfl⟩⟩
+  | op :: ops, _, _, h, ht => by
+    exact WP.block_append ((op_ok_for sve op h ht).mono fun _ ⟨h', hs⟩ =>
+      (ops_ok_for sve ops h' (hs.v30.trans ht)).mono fun _ ⟨h'', hs'⟩ => ⟨h'', hs.trans hs'⟩)
+
 end VG.Proof.ChaCha20.AArch64.Rows6

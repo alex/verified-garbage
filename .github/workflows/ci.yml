@@ -571,7 +571,7 @@ jobs:
       - name: This runner's CPU
         run: |
           if [ "$(uname -m)" = aarch64 ]; then
-            grep -m1 Features /proc/cpuinfo | tr ' ' '\n' | grep -xE 'aes|pmull' | tr '\n' ' '
+            grep -m1 Features /proc/cpuinfo | tr ' ' '\n' | grep -xE 'aes|pmull|sve2' | tr '\n' ' '
           else
             grep -m1 'model name' /proc/cpuinfo
             grep -m1 flags /proc/cpuinfo | tr ' ' '\n' \
@@ -609,6 +609,12 @@ jobs:
         run: cargo test --locked --features cpu-features-env -- chacha20
         env:
           VG_CPU_FEATURES: none
+      # The runner has SVE2, so the native run tests the `_sve2` instances.
+      - name: Test NEON ChaCha on ARM64
+        if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
+        run: cargo test --locked --features cpu-features-env -- chacha20
+        env:
+          VG_CPU_FEATURES: neon
       - name: Test the ARM64 SHA-3 prototype and scalar fallback
         if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
         run: |

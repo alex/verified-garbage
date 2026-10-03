@@ -29,9 +29,9 @@ open VG.Impl.ChaCha20.AArch64
 def absorb3 : List Instr := Poly.block ++ Poly.block ++ Poly.block
 
 /-- A counted phase with Poly1305: `start` sets `x20` to the first block. -/
-def phase (start : Instr) (restore : Reg) : Prog isa :=
+def phase (sve : Bool) (start : Instr) (restore : Reg) : Prog isa :=
   .seq (.block ([start] ++ Poly.block ++ [.movz .x .x1 5 0]))
-    (.seq (.loop (.seq Mixed8.parallelRound (.block (absorb3 ++ [.subImm .x .x1 .x1 1])))
+    (.seq (.loop (.seq (Mixed8.parallelRound sve) (.block (absorb3 ++ [.subImm .x .x1 .x1 1])))
         (.nonzero .x .x1))
       (.block [.addImm .x .x20 .x0 64, .addImm .x .x1 restore 0]))
 
@@ -42,30 +42,32 @@ def start (enc : Bool) (half : Nat) : Instr :=
   if enc then .subImm .x .x20 .x26 (512 - 256 * half) else .addImm .x .x20 .x26 (256 * half)
 
 /-- One chunk of 512 bytes, with 32 blocks of Poly1305. -/
-def chunk (enc : Bool) : Prog isa :=
-  .seq Mixed8.prepare (.seq (phase (start enc 0) .x26)
-    (.seq Mixed8.second (.seq (phase (start enc 1) .x20) (.seq (Mixed8.spill 64) Mixed8.finish))))
+def chunk (sve enc : Bool) : Prog isa :=
+  .seq Mixed8.prepare (.seq (phase sve (start enc 0) .x26)
+    (.seq Mixed8.second (.seq (phase sve (start enc 1) .x20) (.seq (Mixed8.spill 64) Mixed8.finish))))
 
 /-- A chunk, then the counter and the pointers advanced (`Mixed8.next`). -/
-def body (enc : Bool) : Prog isa := .seq (chunk enc) (.block Mixed8.next)
+def body (sve enc : Bool) : Prog isa := .seq (chunk sve enc) (.block Mixed8.next)
 
 /-- Chunks while 512 bytes remain. -/
-def chunks (enc : Bool) : Prog isa := .loop (body enc) (.zero .x .x5)
+def chunks (sve enc : Bool) : Prog isa := .loop (body sve enc) (.zero .x .x5)
 
 /-- The whole chunks of at least 512 bytes of data, with the stream's
 registers (`x0`–`x3`, as `vg_chacha20_xor`'s arguments) and the accumulator
 in `x21`–`x23`: `x19`, `x20`, `x26`, `v8` and `v9` saved in the working space
 (`Mixed8.enter`), and the chunks. When encrypting, a chunk absorbs the one
 before it, so the first is the kernel's own (`Mixed8.body`). -/
-def bulk (enc : Bool) : Prog isa :=
+def bulk (sve enc : Bool) : Prog isa :=
   .seq (.block Mixed8.enter)
-    (.seq (if enc then .seq Mixed8.body (.ite (.nonzero .x .x5) (.block []) (chunks true))
-      else chunks false)
+    (.seq (if enc then .seq (Mixed8.body sve) (.ite (.nonzero .x .x5) (.block []) (chunks sve true))
+      else chunks sve false)
       (.block Mixed8.leave))
 
-/-- The chunks that encrypt and those that decrypt, as constants (whose
-literals the proofs evaluate). -/
-def bulkSeal : Prog isa := bulk true
-def bulkOpen : Prog isa := bulk false
+/-- The chunks that encrypt and those that decrypt, with and without SVE2, as
+constants (whose literals the proofs evaluate). -/
+def bulkSeal : Prog isa := bulk false true
+def bulkOpen : Prog isa := bulk false false
+def bulkSealSve : Prog isa := bulk true true
+def bulkOpenSve : Prog isa := bulk true false
 
 end VG.Impl.ChaCha20Poly1305.AArch64.Stitch

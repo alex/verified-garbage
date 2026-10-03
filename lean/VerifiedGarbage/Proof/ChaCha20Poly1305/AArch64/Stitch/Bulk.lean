@@ -24,6 +24,8 @@ open VG.Spec.ChaCha20 (stateAt)
 open VG.Spec.Poly1305 (bytesAt)
 open VG.Proof.Poly1305 (absorbAll)
 
+variable {sve : Bool}
+
 theorem WP.both {c : Prog isa} {s : State} {Q₁ Q₂ : State → Prop} (h₁ : WP isa c s Q₁)
     (h₂ : WP isa c s Q₂) : WP isa c s fun u => Q₁ u ∧ Q₂ u := by
   obtain ⟨t₁, u₁, e₁, q₁⟩ := h₁
@@ -107,7 +109,7 @@ theorem eval_zero5 {s : State} {n : Nat}
 theorem chunks_open {s₀ : State} (hp : BPre s₀) {R a : Nat} {s : State} {t : Nat}
     (hge : 512 * t + 512 ≤ L s₀) (h : BulkInv (rebase s₀ s) t s)
     (ha : Acc R (absorbAll R a (bytesAt s₀.mem (dp s₀) (512 * t))) s) :
-    WP isa (chunks false) s fun u => ∃ T, L s₀ - 512 * T < 512 ∧ t < T ∧
+    WP isa (chunks sve false) s fun u => ∃ T, L s₀ - 512 * T < 512 ∧ t < T ∧
       BulkInv (rebase s₀ u) T u ∧ Acc R (absorbAll R a (bytesAt s₀.mem (dp s₀) (512 * T))) u := by
   let Inv : Nat → State → Prop := fun n x => ∃ i, n = L s₀ - 512 * i ∧ 512 ≤ n ∧ t ≤ i ∧
     BulkInv (rebase s₀ x) i x ∧ Acc R (absorbAll R a (bytesAt s₀.mem (dp s₀) (512 * i))) x
@@ -137,7 +139,7 @@ theorem chunks_open {s₀ : State} (hp : BPre s₀) {R a : Nat} {s : State} {t :
 theorem chunks_seal {s₀ : State} (hp : BPre s₀) {R a : Nat} {s : State} {t : Nat} (ht : 1 ≤ t)
     (hge : 512 * t + 512 ≤ L s₀) (h : BulkInv (rebase s₀ s) t s)
     (ha : Acc R (absorbAll R a (bytesAt s.mem (dp s₀) (512 * (t - 1)))) s) :
-    WP isa (chunks true) s fun u => ∃ T, L s₀ - 512 * T < 512 ∧ t < T ∧
+    WP isa (chunks sve true) s fun u => ∃ T, L s₀ - 512 * T < 512 ∧ t < T ∧
       BulkInv (rebase s₀ u) T u ∧
       Acc R (absorbAll R a (bytesAt u.mem (dp s₀) (512 * (T - 1)))) u := by
   let Inv : Nat → State → Prop := fun n x => ∃ i, n = L s₀ - 512 * i ∧ 512 ≤ n ∧ t ≤ i ∧
@@ -225,7 +227,7 @@ theorem bytesAt_zero (m : Mem) (p : Addr) : bytesAt m p 0 = [] := rfl
 
 theorem bulk_ok (enc : Bool) {s₀ : State} (hp : BPre s₀) (hL : 512 ≤ L s₀) {R a : Nat}
     (ha : Acc R a s₀) :
-    WP isa (bulk enc) s₀ fun u => ∃ T, Bulked enc R a s₀ T u := by
+    WP isa (bulk sve enc) s₀ fun u => ∃ T, Bulked enc R a s₀ T u := by
   have ho : ∀ d n, d + n ≤ 320 → InRegions s₀.wr (s₀.gpr .x3 + BitVec.ofNat 64 d) n := by
     intro d n hd
     rw [hp.wr]

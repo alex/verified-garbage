@@ -24,7 +24,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-pub(crate) const NAMES: [&str; 16] = [
+pub(crate) const NAMES: [&str; 17] = [
     "ssse3",
     "sha",
     "aes",
@@ -41,6 +41,7 @@ pub(crate) const NAMES: [&str; 16] = [
     "avx512ifma",
     "avx512vl",
     "neon",
+    "sve2",
 ];
 
 /// The bit of a feature detection does not know, which is never detected.
@@ -208,12 +209,14 @@ fn runtime() -> u32 {
 
 /// AArch64 feature groups, using the same Rust names as the generated
 /// artifacts: `aes` covers FEAT_AES and FEAT_PMULL, `sha2` covers FEAT_SHA1
-/// and FEAT_SHA256, and `sha3` covers FEAT_SHA512 and FEAT_SHA3.
+/// and FEAT_SHA256, `sha3` covers FEAT_SHA512 and FEAT_SHA3, and `sve2` is
+/// FEAT_SVE2.
 #[cfg(target_arch = "aarch64")]
 fn runtime() -> u32 {
     (u32::from(aarch64_aes()) * Features::of(&["aes"]).0)
         | (u32::from(aarch64_sha2()) * Features::of(&["sha2"]).0)
         | (u32::from(aarch64_sha3()) * Features::of(&["sha3"]).0)
+        | (u32::from(aarch64_sve2()) * Features::of(&["sve2"]).0)
         // AdvSIMD is the AArch64 baseline used by the verified ISA.
         // Keep a mask bit so tests and benchmarks can select scalar code.
         | Features::of(&["neon"]).0
@@ -258,6 +261,19 @@ fn aarch64_sha3() -> bool {
     cfg!(target_feature = "sha3")
 }
 
+/// Whether the CPU has FEAT_SVE2, asked of the operating system (which also
+/// says whether it has enabled SVE for this process).
+#[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+fn aarch64_sve2() -> bool {
+    std::arch::is_aarch64_feature_detected!("sve2")
+}
+
+/// Without `std`, use only features guaranteed by the compilation target.
+#[cfg(all(target_arch = "aarch64", not(feature = "cpu-features-env")))]
+fn aarch64_sve2() -> bool {
+    cfg!(target_feature = "sve2")
+}
+
 /// No features are detected on the other targets yet.
 #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
 fn runtime() -> u32 {
@@ -292,6 +308,7 @@ mod tests {
         assert_eq!(Features::of(&["sha2"]), Features(1 << 10));
         assert_eq!(Features::of(&["sha3"]), Features(1 << 11));
         assert_eq!(Features::of(&["neon"]), Features(1 << 15));
+        assert_eq!(Features::of(&["sve2"]), Features(1 << 16));
         assert_eq!(
             Features::all(&[&["sha"], &[], &["ssse3", "sha"]]),
             Features(0b11)
@@ -323,6 +340,7 @@ mod tests {
         assert_eq!(parse("sha512"), Some(0b10_0000_0000));
         assert_eq!(parse("sha2"), Some(1 << 10));
         assert_eq!(parse("sha3"), Some(1 << 11));
+        assert_eq!(parse("neon,sve2"), Some((1 << 15) | (1 << 16)));
         assert_eq!(parse("sha2,sha3"), Some((1 << 10) | (1 << 11)));
         assert_eq!(parse("adx"), Some(1 << 12));
         for bad in ["avx512bw", "aes,", "aes,none", " aes", "AES"] {

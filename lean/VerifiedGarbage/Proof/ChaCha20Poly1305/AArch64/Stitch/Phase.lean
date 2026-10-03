@@ -24,6 +24,8 @@ open VG.Spec.ChaCha20 (innerBlock)
 open VG.Spec.Poly1305 (bytesAt)
 open VG.Proof.Poly1305 (absorbAll)
 
+variable {sve : Bool}
+
 abbrev Acc := VG.Proof.ChaCha20Poly1305.AArch64.Poly.Acc
 
 theorem words_not_poly {r : Reg} (h : Words r) : r ∉ Poly.regs := by
@@ -135,7 +137,7 @@ theorem absorb3_ok {R a : Nat} {W : Addr} {n : Nat} (hn : 16 * n + 48 ≤ 256) {
 /-- The loop body, from `PI … i` to `PI … (i + 1)`. -/
 theorem iter_ok {blocks v R a W s₀ s} {i : Nat} (hi : i < 5) (hr : Readable W s₀)
     (h : PI blocks v R a W s₀ s i) :
-    WP isa (.seq VG.Impl.ChaCha20.AArch64.Mixed8.parallelRound (.block (absorb3 ++ ([.subImm .x .x1 .x1 1] : List Instr)))) s
+    WP isa (.seq (VG.Impl.ChaCha20.AArch64.Mixed8.parallelRound sve) (.block (absorb3 ++ ([.subImm .x .x1 .x1 1] : List Instr)))) s
       fun u => PI blocks v R a W s₀ u (i + 1) ∧ u.gpr .x1 = s.gpr .x1 - 1#64 := by
   apply WP.seq
   refine (VG.Proof.ChaCha20.AArch64.Mixed8.parallelRound_ok h.vec h.scalar h.table).mono
@@ -205,7 +207,7 @@ theorem phase_ok {blocks : Nat → VG.Spec.ChaCha20.State} {v : VG.Spec.ChaCha20
     (ht : s.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table)
     (hstart : exec start s = some (s.write .x .x20 W))
     (ha : Acc R a s) (hr : Readable W s) :
-    WP isa (phase start restore) s (Done blocks v R a W restore s) := by
+    WP isa (phase sve start restore) s (Done blocks v R a W restore s) := by
   unfold phase
   apply WP.seq
   -- `x20` set, the first block, and the counter.
@@ -251,7 +253,7 @@ theorem phase_ok {blocks : Nat → VG.Spec.ChaCha20.State} {v : VG.Spec.ChaCha20
     let Inv : Nat → State → Prop := fun n u =>
       ∃ i, i < 5 ∧ n = 5 - i ∧ PI blocks v R a W s u i ∧ u.gpr .x1 = BitVec.ofNat 64 (5 - i)
     have hstep : ∀ n u, Inv n u → WP isa
-        (.seq VG.Impl.ChaCha20.AArch64.Mixed8.parallelRound
+        (.seq (VG.Impl.ChaCha20.AArch64.Mixed8.parallelRound sve)
           (.block (absorb3 ++ [.subImm .x .x1 .x1 1]))) u (fun w =>
         (eval (.nonzero .x .x1) w = some false ∧ PI blocks v R a W s w 5) ∨
         (eval (.nonzero .x .x1) w = some true ∧ ∃ m < n, Inv m w)) := by

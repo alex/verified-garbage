@@ -14,6 +14,8 @@ open VG VG.AArch64 VG.Impl.ChaCha20Poly1305.AArch64
 open VG.Proof.ChaCha20Poly1305.AArch64.Stitch (Bulked BPre Acc bulk_ok)
 open VG.Spec.Poly1305 (Repr bytesAt)
 
+variable {sve : Bool}
+
 @[simp] theorem withRegions_v (s : State) (rd wr : List Region) : (s.withRegions rd wr).v = s.v := rfl
 
 /-- The stream's regions in the context. -/
@@ -40,7 +42,7 @@ theorem bulkA_ok (enc : Bool) {s₀ : State} (hp : APre s₀) {s : State}
     (hx0 : s.gpr .x0 = off (cx s₀) 64) (hx1 : s.gpr .x1 = dp s₀) (hx2 : s.gpr .x2 = s₀.gpr .x4)
     (hx3 : s.gpr .x3 = off (cx s₀) 128) (hL : 512 ≤ L s₀) (hwr : s.wr = s₀.wr)
     {R a : Nat} (ha : Acc R a s) :
-    WP isa (Stitch.bulk enc) s fun u => (∃ T, Bulked enc R a (s.withRegions [] (streamR s₀)) T
+    WP isa (Stitch.bulk sve enc) s fun u => (∃ T, Bulked enc R a (s.withRegions [] (streamR s₀)) T
       (u.withRegions [] (streamR s₀))) ∧ u.rd = s.rd ∧ u.wr = s.wr ∧ u.sp = s.sp ∧
       Frame (streamR s₀) s.mem u.mem := by
   have hb := bulk_bpre hp hx0 hx1 hx2 hx3
@@ -55,7 +57,7 @@ theorem bulkA_ok (enc : Bool) {s₀ : State} (hp : APre s₀) {s : State}
     · exact ⟨ctxR s₀, by simp, 64, rfl, by show 64 + 64 ≤ 1024; omega⟩
     · exact ⟨dR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨ctxR s₀, by simp, 128, rfl, by show 128 + 320 ≤ 1024; omega⟩
-  refine WP.narrow (bulk_ok enc hb hL' ha') (Covers.right hw) hw ?_ (by cases enc <;> decide +kernel)
+  refine WP.narrow (bulk_ok enc hb hL' ha') (Covers.right hw) hw ?_ (by cases sve <;> cases enc <;> decide +kernel)
   intro u hrd' hwr' hsp hf hu
   exact ⟨hu, hrd', hwr', hsp, hf⟩
 

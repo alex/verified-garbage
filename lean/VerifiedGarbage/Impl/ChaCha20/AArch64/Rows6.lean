@@ -34,6 +34,15 @@ def Op.code : Op → List Instr
       .vop (.shift .sli .s4 (vreg d) .v31 n)]
   | .permute d n => [.vop (.ext (vreg d) (vreg d) (vreg d) (4 * n.val))]
 
+/-- The code of `op`, using SVE2 if `sve`: an `xorRol` whose destination is
+its first source, by a nonzero rotation, is then one XAR, `ROR(d XOR b, 32 -
+n)`, which is `ROL(d XOR b, n)` (SVE2 XAR rotates right by 1 to 31 here). -/
+def Op.codeFor (sve : Bool) (op : Op) : List Instr :=
+  match sve, op with
+  | true, .xorRol d a b n =>
+    if d = a ∧ 0 < n.val then [.vop (.xarS (vreg d) (vreg b) (32 - n.val))] else op.code
+  | _, _ => op.code
+
 def stage (f : Fin 6 → Op) : List Op := (List.finRange 6).map f
 
 def half (r₁ r₂ : Fin 32) : List Op :=

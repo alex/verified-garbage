@@ -11,6 +11,8 @@ abbrev C := VG.Proof.ChaCha20.AArch64.Holds
 abbrev RI := VG.Proof.ChaCha20.AArch64.RI
 abbrev VS := (Nat → Rows) × CState
 
+variable {sve : Bool}
+
 def step (v : VS) : Op → VS
   | .vector op => (VG.Proof.ChaCha20.AArch64.Rows6.step v.1 op,v.2)
   | .scalar op => (v.1,VG.Proof.ChaCha20.AArch64.Neon4.step v.2 op)
@@ -22,12 +24,12 @@ def Valid : Op → Prop
 theorem op_ok (op : Op) (hp : Valid op) {v : VS} {s : State}
     (hn : N v.1 s) (hc : C v.2 s)
     (ht : s.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table) :
-    WP isa (.block op.code) s fun u =>
+    WP isa (.block (op.code sve)) s fun u =>
       N (step v op).1 u ∧ RI (step v op).2 s u ∧ u.sp = s.sp ∧
       u.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table := by
   cases op with
   | vector op =>
-    refine (VG.Proof.ChaCha20.AArch64.Rows6.op_ok op hn ht).mono fun u ⟨hu,hs⟩ => ?_
+    refine (VG.Proof.ChaCha20.AArch64.Rows6.op_ok_for sve op hn ht).mono fun u ⟨hu,hs⟩ => ?_
     have hcu : C v.2 u := by simpa only [C,VG.Proof.ChaCha20.AArch64.Holds,hs.gpr] using hc
     exact ⟨hu,⟨hcu,hs.mem,hs.rd,hs.wr,fun r _ => congrFun hs.gpr r⟩,hs.sp,hs.v30.trans ht⟩
   | scalar op =>
@@ -39,7 +41,7 @@ theorem op_ok (op : Op) (hp : Valid op) {v : VS} {s : State}
 theorem ops_ok (ops : List Op) (hp : ∀ op ∈ ops, Valid op) {v : VS} {s : State}
     (hn : N v.1 s) (hc : C v.2 s)
     (ht : s.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table) :
-    WP isa (scheduled ops) s fun u =>
+    WP isa (scheduled sve ops) s fun u =>
       N (ops.foldl step v).1 u ∧ RI (ops.foldl step v).2 s u ∧ u.sp = s.sp ∧
       u.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table := by
   induction ops generalizing v s with
@@ -100,7 +102,7 @@ theorem interleave_valid (vs : List VG.Impl.ChaCha20.AArch64.Rows6.Op)
 theorem parallelRound_ok {blocks : Nat → CState} {v : CState} {s : State}
     (hn : N (VG.Proof.ChaCha20.AArch64.Rows6.pack blocks) s) (hc : C v s)
     (ht : s.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table) :
-    WP isa parallelRound s fun u =>
+    WP isa (parallelRound sve) s fun u =>
       N (VG.Proof.ChaCha20.AArch64.Rows6.pack (fun b => innerBlock (blocks b))) u ∧
       RI (innerBlock (innerBlock v)) s u ∧ u.sp = s.sp ∧
       u.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table := by
@@ -132,7 +134,7 @@ theorem parallelRound_ok {blocks : Nat → CState} {v : CState} {s : State}
 theorem rounds_ok {blocks : Nat → CState} {v : CState} {s : State}
     (hn : N (VG.Proof.ChaCha20.AArch64.Rows6.pack blocks) s) (hc : C v s)
     (ht : s.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table) :
-    ∀ n, WP isa (rounds n) s fun u =>
+    ∀ n, WP isa (rounds sve n) s fun u =>
       N (VG.Proof.ChaCha20.AArch64.Rows6.pack
         (fun b => Nat.repeat innerBlock n (blocks b))) u ∧
       RI (Nat.repeat (fun x => innerBlock (innerBlock x)) n v) s u ∧ u.sp = s.sp ∧
@@ -148,7 +150,7 @@ theorem rounds_ok {blocks : Nat → CState} {v : CState} {s : State}
 theorem phase_ok {blocks : Nat → CState} {v : CState} {s : State}
     (hn : N (VG.Proof.ChaCha20.AArch64.Rows6.pack blocks) s) (hc : C v s)
     (ht : s.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table) :
-    WP isa (rounds 5) s fun u =>
+    WP isa (rounds sve 5) s fun u =>
       N (VG.Proof.ChaCha20.AArch64.Rows6.pack
         (fun b => Nat.repeat innerBlock 5 (blocks b))) u ∧
       RI (Nat.repeat innerBlock 10 v) s u ∧ u.sp = s.sp ∧

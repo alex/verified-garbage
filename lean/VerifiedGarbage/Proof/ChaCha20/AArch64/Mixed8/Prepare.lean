@@ -116,8 +116,8 @@ structure Prepared (s₀ s : State) (n : Nat := 0) : Prop where
     rw [hab.mem,hm₀] at hfc
     exact hfc
 
-theorem compute_ok (s : State) (hp : CP s) :
-    WP isa (.seq prepare (rounds 5)) s fun u => Prepared s u 5 := by
+theorem compute_ok {sve : Bool} (s : State) (hp : CP s) :
+    WP isa (.seq prepare (rounds sve 5)) s fun u => Prepared s u 5 := by
   apply WP.seq
   refine (prepare_ok s hp).mono fun a h => ?_
   refine (phase_ok h.vec h.scalar h.table).mono fun b ⟨hv,hc,hsp,ht⟩ => ?_

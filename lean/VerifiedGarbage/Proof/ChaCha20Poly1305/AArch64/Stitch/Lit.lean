@@ -9,5 +9,7 @@ namespace VG
 
 materialize_code Impl.ChaCha20Poly1305.AArch64.Stitch.bulkSeal
 materialize_code Impl.ChaCha20Poly1305.AArch64.Stitch.bulkOpen
+materialize_code Impl.ChaCha20Poly1305.AArch64.Stitch.bulkSealSve
+materialize_code Impl.ChaCha20Poly1305.AArch64.Stitch.bulkOpenSve
 
 end VG

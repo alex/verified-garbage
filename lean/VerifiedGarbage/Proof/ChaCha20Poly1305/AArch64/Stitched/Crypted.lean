@@ -21,6 +21,8 @@ open VG.Proof.Poly1305 (absorbAll)
 open VG.Spec.Poly1305 (Repr bytesAt)
 open VG.Spec.ChaCha20 (stateAt keystream)
 
+variable {sve : Bool}
+
 /-- The bytes the chunks absorbed: all of them when decrypting, all but the
 last chunk when encrypting. -/
 def pre (enc : Bool) (T : Nat) : Nat := if enc then 512 * (T - 1) else 512 * T
@@ -67,11 +69,13 @@ theorem WP.otherV {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c 
     VG.Proof.ChaCha20.AArch64.Rows6.keepsOtherV_ne (List.all_eq_true.mp
       ((Code.allInstrs_eq _ c) ▸ hc) i hi) hr h8 h9) he⟩
 
-theorem bulk_otherV (enc : Bool) :
-    (Stitch.bulk enc).allInstrs VG.Proof.ChaCha20.AArch64.Rows6.keepsOtherV = true := by
-  cases enc
+theorem bulk_otherV (sve enc : Bool) :
+    (Stitch.bulk sve enc).allInstrs VG.Proof.ChaCha20.AArch64.Rows6.keepsOtherV = true := by
+  cases sve <;> cases enc
   · show Stitch.bulkOpen.allInstrs _ = true; lit_decide
   · show Stitch.bulkSeal.allInstrs _ = true; lit_decide
+  · show Stitch.bulkOpenSve.allInstrs _ = true; lit_decide
+  · show Stitch.bulkSealSve.allInstrs _ = true; lit_decide
 
 /-- A byte of the data outside a frame of the context. -/
 theorem data_frame {s₀ : State} {rs : List Region} {m m' : Mem} (hf : Frame rs m m')
@@ -296,7 +300,7 @@ theorem long_crypted (enc : Bool) {s₀ : State} (hp : APre s₀) {s : State} (h
     (x3₂ : s₂.gpr .x3 = off (cx s₀) 128) (k₂ : Kept [sub s₀ 64 64] s s₂)
     (v₂ : ∀ r ∈ preservedV, (s₂.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64)
     (hL : 512 ≤ L s₀) :
-    WP isa (.seq (.block polyIn) (.seq (Stitch.bulk enc) (.block (polyOut enc)))) s₂
+    WP isa (.seq (.block polyIn) (.seq (Stitch.bulk sve enc) (.block (polyOut enc)))) s₂
       fun u => ∃ T, Crypted enc s₀ s key msg T u := by
   have hL' : L s₀ ≤ 2 ^ 64 := Nat.le_of_lt (s₀.gpr .x4).isLt
   have i₂ := h.step1 k₂ (by lit_omega) (by lit_omega) (by lit_omega)
@@ -311,7 +315,7 @@ theorem long_crypted (enc : Bool) {s₀ : State} (hp : APre s₀) {s : State} (h
   have x3₃ : s₃.gpr .x3 = off (cx s₀) 128 := by rw [g₃ _ (by decide), x3₂]
   have ha := acc_in hr₂ x0₃ a21 a22 a23 m₃
   refine WP.seq ((WP.otherV (bulkA_ok enc hp x0₃ x1₃ x2₃ x3₃ hL (by rw [wr₃, i₂.wr]) ha)
-    (bulk_otherV enc)).mono fun s₄ ⟨⟨⟨T, hB⟩, rd₄, wr₄, sp₄, f₄⟩, ov₄⟩ => ?_)
+    (bulk_otherV sve enc)).mono fun s₄ ⟨⟨⟨T, hB⟩, rd₄, wr₄, sp₄, f₄⟩, ov₄⟩ => ?_)
   have hi := hB.inv
   have x0₄ : s₄.gpr .x0 = off (cx s₀) 64 := by
     have e := hi.x0; simp only [State.withRegions_gpr, Stitch.st_rebase,
@@ -466,7 +470,7 @@ theorem long_crypted (enc : Bool) {s₀ : State} (hp : APre s₀) {s : State} (h
 theorem cryptStitched_ok (enc : Bool) {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s)
     (hst : stateAt s.mem (off (cx s₀) 64) = Spec.ChaCha20.initState (K s₀) 0 (N s₀))
     {key msg : List Byte} (hr : Repr s.mem (off (cx s₀) 448) key msg) :
-    WP isa (cryptStitched enc) s fun u => ∃ T, Crypted enc s₀ s key msg T u := by
+    WP isa (cryptStitched sve enc) s fun u => ∃ T, Crypted enc s₀ s key msg T u := by
   unfold cryptStitched
   refine WP.seq ((setup_ok hp h).mono fun s₂ ⟨m₂, x0₂, x1₂, x2₂, x3₂, x5₂, _, _, k₂, v₂⟩ => ?_)
   apply WP.ite (decide (L s₀ < 512)) (VG.Proof.ChaCha20.AArch64.Mixed8.nonzero_short x5₂)

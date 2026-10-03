@@ -22,6 +22,8 @@ open VG.Spec.ChaCha20 (stateAt)
 open VG.Spec.Poly1305 (bytesAt)
 open VG.Proof.Poly1305 (absorbAll)
 
+variable {sve : Bool}
+
 @[simp] theorem rebase_x0 (s₀ u : State) : (rebase s₀ u).gpr .x0 = s₀.gpr .x0 := rebase_of (by decide)
 @[simp] theorem rebase_x1 (s₀ u : State) : (rebase s₀ u).gpr .x1 = s₀.gpr .x1 := rebase_of (by decide)
 @[simp] theorem rebase_x2 (s₀ u : State) : (rebase s₀ u).gpr .x2 = s₀.gpr .x2 := rebase_of (by decide)
@@ -178,7 +180,7 @@ theorem body_ok (enc : Bool) {s₀ : State} (hp : BPre s₀) {t : Nat}
     (hw : w + 512 ≤ L s₀)
     (hB : dp s₀ + BitVec.ofNat 64 (512 * t) = dataOf enc (dp s₀ + BitVec.ofNat 64 w))
     (ha : Acc R a s) :
-    WP isa (body enc) s fun v =>
+    WP isa (body sve enc) s fun v =>
       (BulkInv (rebase s₀ v) (t + 1) v ∧
         v.gpr .x5 = BitVec.ofNat 64 (if L s₀ - 512 * (t + 1) < 512 then 1 else 0)) ∧
       Acc R (absorbAll R a (bytesAt s.mem (dp s₀ + BitVec.ofNat 64 w) 512)) v := by
