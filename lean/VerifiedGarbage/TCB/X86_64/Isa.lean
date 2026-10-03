@@ -60,6 +60,12 @@ Modelling choices:
   passes arguments on the stack by pushing them, the last first, just
   before the call: on the callee's entry the first is then at `[rsp + 8]`,
   above the return address.
+* A frame may instead allocate a buffer of `bytes` bytes on the stack
+  (`alloc`, `lea rsp, [rsp - bytes]`), released by its pop (`free`, `lea
+  rsp, [rsp + bytes]`); `lea` writes only `rsp`, so neither changes the
+  flags or memory. `bytes` is positive, a multiple of 8 and less than 4096,
+  as for the frames of the AArch64 model: less than a page, so that the
+  allocation does not move `rsp` past a guard page below the stack.
 * The SSE registers `xmm0`–`xmm15` are modelled as 128 bits each (SDM Vol. 1
   §10.2.2), and separately the upper halves (bits 255:128) of the AVX
   registers `ymm0`–`ymm15` that alias them (SDM Vol. 1 §14.1.1) and bits
@@ -210,6 +216,13 @@ inductive Instr
   /-- `pop r64` (58+rd), `k` times: the pop of a frame of `8 * k` bytes (see
   `pop`); `k > 0`, and `r` is not `rsp` -/
   | pop (r : Reg) (k : Nat)
+  /-- `lea rsp, [rsp - bytes]` (REX.W + 8D /r): the push of a frame of
+  `bytes` bytes that it does not write (see `push`); `0 < bytes < 4096`, a
+  multiple of 8 -/
+  | alloc (bytes : Nat)
+  /-- `lea rsp, [rsp + bytes]` (REX.W + 8D /r): the pop of a frame of `bytes`
+  bytes (see `pop`) -/
+  | free (bytes : Nat)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -401,7 +414,7 @@ def exec : Instr → State → Option State
   | .adcx d src, s => execAdcx d src s
   | .adox d src, s => execAdox d src s
   -- Only the push and pop of a frame (`push`, `pop`).
-  | .push _, _ | .pop .., _ => none
+  | .push _, _ | .pop .., _ | .alloc _, _ | .free _, _ => none
 
 def addrs : Instr → State → List Addr
   | .mov _ src, s => srcAddrs s src
@@ -443,6 +456,7 @@ def addrs : Instr → State → List Addr
   | .adox _ src, s => srcAddrs s src
   | .push rs, s => (List.range rs.length).map fun i => s.gpr .rsp - BitVec.ofNat 64 (8 * (i + 1))
   | .pop _ k, s => (List.range k).map fun i => s.gpr .rsp + BitVec.ofNat 64 (8 * i)
+  | .alloc _, _ | .free _, _ => []
 
 def eval : Cond → State → Option Bool
   | .e, s => s.zf
@@ -491,8 +505,23 @@ def popReg (s : State) (r : Reg) : Nat → State
 /-- The push of a frame: `push r` for each `r` of `rs` (`pushRegs`). The
 `8 * rs.length` bytes it stores become a writable region, at the head of
 `wr`. Faults if `rs` is empty or contains `rsp`, or if the frame would wrap
-around the address space. -/
+around the address space.
+
+Or `lea rsp, [rsp - bytes]` (`alloc`): SDM Vol. 2, "LEA—Load Effective
+Address", with a 64-bit operand size and address size: `DEST :=
+EffectiveAddress(SRC)`, the address computed modulo 2⁶⁴; "Flags Affected:
+None". The `bytes` bytes below `rsp` become a writable region, at the head
+of `wr`, which it does not write: they hold what memory held there, as the
+bytes a call or a push stores below `rsp` before it does (and a contract
+says nothing of them: they are in the stack below the caller's stack
+pointer, `Abi.reserved`). Faults unless `0 < bytes < 4096` and `bytes` is a
+multiple of 8, or if the frame would wrap around the address space. -/
 def push : Instr → State → Option State
+  | .alloc bytes, s =>
+    if 0 < bytes ∧ bytes < 4096 ∧ bytes % 8 = 0 ∧ bytes ≤ (s.gpr .rsp).toNat then
+      let sp := s.gpr .rsp - BitVec.ofNat 64 bytes
+      some { s.setReg .rsp sp with wr := ⟨sp, bytes⟩ :: s.wr }
+    else none
   | .push rs, s =>
     let n := 8 * rs.length
     if rs ≠ [] ∧ .rsp ∉ rs ∧ n ≤ (s.gpr .rsp).toNat then
@@ -503,8 +532,18 @@ def push : Instr → State → Option State
 /-- The pop of a frame: `pop r`, `k` times (`popReg`), so that `r` holds the
 last quadword of the frame. Faults if `k = 0` or `r` is `rsp`, and unless
 `rsp` and the writable regions are those the push left (`s₁`), and the
-frame, the region at their head, has `8 * k` bytes; it removes the frame. -/
+frame, the region at their head, has `8 * k` bytes; it removes the frame.
+
+Or `lea rsp, [rsp + bytes]` (`free`, "LEA" as for `alloc`), with the same
+conditions on `bytes` as `alloc` and on `rsp` and the writable regions as
+`pop`, the frame having `bytes` bytes; it changes neither memory nor any
+other register. -/
 def pop : Instr → State → State → Option State
+  | .free bytes, s₁, s₂ =>
+    if 0 < bytes ∧ bytes < 4096 ∧ bytes % 8 = 0 ∧ s₂.gpr .rsp = s₁.gpr .rsp ∧ s₂.wr = s₁.wr ∧
+        s₁.wr.head? = some ⟨s₁.gpr .rsp, bytes⟩ then
+      some { s₂.setReg .rsp (s₂.gpr .rsp + BitVec.ofNat 64 bytes) with wr := s₂.wr.tail }
+    else none
   | .pop r k, s₁, s₂ =>
     if k ≠ 0 ∧ r ≠ .rsp ∧ s₂.gpr .rsp = s₁.gpr .rsp ∧ s₂.wr = s₁.wr ∧
         s₁.wr.head? = some ⟨s₁.gpr .rsp, 8 * k⟩ then
@@ -522,7 +561,7 @@ def Instr.dst : Instr → Option Reg
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _
   | .vop _ | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .zop _
   | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .zbcst .. | .stmxcsr _
-  | .ldmxcsr _ | .lfence | .mul _ | .mulx .. | .push _ => none
+  | .ldmxcsr _ | .lfence | .mul _ | .mulx .. | .push _ | .alloc _ | .free _ => none
 
 abbrev isa : ISA where
   State := State

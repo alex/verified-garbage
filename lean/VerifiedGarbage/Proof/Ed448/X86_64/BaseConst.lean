@@ -60,7 +60,8 @@ theorem consts_ok {s : State} {base : Addr} (hs : Scr s base) :
       Proof.Ed448.X86_64.pt (E t.mem base) 0 1 2 = Spec.Ed448.identity ∧
       Proof.Ed448.X86_64.pt (E t.mem base) 8 9 10 = Spec.Ed448.basePoint ∧
       E t.mem base 11 = Spec.Ed448.d ∧ Outside base 64 1584 s.mem t.mem ∧
-      (∀ r, r ∉ W → t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr := by
+      (∀ r, r ∉ W → t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr ∧
+      (∀ i : Index, 3 ≤ i.val → i.val < 8 ∨ 12 ≤ i.val → E t.mem base i = E s.mem base i) := by
   rw [consts_eq]
   have step : ∀ {x : State} (i : Index) (v : Spec.X448.Fe), toFe (wv (words7 v.val)) = v →
       Scr x base → ∀ {rest : List Instr} {Q : State → Prop},
@@ -83,12 +84,18 @@ theorem consts_ok {s : State} {base : Addr} (hs : Scr s base) :
   have O : Outside base 64 1584 s.mem t.mem :=
     o1.trans (o2.trans (o3.trans (o4.trans (o5.trans (o6.trans
       (ot.mono (by simp only [slot]; omega) (by simp only [slot]; omega)))))))
-  refine ⟨?_, ?_, ?_, O, fun r hr => ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, O, fun r hr => ?_, ?_, ?_, fun i h1 h2 => ?_⟩
   · rw [et, e6, e5, e4, e3, e2, e1]; rfl
   · rw [et, e6, e5, e4, e3, e2, e1]; rfl
   · simp only [et, Function.update_self]
   · rw [gt r hr, g6 r hr, g5 r hr, g4 r hr, g3 r hr, g2 r hr, g1 r hr]
   · rw [rdt, rd6, rd5, rd4, rd3, rd2, rd1]
   · rw [wrt, wr6, wr5, wr4, wr3, wr2, wr1]
+  · have ne : ∀ j : Index, j.val < 3 ∨ (8 ≤ j.val ∧ j.val < 12) → i ≠ j := fun j hj h => by
+      subst h; omega
+    rw [et, e6, e5, e4, e3, e2, e1, Function.update_of_ne (ne 11 (by decide)),
+      Function.update_of_ne (ne 10 (by decide)), Function.update_of_ne (ne 9 (by decide)),
+      Function.update_of_ne (ne 8 (by decide)), Function.update_of_ne (ne 2 (by decide)),
+      Function.update_of_ne (ne 1 (by decide)), Function.update_of_ne (ne 0 (by decide))]
 
 end VG.Proof.Ed448.X86_64

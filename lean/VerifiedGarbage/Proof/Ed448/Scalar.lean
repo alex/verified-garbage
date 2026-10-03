@@ -127,4 +127,23 @@ theorem decodeLE_shift_456 (xs : List Byte) (h : xs.length = 57) : decodeLE xs >
   rw [Nat.shiftRight_eq_div_pow, e]
   exact Nat.div_eq_of_lt hl
 
+/-- The check of `S < L` on its low 448 bits `y` and byte 56 `b`: `y + (2^448 - L)`
+leaves `r` and the carry `c`. -/
+theorem sCheck_nat {y b r c : Nat} (hy : y < 2 ^ 448) (hr : r < 2 ^ 448) (hc : c ≤ 1)
+    (h : r + 2 ^ 448 * c = y + (2 ^ 448 - L)) : (c = 0 ∧ b = 0) ↔ y + 256 ^ 56 * b < L := by
+  have e : (256 : Nat) ^ 56 = 2 ^ 448 := by decide +kernel
+  have hL : L < 2 ^ 448 := by decide +kernel
+  rw [e]
+  generalize (2 : Nat) ^ 448 = M at *
+  constructor
+  · rintro ⟨rfl, rfl⟩; simp only [Nat.mul_zero, Nat.add_zero] at h ⊢; omega
+  · intro h'
+    have : b = 0 := by
+      rcases Nat.eq_zero_or_pos b with hb | hb
+      · exact hb
+      · have : M ≤ M * b := Nat.le_mul_of_pos_right M hb
+        omega
+    subst this
+    rcases (by omega : c = 0 ∨ c = 1) with rfl | rfl <;> omega
+
 end VG.Proof.Ed448

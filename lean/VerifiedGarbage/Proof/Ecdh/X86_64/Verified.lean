@@ -6,13 +6,13 @@ import VerifiedGarbage.Proof.Ecdsa.X86_64.Verified
 /-!
 # ECDH over P-256 on x86-64: `Verified`
 
-P-256 is a curve the proof supports (`p256_ok`), so `exchange_ok` gives the
-contract's postcondition; the callee-saved registers are restored, `rsp` is
-never written, and every store is to `out` or `scratch`, which the return
-address is apart from (`abiPreserved`). Constant time by taint tracking:
-the only branches are on loop counters, and every address is an argument
-plus a constant or a counter, so not even the peer's key (which the
-contract would let leak) affects timing.
+P-256 is a curve the proof supports (`p256_ok`, and `Proof.P256.good` for its
+group law), so `exchange_ok` gives the contract's postcondition; the
+callee-saved registers are restored, `rsp` is never written, and every store
+is to `out` or `scratch`, which the return address is apart from
+(`abiPreserved`). Constant time by taint tracking: the only branches are on
+loop counters, and every address is an argument plus a constant or a counter,
+so not even the peer's key (which the contract would let leak) affects timing.
 -/
 
 namespace VG.Proof.Ecdh.X86_64
@@ -38,7 +38,7 @@ theorem post_of {s s' : State} (h : EPost p256 s s') : ecdhX86_64.post s s' := b
 
 theorem ecdh_x86 (s : State) (hs : ecdhX86_64.pre s) :
     ∃ t s', Exec isa exchangeP256 s t s' ∧ abiPreserved s s' ∧ ecdhX86_64.post s s' := by
-  obtain ⟨t, s', he, hsv, hpost⟩ := exchange_ok p256_ok (pre_of hs)
+  obtain ⟨t, s', he, hsv, hpost⟩ := exchange_ok p256_ok Proof.P256.good (pre_of hs)
   have hsp : ∀ i ∈ instrs exchangeP256, Taint.clobbers i .rsp = false := by
     have h : exchangeP256.allInstrs (fun i => !Taint.clobbers i .rsp) = true := by lit_decide
     rw [Code.allInstrs_eq, List.all_eq_true] at h

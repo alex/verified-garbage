@@ -76,6 +76,8 @@ def Instr.asm : Instr → List String
   | .store8 m r => [s!"mov {m.str8}, {r.name}"]
   | .push rs => rs.map fun r => s!"push {r.name}"
   | .pop r k => List.replicate k s!"pop {r.name}"
+  | .alloc bytes => [s!"lea esp, [esp-{bytes}]"]
+  | .free bytes => [s!"lea esp, [esp+{bytes}]"]
   | .mul r => [s!"mul {r.name}"]
   | .movdquLoad d m => [s!"movdqu {d.name}, {m.str128}"]
   | .movdquStore m r => [s!"movdqu {m.str128}, {r.name}"]

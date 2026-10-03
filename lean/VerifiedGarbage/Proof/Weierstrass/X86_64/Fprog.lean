@@ -60,16 +60,16 @@ theorem Lay.grid {M : Mod} {size d lo hi imo itmp : Nat} (hmo : M.mo = d + 8 * M
 
 /-- The state holds the environment `E` in Montgomery's form in the slots
 `V`, below `m`, with the modulus in place. -/
-structure Inv (M : Mod) (base : Addr) (size m : Nat) (Sl : Nat → Prop) (V : List Nat)
-    (E : Nat → ZMod m) (s : State) : Prop where
+structure Inv (M : Mod) (base : Addr) (size m : Nat) [NeZero m] (Sl : Nat → Prop) (V : List Nat)
+    (E : Nat → Fin m) (s : State) : Prop where
   scr : Scr s base size
   mod : ModOk M size m s.mem base
   sl : ∀ x ∈ V, Sl x
   lt : ∀ x ∈ V, wordsVal s.mem base x M.n < m
   val : ∀ x ∈ V, toM m (2 ^ (64 * M.n)) (wordsVal s.mem base x M.n) = E x
 
-theorem Inv.sub {M : Mod} {base : Addr} {size m : Nat} {Sl : Nat → Prop} {V V' : List Nat}
-    {E : Nat → ZMod m} {s : State} (h : Inv M base size m Sl V E s) (hV : ∀ x ∈ V', x ∈ V) :
+theorem Inv.sub {M : Mod} {base : Addr} {size m : Nat} [NeZero m] {Sl : Nat → Prop} {V V' : List Nat}
+    {E : Nat → Fin m} {s : State} (h : Inv M base size m Sl V E s) (hV : ∀ x ∈ V', x ∈ V) :
     Inv M base size m Sl V' E s :=
   ⟨h.scr, h.mod, fun x hx => h.sl x (hV x hx), fun x hx => h.lt x (hV x hx),
     fun x hx => h.val x (hV x hx)⟩
@@ -119,9 +119,9 @@ theorem opKeep_wordsVal {M : Mod} {base : Addr} {o : Nat} {s s' : State}
     rw [opKeep_wordsVal h (k := k) (y := y + 8) (by omega) (by omega) (by omega), hw]
 
 /-- An operation writing `o`, which then holds `v`, keeps the invariant. -/
-theorem Inv.update {M : Mod} {base : Addr} {size m : Nat} {Sl : Nat → Prop} (hL : Lay M size Sl)
-    {V : List Nat} {E : Nat → ZMod m} {s s' : State} (hI : Inv M base size m Sl V E s) {o : Nat}
-    (ho : Sl o) (hk : OpKeep M base o s s') (hr : wordsVal s'.mem base o M.n < m) {v : ZMod m}
+theorem Inv.update {M : Mod} {base : Addr} {size m : Nat} [NeZero m] {Sl : Nat → Prop} (hL : Lay M size Sl)
+    {V : List Nat} {E : Nat → Fin m} {s s' : State} (hI : Inv M base size m Sl V E s) {o : Nat}
+    (ho : Sl o) (hk : OpKeep M base o s s') (hr : wordsVal s'.mem base o M.n < m) {v : Fin m}
     (hv : toM m (2 ^ (64 * M.n)) (wordsVal s'.mem base o M.n) = v) :
     Inv M base size m Sl (o :: V) (Function.update E o v) s' := by
   have hn := hI.scr.nowrap
@@ -158,8 +158,8 @@ theorem Inv.update {M : Mod} {base : Addr} {size m : Nat} {Sl : Nat → Prop} (h
       exact hI.val x hx'
 
 /-- One operation. -/
-theorem fop_ok {M : Mod} {base : Addr} {size m : Nat} {Sl : Nat → Prop} (hL : Lay M size Sl)
-    (hm : Nat.Coprime (2 ^ (64 * M.n)) m) {V : List Nat} {E : Nat → ZMod m} {s : State}
+theorem fop_ok {M : Mod} {base : Addr} {size m : Nat} [NeZero m] {Sl : Nat → Prop} (hL : Lay M size Sl)
+    (hm : UnitMod m (2 ^ (64 * M.n))) {V : List Nat} {E : Nat → Fin m} {s : State}
     (hI : Inv M base size m Sl V E s) {op : FOp} (hS : ∀ x ∈ op.out :: op.ins, Sl x)
     (hR : ∀ x ∈ op.ins, x ∈ V) :
     WP isa (.block (op.code M)) s fun s' =>
@@ -235,9 +235,9 @@ theorem fprog_cons (M : Mod) (op : FOp) (ops : List FOp) :
     fprog M (op :: ops) = op.code M ++ fprog M ops := rfl
 
 /-- A field program. -/
-theorem fprog_ok {M : Mod} {base : Addr} {size m : Nat} {Sl : Nat → Prop} (hL : Lay M size Sl)
-    (hm : Nat.Coprime (2 ^ (64 * M.n)) m) :
-    ∀ (ops : List FOp) {V : List Nat} {E : Nat → ZMod m} {s : State},
+theorem fprog_ok {M : Mod} {base : Addr} {size m : Nat} [NeZero m] {Sl : Nat → Prop} (hL : Lay M size Sl)
+    (hm : UnitMod m (2 ^ (64 * M.n))) :
+    ∀ (ops : List FOp) {V : List Nat} {E : Nat → Fin m} {s : State},
       Inv M base size m Sl V E s → (∀ op ∈ ops, ∀ x ∈ op.out :: op.ins, Sl x) →
       readsOk ops V = true →
       WP isa (.block (fprog M ops)) s fun s' => ProgKeep M base (ops.map FOp.out) s s' ∧
@@ -262,9 +262,9 @@ theorem rcbN_reads : readsOk rcbN [9, 10, 11, 12, 13, 14, 15, 16] = true := by d
 be `q`), from a state holding `E`, in particular `p`, `q`, `a` and `3b`
 (`rcbR`): `o` holds `rcbAdd` of their values, and the slots but those `rcb`
 writes (`rcbW`) keep theirs. -/
-theorem rcb_ok {M : Mod} {base : Addr} {size m : Nat} {Sl : Nat → Prop} (hL : Lay M size Sl)
-    (hm : Nat.Coprime (2 ^ (64 * M.n)) m) {S : RcbSlots} {p q o : Pt} (hA : RcbApart S p q o)
-    (hSl : ∀ x ∈ rcbW S o ++ rcbR S p q, Sl x) {V : List Nat} {E : Nat → ZMod m} {s : State}
+theorem rcb_ok {M : Mod} {base : Addr} {size m : Nat} [NeZero m] {Sl : Nat → Prop} (hL : Lay M size Sl)
+    (hm : UnitMod m (2 ^ (64 * M.n))) {S : RcbSlots} {p q o : Pt} (hA : RcbApart S p q o)
+    (hSl : ∀ x ∈ rcbW S o ++ rcbR S p q, Sl x) {V : List Nat} {E : Nat → Fin m} {s : State}
     (hI : Inv M base size m Sl V E s) (hV : ∀ x ∈ rcbR S p q, x ∈ V) :
     WP isa (.block (fprog M (rcb S p q o))) s fun s' => ProgKeep M base (rcbW S o) s s' ∧
       Inv M base size m Sl (rcbW S o ++ V) (runOps (rcb S p q o) E) s' ∧

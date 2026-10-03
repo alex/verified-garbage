@@ -53,6 +53,12 @@ Modelling choices:
   which nothing constrains (see `TCB/Code.lean`).
 * `push` and `pop` (of registers other than `esp`) only occur as the push
   and pop of a frame (see `push`), as a sequence of them.
+* A frame may instead allocate a buffer of `bytes` bytes on the stack
+  (`alloc`, `lea esp, [esp - bytes]`), released by its pop (`free`, `lea
+  esp, [esp + bytes]`); `lea` writes only `esp`, so neither changes the
+  flags or memory. `bytes` is positive, a multiple of 4 and less than 4096,
+  as for the frames of the x86-64 and AArch64 models: less than a page, so
+  that the allocation does not move `esp` past a guard page below the stack.
 -/
 
 namespace VG.X86
@@ -101,6 +107,12 @@ inductive Instr
   /-- `pop r`, `k` times: the pop of a frame of `4 * k` bytes (see `pop`);
   `k > 0`, and `r` is not `esp` -/
   | pop (r : Reg) (k : Nat)
+  /-- `lea esp, [esp - bytes]` (8D /r): the push of a frame of `bytes` bytes
+  that it does not write (see `push`); `0 < bytes < 4096`, a multiple of 4 -/
+  | alloc (bytes : Nat)
+  /-- `lea esp, [esp + bytes]` (8D /r): the pop of a frame of `bytes` bytes
+  (see `pop`) -/
+  | free (bytes : Nat)
   /-- `mul r32` (F7 /4): the unsigned product `EDX:EAX := EAX * r32`. -/
   | mul (src : Reg)
   /-- Legacy SSE2 unaligned 128-bit load (F3 0F 6F /r). -/
@@ -225,7 +237,7 @@ def exec : Instr → State → Option State
   | .movdquStore m r, s => s.store128 (s.ea m) (s.xmm r)
   | .xop op, s => some (op.exec s)
   -- Only the push and pop of a frame (`push`, `pop`).
-  | .push _, _ | .pop .., _ => none
+  | .push _, _ | .pop .., _ | .alloc _, _ | .free _, _ => none
 
 def addrs : Instr → State → List Addr
   | .mov _ src, s => srcAddrs s src
@@ -241,6 +253,7 @@ def addrs : Instr → State → List Addr
     (s.gpr .esp - BitVec.ofNat 32 (4 * (i + 1))).setWidth 64
   | .pop _ k, s => (List.range k).map fun i =>
     (s.gpr .esp + BitVec.ofNat 32 (4 * i)).setWidth 64
+  | .alloc _, _ | .free _, _ => []
 
 /-- SDM Vol. 2, "Jcc": JE jumps if ZF = 1, JNE if ZF = 0, JB if CF = 1 and
 JAE if CF = 0. -/
@@ -290,8 +303,23 @@ def popReg (s : State) (r : Reg) : Nat → State
 /-- The push of a frame: `push r` for each `r` of `rs` (`pushRegs`). The
 `4 * rs.length` bytes it stores become a writable region, at the head of
 `wr`. Faults if `rs` is empty or contains `esp`, or if the frame would wrap
-around the address space. -/
+around the address space.
+
+Or `lea esp, [esp - bytes]` (`alloc`): SDM Vol. 2, "LEA—Load Effective
+Address", with a 32-bit operand size and address size: `DEST :=
+EffectiveAddress(SRC)`, the address computed modulo 2³²; "Flags Affected:
+None". The `bytes` bytes below `esp` become a writable region, at the head
+of `wr`, which it does not write: they hold what memory held there, as the
+bytes a call or a push stores below `esp` before it does (and a contract
+says nothing of them: they are in the stack below the caller's stack
+pointer, `Abi.reserved`). Faults unless `0 < bytes < 4096` and `bytes` is a
+multiple of 4, or if the frame would wrap around the address space. -/
 def push : Instr → State → Option State
+  | .alloc bytes, s =>
+    if 0 < bytes ∧ bytes < 4096 ∧ bytes % 4 = 0 ∧ bytes ≤ (s.gpr .esp).toNat then
+      let sp := s.gpr .esp - BitVec.ofNat 32 bytes
+      some { s.setReg .esp sp with wr := ⟨sp.setWidth 64, bytes⟩ :: s.wr }
+    else none
   | .push rs, s =>
     let n := 4 * rs.length
     if rs ≠ [] ∧ .esp ∉ rs ∧ n ≤ (s.gpr .esp).toNat then
@@ -303,8 +331,18 @@ def push : Instr → State → Option State
 /-- The pop of a frame: `pop r`, `k` times (`popReg`), so that `r` holds the
 last word of the frame. Faults if `k = 0` or `r` is `esp`, and unless `esp`
 and the writable regions are those the push left (`s₁`), and the frame, the
-region at their head, has `4 * k` bytes; it removes the frame. -/
+region at their head, has `4 * k` bytes; it removes the frame.
+
+Or `lea esp, [esp + bytes]` (`free`, "LEA" as for `alloc`), with the same
+conditions on `bytes` as `alloc` and on `esp` and the writable regions as
+`pop`, the frame having `bytes` bytes; it changes neither memory nor any
+other register. -/
 def pop : Instr → State → State → Option State
+  | .free bytes, s₁, s₂ =>
+    if 0 < bytes ∧ bytes < 4096 ∧ bytes % 4 = 0 ∧ s₂.gpr .esp = s₁.gpr .esp ∧ s₂.wr = s₁.wr ∧
+        s₁.wr.head? = some ⟨(s₁.gpr .esp).setWidth 64, bytes⟩ then
+      some { s₂.setReg .esp (s₂.gpr .esp + BitVec.ofNat 32 bytes) with wr := s₂.wr.tail }
+    else none
   | .pop r k, s₁, s₂ =>
     if k ≠ 0 ∧ r ≠ .esp ∧ s₂.gpr .esp = s₁.gpr .esp ∧ s₂.wr = s₁.wr ∧
         s₁.wr.head? = some ⟨(s₁.gpr .esp).setWidth 64, 4 * k⟩ then
@@ -317,7 +355,8 @@ a frame also moves `esp`, as the push does): `mul` writes two, `eax` and
 `edx`, and stores none. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .shift _ d _ | .bswap d | .movzx8 d _ | .pop d _ => some d
-  | .store .. | .store8 .. | .push _ | .mul _ | .movdquLoad .. | .movdquStore .. | .xop _ => none
+  | .store .. | .store8 .. | .push _ | .mul _ | .movdquLoad .. | .movdquStore .. | .xop _
+  | .alloc _ | .free _ => none
 
 /-- Intel SDM Vol. 2's "CPUID Feature Flag" column: PSHUFB/PALIGNR need
 SSSE3, SHA256MSG1/MSG2/RNDS2 need SHA, AESENC/AESENCLAST/AESKEYGENASSIST

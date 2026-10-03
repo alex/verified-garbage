@@ -42,10 +42,10 @@ structure PowLay (P : PowCfg) (size : Nat) : Prop where
 /-- The registers a power changes. -/
 def powClob (n : Nat) : List Reg := .rbx :: clob n
 
-theorem toM_one {m R : Nat} (hR : Nat.Coprime R m) : toM m R (R % m) = 1 := by
+theorem toM_one {m R : Nat} [NeZero m] (hR : UnitMod m R) : toM m R (R % m) = 1 := by
   unfold toM
-  rw [ZMod.natCast_mod]
-  exact ZMod.coe_mul_inv_eq_one R hR
+  rw [ofNat_mod]
+  exact mul_rinv hR
 
 theorem mov32Rbx_ok (s : State) {j : Nat} (hj : j < 2 ^ 31) :
     WP isa (.block [.mov32 .rbx (.imm (BitVec.ofNat 32 j))]) s fun s' =>
@@ -73,7 +73,7 @@ theorem rbx_not_clob (n : Nat) : Reg.rbx ∉ clob n := by
 
 /-- The loop's invariant at `rbx = j`: the accumulator reads as
 `B^(e >>> j)`, for `B` what the base reads as at the start. -/
-structure PowInv (P : PowCfg) (base : Addr) (size m e : Nat) (s₀ s : State) (j : Nat) : Prop where
+structure PowInv (P : PowCfg) (base : Addr) (size m e : Nat) [NeZero m] (s₀ s : State) (j : Nat) : Prop where
   scr : Scr s base size
   rbx : s.gpr .rbx = BitVec.ofNat 64 j
   keep : KeepRegs (powClob P.M.n) s₀ s
@@ -83,8 +83,8 @@ structure PowInv (P : PowCfg) (base : Addr) (size m e : Nat) (s₀ s : State) (j
     toM m (2 ^ (64 * P.M.n)) (wordsVal s₀.mem base P.base P.M.n) ^ (e >>> j)
 
 /-- An iteration. -/
-theorem powBody_ok {P : PowCfg} {base : Addr} {size m e : Nat} (hL : PowLay P size)
-    (hm : Nat.Coprime (2 ^ (64 * P.M.n)) m) {s₀ : State} (hM₀ : ModOk P.M size m s₀.mem base)
+theorem powBody_ok {P : PowCfg} {base : Addr} {size m e : Nat} [NeZero m] (hL : PowLay P size)
+    (hm : UnitMod m (2 ^ (64 * P.M.n))) {s₀ : State} (hM₀ : ModOk P.M size m s₀.mem base)
     (hB : wordsVal s₀.mem base P.base P.M.n < m)
     (hbits : ∀ t < P.nbits, s₀.mem (off base (P.bits + t)) = if e.testBit t then 1 else 0)
     {j : Nat} {s : State} (hj : 1 ≤ j) (hjn : j ≤ P.nbits) (hI : PowInv P base size m e s₀ s j) :
@@ -125,7 +125,7 @@ theorem powBody_ok {P : PowCfg} {base : Addr} {size m e : Nat} (hL : PowLay P si
         · exact hmo _ (by simp [powW])) (by omega), hm₁]; exact hM.val, hM.inv⟩
   have v₂ : toM m (2 ^ (64 * P.M.n)) (wordsVal s₂.mem base P.acc P.M.n) =
       toM m (2 ^ (64 * P.M.n)) (wordsVal s.mem base P.acc P.M.n) ^ 2 := by
-    rw [toM_mul hm (e₂.trans (by rw [hm₁])), pow_two]
+    rw [toM_mul hm (e₂.trans (by rw [hm₁])), Lean.Grind.Semiring.pow_two]
   have hB₂ : wordsVal s₂.mem base P.base P.M.n = wordsVal s₀.mem base P.base P.M.n := by
     rw [k₂.unch.wordsVal (fun w hw => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hw
@@ -189,12 +189,12 @@ theorem powBody_ok {P : PowCfg} {base : Addr} {size m e : Nat} (hL : PowLay P si
   · rw [hm₆, e₅, hm₄, pow_shiftRight _ e (j - 1), Nat.sub_add_cancel hj, ← hI.val]
     split
     · rw [v₃, v₂]
-    · rw [hA₃, v₂, mul_one]
+    · rw [hA₃, v₂, Lean.Grind.Semiring.mul_one]
 
 /-- `[acc] = [base]^e` in Montgomery form, for the exponent `e < 2^nbits`
 whose bits are the table at `P.bits`; only `powClob` and `powW` change. -/
-theorem pow_ok {P : PowCfg} {base : Addr} {size m e : Nat} (hL : PowLay P size)
-    (hm : Nat.Coprime (2 ^ (64 * P.M.n)) m) {s : State} (hs : Scr s base size)
+theorem pow_ok {P : PowCfg} {base : Addr} {size m e : Nat} [NeZero m] (hL : PowLay P size)
+    (hm : UnitMod m (2 ^ (64 * P.M.n))) {s : State} (hs : Scr s base size)
     (hM : ModOk P.M size m s.mem base) (hB : wordsVal s.mem base P.base P.M.n < m)
     (hO : wordsVal s.mem base P.one P.M.n = 2 ^ (64 * P.M.n) % m)
     (hbits : ∀ t < P.nbits, s.mem (off base (P.bits + t)) = if e.testBit t then 1 else 0)
@@ -222,6 +222,6 @@ theorem pow_ok {P : PowCfg} {base : Addr} {size m e : Nat} (hL : PowLay P size)
     rw [k₂.1 r (fun h => hr (by simp at h; simp [h, powClob])), k₁.gpr r (by simp [hra])]
   · rw [hm₂]; exact O₁.unch.mono fun w hw => by simp at hw; simp [hw, powW]
   · rw [hm₂, e₁, hO]; exact Nat.mod_lt _ hm0
-  · rw [hm₂, e₁, hO, toM_one hm, shiftRight_eq_zero he, pow_zero]
+  · rw [hm₂, e₁, hO, toM_one hm, shiftRight_eq_zero he, Lean.Grind.Semiring.pow_zero]
 
 end VG.Proof.Weierstrass.X86_64

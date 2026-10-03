@@ -156,7 +156,7 @@ theorem finish_ok (hc : CfgOk c) {base : Addr} {s : State} (hs : Scr s base size
   refine ⟨?_, ?_, g₅, fun r hr => ?_⟩
   · rw [m₅, k₄.2.1, show 16 * c.n = 8 * c.n + 8 * c.n by omega, bytesAt_add, first, e₃, ss₂]
     cases b
-    · simp only [Bool.false_eq_true, ite_false, List.replicate_add]
+    · simp only [Bool.false_eq_true, ite_false, List.replicate_append_replicate]
     · simp only [ite_true]
   · have hra : Reg.rax ∉ Cfg.saved.map Prod.fst := by decide
     rw [r₅ _ hra, e₄, hrcx₃, mask_bit]

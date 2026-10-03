@@ -266,7 +266,7 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     · simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h ⊢
       obtain ⟨b, hb, c, hc', rfl⟩ := h
       exact ⟨b, readSrc_widen hc hb, c, hc', rfl⟩
-  | push | pop => simp only [exec, reduceCtorEq] at h
+  | push | pop | alloc | free => simp only [exec, reduceCtorEq] at h
 
 theorem addrs_withRegions (i : Instr) (s : State) (rd wr : List Region) :
     addrs i (s.withRegions rd wr) = addrs i s := by
@@ -313,7 +313,7 @@ theorem exec_regions {i : Instr} (h : exec i s = some s') : s'.rd = s.rd ∧ s'.
     simp only [exec, execMulx] at h; split at h
     · cases h
     · simp only [Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl⟩
-  | push | pop => simp only [exec, reduceCtorEq] at h
+  | push | pop | alloc | free => simp only [exec, reduceCtorEq] at h
   | _ => exact ⟨(Taint.exec_nonstore rfl h).1, (Taint.exec_nonstore rfl h).2.1⟩
 
 theorem exec_frame {i : Instr} (h : exec i s = some s') : Frame s.wr s.mem s'.mem := by
@@ -366,7 +366,7 @@ theorem exec_frame {i : Instr} (h : exec i s = some s') : Frame s.wr s.mem s'.me
     simp only [exec, execMulx] at h; split at h
     · cases h
     · simp only [Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; exact Frame.refl _ _
-  | push | pop => simp only [exec, reduceCtorEq] at h
+  | push | pop | alloc | free => simp only [exec, reduceCtorEq] at h
   | _ => rw [(Taint.exec_nonstore rfl h).2.2.1]; exact Frame.refl _ _
 
 theorem eval_withRegions (c : Cond) (s : State) (rd wr : List Region) :
@@ -441,10 +441,18 @@ theorem push_eq {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) :
       (∀ r, r ≠ .rsp → s₁.gpr r = s.gpr r) ∧
       s₁.gpr .rsp = s.gpr .rsp - BitVec.ofNat 64 (8 * k) := by
   cases i <;> simp only [isa, push, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i rs _
-  obtain ⟨h₁, -, h₃, h₄⟩ := pushRegs_eq s rs
-  exact ⟨rs.length, h₁, by rw [h₃], h₄, h₃⟩
+  case push rs =>
+    split at h <;> cases h
+    obtain ⟨h₁, -, h₃, h₄⟩ := pushRegs_eq s rs
+    exact ⟨rs.length, h₁, by rw [h₃], h₄, h₃⟩
+  case alloc bytes =>
+    split at h <;> cases h
+    rename_i hc
+    have e : 8 * (bytes / 8) = bytes := Nat.mul_div_cancel' (Nat.dvd_of_mod_eq_zero hc.2.2.1)
+    refine ⟨bytes / 8, rfl, ?_, fun r hr => ?_, ?_⟩
+    · simp only [State.setReg, ite_true, e]
+    · simp only [State.setReg, hr, ite_false]
+    · simp only [State.setReg, ite_true, e]
 
 /-- A frame's pop removes the region at the head of `wr`, and changes only
 its register and `rsp`. -/
@@ -455,32 +463,55 @@ theorem pop_eq {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = som
       ∃ k, s₁.wr.head? = some ⟨s₁.gpr .rsp, 8 * k⟩ ∧
         s'.gpr .rsp = s₂.gpr .rsp + BitVec.ofNat 64 (8 * k) := by
   cases j <;> simp only [isa, pop, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i d k hc
-  obtain ⟨h₁, -, h₃, h₄⟩ := popReg_eq s₂ d k
-  refine ⟨hc.2.2.2.1, h₁, rfl, fun r hr hd => h₄ r hr ?_, hc.2.2.1, k, hc.2.2.2.2, h₃⟩
-  intro e; subst e; simp [Taint.clobbers] at hd
+  case pop d k =>
+    split at h <;> cases h
+    rename_i hc
+    obtain ⟨h₁, -, h₃, h₄⟩ := popReg_eq s₂ d k
+    refine ⟨hc.2.2.2.1, h₁, rfl, fun r hr hd => h₄ r hr ?_, hc.2.2.1, k, hc.2.2.2.2, h₃⟩
+    intro e; subst e; simp [Taint.clobbers] at hd
+  case free bytes =>
+    split at h <;> cases h
+    rename_i hc
+    have e : 8 * (bytes / 8) = bytes := Nat.mul_div_cancel' (Nat.dvd_of_mod_eq_zero hc.2.2.1)
+    refine ⟨hc.2.2.2.2.1, rfl, rfl, fun r hr _ => ?_, hc.2.2.2.1, bytes / 8, by rw [e]; exact hc.2.2.2.2.2,
+      ?_⟩
+    · simp only [State.setReg, hr, ite_false]
+    · simp only [State.setReg, ite_true, e]
 
 theorem push_widen {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) :
     ∃ f, s₁.rd = s.rd ∧ s₁.wr = f :: s.wr ∧ ∀ rd wr,
       isa.push i (s.withRegions rd wr) = some (s₁.withRegions rd (f :: wr)) := by
   cases i <;> simp only [isa, push, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i rs hc
-  refine ⟨_, (pushRegs_eq s rs).1, rfl, fun rd wr => ?_⟩
-  simp only [isa, push, State.withRegions_gpr, ne_eq, hc.1, hc.2.1, hc.2.2, not_false_eq_true,
-    and_self, ite_true, pushRegs_withRegions]
-  rfl
+  case push rs =>
+    split at h <;> cases h
+    rename_i hc
+    refine ⟨_, (pushRegs_eq s rs).1, rfl, fun rd wr => ?_⟩
+    simp only [isa, push, State.withRegions_gpr, ne_eq, hc.1, hc.2.1, hc.2.2, not_false_eq_true,
+      and_self, ite_true, pushRegs_withRegions]
+    rfl
+  case alloc bytes =>
+    split at h <;> cases h
+    rename_i hc
+    refine ⟨_, rfl, rfl, fun rd wr => ?_⟩
+    simp only [isa, push, State.withRegions_gpr, hc.1, hc.2.1, hc.2.2.1, hc.2.2.2, and_self, ite_true]
+    rfl
 
 theorem pop_widen {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = some s') (rd : List Region)
     {wr : List Region} (hw : wr.head? = s₁.wr.head?) :
     isa.pop j (s₁.withRegions rd wr) (s₂.withRegions rd wr) = some (s'.withRegions rd wr.tail) := by
   cases j <;> simp only [isa, pop, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i hc
-  simp only [isa, pop, State.withRegions_gpr, State.withRegions_wr, ne_eq, hw, hc.1, hc.2.1,
-    hc.2.2.1, hc.2.2.2.2, and_self, ite_true, not_false_eq_true, popReg_withRegions]
-  rfl
+  case pop =>
+    split at h <;> cases h
+    rename_i hc
+    simp only [isa, pop, State.withRegions_gpr, State.withRegions_wr, ne_eq, hw, hc.1, hc.2.1,
+      hc.2.2.1, hc.2.2.2.2, and_self, ite_true, not_false_eq_true, popReg_withRegions]
+    rfl
+  case free =>
+    split at h <;> cases h
+    rename_i hc
+    simp only [isa, pop, State.withRegions_gpr, State.withRegions_wr, hw, hc.1, hc.2.1, hc.2.2.1,
+      hc.2.2.2.1, hc.2.2.2.2.2, and_self, ite_true]
+    rfl
 
 theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.clobbers i r = false) {s s' : State}
     (h : exec i s = some s') : s'.gpr r = s.gpr r := by
@@ -525,6 +556,8 @@ theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.clobbers i r = false) {s s' :
       · cases h
       · simp only [Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h
         exact Taint.mulx_gpr s _ _ hi.1 hi.2
+    · simp only [exec, reduceCtorEq] at h
+    · simp only [exec, reduceCtorEq] at h
     · simp only [exec, reduceCtorEq] at h
     · simp only [exec, reduceCtorEq] at h
 
