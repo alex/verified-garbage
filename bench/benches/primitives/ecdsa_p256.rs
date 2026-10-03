@@ -1,8 +1,14 @@
-//! ECDSA over P-256 with SHA-256 beside OpenSSL.
+//! ECDSA over P-256 with SHA-256, and P-256 public keys, beside OpenSSL.
 
 use criterion::Criterion;
 
-pub const USES: &[&str] = &["ecdsa_p256_sha256", "ecdsa_p256", "hmac_sha256", "sha256"];
+pub const USES: &[&str] = &[
+    "ecdsa_p256_sha256",
+    "ecdsa_p256",
+    "ec_p256",
+    "hmac_sha256",
+    "sha256",
+];
 
 /// Signing a message with SHA-256: deterministically (RFC 6979), and in
 /// OpenSSL with a random `k` (its default).
@@ -12,7 +18,7 @@ pub fn bench(c: &mut Criterion) {
 
     use criterion::BenchmarkId;
     use openssl::bn::{BigNum, BigNumContext};
-    use openssl::ec::{EcGroup, EcKey, EcPoint};
+    use openssl::ec::{EcGroup, EcKey, EcPoint, PointConversionForm};
     use openssl::hash::MessageDigest;
     use openssl::nid::Nid;
     use openssl::pkey::PKey;
@@ -46,6 +52,27 @@ pub fn bench(c: &mut Criterion) {
             })
         });
     }
+    g.finish();
+
+    // The public key of a private key, uncompressed: in OpenSSL, `[d]G` and
+    // its encoding. The ids' size is the bytes of the public key.
+    let mut g = c.benchmark_group("ec_p256_public_key");
+    g.bench_function(BenchmarkId::new(VG, 65), |b| {
+        b.iter(|| {
+            SigningKey::<P256>::from_bytes(black_box(&d))
+                .public_key()
+                .unwrap()
+        })
+    });
+    g.bench_function(BenchmarkId::new(OPENSSL, 65), |b| {
+        b.iter(|| {
+            let d = BigNum::from_slice(black_box(&d)).unwrap();
+            let mut q = EcPoint::new(&group).unwrap();
+            q.mul_generator2(&group, &d, &mut ctx).unwrap();
+            q.to_bytes(&group, PointConversionForm::UNCOMPRESSED, &mut ctx)
+                .unwrap()
+        })
+    });
     g.finish();
 }
 
