@@ -293,4 +293,182 @@ theorem longTail_wp (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P
         simp only [List.mem_singleton] at hr; subst hr
         exact (h.p_w.sub_left (h.sP (by omega))).sub_right (h.sW (by decide))) (by omega), m₂, m₁]
 
+/-! ## The calls -/
+
+theorem zero16_ok (h : Env s₀ C D P W R L) {s : State} (h15 : s.gpr .r15 = W) (hwr : s.wr = s₀.wr) {d : Nat}
+    (hd : d + 16 ≤ 2560) :
+    ∃ s', runBlock isa (zero16 .r15 d) s = some s' ∧ s'.mem = zero2 s.mem (W + BitVec.ofNat 64 d) ∧
+      (∀ r, r ≠ .rax → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  have w₀ := h.inW hwr (d := d) (n := 8) (by omega)
+  have w₁ := h.inW hwr (d := d + 8) (n := 8) (by omega)
+  refine ⟨_, by
+    simp (config := {decide := true}) only [zero16, runBlock_cons, runStep_some, runBlock_nil, at_, exec,
+      readSrc32, State.store64, State.ea, State.setReg32, offset_nat, Option.map_some, gpr_setReg, mem_setReg,
+      rd_setReg, wr_setReg, ite_true, ite_false, h15, w₀, w₁]
+    rfl, ?_, ?_, ?_, ?_⟩
+  · simp only [zero2, Offset.add_add]
+  · intro r hr; simp [gpr_setReg, hr]
+  all_goals rfl
+
+/-- The arguments of the update over the `k` blocks of `P`. -/
+theorem m1_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L s) {out : Nat}
+    (hout : out = 0 ∨ out = 112) (hL16 : 16 ≤ L)
+    (ha : s.mem.readW (W + BitVec.ofNat 64 dbOff) 64 = BitVec.ofNat 64 (16 * kOf L)) :
+    ∃ s', runBlock isa (zero16 .r15 out ++
+        [.mov .r8 (.mem (at_ .r15 dbOff)), .shift .shr .r8 4, .mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp),
+         .mov .rdx (.reg .r15), .alu .add .rdx (imm out), .mov .rcx (.reg .r13), .mov .r9 (.reg .r15),
+         .alu .add .r9 (imm csOff)]) s = some s' ∧ Regs s₀ C D P W R L s' ∧
+      UArgs s' C (W + BitVec.ofNat 64 out) P (W + BitVec.ofNat 64 256) R (kOf L) ∧
+      s'.mem = zero2 s.mem (W + BitVec.ofNat 64 out) := by
+  have hT := kOf_tail hL16
+  have hlt := h.lt
+  obtain ⟨s₁, run₁, m₁, g₁, rd₁, wr₁⟩ := zero16_ok h hr.r15 hr.wr (d := out) (by omega)
+  have hr₁ := hr.keep (fun r hr' => g₁ r (by rintro rfl; simp [calleeSaved] at hr')) rd₁ wr₁
+  have ha₁ : s₁.mem.readW (W + BitVec.ofNat 64 dbOff) 64 = BitVec.ofNat 64 (16 * kOf L) := by
+    rw [m₁, zero2, (frame_store2 _ _ _).readW (w := 64) (Region.contains_self _ _) (fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr
+      exact Offset.disjoint W (d := dbOff) (n := 8) (e := out) (k := 16) (by simp only [dbOff]; omega)
+        (by simp only [dbOff]; omega) (by omega)) (by decide), ha]
+  have r := h.inRW hr₁.rd hr₁.wr (d := dbOff) (n := 8) (by decide)
+  obtain ⟨s₂, run₂, hr₂, rdi, rsi, rdx, rcx, r8, r9, m₂⟩ : ∃ s₂, runBlock isa
+      [.mov .r8 (.mem (at_ .r15 dbOff)), .shift .shr .r8 4, .mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp),
+       .mov .rdx (.reg .r15), .alu .add .rdx (imm out), .mov .rcx (.reg .r13), .mov .r9 (.reg .r15),
+       .alu .add .r9 (imm csOff)] s₁ = some s₂ ∧ Regs s₀ C D P W R L s₂ ∧ s₂.gpr .rdi = C ∧
+      s₂.gpr .rsi = BitVec.ofNat 64 R ∧ s₂.gpr .rdx = W + BitVec.ofNat 64 out ∧ s₂.gpr .rcx = P ∧
+      s₂.gpr .r8 = BitVec.ofNat 64 (kOf L) ∧ s₂.gpr .r9 = W + BitVec.ofNat 64 256 ∧ s₂.mem = s₁.mem := by
+    refine ⟨_, by
+      simp (config := {decide := true}) only [imm, csOff, runBlock_cons, runStep_some, runBlock_nil, at_, exec,
+        readSrc, execAlu, execShift, State.load64, State.ea, offset_nat, Option.bind_some, Option.map_some,
+        gpr_setReg, gpr_arithFlags, gpr_setFlags, ite_true, ite_false, hr₁.r15, r]
+      rfl, ?_⟩
+    refine ⟨hr₁.keep (fun r hr' => ?_) rfl rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr'
+      rcases hr' with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [gpr_setReg, gpr_setFlags]
+    all_goals simp (config := {decide := true}) only [gpr_setReg, gpr_arithFlags, gpr_setFlags, mem_setReg,
+      mem_arithFlags, mem_setFlags, ite_true, ite_false, hr₁.rbx, hr₁.rbp, hr₁.r13, ha₁,
+      sx_ofNat (show out < 2 ^ 31 by omega), sx_ofNat (show 256 < 2 ^ 31 by decide),
+      shr4 (show 16 * kOf L < 2 ^ 64 by omega), Nat.mul_div_cancel_left _ (show 0 < 16 by decide)]
+  refine ⟨s₂, by rw [runBlock_append, run₁, Option.bind_some, run₂], hr₂,
+    h.uargs hr₂.rd hr₂.wr hr₂.rsp (by omega) (h.srcData₀ (by omega) (by omega)) (by omega) rdi rsi rdx rcx r8 r9,
+    by rw [m₂, m₁]⟩
+
+theorem jOf_le (L : Nat) : jOf L ≤ 1 := by unfold jOf; split <;> omega
+
+/-- `j` in `r8`. -/
+theorem jBranch_wp {s : State} (h14 : s.gpr .r14 = BitVec.ofNat 64 L) (hL : L < 2 ^ 64) :
+    WP isa (.seq (.block [.mov32 .r8 (.imm 0), .alu .cmp .r14 (imm 17)])
+        (.ite .b (.block []) (.block [.mov32 .r8 (imm 1)]))) s fun s' =>
+      s'.gpr .r8 = BitVec.ofNat 64 (jOf L) ∧ (∀ r, r ≠ .r8 → s'.gpr r = s.gpr r) ∧
+      s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  obtain ⟨s₁, run₁, r8₁, cf₁, g₁, m₁, rd₁, wr₁⟩ : ∃ s₁, runBlock isa [.mov32 .r8 (.imm 0), .alu .cmp .r14 (imm 17)] s =
+      some s₁ ∧ s₁.gpr .r8 = 0 ∧ s₁.cf = some (decide (L < 17)) ∧ (∀ r, r ≠ .r8 → s₁.gpr r = s.gpr r) ∧
+      s₁.mem = s.mem ∧ s₁.rd = s.rd ∧ s₁.wr = s.wr := by
+    refine ⟨_, by
+      simp only [imm, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, readSrc32, execAlu,
+        State.setReg32, Option.bind_some, Option.map_some]
+      rfl, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp [gpr_setReg]
+    · rw [cf_arithFlags]
+      simp only [gpr_setReg, ite_false, reduceCtorEq, h14, sx_ofNat (show 17 < 2 ^ 31 by decide),
+        toNat_ofNat hL, toNat_ofNat (show 17 < 2 ^ 64 by decide)]
+    · intro r hr; simp [gpr_setReg, hr]
+    all_goals rfl
+  refine WP.seq (WP.of_runBlock ⟨s₁, run₁, ?_⟩)
+  refine WP.ite (decide (L < 17)) cf₁ (fun hb => WP.block_nil ?_) (fun hb => ?_)
+  · have h17 : L < 17 := of_decide_eq_true hb
+    refine ⟨by rw [r8₁]; simp [jOf, h17], g₁, m₁, rd₁, wr₁⟩
+  · have h17 : ¬ L < 17 := of_decide_eq_false hb
+    refine WP.of_runBlock ⟨_, by
+      simp only [imm, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc32, State.setReg32, Option.map_some]
+      rfl, ?_, ?_, ?_, ?_, ?_⟩
+    · rw [gpr_setReg_self]; simp [jOf, h17]
+    · intro r hr; rw [gpr_setReg_of_ne _ _ hr, g₁ r hr]
+    · exact m₁
+    · exact rd₁
+    · exact wr₁
+
+/-- The arguments of the update over the first `j` blocks of the tail. -/
+theorem m3_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L s) {out : Nat}
+    (hout : out = 0 ∨ out = 112) (h8 : s.gpr .r8 = BitVec.ofNat 64 (jOf L)) :
+    ∃ s', runBlock isa [.mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp), .mov .rdx (.reg .r15),
+        .alu .add .rdx (imm out), .mov .rcx (.reg .r15), .alu .add .rcx (imm tailOff),
+        .mov .r9 (.reg .r15), .alu .add .r9 (imm csOff), .store (at_ .r15 (dbOff + 8)) .r8] s = some s' ∧
+      Regs s₀ C D P W R L s' ∧
+      UArgs s' C (W + BitVec.ofNat 64 out) (W + BitVec.ofNat 64 32) (W + BitVec.ofNat 64 256) R (jOf L) ∧
+      s'.mem = s.mem.writeW (W + BitVec.ofNat 64 (dbOff + 8)) (BitVec.ofNat 64 (jOf L)) := by
+  have hj := jOf_le L
+  have w := h.inW hr.wr (d := dbOff + 8) (n := 8) (by decide)
+  obtain ⟨s', run, hr', rdi, rsi, rdx, rcx, r8, r9, m⟩ : ∃ s', runBlock isa [.mov .rdi (.reg .rbx),
+      .mov .rsi (.reg .rbp), .mov .rdx (.reg .r15), .alu .add .rdx (imm out), .mov .rcx (.reg .r15),
+      .alu .add .rcx (imm tailOff), .mov .r9 (.reg .r15), .alu .add .r9 (imm csOff),
+      .store (at_ .r15 (dbOff + 8)) .r8] s = some s' ∧ Regs s₀ C D P W R L s' ∧ s'.gpr .rdi = C ∧
+      s'.gpr .rsi = BitVec.ofNat 64 R ∧ s'.gpr .rdx = W + BitVec.ofNat 64 out ∧
+      s'.gpr .rcx = W + BitVec.ofNat 64 32 ∧ s'.gpr .r8 = BitVec.ofNat 64 (jOf L) ∧
+      s'.gpr .r9 = W + BitVec.ofNat 64 256 ∧
+      s'.mem = s.mem.writeW (W + BitVec.ofNat 64 (dbOff + 8)) (BitVec.ofNat 64 (jOf L)) := by
+    refine ⟨_, by
+      simp (config := {decide := true}) only [imm, tailOff, csOff, runBlock_cons, runStep_some, runBlock_nil, at_,
+        exec, readSrc, execAlu, State.store64, State.ea, offset_nat, Option.bind_some, Option.map_some, gpr_setReg,
+        gpr_arithFlags, mem_setReg, mem_arithFlags, rd_setReg, rd_arithFlags, wr_setReg, wr_arithFlags, ite_true,
+        ite_false, hr.r15, w]
+      rfl, ?_⟩
+    refine ⟨hr.keep (fun r hr' => ?_) rfl rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr'
+      rcases hr' with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [gpr_setReg]
+    all_goals simp (config := {decide := true}) only [gpr_setReg, gpr_arithFlags,
+      ite_true, ite_false, hr.rbx, hr.rbp, h8, sx_ofNat (show out < 2 ^ 31 by omega),
+      sx_ofNat (show 32 < 2 ^ 31 by decide), sx_ofNat (show 256 < 2 ^ 31 by decide)]
+  exact ⟨s', run, hr', h.uargs hr'.rd hr'.wr hr'.rsp (by omega)
+    (h.srcWork (o := out) (t := 32) (n := 16 * jOf L) (by omega) (by omega) (by omega)) (by omega)
+    rdi rsi rdx rcx r8 r9, m⟩
+
+/-- The arguments of the finalization of the rest of the tail. -/
+theorem m4_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L s) {out : Nat}
+    (hout : out = 0 ∨ out = 112) (hL16 : 16 ≤ L)
+    (ha : s.mem.readW (W + BitVec.ofNat 64 dbOff) 64 = BitVec.ofNat 64 (16 * kOf L))
+    (hj : s.mem.readW (W + BitVec.ofNat 64 (dbOff + 8)) 64 = BitVec.ofNat 64 (jOf L)) :
+    ∃ s', runBlock isa [.mov .rax (.mem (at_ .r15 (dbOff + 8))), .alu .add .rax (.reg .rax),
+        .alu .add .rax (.reg .rax), .alu .add .rax (.reg .rax), .alu .add .rax (.reg .rax),
+        .mov .r8 (.reg .r14), .alu .sub .r8 (.mem (at_ .r15 dbOff)), .alu .sub .r8 (.reg .rax),
+        .mov .rcx (.reg .r15), .alu .add .rcx (imm tailOff), .alu .add .rcx (.reg .rax),
+        .mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp), .mov .rdx (.reg .r15),
+        .alu .add .rdx (imm out), .mov .r9 (.reg .r15), .alu .add .r9 (imm csOff)] s = some s' ∧
+      Regs s₀ C D P W R L s' ∧
+      FArgs s' C (W + BitVec.ofNat 64 out) (W + BitVec.ofNat 64 (32 + 16 * jOf L)) (W + BitVec.ofNat 64 256)
+        (L - 16 * kOf L - 16 * jOf L) R ∧ s'.mem = s.mem := by
+  have hT := kOf_tail hL16
+  have hJ := jOf_rest hL16
+  have hj1 := jOf_le L
+  have hlt := h.lt
+  have r₁ := h.inRW hr.rd hr.wr (d := dbOff + 8) (n := 8) (by decide)
+  have r₂ := h.inRW hr.rd hr.wr (d := dbOff) (n := 8) (by decide)
+  obtain ⟨s', run, hr', rdi, rsi, rdx, rcx, r8, r9, m⟩ : ∃ s', runBlock isa
+      [.mov .rax (.mem (at_ .r15 (dbOff + 8))), .alu .add .rax (.reg .rax),
+        .alu .add .rax (.reg .rax), .alu .add .rax (.reg .rax), .alu .add .rax (.reg .rax),
+        .mov .r8 (.reg .r14), .alu .sub .r8 (.mem (at_ .r15 dbOff)), .alu .sub .r8 (.reg .rax),
+        .mov .rcx (.reg .r15), .alu .add .rcx (imm tailOff), .alu .add .rcx (.reg .rax),
+        .mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp), .mov .rdx (.reg .r15),
+        .alu .add .rdx (imm out), .mov .r9 (.reg .r15), .alu .add .r9 (imm csOff)] s = some s' ∧
+      Regs s₀ C D P W R L s' ∧ s'.gpr .rdi = C ∧ s'.gpr .rsi = BitVec.ofNat 64 R ∧
+      s'.gpr .rdx = W + BitVec.ofNat 64 out ∧ s'.gpr .rcx = W + BitVec.ofNat 64 (32 + 16 * jOf L) ∧
+      s'.gpr .r8 = BitVec.ofNat 64 (L - 16 * kOf L - 16 * jOf L) ∧ s'.gpr .r9 = W + BitVec.ofNat 64 256 ∧
+      s'.mem = s.mem := by
+    refine ⟨_, by
+      simp (config := {decide := true}) only [imm, tailOff, csOff, runBlock_cons, runStep_some, runBlock_nil, at_,
+        exec, readSrc, execAlu, State.load64, State.ea, offset_nat, Option.bind_some, Option.map_some, gpr_setReg,
+        gpr_arithFlags, mem_setReg, mem_arithFlags, rd_setReg, rd_arithFlags, wr_setReg, wr_arithFlags, ite_true,
+        ite_false, hr.r15, r₁, r₂]
+      rfl, ?_⟩
+    refine ⟨hr.keep (fun r hr' => ?_) rfl rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr'
+      rcases hr' with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [gpr_setReg]
+    all_goals simp (config := {decide := true}) only [gpr_setReg, gpr_arithFlags, mem_setReg, mem_arithFlags,
+      ite_true, ite_false, hr.rbx, hr.rbp, hr.r14, ha, hj, dbl4 (jOf L) (by omega),
+      sx_ofNat (show out < 2 ^ 31 by omega), sx_ofNat (show 32 < 2 ^ 31 by decide),
+      sx_ofNat (show 256 < 2 ^ 31 by decide), Offset.add_add, Offset.ofNat_sub_ofNat (show 16 * kOf L ≤ L by omega),
+      Offset.ofNat_sub_ofNat (show 16 * jOf L ≤ L - 16 * kOf L by omega)]
+  exact ⟨s', run, hr', h.fargs hr'.rd hr'.wr hr'.rsp (by omega)
+    (h.srcWork (o := out) (t := 32 + 16 * jOf L) (n := L - 16 * kOf L - 16 * jOf L) (by omega) (by omega)
+      (by omega)) (by omega) rdi rsi rdx rcx r8 r9, m⟩
+
 end VG.Proof.AesSiv.X86_64
