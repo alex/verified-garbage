@@ -40,8 +40,8 @@ use crate::arch::chacha20poly1305::{
 use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::chacha20poly1305::{
-    vg_chacha20_poly1305_open_neon, vg_chacha20_poly1305_open_sve2,
-    vg_chacha20_poly1305_seal_neon, vg_chacha20_poly1305_seal_sve2,
+    vg_chacha20_poly1305_open_neon, vg_chacha20_poly1305_open_sve2, vg_chacha20_poly1305_seal_neon,
+    vg_chacha20_poly1305_seal_sve2,
 };
 use crate::chacha20::Backend;
 use crate::cpu::{Features, detected};
@@ -381,6 +381,7 @@ mod tests {
         use crate::arch::chacha20poly1305::{
             VG_CHACHA20_POLY1305_OPEN_SVE2_FEATURES, VG_CHACHA20_POLY1305_SEAL_SVE2_FEATURES,
         };
+        use crate::cpu::Features;
         let sve2 = Features::of(VG_CHACHA20_XOR_SVE2_FEATURES);
         assert_eq!(Features::of(VG_CHACHA20_POLY1305_SEAL_SVE2_FEATURES), sve2);
         assert_eq!(Features::of(VG_CHACHA20_POLY1305_OPEN_SVE2_FEATURES), sve2);

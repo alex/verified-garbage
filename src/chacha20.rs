@@ -42,14 +42,14 @@
     target_arch = "x86"
 ))]
 
-#[cfg(target_arch = "aarch64")]
-use crate::arch::chacha20::{
-    VG_CHACHA20_APPLY_SVE2_FEATURES, vg_chacha20_apply_neon, vg_chacha20_apply_sve2,
-};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::chacha20::{
     VG_CHACHA20_APPLY_AVX2_FEATURES, VG_CHACHA20_APPLY_AVX512_FEATURES, vg_chacha20_apply_avx2,
     vg_chacha20_apply_avx512,
+};
+#[cfg(target_arch = "aarch64")]
+use crate::arch::chacha20::{
+    VG_CHACHA20_APPLY_SVE2_FEATURES, vg_chacha20_apply_neon, vg_chacha20_apply_sve2,
 };
 use crate::arch::chacha20::{vg_chacha20_apply, vg_chacha20_init, vg_chacha20_set_nonce};
 use crate::cpu::{Features, detected};
@@ -86,7 +86,9 @@ impl Backend {
     /// ChaCha20-Poly1305's need too, see its tests).
     #[cfg(target_arch = "aarch64")]
     pub(crate) fn select(f: Features) -> Backend {
-        if f.contains(Features::of(&["neon"])) && f.contains(Features::of(VG_CHACHA20_APPLY_SVE2_FEATURES)) {
+        if f.contains(Features::of(&["neon"]))
+            && f.contains(Features::of(VG_CHACHA20_APPLY_SVE2_FEATURES))
+        {
             Backend::Sve2
         } else if f.contains(Features::of(&["neon"])) {
             Backend::Neon
