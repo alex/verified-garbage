@@ -80,7 +80,7 @@ theorem tailHead_ok {q : Nat} {ys : List Block} {st : State} (h : Mid s q q ys s
   refine ⟨_, by simp only [argN]; xrun [a₀, hS, r₆, h.kept.n], ?_, by simp only [zf_arithFlags, hz]⟩
   exact h.slots hp (fun r h1 h2 h3 => by simp [gpr_setReg, gpr_arithFlags, h1, h2]) h.kept (Frame.refl _ _) rfl rfl
 
-theorem Mid.ready {q : Nat} {ys : List Block} {st : State} (h : Mid s q q ys st) : Ready s q st :=
+theorem Mid.ready {q k : Nat} {ys : List Block} {st : State} (h : Mid s q k ys st) : Ready s k st :=
   ⟨h.rsp, h.rd, h.wr, h.kept, by rw [keep_a hp h.frame]; rfl⟩
 
 /-- The arguments of `vg_aes_ctr32` on the `n - q` blocks left. -/

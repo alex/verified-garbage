@@ -9,7 +9,7 @@ Untrusted: everything here is checked by Lean. After the entry, if there are
 at least 16 blocks, `r9` becomes `16 ⌊n / 16⌋` (`split_ok`), which with the
 other arguments still in their registers meets what the interleaved loops
 need (`spre_of`); their result is `Mid` with `q = 16 ⌊n / 16⌋`
-(`mid_of_post`). With fewer, `q = 0` (`stitchE_ok`, `stitchD_ok`).
+(`mid_of_post`). With fewer, `q = 0` (`stitchE_ok`, `stitchD_ok`); then `rest`.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -190,9 +190,7 @@ theorem stitch_ok {piece : Prog isa} {Post : State → State → Prop} {ys : Nat
       Kept s 0 s₃.mem → Frame [kR' s] s.mem s₃.mem → Post s₃ s₄ → Mid s (n s - n s % 16) 0 (ys (n s - n s % 16)) s₄)
     {s₁ : State} (h11 : s₁.gpr .r11 = S s) (hg : ∀ r, r ≠ .r11 → s₁.gpr r = s.gpr r) (hk : Kept s 0 s₁.mem)
     (hf : Frame [kR' s] s.mem s₁.mem) (hrd : s₁.rd = s.rd) (hwr : s₁.wr = s.wr) :
-    WP isa (.seq (stitchPart piece) (.block rest)) s₁
-      (Mid s (n s - n s % 16) (n s - n s % 16) (ys (n s - n s % 16))) := by
-  refine WP.seq (WP.mono (Q := Mid s (n s - n s % 16) 0 (ys (n s - n s % 16))) ?_ fun _ h => rest_ok hp rfl h)
+    WP isa (stitchPart piece) s₁ (Mid s (n s - n s % 16) 0 (ys (n s - n s % 16))) := by
   refine WP.seq (WP.mono (cmp16_ok (hg _ (by decide))) fun s₂ ⟨g₂, m₂, rd₂, wr₂, cf₂⟩ => ?_)
   refine WP.ite (decide (n s < 16)) (by simp only [eval, cf₂]) (fun h => ?_) (fun h => ?_)
   · have h0 : n s - n s % 16 = 0 := by simp at h; omega
@@ -222,8 +220,8 @@ theorem stitch_ok {piece : Prog isa} {Post : State → State → Prop} {ys : Nat
 /-- Encryption: the blocks hashed are those written. -/
 theorem stitchE_ok {s₁ : State} (h11 : s₁.gpr .r11 = S s) (hg : ∀ r, r ≠ .r11 → s₁.gpr r = s.gpr r)
     (hk : Kept s 0 s₁.mem) (hf : Frame [kR' s] s.mem s₁.mem) (hrd : s₁.rd = s.rd) (hwr : s₁.wr = s.wr) :
-    WP isa (.seq (stitchPart Impl.Gcm.X86_64.Stitch.enc) (.block rest)) s₁
-      (Mid s (n s - n s % 16) (n s - n s % 16)
+    WP isa (stitchPart Impl.Gcm.X86_64.Stitch.enc) s₁
+      (Mid s (n s - n s % 16) 0
         (ctr32 (ciph s) (cb s) (blocksAt s.mem (D s) (n s - n s % 16)))) :=
   stitch_ok hp (ys := fun q => ctr32 (ciph s) (cb s) (blocksAt s.mem (D s) q)) rfl
     (fun _ h => Gcm.X86_64.Stitch.enc_ok h)
@@ -242,8 +240,8 @@ theorem stitchE_ok {s₁ : State} (h11 : s₁.gpr .r11 = S s) (hg : ∀ r, r ≠
 /-- Decryption: the blocks hashed are those read. -/
 theorem stitchD_ok {s₁ : State} (h11 : s₁.gpr .r11 = S s) (hg : ∀ r, r ≠ .r11 → s₁.gpr r = s.gpr r)
     (hk : Kept s 0 s₁.mem) (hf : Frame [kR' s] s.mem s₁.mem) (hrd : s₁.rd = s.rd) (hwr : s₁.wr = s.wr) :
-    WP isa (.seq (stitchPart Impl.Gcm.X86_64.Stitch.dec) (.block rest)) s₁
-      (Mid s (n s - n s % 16) (n s - n s % 16)
+    WP isa (stitchPart Impl.Gcm.X86_64.Stitch.dec) s₁
+      (Mid s (n s - n s % 16) 0
         (blocksAt s.mem (D s) (n s - n s % 16))) :=
   stitch_ok hp (ys := fun q => blocksAt s.mem (D s) q) rfl
     (fun _ h => Gcm.X86_64.Stitch.dec_ok h)
