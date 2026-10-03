@@ -1030,6 +1030,22 @@ yours to keep:
 
 </tr>
 
+<tr>
+
+<td>RSA</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
 </table>
 
 <!-- END ci/algorithms_table.py -->
