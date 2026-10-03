@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Ed448.X86_64.Verify.Hash
 import VerifiedGarbage.Proof.Ed448.X86_64.ScalarVerified
-import VerifiedGarbage.Proof.Ed448.X86_64.VerifyVerified
+import VerifiedGarbage.Proof.Ed448.X86_64.VerifyLocal
+import VerifiedGarbage.Proof.Ed448.X86_64.VerifyLit
 
 /-!
 # Ed448 verification on x86-64: the challenge and the equation
@@ -9,7 +10,9 @@ Between the frame's push and pop (`Ctx`): the call of
 `vg_ed448_scalar_reduce`, which leaves the hash in the frame reduced modulo
 `L` at `k` (`reduce_ok`), and that of `vg_ed448_verify_equation` on the
 public key, the signature and `k`, which leaves its result in `rax`
-(`equation_ok`).
+(`equation_ok`), for any proof that it meets its contract (`EqOk`): only the
+whole function's `Verified` imports that proof, and the group theory it
+imports.
 -/
 
 namespace VG.Proof.Ed448.X86_64.Verify
@@ -31,6 +34,15 @@ theorem equation_nosp : NoSp Impl.Ed448.X86_64.verifyEquation := by
   intro i hi; simpa using List.all_eq_true.mp this i hi
 
 theorem equation_depth : Impl.Ed448.X86_64.verifyEquation.depth ≤ 1 := by lit_decide
+
+/-- `vg_ed448_verify_equation` meets the contract its proof is written against, and the ABI. -/
+abbrev EqOk : Prop := ∀ s, Proof.Ed448.X86_64.verifyEquationLocal.pre s →
+  ∃ t s', Exec isa Impl.Ed448.X86_64.verifyEquation s t s' ∧ abiPreserved s s' ∧
+    Proof.Ed448.X86_64.verifyEquationLocal.post s s'
+
+/-- `vg_ed448_verify_equation` is constant time for that contract. -/
+abbrev EqCT : Prop := ConstantTime isa Proof.Ed448.X86_64.verifyEquationLocal.pre
+  Proof.Ed448.X86_64.verifyEquationLocal.pub Impl.Ed448.X86_64.verifyEquation
 
 section
 variable {L : Lay} {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : Mem}
@@ -104,7 +116,7 @@ theorem reduce_ok (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) :
 /-- The arguments of `vg_ed448_verify_equation`. -/
 abbrev eqArgs : List Arg := [.slot fPk, .slot fSig, .sp fK, .slot fScr]
 
-theorem equation_ok (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) :
+theorem equation_ok (hv : EqOk) (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) :
     WP isa (callA "vg_ed448_verify_equation" Impl.Ed448.X86_64.verifyEquation eqArgs) t fun t' =>
       Ctx L g mx m₀ t' ∧ t'.gpr .rax = if Spec.Ed448.verifyEquation (bytesAt m₀ L.pk 57) (bytesAt m₀ L.sig 114)
         (bytesAt t.mem L.K 57) then 1 else 0 := by
@@ -125,7 +137,7 @@ theorem equation_ok (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) :
     simp only [Proof.Ed448.X86_64.verifyEquationLocal, g1, g2, g3, g4, sp_ce hc1, State.withRegions_rd,
       State.withRegions_wr]
     exact ⟨trivial, trivial, hL.xPk.symm, hL.xSig.symm, k_x' hL, ret_x hL, hL.nScr⟩
-  refine call_ok hL Proof.Ed448.X86_64.verifyEquation_ok equation_nosp equation_depth hc1 hpre
+  refine call_ok hL hv equation_nosp equation_depth hc1 hpre
     (fun r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl

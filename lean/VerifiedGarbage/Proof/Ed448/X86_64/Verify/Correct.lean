@@ -9,7 +9,8 @@ signature's `R`, the public key and the message, with the context's `dom4`
 prefix, in `rax` (`body_ok`); the frame's push gives `Ctx` (`entry_ctx`).
 From a state satisfying `verifyContract X86_64.abi 272`, `verify` returns 0
 if the context is longer than 255 bytes and otherwise that result, which is
-`Spec.Ed448.verify`'s (`verify_wp`).
+`Spec.Ed448.verify`'s (`verify_wp`), for any proof of `vg_ed448_verify_equation`
+(`EqOk`).
 -/
 
 namespace VG.Proof.Ed448.X86_64.Verify
@@ -37,14 +38,14 @@ abbrev chal (L : Lay) (m₀ : Mem) : List Byte :=
   Spec.Ed448.scalarReduce (Spec.Ed448.hash (bytesAt m₀ L.ctx L.ctxLen.toNat)
     (bytesAt m₀ L.sig 57 ++ bytesAt m₀ L.pk 57 ++ bytesAt m₀ L.msg L.len.toNat))
 
-theorem body_ok (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) :
+theorem body_ok (hv : EqOk) (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) :
     WP isa body t fun t' => Ctx L g mx m₀ t' ∧
       t'.gpr .rax = if Spec.Ed448.verifyEquation (bytesAt m₀ L.pk 57) (bytesAt m₀ L.sig 114) (chal L m₀)
         then 1 else 0 := by
   refine WP.seq (WP.mono (hdr_ok hL hc) fun t1 ⟨hc1, hh⟩ => ?_)
   refine WP.seq (WP.mono (hash_ok hL hc1) fun t2 ⟨hc2, hH⟩ => ?_)
   refine WP.seq (WP.mono (reduce_ok hL hc2) fun t3 ⟨hc3, hK⟩ => ?_)
-  refine WP.mono (equation_ok hL hc3) fun t4 ⟨hc4, hr⟩ => ⟨hc4, ?_⟩
+  refine WP.mono (equation_ok hv hL hc3) fun t4 ⟨hc4, hr⟩ => ⟨hc4, ?_⟩
   have ek : bytesAt t3.mem L.K 57 = chal L m₀ := by
     change Spec.Ed448.bytesAt t3.mem L.K 57 = _
     rw [hK, hH, hh]
@@ -141,7 +142,7 @@ theorem cs_tmp : ∀ r ∈ calleeSaved, r ∉ [Reg.r11, .rax] := by decide
 
 /-! ## The function -/
 
-theorem verify_wp {s : State} (hpre : (Spec.Ed448.verifyContract X86_64.abi 272).pre s) :
+theorem verify_wp (hv : EqOk) {s : State} (hpre : (Spec.Ed448.verifyContract X86_64.abi 272).pre s) :
     WP isa verify s fun s' => abiPreserved s s' ∧ (Spec.Ed448.verifyContract X86_64.abi 272).post s s' := by
   have h := vPre_of hpre
   unfold verify
@@ -158,7 +159,7 @@ theorem verify_wp {s : State} (hpre : (Spec.Ed448.verifyContract X86_64.abi 272)
     refine WP.frame (by decide) (by decide) (by decide) hn ?_
     have hc := entry_ctx hL hsp2 (k2.2.1.trans hrd1) (k2.2.2.trans hwr1) h11 (hg2 _ (by decide))
       (hg2 _ (by decide)) (hg2 _ (by decide)) (hg2 _ (by decide)) (hg2 _ (by decide)) (hg2 _ (by decide))
-    refine WP.mono (body_ok hL hc) fun s' ⟨hc', hr⟩ => ⟨by rw [hc'.rsp, hc.rsp], by rw [hc'.wr, hc.wr], ?_, ?_⟩
+    refine WP.mono (body_ok hv hL hc) fun s' ⟨hc', hr⟩ => ⟨by rw [hc'.rsp, hc.rsp], by rw [hc'.wr, hc.wr], ?_, ?_⟩
     · -- The calling convention.
       refine ⟨fun r hr => ?_, ?_, ?_⟩
       · by_cases hr' : r = .rsp
