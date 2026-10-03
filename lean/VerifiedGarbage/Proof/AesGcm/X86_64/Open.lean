@@ -109,6 +109,28 @@ structure OpenMid (Ctx W SP : Addr) (J : Block) (k : Nat) (s s' : State) : Prop 
   aux : s'.mem.readW (W + BitVec.ofNat 64 216) 64 = BitVec.ofNat 64 k
   j : blockAt s'.mem (W + BitVec.ofNat 64 16) = inc32 J
 
+/-- After the comparison, from `s` after `oneAad`: `k` is 1 if the tags match
+and 0 if not, the whole blocks `X` decrypted from the counter block after
+`J₀ = J`, the counter after them, and what `oneEnd` needs. -/
+structure OpenFront (Ctx W SP : Addr) (R : Nat) (D : Addr) (n : Nat) (J : Block) (X : List Byte) (k : Nat)
+    (s s' : State) : Prop where
+  env : Env Ctx (W + BitVec.ofNat 64 16) W SP s'
+  frame : Frame (oneFrameB W D SP n) s.mem s'.mem
+  rd : s'.rd = s.rd
+  wr : s'.wr = s.wr
+  rounds : RoundsAt s'.mem W R
+  tlen : s'.mem.readW (W + BitVec.ofNat 64 192) 64 = BitVec.ofNat 64 n
+  dat : s'.mem.readW (W + BitVec.ofNat 64 200) 64 = D + BitVec.ofNat 64 (16 * (n / 16))
+  len : s'.mem.readW (W + BitVec.ofNat 64 208) 64 = BitVec.ofNat 64 (n - 16 * (n / 16))
+  zf : s'.zf = some (decide (k = 0))
+  aux : s'.mem.readW (W + BitVec.ofNat 64 216) 64 = BitVec.ofNat 64 k
+  j : blockAt s'.mem (W + BitVec.ofNat 64 16) = inc32 J
+  cb : blockAt s'.mem (cbA W) = Nat.repeat inc32 (n / 16) (inc32 J)
+  whole : bytesAt s'.mem D (16 * (n / 16)) = xorKs (ciphOf s'.mem Ctx R) (inc32 J) 0 X
+  tail : bytesAt s'.mem (D + BitVec.ofNat 64 (16 * (n / 16))) (n - 16 * (n / 16)) =
+    bytesAt s.mem (D + BitVec.ofNat 64 (16 * (n / 16))) (n - 16 * (n / 16))
+  ciph : ciphOf s'.mem Ctx R = ciphOf s.mem Ctx R
+
 /-- The tag of the ciphertext (`x`, absorbed, then the `n` bytes at `D`, of `N`
 in all), compared with the received one. -/
 theorem openCheckA_ok {R t : Nat} {D : Addr} {n N al : Nat} {H J : Block} {x : List Byte}
@@ -234,6 +256,12 @@ theorem openCheckA_ok {R t : Nat} {D : Addr} {n N al : Nat} {H J : Block} {x : L
   subst hk hT
   exact ⟨he₇, F₇, hrd₇', hwr₇', hcb₇, hz₇, hax₇, hj₇⟩
 
+omit L in
+theorem WP.seq6 {a b c d e f T : Prog isa} {s : State} {P Q : State → Prop}
+    (h : WP isa (.seq a (.seq b (.seq c (.seq d (.seq e f))))) s P) (k : ∀ s', P s' → WP isa T s' Q) :
+    WP isa (.seq a (.seq b (.seq c (.seq d (.seq e (.seq f T)))))) s Q :=
+  WP.seq (WP.mono (WP.seq_iff.mp h) fun _ h => WP.seq5 h k)
+
 /-- After the comparison: the rest decrypted if the tags match (`k ≠ 0`), and
 the whole blocks (`X` before `oneBlocks`) encrypted again if not, and the
 result. -/
@@ -320,10 +348,9 @@ theorem openEnd_ok {R n k : Nat} {D : Addr} {J : Block} {X : List Byte} {s : Sta
       rcases hr with rfl | rfl | rfl | rfl <;> decide)) hrd₉ hwr₉, by rw [hm₉]; exact f₈,
     by rw [hrd₉, hrd₈], by rw [hwr₉, hwr₈], hax₉, by rw [hm₉]; exact hD₈⟩
 
-/-- After `oneAad`: the whole blocks decrypted and absorbed, the tag of the
-ciphertext compared with the received one, and the data decrypted if they
-match, or kept if not. -/
-theorem openBody_ok {R t : Nat} {D : Addr} {n al : Nat} {H J : Block} {a : List Byte} {s : State}
+/-- After `oneAad`: the whole blocks decrypted and absorbed, and the tag of the
+ciphertext compared with the received one. -/
+theorem openFront_ok {R t : Nat} {D : Addr} {n al : Nat} {H J : Block} {a : List Byte} {s : State}
     (h : ObPre Ctx W SP R D n s) (hH : blockAt s.mem (Ctx + BitVec.ofNat 64 240) = H)
     (hal : s.mem.readW (W + BitVec.ofNat 64 184) 64 = BitVec.ofNat 64 al)
     (htl : s.mem.readW (W + BitVec.ofNat 64 224) 64 = BitVec.ofNat 64 t) (h1 : 1 ≤ t) (h16 : t ≤ 16)
@@ -333,16 +360,10 @@ theorem openBody_ok {R t : Nat} {D : Addr} {n al : Nat} {H J : Block} {a : List 
       (.seq (.block [.mov .rbx (.mem (at_ .r15 tlO))])
       (.seq recv
       (.seq (cmp uO)
-      (.seq (.block [.store (at_ .r15 auxO) .rax, .alu .test .rax (.reg .rax)])
-      (.seq (.ite .e (oneUndo v.callees) (oneCrypt v.callees))
-        (.block [.mov .rax (.mem (at_ .r15 auxO))])))))))) s fun s' =>
-      Env Ctx (W + BitVec.ofNat 64 16) W SP s' ∧ Frame (oneFrameB W D SP n) s.mem s'.mem ∧ s'.rd = s.rd ∧
-      s'.wr = s.wr ∧
-      let T := toBytes (ghashFrom H (ghash H (blocks (padded a (bytesAt s.mem D n))))
-        [ofBytes (lensBlock al n)] ^^^ ciphOf s.mem Ctx R J)
-      s'.gpr .rax = BitVec.ofNat 64 (if T.take t = bytesAt s.mem W t then 1 else 0) ∧
-      bytesAt s'.mem D n = if T.take t = bytesAt s.mem W t then xorKs (ciphOf s.mem Ctx R) (inc32 J) 0 (bytesAt s.mem D n)
-        else bytesAt s.mem D n := by
+        (.block [.store (at_ .r15 auxO) .rax, .alu .test .rax (.reg .rax)])))))) s
+      (OpenFront Ctx W SP R D n J (bytesAt s.mem D (16 * (n / 16)))
+        (if (toBytes (ghashFrom H (ghash H (blocks (padded a (bytesAt s.mem D n))))
+          [ofBytes (lensBlock al n)] ^^^ ciphOf s.mem Ctx R J)).take t = bytesAt s.mem W t then 1 else 0) s) := by
   have hD := h.data.ok.w
   have hlt := h.data.ok.lt
   have hR := h.rounds.2
@@ -378,7 +399,7 @@ theorem openBody_ok {R t : Nat} {D : Addr} {n al : Nat} {H J : Block} {a : List 
     · exact (h.t_w.sub_right (by simpa using Lay.wSub (W := W) (d := 0) (n := 16) (by decide))).symm
   have hX : (a ++ zeros (padLen a.length) ++ bytesAt s.mem D (16 * (n / 16))).length % 16 = 0 := by
     rw [List.length_append, length_bytesAt]; omega
-  refine WP.seq5 (openCheckA_ok v L (x := a ++ zeros (padLen a.length) ++ bytesAt s.mem D (16 * (n / 16))) (N := n)
+  refine WP.mono (openCheckA_ok v L (x := a ++ zeros (padLen a.length) ++ bytesAt s.mem D (16 * (n / 16))) (N := n)
     hX P.env hH₃ hR₃ P.dat hlen₃ P.tlen hlt (by rw [kp₃ 184 (.inl ⟨by decide, by decide⟩)]; exact hal)
     (by rw [kp₃ 224 (.inr ⟨by decide, by decide⟩)]; exact htl) h1 h16 hdw hdw.ok.w ab₃ (hJ₃.trans hj)) fun s₇ M => ?_
   have eT : a ++ zeros (padLen a.length) ++ bytesAt s.mem D (16 * (n / 16)) ++
@@ -386,9 +407,6 @@ theorem openBody_ok {R t : Nat} {D : Addr} {n al : Nat} {H J : Block} {a : List 
       a ++ zeros (padLen a.length) ++ bytesAt s.mem D n := by
     rw [ht₃, List.append_assoc, ← split]
   rw [eT, padded_eq, hc₃, hW₃] at M
-  generalize hT : toBytes (ghashFrom H (ghash H (blocks (padded a (bytesAt s.mem D n))))
-    [ofBytes (lensBlock al n)] ^^^ ciphOf s.mem Ctx R J) = T at M ⊢
-  generalize hk : (if T.take t = bytesAt s.mem W t then 1 else 0) = k at M
   have F₇' := wFrame_one (D := D + BitVec.ofNat 64 (16 * (n / 16))) (n := n - 16 * (n / 16)) (.inr rfl) M.frame
   have kp₇ : ∀ d, (128 ≤ d ∧ d + 8 ≤ 216) ∨ (224 ≤ d ∧ d + 8 ≤ 240) →
       s₇.mem.readW (W + BitVec.ofNat 64 d) 64 = s₃.mem.readW (W + BitVec.ofNat 64 d) 64 :=
@@ -418,16 +436,48 @@ theorem openBody_ok {R t : Nat} {D : Addr} {n al : Nat} {H J : Block} {a : List 
   have ht₇ : bytesAt s₇.mem (D + BitVec.ofNat 64 (16 * (n / 16))) (n - 16 * (n / 16)) =
       bytesAt s₃.mem (D + BitVec.ofNat 64 (16 * (n / 16))) (n - 16 * (n / 16)) :=
     bytesAt_frame M.frame (fun r hr => (dD r hr).sub_left (Offset.sub_base D (by omega))) (by omega)
-  refine WP.mono (openEnd_ok v L (X := bytesAt s.mem D (16 * (n / 16))) M.env
-    ⟨by rw [kp₇ 176 (.inl ⟨by decide, by decide⟩)]; exact hR₃.1, hR⟩
-    (by rw [kp₇ 192 (.inl ⟨by decide, by decide⟩)]; exact P.tlen)
-    (by rw [kp₇ 200 (.inl ⟨by decide, by decide⟩)]; exact P.dat)
-    (by rw [kp₇ 208 (.inl ⟨by decide, by decide⟩)]; exact hlen₃)
-    (h.data.of_eq (M.rd.trans P.rd) (M.wr.trans P.wr)) M.zf M.aux M.j
-    (by rw [M.cb, ct₃.1]; congr 1; omega) (by rw [hp₇, hw₃, hc₇, hc₃]))
-    fun s' ⟨he', f', rd', wr', ax', d'⟩ => ⟨he', oneB_trans f₃ (oneB_trans (oneFrame_B hq F₇') f'),
-      rd'.trans (M.rd.trans P.rd), wr'.trans (M.wr.trans P.wr), by rw [ax', ← hk], ?_⟩
-  rw [d', ht₇, ht₃, ← split, hc₇, hc₃]
+  exact ⟨M.env, oneB_trans f₃ (oneFrame_B hq F₇'), M.rd.trans P.rd, M.wr.trans P.wr,
+    ⟨by rw [kp₇ 176 (.inl ⟨by decide, by decide⟩)]; exact hR₃.1, hR⟩,
+    by rw [kp₇ 192 (.inl ⟨by decide, by decide⟩)]; exact P.tlen,
+    by rw [kp₇ 200 (.inl ⟨by decide, by decide⟩)]; exact P.dat,
+    by rw [kp₇ 208 (.inl ⟨by decide, by decide⟩)]; exact hlen₃, M.zf, M.aux, M.j,
+    by rw [M.cb, ct₃.1]; congr 1; omega, by rw [hp₇, hw₃, hc₇, hc₃], ht₇.trans ht₃, hc₇.trans hc₃⟩
+
+/-- After `oneAad`: the whole blocks decrypted and absorbed, the tag of the
+ciphertext compared with the received one, and the data decrypted if they
+match, or kept if not. -/
+theorem openBody_ok {R t : Nat} {D : Addr} {n al : Nat} {H J : Block} {a : List Byte} {s : State}
+    (h : ObPre Ctx W SP R D n s) (hH : blockAt s.mem (Ctx + BitVec.ofNat 64 240) = H)
+    (hal : s.mem.readW (W + BitVec.ofNat 64 184) 64 = BitVec.ofNat 64 al)
+    (htl : s.mem.readW (W + BitVec.ofNat 64 224) 64 = BitVec.ofNat 64 t) (h1 : 1 ≤ t) (h16 : t ≤ 16)
+    (habs : Absorbed s.mem (yA W) (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 32) H (a ++ zeros (padLen a.length)))
+    (hj : blockAt s.mem (W + BitVec.ofNat 64 16) = J) (hcb : blockAt s.mem (cbA W) = inc32 J) :
+    WP isa (.seq (oneBlocks v.callees.dec) (.seq (oneTag v.callees uO)
+      (.seq (.block [.mov .rbx (.mem (at_ .r15 tlO))])
+      (.seq recv
+      (.seq (cmp uO)
+      (.seq (.block [.store (at_ .r15 auxO) .rax, .alu .test .rax (.reg .rax)])
+      (.seq (.ite .e (oneUndo v.callees) (oneCrypt v.callees))
+        (.block [.mov .rax (.mem (at_ .r15 auxO))])))))))) s fun s' =>
+      Env Ctx (W + BitVec.ofNat 64 16) W SP s' ∧ Frame (oneFrameB W D SP n) s.mem s'.mem ∧ s'.rd = s.rd ∧
+      s'.wr = s.wr ∧
+      let T := toBytes (ghashFrom H (ghash H (blocks (padded a (bytesAt s.mem D n))))
+        [ofBytes (lensBlock al n)] ^^^ ciphOf s.mem Ctx R J)
+      s'.gpr .rax = BitVec.ofNat 64 (if T.take t = bytesAt s.mem W t then 1 else 0) ∧
+      bytesAt s'.mem D n = if T.take t = bytesAt s.mem W t then xorKs (ciphOf s.mem Ctx R) (inc32 J) 0 (bytesAt s.mem D n)
+        else bytesAt s.mem D n := by
+  have hq : 16 * (n / 16) ≤ n := by omega
+  have split : ∀ m : Mem, bytesAt m D n =
+      bytesAt m D (16 * (n / 16)) ++ bytesAt m (D + BitVec.ofNat 64 (16 * (n / 16))) (n - 16 * (n / 16)) :=
+    fun m => by rw [← bytesAt_add, Nat.add_sub_cancel' hq]
+  refine WP.seq6 (openFront_ok v L h hH hal htl h1 h16 habs hj hcb) fun s₇ F => ?_
+  generalize hT : toBytes (ghashFrom H (ghash H (blocks (padded a (bytesAt s.mem D n))))
+    [ofBytes (lensBlock al n)] ^^^ ciphOf s.mem Ctx R J) = T at F ⊢
+  generalize hk : (if T.take t = bytesAt s.mem W t then 1 else 0) = k at F
+  refine WP.mono (openEnd_ok v L F.env F.rounds F.tlen F.dat F.len (h.data.of_eq F.rd F.wr) F.zf F.aux F.j F.cb
+    F.whole) fun s' ⟨he', f', rd', wr', ax', d'⟩ => ⟨he', oneB_trans F.frame f', rd'.trans F.rd, wr'.trans F.wr,
+      by rw [ax', ← hk], ?_⟩
+  rw [d', F.tail, ← split, F.ciph]
   by_cases hc : T.take t = bytesAt s.mem W t
   · simp only [hc, ↓reduceIte] at hk ⊢; subst hk; simp
   · simp only [hc, ↓reduceIte] at hk ⊢; subst hk; simp

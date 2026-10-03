@@ -100,6 +100,21 @@ theorem oneBlocks_rel (f : Fn) {R : Nat} {A : Addr} {al : Nat} {D : Addr} {n : N
   rw [oneBlocks_eq]
   exact RelCT.seq a (rel_ite_e (fun _ _ h => by rw [h.2.1.1, h.2.2.1]) t (RelCT.seq b (RelCT.seq c d)))
 
+/-- What stays in `W` after `oneBlocks`. -/
+theorem ObPost.oneS {R : Nat} {A : Addr} {al : Nat} {D : Addr} {n : Nat} {T : Option Nat}
+    (t_w : (below SP 24).Disjoint ⟨W, 2560⟩) {s s' : State} (h : OneS Ctx W SP R A al D n T s)
+    (P : ObPost Ctx W SP D n s s') :
+    OneS Ctx W SP R A al (D + BitVec.ofNat 64 (16 * (n / 16))) (n - 16 * (n / 16)) (some n) s' := by
+  have fB := obFrame_B P.frame
+  have kp : ∀ d, (128 ≤ d ∧ d + 8 ≤ 192) ∨ (224 ≤ d ∧ d + 8 ≤ 240) →
+      s'.mem.readW (W + BitVec.ofNat 64 d) 64 = s.mem.readW (W + BitVec.ofNat 64 d) 64 :=
+    fun d hd => fB.readW (r := ⟨W + BitVec.ofNat 64 d, 8⟩) (Region.contains_self _ _)
+      (kept_oneFrameB L h.dD.ok.w t_w hd) (by decide)
+  exact ⟨P.env, ⟨by rw [kp 176 (.inl ⟨by decide, by decide⟩)]; exact h.rounds.1, h.rounds.2⟩,
+    by rw [kp 232 (.inr ⟨by decide, by decide⟩)]; exact h.aad, by rw [kp 184 (.inl ⟨by decide, by decide⟩)]; exact h.alen,
+    P.dat, by rw [P.len]; congr 1; omega, h.dA.of_eq P.rd P.wr, (h.dD.of_eq P.rd P.wr).drop (by omega),
+    fun N hN => by cases hN; exact P.tlen⟩
+
 /-- After `oneBlocks`, what stays in `W`: the data left, its length and the
 total length. -/
 theorem oneBlocks_oneS (f : Fn) {R : Nat} {A : Addr} {al : Nat} {D : Addr} {n : Nat} {T : Option Nat}
@@ -111,19 +126,9 @@ theorem oneBlocks_oneS (f : Fn) {R : Nat} {A : Addr} {al : Nat} {D : Addr} {n : 
         Frame (obFrame W SP D (n / 16)) s.mem s'.mem)
     {s : State} (h : OneS Ctx W SP R A al D n T s) :
     WP isa (oneBlocks f) s (OneS Ctx W SP R A al (D + BitVec.ofNat 64 (16 * (n / 16))) (n - 16 * (n / 16)) (some n)) := by
-  have hD := h.dD.ok.w
-  refine WP.mono (oneBlocks_core L f (Out := fun _ _ => True) ⟨h.env, h.rounds, h.dat, h.len, h.dD, t_c, t_w, t_d, sp24⟩
+  exact WP.mono (oneBlocks_core L f (Out := fun _ _ => True) ⟨h.env, h.rounds, h.dat, h.len, h.dD, t_c, t_w, t_d, sp24⟩
     (fun s₂ hi => WP.mono (hw s₂ hi) fun _ ⟨a, b, c, d⟩ => ⟨a, b, c, d, trivial⟩) (fun _ _ _ => trivial)
-    (fun _ _ _ _ _ _ => trivial)) fun s' ⟨P, _⟩ => ?_
-  have fB := obFrame_B P.frame
-  have kp : ∀ d, (128 ≤ d ∧ d + 8 ≤ 192) ∨ (224 ≤ d ∧ d + 8 ≤ 240) →
-      s'.mem.readW (W + BitVec.ofNat 64 d) 64 = s.mem.readW (W + BitVec.ofNat 64 d) 64 :=
-    fun d hd => fB.readW (r := ⟨W + BitVec.ofNat 64 d, 8⟩) (Region.contains_self _ _) (kept_oneFrameB L hD t_w hd)
-      (by decide)
-  exact ⟨P.env, ⟨by rw [kp 176 (.inl ⟨by decide, by decide⟩)]; exact h.rounds.1, h.rounds.2⟩,
-    by rw [kp 232 (.inr ⟨by decide, by decide⟩)]; exact h.aad, by rw [kp 184 (.inl ⟨by decide, by decide⟩)]; exact h.alen,
-    P.dat, by rw [P.len]; congr 1; omega, h.dA.of_eq P.rd P.wr, (h.dD.of_eq P.rd P.wr).drop (by omega),
-    fun N hN => by cases hN; exact P.tlen⟩
+    (fun _ _ _ _ _ _ => trivial)) fun s' ⟨P, _⟩ => ObPost.oneS L t_w h P
 
 end
 
