@@ -59,9 +59,9 @@ impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     fn select(f: Features) -> Backend {
-        if f.contains(const { Features::of(VG_POLY1305_UPDATE_AVX512_FEATURES) }) {
+        if f.contains(VG_POLY1305_UPDATE_AVX512_FEATURES) {
             Backend::Avx512
-        } else if f.contains(const { Features::of(VG_POLY1305_UPDATE_AVX2_FEATURES) }) {
+        } else if f.contains(VG_POLY1305_UPDATE_AVX2_FEATURES) {
             Backend::Avx2
         } else {
             Backend::Scalar
@@ -266,12 +266,12 @@ mod tests {
             use crate::arch::poly1305::{
                 VG_POLY1305_BLOCKS_AVX2_FEATURES, VG_POLY1305_BLOCKS_AVX512_FEATURES,
             };
-            let avx2 = Features::of(VG_POLY1305_UPDATE_AVX2_FEATURES);
-            let avx512 = Features::of(VG_POLY1305_UPDATE_AVX512_FEATURES);
+            let avx2 = VG_POLY1305_UPDATE_AVX2_FEATURES;
+            let avx512 = VG_POLY1305_UPDATE_AVX512_FEATURES;
             // The instances need the features of the implementations of
             // `vg_poly1305_blocks` they call.
-            assert_eq!(avx2, Features::of(VG_POLY1305_BLOCKS_AVX2_FEATURES));
-            assert_eq!(avx512, Features::of(VG_POLY1305_BLOCKS_AVX512_FEATURES));
+            assert_eq!(avx2, VG_POLY1305_BLOCKS_AVX2_FEATURES);
+            assert_eq!(avx512, VG_POLY1305_BLOCKS_AVX512_FEATURES);
             assert_eq!(Backend::select(avx512), Backend::Avx512);
             assert_eq!(Backend::select(avx2), Backend::Avx2);
             // AVX-512F alone is not enough: the AVX-512 instance calls the

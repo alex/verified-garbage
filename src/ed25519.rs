@@ -64,7 +64,7 @@ impl Field {
                 ])
             },
         );
-        if adx && f.contains(const { Features::of(VG_ED25519_VERIFY_IFMA_FEATURES) }) {
+        if adx && f.contains(VG_ED25519_VERIFY_IFMA_FEATURES) {
             Field::Ifma
         } else if adx {
             Field::Adx
@@ -320,9 +320,9 @@ mod x86_64_tests {
 
     /// The CPU features of the three operations with SHA-512's backend `s`
     /// and the field multiplications `f`.
-    fn required(s: Sha512Backend, f: Field) -> [&'static [&'static str]; 3] {
+    fn required(s: Sha512Backend, f: Field) -> [Features; 3] {
         match (s, f) {
-            (Sha512Backend::Scalar, Field::Baseline) => [&[], &[], &[]],
+            (Sha512Backend::Scalar, Field::Baseline) => [Features(0); 3],
             (Sha512Backend::Scalar, Field::Adx) => [
                 VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
                 VG_ED25519_SIGN_CACHED_ADX_FEATURES,
@@ -383,11 +383,23 @@ mod x86_64_tests {
     /// all of `_ifma`'s but AVX512VL.
     #[test]
     fn select() {
-        let cases: [(&[&str], Sha512Backend, Field); 12] = [
-            (&[], Sha512Backend::Scalar, Field::Baseline),
-            (&["bmi2"], Sha512Backend::Scalar, Field::Baseline),
-            (&["adx"], Sha512Backend::Scalar, Field::Baseline),
-            (&["bmi2", "adx"], Sha512Backend::Scalar, Field::Adx),
+        let cases: [(Features, Sha512Backend, Field); 12] = [
+            (Features::of(&[]), Sha512Backend::Scalar, Field::Baseline),
+            (
+                Features::of(&["bmi2"]),
+                Sha512Backend::Scalar,
+                Field::Baseline,
+            ),
+            (
+                Features::of(&["adx"]),
+                Sha512Backend::Scalar,
+                Field::Baseline,
+            ),
+            (
+                Features::of(&["bmi2", "adx"]),
+                Sha512Backend::Scalar,
+                Field::Adx,
+            ),
             (
                 VG_ED25519_PUBLIC_KEY_AVX2_FEATURES,
                 Sha512Backend::Avx2,
@@ -414,7 +426,7 @@ mod x86_64_tests {
                 Field::Ifma,
             ),
             (
-                &["avx", "avx2", "bmi2", "adx", "avx512ifma"],
+                Features::of(&["avx", "avx2", "bmi2", "adx", "avx512ifma"]),
                 Sha512Backend::Scalar,
                 Field::Adx,
             ),
@@ -429,10 +441,9 @@ mod x86_64_tests {
                 Field::Ifma,
             ),
         ];
-        for (names, s, f) in cases {
-            let features = Features::of(names);
+        for (features, s, f) in cases {
             let chosen = (Sha512Backend::select(features), Field::select(features));
-            assert_eq!(chosen, (s, f), "{names:?}");
+            assert_eq!(chosen, (s, f), "{features:?}");
         }
     }
 }

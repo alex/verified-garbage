@@ -17976,7 +17976,7 @@ pub(crate) unsafe extern "sysv64" fn vg_x448(out: *mut [u8; 56], scalar: *const 
 }
 
 /// The CPU features `vg_x448_adx` requires (`Artifact.features`).
-pub(crate) const VG_X448_ADX_FEATURES: &[&str] = &["bmi2", "adx"];
+pub(crate) const VG_X448_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["bmi2", "adx"]);
 
 /// Computes X448 (RFC 7748 §5): writes `X448(k, u)` to `*out`, for the 56-byte scalar `k` at `scalar` and the 56-byte u-coordinate `u` at `point`. The scalar is decoded (clamped); all 448 bits of `u` are used and noncanonical coordinates are reduced modulo the field prime. The result may be all zero (for a `u` of small order), which the caller must check for if its protocol requires it (RFC 7748 §6.2).
 ///

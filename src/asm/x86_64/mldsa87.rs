@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 
 /// The CPU features `vg_mldsa87_keygen_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA87_KEYGEN_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA87_KEYGEN_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// ML-DSA-87 key generation from a seed, `ML-DSA.KeyGen_internal(ξ)` (FIPS 204 Algorithm 6): with the 32-byte seed `ξ` at `seed`, writes the public key to `*pk` and the private key to `*sk`. Returns 1 on success. Returns 0 if a loop reaches its bound, which is at least the limit of FIPS 204 Appendix C, Table 3 (this happens with probability about 2^-256 or less): the outputs are then unspecified, and the caller must destroy them and treat the operation as failed.
 ///
@@ -1948,7 +1948,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa87_keygen_avx2(seed: *const [u8; 32
 }
 
 /// The CPU features `vg_mldsa87_sign_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA87_SIGN_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA87_SIGN_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// ML-DSA-87 signing of a message representative, `ML-DSA.Sign_internal(sk, M′, rnd)` (FIPS 204 Algorithm 7) with `μ` computed by the caller: with the private key `*sk`, the 64-byte message representative `μ = H(tr ‖ M′, 64)` at `mu` (for the public key hash `tr`, bytes 64–127 of `*sk`) and the randomness `*rnd`, writes the signature to `*sig`. Returns 1 on success. Returns 0 if a loop reaches its bound, which is at least the limit of FIPS 204 Appendix C, Table 3 (this happens with probability about 2^-256 or less): the outputs are then unspecified, and the caller must destroy them and treat the operation as failed.
 ///
@@ -4535,7 +4535,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa87_sign_avx2(sk: *const [u8; 4896],
 }
 
 /// The CPU features `vg_mldsa87_sign_message_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA87_SIGN_MESSAGE_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA87_SIGN_MESSAGE_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// ML-DSA-87 signing, `ML-DSA.Sign(sk, M, ctx)` (FIPS 204 Algorithm 2) on the randomness `*rnd` (line 5): with the private key `*sk`, the `msg_len` bytes of the message at `msg` and the `ctx_len` bytes of the context string at `ctx`, writes the signature of the formatted message `M′ = 0 ‖ ctx_len ‖ ctx ‖ M` (line 10), `ML-DSA.Sign_internal(sk, M′, rnd)` (Algorithm 7), to `*sig`. Returns 1 on success. Returns 0 if a loop reaches its bound, which is at least the limit of FIPS 204 Appendix C, Table 3 (this happens with probability about 2^-256 or less): the outputs are then unspecified, and the caller must destroy them and treat the operation as failed. Returns 2 if `ctx_len` is greater than 255 (FIPS 204 returns the error indication `⊥`): `*sig` is then unspecified.
 ///
@@ -4688,7 +4688,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa87_sign_message_avx2(sk: *const [u8
 }
 
 /// The CPU features `vg_mldsa87_verify_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA87_VERIFY_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA87_VERIFY_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// ML-DSA-87 verification of a signature of a message representative, `ML-DSA.Verify_internal(pk, M′, σ)` (FIPS 204 Algorithm 8) with `μ` computed by the caller: with the public key `*pk`, the 64-byte message representative `μ = H(H(pk, 64) ‖ M′, 64)` at `mu` and the signature `*sig`, returns 1 if the signature is valid, and 0 if it is not or if a loop reaches its bound, which is at least the limit of FIPS 204 Appendix C, Table 3 (this happens with probability about 2^-256 or less).
 ///
@@ -6295,7 +6295,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa87_verify_avx2(pk: *const [u8; 2592
 }
 
 /// The CPU features `vg_mldsa87_verify_message_avx2` requires (`Artifact.features`).
-pub(crate) const VG_MLDSA87_VERIFY_MESSAGE_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_MLDSA87_VERIFY_MESSAGE_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// ML-DSA-87 verification, `ML-DSA.Verify(pk, M, σ, ctx)` (FIPS 204 Algorithm 3): with the public key `*pk`, the `msg_len` bytes of the message at `msg`, the `ctx_len` bytes of the context string at `ctx` and the signature `*sig`, returns 1 if the signature of the formatted message `M′ = 0 ‖ ctx_len ‖ ctx ‖ M` (line 5) is valid, `ML-DSA.Verify_internal(pk, M′, σ)` (Algorithm 8), and 0 if it is not or if a loop reaches its bound, which is at least the limit of FIPS 204 Appendix C, Table 3 (this happens with probability about 2^-256 or less). Returns 2 if `ctx_len` is greater than 255 (FIPS 204 returns the error indication `⊥`).
 ///

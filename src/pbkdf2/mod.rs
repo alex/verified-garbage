@@ -135,7 +135,7 @@ macro_rules! whole_pbkdf2 {
         // The CPU features of each implementation, which `tests` checks.
         $(
             $(#[$attr])*
-            const _: &[&[&str]] = &[$($req),*];
+            const _: &[$crate::cpu::Features] = &[$($req),*];
         )*
 
         impl super::Pbkdf2Hash for $hash {

@@ -198,7 +198,7 @@ macro_rules! instance {
 }
 
 /// The features of the baseline ISA: none.
-const BASELINE: &[&str] = &[];
+const BASELINE: Features = Features(0);
 
 impl Backend {
     /// Every implementation, best first, with the features it needs
@@ -228,13 +228,13 @@ impl Backend {
     /// The CPU features its instances need: `seal`'s, which include every
     /// other function's (see the tests).
     const fn features(self) -> Features {
-        Features::of(instance!(self, BASELINE,
+        instance!(self, BASELINE,
             x86_64: [VG_AES_GCM_SEAL_AESNI_FEATURES, VG_AES_GCM_SEAL_PCLMUL_FEATURES,
                 VG_AES_GCM_SEAL_AESNI_PCLMUL_FEATURES],
             vaes: [VG_AES_GCM_SEAL_VAES_FEATURES, VG_AES_GCM_SEAL_VPCLMUL_FEATURES,
                 VG_AES_GCM_SEAL_VAES_PCLMUL_FEATURES, VG_AES_GCM_SEAL_AESNI_VPCLMUL_FEATURES,
                 VG_AES_GCM_SEAL_VAES_VPCLMUL_FEATURES],
-            aarch64: [VG_AES_GCM_SEAL_AES_FEATURES]))
+            aarch64: [VG_AES_GCM_SEAL_AES_FEATURES])
     }
 }
 
@@ -890,7 +890,7 @@ mod tests {
         #[cfg(target_arch = "x86")]
         {
             use crate::arch::gcm::*;
-            let groups: [(&[&str], &[&[&str]]); 3] = [
+            let groups: [(Features, &[Features]); 3] = [
                 (
                     VG_AES_GCM_SEAL_AESNI_FEATURES,
                     &[
@@ -930,14 +930,14 @@ mod tests {
             ];
             for (seal, others) in groups {
                 for other in others {
-                    assert!(Features::of(seal).contains(Features::of(other)));
+                    assert!(seal.contains(*other));
                 }
             }
         }
         #[cfg(target_arch = "x86_64")]
         {
             use crate::arch::gcm::*;
-            let groups: [(&[&str], &[&[&str]]); 3] = [
+            let groups: [(Features, &[Features]); 3] = [
                 (
                     VG_AES_GCM_SEAL_AESNI_FEATURES,
                     &[
@@ -977,10 +977,10 @@ mod tests {
             ];
             for (seal, others) in groups {
                 for other in others {
-                    assert!(Features::of(seal).contains(Features::of(other)));
+                    assert!(seal.contains(*other));
                 }
             }
-            let groups: [(&[&str], &[&[&str]]); 5] = [
+            let groups: [(Features, &[Features]); 5] = [
                 (
                     VG_AES_GCM_SEAL_VAES_FEATURES,
                     &[
@@ -1046,7 +1046,7 @@ mod tests {
             ];
             for (seal, others) in groups {
                 for other in others {
-                    assert!(Features::of(seal).contains(Features::of(other)));
+                    assert!(seal.contains(*other));
                 }
             }
         }
@@ -1063,7 +1063,7 @@ mod tests {
                 VG_AES_GCM_STREAM_FINISH_AES_FEATURES,
                 VG_AES_GCM_STREAM_VERIFY_AES_FEATURES,
             ] {
-                assert!(Features::of(VG_AES_GCM_SEAL_AES_FEATURES).contains(Features::of(other)));
+                assert!(VG_AES_GCM_SEAL_AES_FEATURES.contains(other));
             }
         }
     }

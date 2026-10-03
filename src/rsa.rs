@@ -44,8 +44,8 @@ enum Backend {
 impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     fn select(f: Features) -> Backend {
-        if f.contains(const { Features::of(VG_RSA_PUBLIC_PRECOMPUTE_ADX_FEATURES) })
-            && f.contains(const { Features::of(VG_RSA_PUBLIC_PRECOMPUTED_ADX_FEATURES) })
+        if f.contains(VG_RSA_PUBLIC_PRECOMPUTE_ADX_FEATURES)
+            && f.contains(VG_RSA_PUBLIC_PRECOMPUTED_ADX_FEATURES)
         {
             Backend::Adx
         } else {
@@ -260,7 +260,7 @@ mod tests {
         assert_eq!(Backend::select(Features(0)), Backend::Baseline);
         assert_eq!(Backend::select(Features::of(&["bmi2"])), Backend::Baseline);
         assert_eq!(
-            Backend::select(Features::of(VG_RSA_PUBLIC_PRECOMPUTED_ADX_FEATURES)),
+            Backend::select(VG_RSA_PUBLIC_PRECOMPUTED_ADX_FEATURES),
             Backend::Adx
         );
     }

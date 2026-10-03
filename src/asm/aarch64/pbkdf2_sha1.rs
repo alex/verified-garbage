@@ -397,7 +397,7 @@ pub(crate) unsafe extern "C" fn vg_pbkdf2_hmac_sha1(password: *const u8, passwor
 }
 
 /// The CPU features `vg_pbkdf2_hmac_sha1_iterate_sha2` requires (`Artifact.features`).
-pub(crate) const VG_PBKDF2_HMAC_SHA1_ITERATE_SHA2_FEATURES: &[&str] = &["sha2"];
+pub(crate) const VG_PBKDF2_HMAC_SHA1_ITERATE_SHA2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha2"]);
 
 /// Runs `n` steps of PBKDF2-HMAC-SHA-1's iteration: if, for a 64-byte key `K₀`, the SHA-1 streaming state in bytes 0 to 83 of `*key` represents `K₀ ⊕ ipad` and the one in bytes 84 to 167 represents `K₀ ⊕ opad` (as `vg_hmac_sha1_init` leaves them), repeats `U ← HMAC-SHA-1 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).
 ///
@@ -562,7 +562,7 @@ pub(crate) unsafe extern "C" fn vg_pbkdf2_hmac_sha1_iterate_sha2(key: *const [u8
 }
 
 /// The CPU features `vg_pbkdf2_hmac_sha1_sha2` requires (`Artifact.features`).
-pub(crate) const VG_PBKDF2_HMAC_SHA1_SHA2_FEATURES: &[&str] = &["sha2"];
+pub(crate) const VG_PBKDF2_HMAC_SHA1_SHA2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha2"]);
 
 /// PBKDF2-HMAC-SHA-1 (RFC 8018 §5.2, with HMAC-SHA-1 as the pseudorandom function): writes the `out_len`-byte key derived from the `password_len` bytes at `password` and the `salt_len` bytes at `salt` with `c` iterations to `out`. Calls the verified SHA-1 and HMAC-SHA-1 functions and `vg_pbkdf2_hmac_sha1_iterate`.
 ///

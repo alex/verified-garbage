@@ -26471,7 +26471,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_scalar_base(out: *mut [u8; 32], 
 }
 
 /// The CPU features `vg_ed25519_scalar_base_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_SCALAR_BASE_ADX_FEATURES: &[&str] = &["bmi2", "adx"];
+pub(crate) const VG_ED25519_SCALAR_BASE_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["bmi2", "adx"]);
 
 /// Ed25519 base-point multiplication (RFC 8032 §5.1.4): writes the encoding of `[s]B` to `*out`, for the unsigned little-endian 256-bit integer at `scalar`, without pruning. Contract: `VG.Spec.Ed25519.scalarBaseContract`. Constant time: only pointers may affect timing.
 ///
@@ -87997,7 +87997,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_equation(pk: *const [u8; 
 }
 
 /// The CPU features `vg_ed25519_verify_equation_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_EQUATION_ADX_FEATURES: &[&str] = &["bmi2", "adx"];
+pub(crate) const VG_ED25519_VERIFY_EQUATION_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["bmi2", "adx"]);
 
 /// Checks Ed25519 encodings and the equation `[S]B = R + [k]A` (RFC 8032 §5.1.7), returning 1 if they pass and 0 otherwise. `pk` holds A, `signature` holds R || S, and `challenge` holds all 64 bytes of k as a little-endian integer, used as given: it is not reduced modulo L. To verify a signature on M as RFC 8032 §6 and `VG.Spec.Ed25519.verify` do, the caller must reduce SHA-512(R || A || M) modulo L (e.g. with `vg_ed25519_scalar_reduce`) and supply the 32-byte result followed by 32 zero bytes as `challenge`; this function does not hash M. Passing the unreduced digest instead checks the equation with the full 512-bit k, which RFC 8032 §5.1.7 also permits but which differs from §6 and OpenSSL whenever A has a small-order component. Rejects noncanonical points and S >= L, with no additional subgroup or small-order check. Contract: `VG.Spec.Ed25519.verifyEquationContract`. Not constant time: timing may depend on all inputs.
 ///
@@ -110449,7 +110449,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_equation_adx(pk: *const [
 }
 
 /// The CPU features `vg_ed25519_verify_equation_ifma` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_EQUATION_IFMA_FEATURES: &[&str] = &["avx", "avx2", "bmi2", "adx", "avx512ifma", "avx512vl"];
+pub(crate) const VG_ED25519_VERIFY_EQUATION_IFMA_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi2", "adx", "avx512ifma", "avx512vl"]);
 
 /// Checks Ed25519 encodings and the equation `[S]B = R + [k]A` (RFC 8032 §5.1.7), returning 1 if they pass and 0 otherwise. `pk` holds A, `signature` holds R || S, and `challenge` holds all 64 bytes of k as a little-endian integer, used as given: it is not reduced modulo L. To verify a signature on M as RFC 8032 §6 and `VG.Spec.Ed25519.verify` do, the caller must reduce SHA-512(R || A || M) modulo L (e.g. with `vg_ed25519_scalar_reduce`) and supply the 32-byte result followed by 32 zero bytes as `challenge`; this function does not hash M. Passing the unreduced digest instead checks the equation with the full 512-bit k, which RFC 8032 §5.1.7 also permits but which differs from §6 and OpenSSL whenever A has a small-order component. Rejects noncanonical points and S >= L, with no additional subgroup or small-order check. Contract: `VG.Spec.Ed25519.verifyEquationContract`. Not constant time: timing may depend on all inputs.
 ///
@@ -130100,7 +130100,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached(out: *mut [u8; 64], 
 }
 
 /// The CPU features `vg_ed25519_public_key_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_PUBLIC_KEY_ADX_FEATURES: &[&str] = &["bmi2", "adx"];
+pub(crate) const VG_ED25519_PUBLIC_KEY_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["bmi2", "adx"]);
 
 /// Ed25519 public-key derivation (RFC 8032 §5.1.5): writes the 32-byte public key to `*out`, from the 32-byte private seed at `seed`, including SHA-512 and pruning. Contract: `VG.Spec.Ed25519.publicKeyContract`. Constant time: only pointers may affect timing.
 ///
@@ -130184,7 +130184,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key_adx(out: *mut [u8; 32
 }
 
 /// The CPU features `vg_ed25519_verify_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_ADX_FEATURES: &[&str] = &["bmi2", "adx"];
+pub(crate) const VG_ED25519_VERIFY_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["bmi2", "adx"]);
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///
@@ -130302,7 +130302,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_adx(pk: *const [u8; 32], 
 }
 
 /// The CPU features `vg_ed25519_sign_cached_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_SIGN_CACHED_ADX_FEATURES: &[&str] = &["bmi2", "adx"];
+pub(crate) const VG_ED25519_SIGN_CACHED_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["bmi2", "adx"]);
 
 /// Deterministic Ed25519 signing (RFC 8032 §5.1.6): writes the 64-byte signature to `*out`, for the `len` bytes at `message` and the 32-byte private seed at `seed`, using its cached public key at `pk`. Includes all hashing, pruning and scalar/group operations. Uses pure Ed25519, with no context or prehash. Contract: `VG.Spec.Ed25519.signCachedContract`. Constant time: only pointers and the message length may affect timing, not any buffer contents.
 ///
@@ -130543,7 +130543,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached_adx(out: *mut [u8; 6
 }
 
 /// The CPU features `vg_ed25519_verify_ifma` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_IFMA_FEATURES: &[&str] = &["avx", "avx2", "bmi2", "adx", "avx512ifma", "avx512vl"];
+pub(crate) const VG_ED25519_VERIFY_IFMA_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi2", "adx", "avx512ifma", "avx512vl"]);
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///
@@ -130661,7 +130661,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_ifma(pk: *const [u8; 32],
 }
 
 /// The CPU features `vg_ed25519_public_key_avx2` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_PUBLIC_KEY_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
+pub(crate) const VG_ED25519_PUBLIC_KEY_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2"]);
 
 /// Ed25519 public-key derivation (RFC 8032 §5.1.5): writes the 32-byte public key to `*out`, from the 32-byte private seed at `seed`, including SHA-512 and pruning. Contract: `VG.Spec.Ed25519.publicKeyContract`. Constant time: only pointers may affect timing.
 ///
@@ -130745,7 +130745,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key_avx2(out: *mut [u8; 3
 }
 
 /// The CPU features `vg_ed25519_verify_avx2` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
+pub(crate) const VG_ED25519_VERIFY_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2"]);
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///
@@ -130863,7 +130863,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_avx2(pk: *const [u8; 32],
 }
 
 /// The CPU features `vg_ed25519_sign_cached_avx2` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_SIGN_CACHED_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
+pub(crate) const VG_ED25519_SIGN_CACHED_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2"]);
 
 /// Deterministic Ed25519 signing (RFC 8032 §5.1.6): writes the 64-byte signature to `*out`, for the `len` bytes at `message` and the 32-byte private seed at `seed`, using its cached public key at `pk`. Includes all hashing, pruning and scalar/group operations. Uses pure Ed25519, with no context or prehash. Contract: `VG.Spec.Ed25519.signCachedContract`. Constant time: only pointers and the message length may affect timing, not any buffer contents.
 ///
@@ -131104,7 +131104,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached_avx2(out: *mut [u8; 
 }
 
 /// The CPU features `vg_ed25519_public_key_avx2_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_PUBLIC_KEY_AVX2_ADX_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2", "adx"];
+pub(crate) const VG_ED25519_PUBLIC_KEY_AVX2_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2", "adx"]);
 
 /// Ed25519 public-key derivation (RFC 8032 §5.1.5): writes the 32-byte public key to `*out`, from the 32-byte private seed at `seed`, including SHA-512 and pruning. Contract: `VG.Spec.Ed25519.publicKeyContract`. Constant time: only pointers may affect timing.
 ///
@@ -131188,7 +131188,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key_avx2_adx(out: *mut [u
 }
 
 /// The CPU features `vg_ed25519_verify_avx2_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_AVX2_ADX_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2", "adx"];
+pub(crate) const VG_ED25519_VERIFY_AVX2_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2", "adx"]);
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///
@@ -131306,7 +131306,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_avx2_adx(pk: *const [u8; 
 }
 
 /// The CPU features `vg_ed25519_sign_cached_avx2_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_SIGN_CACHED_AVX2_ADX_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2", "adx"];
+pub(crate) const VG_ED25519_SIGN_CACHED_AVX2_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2", "adx"]);
 
 /// Deterministic Ed25519 signing (RFC 8032 §5.1.6): writes the 64-byte signature to `*out`, for the `len` bytes at `message` and the 32-byte private seed at `seed`, using its cached public key at `pk`. Includes all hashing, pruning and scalar/group operations. Uses pure Ed25519, with no context or prehash. Contract: `VG.Spec.Ed25519.signCachedContract`. Constant time: only pointers and the message length may affect timing, not any buffer contents.
 ///
@@ -131547,7 +131547,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached_avx2_adx(out: *mut [
 }
 
 /// The CPU features `vg_ed25519_verify_avx2_ifma` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_AVX2_IFMA_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2", "adx", "avx512ifma", "avx512vl"];
+pub(crate) const VG_ED25519_VERIFY_AVX2_IFMA_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2", "adx", "avx512ifma", "avx512vl"]);
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///
@@ -131665,7 +131665,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_avx2_ifma(pk: *const [u8;
 }
 
 /// The CPU features `vg_ed25519_public_key_shani` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_PUBLIC_KEY_SHANI_FEATURES: &[&str] = &["avx", "avx2", "sha512"];
+pub(crate) const VG_ED25519_PUBLIC_KEY_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512"]);
 
 /// Ed25519 public-key derivation (RFC 8032 §5.1.5): writes the 32-byte public key to `*out`, from the 32-byte private seed at `seed`, including SHA-512 and pruning. Contract: `VG.Spec.Ed25519.publicKeyContract`. Constant time: only pointers may affect timing.
 ///
@@ -131749,7 +131749,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key_shani(out: *mut [u8; 
 }
 
 /// The CPU features `vg_ed25519_verify_shani` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_SHANI_FEATURES: &[&str] = &["avx", "avx2", "sha512"];
+pub(crate) const VG_ED25519_VERIFY_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512"]);
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///
@@ -131867,7 +131867,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_shani(pk: *const [u8; 32]
 }
 
 /// The CPU features `vg_ed25519_sign_cached_shani` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_SIGN_CACHED_SHANI_FEATURES: &[&str] = &["avx", "avx2", "sha512"];
+pub(crate) const VG_ED25519_SIGN_CACHED_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512"]);
 
 /// Deterministic Ed25519 signing (RFC 8032 §5.1.6): writes the 64-byte signature to `*out`, for the `len` bytes at `message` and the 32-byte private seed at `seed`, using its cached public key at `pk`. Includes all hashing, pruning and scalar/group operations. Uses pure Ed25519, with no context or prehash. Contract: `VG.Spec.Ed25519.signCachedContract`. Constant time: only pointers and the message length may affect timing, not any buffer contents.
 ///
@@ -132108,7 +132108,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached_shani(out: *mut [u8;
 }
 
 /// The CPU features `vg_ed25519_public_key_shani_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_PUBLIC_KEY_SHANI_ADX_FEATURES: &[&str] = &["avx", "avx2", "sha512", "bmi2", "adx"];
+pub(crate) const VG_ED25519_PUBLIC_KEY_SHANI_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512", "bmi2", "adx"]);
 
 /// Ed25519 public-key derivation (RFC 8032 §5.1.5): writes the 32-byte public key to `*out`, from the 32-byte private seed at `seed`, including SHA-512 and pruning. Contract: `VG.Spec.Ed25519.publicKeyContract`. Constant time: only pointers may affect timing.
 ///
@@ -132192,7 +132192,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_public_key_shani_adx(out: *mut [
 }
 
 /// The CPU features `vg_ed25519_verify_shani_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_SHANI_ADX_FEATURES: &[&str] = &["avx", "avx2", "sha512", "bmi2", "adx"];
+pub(crate) const VG_ED25519_VERIFY_SHANI_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512", "bmi2", "adx"]);
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///
@@ -132310,7 +132310,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_verify_shani_adx(pk: *const [u8;
 }
 
 /// The CPU features `vg_ed25519_sign_cached_shani_adx` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_SIGN_CACHED_SHANI_ADX_FEATURES: &[&str] = &["avx", "avx2", "sha512", "bmi2", "adx"];
+pub(crate) const VG_ED25519_SIGN_CACHED_SHANI_ADX_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512", "bmi2", "adx"]);
 
 /// Deterministic Ed25519 signing (RFC 8032 §5.1.6): writes the 64-byte signature to `*out`, for the `len` bytes at `message` and the 32-byte private seed at `seed`, using its cached public key at `pk`. Includes all hashing, pruning and scalar/group operations. Uses pure Ed25519, with no context or prehash. Contract: `VG.Spec.Ed25519.signCachedContract`. Constant time: only pointers and the message length may affect timing, not any buffer contents.
 ///
@@ -132551,7 +132551,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_sign_cached_shani_adx(out: *mut 
 }
 
 /// The CPU features `vg_ed25519_verify_shani_ifma` requires (`Artifact.features`).
-pub(crate) const VG_ED25519_VERIFY_SHANI_IFMA_FEATURES: &[&str] = &["avx", "avx2", "sha512", "bmi2", "adx", "avx512ifma", "avx512vl"];
+pub(crate) const VG_ED25519_VERIFY_SHANI_IFMA_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "sha512", "bmi2", "adx", "avx512ifma", "avx512vl"]);
 
 /// Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on the public key, message and signature.
 ///

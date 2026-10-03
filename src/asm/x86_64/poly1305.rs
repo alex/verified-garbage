@@ -146,7 +146,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_blocks(state: *mut [u64; 16], b
 }
 
 /// The CPU features `vg_poly1305_blocks_avx2` requires (`Artifact.features`).
-pub(crate) const VG_POLY1305_BLOCKS_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_POLY1305_BLOCKS_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// Absorbs whole blocks into a Poly1305 computation: if the streaming state `*state` represents a message under a key, it then represents that message followed by the `n` 16-byte blocks at `blocks`, under the same key.
 ///
@@ -840,7 +840,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_blocks_avx2(state: *mut [u64; 1
 }
 
 /// The CPU features `vg_poly1305_blocks_avx512` requires (`Artifact.features`).
-pub(crate) const VG_POLY1305_BLOCKS_AVX512_FEATURES: &[&str] = &["avx", "avx512f", "avx2"];
+pub(crate) const VG_POLY1305_BLOCKS_AVX512_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx512f", "avx2"]);
 
 /// Absorbs whole blocks into a Poly1305 computation: if the streaming state `*state` represents a message under a key, it then represents that message followed by the `n` 16-byte blocks at `blocks`, under the same key.
 ///
@@ -1735,7 +1735,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_finalize(state: *mut [u64; 16],
 }
 
 /// The CPU features `vg_poly1305_update_avx2` requires (`Artifact.features`).
-pub(crate) const VG_POLY1305_UPDATE_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+pub(crate) const VG_POLY1305_UPDATE_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2"]);
 
 /// Absorbs data into a Poly1305 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴) under a key, it then represents that message followed by the `len` bytes at `data`, under the same key.
 ///
@@ -1919,7 +1919,7 @@ pub(crate) unsafe extern "sysv64" fn vg_poly1305_update_avx2(state: *mut [u64; 1
 }
 
 /// The CPU features `vg_poly1305_update_avx512` requires (`Artifact.features`).
-pub(crate) const VG_POLY1305_UPDATE_AVX512_FEATURES: &[&str] = &["avx", "avx512f", "avx2"];
+pub(crate) const VG_POLY1305_UPDATE_AVX512_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx512f", "avx2"]);
 
 /// Absorbs data into a Poly1305 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴) under a key, it then represents that message followed by the `len` bytes at `data`, under the same key.
 ///

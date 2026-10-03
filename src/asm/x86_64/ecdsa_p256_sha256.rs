@@ -425,7 +425,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ecdsa_p256_sha256_sign(out: *mut [u8; 64
 }
 
 /// The CPU features `vg_ecdsa_p256_sha256_sign_avx2` requires (`Artifact.features`).
-pub(crate) const VG_ECDSA_P256_SHA256_SIGN_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
+pub(crate) const VG_ECDSA_P256_SHA256_SIGN_AVX2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "bmi1", "bmi2"]);
 
 /// Deterministic ECDSA signature generation over P-256 with HMAC-SHA-256 (RFC 6979 §3.2; FIPS 186-5 §6.4.1): with the private key `d` (32 bytes, most significant first), signs the SHA-256 hash at `digest` (32 bytes), deriving the per-message secret number `k` from the key and the hash. Returns 1 and writes `r` then `s` (32 bytes each, most significant first) to `*out`; or returns 0 and writes zeros to `*out` if `d` is not in `[1, n-1]`, or if none of the first 8 candidates for `k` is suitable (which does not happen in practice).
 ///
@@ -851,7 +851,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ecdsa_p256_sha256_sign_avx2(out: *mut [u
 }
 
 /// The CPU features `vg_ecdsa_p256_sha256_sign_shani` requires (`Artifact.features`).
-pub(crate) const VG_ECDSA_P256_SHA256_SIGN_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
+pub(crate) const VG_ECDSA_P256_SHA256_SIGN_SHANI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha", "ssse3"]);
 
 /// Deterministic ECDSA signature generation over P-256 with HMAC-SHA-256 (RFC 6979 §3.2; FIPS 186-5 §6.4.1): with the private key `d` (32 bytes, most significant first), signs the SHA-256 hash at `digest` (32 bytes), deriving the per-message secret number `k` from the key and the hash. Returns 1 and writes `r` then `s` (32 bytes each, most significant first) to `*out`; or returns 0 and writes zeros to `*out` if `d` is not in `[1, n-1]`, or if none of the first 8 candidates for `k` is suitable (which does not happen in practice).
 ///

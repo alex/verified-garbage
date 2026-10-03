@@ -47,9 +47,9 @@ impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     fn select(f: Features) -> Backend {
-        if f.contains(const { Features::of(VG_X25519_IFMA_FEATURES) }) {
+        if f.contains(VG_X25519_IFMA_FEATURES) {
             Backend::Ifma
-        } else if f.contains(const { Features::of(VG_X25519_ADX_FEATURES) }) {
+        } else if f.contains(VG_X25519_ADX_FEATURES) {
             Backend::Adx
         } else {
             Backend::Baseline
@@ -199,10 +199,10 @@ mod tests {
         assert_eq!(Backend::select(Features(0)), Backend::Baseline);
         #[cfg(target_arch = "x86_64")]
         {
-            let adx = Features::of(VG_X25519_ADX_FEATURES);
+            let adx = VG_X25519_ADX_FEATURES;
             assert_eq!(Backend::select(adx), Backend::Adx);
             assert_eq!(Backend::select(Features::of(&["bmi2"])), Backend::Baseline);
-            let ifma = Features::of(VG_X25519_IFMA_FEATURES);
+            let ifma = VG_X25519_IFMA_FEATURES;
             assert_eq!(Backend::select(ifma), Backend::Ifma);
             assert_eq!(
                 Backend::select(Features(adx.0 | Features::of(&["avx512ifma"]).0)),

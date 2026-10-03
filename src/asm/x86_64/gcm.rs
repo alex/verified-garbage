@@ -708,7 +708,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ghash(h: *const [u8; 16], y: *mut [u8; 1
 }
 
 /// The CPU features `vg_ghash_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_GHASH_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_GHASH_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// GHASH (NIST SP 800-38D §6.4) continued over whole blocks: with the hash subkey `H` the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks big-endian, `•` the multiplication of §6.3).
 ///
@@ -987,7 +987,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ghash_pclmul(h: *const [u8; 16], y: *mut
 }
 
 /// The CPU features `vg_ghash_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_GHASH_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_GHASH_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// GHASH (NIST SP 800-38D §6.4) continued over whole blocks: with the hash subkey `H` the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks big-endian, `•` the multiplication of §6.3).
 ///
@@ -1667,7 +1667,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ghash_vpclmul(h: *const [u8; 16], y: *mu
 }
 
 /// The CPU features `vg_aes_gcm_encrypt_blocks_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// AES-GCM's encryption of whole blocks (NIST SP 800-38D §7.1 steps 3 and 5, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, leaves `inc₃₂ⁿ(CB₁)` in `*counter`, and replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the ciphertext written, with the hash subkey of `*ctx`: as `vg_aes_ctr32` and then `vg_ghash`.
 ///
@@ -1730,7 +1730,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_encrypt_blocks_aesni(ctx: *const
 }
 
 /// The CPU features `vg_aes_gcm_decrypt_blocks_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// AES-GCM's decryption of whole blocks (NIST SP 800-38D §7.2 steps 5 and 6, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the `n` 16-byte blocks of ciphertext at `data`, with the hash subkey of `*ctx`, then XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into them, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`: as `vg_ghash` and then `vg_aes_ctr32`.
 ///
@@ -1793,7 +1793,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_decrypt_blocks_aesni(ctx: *const
 }
 
 /// The CPU features `vg_aes_gcm_init_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_INIT_AESNI_FEATURES: &[&str] = &["ssse3", "aes"];
+pub(crate) const VG_AES_GCM_INIT_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["ssse3", "aes"]);
 
 /// The AES-GCM key setup: writes the key context of the `key_len`-byte AES key at `key` to `*ctx`: its key schedule for `Nr = key_len / 4 + 6` rounds (FIPS 197 §5.2, as `vg_aes_expand_key` writes it) in the first `16 * (Nr + 1)` bytes, and the hash subkey `H = CIPH_K(0¹²⁸)` (NIST SP 800-38D §7.1 step 1) in bytes 240–255. The other bytes are unspecified. The other `vg_aes_gcm_*` functions read it, with `Nr` as their `rounds`.
 ///
@@ -1857,7 +1857,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_aesni(key: *const u8, key_l
 }
 
 /// The CPU features `vg_aes_gcm_seal_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_SEAL_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_GCM_SEAL_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// AES-GCM authenticated encryption (NIST SP 800-38D §7.1, GCM-AE, with a 128-bit tag): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, encrypts the `len` bytes at `data` in place, under the IV the `nonce_len` bytes at `nonce`, and writes the tag of the ciphertext and the `aad_len` bytes of additional data at `aad` to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one.
 ///
@@ -2471,7 +2471,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_aesni(ctx: *const [u64; 32]
 }
 
 /// The CPU features `vg_aes_gcm_open_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_OPEN_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_GCM_OPEN_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// AES-GCM authenticated decryption (NIST SP 800-38D §7.2, GCM-AD): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the tag is the first `tag_len` bytes of that of the `len` bytes of ciphertext at `data` and the `aad_len` bytes of additional data at `aad`, under the IV the `nonce_len` bytes at `nonce`, having then decrypted the ciphertext in place; otherwise returns 0, and the bytes at `data` are unchanged. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -3519,7 +3519,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_aesni(ctx: *const [u6
 }
 
 /// The CPU features `vg_aes_gcm_stream_encrypt_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// Encrypts the next piece of the text of an incremental AES-GCM encryption (NIST SP 800-38D §7.1): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and the ciphertext of exactly `text_len` bytes of plaintext so far, encrypts the `len` bytes at `data` in place, as the continuation of that plaintext, and the state then represents the message with them appended.
 ///
@@ -3789,7 +3789,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_aesni(ctx: *const
 }
 
 /// The CPU features `vg_aes_gcm_stream_decrypt_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_DECRYPT_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_DECRYPT_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// Decrypts the next piece of the text of an incremental AES-GCM decryption (NIST SP 800-38D §7.2): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext so far, decrypts the `len` bytes of ciphertext at `data` in place, as the continuation of that ciphertext, and the state then represents the message with them appended. The plaintext is not authenticated until `vg_aes_gcm_stream_verify` has returned 1.
 ///
@@ -4063,7 +4063,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_aesni(ctx: *const
 }
 
 /// The CPU features `vg_aes_gcm_stream_finish_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_FINISH_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_FINISH_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// Finishes an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7.1 steps 5–6, §7.2 steps 6–7): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, writes its 128-bit tag to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one; to check a received tag, use `vg_aes_gcm_stream_verify`.
 ///
@@ -4186,7 +4186,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_aesni(ctx: *const 
 }
 
 /// The CPU features `vg_aes_gcm_stream_verify_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_VERIFY_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_VERIFY_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// Finishes an incremental AES-GCM decryption and checks its tag (NIST SP 800-38D §7.2 steps 6–8): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the received tag is the first `tag_len` bytes of the message's 128-bit tag, which it then writes to the first 16 bytes of `*work`; otherwise returns 0 and writes 16 zero bytes there. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -4389,7 +4389,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify_aesni(ctx: *const 
 }
 
 /// The CPU features `vg_aes_gcm_encrypt_blocks_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_AESNI_PCLMUL_FEATURES: &[&str] = &["aes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "pclmulqdq", "ssse3"]);
 
 /// AES-GCM's encryption of whole blocks (NIST SP 800-38D §7.1 steps 3 and 5, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, leaves `inc₃₂ⁿ(CB₁)` in `*counter`, and replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the ciphertext written, with the hash subkey of `*ctx`: as `vg_aes_ctr32` and then `vg_ghash`.
 ///
@@ -4452,7 +4452,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_encrypt_blocks_aesni_pclmul(ctx:
 }
 
 /// The CPU features `vg_aes_gcm_decrypt_blocks_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_AESNI_PCLMUL_FEATURES: &[&str] = &["aes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "pclmulqdq", "ssse3"]);
 
 /// AES-GCM's decryption of whole blocks (NIST SP 800-38D §7.2 steps 5 and 6, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the `n` 16-byte blocks of ciphertext at `data`, with the hash subkey of `*ctx`, then XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into them, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`: as `vg_ghash` and then `vg_aes_ctr32`.
 ///
@@ -4515,7 +4515,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_decrypt_blocks_aesni_pclmul(ctx:
 }
 
 /// The CPU features `vg_aes_gcm_init_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_INIT_AESNI_PCLMUL_FEATURES: &[&str] = &["ssse3", "aes"];
+pub(crate) const VG_AES_GCM_INIT_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["ssse3", "aes"]);
 
 /// The AES-GCM key setup: writes the key context of the `key_len`-byte AES key at `key` to `*ctx`: its key schedule for `Nr = key_len / 4 + 6` rounds (FIPS 197 §5.2, as `vg_aes_expand_key` writes it) in the first `16 * (Nr + 1)` bytes, and the hash subkey `H = CIPH_K(0¹²⁸)` (NIST SP 800-38D §7.1 step 1) in bytes 240–255. The other bytes are unspecified. The other `vg_aes_gcm_*` functions read it, with `Nr` as their `rounds`.
 ///
@@ -4579,7 +4579,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_aesni_pclmul(key: *const u8
 }
 
 /// The CPU features `vg_aes_gcm_seal_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_SEAL_AESNI_PCLMUL_FEATURES: &[&str] = &["aes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_SEAL_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "pclmulqdq", "ssse3"]);
 
 /// AES-GCM authenticated encryption (NIST SP 800-38D §7.1, GCM-AE, with a 128-bit tag): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, encrypts the `len` bytes at `data` in place, under the IV the `nonce_len` bytes at `nonce`, and writes the tag of the ciphertext and the `aad_len` bytes of additional data at `aad` to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one.
 ///
@@ -5193,7 +5193,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_aesni_pclmul(ctx: *const [u
 }
 
 /// The CPU features `vg_aes_gcm_open_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_OPEN_AESNI_PCLMUL_FEATURES: &[&str] = &["aes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_OPEN_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "pclmulqdq", "ssse3"]);
 
 /// AES-GCM authenticated decryption (NIST SP 800-38D §7.2, GCM-AD): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the tag is the first `tag_len` bytes of that of the `len` bytes of ciphertext at `data` and the `aad_len` bytes of additional data at `aad`, under the IV the `nonce_len` bytes at `nonce`, having then decrypted the ciphertext in place; otherwise returns 0, and the bytes at `data` are unchanged. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -5903,7 +5903,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_open_aesni_pclmul(ctx: *const [u
 }
 
 /// The CPU features `vg_aes_gcm_stream_init_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_INIT_AESNI_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_INIT_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// Starts an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7): with the key context `*ctx` that `vg_aes_gcm_init` wrote, makes the streaming state `*state` represent the message with the IV the `nonce_len` bytes at `nonce`, and no additional data or text yet. Continue with `vg_aes_gcm_stream_aad`, then `vg_aes_gcm_stream_encrypt` or `vg_aes_gcm_stream_decrypt`, then `vg_aes_gcm_stream_finish` or `vg_aes_gcm_stream_verify`, with the same key context.
 ///
@@ -6120,7 +6120,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_init_aesni_pclmul(ctx: *c
 }
 
 /// The CPU features `vg_aes_gcm_stream_aad_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_AAD_AESNI_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_AAD_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// Absorbs additional data into an incremental AES-GCM encryption or decryption: with the key context `*ctx`, if the streaming state `*state` represents a message with `aad_len` bytes (modulo 2⁶⁴) of additional data and no text yet, it then represents that message with the `len` bytes at `data` appended to its additional data. All of the additional data comes before the text (§7.1 step 5): after text, the state represents no message.
 ///
@@ -6249,7 +6249,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_aesni_pclmul(ctx: *co
 }
 
 /// The CPU features `vg_aes_gcm_stream_encrypt_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_AESNI_PCLMUL_FEATURES: &[&str] = &["aes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "pclmulqdq", "ssse3"]);
 
 /// Encrypts the next piece of the text of an incremental AES-GCM encryption (NIST SP 800-38D §7.1): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and the ciphertext of exactly `text_len` bytes of plaintext so far, encrypts the `len` bytes at `data` in place, as the continuation of that plaintext, and the state then represents the message with them appended.
 ///
@@ -6519,7 +6519,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_aesni_pclmul(ctx:
 }
 
 /// The CPU features `vg_aes_gcm_stream_decrypt_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_DECRYPT_AESNI_PCLMUL_FEATURES: &[&str] = &["aes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_DECRYPT_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "pclmulqdq", "ssse3"]);
 
 /// Decrypts the next piece of the text of an incremental AES-GCM decryption (NIST SP 800-38D §7.2): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext so far, decrypts the `len` bytes of ciphertext at `data` in place, as the continuation of that ciphertext, and the state then represents the message with them appended. The plaintext is not authenticated until `vg_aes_gcm_stream_verify` has returned 1.
 ///
@@ -6793,7 +6793,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_aesni_pclmul(ctx:
 }
 
 /// The CPU features `vg_aes_gcm_stream_finish_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_FINISH_AESNI_PCLMUL_FEATURES: &[&str] = &["aes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_FINISH_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "pclmulqdq", "ssse3"]);
 
 /// Finishes an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7.1 steps 5–6, §7.2 steps 6–7): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, writes its 128-bit tag to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one; to check a received tag, use `vg_aes_gcm_stream_verify`.
 ///
@@ -6916,7 +6916,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_aesni_pclmul(ctx: 
 }
 
 /// The CPU features `vg_aes_gcm_stream_verify_aesni_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_VERIFY_AESNI_PCLMUL_FEATURES: &[&str] = &["aes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_VERIFY_AESNI_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "pclmulqdq", "ssse3"]);
 
 /// Finishes an incremental AES-GCM decryption and checks its tag (NIST SP 800-38D §7.2 steps 6–8): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the received tag is the first `tag_len` bytes of the message's 128-bit tag, which it then writes to the first 16 bytes of `*work`; otherwise returns 0 and writes 16 zero bytes there. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -7119,7 +7119,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify_aesni_pclmul(ctx: 
 }
 
 /// The CPU features `vg_aes_gcm_encrypt_blocks_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_AESNI_VPCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM's encryption of whole blocks (NIST SP 800-38D §7.1 steps 3 and 5, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, leaves `inc₃₂ⁿ(CB₁)` in `*counter`, and replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the ciphertext written, with the hash subkey of `*ctx`: as `vg_aes_ctr32` and then `vg_ghash`.
 ///
@@ -7182,7 +7182,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_encrypt_blocks_aesni_vpclmul(ctx
 }
 
 /// The CPU features `vg_aes_gcm_decrypt_blocks_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_AESNI_VPCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM's decryption of whole blocks (NIST SP 800-38D §7.2 steps 5 and 6, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the `n` 16-byte blocks of ciphertext at `data`, with the hash subkey of `*ctx`, then XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into them, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`: as `vg_ghash` and then `vg_aes_ctr32`.
 ///
@@ -7245,7 +7245,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_decrypt_blocks_aesni_vpclmul(ctx
 }
 
 /// The CPU features `vg_aes_gcm_init_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_INIT_AESNI_VPCLMUL_FEATURES: &[&str] = &["ssse3", "aes"];
+pub(crate) const VG_AES_GCM_INIT_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["ssse3", "aes"]);
 
 /// The AES-GCM key setup: writes the key context of the `key_len`-byte AES key at `key` to `*ctx`: its key schedule for `Nr = key_len / 4 + 6` rounds (FIPS 197 §5.2, as `vg_aes_expand_key` writes it) in the first `16 * (Nr + 1)` bytes, and the hash subkey `H = CIPH_K(0¹²⁸)` (NIST SP 800-38D §7.1 step 1) in bytes 240–255. The other bytes are unspecified. The other `vg_aes_gcm_*` functions read it, with `Nr` as their `rounds`.
 ///
@@ -7309,7 +7309,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_aesni_vpclmul(key: *const u
 }
 
 /// The CPU features `vg_aes_gcm_seal_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_SEAL_AESNI_VPCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_SEAL_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM authenticated encryption (NIST SP 800-38D §7.1, GCM-AE, with a 128-bit tag): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, encrypts the `len` bytes at `data` in place, under the IV the `nonce_len` bytes at `nonce`, and writes the tag of the ciphertext and the `aad_len` bytes of additional data at `aad` to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one.
 ///
@@ -7923,7 +7923,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_aesni_vpclmul(ctx: *const [
 }
 
 /// The CPU features `vg_aes_gcm_open_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_OPEN_AESNI_VPCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_OPEN_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM authenticated decryption (NIST SP 800-38D §7.2, GCM-AD): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the tag is the first `tag_len` bytes of that of the `len` bytes of ciphertext at `data` and the `aad_len` bytes of additional data at `aad`, under the IV the `nonce_len` bytes at `nonce`, having then decrypted the ciphertext in place; otherwise returns 0, and the bytes at `data` are unchanged. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -8633,7 +8633,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_open_aesni_vpclmul(ctx: *const [
 }
 
 /// The CPU features `vg_aes_gcm_stream_init_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_INIT_AESNI_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_INIT_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Starts an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7): with the key context `*ctx` that `vg_aes_gcm_init` wrote, makes the streaming state `*state` represent the message with the IV the `nonce_len` bytes at `nonce`, and no additional data or text yet. Continue with `vg_aes_gcm_stream_aad`, then `vg_aes_gcm_stream_encrypt` or `vg_aes_gcm_stream_decrypt`, then `vg_aes_gcm_stream_finish` or `vg_aes_gcm_stream_verify`, with the same key context.
 ///
@@ -8850,7 +8850,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_init_aesni_vpclmul(ctx: *
 }
 
 /// The CPU features `vg_aes_gcm_stream_aad_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_AAD_AESNI_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_AAD_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Absorbs additional data into an incremental AES-GCM encryption or decryption: with the key context `*ctx`, if the streaming state `*state` represents a message with `aad_len` bytes (modulo 2⁶⁴) of additional data and no text yet, it then represents that message with the `len` bytes at `data` appended to its additional data. All of the additional data comes before the text (§7.1 step 5): after text, the state represents no message.
 ///
@@ -8979,7 +8979,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_aesni_vpclmul(ctx: *c
 }
 
 /// The CPU features `vg_aes_gcm_stream_encrypt_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_AESNI_VPCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Encrypts the next piece of the text of an incremental AES-GCM encryption (NIST SP 800-38D §7.1): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and the ciphertext of exactly `text_len` bytes of plaintext so far, encrypts the `len` bytes at `data` in place, as the continuation of that plaintext, and the state then represents the message with them appended.
 ///
@@ -9249,7 +9249,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_aesni_vpclmul(ctx
 }
 
 /// The CPU features `vg_aes_gcm_stream_decrypt_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_DECRYPT_AESNI_VPCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_DECRYPT_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Decrypts the next piece of the text of an incremental AES-GCM decryption (NIST SP 800-38D §7.2): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext so far, decrypts the `len` bytes of ciphertext at `data` in place, as the continuation of that ciphertext, and the state then represents the message with them appended. The plaintext is not authenticated until `vg_aes_gcm_stream_verify` has returned 1.
 ///
@@ -9523,7 +9523,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_aesni_vpclmul(ctx
 }
 
 /// The CPU features `vg_aes_gcm_stream_finish_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_FINISH_AESNI_VPCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_FINISH_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Finishes an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7.1 steps 5–6, §7.2 steps 6–7): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, writes its 128-bit tag to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one; to check a received tag, use `vg_aes_gcm_stream_verify`.
 ///
@@ -9646,7 +9646,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_aesni_vpclmul(ctx:
 }
 
 /// The CPU features `vg_aes_gcm_stream_verify_aesni_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_VERIFY_AESNI_VPCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_VERIFY_AESNI_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Finishes an incremental AES-GCM decryption and checks its tag (NIST SP 800-38D §7.2 steps 6–8): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the received tag is the first `tag_len` bytes of the message's 128-bit tag, which it then writes to the first 16 bytes of `*work`; otherwise returns 0 and writes 16 zero bytes there. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -9849,7 +9849,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify_aesni_vpclmul(ctx:
 }
 
 /// The CPU features `vg_aes_gcm_encrypt_blocks_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// AES-GCM's encryption of whole blocks (NIST SP 800-38D §7.1 steps 3 and 5, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, leaves `inc₃₂ⁿ(CB₁)` in `*counter`, and replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the ciphertext written, with the hash subkey of `*ctx`: as `vg_aes_ctr32` and then `vg_ghash`.
 ///
@@ -9912,7 +9912,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_encrypt_blocks_pclmul(ctx: *cons
 }
 
 /// The CPU features `vg_aes_gcm_decrypt_blocks_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// AES-GCM's decryption of whole blocks (NIST SP 800-38D §7.2 steps 5 and 6, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the `n` 16-byte blocks of ciphertext at `data`, with the hash subkey of `*ctx`, then XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into them, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`: as `vg_ghash` and then `vg_aes_ctr32`.
 ///
@@ -10035,7 +10035,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_pclmul(key: *const u8, key_
 }
 
 /// The CPU features `vg_aes_gcm_seal_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_SEAL_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_SEAL_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// AES-GCM authenticated encryption (NIST SP 800-38D §7.1, GCM-AE, with a 128-bit tag): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, encrypts the `len` bytes at `data` in place, under the IV the `nonce_len` bytes at `nonce`, and writes the tag of the ciphertext and the `aad_len` bytes of additional data at `aad` to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one.
 ///
@@ -10649,7 +10649,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_pclmul(ctx: *const [u64; 32
 }
 
 /// The CPU features `vg_aes_gcm_open_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_OPEN_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_OPEN_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// AES-GCM authenticated decryption (NIST SP 800-38D §7.2, GCM-AD): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the tag is the first `tag_len` bytes of that of the `len` bytes of ciphertext at `data` and the `aad_len` bytes of additional data at `aad`, under the IV the `nonce_len` bytes at `nonce`, having then decrypted the ciphertext in place; otherwise returns 0, and the bytes at `data` are unchanged. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -11359,7 +11359,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_open_pclmul(ctx: *const [u64; 32
 }
 
 /// The CPU features `vg_aes_gcm_stream_init_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_INIT_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_INIT_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// Starts an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7): with the key context `*ctx` that `vg_aes_gcm_init` wrote, makes the streaming state `*state` represent the message with the IV the `nonce_len` bytes at `nonce`, and no additional data or text yet. Continue with `vg_aes_gcm_stream_aad`, then `vg_aes_gcm_stream_encrypt` or `vg_aes_gcm_stream_decrypt`, then `vg_aes_gcm_stream_finish` or `vg_aes_gcm_stream_verify`, with the same key context.
 ///
@@ -11576,7 +11576,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_init_pclmul(ctx: *const [
 }
 
 /// The CPU features `vg_aes_gcm_stream_aad_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_AAD_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_AAD_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// Absorbs additional data into an incremental AES-GCM encryption or decryption: with the key context `*ctx`, if the streaming state `*state` represents a message with `aad_len` bytes (modulo 2⁶⁴) of additional data and no text yet, it then represents that message with the `len` bytes at `data` appended to its additional data. All of the additional data comes before the text (§7.1 step 5): after text, the state represents no message.
 ///
@@ -11705,7 +11705,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_pclmul(ctx: *const [u
 }
 
 /// The CPU features `vg_aes_gcm_stream_encrypt_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// Encrypts the next piece of the text of an incremental AES-GCM encryption (NIST SP 800-38D §7.1): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and the ciphertext of exactly `text_len` bytes of plaintext so far, encrypts the `len` bytes at `data` in place, as the continuation of that plaintext, and the state then represents the message with them appended.
 ///
@@ -11975,7 +11975,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_pclmul(ctx: *cons
 }
 
 /// The CPU features `vg_aes_gcm_stream_decrypt_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_DECRYPT_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_DECRYPT_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// Decrypts the next piece of the text of an incremental AES-GCM decryption (NIST SP 800-38D §7.2): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext so far, decrypts the `len` bytes of ciphertext at `data` in place, as the continuation of that ciphertext, and the state then represents the message with them appended. The plaintext is not authenticated until `vg_aes_gcm_stream_verify` has returned 1.
 ///
@@ -12249,7 +12249,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_pclmul(ctx: *cons
 }
 
 /// The CPU features `vg_aes_gcm_stream_finish_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_FINISH_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_FINISH_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// Finishes an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7.1 steps 5–6, §7.2 steps 6–7): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, writes its 128-bit tag to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one; to check a received tag, use `vg_aes_gcm_stream_verify`.
 ///
@@ -12372,7 +12372,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_pclmul(ctx: *const
 }
 
 /// The CPU features `vg_aes_gcm_stream_verify_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_VERIFY_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_VERIFY_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// Finishes an incremental AES-GCM decryption and checks its tag (NIST SP 800-38D §7.2 steps 6–8): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the received tag is the first `tag_len` bytes of the message's 128-bit tag, which it then writes to the first 16 bytes of `*work`; otherwise returns 0 and writes 16 zero bytes there. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -15261,7 +15261,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify(ctx: *const [u64; 
 }
 
 /// The CPU features `vg_aes_gcm_encrypt_blocks_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// AES-GCM's encryption of whole blocks (NIST SP 800-38D §7.1 steps 3 and 5, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, leaves `inc₃₂ⁿ(CB₁)` in `*counter`, and replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the ciphertext written, with the hash subkey of `*ctx`: as `vg_aes_ctr32` and then `vg_ghash`.
 ///
@@ -15324,7 +15324,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_encrypt_blocks_vaes(ctx: *const 
 }
 
 /// The CPU features `vg_aes_gcm_decrypt_blocks_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// AES-GCM's decryption of whole blocks (NIST SP 800-38D §7.2 steps 5 and 6, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the `n` 16-byte blocks of ciphertext at `data`, with the hash subkey of `*ctx`, then XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into them, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`: as `vg_ghash` and then `vg_aes_ctr32`.
 ///
@@ -15387,7 +15387,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_decrypt_blocks_vaes(ctx: *const 
 }
 
 /// The CPU features `vg_aes_gcm_init_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_INIT_VAES_FEATURES: &[&str] = &["avx", "avx2", "ssse3", "vaes", "aes"];
+pub(crate) const VG_AES_GCM_INIT_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "ssse3", "vaes", "aes"]);
 
 /// The AES-GCM key setup: writes the key context of the `key_len`-byte AES key at `key` to `*ctx`: its key schedule for `Nr = key_len / 4 + 6` rounds (FIPS 197 §5.2, as `vg_aes_expand_key` writes it) in the first `16 * (Nr + 1)` bytes, and the hash subkey `H = CIPH_K(0¹²⁸)` (NIST SP 800-38D §7.1 step 1) in bytes 240–255. The other bytes are unspecified. The other `vg_aes_gcm_*` functions read it, with `Nr` as their `rounds`.
 ///
@@ -15451,7 +15451,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_vaes(key: *const u8, key_le
 }
 
 /// The CPU features `vg_aes_gcm_seal_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_SEAL_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_GCM_SEAL_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// AES-GCM authenticated encryption (NIST SP 800-38D §7.1, GCM-AE, with a 128-bit tag): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, encrypts the `len` bytes at `data` in place, under the IV the `nonce_len` bytes at `nonce`, and writes the tag of the ciphertext and the `aad_len` bytes of additional data at `aad` to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one.
 ///
@@ -16065,7 +16065,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_vaes(ctx: *const [u64; 32],
 }
 
 /// The CPU features `vg_aes_gcm_open_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_OPEN_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_GCM_OPEN_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// AES-GCM authenticated decryption (NIST SP 800-38D §7.2, GCM-AD): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the tag is the first `tag_len` bytes of that of the `len` bytes of ciphertext at `data` and the `aad_len` bytes of additional data at `aad`, under the IV the `nonce_len` bytes at `nonce`, having then decrypted the ciphertext in place; otherwise returns 0, and the bytes at `data` are unchanged. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -17113,7 +17113,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_vaes(ctx: *const [u64
 }
 
 /// The CPU features `vg_aes_gcm_stream_encrypt_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// Encrypts the next piece of the text of an incremental AES-GCM encryption (NIST SP 800-38D §7.1): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and the ciphertext of exactly `text_len` bytes of plaintext so far, encrypts the `len` bytes at `data` in place, as the continuation of that plaintext, and the state then represents the message with them appended.
 ///
@@ -17383,7 +17383,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_vaes(ctx: *const 
 }
 
 /// The CPU features `vg_aes_gcm_stream_decrypt_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_DECRYPT_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_GCM_STREAM_DECRYPT_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// Decrypts the next piece of the text of an incremental AES-GCM decryption (NIST SP 800-38D §7.2): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext so far, decrypts the `len` bytes of ciphertext at `data` in place, as the continuation of that ciphertext, and the state then represents the message with them appended. The plaintext is not authenticated until `vg_aes_gcm_stream_verify` has returned 1.
 ///
@@ -17657,7 +17657,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_vaes(ctx: *const 
 }
 
 /// The CPU features `vg_aes_gcm_stream_finish_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_FINISH_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_GCM_STREAM_FINISH_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// Finishes an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7.1 steps 5–6, §7.2 steps 6–7): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, writes its 128-bit tag to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one; to check a received tag, use `vg_aes_gcm_stream_verify`.
 ///
@@ -17780,7 +17780,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_vaes(ctx: *const [
 }
 
 /// The CPU features `vg_aes_gcm_stream_verify_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_VERIFY_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_GCM_STREAM_VERIFY_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// Finishes an incremental AES-GCM decryption and checks its tag (NIST SP 800-38D §7.2 steps 6–8): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the received tag is the first `tag_len` bytes of the message's 128-bit tag, which it then writes to the first 16 bytes of `*work`; otherwise returns 0 and writes 16 zero bytes there. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -17983,7 +17983,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify_vaes(ctx: *const [
 }
 
 /// The CPU features `vg_aes_gcm_encrypt_blocks_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_VAES_PCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"]);
 
 /// AES-GCM's encryption of whole blocks (NIST SP 800-38D §7.1 steps 3 and 5, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, leaves `inc₃₂ⁿ(CB₁)` in `*counter`, and replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the ciphertext written, with the hash subkey of `*ctx`: as `vg_aes_ctr32` and then `vg_ghash`.
 ///
@@ -18046,7 +18046,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_encrypt_blocks_vaes_pclmul(ctx: 
 }
 
 /// The CPU features `vg_aes_gcm_decrypt_blocks_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_VAES_PCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"]);
 
 /// AES-GCM's decryption of whole blocks (NIST SP 800-38D §7.2 steps 5 and 6, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the `n` 16-byte blocks of ciphertext at `data`, with the hash subkey of `*ctx`, then XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into them, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`: as `vg_ghash` and then `vg_aes_ctr32`.
 ///
@@ -18109,7 +18109,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_decrypt_blocks_vaes_pclmul(ctx: 
 }
 
 /// The CPU features `vg_aes_gcm_init_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_INIT_VAES_PCLMUL_FEATURES: &[&str] = &["avx", "avx2", "ssse3", "vaes", "aes"];
+pub(crate) const VG_AES_GCM_INIT_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "ssse3", "vaes", "aes"]);
 
 /// The AES-GCM key setup: writes the key context of the `key_len`-byte AES key at `key` to `*ctx`: its key schedule for `Nr = key_len / 4 + 6` rounds (FIPS 197 §5.2, as `vg_aes_expand_key` writes it) in the first `16 * (Nr + 1)` bytes, and the hash subkey `H = CIPH_K(0¹²⁸)` (NIST SP 800-38D §7.1 step 1) in bytes 240–255. The other bytes are unspecified. The other `vg_aes_gcm_*` functions read it, with `Nr` as their `rounds`.
 ///
@@ -18173,7 +18173,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_vaes_pclmul(key: *const u8,
 }
 
 /// The CPU features `vg_aes_gcm_seal_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_SEAL_VAES_PCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_SEAL_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"]);
 
 /// AES-GCM authenticated encryption (NIST SP 800-38D §7.1, GCM-AE, with a 128-bit tag): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, encrypts the `len` bytes at `data` in place, under the IV the `nonce_len` bytes at `nonce`, and writes the tag of the ciphertext and the `aad_len` bytes of additional data at `aad` to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one.
 ///
@@ -18787,7 +18787,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_vaes_pclmul(ctx: *const [u6
 }
 
 /// The CPU features `vg_aes_gcm_open_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_OPEN_VAES_PCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_OPEN_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"]);
 
 /// AES-GCM authenticated decryption (NIST SP 800-38D §7.2, GCM-AD): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the tag is the first `tag_len` bytes of that of the `len` bytes of ciphertext at `data` and the `aad_len` bytes of additional data at `aad`, under the IV the `nonce_len` bytes at `nonce`, having then decrypted the ciphertext in place; otherwise returns 0, and the bytes at `data` are unchanged. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -19497,7 +19497,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_open_vaes_pclmul(ctx: *const [u6
 }
 
 /// The CPU features `vg_aes_gcm_stream_init_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_INIT_VAES_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_INIT_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// Starts an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7): with the key context `*ctx` that `vg_aes_gcm_init` wrote, makes the streaming state `*state` represent the message with the IV the `nonce_len` bytes at `nonce`, and no additional data or text yet. Continue with `vg_aes_gcm_stream_aad`, then `vg_aes_gcm_stream_encrypt` or `vg_aes_gcm_stream_decrypt`, then `vg_aes_gcm_stream_finish` or `vg_aes_gcm_stream_verify`, with the same key context.
 ///
@@ -19714,7 +19714,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_init_vaes_pclmul(ctx: *co
 }
 
 /// The CPU features `vg_aes_gcm_stream_aad_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_AAD_VAES_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_AAD_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["pclmulqdq", "ssse3"]);
 
 /// Absorbs additional data into an incremental AES-GCM encryption or decryption: with the key context `*ctx`, if the streaming state `*state` represents a message with `aad_len` bytes (modulo 2⁶⁴) of additional data and no text yet, it then represents that message with the `len` bytes at `data` appended to its additional data. All of the additional data comes before the text (§7.1 step 5): after text, the state represents no message.
 ///
@@ -19843,7 +19843,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_vaes_pclmul(ctx: *con
 }
 
 /// The CPU features `vg_aes_gcm_stream_encrypt_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_VAES_PCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"]);
 
 /// Encrypts the next piece of the text of an incremental AES-GCM encryption (NIST SP 800-38D §7.1): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and the ciphertext of exactly `text_len` bytes of plaintext so far, encrypts the `len` bytes at `data` in place, as the continuation of that plaintext, and the state then represents the message with them appended.
 ///
@@ -20113,7 +20113,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_vaes_pclmul(ctx: 
 }
 
 /// The CPU features `vg_aes_gcm_stream_decrypt_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_DECRYPT_VAES_PCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_DECRYPT_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"]);
 
 /// Decrypts the next piece of the text of an incremental AES-GCM decryption (NIST SP 800-38D §7.2): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext so far, decrypts the `len` bytes of ciphertext at `data` in place, as the continuation of that ciphertext, and the state then represents the message with them appended. The plaintext is not authenticated until `vg_aes_gcm_stream_verify` has returned 1.
 ///
@@ -20387,7 +20387,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_vaes_pclmul(ctx: 
 }
 
 /// The CPU features `vg_aes_gcm_stream_finish_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_FINISH_VAES_PCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_FINISH_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"]);
 
 /// Finishes an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7.1 steps 5–6, §7.2 steps 6–7): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, writes its 128-bit tag to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one; to check a received tag, use `vg_aes_gcm_stream_verify`.
 ///
@@ -20510,7 +20510,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_vaes_pclmul(ctx: *
 }
 
 /// The CPU features `vg_aes_gcm_stream_verify_vaes_pclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_VERIFY_VAES_PCLMUL_FEATURES: &[&str] = &["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"];
+pub(crate) const VG_AES_GCM_STREAM_VERIFY_VAES_PCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "vaes", "pclmulqdq", "ssse3"]);
 
 /// Finishes an incremental AES-GCM decryption and checks its tag (NIST SP 800-38D §7.2 steps 6–8): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the received tag is the first `tag_len` bytes of the message's 128-bit tag, which it then writes to the first 16 bytes of `*work`; otherwise returns 0 and writes 16 zero bytes there. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -20713,7 +20713,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify_vaes_pclmul(ctx: *
 }
 
 /// The CPU features `vg_aes_gcm_encrypt_blocks_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_VAES_VPCLMUL_FEATURES: &[&str] = &["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM's encryption of whole blocks (NIST SP 800-38D §7.1 steps 3 and 5, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, leaves `inc₃₂ⁿ(CB₁)` in `*counter`, and replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the ciphertext written, with the hash subkey of `*ctx`: as `vg_aes_ctr32` and then `vg_ghash`.
 ///
@@ -21806,7 +21806,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_encrypt_blocks_vaes_vpclmul(ctx:
 }
 
 /// The CPU features `vg_aes_gcm_decrypt_blocks_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_VAES_VPCLMUL_FEATURES: &[&str] = &["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM's decryption of whole blocks (NIST SP 800-38D §7.2 steps 5 and 6, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the `n` 16-byte blocks of ciphertext at `data`, with the hash subkey of `*ctx`, then XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into them, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`: as `vg_ghash` and then `vg_aes_ctr32`.
 ///
@@ -22579,7 +22579,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_decrypt_blocks_vaes_vpclmul(ctx:
 }
 
 /// The CPU features `vg_aes_gcm_init_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_INIT_VAES_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "ssse3", "vaes", "aes"];
+pub(crate) const VG_AES_GCM_INIT_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "ssse3", "vaes", "aes"]);
 
 /// The AES-GCM key setup: writes the key context of the `key_len`-byte AES key at `key` to `*ctx`: its key schedule for `Nr = key_len / 4 + 6` rounds (FIPS 197 §5.2, as `vg_aes_expand_key` writes it) in the first `16 * (Nr + 1)` bytes, and the hash subkey `H = CIPH_K(0¹²⁸)` (NIST SP 800-38D §7.1 step 1) in bytes 240–255. The other bytes are unspecified. The other `vg_aes_gcm_*` functions read it, with `Nr` as their `rounds`.
 ///
@@ -22643,7 +22643,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_vaes_vpclmul(key: *const u8
 }
 
 /// The CPU features `vg_aes_gcm_seal_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_SEAL_VAES_VPCLMUL_FEATURES: &[&str] = &["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_SEAL_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM authenticated encryption (NIST SP 800-38D §7.1, GCM-AE, with a 128-bit tag): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, encrypts the `len` bytes at `data` in place, under the IV the `nonce_len` bytes at `nonce`, and writes the tag of the ciphertext and the `aad_len` bytes of additional data at `aad` to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one.
 ///
@@ -23257,7 +23257,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_vaes_vpclmul(ctx: *const [u
 }
 
 /// The CPU features `vg_aes_gcm_open_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_OPEN_VAES_VPCLMUL_FEATURES: &[&str] = &["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_OPEN_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM authenticated decryption (NIST SP 800-38D §7.2, GCM-AD): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the tag is the first `tag_len` bytes of that of the `len` bytes of ciphertext at `data` and the `aad_len` bytes of additional data at `aad`, under the IV the `nonce_len` bytes at `nonce`, having then decrypted the ciphertext in place; otherwise returns 0, and the bytes at `data` are unchanged. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -23967,7 +23967,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_open_vaes_vpclmul(ctx: *const [u
 }
 
 /// The CPU features `vg_aes_gcm_stream_init_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_INIT_VAES_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_INIT_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Starts an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7): with the key context `*ctx` that `vg_aes_gcm_init` wrote, makes the streaming state `*state` represent the message with the IV the `nonce_len` bytes at `nonce`, and no additional data or text yet. Continue with `vg_aes_gcm_stream_aad`, then `vg_aes_gcm_stream_encrypt` or `vg_aes_gcm_stream_decrypt`, then `vg_aes_gcm_stream_finish` or `vg_aes_gcm_stream_verify`, with the same key context.
 ///
@@ -24184,7 +24184,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_init_vaes_vpclmul(ctx: *c
 }
 
 /// The CPU features `vg_aes_gcm_stream_aad_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_AAD_VAES_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_AAD_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Absorbs additional data into an incremental AES-GCM encryption or decryption: with the key context `*ctx`, if the streaming state `*state` represents a message with `aad_len` bytes (modulo 2⁶⁴) of additional data and no text yet, it then represents that message with the `len` bytes at `data` appended to its additional data. All of the additional data comes before the text (§7.1 step 5): after text, the state represents no message.
 ///
@@ -24313,7 +24313,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_vaes_vpclmul(ctx: *co
 }
 
 /// The CPU features `vg_aes_gcm_stream_encrypt_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_VAES_VPCLMUL_FEATURES: &[&str] = &["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Encrypts the next piece of the text of an incremental AES-GCM encryption (NIST SP 800-38D §7.1): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and the ciphertext of exactly `text_len` bytes of plaintext so far, encrypts the `len` bytes at `data` in place, as the continuation of that plaintext, and the state then represents the message with them appended.
 ///
@@ -24583,7 +24583,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_vaes_vpclmul(ctx:
 }
 
 /// The CPU features `vg_aes_gcm_stream_decrypt_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_DECRYPT_VAES_VPCLMUL_FEATURES: &[&str] = &["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_DECRYPT_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Decrypts the next piece of the text of an incremental AES-GCM decryption (NIST SP 800-38D §7.2): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext so far, decrypts the `len` bytes of ciphertext at `data` in place, as the continuation of that ciphertext, and the state then represents the message with them appended. The plaintext is not authenticated until `vg_aes_gcm_stream_verify` has returned 1.
 ///
@@ -24857,7 +24857,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_vaes_vpclmul(ctx:
 }
 
 /// The CPU features `vg_aes_gcm_stream_finish_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_FINISH_VAES_VPCLMUL_FEATURES: &[&str] = &["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_FINISH_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Finishes an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7.1 steps 5–6, §7.2 steps 6–7): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, writes its 128-bit tag to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one; to check a received tag, use `vg_aes_gcm_stream_verify`.
 ///
@@ -24980,7 +24980,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_vaes_vpclmul(ctx: 
 }
 
 /// The CPU features `vg_aes_gcm_stream_verify_vaes_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_VERIFY_VAES_VPCLMUL_FEATURES: &[&str] = &["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_VERIFY_VAES_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "vaes", "avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Finishes an incremental AES-GCM decryption and checks its tag (NIST SP 800-38D §7.2 steps 6–8): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the received tag is the first `tag_len` bytes of the message's 128-bit tag, which it then writes to the first 16 bytes of `*work`; otherwise returns 0 and writes 16 zero bytes there. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -25183,7 +25183,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_verify_vaes_vpclmul(ctx: 
 }
 
 /// The CPU features `vg_aes_gcm_encrypt_blocks_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_ENCRYPT_BLOCKS_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM's encryption of whole blocks (NIST SP 800-38D §7.1 steps 3 and 5, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, leaves `inc₃₂ⁿ(CB₁)` in `*counter`, and replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the ciphertext written, with the hash subkey of `*ctx`: as `vg_aes_ctr32` and then `vg_ghash`.
 ///
@@ -25246,7 +25246,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_encrypt_blocks_vpclmul(ctx: *con
 }
 
 /// The CPU features `vg_aes_gcm_decrypt_blocks_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_DECRYPT_BLOCKS_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM's decryption of whole blocks (NIST SP 800-38D §7.2 steps 5 and 6, on whole blocks), in place: with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, replaces the block `Y` at `*y` with GHASH (§6.4) continued from `Y` over the `n` 16-byte blocks of ciphertext at `data`, with the hash subkey of `*ctx`, then XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into them, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`: as `vg_ghash` and then `vg_aes_ctr32`.
 ///
@@ -25369,7 +25369,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_init_vpclmul(key: *const u8, key
 }
 
 /// The CPU features `vg_aes_gcm_seal_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_SEAL_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_SEAL_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM authenticated encryption (NIST SP 800-38D §7.1, GCM-AE, with a 128-bit tag): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, encrypts the `len` bytes at `data` in place, under the IV the `nonce_len` bytes at `nonce`, and writes the tag of the ciphertext and the `aad_len` bytes of additional data at `aad` to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one.
 ///
@@ -25983,7 +25983,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_seal_vpclmul(ctx: *const [u64; 3
 }
 
 /// The CPU features `vg_aes_gcm_open_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_OPEN_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_OPEN_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// AES-GCM authenticated decryption (NIST SP 800-38D §7.2, GCM-AD): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the tag is the first `tag_len` bytes of that of the `len` bytes of ciphertext at `data` and the `aad_len` bytes of additional data at `aad`, under the IV the `nonce_len` bytes at `nonce`, having then decrypted the ciphertext in place; otherwise returns 0, and the bytes at `data` are unchanged. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
@@ -26693,7 +26693,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_open_vpclmul(ctx: *const [u64; 3
 }
 
 /// The CPU features `vg_aes_gcm_stream_init_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_INIT_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_INIT_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Starts an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7): with the key context `*ctx` that `vg_aes_gcm_init` wrote, makes the streaming state `*state` represent the message with the IV the `nonce_len` bytes at `nonce`, and no additional data or text yet. Continue with `vg_aes_gcm_stream_aad`, then `vg_aes_gcm_stream_encrypt` or `vg_aes_gcm_stream_decrypt`, then `vg_aes_gcm_stream_finish` or `vg_aes_gcm_stream_verify`, with the same key context.
 ///
@@ -26910,7 +26910,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_init_vpclmul(ctx: *const 
 }
 
 /// The CPU features `vg_aes_gcm_stream_aad_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_AAD_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_AAD_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Absorbs additional data into an incremental AES-GCM encryption or decryption: with the key context `*ctx`, if the streaming state `*state` represents a message with `aad_len` bytes (modulo 2⁶⁴) of additional data and no text yet, it then represents that message with the `len` bytes at `data` appended to its additional data. All of the additional data comes before the text (§7.1 step 5): after text, the state represents no message.
 ///
@@ -27039,7 +27039,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_aad_vpclmul(ctx: *const [
 }
 
 /// The CPU features `vg_aes_gcm_stream_encrypt_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_ENCRYPT_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Encrypts the next piece of the text of an incremental AES-GCM encryption (NIST SP 800-38D §7.1): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and the ciphertext of exactly `text_len` bytes of plaintext so far, encrypts the `len` bytes at `data` in place, as the continuation of that plaintext, and the state then represents the message with them appended.
 ///
@@ -27309,7 +27309,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_encrypt_vpclmul(ctx: *con
 }
 
 /// The CPU features `vg_aes_gcm_stream_decrypt_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_DECRYPT_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_DECRYPT_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Decrypts the next piece of the text of an incremental AES-GCM decryption (NIST SP 800-38D §7.2): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext so far, decrypts the `len` bytes of ciphertext at `data` in place, as the continuation of that ciphertext, and the state then represents the message with them appended. The plaintext is not authenticated until `vg_aes_gcm_stream_verify` has returned 1.
 ///
@@ -27583,7 +27583,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_decrypt_vpclmul(ctx: *con
 }
 
 /// The CPU features `vg_aes_gcm_stream_finish_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_FINISH_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_FINISH_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Finishes an incremental AES-GCM encryption or decryption (NIST SP 800-38D §7.1 steps 5–6, §7.2 steps 6–7): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, writes its 128-bit tag to the first 16 bytes of `*work`. The rest of `*work` is working space, unspecified on return. A shorter tag is the first bytes of this one; to check a received tag, use `vg_aes_gcm_stream_verify`.
 ///
@@ -27706,7 +27706,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_gcm_stream_finish_vpclmul(ctx: *cons
 }
 
 /// The CPU features `vg_aes_gcm_stream_verify_vpclmul` requires (`Artifact.features`).
-pub(crate) const VG_AES_GCM_STREAM_VERIFY_VPCLMUL_FEATURES: &[&str] = &["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"];
+pub(crate) const VG_AES_GCM_STREAM_VERIFY_VPCLMUL_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]);
 
 /// Finishes an incremental AES-GCM decryption and checks its tag (NIST SP 800-38D §7.2 steps 6–8): with the key context `*ctx` that `vg_aes_gcm_init` wrote for `rounds` rounds and the received tag in the first `tag_len` bytes of `*work`, if the streaming state `*state` represents a message with `aad_len` bytes of additional data and exactly `text_len` bytes of ciphertext, returns 1 if `tag_len` is 4, 8, 12, 13, 14, 15 or 16 (§5.2.1.2) and the received tag is the first `tag_len` bytes of the message's 128-bit tag, which it then writes to the first 16 bytes of `*work`; otherwise returns 0 and writes 16 zero bytes there. The rest of `*work` is working space, unspecified on return. The tags are compared without a branch.
 ///
