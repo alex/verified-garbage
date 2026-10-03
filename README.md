@@ -576,6 +576,22 @@ yours to keep:
 
 <tr>
 
+<td>AES-SIV (256-, 384- and 512-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>ChaCha20-Poly1305</td>
 
 <td>✅</td>
