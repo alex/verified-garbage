@@ -2,13 +2,13 @@
 //!
 //! RC4 is obsolete and insecure; this module exists for legacy compatibility.
 //! It provides no nonce or authentication. Initialization and in-place XOR
-//! are the verified AArch64 primitives (`VG.Spec.Rc4.initContract` and
+//! are the verified primitives (`VG.Spec.Rc4.initContract` and
 //! `VG.Spec.Rc4.applyContract`). Secret indices never address memory: the
-//! primitives scan the permutation at fixed addresses using NEON register
-//! tables. Only pointers, lengths and the stream position modulo 256 may
-//! affect the leakage trace.
+//! primitives scan the permutation at fixed addresses, with NEON register
+//! tables on AArch64 and masked quadwords on x86-64. Only pointers, lengths
+//! and the stream position modulo 256 may affect the leakage trace.
 
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use core::mem::MaybeUninit;
 
@@ -41,7 +41,7 @@ impl Rc4 {
         // scratch are writable for 258 and 64 bytes. Initialization reads
         // no context byte before writing it and checks the key length.
         // These distinct objects do not overlap or wrap around the address
-        // space; the primitive uses only baseline AArch64 instructions.
+        // space; the primitive uses only baseline instructions.
         let code =
             unsafe { vg_rc4_init(key.as_ptr(), key.len(), c.ctx.as_mut_ptr(), &mut scratch) };
         zeroize(&mut scratch);
@@ -59,7 +59,7 @@ impl Rc4 {
         let mut scratch = [0u64; 8];
         // SAFETY: successful initialization wrote the entire context.
         // The context, data and scratch are valid, separate objects of the
-        // lengths passed, with no address-space wrapping. AArch64's
+        // lengths passed, with no address-space wrapping. The target's
         // baseline includes every instruction used by the primitive.
         unsafe {
             vg_rc4_apply(
