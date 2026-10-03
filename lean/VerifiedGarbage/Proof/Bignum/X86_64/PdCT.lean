@@ -15,6 +15,8 @@ namespace VG.Proof.Bignum.X86_64
 open VG VG.X86_64 VG.Impl.Bignum.X86_64 VG.Impl.Bignum.X86_64.Public VG.Impl.Rsa.X86_64
 open VG.Proof.MlKem.X86_64
 
+variable {M : Mont}
+
 /-! ## `rest` -/
 
 /-- The public data of `rest`: the working space, `k`, the pointers, `e`
@@ -135,14 +137,14 @@ theorem arrays_pdAll {B : Addr} {w : Nat} {m m' : Mem} (h : Arrays B w [aAcc, aT
   Frm.of_arrays h (by simp [pdAll, pExpRanges, pBitRanges, bitRanges])
 
 /-- `X := input R` leaks the same in runs with the same public data. -/
-theorem pdMm_ct : RelCT isa (Two DA) (mm aXm aX aR2) (Two DB) := by
+theorem pdMm_ct : RelCT isa (Two DA) (M.mm aXm aX aR2) (Two DB) := by
   refine two_post (two_map DPub.L (fun _ _ ⟨_, σ, g, so, _⟩ => ⟨so.good, g.1.z⟩)
-    (montMul_ct (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by taint_decide))) ?_
+    (M.ct (by unfold MmUse; decide))) ?_
   rintro q t ⟨xb, σ, g, so, hR⟩
   have hk1 := g.1.k1
   have hk2 := g.1.k2
   have hn : q.1.B.toNat + slot ((q.1.k + 7) / 8) 8 ≤ 2 ^ 64 := by have := g.1.scr.nowrap; have := g.1.z; omega
-  refine WP.mono (mmN_ok (o := aXm) (a := aX) (b := aR2) so.good g.1.z (by omega)
+  refine WP.mono (mmN_ok M (o := aXm) (a := aX) (b := aR2) so.good g.1.z (by omega)
     (by omega) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
     (by decide) so.n so.inv (by rw [hR]; exact g.1.rlt)) fun t' ⟨hg, hn', hinv, hlt, _, ha, k⟩ =>
     ⟨xb, σ, g.step (arrays_pdAll ha) k (ha.hslot (by decide)), hg, hn', hinv, hlt, ?_⟩
@@ -173,7 +175,7 @@ theorem pExpRanges_pdAll (w : Nat) : ∀ r ∈ pExpRanges w, r ∈ pdAll w :=
   fun _ hr => List.mem_append_right _ hr
 
 /-- The exponentiation leaks the same in runs that agree on `e`. -/
-theorem pdExp_ct : RelCT isa (Two DB) Precomputed.expLoop (Two DC) := by
+theorem pdExp_ct : RelCT isa (Two DB) (Precomputed.expLoop M.mm) (Two DC) := by
   refine two_post ((two_map DPub.E (fun _ _ h => db_pre h) pExpLoop_ct).mono (fun _ _ h => h)
     fun _ _ _ => trivial) ?_
   rintro q t h
@@ -202,7 +204,7 @@ def DD (q : DPub × BitVec 64) (t : State) : Prop :=
   ∃ xb σ, DG q.1 xb σ t ∧ Good t q.1.B q.1.Z ((q.1.k + 7) / 8) q.2
 
 /-- `finish` leaks the same in runs that agree on `e`. -/
-theorem pdFinish_ct : RelCT isa (Two DC) Precomputed.finish (Two DD) := by
+theorem pdFinish_ct : RelCT isa (Two DC) (Precomputed.finish M.mm) (Two DD) := by
   refine two_post (two_map (fun q => (⟨DPub.L q, q.1.N, Spec.Rsa.os2ip q.1.eb⟩ : FPub))
     (fun q _ ⟨_, _, X, x, g, hc, hy, _⟩ => ⟨X, x, hc, hy, g.1.z, show 2 ≤ (q.1.k + 7) / 8 by have := g.1.k1; omega,
       show (q.1.k + 7) / 8 < 2 ^ 31 by have := g.1.k2; omega⟩) finish_ct) ?_
@@ -228,7 +230,7 @@ theorem dd_oPre {q : DPub × BitVec 64} {t : State} (h : DD q t) : OPre ⟨DPub.
     g.1.outSep⟩
 
 /-- `rest` leaks the same in runs with the same public data and `e`. -/
-theorem pdRest_ct : RelCT isa (Two DRel) Precomputed.rest fun _ _ => True := by
+theorem pdRest_ct : RelCT isa (Two DRel) (Precomputed.rest M.mm) fun _ _ => True := by
   rw [pdRest_eq]
   refine RelCT.seqs_append (by simp [pdIn]) (by simp [pdExp]) (RelCT.seq pdSetup_ct ?_)
   refine RelCT.seqs_append (by simp [pdExp]) (by simp [outSteps]) (RelCT.seq (R := Two DD) ?_ ?_)
@@ -503,7 +505,7 @@ theorem cl_rest {p : CPubD} {t : State} (h : CL p t) (he : isa.eval .e t = some 
 
 /-- `vg_rsa_public_precomputed` leaks the same in runs that agree on the public
 data. -/
-theorem pdCode_ct : RelCT isa (Two CR) Precomputed.code fun _ _ => True := by
+theorem pdCode_ct : RelCT isa (Two CR) (Precomputed.code M.mm) fun _ _ => True := by
   unfold Precomputed.code
   refine RelCT.seq (R := Two CE2) ?_ ?_
   · rw [pdEntry_split]
@@ -575,7 +577,7 @@ def cpubOfD (s : State) : CPubD :=
     s.gpr .rdx, s.gpr .rsp⟩
 
 /-- `vg_rsa_public_precomputed` is constant time but for `pre` and `e`. -/
-theorem pdCode_constantTime : ConstantTime isa pdContract.pre pdContract.pub Precomputed.code := by
+theorem pdCode_constantTime : ConstantTime isa pdContract.pre pdContract.pub (Precomputed.code M.mm) := by
   refine RelCT.constantTime (pdCode_ct.mono (fun s₁ s₂ ⟨h₁, h₂, hp⟩ => ⟨cpubOfD s₁, ?_, ?_⟩) fun _ _ h => h)
   · exact ⟨h₁, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
   · obtain ⟨hr, a0, -, a2, a3, hw, he⟩ := hp

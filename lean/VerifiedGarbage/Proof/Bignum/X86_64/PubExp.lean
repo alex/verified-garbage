@@ -36,12 +36,12 @@ theorem expPhaseRanges_le (w : Nat) : ∀ r ∈ expPhaseRanges w, r.1 + r.2 ≤ 
   · exact expRanges_le w r hr
 
 /-- A Montgomery multiplication `[o] := [a] [b] R⁻¹` that keeps the modulus. -/
-theorem mmN_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N : Nat} (hg : Good t B Z w minv)
+theorem mmN_ok (M : Mont) {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N : Nat} (hg : Good t B Z w minv)
     (hZ : slot w 8 ≤ Z) (hw : 2 ≤ w) (hw' : w < 2 ^ 31) {o a b : Nat} (ho : o < 8) (ha : a < 8) (hb : b < 8)
     (d1 : o ≠ aAcc) (d2 : o ≠ aTmp) (d3 : a ≠ aAcc) (d4 : b ≠ aAcc) (d5 : o ≠ aN)
     (hn : wv t.mem B (slot w aN) w = N) (hinv : ((word t.mem B (slot w aN)).toNat * minv.toNat + 1) % 2 ^ 64 = 0)
-    (hB : wv t.mem B (slot w b) w < N) :
-    WP isa (mm o a b) t fun t' => Good t' B Z w minv ∧ wv t'.mem B (slot w aN) w = N ∧
+    (hB : wv t.mem B (slot w b) w < N) (d6 : a ≠ aTmp := by decide) (d7 : b ≠ aTmp := by decide) :
+    WP isa (M.mm o a b) t fun t' => Good t' B Z w minv ∧ wv t'.mem B (slot w aN) w = N ∧
       ((word t'.mem B (slot w aN)).toNat * minv.toNat + 1) % 2 ^ 64 = 0 ∧
       wv t'.mem B (slot w o) w < N ∧
       wv t'.mem B (slot w o) w * 2 ^ (64 * w) % N = wv t.mem B (slot w a) w * wv t.mem B (slot w b) w % N ∧
@@ -49,7 +49,7 @@ theorem mmN_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N : Nat} (
   have hn' : B.toNat + slot w 8 ≤ 2 ^ 64 := by have := hg.scr.nowrap; omega
   have hnm : aN ∉ [aAcc, aTmp, o] := by
     simp only [List.mem_cons, List.not_mem_nil, or_false, not_or]; exact ⟨by decide, by decide, Ne.symm d5⟩
-  refine WP.mono (mm_ok hg hZ hw hw' ho ha hb d1 d2 d3 d4 hinv (by rw [hn]; exact hB))
+  refine WP.mono (M.mm_ok hg hZ hw hw' ho ha hb d1 d2 d3 d4 hinv (by rw [hn]; exact hB) d6 d7)
     fun t' ⟨hg', hlt', hm, hA, k⟩ => ?_
   rw [hn] at hlt' hm
   exact ⟨hg', by rw [hA.wv_of_not_mem (by decide) hnm hn']; exact hn,
@@ -90,7 +90,7 @@ theorem expPhase_ok {s : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X :
   have hR : Nat.Coprime (2 ^ (64 * w)) N := VG.Proof.Bignum.coprime_pow2 hodd _
   unfold expSteps
   -- `Y := R`.
-  refine WP.seq (WP.mono (mmN_ok (o := aY) (a := aR2) (b := aOne) hg hZ hw hw' (by decide) (by decide)
+  refine WP.seq (WP.mono (mmN_ok Mont.base (o := aY) (a := aR2) (b := aOne) hg hZ hw hw' (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) hn hinv (by rw [hone]; exact hN1))
     fun t₁ ⟨hg₁, hn₁, hinv₁, hlt₁, hm₁, ha₁, k₁⟩ => ?_)
   have f₁ := Frm.ep_of_arrays ha₁ (by simp)
@@ -98,7 +98,7 @@ theorem expPhase_ok {s : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X :
     apply VG.Proof.Bignum.mont_cancel hR
     rw [hm₁, hone, Nat.mul_one, hr2]
   -- `X := x R`.
-  refine WP.seq (WP.mono (mmN_ok (o := aXm) (a := aX) (b := aR2) hg₁ hZ hw hw' (by decide) (by decide)
+  refine WP.seq (WP.mono (mmN_ok Mont.base (o := aXm) (a := aX) (b := aR2) hg₁ hZ hw hw' (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) hn₁ hinv₁
     (by rw [f₁.ep_wv hn' (by decide) (by decide) (by decide) (by decide) (by decide)]; exact hlt2))
     fun t₂ ⟨hg₂, hn₂, hinv₂, hlt₂, hm₂, ha₂, k₂⟩ => ?_)
@@ -126,7 +126,7 @@ theorem expPhase_ok {s : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X :
   have f₃' : Frm B (expPhaseRanges w) t₂.mem t₃.mem := f₃.mono fun r hr => List.mem_cons_of_mem _ hr
   have f₁₃ := f₁₂.trans f₃'
   -- `Y R⁻¹`.
-  refine WP.mono (mmN_ok (o := aY) (a := aY) (b := aOne) hc₃.good hZ hw hw' (by decide) (by decide)
+  refine WP.mono (mmN_ok Mont.base (o := aY) (a := aY) (b := aOne) hc₃.good hZ hw hw' (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) hc₃.n hc₃.inv
     (by rw [f₁₃.ep_wv hn' (by decide) (by decide) (by decide) (by decide) (by decide), hone]; exact hN1))
     fun t ⟨hg₄, _, _, hlt₄, hm₄, ha₄, k₄⟩ => ⟨hg₄, ?_, f₁₃.trans (Frm.ep_of_arrays ha₄ (by simp)),

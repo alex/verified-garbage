@@ -47,7 +47,10 @@ theorem precompute_implies : pcContract.Implies (Spec.Rsa.publicPrecomputeContra
     exact ⟨hdi, hsi, hdx, hcx, h8, h9, hsp⟩
   sat := by sig_implies_sat [Spec.Rsa.publicPrecomputeContract, Spec.Rsa.publicPrecomputeSig, abi, argRegs, pcContract, List.append_eq] [pcSatState] using pcSatState
 
-theorem precompute_verified : Verified target Precompute.code (Spec.Rsa.publicPrecomputeContract abi) :=
-  Verified.of_correct pcCode_correct pcCode_constantTime precompute_implies
+/-- `vg_rsa_public_precompute` with Montgomery multiplication `M`, given that
+its code never loads MXCSR (which the registration file evaluates). -/
+theorem precompute_verified (M : Mont) (hmx : (Precompute.code M.mm).allInstrs (fun i => !loadsMxcsr i) = true) :
+    Verified target (Precompute.code M.mm) (Spec.Rsa.publicPrecomputeContract abi) :=
+  Verified.of_correct (pcCode_correct M hmx) (pcCode_constantTime M) precompute_implies
 
 end VG.Proof.Bignum.X86_64

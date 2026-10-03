@@ -30,7 +30,7 @@ def pcOut : List (Prog isa) := [
 
 theorem seqs_one (c : Prog isa) : seqs [c] = c := rfl
 
-theorem pcMain_eq : Precompute.main = seqs (pcLoad ++ (r2Steps ++ pcOut)) := rfl
+theorem pcMain_eq (M : Mont) : Precompute.main M.mm = seqs (pcLoad ++ (r2Steps M ++ pcOut)) := rfl
 
 /-- What the load changes. -/
 def pcLoadRanges (w : Nat) : List (Nat × Nat) :=
@@ -271,24 +271,24 @@ theorem publicPrecompute_some {nb : List Byte} {k : Nat} (hnl : nb.length = k)
 
 /-- `main`, for a valid modulus `m`: `m` and `R² mod m` to `pre`, and 1
 returned. -/
-theorem pcMain_ok {s : State} {B : Addr} {Z k : Nat} {op np : Addr} {nb : List Byte} (hs : Scr s B Z)
+theorem pcMain_ok (M : Mont) {s : State} {B : Addr} {Z k : Nat} {op np : Addr} {nb : List Byte} (hs : Scr s B Z)
     (hdi : s.gpr .rdi = B) (hZ : slot ((k + 7) / 8) 8 ≤ Z) (hk1 : 64 ≤ k) (hk2 : k ≤ 1024)
     (hO : word s.mem B (8 * sOut) = op) (hK : word s.mem B (8 * sK) = BitVec.ofNat 64 k)
     (hN : word s.mem B (8 * sN) = np) (hnb : Src s B Z np nb) (hnl : nb.length = k)
     (hv : Spec.Rsa.modulusValid (Spec.Rsa.os2ip nb) k = true)
     (hpw : ∀ i < 2 * ((k + 7) / 8), InRegions s.wr (off op (8 * i)) 8)
     (hps : ∀ i < 16 * ((k + 7) / 8), Z ≤ ofs B (op + BitVec.ofNat 64 i)) :
-    WP isa Precompute.main s fun t => ∃ ws, Spec.Rsa.publicPrecompute nb = some ws ∧
+    WP isa (Precompute.main M.mm) s fun t => ∃ ws, Spec.Rsa.publicPrecompute nb = some ws ∧
       PcPost s t B Z ((k + 7) / 8) op ws true := by
   obtain ⟨hodd, hN1, hlo⟩ := valid_facts hv hk1
   have hn := hs.nowrap
   have hn' : B.toNat + slot ((k + 7) / 8) 8 ≤ 2 ^ 64 := by omega
-  rw [pcMain_eq]
+  rw [pcMain_eq M]
   refine wp_seqs_append (by simp [pcLoad]) (by simp [r2Steps])
     (WP.mono (pcLoad_ok hs hdi hZ (by omega) (by omega) hK hN hnb hnl hodd)
       fun t₁ ⟨minv, hg₁, hn₁, hinv₁, h12₁, h10₁, f₁, k₁⟩ => ?_)
   refine wp_seqs_append (by simp [r2Steps]) (by simp [pcOut])
-    (WP.mono (r2_ok hg₁ hZ (by omega) (by omega) hn₁ hinv₁ h12₁ h10₁ hodd hlo)
+    (WP.mono (r2_ok M hg₁ hZ (by omega) (by omega) hn₁ hinv₁ h12₁ h10₁ hodd hlo)
       fun t₂ ⟨hg₂, hlt₂, hr₂, f₂, k₂⟩ => ?_)
   have x₁₂ := (Fixed.of_frm f₁ (pcLoadRanges_fixed _)).trans (Fixed.of_frm f₂ (r2Ranges_fixed _))
   have i₁₂ : InScr B Z s.mem t₂.mem := (InScr.of_frm f₁ fun r hr => (pcLoadRanges_le _ r hr).trans hZ).trans
