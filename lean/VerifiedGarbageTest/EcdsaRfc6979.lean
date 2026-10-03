@@ -1,5 +1,6 @@
 import Lean.Elab.Command
 import VerifiedGarbage.Spec.Ecdsa.Rfc6979.P256Sha256
+import VerifiedGarbage.Spec.Ecdsa.Rfc6979.P256Sha384
 import VerifiedGarbage.Spec.Sha1
 import VerifiedGarbage.Spec.Sha256
 import VerifiedGarbage.Spec.Sha512
@@ -18,7 +19,8 @@ From the byte-for-byte vendored RFC:
 * The ten signatures of §A.2.5 (P-256; "sample" and "test" with SHA-1,
   SHA-224, SHA-256, SHA-384 and SHA-512): the first candidate is the `k`
   the RFC lists, `sign` gives the listed `(r, s)` after one candidate, and
-  the contract's instance (`P256Sha256.inst`) agrees for SHA-256.
+  the contracts' instances (`P256Sha256.inst`, `P256Sha384.inst`) agree for
+  SHA-256 and SHA-384.
 -/
 
 namespace VG.Test.EcdsaRfc6979
@@ -157,11 +159,12 @@ def checkVector (x : Nat) (v : Vector) : Except String Unit := do
   unless bits2int C T == v.k do throw s!"{v.hash}, {v.message}: k mismatch"
   unless sign C H hlen 8 x h1 == (some (v.r, v.s), 1) do
     throw s!"{v.hash}, {v.message}: signature mismatch"
-  if v.hash == "SHA-256" then
-    let I := Spec.Ecdsa.Rfc6979.P256Sha256.inst
-    unless I.hashLen == hlen && I.ecdsa.curve.n == C.n do throw "instance"
+  let insts := [("SHA-256", Spec.Ecdsa.Rfc6979.P256Sha256.inst),
+    ("SHA-384", Spec.Ecdsa.Rfc6979.P256Sha384.inst)]
+  if let some (_, I) := insts.find? (·.1 == v.hash) then
+    unless I.hashLen == hlen && I.ecdsa.curve.n == C.n do throw s!"{v.hash}: instance"
     unless sign I.ecdsa.curve I.hash I.hashLen I.tries x h1 == (some (v.r, v.s), 1) do
-      throw s!"instance, {v.message}: signature mismatch"
+      throw s!"{v.hash} instance, {v.message}: signature mismatch"
 
 /-- Keys outside `[1, n-1]` give no signature and no candidate; no
 candidate to try gives none. -/
