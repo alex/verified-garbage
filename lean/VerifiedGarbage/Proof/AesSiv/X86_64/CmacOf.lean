@@ -280,4 +280,107 @@ theorem cmacOf_wp (v : Ctr32Impl) (h : Env s₀ C D P W R L) {s : State} (hr : R
   rw [Proof.Cmac.xor_comm]
   rfl
 
+/-! ## Constant time -/
+
+/-- What the update leaves for `cmacMid`. -/
+theorem upd_after (v : Ctr32Impl) (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L s)
+    (hu : UArgs s C (W + BitVec.ofNat 64 128) P (W + BitVec.ofNat 64 256) R (Spec.Cmac.chainedLen 16 L / 16))
+    (hm : s.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L)) :
+    WP isa (.call ("vg_cmac_aes_update" ++ v.suffix) (Impl.CmacAes.X86_64.update v.callee)) s fun s' =>
+      Regs s₀ C D P W R L s' ∧
+      s'.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L) := by
+  refine WP.mono (upd_call v _ hu) fun s' h' => ⟨hr.keep h'.saved h'.rd h'.wr, ?_⟩
+  rw [h'.frame.readW (Region.contains_self _ _) (fun r hr' => by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
+      rcases hr' with rfl | rfl | rfl
+      · exact Offset.disjoint W (by omega) (by omega) (by have := h.wW; omega)
+      · exact Offset.disjoint W (by omega) (by have := h.wW; omega) (by have := h.wW; omega)
+      · rw [hr.rsp]; exact (h.stk_w.sub_right (h.sW (by decide))).symm) (by decide), hm]
+
+theorem mid_wp (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L s)
+    (hm : s.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L)) :
+    WP isa (.block (cmacMid stOff)) s fun s' => Regs s₀ C D P W R L s' ∧
+      FArgs s' C (W + BitVec.ofNat 64 128) (P + BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L))
+        (W + BitVec.ofNat 64 256) (L - Spec.Cmac.chainedLen 16 L) R := by
+  have hcl := chainedLen_le L
+  obtain ⟨s', run, hr', rdi, rsi, rdx, rcx, r8, r9, _⟩ := cmacMid_ok h hr hcl hm
+  exact WP.of_runBlock ⟨s', run, hr', h.fargs hr'.rd hr'.wr hr'.rsp (by decide)
+    (h.srcData (o := 128) (by decide) (by omega)) (chainedLen_rest L) rdi rsi rdx rcx r8 r9⟩
+
+/-- The registers the taint analysis needs public around the calls. -/
+theorem regs_agree {s₀' a b : State} (hq : s₀.gpr .rsp = s₀'.gpr .rsp) (ha : Regs s₀ C D P W R L a)
+    (hb : Regs s₀' C D P W R L b) :
+    taint.Agree (Taint.ofRegs [.rbx, .rbp, .r12, .r13, .r14, .r15, .rsp]) a b := by
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  · rw [ha.rbx, hb.rbx]
+  · rw [ha.rbp, hb.rbp]
+  · rw [ha.r12, hb.r12]
+  · rw [ha.r13, hb.r13]
+  · rw [ha.r14, hb.r14]
+  · rw [ha.r15, hb.r15]
+  · rw [ha.rsp, hb.rsp, hq]
+
+theorem cmacOf_rel (v : Ctr32Impl) {s₀' : State} (h : Env s₀ C D P W R L) (h' : Env s₀' C D P W R L)
+    (hq : s₀.gpr .rsp = s₀'.gpr .rsp) :
+    RelCT isa (fun a b => Regs s₀ C D P W R L a ∧ Regs s₀' C D P W R L b) (cmacOf v.callee v.suffix stOff)
+      fun a b => Regs s₀ C D P W R L a ∧ Regs s₀' C D P W R L b := by
+  obtain ⟨_, hA⟩ : ∃ hc, (taint.check (Taint.ofRegs [.rbx, .rbp, .r12, .r13, .r14, .r15, .rsp]) (cmacPre stOff)
+      hc).isSome = true := ⟨_, by taint_decide⟩
+  obtain ⟨_, hB⟩ : ∃ hc, (taint.check (Taint.ofRegs [.rbx, .rbp, .r12, .r13, .r14, .r15, .rsp])
+      (.block (cmacMid stOff)) hc).isSome = true := ⟨_, by taint_decide⟩
+  have pre_wp {σ s : State} (hσ : Env σ C D P W R L) (hr : Regs σ C D P W R L s) :
+      WP isa (cmacPre stOff) s fun s' => Regs σ C D P W R L s' ∧
+        UArgs s' C (W + BitVec.ofNat 64 128) P (W + BitVec.ofNat 64 256) R (Spec.Cmac.chainedLen 16 L / 16) ∧
+        s'.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L) :=
+    WP.mono (cmacPre_wp hσ hr) fun _ ⟨a, b, m⟩ => ⟨a, b, by rw [m, Mem.readW_writeW_self64]⟩
+  have a := (RelCT.taint (A := taint) (P := fun a b => Regs s₀ C D P W R L a ∧ Regs s₀' C D P W R L b) _
+    (fun a b hab => regs_agree hq hab.1 hab.2) hA).wp
+    (F₁ := fun (s : State) => Regs s₀ C D P W R L s ∧
+      UArgs s C (W + BitVec.ofNat 64 128) P (W + BitVec.ofNat 64 256) R (Spec.Cmac.chainedLen 16 L / 16) ∧
+      s.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L))
+    (F₂ := fun (s : State) => Regs s₀' C D P W R L s ∧
+      UArgs s C (W + BitVec.ofNat 64 128) P (W + BitVec.ofNat 64 256) R (Spec.Cmac.chainedLen 16 L / 16) ∧
+      s.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L))
+    fun a b hab => ⟨pre_wp h hab.1, pre_wp h' hab.2⟩
+  have u := (upd_rel v ("vg_cmac_aes_update" ++ v.suffix)
+    (P := fun a b => (Regs s₀ C D P W R L a ∧
+      UArgs a C (W + BitVec.ofNat 64 128) P (W + BitVec.ofNat 64 256) R (Spec.Cmac.chainedLen 16 L / 16) ∧
+      a.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L)) ∧
+      Regs s₀' C D P W R L b ∧
+      UArgs b C (W + BitVec.ofNat 64 128) P (W + BitVec.ofNat 64 256) R (Spec.Cmac.chainedLen 16 L / 16) ∧
+      b.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L))
+    fun a b hab => ⟨_, _, _, _, _, _, hab.1.2.1, hab.2.2.1, by rw [hab.1.1.rsp, hab.2.1.rsp, hq]⟩).wp
+    (F₁ := fun (s : State) => Regs s₀ C D P W R L s ∧
+      s.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L))
+    (F₂ := fun (s : State) => Regs s₀' C D P W R L s ∧
+      s.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L))
+    fun a b hab => ⟨upd_after v h hab.1.1 hab.1.2.1 hab.1.2.2, upd_after v h' hab.2.1 hab.2.2.1 hab.2.2.2⟩
+  have m := (RelCT.taint (A := taint) (P := fun a b => (Regs s₀ C D P W R L a ∧
+      a.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L)) ∧
+      Regs s₀' C D P W R L b ∧
+      b.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L)) _
+    (fun a b hab => regs_agree hq hab.1.1 hab.2.1) hB).wp
+    (F₁ := fun (s : State) => Regs s₀ C D P W R L s ∧
+      FArgs s C (W + BitVec.ofNat 64 128) (P + BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L))
+        (W + BitVec.ofNat 64 256) (L - Spec.Cmac.chainedLen 16 L) R)
+    (F₂ := fun (s : State) => Regs s₀' C D P W R L s ∧
+      FArgs s C (W + BitVec.ofNat 64 128) (P + BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L))
+        (W + BitVec.ofNat 64 256) (L - Spec.Cmac.chainedLen 16 L) R)
+    fun a b hab => ⟨mid_wp h hab.1.1 hab.1.2, mid_wp h' hab.2.1 hab.2.2⟩
+  have f := (fin_rel v ("vg_cmac_aes_finalize" ++ v.suffix)
+    (P := fun a b => (Regs s₀ C D P W R L a ∧
+      FArgs a C (W + BitVec.ofNat 64 128) (P + BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L))
+        (W + BitVec.ofNat 64 256) (L - Spec.Cmac.chainedLen 16 L) R) ∧
+      Regs s₀' C D P W R L b ∧
+      FArgs b C (W + BitVec.ofNat 64 128) (P + BitVec.ofNat 64 (Spec.Cmac.chainedLen 16 L))
+        (W + BitVec.ofNat 64 256) (L - Spec.Cmac.chainedLen 16 L) R)
+    fun a b hab => ⟨_, _, _, _, _, _, hab.1.2, hab.2.2, by rw [hab.1.1.rsp, hab.2.1.rsp, hq]⟩).wp
+    (F₁ := Regs s₀ C D P W R L) (F₂ := Regs s₀' C D P W R L)
+    fun a b hab => ⟨WP.mono (finr_call v _ hab.1.2) fun _ h₂ => hab.1.1.keep h₂.saved h₂.rd h₂.wr,
+      WP.mono (finr_call v _ hab.2.2) fun _ h₂ => hab.2.1.keep h₂.saved h₂.rd h₂.wr⟩
+  exact (a.mono (fun _ _ h => h) fun _ _ h => h.2).seq ((u.mono (fun _ _ h => h) fun _ _ h => h.2).seq
+    ((m.mono (fun _ _ h => h) fun _ _ h => h.2).seq (f.mono (fun _ _ h => h) fun _ _ h => h.2)))
+
 end VG.Proof.AesSiv.X86_64

@@ -27,7 +27,6 @@ structure Env (s₀ : State) (C D P W : Addr) (R L : Nat) : Prop where
   dIn : (⟨D, 16⟩ : Region) ∈ s₀.rd ++ s₀.wr
   dataIn : (⟨P, L⟩ : Region) ∈ s₀.rd ++ s₀.wr
   workIn : (⟨W, 2560⟩ : Region) ∈ s₀.wr
-  c_p : (⟨C, 512⟩ : Region).Disjoint ⟨P, L⟩
   c_w : (⟨C, 512⟩ : Region).Disjoint ⟨W, 2560⟩
   d_p : (⟨D, 16⟩ : Region).Disjoint ⟨P, L⟩
   d_w : (⟨D, 16⟩ : Region).Disjoint ⟨W, 2560⟩
