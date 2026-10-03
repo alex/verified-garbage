@@ -9,7 +9,7 @@ import VerifiedGarbage.Impl.TripleDes.X86_64.BitsliceAllocZ
 As `BitslicedAvx2`, but on 512 blocks at a time, in 512-bit words, while at
 least 512 blocks are left; the blocks left after that go through the AVX2
 code (`BitsliceAvx2.ecb`: a batch of 256 if that many are left, then the
-64-block code).
+SSE2 code).
 
 * The state of 512 blocks (64 words of 64 bytes) is the 4096 bytes of the
   blocks themselves: the 64 bytes at `rsi + 64 i` hold blocks `8i … 8i + 7`,

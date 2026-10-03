@@ -1,22 +1,21 @@
-import VerifiedGarbage.Proof.TripleDes.X86_64.BitslicedAvx2.Wide
-import VerifiedGarbage.Proof.TripleDes.X86_64.BitslicedSse.Ecb
+import VerifiedGarbage.Proof.TripleDes.X86_64.BitslicedSse.Wide
 
 /-!
-# The AVX2 function
+# The SSE2 function
 
-The batches of 256 blocks (`wide_ok`), then the SSE2 code on the blocks
-left (`BitslicedSse.ecb_post`): every block becomes its encryption or
-decryption (`ecb_ok`).
+The batches of 128 blocks (`wide_ok`), then the 64-block code on the blocks
+left (`Bitsliced.ecb_ok`): every block becomes its encryption or decryption
+(`ecb_ok`).
 -/
 
-namespace VG.Proof.TripleDes.X86_64.BitslicedAvx2
+namespace VG.Proof.TripleDes.X86_64.BitslicedSse
 
-open VG VG.X86_64 VG.X86_64.RegUpd VG.Impl.TripleDes.X86_64.BitsliceAvx2 VG.Spec.TripleDes
+open VG VG.X86_64 VG.X86_64.RegUpd VG.Impl.TripleDes.X86_64.BitsliceSse VG.Spec.TripleDes
 open VG.Proof.TripleDes.X86_64.Bitsliced (blockOut wAt wAt_wAt blockAt_frame EcbPre EcbPost ecb_blocks)
 
 /-- The function on blocks in a writable region apart from the scratch
 buffer and the schedule: every block becomes its encryption or decryption
-(`EcbPost`). -/
+(`EcbPost`), as the 64-block code's `ecb_ok` says of it. -/
 theorem ecb_post (d : Direction) {s : State} (E : WideEnv s)
     (retData : (⟨s.gpr .rsp, 8⟩ : Region).Disjoint ⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩)
     (retBuf : (⟨s.gpr .rsp, 8⟩ : Region).Disjoint ⟨s.gpr .rcx, 1024⟩) :
@@ -24,14 +23,14 @@ theorem ecb_post (d : Direction) {s : State} (E : WideEnv s)
   let n := (s.gpr .rdx).toNat
   let D := s.gpr .rsi
   let S := s.gpr .rdi
-  let k := n - n % 256
+  let k := n - n % 128
   have hl := E.len
   have fit := E.fit
   have dataBuf := E.dataBuf
   have keyBuf := E.keyBuf
   have keyData := E.keyData
   obtain ⟨⟨rb, rl⟩, hr, o, hb, hor, hrl⟩ := E.data
-  rw [Impl.TripleDes.X86_64.BitsliceAvx2.ecb]
+  rw [Impl.TripleDes.X86_64.BitsliceSse.ecb]
   apply WP.seq
   apply WP.mono (wide_ok d E)
   intro s₁ w
@@ -39,32 +38,36 @@ theorem ecb_post (d : Direction) {s : State} (E : WideEnv s)
   have hc := g .rcx (by simp [WideRegs, PassRegs])
   have hdi := g .rdi (by simp [WideRegs, PassRegs])
   have hsp := g .rsp (by simp [WideRegs, PassRegs])
-  have hm : (s₁.gpr .rdx).toNat = n % 256 := by
+  have hm : (s₁.gpr .rdx).toNat = n % 128 := by
     rw [w.rdx, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   have hD₁ : s₁.gpr .rsi = wAt D k := w.rsi
   have sub₁ : Region.Sub ⟨s₁.gpr .rsi, 8 * (s₁.gpr .rdx).toNat⟩ ⟨D, 8 * n⟩ := by
     rw [hD₁, hm]; exact Offset.sub_base _ (by omega)
-  have E₁ : BitslicedSse.WideEnv s₁ := by
-    have sc : BitslicedSse.scratchR s₁ = scratchR s := by
-      simp only [BitslicedSse.scratchR, scratchR, hc]
-    refine ⟨by rw [sc, w.wr]; exact E.scratch, ⟨⟨rb, rl⟩, by rw [w.wr]; exact hr, o + 8 * k, ?_, ?_, hrl⟩,
-      fun i hi => ?_, ?_, ?_, ?_, ?_⟩
-    · rw [hD₁]; simp only [wAt, D, hb, BitVec.add_assoc, BitVec.ofNat_add_ofNat]
-    · rw [hm]; simp only at hor ⊢; omega
+  have pre₁ : EcbPre s₁ := by
+    refine ⟨by rw [hc, w.wr]; exact E.scratch, fun i hi => ?_,
+      fun i hi => ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · rw [w.wr, hD₁, wAt_wAt]
+      rw [hm] at hi
+      refine ⟨_, hr, ?_⟩
+      have e : wAt D (k + i) = rb + BitVec.ofNat 64 (o + 8 * (k + i)) := by
+        simp only [wAt, D, hb, BitVec.add_assoc, BitVec.ofNat_add_ofNat]
+      rw [e]
+      exact Offset.contains_base _ (by simp only at hor; omega) (by simp only at hrl hor; omega)
     · rw [hdi, w.rd, w.wr]; exact E.keyIn i hi
-    · rw [sc]; exact dataBuf.sub_left sub₁
-    · rw [hdi, sc]; exact keyBuf
     · rw [hdi]; exact keyData.sub_right sub₁
+    · rw [hdi, hc]; exact keyBuf
+    · rw [hc]; exact dataBuf.sub_left sub₁
+    · rw [hsp]; exact retData.sub_right sub₁
+    · rw [hsp, hc]; exact retBuf
     · rw [hD₁, hm]
       have hfit : D.toNat + 8 * n ≤ 2 ^ 64 := fit
-      have hk : k + n % 256 = n := by omega
+      have hk : k + n % 128 = n := by omega
       simp only [wAt, BitVec.toNat_add, BitVec.toNat_ofNat]
       rw [Nat.mod_eq_of_lt (show 8 * k < 2 ^ 64 by omega)]
       by_cases hw : D.toNat + 8 * k < 2 ^ 64
       · rw [Nat.mod_eq_of_lt hw]; omega
       · rw [show D.toNat + 8 * k = 2 ^ 64 by omega, Nat.mod_self]; omega
-  apply WP.mono (BitslicedSse.ecb_post d E₁ (by rw [hsp]; exact retData.sub_right sub₁)
-    (by rw [hsp, hc]; exact retBuf))
+  apply WP.mono (VG.Proof.TripleDes.X86_64.Bitsliced.ecb_ok d pre₁)
   intro s' t
   have scr₁ : VG.Proof.TripleDes.X86_64.Bitsliced.scratchR s₁ = scratchR s := by
     simp only [VG.Proof.TripleDes.X86_64.Bitsliced.scratchR, scratchR, hc]
@@ -150,4 +153,4 @@ theorem ecb_ok (d : Direction) {s : State} (hrd : s.rd = [⟨s.gpr .rdi, 384⟩]
   WP.mono (ecb_post d (WideEnv.of_regions hrd hwr keyData keyBuf dataBuf fit) retData retBuf)
     fun _ p => ⟨p.gpr, ecb_blocks _ _ _ _ _ _ p.done⟩
 
-end VG.Proof.TripleDes.X86_64.BitslicedAvx2
+end VG.Proof.TripleDes.X86_64.BitslicedSse
