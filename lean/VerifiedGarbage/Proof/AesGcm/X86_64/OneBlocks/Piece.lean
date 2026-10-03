@@ -303,6 +303,42 @@ theorem obFrameD_ok (v : GcmImpl) {R : Nat} {D : Addr} {n q : Nat} {s : State} (
   exact ⟨r₃, w₃, cs, rd, wr, fr, by rw [popped_mem]; exact o₁, by rw [popped_mem]; exact o₂,
     by rw [popped_mem]; exact o₃⟩
 
+/-- What `oneBlocks` needs: the state of `seal` or `open` after `oneAad`. -/
+structure ObPre (Ctx W SP : Addr) (R : Nat) (D : Addr) (n : Nat) (s : State) : Prop where
+  env : Env Ctx (W + BitVec.ofNat 64 16) W SP s
+  rounds : RoundsAt s.mem W R
+  dat : s.mem.readW (W + BitVec.ofNat 64 200) 64 = D
+  len : s.mem.readW (W + BitVec.ofNat 64 208) 64 = BitVec.ofNat 64 n
+  data : DataW Ctx (W + BitVec.ofNat 64 16) W SP s D n
+  t_c : (below SP 24).Disjoint ⟨Ctx, 256⟩
+  t_w : (below SP 24).Disjoint ⟨W, 2560⟩
+  t_d : (below SP 24).Disjoint ⟨D, n⟩
+  sp24 : 24 ≤ SP.toNat
+
+/-- What `oneBlocks` leaves, but its result: the data left kept, and the
+regions written. -/
+structure ObPost (Ctx W SP : Addr) (D : Addr) (n : Nat) (s s' : State) : Prop where
+  env : Env Ctx (W + BitVec.ofNat 64 16) W SP s'
+  rd : s'.rd = s.rd
+  wr : s'.wr = s.wr
+  frame : Frame (⟨W + BitVec.ofNat 64 192, 24⟩ :: obFrame W SP D (n / 16)) s.mem s'.mem
+  tlen : s'.mem.readW (W + BitVec.ofNat 64 192) 64 = BitVec.ofNat 64 n
+  dat : s'.mem.readW (W + BitVec.ofNat 64 200) 64 = D + BitVec.ofNat 64 (16 * (n / 16))
+  len : s'.mem.readW (W + BitVec.ofNat 64 208) 64 = BitVec.ofNat 64 (n % 16)
+
+/-- The slots of `W` that `oneBlocks` reads are apart from what its call writes. -/
+theorem ob_slots {D : Addr} {n q : Nat} (hD : (⟨D, n⟩ : Region).Disjoint ⟨W, 2560⟩) (hq : q * 16 ≤ n)
+    (t_w : (below SP 24).Disjoint ⟨W, 2560⟩) {d : Nat} (h₁ : 176 ≤ d) (h₂ : d + 8 ≤ 240) :
+    ∀ r ∈ obFrame W SP D q, (⟨W + BitVec.ofNat 64 d, 8⟩ : Region).Disjoint r := by
+  intro r hr
+  simp only [obFrame, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl | rfl
+  · rw [add_ofNat_assoc]; exact L.w_w (.inr (by omega)) (by omega) (by decide)
+  · rw [add_ofNat_assoc]; exact L.w_w (.inr (by omega)) (by omega) (by decide)
+  · exact (hD.sub_left (Region.sub_prefix hq)).symm.sub_left (Lay.wSub (by omega)) |>.symm |> fun h => h.symm
+  · exact L.w_w (.inl (by omega)) (by omega) (by decide)
+  · exact (t_w.sub_right (Lay.wSub (by omega))).symm
+
 end
 
 end VG.Proof.AesGcm.X86_64
