@@ -79,10 +79,10 @@ theorem bytesAt_congr {mem mem' : Mem} {p : Addr} {n : Nat}
   intro i hi
   exact h i (List.mem_range.mp hi)
 
-/-- `Repr` only depends on the 96 bytes of the state. -/
-theorem repr_congr {mem mem' : Mem} {p : Addr} {m : List Byte}
+/-- `ReprFrom` only depends on the 96 bytes of the state. -/
+theorem reprFrom_congr {iv : HashValue} {mem mem' : Mem} {p : Addr} {m : List Byte}
     (h : ∀ i < 96, mem' (p + BitVec.ofNat 64 i) = mem (p + BitVec.ofNat 64 i))
-    (hr : Spec.Sha256.Repr mem p m) : Spec.Sha256.Repr mem' p m := by
+    (hr : Spec.Sha256.ReprFrom iv mem p m) : Spec.Sha256.ReprFrom iv mem' p m := by
   refine ⟨by rw [stateAt_congr fun i hi => h i (by omega)]; exact hr.1, ?_⟩
   rw [← hr.2]
   apply bytesAt_congr
@@ -90,6 +90,12 @@ theorem repr_congr {mem mem' : Mem} {p : Addr} {m : List Byte}
   have := h (32 + i) (by omega)
   rwa [show p + 32 + BitVec.ofNat 64 i = p + BitVec.ofNat 64 (32 + i) by
     simp only [BitVec.ofNat_add]; rw [BitVec.add_assoc]; rfl]
+
+/-- `Repr` only depends on the 96 bytes of the state. -/
+theorem repr_congr {mem mem' : Mem} {p : Addr} {m : List Byte}
+    (h : ∀ i < 96, mem' (p + BitVec.ofNat 64 i) = mem (p + BitVec.ofNat 64 i))
+    (hr : Spec.Sha256.Repr mem p m) : Spec.Sha256.Repr mem' p m :=
+  reprFrom_congr h hr
 
 export VG.WriteBytes (writeBytes writeBytes_nil writeW8_apply writeBytes_snoc writeBytes_before writeBytes_frame write_eq_writeBytes writeBytes_append)
 
@@ -120,10 +126,10 @@ theorem repr_nil {mem : Mem} {p : Addr} (h : stateAt mem p = H0) : Spec.Sha256.R
   reprFrom_nil h
 
 /-- Appending bytes that stay within the buffer. -/
-theorem repr_append_buf {mem mem' : Mem} {p : Addr} {m xs : List Byte} (hr : Spec.Sha256.Repr mem p m)
+theorem reprFrom_append_buf {iv : HashValue} {mem mem' : Mem} {p : Addr} {m xs : List Byte} (hr : Spec.Sha256.ReprFrom iv mem p m)
     (hlen : m.length % 64 + xs.length < 64) (hs : stateAt mem' p = stateAt mem p)
     (hb : bytesAt mem' (p + 32) (m.length % 64 + xs.length) = m.drop (64 * (m.length / 64)) ++ xs) :
-    Spec.Sha256.Repr mem' p (m ++ xs) := by
+    Spec.Sha256.ReprFrom iv mem' p (m ++ xs) := by
   have hdiv : (m ++ xs).length / 64 = m.length / 64 := by simp only [List.length_append]; omega
   have hmod : (m ++ xs).length % 64 = m.length % 64 + xs.length := by
     simp only [List.length_append]; omega
@@ -133,11 +139,11 @@ theorem repr_append_buf {mem mem' : Mem} {p : Addr} {m xs : List Byte} (hr : Spe
 
 /-- Appending bytes that complete a block `B` (whose bytes are the buffered
 ones followed by `xs`), which is compressed. -/
-theorem repr_append_block {mem mem' : Mem} {p : Addr} {m xs : List Byte} (hr : Spec.Sha256.Repr mem p m)
+theorem reprFrom_append_block {iv : HashValue} {mem mem' : Mem} {p : Addr} {m xs : List Byte} (hr : Spec.Sha256.ReprFrom iv mem p m)
     (hlen : m.length % 64 + xs.length = 64)
     (hs : stateAt mem' p =
       compress (stateAt mem p) (parseBlock fun k => (m.drop (64 * (m.length / 64)) ++ xs).getD k 0)) :
-    Spec.Sha256.Repr mem' p (m ++ xs) := by
+    Spec.Sha256.ReprFrom iv mem' p (m ++ xs) := by
   have hdiv : (m ++ xs).length / 64 = m.length / 64 + 1 := by simp only [List.length_append]; omega
   have hmod : (m ++ xs).length % 64 = 0 := by simp only [List.length_append]; omega
   refine ⟨?_, ?_⟩
@@ -149,6 +155,22 @@ theorem repr_append_block {mem mem' : Mem} {p : Addr} {m xs : List Byte} (hr : S
   · rw [hmod]
     simp only [bytesAt, List.range_zero, List.map_nil]
     symm; rw [List.drop_eq_nil_iff]; simp only [List.length_append]; omega
+
+/-- Appending bytes that stay within the buffer. -/
+theorem repr_append_buf {mem mem' : Mem} {p : Addr} {m xs : List Byte} (hr : Spec.Sha256.Repr mem p m)
+    (hlen : m.length % 64 + xs.length < 64) (hs : stateAt mem' p = stateAt mem p)
+    (hb : bytesAt mem' (p + 32) (m.length % 64 + xs.length) = m.drop (64 * (m.length / 64)) ++ xs) :
+    Spec.Sha256.Repr mem' p (m ++ xs) :=
+  reprFrom_append_buf hr hlen hs hb
+
+/-- Appending bytes that complete a block `B` (whose bytes are the buffered
+ones followed by `xs`), which is compressed. -/
+theorem repr_append_block {mem mem' : Mem} {p : Addr} {m xs : List Byte} (hr : Spec.Sha256.Repr mem p m)
+    (hlen : m.length % 64 + xs.length = 64)
+    (hs : stateAt mem' p =
+      compress (stateAt mem p) (parseBlock fun k => (m.drop (64 * (m.length / 64)) ++ xs).getD k 0)) :
+    Spec.Sha256.Repr mem' p (m ++ xs) :=
+  reprFrom_append_block hr hlen hs
 
 /-! ## Padding -/
 
@@ -212,9 +234,9 @@ theorem compressList_one (H : HashValue) (p : List Byte) :
     compressList H p 1 = compress H (parseBlock fun t => p.getD t 0) := by
   rw [compressList_succ, compressList_zero]; simp [blockOf]
 
-theorem hash_eq (m : List Byte) (nt : Nat)
+theorem finalHash_eq {iv : HashValue} (m : List Byte) (nt : Nat)
     (hn : (m.length % 64 + 1 + (119 - m.length % 64) % 64 + 8) = 64 * nt) :
-    Spec.Sha256.hash m = (compressList (compressList H0 m (m.length / 64))
+    Spec.Sha256.finalHash iv m = (compressList (compressList iv m (m.length / 64))
       (rest m ++ [0x80] ++ List.replicate ((119 - m.length % 64) % 64) 0 ++ lenBytes m) nt).toList.flatMap
         wordBytes := by
   have hp : pad m = m ++ ([0x80] ++ List.replicate ((119 - m.length % 64) % 64) 0 ++ lenBytes m) := by
@@ -222,7 +244,7 @@ theorem hash_eq (m : List Byte) (nt : Nat)
   have hlen : (pad m).length / 64 = m.length / 64 + nt := by
     rw [hp]; simp only [List.length_append, List.length_replicate, lenBytes_length, List.length_singleton]
     omega
-  simp only [Spec.Sha256.hash, Spec.Sha256.finalHash]
+  simp only [Spec.Sha256.finalHash]
   rw [hlen, compressList_add, hp, compressList_append (by omega),
     List.drop_append_of_le_length (by omega)]
   simp only [List.append_assoc]
@@ -234,11 +256,11 @@ theorem parseBlock_congr {f g : Nat → Byte} (h : ∀ k < 64, f k = g k) : pars
   rw [h _ (by omega), h _ (by omega), h _ (by omega), h _ (by omega)]
 
 /-- A message whose padding takes one more block. -/
-theorem hash_one {m : List Byte} (hr : m.length % 64 < 56) :
-    Spec.Sha256.hash m = (compress (compressList H0 m (m.length / 64))
+theorem finalHash_one {iv : HashValue} {m : List Byte} (hr : m.length % 64 < 56) :
+    Spec.Sha256.finalHash iv m = (compress (compressList iv m (m.length / 64))
       (parseBlock fun t => (rest m ++ [0x80] ++ List.replicate (55 - m.length % 64) 0 ++
         lenBytes m).getD t 0)).toList.flatMap wordBytes := by
-  rw [hash_eq m 1 (by omega), compressList_one,
+  rw [finalHash_eq m 1 (by omega), compressList_one,
     show (119 - m.length % 64) % 64 = 55 - m.length % 64 by omega]
 
 theorem getD_append_right {p q : List Byte} {j : Nat} :
@@ -246,11 +268,11 @@ theorem getD_append_right {p q : List Byte} {j : Nat} :
   simp [List.getD_eq_getElem?_getD, List.getElem?_append_right]
 
 /-- A message whose padding takes two more blocks. -/
-theorem hash_two {m : List Byte} (hr : 56 ≤ m.length % 64) :
-    Spec.Sha256.hash m = (compress (compress (compressList H0 m (m.length / 64))
+theorem finalHash_two {iv : HashValue} {m : List Byte} (hr : 56 ≤ m.length % 64) :
+    Spec.Sha256.finalHash iv m = (compress (compress (compressList iv m (m.length / 64))
       (parseBlock fun t => (rest m ++ [0x80] ++ List.replicate (63 - m.length % 64) 0).getD t 0))
       (parseBlock fun t => (List.replicate 56 0 ++ lenBytes m).getD t 0)).toList.flatMap wordBytes := by
-  rw [hash_eq m 2 (by omega), compressList_succ, compressList_one]
+  rw [finalHash_eq m 2 (by omega), compressList_succ, compressList_one]
   have e : rest m ++ [0x80] ++ List.replicate ((119 - m.length % 64) % 64) 0 ++ lenBytes m =
       (rest m ++ [0x80] ++ List.replicate (63 - m.length % 64) 0) ++
         (List.replicate 56 0 ++ lenBytes m) := by
@@ -273,4 +295,25 @@ theorem hash_two {m : List Byte} (hr : 56 ≤ m.length % 64) :
       simpa using this
   rw [h1, h2]
 
+
+theorem hash_eq (m : List Byte) (nt : Nat)
+    (hn : (m.length % 64 + 1 + (119 - m.length % 64) % 64 + 8) = 64 * nt) :
+    Spec.Sha256.hash m = (compressList (compressList H0 m (m.length / 64))
+      (rest m ++ [0x80] ++ List.replicate ((119 - m.length % 64) % 64) 0 ++ lenBytes m) nt).toList.flatMap
+        wordBytes :=
+  finalHash_eq m nt hn
+
+/-- A message whose padding takes one more block. -/
+theorem hash_one {m : List Byte} (hr : m.length % 64 < 56) :
+    Spec.Sha256.hash m = (compress (compressList H0 m (m.length / 64))
+      (parseBlock fun t => (rest m ++ [0x80] ++ List.replicate (55 - m.length % 64) 0 ++
+        lenBytes m).getD t 0)).toList.flatMap wordBytes :=
+  finalHash_one hr
+
+/-- A message whose padding takes two more blocks. -/
+theorem hash_two {m : List Byte} (hr : 56 ≤ m.length % 64) :
+    Spec.Sha256.hash m = (compress (compress (compressList H0 m (m.length / 64))
+      (parseBlock fun t => (rest m ++ [0x80] ++ List.replicate (63 - m.length % 64) 0).getD t 0))
+      (parseBlock fun t => (List.replicate 56 0 ++ lenBytes m).getD t 0)).toList.flatMap wordBytes :=
+  finalHash_two hr
 end VG.Proof.Sha256.Stream
