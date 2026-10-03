@@ -1,5 +1,5 @@
 import VerifiedGarbageTest.Aes
-import VerifiedGarbage.Spec.Siv
+import VerifiedGarbage.Spec.Siv.Contract
 
 /-!
 # Known-answer tests for the AES-SIV specification
@@ -13,7 +13,9 @@ nonce-based (A.2: two components and a nonce, a plaintext of several
 blocks, so `xorend`). Each checks S2V's first step (`CMAC(zero)`), its
 result (`CMAC(final)`, `V`) and the output `IV || C` of `encrypt`; then that
 `decrypt` of the output is the plaintext, and that it fails with the last
-byte of `V` changed.
+byte of `V` changed. The components, laid out in memory as a list of slices
+with 64- and 32-bit descriptors, read back as themselves (`components`, the
+associated data of `vg_aes_siv_encrypt` and `vg_aes_siv_decrypt`).
 -/
 
 namespace VG.Test.Siv
@@ -49,6 +51,23 @@ def fields (text start stop : String) : List (String × List Byte) := Id.run do
       out := out.push ((if label.endsWith ":" then label.dropEnd 1 else label).toString, "")
   return out.toList.filterMap fun (k, v) => (Test.Sha256.unhex v).map (k, ·)
 
+/-- A memory holding the components `ads` from `0x10000` on, one every
+`0x1000` bytes, and their descriptors at `0x100`: for each, its address and
+its length, as `ptrBits`-bit little-endian words. -/
+def layout (ptrBits : Nat) (ads : List (List Byte)) : Mem := fun a =>
+  let w := ptrBits / 8
+  let n := a.toNat
+  if 0x100 ≤ n ∧ n < 0x100 + ads.length * (2 * w) then
+    let k := n - 0x100
+    let i := k / (2 * w)
+    let j := k % (2 * w)
+    let v := if j < w then 0x10000 + 0x1000 * i else (ads.getD i []).length
+    BitVec.ofNat 8 (v / 256 ^ (j % w))
+  else if 0x10000 ≤ n ∧ n < 0x10000 + 0x1000 * ads.length then
+    let k := n - 0x10000
+    (ads.getD (k / 0x1000) []).getD (k % 0x1000) 0
+  else 0
+
 run_cmd do
   -- Appendix A itself, not its entry in the table of contents.
   let text := ((← readFile ("rfc5297" / "rfc5297.txt")).splitOn "Appendix A.  Test Vectors")
@@ -78,5 +97,8 @@ run_cmd do
     let forged := z.set 15 (z.getD 15 0 ^^^ 1)
     unless Spec.Siv.decrypt key ads forged == none do
       throwError "RFC 5297 {start}: decryption accepts a wrong V"
+    for ptrBits in [64, 32] do
+      unless Spec.Siv.components ptrBits (layout ptrBits ads) 0x100 ads.length == ads do
+        throwError "RFC 5297 {start}: the components do not read back with {ptrBits}-bit descriptors"
 
 end VG.Test.Siv
