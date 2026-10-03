@@ -105,15 +105,15 @@ macro_rules! ml_kem {
         /// generation, encapsulation and decapsulation the CPU can all run.
         fn backend() -> Backend {
             #[cfg(target_arch = "x86_64")]
-            const AVX2: &[&[&str]] =
+            const AVX2: &[$crate::cpu::Features] =
                 &[$keygen_avx2_features, $encaps_avx2_features, $decaps_avx2_features];
             #[cfg(not(target_arch = "x86_64"))]
-            const AVX2: &[&[&str]] = &[];
+            const AVX2: &[$crate::cpu::Features] = &[];
             #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
-            const SHA3: &[&[&str]] =
+            const SHA3: &[$crate::cpu::Features] =
                 &[$keygen_sha3_features, $encaps_sha3_features, $decaps_sha3_features];
             #[cfg(not(all(target_arch = "aarch64", feature = "cpu-features-env")))]
-            const SHA3: &[&[&str]] = &[];
+            const SHA3: &[$crate::cpu::Features] = &[];
             Backend::select(
                 $crate::cpu::detected(),
                 const { $crate::cpu::Features::all(AVX2) },

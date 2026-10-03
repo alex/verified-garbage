@@ -279,7 +279,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha224_finalize(inner: *mut [u8; 96], ou
 }
 
 /// The CPU features `vg_hmac_sha224_init_sha2` requires (`Artifact.features`).
-pub(crate) const VG_HMAC_SHA224_INIT_SHA2_FEATURES: &[&str] = &["sha2"];
+pub(crate) const VG_HMAC_SHA224_INIT_SHA2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha2"]);
 
 /// Starts an HMAC-SHA-224 computation with a key of at most 64 bytes: makes the SHA-224 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 64 bytes (FIPS 198-1). The text is then absorbed with `vg_sha256_update` on `*inner` (its `count` starting at 64), and the MAC computed with `vg_hmac_sha224_finalize`.
 ///
@@ -425,7 +425,7 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha224_init_sha2(inner: *mut [u8; 96], o
 }
 
 /// The CPU features `vg_hmac_sha224_finalize_sha2` requires (`Artifact.features`).
-pub(crate) const VG_HMAC_SHA224_FINALIZE_SHA2_FEATURES: &[&str] = &["sha2"];
+pub(crate) const VG_HMAC_SHA224_FINALIZE_SHA2_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha2"]);
 
 /// Finishes an HMAC-SHA-224 computation: if, for a 64-byte key `K₀` and a text of fewer than 2⁶⁴ − 64 bytes, the SHA-224 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes, and `*outer` represents `K₀ ⊕ opad`, writes the HMAC-SHA-224 of the text under `K₀` (28 bytes) to `*out`.
 ///

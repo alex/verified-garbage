@@ -464,7 +464,7 @@ yours to keep:
 
 <td>✅ AVX-512F, AVX2; bitsliced, 64, 128, 256 or 512 blocks at a time</td>
 
-<td>✅</td>
+<td>✅ bitsliced, 128 blocks at a time</td>
 
 <td>✅</td>
 

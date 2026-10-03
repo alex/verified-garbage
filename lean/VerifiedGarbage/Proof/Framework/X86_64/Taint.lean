@@ -251,7 +251,7 @@ def step (τ : T) : Instr → Option T
   | .mulx hi lo src => if srcOk τ src then some (mulxStep τ hi lo src) else none
   | .adcx d src | .adox d src => adxStep τ d src
   -- Frames are not analysed.
-  | .push _ | .pop .. => none
+  | .push _ | .pop .. | .alloc _ | .free _ => none
 
 def meet (τ₁ τ₂ : T) : T where
   regs := τ₁.regs.inter τ₂.regs
@@ -711,7 +711,7 @@ def dstOf : Instr → Option Reg
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ | .vop _
   | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .zop _ | .vmovdqu32Load ..
   | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .zbcst .. | .stmxcsr _ | .ldmxcsr _ | .lfence
-  | .mul _ | .mulx .. | .push _ | .pop .. => none
+  | .mul _ | .mulx .. | .push _ | .pop .. | .alloc _ | .free _ => none
 
 /-- An SSE instruction on registers changes only the SSE registers. -/
 theorem XOp.exec_eq (op : XOp) (s : State) : op.exec s = { s with xmm := (op.exec s).xmm } := by
@@ -740,7 +740,7 @@ def clobbers (i : Instr) (r : Reg) : Bool :=
   | .mul _ => r == .rax || r == .rdx
   | .mulx hi lo _ => r == hi || r == lo
   -- The push and pop of a frame move `rsp`, and the pop loads `d`.
-  | .push _ => r == .rsp
+  | .push _ | .alloc _ | .free _ => r == .rsp
   | .pop d _ => r == .rsp || r == d
   | _ => dstOf i == some r
 
@@ -985,7 +985,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
-  | push | pop => simp only [step, reduceCtorEq] at hs
+  | push | pop | alloc | free => simp only [step, reduceCtorEq] at hs
   | mov d src =>
     simp only [step] at hs
     split at hs <;> [skip; cases hs]
@@ -1620,7 +1620,7 @@ def stepK (τ : T) : Instr → Option T
   | .mul r => some (mulStep τ r)
   | .mulx hi lo src => bif srcOkK τ src then some (mulxStepK τ hi lo src) else none
   | .adcx d src | .adox d src => adxStepK τ d src
-  | .push _ | .pop .. => none
+  | .push _ | .pop .. | .alloc _ | .free _ => none
 
 /-- `l.contains a`, for a known base address. -/
 def memB (a : Reg × Nat × Nat) (l : List (Reg × Nat × Nat)) : Bool :=

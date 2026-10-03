@@ -3722,7 +3722,7 @@ pub(crate) unsafe extern "C" fn vg_sha512_256_init(state: *mut [u8; 192]) {
 }
 
 /// The CPU features `vg_sha512_compress_sha3` requires (`Artifact.features`).
-pub(crate) const VG_SHA512_COMPRESS_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_SHA512_COMPRESS_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// The SHA-512 compression function (FIPS 180-4 §6.4.2), shared by SHA-384, SHA-512, SHA-512/224 and SHA-512/256: updates the hash value `*state` with the `n` 128-byte blocks starting at `blocks`, in order.
 ///
@@ -5586,7 +5586,7 @@ pub(crate) unsafe extern "C" fn vg_sha512_finalize(state: *mut [u8; 192], count:
 }
 
 /// The CPU features `vg_sha512_update_sha3` requires (`Artifact.features`).
-pub(crate) const VG_SHA512_UPDATE_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_SHA512_UPDATE_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// Absorbs data into a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
@@ -5759,7 +5759,7 @@ pub(crate) unsafe extern "C" fn vg_sha512_update_sha3(state: *mut [u8; 192], cou
 }
 
 /// The CPU features `vg_sha512_finalize_sha3` requires (`Artifact.features`).
-pub(crate) const VG_SHA512_FINALIZE_SHA3_FEATURES: &[&str] = &["sha3"];
+pub(crate) const VG_SHA512_FINALIZE_SHA3_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["sha3"]);
 
 /// Finishes a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the streaming state `*state` represents a message of `count` bytes, hashed from an initial hash value, writes the final hash value `H⁽ᴺ⁾` of that message (64 bytes) to `*out`. The SHA-512 digest is all of it; the SHA-384, SHA-512/224 and SHA-512/256 digests are its first 48, 28 and 32 bytes.
 ///
