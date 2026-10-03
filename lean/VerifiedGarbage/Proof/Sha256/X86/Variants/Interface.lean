@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Sha256
+import VerifiedGarbage.Proof.Pbkdf2.Md.X86.Sha224
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Variant
 import VerifiedGarbage.TCB.Artifact
 
@@ -19,16 +19,20 @@ backend's compression function; HMAC's `finalize` the backend's streaming
 compression function. They are proven once for every backend, against the
 contracts of `Spec.Hmac.sha256I` (`Proof/Pbkdf2/Md/X86/Sha256.lean`,
 `Proof/Pbkdf2/Whole/X86/Sha256.lean`), from what the backend proves of its
-compression function and streaming functions. So adding an implementation of
-the compression function also emits the SHA-256, HMAC and PBKDF2 functions
-that call it. What the kernel checks of each backend's code (that it keeps
+compression function and streaming functions. The same functions at SHA-224
+(`Impl.Pbkdf2.Md.X86`'s code at `mdHash224`, `fns224`), which call SHA-224's
+`init` and the backend's SHA-256 functions, are proven once for every backend
+too, against the contracts of `Spec.Hmac.sha224I`
+(`Proof/Pbkdf2/Md/X86/Sha224.lean`, `Proof/Pbkdf2/Whole/X86/Sha224.lean`).
+So adding an implementation of the compression function also emits the
+SHA-256, HMAC and PBKDF2 functions that call it. What the kernel checks of each backend's code (that it keeps
 `esp`, and the stack it uses) is evaluated on its literals.
 -/
 namespace VG.Proof.Sha256.X86.Variants
 
 open VG.X86
 open VG.Proof.Pbkdf2.Stream.X86 (Sha256Stream)
-open VG.Proof.Pbkdf2.Md.X86 (sha256M)
+open VG.Proof.Pbkdf2.Md.X86 (sha256M sha224M)
 
 structure StreamFn where
   api : Api
@@ -45,6 +49,11 @@ structure StreamFn where
 `cmpN`/`cmpC` and the streaming functions `s`. -/
 abbrev pbkdf2Fns (s : Sha256Stream) (cmpN : String) (cmpC : Prog isa) : Impl.Pbkdf2.Whole.X86.Fns :=
   fns s.suffix cmpN cmpC s.upd s.fin
+
+/-- The functions the whole of PBKDF2-HMAC-SHA-224 calls, with the
+compression function `cmpN`/`cmpC` and the streaming functions `s`. -/
+abbrev pbkdf2Fns224 (s : Sha256Stream) (cmpN : String) (cmpC : Prog isa) : Impl.Pbkdf2.Whole.X86.Fns :=
+  fns224 s.suffix cmpN cmpC s.upd s.fin
 
 structure Backend where
   /-- The compression function, verified: it keeps `esp`, and calls nothing
@@ -78,6 +87,17 @@ structure Backend where
   finalizeStack : stackUse (sha256M stream cmpN cmpC).hmacFin ≤ 48
   iterNoSp : NoSp (sha256M stream cmpN cmpC).iterate
   iterStack : stackUse (sha256M stream cmpN cmpC).iterate ≤ 48
+  /-- The same of the functions at SHA-224. -/
+  init224Sp : (sha224M stream cmpN cmpC).hmacInit.all (fun i => !isa.writesSp i) = true
+  fin224Sp : (sha224M stream cmpN cmpC).hmacFin.all (fun i => !isa.writesSp i) = true
+  iter224Sp : (sha224M stream cmpN cmpC).iterate.all (fun i => !isa.writesSp i) = true
+  pbkdf2_224Sp : (pbkdf2Fns224 stream cmpN cmpC).pbkdf2.all (fun i => !isa.writesSp i) = true
+  init224NoSp : NoSp (sha224M stream cmpN cmpC).hmacInit
+  init224Stack : stackUse (sha224M stream cmpN cmpC).hmacInit ≤ 48
+  finalize224NoSp : NoSp (sha224M stream cmpN cmpC).hmacFin
+  finalize224Stack : stackUse (sha224M stream cmpN cmpC).hmacFin ≤ 48
+  iter224NoSp : NoSp (sha224M stream cmpN cmpC).iterate
+  iter224Stack : stackUse (sha224M stream cmpN cmpC).iterate ≤ 48
 
 namespace Backend
 
@@ -105,6 +125,22 @@ theorem hmacFin : Verified X86.target v.M.hmacFin (Spec.Hmac.sha256I.finalizeCon
 
 theorem iterate : Verified X86.target v.M.iterate (Spec.Hmac.sha256I.iterateContract X86.abi 48) :=
   Proof.Pbkdf2.Md.X86.Instances.sha256_iterate v.stream v.cmpN v.comp
+
+/-- SHA-224 as a Merkle–Damgård hash function, with the backend's SHA-256
+compression function and streaming functions. -/
+abbrev M224 : Impl.Pbkdf2.Md.X86.Hash := sha224M v.stream v.cmpN v.cmpC
+
+/-- The functions the whole of PBKDF2-HMAC-SHA-224 calls. -/
+abbrev F224 : Impl.Pbkdf2.Whole.X86.Fns := pbkdf2Fns224 v.stream v.cmpN v.cmpC
+
+theorem hmacInit224 : Verified X86.target v.M224.hmacInit (Spec.Hmac.sha224I.initContract X86.abi 48) :=
+  Proof.Pbkdf2.Md.X86.Instances.sha224_init v.stream v.cmpN v.comp
+
+theorem hmacFin224 : Verified X86.target v.M224.hmacFin (Spec.Hmac.sha224I.finalizeContract X86.abi 48) :=
+  Proof.Pbkdf2.Md.X86.Instances.sha224_finalize v.stream v.cmpN v.comp
+
+theorem iterate224 : Verified X86.target v.M224.iterate (Spec.Hmac.sha224I.iterateContract X86.abi 48) :=
+  Proof.Pbkdf2.Md.X86.Instances.sha224_iterate v.stream v.cmpN v.comp
 
 end Backend
 

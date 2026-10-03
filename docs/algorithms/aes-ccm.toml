@@ -1,0 +1,5 @@
+name = "AES-CCM (128-, 192- and 256-bit keys)"
+family = "AEADs"
+specs = ["Aes", "Ccm"]
+modules = ["src/aes_ccm.rs"]
+asm = ["aes", "aes_ccm"]
