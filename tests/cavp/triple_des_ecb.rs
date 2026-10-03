@@ -157,3 +157,26 @@ fn limits_and_empty_input() {
         }
     }
 }
+
+/// Many blocks at once (the implementations may process several blocks
+/// together) give what each block gives alone, at every count up to past
+/// several batches; decryption inverts encryption.
+#[test]
+fn batches_match_single_blocks() {
+    for key_len in [16, 24] {
+        let key: Vec<_> = (0..key_len).map(|i| (29 * i + 11) as u8).collect();
+        let ctx = TripleDesEcb::new(&key).unwrap();
+        let plaintext: Vec<_> = (0..8 * 300).map(|i| (i * 131 + 7 + i / 256) as u8).collect();
+        let mut expected = plaintext.clone();
+        for block in expected.chunks_mut(8) {
+            ctx.encrypt(block).unwrap();
+        }
+        for blocks in (0..=300).filter(|n| n % 64 <= 2 || n % 64 >= 62 || n % 37 == 0) {
+            let mut buffer = plaintext[..8 * blocks].to_vec();
+            ctx.encrypt(&mut buffer).unwrap();
+            assert_eq!(buffer, expected[..8 * blocks]);
+            ctx.decrypt(&mut buffer).unwrap();
+            assert_eq!(buffer, plaintext[..8 * blocks]);
+        }
+    }
+}
