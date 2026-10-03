@@ -134,4 +134,123 @@ theorem ctrPost_ok {s : State} {Q : Addr} {left n : Nat} {hi lo : BitVec 64} (h1
   · intro r h₁ h₂ h₃ h₄; simp [gpr_setReg, h₁, h₂, h₃, h₄]
   all_goals rfl
 
+/-! ## The loop -/
+
+/-- The regions CTR writes: the data, the counter, keystream and counter
+blocks, the working space of `vg_aes_ctr32` and the stack. -/
+abbrev ctrRegions (W P : Addr) (L : Nat) (sp : Addr) : List Region :=
+  [⟨P, L⟩, ⟨W + BitVec.ofNat 64 64, 48⟩, ⟨W + BitVec.ofNat 64 256, 2048⟩, below sp 16]
+
+/-- The state at the start of block `i`: the data is CTR's output on its
+first `16 i` bytes, the counter is `Q + i`, and the context (so the
+cipher) is as at the start. -/
+structure CInv (s₀ : State) (C D P W : Addr) (R L : Nat) (m₀ : Mem) (q x : List Byte) (i : Nat) (s : State) :
+    Prop where
+  rbx : s.gpr .rbx = C
+  rbp : s.gpr .rbp = BitVec.ofNat 64 R
+  r12 : s.gpr .r12 = D
+  r13 : s.gpr .r13 = P + BitVec.ofNat 64 (16 * i)
+  r14 : s.gpr .r14 = BitVec.ofNat 64 (L - 16 * i)
+  r15 : s.gpr .r15 = W
+  rsp : s.gpr .rsp = s₀.gpr .rsp
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  lt : 16 * i < L
+  cnt : ∃ hi lo : BitVec 64, s.mem.readW (W + BitVec.ofNat 64 cntOff) 64 = bswap64 hi ∧
+    s.mem.readW (W + BitVec.ofNat 64 (cntOff + 8)) 64 = bswap64 lo ∧
+    (hi ++ lo : BitVec 128) = Spec.Gcm.ofBytes q + BitVec.ofNat 128 i
+  data : Spec.Aes.bytesAt s.mem P L = ctrPart (Spec.Siv.ctxCiph m₀ C R) q x (16 * i)
+  frame : Frame (ctrRegions W P L (s₀.gpr .rsp)) m₀ s.mem
+
+/-- What the setup of a block, the call and the length leave. -/
+structure CHead (s₀ : State) (C D P W : Addr) (R L : Nat) (m₀ : Mem) (q : List Byte) (i : Nat) (s s' : State) :
+    Prop where
+  rbx : s'.gpr .rbx = C
+  rbp : s'.gpr .rbp = BitVec.ofNat 64 R
+  r12 : s'.gpr .r12 = D
+  r13 : s'.gpr .r13 = P + BitVec.ofNat 64 (16 * i)
+  r14 : s'.gpr .r14 = BitVec.ofNat 64 (L - 16 * i)
+  r15 : s'.gpr .r15 = W
+  rsp : s'.gpr .rsp = s₀.gpr .rsp
+  rcx : s'.gpr .rcx = BitVec.ofNat 64 (min 16 (L - 16 * i))
+  rd : s'.rd = s₀.rd
+  wr : s'.wr = s₀.wr
+  ks : Spec.Aes.bytesAt s'.mem (W + BitVec.ofNat 64 80) 16 = Siv.ksBlock (Spec.Siv.ctxCiph m₀ C R) q i
+  frame : Frame [⟨W + BitVec.ofNat 64 80, 32⟩, ⟨W + BitVec.ofNat 64 256, 2048⟩, below (s₀.gpr .rsp) 16] s.mem s'.mem
+
+theorem ctr_head (v : Ctr32Impl) (h : Env s₀ C D P W R L) (hcp : (⟨C, 512⟩ : Region).Disjoint ⟨P, L⟩) {m₀ : Mem}
+    {q x : List Byte} {i : Nat} {s : State} (hi : CInv s₀ C D P W R L m₀ q x i s) {k : Prog isa} {Q : State → Prop}
+    (hk : ∀ s', CHead s₀ C D P W R L m₀ q i s s' → WP isa k s' Q) :
+    WP isa (.seq (.block ctrPre) (.seq (.call v.callee.name v.callee.code) (.seq ctrMin k))) s Q := by
+  have hwW := h.wW
+  have hlt := h.lt
+  have hRb : 16 * (R + 1) ≤ 240 := by rcases h.rounds with h | h | h <;> omega
+  obtain ⟨s₁, run₁, rdi₁, rsi₁, rdx₁, rcx₁, r8₁, r9₁, g₁, m₁, rd₁, wr₁⟩ := ctrPre_ok h hi.rbx hi.rbp hi.r15 hi.rd hi.wr
+  refine WP.seq (WP.of_runBlock ⟨s₁, run₁, ?_⟩)
+  have dWW (d n e k : Nat) (hs : d + n ≤ e ∨ e + k ≤ d) (hd : d + n ≤ 2560) (he : e + k ≤ 2560) :
+      (⟨W + BitVec.ofNat 64 d, n⟩ : Region).Disjoint ⟨W + BitVec.ofNat 64 e, k⟩ :=
+    Offset.disjoint W hs (by omega) (by omega)
+  have s₉₆ : Region.Sub ⟨W + BitVec.ofNat 64 96, 16⟩ ⟨W + BitVec.ofNat 64 80, 32⟩ := by
+    rw [show W + BitVec.ofNat 64 96 = W + BitVec.ofNat 64 80 + BitVec.ofNat 64 16 by rw [Offset.add_add]]
+    exact Offset.sub_base _ (by decide)
+  have f₁ : Frame [⟨W + BitVec.ofNat 64 80, 32⟩] s.mem s₁.mem := by
+    rw [m₁, zero2]
+    exact ((frame_store2 _ _ _).sub fun r hr => ⟨⟨W + BitVec.ofNat 64 80, 32⟩, List.mem_singleton_self _, by
+        simp only [List.mem_singleton] at hr; subst hr; exact Region.sub_prefix (by decide)⟩).trans
+      ((copyMem_frame _ _ _).sub fun r hr => ⟨⟨W + BitVec.ofNat 64 80, 32⟩, List.mem_singleton_self _, by
+        simp only [List.mem_singleton] at hr; subst hr; exact s₉₆⟩)
+  have hz : Spec.Aes.bytesAt s₁.mem (W + BitVec.ofNat 64 80) 16 = Spec.Cmac.zeros 16 := by
+    rw [m₁, bytesAt_frame (copyMem_frame _ _ _) (fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; exact dWW 80 16 96 16 (by omega) (by omega) (by omega))
+      (by decide), zero2_bytes]
+  have rsp₁ : s₁.gpr .rsp = s₀.gpr .rsp := by rw [g₁ _ (by decide), hi.rsp]
+  have hc := h.cargs (s := s₁) (by rw [rd₁, hi.rd]) (by rw [wr₁, hi.wr]) rsp₁ rdi₁ rsi₁ rdx₁ rcx₁ r8₁ r9₁ hz
+  refine WP.seq (WP.mono (ctr_call v hc) fun s₂ h₂ => ?_)
+  have g₂ (r : Reg) (hr : r ∈ calleeSaved) : s₂.gpr r = s.gpr r := by rw [h₂.saved r hr, g₁ r hr]
+  refine WP.seq (WP.mono (ctrMin_wp (left := L - 16 * i) (by rw [g₂ _ (by decide), hi.r14]) (by omega))
+    fun s₃ ⟨rcx₃, g₃, m₃, rd₃, wr₃⟩ => hk s₃ ?_)
+  have g₃' (r : Reg) (hr : r ∈ calleeSaved) : s₃.gpr r = s.gpr r := by
+    rw [g₃ r (by rintro rfl; simp [calleeSaved] at hr), g₂ r hr]
+  have f₂ : Frame [⟨W + BitVec.ofNat 64 96, 16⟩, ⟨W + BitVec.ofNat 64 80, 16⟩, ⟨W + BitVec.ofNat 64 256, 2048⟩,
+      below (s₀.gpr .rsp) 8] s₁.mem s₂.mem := by rw [← rsp₁]; exact h₂.frame
+  refine ⟨by rw [g₃' _ (by decide), hi.rbx], by rw [g₃' _ (by decide), hi.rbp], by rw [g₃' _ (by decide), hi.r12],
+    by rw [g₃' _ (by decide), hi.r13], by rw [g₃' _ (by decide), hi.r14], by rw [g₃' _ (by decide), hi.r15],
+    by rw [g₃' _ (by decide), hi.rsp], rcx₃, by rw [rd₃, h₂.rd, rd₁, hi.rd], by rw [wr₃, h₂.wr, wr₁, hi.wr], ?_, ?_⟩
+  · -- The keystream block: the cipher of the counter block, a copy of `Q + i`.
+    obtain ⟨hi', lo', hhi, hlo, hq⟩ := hi.cnt
+    have dC (r : Region) (hr : r ∈ ctrRegions W P L (s₀.gpr .rsp)) :
+        (⟨C + BitVec.ofNat 64 272, 16 * (R + 1)⟩ : Region).Disjoint r := by
+      have sub := h.sC (d := 272) (n := 16 * (R + 1)) (by omega)
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl
+      · exact hcp.sub_left sub
+      · exact (h.c_w.sub_left sub).sub_right (h.sW (by decide))
+      · exact (h.c_w.sub_left sub).sub_right (h.sW (by decide))
+      · exact (h.stk_c.sub_right sub).symm
+    have sch : Spec.Aes.bytesAt s₁.mem (C + BitVec.ofNat 64 272) (16 * (R + 1)) =
+        Spec.Aes.bytesAt m₀ (C + BitVec.ofNat 64 272) (16 * (R + 1)) := by
+      rw [bytesAt_frame f₁ (fun r hr => by
+          simp only [List.mem_singleton] at hr; subst hr
+          exact (h.c_w.sub_left (h.sC (by omega))).sub_right (h.sW (by decide))) (by omega),
+        bytesAt_frame hi.frame dC (by omega)]
+    have hhi' : s.mem.readW (W + BitVec.ofNat 64 64) 64 = bswap64 hi' := hhi
+    have hlo' : s.mem.readW (W + BitVec.ofNat 64 (64 + 8)) 64 = bswap64 lo' := hlo
+    have cb : Spec.Aes.bytesAt s₁.mem (W + BitVec.ofNat 64 96) 16 = Spec.Siv.be128 (Spec.Siv.beNat q + i) := by
+      rw [m₁, copyMem_bytes _ (dWW 96 16 64 16 (by omega) (by omega) (by omega)), zero2,
+        bytesAt_frame (frame_store2 _ _ _) (fun r hr => by
+          simp only [List.mem_singleton] at hr; subst hr; exact dWW 64 16 80 16 (by omega) (by omega) (by omega))
+          (by decide),
+        Proof.Cmac.bytesAt_split, ← Proof.Cmac.le8_readW, ← Proof.Cmac.le8_readW, Offset.add_add, hhi', hlo',
+        VG.Proof.CmacAes.X86_64.le8_bswap, hq, be128_add]
+    rw [m₃, h₂.out, sch, cb]
+    rfl
+  · rw [m₃]
+    exact (f₁.sub fun r hr => ⟨r, by simp_all, fun _ h => h⟩).trans (f₂.sub fun r hr => by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl
+      · exact ⟨_, by simp, s₉₆⟩
+      · exact ⟨⟨W + BitVec.ofNat 64 80, 32⟩, by simp, Region.sub_prefix (by decide)⟩
+      · exact ⟨_, by simp, fun _ h => h⟩
+      · exact ⟨_, by simp, Offset.sub_below _ (a := 8) (n := 8) (b := 16) (m := 16) (by decide) (by decide)⟩)
+
 end VG.Proof.AesSiv.X86_64
