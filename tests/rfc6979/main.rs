@@ -92,17 +92,11 @@ fn p256_verify() {
         .unwrap();
     let other = VerifyingKey::<P256>::from_bytes(&other);
     for (message, rs) in &signatures {
-        assert_eq!(
-            key.verify_sha256(message.as_bytes(), rs),
-            Ok(()),
-            "{message}"
-        );
+        let verified = key.verify_sha256(message.as_bytes(), rs);
+        assert_eq!(verified, Ok(()), "{message}");
         let digest = Sha256::digest(message.as_bytes());
-        assert_eq!(
-            key.clone().verify_sha256_prehashed(&digest, rs),
-            Ok(()),
-            "{message}"
-        );
+        let prehashed = key.clone().verify_sha256_prehashed(&digest, rs);
+        assert_eq!(prehashed, Ok(()), "{message}");
         assert_eq!(
             key.verify_sha256(b"other", rs),
             Err(Error::InvalidSignature)
