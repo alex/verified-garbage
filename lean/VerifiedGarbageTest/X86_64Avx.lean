@@ -1,7 +1,7 @@
 import VerifiedGarbage.TCB.X86_64.Print
 
 /-!
-# Semantics tests for the x86-64 AVX, AVX2 and AVX512_IFMA (`ymm`) instructions
+# Semantics tests for the x86-64 AVX, AVX2, AVX512_IFMA and AVX512VL (`ymm`) instructions
 
 Each expected value was computed on an x86-64 CPU, by the same instruction
 through its intrinsic (`_mm256_add_epi32`, `_mm256_permute2x128_si256`,
@@ -94,6 +94,31 @@ def s52 : State := (VOp.vpbroadcastq .l256 .xmm6 .xmm6).exec
 
 #guard ((VOp.vpmadd52huq .l256 .xmm5 .xmm6 .xmm6).exec s52).ymm .xmm5 == 0x000ffffffffffffd000ffffffffffffd000ffffffffffffd000ffffffffffffd#256
 #guard ((VOp.vpmadd52luq .l256 .xmm5 .xmm6 .xmm6).exec s52).ymm .xmm5 == 0
+
+/-! `vprold` and `vpternlogd` (`_mm256_rol_epi32`, `_mm256_ternarylogic_epi32`,
+and `_mm_…` for `.l128`, on a Sapphire Rapids Xeon): counts of 0, 31 and 33
+(taken modulo 32), and the ternary logic of `ymm0` (the destination), `ymm1`
+and `ymm2` for a selection (`0xca`), a parity (`0x96`), a majority (`0xe8`),
+single minterms (`0x01`, `0x80`) and `0xd2`, and with the destination also
+a source. -/
+
+/-- `ymm0` after `vpternlogd ymm0, ymm1, ymm2, imm8` (or its `EVEX.128` form). -/
+def tern (imm : BitVec 8) (len : VLen := .l256) : BitVec 256 :=
+  ((VOp.vpternlogd len .xmm0 .xmm1 .xmm2 imm).exec s).ymm .xmm0
+
+#guard run (.vprold .l256 .xmm5 .xmm0 7) == 0x8f169e07ad34bc25cb52da43e970f861d5e6f7c491a2b3806e5d4c7f2a19083b#256
+#guard run (.vprold .l256 .xmm5 .xmm0 0) == A
+#guard run (.vprold .l256 .xmm5 .xmm0 31) == 0x078f169e25ad34bc43cb52da61e970f8c4d5e6f78091a2b37f6e5d4c3b2a1908#256
+#guard run (.vprold .l256 .xmm5 .xmm0 33) == 0x1e3c5a7896b4d2f00f2d4b6987a5c3e113579bdf02468acefdb97531eca86420#256
+#guard run (.vprold .l128 .xmm5 .xmm0 7) == 0x00000000000000000000000000000000d5e6f7c491a2b3806e5d4c7f2a19083b#256
+#guard tern 0xca == 0x01020524090a49688684a4a4c2d2a0bf89abcdef000000007edcba9f12141217#256
+#guard tern 0x96 == 0x0e3d685bc2f1a4d7593b1b5b092c5b717654321181234567812345786460646f#256
+#guard tern 0xe8 == 0x01020524090a49688684a4a4c2d2a0be89abcdef000000007edcba9f12141210#256
+#guard tern 0x01 == 0xf0c09280340412002040400034010400000000007edcba9800000000898b8980#256
+#guard tern 0x80 == 0x0000000000000040000000000000003000000001000000000000001800000000#256
+#guard tern 0xd2 == 0x0f1e2d3c4b5a69788796a5b4c3d2e1f189abcdef01234567fedcba9876543217#256
+#guard tern 0xca .l128 == 0x0000000000000000000000000000000089abcdef000000007edcba9f12141217#256
+#guard ((VOp.vpternlogd .l256 .xmm0 .xmm0 .xmm1 0x96).exec s).ymm .xmm0 == B
 
 /-- `ymm5` after `op ymm5, ymm0, n`. -/
 def shift (op : XShiftOp) (n : BitVec 8) : BitVec 256 := run (.vshift op .l256 .xmm5 .xmm0 n)
@@ -223,6 +248,12 @@ def M : BitVec 256 := s.mem.readW 0x100 256
 #guard printer.instr (.vop (.vbin .vpsubq .l256 .xmm1 .xmm2 .xmm3)) == ["vpsubq ymm1, ymm2, ymm3"]
 #guard printer.instr (.vop (.vpmadd52luq .l256 .xmm1 .xmm2 .xmm15)) == ["vpmadd52luq ymm1, ymm2, ymm15"]
 #guard printer.instr (.vop (.vpmadd52huq .l128 .xmm1 .xmm2 .xmm3)) == ["vpmadd52huq xmm1, xmm2, xmm3"]
+#guard printer.instr (.vop (.vprold .l128 .xmm1 .xmm15 25)) == ["vprold xmm1, xmm15, 25"]
+#guard printer.instr (.vop (.vprold .l256 .xmm1 .xmm2 7)) == ["vprold ymm1, ymm2, 7"]
+#guard printer.instr (.vop (.vpternlogd .l128 .xmm4 .xmm5 .xmm6 202)) ==
+  ["vpternlogd xmm4, xmm5, xmm6, 202"]
+#guard printer.instr (.vop (.vpternlogd .l256 .xmm4 .xmm5 .xmm6 150)) ==
+  ["vpternlogd ymm4, ymm5, ymm6, 150"]
 #guard printer.instr (.vop (.vbin .vpackssdw .l256 .xmm1 .xmm2 .xmm3)) ==
   ["vpackssdw ymm1, ymm2, ymm3"]
 #guard printer.instr (.vop (.vpshufd .l256 .xmm8 .xmm9 147)) == ["vpshufd ymm8, ymm9, 147"]
@@ -263,6 +294,10 @@ def M : BitVec 256 := s.mem.readW 0x100 256
 #guard isa.requires (.vop (.vbin .vpsubq .l256 .xmm0 .xmm1 .xmm2)) == ["avx2"]
 #guard isa.requires (.vop (.vpmadd52luq .l256 .xmm0 .xmm1 .xmm2)) == ["avx512ifma", "avx512vl"]
 #guard isa.requires (.vop (.vpmadd52huq .l128 .xmm0 .xmm1 .xmm2)) == ["avx512ifma", "avx512vl"]
+#guard isa.requires (.vop (.vprold .l128 .xmm0 .xmm1 7)) == ["avx512f", "avx512vl"]
+#guard isa.requires (.vop (.vprold .l256 .xmm0 .xmm1 7)) == ["avx512f", "avx512vl"]
+#guard isa.requires (.vop (.vpternlogd .l128 .xmm0 .xmm1 .xmm2 0)) == ["avx512f", "avx512vl"]
+#guard isa.requires (.vop (.vpternlogd .l256 .xmm0 .xmm1 .xmm2 0)) == ["avx512f", "avx512vl"]
 #guard isa.requires (.vop (.vshift .psraw .l256 .xmm0 .xmm1 1)) == ["avx2"]
 #guard isa.requires (.vop (.vpshufd .l256 .xmm0 .xmm1 1)) == ["avx2"]
 #guard isa.requires (.vop (.vpalignr .l128 .xmm0 .xmm1 .xmm2 1)) == ["avx"]

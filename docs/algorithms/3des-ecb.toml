@@ -3,3 +3,4 @@ family = "Ciphers"
 specs = ["TripleDes"]
 modules = ["src/triple_des_ecb.rs"]
 asm = ["triple_des"]
+optimized = { x86_64 = "bitsliced, 64 or 256 blocks at a time" }

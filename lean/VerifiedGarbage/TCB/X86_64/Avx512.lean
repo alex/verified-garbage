@@ -51,6 +51,10 @@ inductive ZOp
   | vpbroadcastq (dst src : XReg)
   /-- `vmovdqa64 zmm1, zmm2` (`EVEX.512.66.0F.W1 6F /r`) -/
   | vmovdqa64 (dst src : XReg)
+  /-- `vpternlogd zmm1, zmm2, zmm3, imm8` (`EVEX.512.66.0F3A.W0 25 /r ib`):
+  each bit of `zmm1` is the bit of `imm8` that the bits of `zmm1`, `zmm2`
+  and `zmm3` there index (see `ternlog`). -/
+  | vpternlogd (dst src1 src2 : XReg) (imm : BitVec 8)
   deriving DecidableEq, Repr
 
 /-- The legacy SSE instruction whose operation `op` applies to each lane:
@@ -126,14 +130,6 @@ doubleword of each quadword, and the low doubleword of `SRC2[63:0]` is
 def ZBcstOp.sse : ZBcstOp → XBinOp
   | .vpmuludq => .pmuludq | .vpandq => .pand | .vporq => .por
 
-/-- SDM Vol. 2, "VPROLD/VPROLVD/VPROLQ/VPROLVQ", for one lane:
-`LEFT_ROTATE_DWORDS(SRC, COUNT_SRC) { COUNT := COUNT_SRC modulo 32;
-DEST[31:0] := (SRC << COUNT) | (SRC >> (32 - COUNT)); }` for each
-doubleword. -/
-def rolDwords (x : BitVec 128) (n : BitVec 8) : BitVec 128 :=
-  let r (i : Nat) := (dword x i).rotateLeft (n.toNat % 32)
-  ofDwords (r 0) (r 1) (r 2) (r 3)
-
 /-- SDM Vol. 2, "VSHUFF32x4/VSHUFF64x2/VSHUFI32x4/VSHUFI64x2", 512-bit form:
 `Select4(SRC, control) { CASE (control[1:0]) OF 0: TMP := SRC[127:0]; 1:
 TMP := SRC[255:128]; 2: TMP := SRC[383:256]; 3: TMP := SRC[511:384]; }`,
@@ -159,7 +155,11 @@ SDM Vol. 2 (no flags are affected; with 512-bit operands the whole of
 * VPBROADCASTQ (EVEX.512 encoded version, register source, no write mask):
   every quadword of `DEST` is `SRC[63:0]`.
 * VMOVDQA64 (EVEX.512 encoded version, register to register, no write
-  mask): `DEST[511:0] := SRC[511:0]`. -/
+  mask): `DEST[511:0] := SRC[511:0]`.
+* VPTERNLOGD (EVEX.512 encoded version, register `SRC2`, no write mask):
+  see `ternlog`, each lane (the SDM's loop over the sixteen doublewords of
+  the 512-bit form, `KL, VL = 16, 512`, computes each bit from the same bits
+  of `DEST`, `SRC1` and `SRC2`, so lane by lane). -/
 def ZOp.exec : ZOp → State → State
   | .zbin op d a b, s =>
     let f (i : Nat) := op.sse.eval (s.zlane a i) (s.zlane b i)
@@ -189,5 +189,8 @@ def ZOp.exec : ZOp → State → State
     let x := qword (s.xmm r) 0 ++ qword (s.xmm r) 0
     s.setZ d x x x x
   | .vmovdqa64 d r, s => s.setZ d (s.zlane r 0) (s.zlane r 1) (s.zlane r 2) (s.zlane r 3)
+  | .vpternlogd d a b n, s =>
+    let f (i : Nat) := ternlog (s.zlane d i) (s.zlane a i) (s.zlane b i) n
+    s.setZ d (f 0) (f 1) (f 2) (f 3)
 
 end VG.X86_64

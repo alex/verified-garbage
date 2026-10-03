@@ -138,6 +138,8 @@ def VOp.asm : VOp → String
   | .vsha512msg2 d r => s!"vsha512msg2 {d.yname}, {r.yname}"
   | .vpmadd52luq l d a b => s!"vpmadd52luq {d.vname l}, {a.vname l}, {b.vname l}"
   | .vpmadd52huq l d a b => s!"vpmadd52huq {d.vname l}, {a.vname l}, {b.vname l}"
+  | .vprold l d r n => s!"vprold {d.vname l}, {r.vname l}, {n.toNat}"
+  | .vpternlogd l d a b n => s!"vpternlogd {d.vname l}, {a.vname l}, {b.vname l}, {n.toNat}"
 
 def ZBinOp.name : ZBinOp → String
   | .vpaddd => "vpaddd" | .vpxord => "vpxord"
@@ -164,6 +166,7 @@ def ZOp.asm : ZOp → String
   | .vpsrldq d r n => s!"vpsrldq {d.zname}, {r.zname}, {n.toNat}"
   | .vpbroadcastq d r => s!"vpbroadcastq {d.zname}, {r.name}"
   | .vmovdqa64 d r => s!"vmovdqa64 {d.zname}, {r.zname}"
+  | .vpternlogd d a b n => s!"vpternlogd {d.zname}, {a.zname}, {b.zname}, {n.toNat}"
 
 def Src.str : Src → String
   | .reg r => r.name

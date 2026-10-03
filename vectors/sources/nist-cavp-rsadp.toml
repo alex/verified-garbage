@@ -1,0 +1,5 @@
+name = "NIST CAVP RSADP component test vectors (SP 800-56B)"
+directories = ["nist-cavp-rsadp"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/components/RSADPtestvectors.zip"
+sha256 = "a58801fc970f2a172894a47eea5eff309c0c22ed0bd6112beeef832bc46f13e5"
+retrieved = 2026-10-03

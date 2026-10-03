@@ -115,17 +115,17 @@ theorem addPair_ok (s : State) (a : Acc) {lo hi : Reg} (add : Bool) (h₁ : a.lo
     refine ⟨?_, rfl, fun q hq => ?_, rfl, rfl⟩
   rotate_left
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hq
-    simp only [read_x, RegUpd.gpr_addWithCarry, hq.1, hq.2, ite_false]
+    simp only [read_x, RegUpd.gpr_write, RegUpd.gpr_addWithCarry, hq.1, hq.2, ite_false]
   rotate_left
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hq
-    simp only [read_x, RegUpd.gpr_addWithCarry, hq.1, hq.2, ite_false]
+    simp only [read_x, RegUpd.gpr_write, RegUpd.gpr_addWithCarry, hq.1, hq.2, ite_false]
   · have := subPair_mod (s.gpr a.lo) (s.gpr a.hi) (s.gpr lo) (s.gpr hi)
-    simp only [accVal, read_x, RegUpd.gpr_addWithCarry, RegUpd.c_addWithCarry, h₁, Ne.symm h₁,
+    simp only [accVal, read_x, RegUpd.gpr_write, RegUpd.gpr_addWithCarry, RegUpd.c_addWithCarry, h₁, Ne.symm h₁,
       Ne.symm h₂, ite_true, ite_false, BitVec.setWidth_eq, Bool.false_eq_true]
     dsimp only [addCarry, carryOut, Size.bits] at this ⊢
     exact this
   · have := addPair_mod (s.gpr a.lo) (s.gpr a.hi) (s.gpr lo) (s.gpr hi)
-    simp only [accVal, read_x, RegUpd.gpr_addWithCarry, RegUpd.c_addWithCarry, h₁, Ne.symm h₁,
+    simp only [accVal, read_x, RegUpd.gpr_write, RegUpd.gpr_addWithCarry, RegUpd.c_addWithCarry, h₁, Ne.symm h₁,
       Ne.symm h₂, ite_true, ite_false, BitVec.setWidth_eq]
     dsimp only [addCarry, carryOut, Size.bits] at this ⊢
     exact this
