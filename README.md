@@ -576,6 +576,22 @@ yours to keep:
 
 <tr>
 
+<td>AES-OCB3 (128-, 192- and 256-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>AES-SIV (256-, 384- and 512-bit keys)</td>
 
 <td>✅</td>
