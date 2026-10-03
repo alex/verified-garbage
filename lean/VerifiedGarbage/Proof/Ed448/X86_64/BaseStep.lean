@@ -62,7 +62,7 @@ theorem step_eq : step fld = ([.alu .sub .rbx (.imm 1)] : List Instr) ++ (fieldC
 def stepEnv (sw : Bool) (e : Env) : Env :=
   opSwap 2 5 sw (opSwap 1 4 sw (opSwap 0 3 sw (evalOps addOps (evalOps doubleOps e))))
 
-theorem test_ok (s : State) (n : Nat) (hn : n < 456) (hb : s.gpr .rbx = BitVec.ofNat 64 n) :
+theorem testRbx_ok (s : State) (n : Nat) (hn : n < 456) (hb : s.gpr .rbx = BitVec.ofNat 64 n) :
     WP isa (.block ([.alu .test .rbx (.reg .rbx)] : List Instr)) s fun t =>
       t.zf = some (decide (n = 0)) ∧ (∀ r, t.gpr r = s.gpr r) ∧ t.mem = s.mem ∧ t.rd = s.rd ∧
         t.wr = s.wr := by
@@ -117,7 +117,7 @@ theorem step_ok {s : State} {base : Addr} (hs : Scr s base) {t : Nat} (ht : t < 
   have b7 : s7.gpr .rbx = BitVec.ofNat 64 t := by
     rw [k7.gpr _ (by decide), k6.gpr _ (by decide), k5.gpr _ (by decide), g4 _ (by decide)]
     exact b3
-  refine WP.mono (test_ok s7 t ht b7) fun s' ⟨z', g', m', rd', wr'⟩ => ?_
+  refine WP.mono (testRbx_ok s7 t ht b7) fun s' ⟨z', g', m', rd', wr'⟩ => ?_
   refine ⟨(g' _).trans b7, z', fun r hr => ?_, ?_, ?_, ?_, ?_⟩
   · simp only [List.mem_cons, not_or] at hr
     rw [g', k7.gpr r hr.2, k6.gpr r hr.2, k5.gpr r hr.2, g4 r (by

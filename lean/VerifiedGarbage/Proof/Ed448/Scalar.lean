@@ -99,4 +99,24 @@ theorem encodeLE_eq (n x : Nat) : encodeLE n x = Proof.X25519.leBytes n x := by
 
 theorem bytesAt_eq (m : Mem) (p : Addr) (n : Nat) : bytesAt m p n = Spec.X25519.bytesAt m p n := rfl
 
+theorem leBytes_one (x : Nat) : Proof.X25519.leBytes 1 x = [BitVec.ofNat 8 x] := by
+  simp [Proof.X25519.leBytes]
+
+/-- A point's encoding (§5.2.2): the 56 bytes of `y < 2^448`, then the sign
+bit `b` as the top bit of the 57th byte. Stated here, where `2 ^ 455` is the
+specification's term. -/
+theorem encodeLE_57 (y b : Nat) (hy : y < 256 ^ 56) :
+    encodeLE 57 (y + b * 2 ^ 455) =
+      Proof.X25519.leBytes 56 y ++ [BitVec.ofNat 8 (128 * b)] := by
+  have h455 : (2 : Nat) ^ 455 = 256 ^ 56 * 128 := by decide +kernel
+  rw [encodeLE_eq, show 57 = 56 + 1 from rfl, Proof.X25519.leBytes_add, h455, leBytes_one]
+  generalize hM : (256 : Nat) ^ 56 = M at *
+  have hM0 : 0 < M := by omega
+  have e1 : (y + b * (M * 128)) % M = y := by
+    rw [show y + b * (M * 128) = y + M * (b * 128) by grind, Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt hy]
+  have e2 : (y + b * (M * 128)) / M = 128 * b := by
+    rw [show y + b * (M * 128) = y + M * (b * 128) by grind, Nat.add_mul_div_left _ _ hM0, Nat.div_eq_of_lt hy,
+      Nat.zero_add, Nat.mul_comm]
+  rw [e2, ← Proof.X25519.leBytes_mod 56, hM, e1]
+
 end VG.Proof.Ed448

@@ -1,4 +1,5 @@
 import VerifiedGarbage.Impl.X448.X86_64.Adx
+import VerifiedGarbage.Impl.Ed448.X86_64.Scalar
 import VerifiedGarbage.Spec.Ed448
 
 /-!
@@ -117,29 +118,24 @@ def mulLoop (F : Field) : Prog isa :=
 
 /-! ## Entry and exit -/
 
-/-- The output's address. -/
-def OUTB : Nat := 48
-
 /-- The callee-saved registers saved at the working space `rdx`, the output's
-address at `OUTB`, the working space into `rdi`, and the constants. -/
+address at `OUT`, the working space into `rdi`, and the constants. -/
 def entry : List Instr :=
-  Impl.X448.X86_64.saved.map (fun (r, d) => .store (at_ .rdx d) r) ++
-    [.store (at_ .rdx OUTB) .rdi, .mov .rdi (.reg .rdx)] ++ consts
+  saveAt .rdx ++ ([.store (at_ .rdx OUT) .rdi, .mov .rdi (.reg .rdx)] ++ consts)
 
 /-- `x = X/Z` into slot 3 and `y = Y/Z` into slot 4, with `1/Z` in slot 21
 (the inversion's result); `y` fully reduced to the output's first 56 bytes,
 and the low bit of `x` as the top bit of its 57th; then the callee-saved
 registers restored. -/
-def finish (F : Field) : List Instr :=
-  F.mul (slot 3) (slot 0) (slot 21) ++ F.mul (slot 4) (slot 1) (slot 21) ++ freeze (slot 4) ++
-    [.mov .rax (.mem (sc OUTB))] ++ (List.range 7).map (fun i => .store (at_ .rax (8 * i)) (w i)) ++
-    freeze (slot 3) ++
-    [.mov .rax (.mem (sc OUTB)), .alu .and .r8 (.imm 1), .shift .ror .r8 57,
-      .store8 (at_ .rax 56) .r8] ++ Impl.X448.X86_64.restore
+def encode (F : Field) : List Instr :=
+  F.mul (slot 3) (slot 0) (slot 21) ++ (F.mul (slot 4) (slot 1) (slot 21) ++ (freeze (slot 4) ++
+    ([.mov .rax (.mem (sc OUT))] ++ ((List.range 7).map (fun i => .store (at_ .rax (8 * i)) (w i)) ++
+    (freeze (slot 3) ++ ([.mov .rax (.mem (sc OUT)), .alu .and .r8 (.imm 1), .shift .ror .r8 57,
+      .store8 (at_ .rax 56) .r8] ++ Impl.X448.X86_64.restore))))))
 
 /-- `vg_ed448_scalar_base` with the field multiplications `F`. -/
 def scalarBaseWith (F : Field) : Prog isa :=
-  .seq (.block entry) <| .seq bits <| .seq (mulLoop F) <| .seq (invert F) (.block (finish F))
+  .seq (.block entry) <| .seq bits <| .seq (mulLoop F) <| .seq (invert F) (.block (encode F))
 
 def scalarBase : Prog isa := scalarBaseWith Impl.X448.X86_64.baseline
 
