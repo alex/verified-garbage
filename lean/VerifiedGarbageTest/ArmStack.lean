@@ -38,9 +38,17 @@ private def reserved := push (.alloc 224) initial
 #guard (pop (.free 224) initial initial).isNone
 #guard (push (.alloc 0) initial).isNone
 #guard (push (.alloc 12) initial).isNone
-#guard (push (.alloc 256) initial).isNone
+#guard (push (.alloc 4096) initial).isNone
 #guard (push (.alloc 224) { initial with sp := 128 }).isNone
 #guard (push (.alloc 248) initial).isSome
+-- Sizes up to a page, if A32 encodes them (an 8-bit value rotated by an even
+-- amount): 1872 = 0x75 << 4, but not 1864 = 0x1d1 << 3.
+#guard (push (.alloc 256) initial).isSome
+#guard (push (.alloc 1872) { initial with sp := 0x2000 }).isSome
+#guard (push (.alloc 4032) { initial with sp := 0x2000 }).isSome
+#guard (push (.alloc 1864) { initial with sp := 0x2000 }).isNone
+#guard ((push (.alloc 1872) { initial with sp := 0x2000 }).bind fun s =>
+  (pop (.free 1872) s s).map (·.sp)) == some 0x2000
 #guard (exec (.alloc 224) initial).isNone
 #guard (exec (.free 224) initial).isNone
 

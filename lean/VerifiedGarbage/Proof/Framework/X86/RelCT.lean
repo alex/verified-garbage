@@ -68,8 +68,7 @@ theorem RelCT.frame {rs : List Reg} {r : Reg} {k : Nat} {body : Prog isa}
   intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
   have hpush : ∀ {s a : State}, isa.push (.push rs) s = some a → a = pushed rs s := by
     intro s a h
-    obtain ⟨_, e, -, -, -, rfl⟩ := push_some h
-    cases e; rfl
+    exact (push_some h).2.2.2
   cases e₁ with
   | frame p₁ b₁ q₁ =>
     cases e₂ with

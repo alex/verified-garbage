@@ -326,7 +326,7 @@ def step (τ : T) : Instr → Option T
   | .mul r => some (mulStep τ r)
   -- A frame's push and pop are analysed by the `push` and `pop` hooks
   -- (`pushStep`, `popStep`), not here; the SSE instructions are not analysed.
-  | .push _ | .pop .. | .movdquLoad .. | .movdquStore .. | .xop _ => none
+  | .push _ | .pop .. | .alloc _ | .free _ | .movdquLoad .. | .movdquStore .. | .xop _ => none
 
 def meet (τ₁ τ₂ : T) : T where
   regs := τ₁.regs.inter τ₂.regs
@@ -864,7 +864,8 @@ theorem alu_sound {τ : T} {op : AluOp} {d : Reg} {src : Src} {s₁ s₂ : State
 stores, and for `mul`, which writes two). -/
 def dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .shift _ d _ | .bswap d | .movzx8 d _ | .pop d _ => some d
-  | .store .. | .store8 .. | .push _ | .mul _ | .movdquLoad .. | .movdquStore .. | .xop _ => none
+  | .store .. | .store8 .. | .push _ | .mul _ | .movdquLoad .. | .movdquStore .. | .xop _
+  | .alloc _ | .free _ => none
 
 /-- Whether an instruction may write the register `r`. -/
 def clobbers (i : Instr) (r : Reg) : Bool :=
@@ -879,7 +880,7 @@ theorem exec_dst {i : Instr} {d : Reg} (hd : dst i = some d) {s s' : State}
     (h : exec i s = some s') :
     s'.wr = s.wr ∧ s'.mem = s.mem ∧ ∀ r, r ≠ d → s'.gpr r = s.gpr r := by
   cases i with
-  | push | pop => simp only [exec, reduceCtorEq] at h
+  | push | pop | alloc | free => simp only [exec, reduceCtorEq] at h
   | mov d' src =>
     simp only [dst, Option.some.injEq] at hd; subst hd
     simp only [exec, Option.map_eq_some_iff] at h
@@ -1034,7 +1035,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
-  | push | pop | movdquLoad | movdquStore | xop => simp only [step, reduceCtorEq] at hs
+  | push | pop | alloc | free | movdquLoad | movdquStore | xop => simp only [step, reduceCtorEq] at hs
   | mov d src =>
     simp only [step] at hs
     split at hs <;> [skip; cases hs]
@@ -2321,7 +2322,7 @@ def stepK (τ : T) : Instr → Option T
     else none
   | .store8 m r => storeStepK τ m 1 (pub τ r.reg) []
   | .mul r => some (mulStep τ r)
-  | .push _ | .pop .. | .movdquLoad .. | .movdquStore .. | .xop _ => none
+  | .push _ | .pop .. | .alloc _ | .free _ | .movdquLoad .. | .movdquStore .. | .xop _ => none
 
 /-- `l.contains a`, for a known base address. -/
 def memB (a : Reg × Nat × Nat) (l : List (Reg × Nat × Nat)) : Bool :=

@@ -3,3 +3,4 @@ family = "Ciphers"
 specs = ["Rc4"]
 modules = ["src/rc4.rs"]
 asm = ["rc4"]
+optimized = { aarch64 = "permutation kept in AdvSIMD registers" }

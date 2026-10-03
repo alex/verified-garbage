@@ -25,12 +25,12 @@ theorem push_pushed {rs : List Reg} {s : State} (hne : rs ≠ []) (hrs : .rsp �
   simp only [isa, push, ne_eq, hne, not_false_eq_true, hrs, hn, and_self, ite_true]
   rfl
 
-theorem push_some {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) :
-    ∃ rs, i = .push rs ∧ s₁ = pushed rs s := by
-  cases i <;> simp only [isa, push, reduceCtorEq] at h
+theorem push_some {rs : List Reg} {s s₁ : State} (h : isa.push (.push rs) s = some s₁) :
+    s₁ = pushed rs s := by
+  simp only [isa, push] at h
   split at h <;> [skip; cases h]
   cases h
-  exact ⟨_, rfl, rfl⟩
+  rfl
 
 @[simp] theorem pushed_rd (rs : List Reg) (s : State) : (pushed rs s).rd = s.rd :=
   (pushRegs_eq s rs).1
@@ -148,9 +148,8 @@ theorem RelCT.frame {rs : List Reg} {r : Reg} {k : Nat} {body : Prog isa}
   | frame p₁ b₁ q₁ =>
     cases e₂ with
     | frame p₂ b₂ q₂ =>
-      obtain ⟨_, ea, rfl⟩ := push_some p₁
-      obtain ⟨_, eb, rfl⟩ := push_some p₂
-      cases ea; cases eb
+      obtain rfl := push_some p₁
+      obtain rfl := push_some p₂
       obtain ⟨rfl, -⟩ := hb _ _ _ _ _ _ ⟨s₁, s₂, hp, rfl, rfl⟩ b₁ b₂
       have g₁ := (pop_eq q₁).2.2.2.2.1
       have g₂ := (pop_eq q₂).2.2.2.2.1

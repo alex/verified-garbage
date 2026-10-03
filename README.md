@@ -512,7 +512,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ permutation kept in AdvSIMD registers</td>
 
 <td>❌</td>
 
@@ -612,7 +612,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅ AES-NI, VAES, AVX2</td>
 
 <td>❌</td>
 

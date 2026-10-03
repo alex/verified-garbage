@@ -6,7 +6,7 @@ import VerifiedGarbage.Spec.Ecdsa.Generic
 
 **Trusted** (as every file in `Spec/`). For a curve's `Ecdsa.Instance`,
 `vg_ecdsa_<name>_verify`, in the module `ecdsa_<name>`: whether a signature
-of a hash is valid for a public key (`Ecdsa.verify`), with the validation of
+of a hash verifies with a public key (`Ecdsa.verify`), with the validation of
 the public key.
 
 `verify` takes the public key as `2 len + 1` octets (`04 ‖ x ‖ y`), the hash
@@ -39,8 +39,8 @@ def verifySig : Sig where
     ("sig", .array false .u8 (2 * I.curve.len)), ("scratch", .array true .u64 scratchWords)]
   ret := some .u32
 
-/-- Whether the signature at `sig` of `digest` is valid for the public key
-at `public` (`verify`): the function returns 1 if it is and 0 otherwise.
+/-- Whether the signature at `sig` of `digest` verifies with the public key
+at `public` (`verify`): the function returns 1 if it does and 0 otherwise.
 Every input is public, and may affect timing. -/
 def verifyContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   I.verifySig.contract A
@@ -63,11 +63,11 @@ def verifyApi : Api where
   summary := s!"ECDSA signature verification over {I.title} (FIPS 186-5 §6.4.2): whether \
     the signature at `sig` (`r` then `s`, {I.curve.len} bytes each, most significant first) \
     of the hash at `digest` (its leftmost {I.curve.len} bytes, or, for a shorter hash, the \
-    hash padded on the left with zeros to {I.curve.len} bytes) is valid for the public key \
+    hash padded on the left with zeros to {I.curve.len} bytes) verifies with the public key \
     at `public`, which must be a valid public key in the uncompressed form of SEC 1 \
     §2.3.3 (`04`, then `x` and `y` in {I.curve.len} bytes each, most significant first, \
-    both below `p`, on the curve; SP 800-56A §5.6.2.3.3). Returns 1 if it is, and 0 if it \
-    is not or the public key is not valid.\n\n\
+    both below `p`, on the curve; SP 800-56A §5.6.2.3.3). Returns 1 if it does, and 0 if \
+    it does not or the public key is not valid.\n\n\
     Contract: `VG.Spec.Ecdsa.Instance.verifyContract`. Every input is public: timing may \
     depend on the pointers and the contents of `public`, `digest` and `sig`."
   safety := ["The contents of `scratch` on return are unspecified; the caller may reuse or \
