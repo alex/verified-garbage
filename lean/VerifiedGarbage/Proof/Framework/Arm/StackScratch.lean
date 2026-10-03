@@ -58,6 +58,8 @@ theorem widths_mem (sig : Sig) : ∀ w ∈ widths sig, w = 32 ∨ w = 64 := by
   | array _ _ _ => rw [h] at hp; simp [Param.words, ArgWord.bits, abi_ptrBits] at hp; omega
   | slice _ _ _ =>
     rw [h] at hp; simp [Param.words, ArgWord.bits, abi_ptrBits] at hp; omega
+  | slices _ _ =>
+    rw [h] at hp; simp [Param.words, ArgWord.bits, abi_ptrBits] at hp; omega
 
 theorem args_arm (sig : Sig) :
     abi.args ((sig.words abi.ptrBits).map (·.bits abi.ptrBits)) = some (armArgs sig) := by
@@ -87,7 +89,8 @@ def allRegions (sig : Sig) (s : State) : List (Region × Bool) :=
 /-- The precondition of a contract, by where AAPCS passes the arguments. -/
 theorem pre_arm {sig : Sig} {pre : Curry (sig.words abi.ptrBits) (Mem → Prop)}
     {post : sig.Post abi.ptrBits} {wa : Bool} {stack : Nat}
-    {leak : Option (Curry (sig.words abi.ptrBits) (Mem → List Nat))} {s : State} :
+    {leak : Option (Curry (sig.words abi.ptrBits) (Mem → List Nat))} {s : State}
+    (hl : Sig.noLists sig.params = true) :
     (sig.contract abi pre post wa stack leak).pre s ↔
       ((stack = 0 ∨ stack ≤ s.sp.toNat) ∧ s.sp.toNat + nsaa sig ≤ 2 ^ 32) ∧
       s.rd = ((allRegions sig s).filter (!·.2)).map (·.1) ∧
@@ -104,7 +107,7 @@ theorem pre_arm {sig : Sig} {pre : Curry (sig.words abi.ptrBits) (Mem → Prop)}
     cases stack <;> simp
   simp only [Sig.contract]
   rw [args_arm]
-  simp only [argArea_arm]
+  simp only [argArea_arm, Sig.lists_of_noLists _ _ _ _ hl, List.map_nil, List.append_nil]
   rw [hwf]
   exact Iff.rfl
 
@@ -122,7 +125,8 @@ theorem post_arm {sig : Sig} {pre : Curry (sig.words abi.ptrBits) (Mem → Prop)
 /-- The public data of a contract that leaks nothing, by where AAPCS passes
 the arguments. -/
 theorem pub_arm {sig : Sig} {pre : Curry (sig.words abi.ptrBits) (Mem → Prop)}
-    {post : sig.Post abi.ptrBits} {wa : Bool} {stack : Nat} {s₁ s₂ : State} :
+    {post : sig.Post abi.ptrBits} {wa : Bool} {stack : Nat} {s₁ s₂ : State}
+    (hl : Sig.noLists sig.params = true) :
     (sig.contract abi pre post wa stack none).pub s₁ s₂ ↔
       s₁.sp = s₂.sp ∧
       ∀ i, (sig.params.flatMap (·.2.pubs)).getD i false = true →
@@ -130,6 +134,7 @@ theorem pub_arm {sig : Sig} {pre : Curry (sig.words abi.ptrBits) (Mem → Prop)}
           ((armArgs sig s₂).getD i 0).setWidth ((widths sig).getD i 64) := by
   simp only [Sig.contract]
   rw [args_arm]
+  simp only [Sig.descs_of_noLists _ _ _ hl, List.not_mem_nil, false_implies, implies_true, and_true]
   exact Iff.rfl
 
 theorem classify_length : ∀ (ws : List Nat) (ncrn nsaa : Nat), (classify ws ncrn nsaa).1.length = ws.length
@@ -501,7 +506,7 @@ abbrev Fits (m bytes : Nat) (e : Elem) (n : Nat) : Prop :=
 /-- What `setArgs` gives, from a state satisfying the contract without the
 buffer. -/
 theorem argsState_run {s : State} (hs : (sig.contract abi pre post wa (stack + bytes)).pre s)
-    (hN : nsaa sig = 4 * m) (hb : Fits m bytes e n) :
+    (hN : nsaa sig = 4 * m) (hb : Fits m bytes e n) (hl : Sig.noLists sig.params = true) :
     let u := allocState bytes s
     execBlock isa (setArgs bytes m) u =
         some (setArgsState bytes m u, setArgsTrace bytes u.sp m) ∧
@@ -513,7 +518,7 @@ theorem argsState_run {s : State} (hs : (sig.contract abi pre post wa (stack + b
       stackArg (setArgsState bytes m u) m = u.sp + BitVec.ofNat 32 (4 * m + 8) := by
   intro u
   obtain ⟨hb1, -, -, -, himm, ho⟩ := hb
-  rw [pre_arm] at hs
+  rw [pre_arm hl] at hs
   obtain ⟨⟨hst, hfit⟩, hrd, -, -, -, -, -⟩ := hs
   have hsb : bytes ≤ s.sp.toNat := by omega
   have hE : u.sp.toNat = s.sp.toNat - bytes := sub_toNat' hsb
@@ -552,13 +557,13 @@ theorem armArgs_congr {s s' : State} (hloc : (locs sig).all (Loc.ok (4 * m)) = t
 /-- What `narrow` keeps of `s`, and what it holds. -/
 theorem narrow_facts (hcl : ScratchOnStack sig) (hN : nsaa sig = 4 * m)
     (hloc : (locs sig).all (Loc.ok (4 * m)) = true) (hb : Fits m bytes e n) {s : State}
-    (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) :
+    (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) (hl : Sig.noLists sig.params = true) :
     (narrow sig e n bytes m s).sp = s.sp - BitVec.ofNat 32 bytes ∧
       (∀ q, q ≠ .r12 → (narrow sig e n bytes m s).gpr q = s.gpr q) ∧
       armArgs (sig.withScratch nm e n) (narrow sig e n bytes m s) =
         armArgs sig s ++ [sa (s.sp - BitVec.ofNat 32 bytes) (4 * m + 8)] ∧
       Frame [⟨State.addr (s.sp - BitVec.ofNat 32 bytes), 4 * m + 8⟩] s.mem (narrow sig e n bytes m s).mem := by
-  obtain ⟨-, -, -, hsp', hg, hf, hv, hl⟩ := argsState_run hs hN hb
+  obtain ⟨-, -, -, hsp', hg, hf, hv, hl⟩ := argsState_run hs hN hb hl
   refine ⟨hsp', hg, ?_, by rw [narrow_mem]; exact hf⟩
   rw [armArgs_withScratch hcl, hN, show 4 * m / 4 = m by omega]
   refine congr (congrArg HAppend.hAppend (armArgs_congr hloc (fun r hr => hg r ?_) ?_)) ?_
@@ -579,12 +584,12 @@ theorem stackBelow_sub (E : Addr) (bytes stack : Nat) :
 /-- The buffers lie outside the frame: `narrow`'s memory is `s`'s there. -/
 theorem narrow_agree (hcl : ScratchOnStack sig) (hN : nsaa sig = 4 * m)
     (hloc : (locs sig).all (Loc.ok (4 * m)) = true) (hb : Fits m bytes e n) {s : State}
-    (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) :
+    (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) (hl : Sig.noLists sig.params = true) :
     ∀ b ∈ Sig.bufs sig.params (armArgs sig s), ∀ x, b.1.Contains x 1 →
       (narrow sig e n bytes m s).mem x = s.mem x := by
-  obtain ⟨-, -, -, hf⟩ := narrow_facts (nm := "") hcl hN hloc hb hs
+  obtain ⟨-, -, -, hf⟩ := narrow_facts (nm := "") hcl hN hloc hb hs hl
   obtain ⟨hb1, -⟩ := hb
-  rw [pre_arm] at hs
+  rw [pre_arm hl] at hs
   obtain ⟨⟨hst, -⟩, -, -, -, hres, -, -⟩ := hs
   have hsb : stack + bytes ≤ s.sp.toNat := by omega
   have hbelow : (⟨State.addr s.sp - BitVec.ofNat 64 (stack + bytes), stack + bytes⟩ : Region) ∈
@@ -604,12 +609,12 @@ theorem narrow_pre (hcl : ScratchOnStack sig) (hN : nsaa sig = 4 * m)
     (hpre : ∀ vs m₁ m₂, vs.length = (sig.words abi.ptrBits).length →
       (∀ b ∈ Sig.bufs sig.params vs, ∀ a, b.1.Contains a 1 → m₁ a = m₂ a) →
       Curry.apply (sig.words abi.ptrBits) pre vs m₁ → Curry.apply (sig.words abi.ptrBits) pre vs m₂)
-    {s : State} (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) :
+    {s : State} (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) (hl : Sig.noLists sig.params = true) :
     (Sig.scratchContract abi sig nm e n pre post wa stack).pre (narrow sig e n bytes m s) := by
-  obtain ⟨hsp₂, -, hst', -⟩ := narrow_facts (nm := nm) hcl hN hloc hb hs
-  have hag := narrow_agree hcl hN hloc hb hs
+  obtain ⟨hsp₂, -, hst', -⟩ := narrow_facts (nm := nm) hcl hN hloc hb hs hl
+  have hag := narrow_agree hcl hN hloc hb hs hl
   obtain ⟨hb1, -⟩ := hb
-  rw [pre_arm] at hs
+  rw [pre_arm hl] at hs
   obtain ⟨⟨hst, hfit⟩, hrd, hwr, hpw, hres, hnw, hpr⟩ := hs
   have hsb : stack + bytes ≤ s.sp.toNat := by omega
   have hlt := s.sp.isLt
@@ -646,7 +651,8 @@ theorem narrow_pre (hcl : ScratchOnStack sig) (hN : nsaa sig = 4 * m)
       List.singleton_append]
   refine (pre_arm (sig := sig.withScratch nm e n)
     (pre := Curry.withScratch abi.ptrBits nm e n sig.params pre)
-    (post := Curry.withScratch abi.ptrBits nm e n sig.params post)).mpr ?_
+    (post := Curry.withScratch abi.ptrBits nm e n sig.params post)
+    (Sig.noLists_withScratch nm e n hl)).mpr ?_
   rw [hall, hsp₂, nsaa_withScratch hcl, hst', hN]
   refine ⟨⟨.inr ?_, ?_⟩, rfl, rfl, ?_, ?_, ?_, ?_⟩
   · rw [sub_toNat' (by omega)]; omega
@@ -700,16 +706,17 @@ theorem narrow_pub (hcl : ScratchOnStack sig) (hN : nsaa sig = 4 * m)
     (hloc : (locs sig).all (Loc.ok (4 * m)) = true) (hb : Fits m bytes e n) {s₁ s₂ : State}
     (h₁ : (sig.contract abi pre post wa (stack + bytes)).pre s₁)
     (h₂ : (sig.contract abi pre post wa (stack + bytes)).pre s₂)
-    (hp : (sig.contract abi pre post wa (stack + bytes)).pub s₁ s₂) :
+    (hp : (sig.contract abi pre post wa (stack + bytes)).pub s₁ s₂) (hl : Sig.noLists sig.params = true) :
     (Sig.scratchContract abi sig nm e n pre post wa stack).pub (narrow sig e n bytes m s₁)
       (narrow sig e n bytes m s₂) := by
-  rw [pub_arm] at hp
+  rw [pub_arm hl] at hp
   obtain ⟨hsp, hpa⟩ := hp
-  obtain ⟨e₁, -, a₁, -⟩ := narrow_facts (nm := nm) hcl hN hloc hb h₁
-  obtain ⟨e₂, -, a₂, -⟩ := narrow_facts (nm := nm) hcl hN hloc hb h₂
+  obtain ⟨e₁, -, a₁, -⟩ := narrow_facts (nm := nm) hcl hN hloc hb h₁ hl
+  obtain ⟨e₂, -, a₂, -⟩ := narrow_facts (nm := nm) hcl hN hloc hb h₂ hl
   refine (pub_arm (sig := sig.withScratch nm e n)
     (pre := Curry.withScratch abi.ptrBits nm e n sig.params pre)
-    (post := Curry.withScratch abi.ptrBits nm e n sig.params post)).mpr ?_
+    (post := Curry.withScratch abi.ptrBits nm e n sig.params post)
+    (Sig.noLists_withScratch nm e n hl)).mpr ?_
   rw [e₁, e₂, a₁, a₂, hsp]
   refine ⟨rfl, fun i hi => ?_⟩
   have l₁ := armArgs_length sig s₁
@@ -747,15 +754,15 @@ requires, and whose memory and registers are those of the code's run. -/
 theorem withStackScratch_run {c : Prog isa} (hcl : ScratchOnStack sig) (hN : nsaa sig = 4 * m)
     (hloc : (locs sig).all (Loc.ok (4 * m)) = true) (hb : Fits m bytes e n) {s : State}
     (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) {t : List Leak} {s₃ : State}
-    (he : Exec isa c (narrow sig e n bytes m s) t s₃) (ha : abiPreserved (narrow sig e n bytes m s) s₃) :
+    (he : Exec isa c (narrow sig e n bytes m s) t s₃) (ha : abiPreserved (narrow sig e n bytes m s) s₃) (hl : Sig.noLists sig.params = true) :
     Exec isa (withStackScratch bytes m c) s
         (setArgsTrace bytes (s.sp - BitVec.ofNat 32 bytes) m ++ t) (popState bytes s s₃) ∧
       abiPreserved s (popState bytes s s₃) ∧ (popState bytes s s₃).mem = s₃.mem ∧
       (popState bytes s s₃).gpr = s₃.gpr := by
-  obtain ⟨hrun, hrd', hwr', -, -, -, -, -⟩ := argsState_run hs hN hb
-  obtain ⟨hsp₂, hg, -, -⟩ := narrow_facts (nm := "") hcl hN hloc hb hs
+  obtain ⟨hrun, hrd', hwr', -, -, -, -, -⟩ := argsState_run hs hN hb hl
+  obtain ⟨hsp₂, hg, -, -⟩ := narrow_facts (nm := "") hcl hN hloc hb hs hl
   obtain ⟨hb1, hb2, hb3, hb4, -⟩ := hb
-  rw [pre_arm] at hs
+  rw [pre_arm hl] at hs
   obtain ⟨⟨hst, -⟩, hrd, hwr, -, -, -, -⟩ := hs
   have hsb : stack + bytes ≤ s.sp.toNat := by omega
   have hsp : State.addr (s.sp - BitVec.ofNat 32 bytes) = State.addr s.sp - BitVec.ofNat 64 bytes :=
@@ -843,7 +850,8 @@ theorem Verified.stackScratch {c : Prog isa}
       (∀ b ∈ Sig.bufs sig.params vs, ∀ a, b.1.Contains a 1 → m₁ a = m₂ a) →
       Curry.apply (sig.words abi.ptrBits) post vs m₁ m' r →
         Curry.apply (sig.words abi.ptrBits) post vs m₂ m' r)
-    (hsat : ∃ s, (sig.contract abi pre post wa (stack + bytes)).pre s) :
+    (hsat : ∃ s, (sig.contract abi pre post wa (stack + bytes)).pre s)
+    (hl : Sig.noLists sig.params = true := by decide) :
     Verified target (withStackScratch bytes m c) (sig.contract abi pre post wa (stack + bytes)) := by
   obtain ⟨hcor, hct, -⟩ := h
   -- Every run is `setArgs`, then the code's run from `narrow`.
@@ -855,8 +863,8 @@ theorem Verified.stackScratch {c : Prog isa}
       abiPreserved s (popState bytes s s₃) ∧ (popState bytes s s₃).mem = s₃.mem ∧
       (popState bytes s s₃).gpr = s₃.gpr := by
     intro s hs
-    obtain ⟨t, s₃, he, ha, hq⟩ := hcor _ (narrow_pre hcl hN hloc hb hpre hs)
-    exact ⟨t, s₃, he, hq, withStackScratch_run hcl hN hloc hb hs he ha⟩
+    obtain ⟨t, s₃, he, ha, hq⟩ := hcor _ (narrow_pre hcl hN hloc hb hpre hs hl)
+    exact ⟨t, s₃, he, hq, withStackScratch_run hcl hN hloc hb hs he ha hl⟩
   refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hp e₁ e₂ => ?_, hsat⟩
   · obtain ⟨t, s₃, -, hq, hex, ha, hm, hg⟩ := hrun s hs
     refine ⟨_, _, hex, ha, ?_⟩
@@ -864,17 +872,17 @@ theorem Verified.stackScratch {c : Prog isa}
     have hq' := (post_arm (sig := sig.withScratch nm e n)
       (pre := Curry.withScratch abi.ptrBits nm e n sig.params pre)
       (post := Curry.withScratch abi.ptrBits nm e n sig.params post)).mp hq
-    obtain ⟨-, -, hargs, -⟩ := narrow_facts (nm := nm) hcl hN hloc hb hs
+    obtain ⟨-, -, hargs, -⟩ := narrow_facts (nm := nm) hcl hN hloc hb hs hl
     rw [hargs] at hq'
     rw [hm, hg]
     have hq'' := Eq.mp (congrFun (congrFun (congrFun (Curry.apply_withScratch abi.ptrBits nm e n sig.params
       post _ _ (armArgs_length sig s)) _) s₃.mem) _) hq'
-    exact hpost _ _ _ _ _ (armArgs_length sig s) (narrow_agree hcl hN hloc hb hs) hq''
+    exact hpost _ _ _ _ _ (armArgs_length sig s) (narrow_agree hcl hN hloc hb hs hl) hq''
   · obtain ⟨u₁, r₁, f₁, -, x₁, -⟩ := hrun s₁ h₁
     obtain ⟨u₂, r₂, f₂, -, x₂, -⟩ := hrun s₂ h₂
-    rw [(Exec.det e₁ x₁).1, (Exec.det e₂ x₂).1, (pub_arm.mp hp).1,
-      hct _ _ _ _ _ _ (narrow_pre hcl hN hloc hb hpre h₁) (narrow_pre hcl hN hloc hb hpre h₂)
-        (narrow_pub hcl hN hloc hb h₁ h₂ hp) f₁ f₂]
+    rw [(Exec.det e₁ x₁).1, (Exec.det e₂ x₂).1, ((pub_arm hl).mp hp).1,
+      hct _ _ _ _ _ _ (narrow_pre hcl hN hloc hb hpre h₁ hl) (narrow_pre hcl hN hloc hb hpre h₂ hl)
+        (narrow_pub hcl hN hloc hb h₁ h₂ hp hl) f₁ f₂]
 
 end
 

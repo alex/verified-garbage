@@ -52,7 +52,7 @@ theorem regArgs_length (sig : Sig) (s : State) (hk : (sig.words abi.ptrBits).len
 /-- The precondition of a contract whose arguments are all in registers. -/
 theorem pre_regs {sig : Sig} {pre : Curry (sig.words abi.ptrBits) (Mem → Prop)} {post : sig.Post abi.ptrBits}
     {wa : Bool} {stack : Nat} {leak : Option (Curry (sig.words abi.ptrBits) (Mem → List Nat))} {s : State}
-    (hk : (sig.words abi.ptrBits).length ≤ 6) :
+    (hk : (sig.words abi.ptrBits).length ≤ 6) (hl : Sig.noLists sig.params = true) :
     (sig.contract abi pre post wa stack leak).pre s ↔
       (stack = 0 ∨ stack ≤ (s.gpr .rsp).toNat) ∧
       s.rd = ((Sig.bufs sig.params (regArgs sig s)).filter (!·.2)).map (·.1) ∧
@@ -69,7 +69,8 @@ theorem pre_regs {sig : Sig} {pre : Curry (sig.words abi.ptrBits) (Mem → Prop)
   have hwf : (match stack with | 0 => True | n => n ≤ (s.gpr .rsp).toNat) ↔
       (stack = 0 ∨ stack ≤ (s.gpr .rsp).toNat) := by
     cases stack <;> simp
-  simp only [Sig.contract, abi, List.length_map, hk', h0, ite_true, List.map_nil, List.append_nil]
+  have hL := fun vs => Sig.lists_of_noLists 64 s.mem sig.params vs hl
+  simp only [Sig.contract, abi, List.length_map, hk', h0, ite_true, List.map_nil, List.append_nil, hL]
   exact and_congr hwf Iff.rfl
 
 /-- The postcondition of a contract whose arguments are all in registers. -/
@@ -87,7 +88,8 @@ theorem post_regs {sig : Sig} {pre : Curry (sig.words abi.ptrBits) (Mem → Prop
 /-- The public data of a contract whose arguments are all in registers, and
 which leaks nothing. -/
 theorem pub_regs {sig : Sig} {pre : Curry (sig.words abi.ptrBits) (Mem → Prop)} {post : sig.Post abi.ptrBits}
-    {wa : Bool} {stack : Nat} {s₁ s₂ : State} (hk : (sig.words abi.ptrBits).length ≤ 6) :
+    {wa : Bool} {stack : Nat} {s₁ s₂ : State} (hk : (sig.words abi.ptrBits).length ≤ 6)
+    (hl : Sig.noLists sig.params = true) :
     (sig.contract abi pre post wa stack none).pub s₁ s₂ ↔
       s₁.gpr .rsp = s₂.gpr .rsp ∧
       ∀ i, (sig.params.flatMap (·.2.pubs)).getD i false = true →
@@ -96,7 +98,9 @@ theorem pub_regs {sig : Sig} {pre : Curry (sig.words abi.ptrBits) (Mem → Prop)
   have hk' : (sig.words 64).length ≤ argRegs.length := by
     have : (sig.words 64).length ≤ 6 := hk
     simpa [argRegs] using this
-  simp only [Sig.contract, abi, List.length_map, hk', ite_true]
+  have hD := fun vs => Sig.descs_of_noLists 64 sig.params vs hl
+  simp only [Sig.contract, abi, List.length_map, hk', ite_true, hD, List.not_mem_nil, false_implies,
+    implies_true, and_true]
   exact Iff.rfl
 
 /-- The value of argument word `i` of `sig` in `satRegs`: `2⁴⁰ (i + 1)` for a
@@ -224,10 +228,10 @@ in `narrow`. -/
 theorem narrow_pre (hk : (sig.words abi.ptrBits).length < 6)
     (hb : 0 < bytes ∧ bytes < 4096 ∧ bytes % 8 = 0 ∧ 8 + n * e.size ≤ bytes)
     (hst : stack + bytes + 8 ≤ 2 ^ 64) {s : State}
-    (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) :
+    (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) (hl : Sig.noLists sig.params = true) :
     (Sig.scratchContract abi sig nm e n pre post wa stack).pre (narrow sig e n bytes s) := by
   obtain ⟨hb0, -, -, hb3⟩ := hb
-  rw [pre_regs (by omega)] at hs
+  rw [pre_regs (by omega) hl] at hs
   obtain ⟨hwf, hrd, hwr, hpw, hres, hnw, hpr⟩ := hs
   have hsb : stack + bytes ≤ (s.gpr .rsp).toNat := by rcases hwf with h | h <;> omega
   have hlen := regArgs_length sig s (by omega)
@@ -252,7 +256,8 @@ theorem narrow_pre (hk : (sig.words abi.ptrBits).length < 6)
     fun a ha => (Region.Disjoint.symm (hres _ hbelow a ha)).sub_right hscrSub
   refine (pre_regs (sig := sig.withScratch nm e n) (pre := Curry.withScratch abi.ptrBits nm e n sig.params pre)
     (post := Curry.withScratch abi.ptrBits nm e n sig.params post)
-    (by rw [Sig.words_withScratch, List.length_append, List.length_singleton]; omega)).mpr ?_
+    (by rw [Sig.words_withScratch, List.length_append, List.length_singleton]; omega)
+    (Sig.noLists_withScratch nm e n hl)).mpr ?_
   rw [narrow_regArgs hk, hbufs, narrow_rsp hk]
   refine ⟨.inr ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [toNat_sub_ofNat (by omega)]; omega
@@ -287,14 +292,15 @@ theorem narrow_pre (hk : (sig.words abi.ptrBits).length < 6)
 /-- The public data of the contract without the buffer is public in
 `narrow` for the contract with it. -/
 theorem narrow_pub (hk : (sig.words abi.ptrBits).length < 6) {s₁ s₂ : State}
-    (hp : (sig.contract abi pre post wa (stack + bytes)).pub s₁ s₂) :
+    (hp : (sig.contract abi pre post wa (stack + bytes)).pub s₁ s₂) (hl : Sig.noLists sig.params = true) :
     (Sig.scratchContract abi sig nm e n pre post wa stack).pub (narrow sig e n bytes s₁)
       (narrow sig e n bytes s₂) := by
-  rw [pub_regs (by omega)] at hp
+  rw [pub_regs (by omega) hl] at hp
   obtain ⟨hsp, hpa⟩ := hp
   refine (pub_regs (sig := sig.withScratch nm e n) (pre := Curry.withScratch abi.ptrBits nm e n sig.params pre)
     (post := Curry.withScratch abi.ptrBits nm e n sig.params post)
-    (by rw [Sig.words_withScratch, List.length_append, List.length_singleton]; omega)).mpr ?_
+    (by rw [Sig.words_withScratch, List.length_append, List.length_singleton]; omega)
+    (Sig.noLists_withScratch nm e n hl)).mpr ?_
   rw [narrow_regArgs hk, narrow_regArgs hk, narrow_rsp hk, narrow_rsp hk, hsp]
   refine ⟨rfl, fun i hi => ?_⟩
   have l₁ := regArgs_length sig s₁ (by omega)
@@ -333,14 +339,15 @@ theorem withStackScratch_run {c : Prog isa} (hk : (sig.words abi.ptrBits).length
     (hb : 0 < bytes ∧ bytes < 4096 ∧ bytes % 8 = 0 ∧ 8 + n * e.size ≤ bytes)
     (hst : stack + bytes + 8 ≤ 2 ^ 64) (hsafe : SpSafe c) (hd : c.x86_64Depth ≤ stack) {s : State}
     (hs : (sig.contract abi pre post wa (stack + bytes)).pre s) {t : List Leak} {s₃ : State}
-    (he : Exec isa c (narrow sig e n bytes s) t s₃) (ha : abiPreserved (narrow sig e n bytes s) s₃) :
+    (he : Exec isa c (narrow sig e n bytes s) t s₃) (ha : abiPreserved (narrow sig e n bytes s) s₃)
+    (hl : Sig.noLists sig.params = true) :
     Exec isa (withStackScratch bytes (argRegs.getD (sig.words abi.ptrBits).length .rax) c) s t
         (popState bytes s s₃) ∧
       abiPreserved s (popState bytes s s₃) ∧ (popState bytes s s₃).mem = s₃.mem ∧
       (popState bytes s s₃).gpr .rax = s₃.gpr .rax := by
   obtain ⟨hb0, hb1, hb2, hb3⟩ := hb
   obtain ⟨hr1, hr2, -⟩ := argRegs_scratch _ hk
-  rw [pre_regs (by omega)] at hs
+  rw [pre_regs (by omega) hl] at hs
   obtain ⟨hwf, -, hwr, -, hres, -, -⟩ := hs
   have hsb : stack + bytes ≤ (s.gpr .rsp).toNat := by rcases hwf with h | h <;> omega
   -- The frame's push, then `setScratch`.
@@ -411,7 +418,8 @@ theorem Verified.stackScratch {c : Prog isa}
     (hb : 0 < bytes ∧ bytes < 4096 ∧ bytes % 8 = 0 ∧ 8 + n * e.size ≤ bytes)
     (hst : stack + bytes + 8 ≤ 2 ^ 64)
     (hsp : c.all (fun i => !isa.writesSp i) = true) (hd : c.x86_64Depth ≤ stack)
-    (hsat : ∃ s, (sig.contract abi pre post wa (stack + bytes)).pre s) :
+    (hsat : ∃ s, (sig.contract abi pre post wa (stack + bytes)).pre s)
+    (hl : Sig.noLists sig.params = true := by decide) :
     Verified target (withStackScratch bytes (argRegs.getD (sig.words abi.ptrBits).length .rax) c)
       (sig.contract abi pre post wa (stack + bytes)) := by
   obtain ⟨hcor, hct, -⟩ := h
@@ -426,8 +434,8 @@ theorem Verified.stackScratch {c : Prog isa}
       abiPreserved s (popState bytes s s₃) ∧ (popState bytes s s₃).mem = s₃.mem ∧
       (popState bytes s s₃).gpr .rax = s₃.gpr .rax := by
     intro s hs
-    obtain ⟨t, s₃, he, ha, hq⟩ := hcor _ (narrow_pre hk hb hst hs)
-    exact ⟨t, s₃, he, hq, withStackScratch_run hk hb hst hsafe hd hs he ha⟩
+    obtain ⟨t, s₃, he, ha, hq⟩ := hcor _ (narrow_pre hk hb hst hs hl)
+    exact ⟨t, s₃, he, hq, withStackScratch_run hk hb hst hsafe hd hs he ha hl⟩
   refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hp e₁ e₂ => ?_, hsat⟩
   · obtain ⟨t, s₃, -, hq, hex, ha, hm, hrax⟩ := hrun s hs
     refine ⟨t, _, hex, ha, ?_⟩
@@ -443,8 +451,8 @@ theorem Verified.stackScratch {c : Prog isa}
   · obtain ⟨u₁, r₁, f₁, -, x₁, -⟩ := hrun s₁ h₁
     obtain ⟨u₂, r₂, f₂, -, x₂, -⟩ := hrun s₂ h₂
     rw [(Exec.det e₁ x₁).1, (Exec.det e₂ x₂).1]
-    exact hct _ _ _ _ _ _ (narrow_pre hk hb hst h₁) (narrow_pre hk hb hst h₂)
-      (narrow_pub hk hp) f₁ f₂
+    exact hct _ _ _ _ _ _ (narrow_pre hk hb hst h₁ hl) (narrow_pre hk hb hst h₂ hl)
+      (narrow_pub hk hp hl) f₁ f₂
 
 end
 

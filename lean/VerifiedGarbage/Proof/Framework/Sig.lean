@@ -159,7 +159,8 @@ def Sig.preE {M : ISA} (A : Abi M) (sig : Sig) (pre : Curry (sig.words A.ptrBits
   match A.args widths with
   | none => False
   | some vals =>
-    let bufs := Sig.bufs sig.params (vals s)
+    let bufs := Sig.bufs sig.params (vals s) ++
+      (Sig.lists A.ptrBits (A.mem s) sig.params (vals s)).map fun r => (r, false)
     let all := bufs ++ (A.argArea widths s).map fun (r, w) => (r, w && writeArgs)
     A.wf widths stack s ∧
     A.rd s = (all.filter (!·.2)).map (·.1) ∧ A.wr s = (all.filter (·.2)).map (·.1) ∧
@@ -193,7 +194,9 @@ def Sig.pubE {M : ISA} (A : Abi M) (sig : Sig)
       | some f => A.pub s₁ s₂ ∧
         Curry.apply ws f (vals s₁) (A.mem s₁) = Curry.apply ws f (vals s₂) (A.mem s₂)) ∧
     Sig.conj (Sig.pubFacts (fun i => ((vals s₁).getD i 0).setWidth (widths.getD i 64) =
-      ((vals s₂).getD i 0).setWidth (widths.getD i 64)) pubs 0)
+      ((vals s₂).getD i 0).setWidth (widths.getD i 64)) pubs 0) ∧
+    Sig.conj ((Sig.descs A.ptrBits sig.params (vals s₁)).map fun r => ∀ i < r.len,
+      A.mem s₁ (r.base + BitVec.ofNat 64 i) = A.mem s₂ (r.base + BitVec.ofNat 64 i))
 
 theorem Sig.contract_pub_iff {M : ISA} {A : Abi M} {sig : Sig}
     {pre : Curry (sig.words A.ptrBits) (Mem → Prop)} {post : sig.Post A.ptrBits} {writeArgs : Bool}
@@ -203,7 +206,7 @@ theorem Sig.contract_pub_iff {M : ISA} {A : Abi M} {sig : Sig}
   generalize A.args ((sig.words A.ptrBits).map (·.bits A.ptrBits)) = o
   cases o with
   | none => exact Iff.rfl
-  | some vals => simp only [Sig.forall_pubs_iff]; exact Iff.rfl
+  | some vals => simp only [Sig.forall_pubs_iff, Sig.conj_map]; exact Iff.rfl
 
 /-! ## Evaluation
 
@@ -251,7 +254,7 @@ macro_rules
            try simp only [Sig.pairwise_iff, Sig.forall_mem_disjoint_iff, Sig.forall_mem_bound_iff,
              Sig.forall_pubs_iff] $[$loc]?
            try sig_reduce [] $[$loc]?)
-      sig_simp [$ls,*] [Sig.bufs, Curry.apply, Curry.const, Curry.apply_const, ArgWord.ofRaw, Elem.size, List.filter, List.map, List.cons_append, List.nil_append, List.all_cons, List.all_nil, Bool.not_true, Bool.not_false, Bool.and_true, Bool.and_false, Bool.true_and, Bool.false_and, Bool.and_self, Bool.or_true, Bool.true_or, Bool.or_false, Bool.false_or, Bool.false_eq_true, decide_true, decide_false, Nat.mul_one, Nat.one_mul, List.pairwise_cons, List.forall_mem_cons, List.not_mem_nil, List.Pairwise.nil, List.mem_cons, List.mem_nil_iff, forall_eq_or_imp, forall_eq, forall_false, implies_true, true_implies, false_implies, and_true, true_and, and_self, or_self, or_true, true_or, false_or, or_false, and_assoc, Nat.add_zero, List.zip_cons_cons, List.zip_nil_left, List.zip_nil_right, List.sum_cons, List.sum_nil, BitVec.setWidth_eq, BitVec.setWidth_32_64_32, BitVec.toNat_setWidth_32_64, BitVec.setWidth_setWidth_of_le, Sig.forall_pubs_cons, Sig.forall_pubs_nil, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMul, Nat.reduceDiv,
+      sig_simp [$ls,*] [Sig.bufs, Sig.lists, Sig.descs, List.append_nil, List.map_nil, Sig.conj, Curry.apply, Curry.const, Curry.apply_const, ArgWord.ofRaw, Elem.size, List.filter, List.map, List.cons_append, List.nil_append, List.all_cons, List.all_nil, Bool.not_true, Bool.not_false, Bool.and_true, Bool.and_false, Bool.true_and, Bool.false_and, Bool.and_self, Bool.or_true, Bool.true_or, Bool.or_false, Bool.false_or, Bool.false_eq_true, decide_true, decide_false, Nat.mul_one, Nat.one_mul, List.pairwise_cons, List.forall_mem_cons, List.not_mem_nil, List.Pairwise.nil, List.mem_cons, List.mem_nil_iff, forall_eq_or_imp, forall_eq, forall_false, implies_true, true_implies, false_implies, and_true, true_and, and_self, or_self, or_true, true_or, false_or, or_false, and_assoc, Nat.add_zero, List.zip_cons_cons, List.zip_nil_left, List.zip_nil_right, List.sum_cons, List.sum_nil, BitVec.setWidth_eq, BitVec.setWidth_32_64_32, BitVec.toNat_setWidth_32_64, BitVec.setWidth_setWidth_of_le, Sig.forall_pubs_cons, Sig.forall_pubs_nil, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMul, Nat.reduceDiv,
         Nat.reduceLeDiff, Nat.reduceEqDiff, ↓reduceIte] $[$loc]?))
 
 /-- Evaluates the precondition of a contract built with `Sig.contract` into

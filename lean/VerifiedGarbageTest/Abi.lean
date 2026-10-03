@@ -17,15 +17,17 @@ namespace VG.Test.Abi
 def sample : Sig where
   params := [("a", .int .u64 false), ("b", .int .u32 true), ("c", .int .usize true),
     ("s", .array true .u32 8), ("t", .array false .u8 3),
-    ("blocks", .slice false (.array .u8 64) "n"), ("k", .slice true .u64 "k_len")]
+    ("blocks", .slice false (.array .u8 64) "n"), ("k", .slice true .u64 "k_len"),
+    ("parts", .slices .u8 "count")]
   ret := some .u64
 
 #guard sample.rust == "(a: u64, b: u32, c: usize, s: *mut [u32; 8], t: *const [u8; 3], \
-  blocks: *const [u8; 64], n: usize, k: *mut u64, k_len: usize) -> u64"
+  blocks: *const [u8; 64], n: usize, k: *mut u64, k_len: usize, parts: *const [usize; 2], \
+  count: usize) -> u64"
 #guard ({ params := [] } : Sig).rust == "()"
 
-#guard (sample.words 64).map (·.bits 64) == [64, 32, 64, 64, 64, 64, 64, 64, 64]
-#guard (sample.words 32).map (·.bits 32) == [64, 32, 32, 32, 32, 32, 32, 32, 32]
+#guard (sample.words 64).map (·.bits 64) == [64, 32, 64, 64, 64, 64, 64, 64, 64, 64, 64]
+#guard (sample.words 32).map (·.bits 32) == [64, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32]
 
 /-! ## x86-64 and AArch64: one register per argument -/
 
@@ -117,11 +119,11 @@ def x86_64Rdi (v : BitVec 64) : X86_64.State :=
 
 example : (pubU32.contract X86_64.abi (post := fun _ _ _ _ => True)).pub
     (x86_64Rdi 0x00000000_00000001) (x86_64Rdi 0xffffffff_00000001) :=
-  ⟨rfl, fun | 0, _ => rfl | _ + 1, _ => rfl⟩
+  ⟨rfl, fun | 0, _ => rfl | _ + 1, _ => rfl, fun _ h => absurd h List.not_mem_nil⟩
 
 example : ¬(pubU32.contract X86_64.abi (post := fun _ _ _ _ => True)).pub
     (x86_64Rdi 0x00000000_00000001) (x86_64Rdi 0x00000000_00000002) :=
-  fun ⟨_, h⟩ => absurd (h 0 rfl) (by decide)
+  fun ⟨_, h, _⟩ => absurd (h 0 rfl) (by decide)
 
 /-- `aarch64State` with `v` in `x0`, the register of `n`. -/
 def aarch64X0 (v : BitVec 64) : AArch64.State :=
@@ -129,11 +131,11 @@ def aarch64X0 (v : BitVec 64) : AArch64.State :=
 
 example : (pubU32.contract AArch64.abi (post := fun _ _ _ _ => True)).pub
     (aarch64X0 0x00000000_00000001) (aarch64X0 0xffffffff_00000001) :=
-  ⟨rfl, fun | 0, _ => rfl | _ + 1, _ => rfl⟩
+  ⟨rfl, fun | 0, _ => rfl | _ + 1, _ => rfl, fun _ h => absurd h List.not_mem_nil⟩
 
 example : ¬(pubU32.contract AArch64.abi (post := fun _ _ _ _ => True)).pub
     (aarch64X0 0x00000000_00000001) (aarch64X0 0x00000000_00000002) :=
-  fun ⟨_, h⟩ => absurd (h 0 rfl) (by decide)
+  fun ⟨_, h, _⟩ => absurd (h 0 rfl) (by decide)
 
 /-! ## 32-bit ARM (AAPCS) -/
 
@@ -207,5 +209,66 @@ def x86State : X86.State where
 -- A function whose calls use 12 bytes of stack: the 12 bytes below `esp` too.
 #guard X86.abi.reserved 12 x86State == [⟨0x100, 4⟩, ⟨0xf4, 12⟩]
 #guard X86.abi.ret x86State == 0x0000000200000001
+
+/-! ## Lists of slices
+
+The memory of a list of slices is its descriptors (two pointer-sized words
+each, little-endian) and the slices they list, read from the memory on entry;
+where the slices are is public, and their contents are not. -/
+
+/-- A writable buffer, and a list of slices. -/
+def listSig : Sig where
+  params := [("out", .array true .u8 16), ("parts", .slices .u8 "count")]
+
+/-- The little-endian bytes of `v` in `k` bytes from `base`, in memory `m`. -/
+def poke (m : Mem) (base : Nat) (k v : Nat) : Mem := fun a =>
+  if base ≤ a.toNat ∧ a.toNat < base + k then BitVec.ofNat 8 (v / 256 ^ (a.toNat - base)) else m a
+
+/-- Two 64-bit descriptors at `0x2000`: 5 bytes at `0x3000`, 3 at `0x4000`. -/
+def desc64 : Mem :=
+  poke (poke (poke (poke (fun _ => 0) 0x2000 8 0x3000) 0x2008 8 5) 0x2010 8 0x4000) 0x2018 8 3
+
+#guard Sig.lists 64 desc64 listSig.params [0x1000, 0x2000, 2] ==
+  [⟨0x2000, 32⟩, ⟨0x3000, 5⟩, ⟨0x4000, 3⟩]
+#guard Sig.descs 64 listSig.params [0x1000, 0x2000, 2] == [⟨0x2000, 32⟩]
+-- An empty list has no descriptors to read.
+#guard Sig.lists 64 desc64 listSig.params [0x1000, 0x2000, 0] == [⟨0x2000, 0⟩]
+
+/-- The same list with 32-bit descriptors. -/
+def desc32 : Mem :=
+  poke (poke (poke (poke (fun _ => 0) 0x2000 4 0x3000) 0x2004 4 5) 0x2008 4 0x4000) 0x200c 4 3
+
+#guard Sig.lists 32 desc32 listSig.params [0x1000, 0x2000, 2] ==
+  [⟨0x2000, 16⟩, ⟨0x3000, 5⟩, ⟨0x4000, 3⟩]
+
+/-- `out` at `0x1000`, the descriptors `desc64` at `0x2000` and the memory
+the precondition permits. -/
+def listState (m : Mem) : X86_64.State :=
+  { x86_64State with
+    gpr := fun r => match r with
+      | .rdi => 0x1000 | .rsi => 0x2000 | .rdx => 2 | .rsp => 0x8000 | _ => 0
+    mem := m
+    rd := [⟨0x2000, 32⟩, ⟨0x3000, 5⟩, ⟨0x4000, 3⟩]
+    wr := [⟨0x1000, 16⟩] }
+
+-- The precondition's memory: the descriptors and the slices they list are
+-- read-only.
+#guard (X86_64.abi.args [64, 64, 64]).map (fun f =>
+    Sig.lists 64 (listState desc64).mem listSig.params (f (listState desc64))) ==
+  some [⟨0x2000, 32⟩, ⟨0x3000, 5⟩, ⟨0x4000, 3⟩]
+
+-- Two runs that differ only in a listed slice's contents agree on the public
+-- data; two that differ in a descriptor (a slice's length) do not.
+example : (listSig.contract X86_64.abi (post := fun _ _ _ _ _ _ => True)).pub
+    (listState desc64) (listState (poke desc64 0x3000 5 0x1122334455)) := by
+  refine ⟨rfl, fun | 0, _ => rfl | 1, _ => rfl | 2, _ => rfl | _ + 3, _ => rfl, fun r hr => ?_⟩
+  have hr : r ∈ [(⟨0x2000, 32⟩ : Region)] := hr
+  rw [List.mem_singleton] at hr
+  subst hr
+  decide
+
+example : ¬(listSig.contract X86_64.abi (post := fun _ _ _ _ _ _ => True)).pub
+    (listState desc64) (listState (poke desc64 0x2008 8 6)) :=
+  fun ⟨_, _, h⟩ => absurd (h ⟨0x2000, 32⟩ (by decide) 8 (by decide)) (by decide)
 
 end VG.Test.Abi

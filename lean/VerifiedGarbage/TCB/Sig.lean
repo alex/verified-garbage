@@ -5,8 +5,9 @@ import VerifiedGarbage.TCB.Code
 
 **Trusted.** A `Sig` describes the signature of a generated function in Rust
 terms: integers passed by value, and pointers standing for references to
-arrays (`&[T; N]`, `&mut [T; N]`) and slices (`&[T]`, `&mut [T]`, passed as
-a pointer and a length). An `Abi` describes a target's calling convention:
+arrays (`&[T; N]`, `&mut [T; N]`), slices (`&[T]`, `&mut [T]`, passed as
+a pointer and a length) and lists of slices (`&[&[T]]`, passed as a pointer
+to their addresses and lengths, and their number). An `Abi` describes a target's calling convention:
 where each argument is (registers, register pairs, stack slots) and what the
 caller's frame looks like to the callee.
 
@@ -15,7 +16,8 @@ contract that the Rust types determine, so that contracts do not spell it out
 by hand for each target:
 
 * where each argument is;
-* the memory the function may read (every buffer, and arguments passed in
+* the memory the function may read (every buffer, the slices each list of
+  slices lists, as its descriptors say on entry, and arguments passed in
   memory) and write (every `mut` buffer, and, if the contract asks for it,
   arguments passed in memory that the convention gives to the callee);
 * that a `mut` buffer overlaps no other buffer and no argument passed in
@@ -27,7 +29,8 @@ by hand for each target:
 * that no buffer overlaps the stack below the stack pointer that the
   function's calls and frames use (for return addresses, arguments and saved
   registers; no Rust object lies below the stack pointer);
-* that the pointers, the slice lengths and the stack pointer are public (an
+* that the pointers, the slice lengths, what the descriptors of a list of
+  slices say (where its slices are) and the stack pointer are public (an
   argument only in the bits of its width: see `Sig.contract`).
 
 The generated Rust functions take raw pointers (`Sig.rust`), so these are
@@ -78,6 +81,13 @@ inductive Param
   `&mut [T]` if `writable`, followed by a `usize` parameter named `len`: the
   length of the slice, in elements. -/
   | slice (writable : Bool) (elem : Elem) (len : String)
+  /-- A `*const [usize; 2]` standing for a `&[&[T]]`, followed by a `usize`
+  parameter named `count`: `count` descriptors, each the address of a slice
+  of `T` and its length in elements, as two pointer-sized words (in that
+  order). The descriptors and the slices they list are read-only; where the
+  slices are (their addresses and lengths) is public, as a slice's address
+  and length are, and their contents are not. -/
+  | slices (elem : Elem) (count : String)
   deriving DecidableEq, Repr
 
 structure Sig where
@@ -104,6 +114,7 @@ def Param.words (ptrBits : Nat) : Param → List ArgWord
   | .int ty _ => [.int (ty.bits ptrBits)]
   | .array .. => [.addr]
   | .slice .. => [.addr, .int ptrBits]
+  | .slices .. => [.addr, .int ptrBits]
 
 def Sig.words (sig : Sig) (ptrBits : Nat) : List ArgWord :=
   sig.params.flatMap fun p => p.2.words ptrBits
@@ -176,6 +187,42 @@ def Sig.bufs : List (String × Param) → List (BitVec 64) → List (Region × B
   | (_, .int ..) :: ps, _ :: vs => Sig.bufs ps vs
   | (_, .array m e n) :: ps, p :: vs => (⟨p, n * e.size⟩, m) :: Sig.bufs ps vs
   | (_, .slice m e _) :: ps, p :: l :: vs => (⟨p, l.toNat * e.size⟩, m) :: Sig.bufs ps vs
+  | (_, .slices ..) :: ps, _ :: _ :: vs => Sig.bufs ps vs
+  | _, _ => []
+
+/-- The `n` descriptors of a list of slices at `p` (`Param.slices`), on a
+target with `ptrBits`-bit pointers: each `2 * (ptrBits / 8)` bytes. -/
+def Sig.descRegion (ptrBits : Nat) (p : Addr) (n : Nat) : Region := ⟨p, n * (2 * (ptrBits / 8))⟩
+
+/-- The slices of elements of type `e` that the `n` descriptors at `p` list
+in the memory `m`: for each, the address in its first word (zero-extended,
+as `Abi.args` gives a pointer narrower than 64 bits) and the length in its
+second, in elements. -/
+def Sig.listed (ptrBits : Nat) (m : Mem) (e : Elem) (p : Addr) (n : Nat) : List Region :=
+  (List.range n).map fun i =>
+    let d := p + BitVec.ofNat 64 (i * (2 * (ptrBits / 8)))
+    ⟨(m.readW d ptrBits).setWidth 64, (m.readW (d + BitVec.ofNat 64 (ptrBits / 8)) ptrBits).toNat * e.size⟩
+
+/-- The read-only memory of the lists of slices among the parameters, given
+the arguments' values and the memory on entry: for each list, its
+descriptors, then the slices they list (`Sig.listed`). -/
+def Sig.lists (ptrBits : Nat) (m : Mem) : List (String × Param) → List (BitVec 64) → List Region
+  | [], _ => []
+  | (_, .int ..) :: ps, _ :: vs => Sig.lists ptrBits m ps vs
+  | (_, .array ..) :: ps, _ :: vs => Sig.lists ptrBits m ps vs
+  | (_, .slice ..) :: ps, _ :: _ :: vs => Sig.lists ptrBits m ps vs
+  | (_, .slices e _) :: ps, p :: n :: vs =>
+    Sig.descRegion ptrBits p n.toNat :: Sig.listed ptrBits m e p n.toNat ++ Sig.lists ptrBits m ps vs
+  | _, _ => []
+
+/-- The descriptors of the lists of slices among the parameters, given the
+arguments' values: what they say (where the slices are) is public. -/
+def Sig.descs (ptrBits : Nat) : List (String × Param) → List (BitVec 64) → List Region
+  | [], _ => []
+  | (_, .int ..) :: ps, _ :: vs => Sig.descs ptrBits ps vs
+  | (_, .array ..) :: ps, _ :: vs => Sig.descs ptrBits ps vs
+  | (_, .slice ..) :: ps, _ :: _ :: vs => Sig.descs ptrBits ps vs
+  | (_, .slices ..) :: ps, p :: n :: vs => Sig.descRegion ptrBits p n.toNat :: Sig.descs ptrBits ps vs
   | _, _ => []
 
 /-- Whether each machine-level argument is public: pointers and lengths are. -/
@@ -183,6 +230,7 @@ def Param.pubs : Param → List Bool
   | .int _ pub => [pub]
   | .array .. => [true]
   | .slice .. => [true, true]
+  | .slices .. => [true, true]
 
 /-- The width of the return value (0 if there is none). -/
 def Sig.retBits (sig : Sig) (ptrBits : Nat) : Nat := match sig.ret with
@@ -200,6 +248,7 @@ def Param.rust (name : String) : Param → String
   | .int ty _ => s!"{name}: {ty.rust}"
   | .array w e n => s!"{name}: *{if w then "mut" else "const"} [{e.rust}; {n}]"
   | .slice w e len => s!"{name}: *{if w then "mut" else "const"} {e.rust}, {len}: usize"
+  | .slices _ count => s!"{name}: *const [usize; 2], {count}: usize"
 
 /-- The Rust parameter list and return type. -/
 def Sig.rust (sig : Sig) : String :=
