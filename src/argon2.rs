@@ -16,7 +16,7 @@
 //! data-dependent reference indices specified by `VG.Spec.Argon2.references`.
 
 #![cfg(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
+    any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"),
     feature = "alloc"
 ))]
 
@@ -301,8 +301,8 @@ impl<'a> Derivation<'a> {
         // 2048 u64s. Input slices are valid for their lengths; output and
         // both allocations are distinct mutable objects. They do not overlap
         // each other, any input, the caller's stack arguments or the
-        // assembly stack frame (344 bytes on x86-64, 400 on ARM64), and no
-        // region wraps the address space. The selected BLAKE2b backend supplies every required CPU
+        // assembly stack frame (344 bytes on x86-64, 400 on ARM64, 244 on
+        // x86), and no region wraps the address space. The selected BLAKE2b backend supplies every required CPU
         // feature.
         unsafe {
             derive(
@@ -357,10 +357,13 @@ mod tests {
     #[test]
     fn length_limits() {
         assert!(valid(1, 8, 1, [u32::MAX as usize; 5]));
-        for j in 0..5 {
-            let mut lengths = [0, 0, 0, 0, 4];
-            lengths[j] = u32::MAX as usize + 1;
-            assert!(!valid(1, 8, 1, lengths));
+        // A length above 2³² - 1 exists only where `usize` is wider.
+        if let Some(too_long) = (u32::MAX as usize).checked_add(1) {
+            for j in 0..5 {
+                let mut lengths = [0, 0, 0, 0, 4];
+                lengths[j] = too_long;
+                assert!(!valid(1, 8, 1, lengths));
+            }
         }
     }
 
