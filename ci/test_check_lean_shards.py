@@ -130,6 +130,14 @@ class Plan(Project):
         self.manifest["inputs"] = {f: shards.digest(self.lean / f) for f in shards.INPUTS}
         self.assertEqual(self.stale(), 5)
 
+    def test_shard_count(self):
+        # Every module is stale; the work is 5 times each module's time.
+        self.manifest["inputs"] = {}
+        for each, count in [(50, 0), (160, 0), (161, 2), (300, 2), (330, 3), (4000, 16)]:
+            with self.subTest(work=5 * each):
+                self.manifest["times"] = {m: each for m in self.manifest["sources"]}
+                self.assertEqual(len(shards.plan(self.manifest)["targets"]), count)
+
 
 class Prune(Project):
     """`prune` on the build of the small project, after a module is gone."""

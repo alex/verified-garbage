@@ -94,7 +94,10 @@ jobs:
       fail-fast: false
       matrix:
         shard: ${{ fromJSON(needs.lean-plan.outputs.shards) }}
-    name: Lean proofs (${{ matrix.shard }} of ${{ needs.lean-plan.outputs.count }})
+    # No expressions: GitHub does not evaluate them in the name of a skipped
+    # job, and shows them as written. It adds the shard to each running
+    # job's name itself ("Lean proof shard (3)").
+    name: Lean proof shard
     runs-on: ubuntu-latest
     defaults:
       run:
