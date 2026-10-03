@@ -53,7 +53,8 @@ def fimpl : FieldOp → Impl.X448.AArch64.Fast.Op
   | _ => .copy 0 0
 
 def MulCopy : FieldOp → Prop
-  | .mul .. | .copy .. => True
+  | .mul o a b => a = b ∨ o ≠ b
+  | .copy .. => True
   | _ => False
 
 theorem opsI (base : Addr) (xs : List FieldOp) (hx : ∀ x ∈ xs, MulCopy x) :
@@ -66,7 +67,7 @@ theorem opsI (base : Addr) (xs : List FieldOp) (hx : ∀ x ∈ xs, MulCopy x) :
     refine WP.seq ?_
     cases x with
     | mul o a b =>
-      refine WP.mono (fmulE hs hb o a b) fun t ⟨tk, tb, _, _, te⟩ =>
+      refine WP.mono (fmulE hs hb o a b (hx _ List.mem_cons_self)) fun t ⟨tk, tb, _, _, te⟩ =>
         WP.mono (ih' t (tk.scr hs) tb) fun u ⟨uk, ub, ue⟩ => ⟨tk.ikeep.trans uk, ub, ?_⟩
       rw [ue, te]; rfl
     | copy o a =>
@@ -92,7 +93,7 @@ theorem sqnI (base : Addr) (o : Index) {n : Nat} (hn : 1 ≤ n) (hn' : n < 2 ^ 1
         Impl.X448.AArch64.Fast.fmul (slot o.val) (slot o.val) (slot o.val) := by
       simp only [Impl.X448.AArch64.Fast.fmul, ite_true]
     rw [hsq]
-    refine WP.mono (fmulE (ku.scr hs) bu o o o) fun v ⟨kv, bv, _, _, ev⟩ => ?_
+    refine WP.mono (fmulE (ku.scr hs) bu o o o (Or.inl rfl)) fun v ⟨kv, bv, _, _, ev⟩ => ?_
     have cv : v.gpr .x19 = BitVec.ofNat 64 (m + 1) := (kv.regs.1 _ (by decide)).trans cu
     refine WP.mono (decCounter_ok (by omega) cv) fun w ⟨cw, wg, wm, wr, ww, wz⟩ => ?_
     have kw : IKeep base s w := ku.trans (kv.ikeep.trans (counter_keep wg wm wr ww))
