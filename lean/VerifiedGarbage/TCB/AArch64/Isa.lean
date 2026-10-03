@@ -73,6 +73,22 @@ Modelling choices:
   ZeroExtend(value, MAX_VL)`), and the modelled vector forms all write 128
   bits, so no upper bits beyond 128 (SVE's `Z` registers) are observable to
   the model; with SVE, those are also zeroed.
+* The one SVE instruction, SVE2's XAR (`xarS`), is unpredicated and acts on
+  each 32-bit element of the `CurrentVL()` bits of `Z[dn]` and `Z[m]`
+  independently, whatever the vector length (DDI 0602, "SVE Instructions",
+  "XAR"; the A64 ISA XML, `xar_z_zzi`):
+  https://developer.arm.com/documentation/ddi0602/2025-09/SVE-Instructions/XAR--Bitwise-exclusive-OR-and-rotate-right-by-immediate-
+  So the low 128 bits of its result, `V[dn]`, depend only on the low 128
+  bits of its sources, `V[dn]` and `V[m]`. The model computes those 128
+  bits and does not model the rest of `Z[dn]`. That is exact for everything
+  the model observes: no modelled instruction reads a `Z` register beyond
+  its low 128 bits, and those upper bits are caller-saved (AAPCS64 §6.1.3,
+  "Scalable vector registers": unless a subroutine takes or returns
+  scalable vectors or predicates, "only the low 64 bits of z8-z15 are
+  Callee-saved"). The generated functions have AAPCS64's non-streaming
+  PSTATE.SM interface (PSTATE.SM is 0 on entry and on return), so the
+  instruction runs in non-streaming mode. The model has no SVE predicate
+  registers, first fault register, loads or stores.
 * No modelled AdvSIMD instruction is a floating-point one, and the one
   saturating instruction, SQDMULH, faults in the model where it would
   saturate (and set FPSR.QC), so verified code never saturates: no modelled
@@ -87,8 +103,10 @@ Modelling choices:
   UMLAL, PMULL, MUL, MLA, MLS, SQDMULH, UMIN), and the cryptographic ones
   (AESE, AESD, AESMC, AESIMC, SHA1C, SHA1P, SHA1M, SHA1H, SHA1SU0, SHA1SU1,
   SHA256H, SHA256H2, SHA256SU0, SHA256SU1, SHA512H, SHA512H2, SHA512SU0,
-  SHA512SU1, EOR3, BCAX, RAX1, XAR) are all among those whose timing Arm specifies to be
-  independent of their data when PSTATE.DIT is 1 (DDI 0487, "About
+  SHA512SU1, EOR3, BCAX, RAX1, XAR), and SVE2's XAR, are all among those whose
+  timing Arm specifies to be independent of their data when PSTATE.DIT is 1
+  (DDI 0487, "About PSTATE.DIT"; the description of SVE2's XAR says "This
+  instruction is a data-independent-time instruction as described in About
   PSTATE.DIT"). As above, the code does not set PSTATE.DIT.
 -/
 
@@ -253,6 +271,9 @@ inductive VOp
   | rax1 (d n m : VReg)
   /-- `xar vd.2d, vn.2d, vm.2d, #imm` -/
   | xar (d n m : VReg) (imm : Nat)
+  /-- `xar zd.s, zd.s, zm.s, #rot` (SVE2 XAR, 32-bit elements; the low 128
+  bits of `Z[d]`, see the modelling choices above) -/
+  | xarS (d m : VReg) (rot : Nat)
   deriving DecidableEq, Repr
 
 inductive Instr
@@ -568,7 +589,13 @@ def Sha1Op.f : Sha1Op → BitVec 32 → BitVec 32 → BitVec 32 → BitVec 32
   `sha512Su0`, `sha512Su1`;
 * "EOR3": `Vn EOR Vm EOR Va`; "BCAX": `Vn EOR (Vm AND NOT(Va))`; "RAX1":
   `Elem[Vd, e, 64] = Elem[Vn, e, 64] EOR ROL(Elem[Vm, e, 64], 1)`; "XAR":
-  `Elem[Vd, e, 64] = ROR(Elem[Vn, e, 64] EOR Elem[Vm, e, 64], imm6)`.
+  `Elem[Vd, e, 64] = ROR(Elem[Vn, e, 64] EOR Elem[Vm, e, 64], imm6)`;
+* SVE2's "XAR" (DDI 0602, "SVE Instructions"; 32-bit elements, `tszh:tszl =
+  01:xx`): `rot = 2 *
+  esize - UInt(tsize:imm3)`, from 1 to `esize`; `element1 = operand1[e*:esize];
+  element2 = operand2[e*:esize]; result[e*:esize] = ROR(element1 XOR element2,
+  rot)`, with `operand1 = Z[dn]`, `operand2 = Z[m]`, `Z[dn] = result`, on the
+  four elements of the low 128 bits.
 
 Immediates that are not encodable (an out-of-range shift, lane index or
 EXT position) make the instruction fault. -/
@@ -643,6 +670,10 @@ def VOp.eval (s : State) : VOp → Option (VReg × BitVec 128)
   | .rax1 d n m => some (d, VArr.d2.map2 (fun _ x y => x ^^^ y.rotateLeft 1) (s.v n) (s.v m))
   | .xar d n m imm =>
     if imm < 64 then some (d, VArr.d2.map2 (fun _ x y => (x ^^^ y).rotateRight imm) (s.v n) (s.v m))
+    else none
+  | .xarS d m rot =>
+    if 1 ≤ rot ∧ rot ≤ 32 then
+      some (d, VArr.s4.map2 (fun _ x y => (x ^^^ y).rotateRight rot) (s.v d) (s.v m))
     else none
 
 /-- Semantics, transcribing DDI 0487 C6.2:
@@ -883,7 +914,10 @@ sources, which Rust's `aes` feature covers together; FEAT_SHA1 for SHA1C,
 SHA1P, SHA1M, SHA1H, SHA1SU0, SHA1SU1 and FEAT_SHA256 for SHA256H,
 SHA256H2, SHA256SU0, SHA256SU1 (Rust's `sha2`); FEAT_SHA512 for SHA512H,
 SHA512H2, SHA512SU0, SHA512SU1 and FEAT_SHA3 for EOR3, BCAX, RAX1, XAR
-(Rust's `sha3`). -/
+(Rust's `sha3`); FEAT_SVE2 for SVE2's XAR (DDI 0602, "XAR": `if
+!IsFeatureImplemented(FEAT_SVE2) && !IsFeatureImplemented(FEAT_SME) then
+UNDEFINED`; Rust's `sve2`, which implies `sve`, since FEAT_SVE2 requires
+FEAT_SVE). -/
 def Instr.requires : Instr → List String
   | .vop (.aese ..) | .vop (.aesd ..) | .vop (.aesmc ..) | .vop (.aesimc ..)
   | .vop (.pmull ..) => ["aes"]
@@ -892,6 +926,7 @@ def Instr.requires : Instr → List String
     ["sha2"]
   | .vop (.sha512h ..) | .vop (.sha512h2 ..) | .vop (.sha512su0 ..) | .vop (.sha512su1 ..)
   | .vop (.eor3 ..) | .vop (.bcax ..) | .vop (.rax1 ..) | .vop (.xar ..) => ["sha3"]
+  | .vop (.xarS ..) => ["sve2"]
   | _ => []
 
 abbrev isa : ISA where
