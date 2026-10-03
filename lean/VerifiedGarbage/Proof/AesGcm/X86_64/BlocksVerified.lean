@@ -8,9 +8,8 @@ Untrusted: everything here is checked by Lean. Correctness and constant time
 of `vg_aes_gcm_encrypt_blocks` and `vg_aes_gcm_decrypt_blocks` (for any
 implementations `v` of `vg_aes_ctr32` and `vg_ghash`, with or without the
 interleaved loops), a state satisfying their precondition, and the shared
-contracts of `Spec/Gcm/Contract.lean` (with 64 bytes of stack: the frame of
-the arguments, and the return address of a call; the functions called make
-no calls).
+contracts of `Spec/Gcm/Contract.lean` (with 8 bytes of stack, for the return
+address of a call: the functions called make no calls).
 -/
 
 set_option linter.unusedSimpArgs false
@@ -75,24 +74,24 @@ def blocksSat : State where
   of := none
   mem _ := 0
   rd := [⟨0x1000, 256⟩, ⟨0x8008, 8⟩]
-  wr := [⟨0x2000, 16⟩, ⟨0x3000, 16⟩, ⟨0x4000, 0⟩, ⟨0, 2048⟩]
+  wr := [⟨0x2000, 16⟩, ⟨0x3000, 16⟩, ⟨0x4000, 0⟩, ⟨0, 2112⟩]
 
 theorem encryptBlocks_verified (v : GcmImpl) (stitch : Bool) :
     Verified X86_64.target (Blocks.encrypt v.callees.ctr v.callees.gh stitch)
-      (Spec.Gcm.encryptBlocksContract X86_64.abi 64) :=
+      (Spec.Gcm.encryptBlocksContract X86_64.abi 8) :=
   Verified.of_correct (encryptBlocks_correct v stitch) (Blocks.encrypt_ct v stitch) (by
     sig_implies [Spec.Gcm.encryptBlocksContract, Spec.Gcm.cryptBlocksSig, Proof.AesGcm.encryptBlocksX86_64,
       Proof.AesGcm.blocksPre, Proof.AesGcm.blocksPub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args,
-      Proof.AesGcm.stk64, Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
+      Proof.AesGcm.stk, Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
       List.getD, List.range, List.range.loop, VG.X86_64.below, X86_64.argRegs] [blocksSat] using blocksSat)
 
 theorem decryptBlocks_verified (v : GcmImpl) (stitch : Bool) :
     Verified X86_64.target (Blocks.decrypt v.callees.ctr v.callees.gh stitch)
-      (Spec.Gcm.decryptBlocksContract X86_64.abi 64) :=
+      (Spec.Gcm.decryptBlocksContract X86_64.abi 8) :=
   Verified.of_correct (decryptBlocks_correct v stitch) (Blocks.decrypt_ct v stitch) (by
     sig_implies [Spec.Gcm.decryptBlocksContract, Spec.Gcm.cryptBlocksSig, Proof.AesGcm.decryptBlocksX86_64,
       Proof.AesGcm.blocksPre, Proof.AesGcm.blocksPub, X86_64.abi, Proof.AesGcm.arg, Proof.AesGcm.args,
-      Proof.AesGcm.stk64, Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
+      Proof.AesGcm.stk, Proof.AesGcm.ret, Proof.AesGcm.rounds, X86_64.stackArg, X86_64.stackArgAddr,
       List.getD, List.range, List.range.loop, VG.X86_64.below, X86_64.argRegs] [blocksSat] using blocksSat)
 
 end VG.Proof.AesGcm.X86_64

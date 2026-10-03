@@ -1,7 +1,6 @@
 import VerifiedGarbage.Proof.AesGcm.X86_64.BlocksContract
 import VerifiedGarbage.Proof.AesGcm.X86_64.Callee
 import VerifiedGarbage.Proof.AesGcm.X86_64.Run
-import VerifiedGarbage.Proof.Framework.X86_64.Frame
 import VerifiedGarbage.Impl.AesGcm.X86_64.Blocks
 
 /-!
@@ -9,8 +8,8 @@ import VerifiedGarbage.Impl.AesGcm.X86_64.Blocks
 
 Untrusted: everything here is checked by Lean. The arguments of the entry
 state `s` (`K`, `C`, `Y`, `D`, `n`, `S`), their regions, and the facts of
-`blocksPre` by name (`BP`); the load of `scratch` (`load_ok`) and the frame
-that keeps the arguments (`pushed_kept`).
+`blocksPre` by name (`BP`); the entry, which keeps the arguments in
+`scratch` (`entry_ok`).
 -/
 
 set_option linter.unusedSimpArgs false
@@ -30,19 +29,13 @@ abbrev D : Addr := s.gpr .r8
 abbrev n : Nat := (s.gpr .r9).toNat
 abbrev S : Addr := stackArg s 0
 abbrev SP : Addr := s.gpr .rsp
-/-- The frame of the arguments: `rsp` in it. -/
-abbrev F : Addr := SP s - BitVec.ofNat 64 56
 abbrev kR : Region := ⟨K s, 256⟩
 abbrev cR : Region := ⟨C s, 16⟩
 abbrev yR : Region := ⟨Y s, 16⟩
 abbrev dR : Region := ⟨D s, n s * 16⟩
-abbrev sR : Region := ⟨S s, 2048⟩
+abbrev sR : Region := ⟨S s, 2112⟩
 /-- The stack argument `scratch`. -/
 abbrev aR : Region := ⟨SP s + BitVec.ofNat 64 8, 8⟩
-/-- The frame. -/
-abbrev fR : Region := ⟨F s, 56⟩
-/-- The stack the code uses: the frame and the return address of a call. -/
-abbrev tR : Region := below (SP s) 64
 /-- What the code writes: the counter, `Y`, the data and `scratch`. -/
 abbrev wR : List Region := [cR s, yR s, dR s, sR s]
 
@@ -70,126 +63,144 @@ structure BP (s : State) : Prop where
   r_y : (⟨SP s, 8⟩ : Region).Disjoint (yR s)
   r_d : (⟨SP s, 8⟩ : Region).Disjoint (dR s)
   r_s : (⟨SP s, 8⟩ : Region).Disjoint (sR s)
-  t_k : (tR s).Disjoint (kR s)
-  t_c : (tR s).Disjoint (cR s)
-  t_y : (tR s).Disjoint (yR s)
-  t_d : (tR s).Disjoint (dR s)
-  t_s : (tR s).Disjoint (sR s)
+  t_k : (below (SP s) 8).Disjoint (kR s)
+  t_c : (below (SP s) 8).Disjoint (cR s)
+  t_y : (below (SP s) 8).Disjoint (yR s)
+  t_d : (below (SP s) 8).Disjoint (dR s)
+  t_s : (below (SP s) 8).Disjoint (sR s)
   w_k : (K s).toNat + 256 ≤ 2 ^ 64
   w_c : (C s).toNat + 16 ≤ 2 ^ 64
   w_y : (Y s).toNat + 16 ≤ 2 ^ 64
   w_d : (D s).toNat + n s * 16 ≤ 2 ^ 64
-  w_s : (S s).toNat + 2048 ≤ 2 ^ 64
-  w_sp₀ : 64 ≤ (SP s).toNat
+  w_s : (S s).toNat + 2112 ≤ 2 ^ 64
   w_sp : (SP s).toNat + 16 ≤ 2 ^ 64
   rounds : (s.gpr .rsi).toNat = 10 ∨ (s.gpr .rsi).toNat = 12 ∨ (s.gpr .rsi).toNat = 14
 
 theorem BP.of {s : State} (h : Proof.AesGcm.blocksPre s) : BP s := by
-  simp only [Proof.AesGcm.blocksPre, Proof.AesGcm.args, Proof.AesGcm.arg, Proof.AesGcm.ret, Proof.AesGcm.stk64,
+  simp only [Proof.AesGcm.blocksPre, Proof.AesGcm.args, Proof.AesGcm.arg, Proof.AesGcm.ret, Proof.AesGcm.stk,
     Proof.AesGcm.rounds] at h
   have hA : stackArgAddr s 0 = s.gpr .rsp + BitVec.ofNat 64 8 := by simp [stackArgAddr]
   rw [hA] at h
   obtain ⟨a₁, a₂, a₃, a₄, a₅, a₆, a₇, a₈, a₉, a₁₀, a₁₁, a₁₂, a₁₃, a₁₄, a₁₅, a₁₆, a₁₇, a₁₈, a₁₉, a₂₀, a₂₁, a₂₂, a₂₃,
-    a₂₄, a₂₅, a₂₆, a₂₇, a₂₈, a₂₉, a₃₀, a₃₁, a₃₂, a₃₃⟩ := h
+    a₂₄, a₂₅, a₂₆, a₂₇, a₂₈, a₂₉, a₃₀, a₃₁, a₃₂⟩ := h
   exact ⟨a₁, a₂, a₃, a₄, a₅, a₆, a₇, a₈, a₉, a₁₀, a₁₁, a₁₂, a₁₃, a₁₄, a₁₅, a₁₆, a₁₇, a₁₈, a₁₉, a₂₀, a₂₁, a₂₂, a₂₃,
-    a₂₄, a₂₅, a₂₆, a₂₇, a₂₈, a₂₉, a₃₀, a₃₁, a₃₂, a₃₃⟩
+    a₂₄, a₂₅, a₂₆, a₂₇, a₂₈, a₂₉, a₃₀, a₃₁, a₃₂⟩
 
 /-! ## The arguments kept -/
 
-/-- The arguments kept in the frame at `F`: the data and the number of blocks
-of what is left after `q` blocks, and `scratch`. -/
+/-- The arguments kept in `scratch` at `S`: the data and the number of blocks
+of what is left after `q` blocks. -/
 structure Kept (s : State) (q : Nat) (m : Mem) : Prop where
-  ctx : m.readW (F s + BitVec.ofNat 64 48) 64 = K s
-  rounds : m.readW (F s + BitVec.ofNat 64 40) 64 = s.gpr .rsi
-  ctr : m.readW (F s + BitVec.ofNat 64 32) 64 = C s
-  y : m.readW (F s + BitVec.ofNat 64 24) 64 = Y s
-  data : m.readW (F s + BitVec.ofNat 64 16) 64 = D s + BitVec.ofNat 64 (16 * q)
-  n : m.readW (F s + BitVec.ofNat 64 8) 64 = BitVec.ofNat 64 (n s - q)
-  scr : m.readW (F s + BitVec.ofNat 64 0) 64 = S s
+  ctx : m.readW (S s) 64 = K s
+  rounds : m.readW (S s + BitVec.ofNat 64 8) 64 = s.gpr .rsi
+  ctr : m.readW (S s + BitVec.ofNat 64 16) 64 = C s
+  y : m.readW (S s + BitVec.ofNat 64 24) 64 = Y s
+  data : m.readW (S s + BitVec.ofNat 64 32) 64 = D s + BitVec.ofNat 64 (16 * q)
+  n : m.readW (S s + BitVec.ofNat 64 40) 64 = BitVec.ofNat 64 (n s - q)
+
+/-- The slots of the arguments kept. -/
+abbrev kR' (s : State) : Region := ⟨S s, 48⟩
 
 section
 variable {s : State} (hp : BP s)
 include hp
 
+theorem s_in {d k : Nat} (h : d + k ≤ 2112) : InRegions s.wr (S s + BitVec.ofNat 64 d) k :=
+  in_off (rs := s.wr) (by rw [hp.wr]; exact covers_of_mem (by simp)) h (by decide)
+
+theorem s_in' {d k : Nat} (h : d + k ≤ 2112) : InRegions (s.rd ++ s.wr) (S s + BitVec.ofNat 64 d) k :=
+  in_left (s_in hp h)
+
 theorem a_in : InRegions (s.rd ++ s.wr) (SP s + BitVec.ofNat 64 8) 8 :=
   ⟨aR s, by rw [hp.rd]; simp, Region.contains_self _ _⟩
 
 omit hp in
-/-- The frame is in the stack the code uses. -/
-theorem fR_sub : (fR s).Sub (tR s) := Offset.sub_below _ (by decide) (by decide)
+/-- The slots of the arguments are in `scratch`, apart from the powers. -/
+theorem kR'_sub : (kR' s).Sub (sR s) := Region.sub_prefix (by decide)
 
-omit hp in
-/-- So is the return address of a call from the frame. -/
-theorem fB_sub : (below (F s) 8).Sub (tR s) := by
-  have e : F s - BitVec.ofNat 64 8 = SP s - BitVec.ofNat 64 64 := by
-    simp only [F]; rw [← Offset.sub_add_eq, ← BitVec.ofNat_add]
-  show Region.Sub ⟨F s - BitVec.ofNat 64 8, 8⟩ _
-  rw [e]; exact Region.sub_prefix (by decide)
+/-- What a frame of the regions written keeps: the stack argument and the
+return address. -/
+theorem keep_a {m m' : Mem} (hf : Frame (wR s) m m') : m'.readW (SP s + BitVec.ofNat 64 8) 64 =
+    m.readW (SP s + BitVec.ofNat 64 8) 64 :=
+  hf.readW (r := aR s) (Region.contains_self _ _) (fun r hr => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · exact hp.c_a.symm
+    · exact hp.y_a.symm
+    · exact hp.d_a.symm
+    · exact hp.s_a.symm) (by decide)
 
-omit hp in
-/-- The return address is apart from the stack the code uses. -/
-theorem ret_tR : (⟨SP s, 8⟩ : Region).Disjoint (tR s) :=
-  Offset.base_disjoint_below (SP s) (n := 64) (k := 8) (by decide)
-
-/-- What a frame of the stack used and the regions written keeps: the return address. -/
-theorem keep_r {m m' : Mem} (hf : Frame (tR s :: wR s) m m') : m'.readW (SP s) 64 = m.readW (SP s) 64 :=
+theorem keep_r {m m' : Mem} (hf : Frame (wR s) m m') : m'.readW (SP s) 64 = m.readW (SP s) 64 :=
   hf.readW (r := ⟨SP s, 8⟩) (Region.contains_self _ _) (fun r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl
-    · exact ret_tR
+    rcases hr with rfl | rfl | rfl | rfl
     · exact hp.r_c
     · exact hp.r_y
     · exact hp.r_d
     · exact hp.r_s) (by decide)
 
-theorem tw_k : ∀ r ∈ tR s :: wR s, (kR s).Disjoint r := by
-  intro r hr
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl
-  exacts [hp.t_k.symm, hp.k_c, hp.k_y, hp.k_d, hp.k_s]
-
-/-- The key context, through a frame of the stack used and the regions written. -/
-theorem keep_k {m m' : Mem} (hf : Frame (tR s :: wR s) m m') {d k : Nat} (h : d + k ≤ 256) :
+/-- The key context, through a frame of the regions written. -/
+theorem keep_k {m m' : Mem} (hf : Frame (wR s) m m') {d k : Nat} (h : d + k ≤ 256) :
     Spec.Aes.bytesAt m' (K s + BitVec.ofNat 64 d) k = Spec.Aes.bytesAt m (K s + BitVec.ofNat 64 d) k :=
-  bytesAt_frame hf (fun r hr => (tw_k hp r hr).sub_left (Offset.sub_base _ h)) (by omega)
+  bytesAt_frame hf (fun r hr => by
+    have hs : Region.Sub ⟨K s + BitVec.ofNat 64 d, k⟩ (kR s) := Offset.sub_base _ h
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · exact hp.k_c.sub_left hs
+    · exact hp.k_y.sub_left hs
+    · exact hp.k_d.sub_left hs
+    · exact hp.k_s.sub_left hs) (by omega)
 
 omit hp in
 theorem arg_eq : s.mem.readW (SP s + BitVec.ofNat 64 8) 64 = S s := rfl
 
-/-- `scratch`, loaded into `r11`. -/
-theorem load_ok : WP isa (.block [.mov .r11 (.mem (at_ .rsp 8))]) s fun s₁ => s₁.gpr .r11 = S s ∧
-    (∀ r, r ≠ .r11 → s₁.gpr r = s.gpr r) ∧ s₁.mem = s.mem ∧ s₁.rd = s.rd ∧ s₁.wr = s.wr := by
+/-- The entry: the arguments kept, with `scratch` in `r11`. -/
+theorem entry_ok : WP isa (.block entry) s fun s₁ => s₁.gpr .r11 = S s ∧ (∀ r, r ≠ .r11 → s₁.gpr r = s.gpr r) ∧
+    Kept s 0 s₁.mem ∧ Frame [kR' s] s.mem s₁.mem ∧ s₁.rd = s.rd ∧ s₁.wr = s.wr := by
+  have w₁ := s_in hp (show 0 + 8 ≤ 2112 by decide)
+  have w₂ := s_in hp (show 8 + 8 ≤ 2112 by decide)
+  have w₃ := s_in hp (show 16 + 8 ≤ 2112 by decide)
+  have w₄ := s_in hp (show 24 + 8 ≤ 2112 by decide)
+  have w₅ := s_in hp (show 32 + 8 ≤ 2112 by decide)
+  have w₆ := s_in hp (show 40 + 8 ≤ 2112 by decide)
   have a₀ := a_in hp
-  refine WP.of_runBlock ⟨_, by xrun [a₀, arg_eq], ?_, ?_, ?_, ?_, ?_⟩
+  have sep : ∀ a d : Nat, a + 8 ≤ d ∨ d + 8 ≤ a → a + 8 ≤ 2112 → d + 8 ≤ 2112 →
+      Mem.Sep (S s + BitVec.ofNat 64 a) (64 / 8) (S s + BitVec.ofNat 64 d) (64 / 8) :=
+    fun a d h ha hd => Offset.sep _ h (by omega) (by omega)
+  have s₁₂ := sep 0 8 (by decide) (by decide) (by decide)
+  have s₁₃ := sep 0 16 (by decide) (by decide) (by decide)
+  have s₁₄ := sep 0 24 (by decide) (by decide) (by decide)
+  have s₁₅ := sep 0 32 (by decide) (by decide) (by decide)
+  have s₁₆ := sep 0 40 (by decide) (by decide) (by decide)
+  simp only [BitVec.add_zero] at s₁₂ s₁₃ s₁₄ s₁₅ s₁₆
+  have s₂₃ := sep 8 16 (by decide) (by decide) (by decide)
+  have s₂₄ := sep 8 24 (by decide) (by decide) (by decide)
+  have s₂₅ := sep 8 32 (by decide) (by decide) (by decide)
+  have s₂₆ := sep 8 40 (by decide) (by decide) (by decide)
+  have s₃₄ := sep 16 24 (by decide) (by decide) (by decide)
+  have s₃₅ := sep 16 32 (by decide) (by decide) (by decide)
+  have s₃₆ := sep 16 40 (by decide) (by decide) (by decide)
+  have s₄₅ := sep 24 32 (by decide) (by decide) (by decide)
+  have s₄₆ := sep 24 40 (by decide) (by decide) (by decide)
+  have s₅₆ := sep 32 40 (by decide) (by decide) (by decide)
+  have hn : BitVec.ofNat 64 (n s - 0) = s.gpr .r9 := by simp
+  apply WP.of_runBlock
+  refine ⟨_, by simp only [entry, argCtx, argRounds, argCtr, argY, argData, argN]; xrun [a₀, arg_eq, w₁, w₂, w₃, w₄, w₅, w₆],
+    ?_, ?_, ⟨?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_, ?_⟩
   · simp [gpr_setReg]
   · intro r hr; simp [gpr_setReg, hr]
-  all_goals rfl
+  all_goals try simp (disch := first | decide | assumption) only [gpr_setReg, ite_true, reduceCtorEq, ↓reduceIte,
+    Mem.readW_writeW_self64, Mem.readW_writeW_sep, Nat.mul_zero, BitVec.add_zero, hn]
+  · have c : ∀ d, 0 ≤ d → d + 8 ≤ 48 → (kR' s).Contains (S s + BitVec.ofNat 64 d) (64 / 8) :=
+      fun d _ h₂ => Offset.contains_base _ h₂ (by omega)
+    have c0 : (kR' s).Contains (S s) (64 / 8) := by simpa using c 0 (by decide) (by decide)
+    exact ((((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ c0).writeW
+      (List.mem_singleton_self _) _ (c 8 (by decide) (by decide))).writeW
+      (List.mem_singleton_self _) _ (c 16 (by decide) (by decide))).writeW
+      (List.mem_singleton_self _) _ (c 24 (by decide) (by decide))).writeW
+      (List.mem_singleton_self _) _ (c 32 (by decide) (by decide))).writeW
+      (List.mem_singleton_self _) _ (c 40 (by decide) (by decide))
 
 end
-
-/-- The frame's push, from the state after the load. -/
-theorem pushed_kept {s s₁ : State} (hp : BP s) (h11 : s₁.gpr .r11 = S s) (hg : ∀ r, r ≠ .r11 → s₁.gpr r = s.gpr r)
-    (hm : s₁.mem = s.mem) : (pushed frameRegs s₁).gpr .rsp = F s ∧ Kept s 0 (pushed frameRegs s₁).mem ∧
-      Frame [fR s] s.mem (pushed frameRegs s₁).mem := by
-  have hsp : s₁.gpr .rsp = SP s := hg _ (by decide)
-  have h56 : 8 * frameRegs.length ≤ (s₁.gpr .rsp).toNat := by rw [hsp]; have := hp.w_sp₀; simp [frameRegs]; omega
-  obtain ⟨hf, hpj⟩ := pushRegs_mem s₁ frameRegs (by decide) h56
-  have e : ∀ j, j < 7 → s₁.gpr .rsp - BitVec.ofNat 64 (8 * (j + 1)) = F s + BitVec.ofNat 64 (56 - 8 * (j + 1)) :=
-    fun j hj => by rw [hsp]; exact Offset.sub_ofNat_eq _ (by omega)
-  have r : ∀ j (hj : j < 7), (pushed frameRegs s₁).mem.readW (F s + BitVec.ofNat 64 (56 - 8 * (j + 1))) 64 =
-      s₁.gpr (frameRegs[j]'(by simp [frameRegs]; omega)) := fun j hj => by
-    rw [← e j hj]; exact hpj j (by simp [frameRegs]; omega)
-  refine ⟨by rw [pushed_rsp, hsp]; rfl, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
-  · rw [r 0 (by decide)]; exact hg _ (by decide)
-  · rw [r 1 (by decide)]; exact hg _ (by decide)
-  · rw [r 2 (by decide)]; exact hg _ (by decide)
-  · rw [r 3 (by decide)]; exact hg _ (by decide)
-  · rw [r 4 (by decide)]; simp only [frameRegs, Nat.mul_zero, BitVec.add_zero]; exact hg _ (by decide)
-  · rw [r 5 (by decide)]; simp only [frameRegs, Nat.sub_zero]; rw [hg _ (by decide)]; simp
-  · rw [r 6 (by decide)]; exact h11
-  · have hf' : Frame [⟨s₁.gpr .rsp - BitVec.ofNat 64 (8 * frameRegs.length), 8 * frameRegs.length⟩] s₁.mem
-        (pushed frameRegs s₁).mem := hf
-    rw [hsp, hm] at hf'
-    exact hf'
 
 end VG.Proof.AesGcm.X86_64.Blocks
