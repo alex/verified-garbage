@@ -1,0 +1,28 @@
+name: SVE2 XAR probe (do not merge)
+
+# Temporary: runs SVE2 XAR on arm64 hardware to obtain the expected values
+# of the AArch64 model's tests.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: CPU
+        run: |
+          grep -m1 -E "Features" /proc/cpuinfo
+          grep -m1 -E "CPU part" /proc/cpuinfo
+          gcc --version | head -1
+      - name: Run XAR
+        run: |
+          gcc -O1 -march=armv8.5-a+sve2 -o xar probe/xar.c
+          ./xar | tee out.txt
+          { echo '```'; cat out.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
