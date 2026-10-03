@@ -48,15 +48,19 @@ impl Backend {
     /// `sha3`) if the CPU has `sha3`; on x86-64, AVX2 if it has `avx2`.
     // Each target uses only some of the arguments.
     #[allow(unused_variables)]
-    pub(crate) fn select(f: crate::cpu::Features, avx2: &[&[&str]], sha3: &[&[&str]]) -> Backend {
+    pub(crate) fn select(
+        f: crate::cpu::Features,
+        avx2: crate::cpu::Features,
+        sha3: crate::cpu::Features,
+    ) -> Backend {
         #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
-        if !f.contains(crate::cpu::Features::all(sha3)) {
+        if !f.contains(sha3) {
             return Backend::Scalar;
         }
         match crate::hashes::sha3::Backend::detected() {
             crate::hashes::sha3::Backend::Scalar => {
                 #[cfg(target_arch = "x86_64")]
-                if f.contains(crate::cpu::Features::all(avx2)) {
+                if f.contains(avx2) {
                     return Backend::Avx2;
                 }
                 Backend::Scalar
@@ -110,7 +114,11 @@ macro_rules! ml_kem {
                 &[$keygen_sha3_features, $encaps_sha3_features, $decaps_sha3_features];
             #[cfg(not(all(target_arch = "aarch64", feature = "cpu-features-env")))]
             const SHA3: &[&[&str]] = &[];
-            Backend::select($crate::cpu::detected(), AVX2, SHA3)
+            Backend::select(
+                $crate::cpu::detected(),
+                const { $crate::cpu::Features::all(AVX2) },
+                const { $crate::cpu::Features::all(SHA3) },
+            )
         }
 
         /// The working space of the assembly functions.

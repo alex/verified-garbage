@@ -47,11 +47,15 @@ impl Backend {
                     .split(',')
                     .any(|name| name == "sha3");
                 if requested
-                    && features.contains(crate::cpu::Features::all(&[
-                        VG_KECCAK_ABSORB_SHA3_FEATURES,
-                        VG_KECCAK_PAD_SHA3_FEATURES,
-                        VG_KECCAK_SQUEEZE_SHA3_FEATURES,
-                    ]))
+                    && features.contains(
+                        const {
+                            crate::cpu::Features::all(&[
+                                VG_KECCAK_ABSORB_SHA3_FEATURES,
+                                VG_KECCAK_PAD_SHA3_FEATURES,
+                                VG_KECCAK_SQUEEZE_SHA3_FEATURES,
+                            ])
+                        },
+                    )
                 {
                     return Self::Sha3;
                 }

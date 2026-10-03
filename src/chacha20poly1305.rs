@@ -53,8 +53,8 @@ use crate::zeroize::zeroize;
 fn select(f: Features) -> Backend {
     Backend::select_for(
         f,
-        VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES,
-        VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES,
+        const { Features::of(VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES) },
+        const { Features::of(VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES) },
     )
 }
 

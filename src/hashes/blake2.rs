@@ -66,7 +66,7 @@ macro_rules! blake2 {
             pub(crate) fn select(f: $crate::cpu::Features) -> Self {
                 $(
                     $(#[$attr])*
-                    if f.contains($crate::cpu::Features::all(&[$($req),*])) {
+                    if f.contains(const { $crate::cpu::Features::all(&[$($req),*]) }) {
                         return Self::$variant;
                     }
                 )*

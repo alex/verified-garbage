@@ -59,9 +59,9 @@ impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     fn select(f: Features) -> Backend {
-        if f.contains(Features::of(VG_POLY1305_UPDATE_AVX512_FEATURES)) {
+        if f.contains(const { Features::of(VG_POLY1305_UPDATE_AVX512_FEATURES) }) {
             Backend::Avx512
-        } else if f.contains(Features::of(VG_POLY1305_UPDATE_AVX2_FEATURES)) {
+        } else if f.contains(const { Features::of(VG_POLY1305_UPDATE_AVX2_FEATURES) }) {
             Backend::Avx2
         } else {
             Backend::Scalar
