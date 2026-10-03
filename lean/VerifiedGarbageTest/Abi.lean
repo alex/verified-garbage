@@ -2,6 +2,7 @@ import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.TCB.X86.Target
+import VerifiedGarbage.TCB.PPC64LE.Target
 
 /-!
 # Golden tests for signatures and calling conventions
@@ -27,7 +28,7 @@ def sample : Sig where
 #guard (sample.words 64).map (·.bits 64) == [64, 32, 64, 64, 64, 64, 64, 64, 64]
 #guard (sample.words 32).map (·.bits 32) == [64, 32, 32, 32, 32, 32, 32, 32, 32]
 
-/-! ## x86-64 and AArch64: one register per argument -/
+/-! ## x86-64, AArch64 and PPC64LE: one register per argument -/
 
 def x86_64State : X86_64.State where
   gpr r := match r with
@@ -100,6 +101,22 @@ def aarch64StackRd : AArch64.State :=
 #guard (AArch64.exec (.ldrSp .x9 32760) { aarch64StackRd with sp := 0x100 - 32760 }).isSome
 #guard (AArch64.exec (.ldrSp .x9 32768) { aarch64StackRd with sp := 0x100 - 32768 }).isNone
 #guard AArch64.abi.ret aarch64State == 1
+
+def ppcState : PPC64LE.State where
+  gpr r := match r with
+    | .r3 => 1 | .r4 => 2 | .r5 => 3 | .r6 => 4 | .r7 => 5 | .r8 => 6 | .r9 => 7 | .r10 => 8
+    | _ => 0
+  lr := 0
+  sp := 0x1000
+  mem _ := 0
+  rd := []
+  wr := []
+
+#guard (PPC64LE.abi.args (List.replicate 8 64)).map (· ppcState) == some [1, 2, 3, 4, 5, 6, 7, 8]
+#guard (PPC64LE.abi.args [64, 32]).map (· ppcState) == some [1, 2]
+#guard (PPC64LE.abi.args (List.replicate 9 64)).isNone
+#guard PPC64LE.abi.ret ppcState == 1
+#guard PPC64LE.abi.reserved 48 ppcState == [⟨0xfd0, 48⟩]
 
 /-! ### Public arguments are public only in the bits of their width
 

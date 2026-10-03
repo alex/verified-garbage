@@ -257,7 +257,7 @@ def Instr.memOps : Instr → List MemOp
 
 def printer : Printer isa where
   instr := Instr.asm
-  branch c l := s!"j{c.name} {l}"
+  branch c l := [s!"j{c.name} {l}"]
   jump l := s!"jmp {l}"
   ret := ["ret"]
   call := "call"

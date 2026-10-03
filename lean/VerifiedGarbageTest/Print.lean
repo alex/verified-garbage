@@ -3,6 +3,7 @@ import VerifiedGarbage.TCB.Rust
 import VerifiedGarbage.TCB.AArch64.Print
 import VerifiedGarbage.TCB.X86.Print
 import VerifiedGarbage.TCB.Arm.Print
+import VerifiedGarbage.TCB.PPC64LE.Print
 
 /-!
 # Golden tests for the trusted printers
@@ -326,6 +327,81 @@ def sampleArm : Prog Arm.isa :=
   "bx lr"
 ]
 
+/-- Every PPC64LE instruction form, and every condition. -/
+def samplePPC : Prog PPC64LE.isa :=
+  .seq (.ite (.zero .d .r5) (.block []) (.block []))
+  (.ite (.zero .w .r6) (.block [])
+    (.loop (.block [
+      .add .r3 .r4 .r5, .sub .r6 .r7 .r8, .addi .r4 .r4 64, .subi .r5 .r5 1, .subi .r5 .r5 32768,
+      .li .r9 32767, .lis .r10 0x428a, .lis .r10 0xb5c0, .ori .r10 .r10 0x2f98,
+      .oris .r11 .r11 0xffff,
+      .logic .and .r0 .r2 .r31, .logic .or .r14 .r15 .r16, .logic .xor .r17 .r18 .r19,
+      .rotr .w .r12 .r8 25, .rotr .w .r12 .r8 0, .rotr .d .r12 .r8 28, .rotr .d .r12 .r8 0,
+      .lsr .w .r20 .r21 10, .lsr .w .r20 .r21 0, .lsr .d .r22 .r23 7, .lsl .r24 .r25 32,
+      .load .w .r12 .r4 60, .load .d .r26 .r27 32764, .store .w .r12 .r3 4, .store .d .r28 .r29 8,
+      .lbz .r30 .r4 0, .stb .r30 .r3 32767,
+      .loadRev .w .r7 .r4 .r8, .loadRev .d .r7 .r4 .r8, .storeRev .w .r7 .r3 .r8,
+      .storeRev .d .r7 .r3 .r0,
+      .mflr .r0, .mtlr .r0]) (.nonzero .w .r5)))
+
+#guard text (PPC64LE.printer.function samplePPC) == [
+  "cmpldi %cr0, %r5, 0",
+  "beq %cr0, 20f",
+  "b 21f",
+  "20:",
+  "21:",
+  "cmplwi %cr0, %r6, 0",
+  "beq %cr0, 22f",
+  "24:",
+  "add %r3, %r4, %r5",
+  "subf %r6, %r8, %r7",
+  "addi %r4, %r4, 64",
+  "addi %r5, %r5, -1",
+  "addi %r5, %r5, -32768",
+  "li %r9, 32767",
+  "lis %r10, 17034",
+  "lis %r10, -19008",
+  "ori %r10, %r10, 12184",
+  "oris %r11, %r11, 65535",
+  "and %r0, %r2, %r31",
+  "or %r14, %r15, %r16",
+  "xor %r17, %r18, %r19",
+  "rlwinm %r12, %r8, 7, 0, 31",
+  "rlwinm %r12, %r8, 0, 0, 31",
+  "rldicl %r12, %r8, 36, 0",
+  "rldicl %r12, %r8, 0, 0",
+  "rlwinm %r20, %r21, 22, 10, 31",
+  "rlwinm %r20, %r21, 0, 0, 31",
+  "rldicl %r22, %r23, 57, 7",
+  "rldicr %r24, %r25, 32, 31",
+  "lwz %r12, 60(%r4)",
+  "ld %r26, 32764(%r27)",
+  "stw %r12, 4(%r3)",
+  "std %r28, 8(%r29)",
+  "lbz %r30, 0(%r4)",
+  "stb %r30, 32767(%r3)",
+  "lwbrx %r7, %r4, %r8",
+  "ldbrx %r7, %r4, %r8",
+  "stwbrx %r7, %r3, %r8",
+  "stdbrx %r7, %r3, %r0",
+  "mflr %r0",
+  "mtlr %r0",
+  "cmplwi %cr0, %r5, 0",
+  "bne %cr0, 24b",
+  "b 23f",
+  "22:",
+  "23:",
+  "blr"
+]
+
+-- Every register name.
+#guard ([PPC64LE.Reg.r0, .r2, .r3, .r4, .r5, .r6, .r7, .r8, .r9, .r10, .r11, .r12, .r14, .r15,
+    .r16, .r17, .r18, .r19, .r20, .r21, .r22, .r23, .r24, .r25, .r26, .r27, .r28, .r29, .r30,
+    .r31].map PPC64LE.Reg.name) ==
+  ["%r0", "%r2", "%r3", "%r4", "%r5", "%r6", "%r7", "%r8", "%r9", "%r10", "%r11", "%r12",
+   "%r14", "%r15", "%r16", "%r17", "%r18", "%r19", "%r20", "%r21", "%r22", "%r23", "%r24",
+   "%r25", "%r26", "%r27", "%r28", "%r29", "%r30", "%r31"]
+
 #guard Arm.encodable 0xff000000 && Arm.encodable 0x3fc && !Arm.encodable 0x101 && !Arm.encodable 0x1fe00
 
 #guard Rust.escape "ld1 {v0.4s}, [x1] \\ \"q\"" == "ld1 {{v0.4s}}, [x1] \\\\ \\\"q\\\""
@@ -345,6 +421,9 @@ def callSample : Prog X86_64.isa :=
 #guard AArch64.printer.function (.call "vg_f" (.block []) : Prog AArch64.isa) == [.call "vg_f", .text "ret"]
 #guard X86.printer.function (.call "vg_f" (.block []) : Prog X86.isa) == [.call "vg_f", .text "ret"]
 #guard Arm.printer.function (.call "vg_f" (.block []) : Prog Arm.isa) == [.call "vg_f", .text "bx lr"]
+#guard PPC64LE.printer.function (.call "vg_f" (.block []) : Prog PPC64LE.isa) ==
+  [.call "vg_f", .text "blr"]
+#guard Rust.line PPC64LE.printer.call (.call "vg_f") == "        \"bl {vg_f}\",\n"
 
 #guard Rust.line printer.call (.call "vg_f") == "        \"call {vg_f}\",\n"
 #guard Rust.line Arm.printer.call (.call "vg_f") == "        \"bl {vg_f}\",\n"
@@ -381,6 +460,15 @@ instructions. -/
       (.frame (.push [.rcx, .rax]) (.call "vg_f" (.block [])) (.pop .rdx 2)) (.pop .rbx 1) :
       Prog X86_64.isa)) == [
   "push rbx", "push rcx", "push rax", "<call vg_f>", "pop rdx", "pop rdx", "pop rbx", "ret"]
+
+-- Save the link register around a call (PPC64LE): through `r0`, in a frame
+-- with a back chain.
+#guard text (PPC64LE.printer.function
+    (.seq (.block [.mflr .r0])
+      (.seq (.frame (.push .r0) (.call "vg_f" (.block [])) (.pop .r0)) (.block [.mtlr .r0])) :
+      Prog PPC64LE.isa)) == [
+  "mflr %r0", "stdu %r1, -48(%r1)", "std %r0, 32(%r1)", "<call vg_f>", "ld %r0, 32(%r1)",
+  "addi %r1, %r1, 48", "mtlr %r0", "blr"]
 
 #guard Rust.line Arm.printer.call (.text "push {r4, lr}") == "        \"push {{r4, lr}}\",\n"
 

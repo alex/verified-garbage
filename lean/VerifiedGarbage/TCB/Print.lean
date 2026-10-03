@@ -13,6 +13,9 @@ conditional branches:
   `VG.Rust.files`)
 * `frame push body pop` ⟶  `push; body; pop`
 
+where `b<c> L` is the conditional branch to `L`, which on some targets is
+more than one instruction (e.g. a comparison, then the branch).
+
 Labels are numeric local labels (`N:`, referenced as `Nf` forward or `Nb`
 backward), the only kind Rust allows in inline assembly (the
 `named_asm_labels` lint). Every label of a function has a distinct number, so
@@ -48,8 +51,9 @@ inductive Line
 structure Printer (M : ISA) where
   /-- Assembly text for one instruction (may be several lines). -/
   instr : M.Instr → List String
-  /-- Conditional branch to a label, taken when the condition is true. -/
-  branch : M.Cond → String → String
+  /-- Conditional branch to a label, taken when the condition is true (one or
+  more lines, e.g. a comparison and a branch). -/
+  branch : M.Cond → String → List String
   /-- Unconditional branch to a label. -/
   jump : String → String
   /-- Return to the caller. -/
@@ -91,12 +95,12 @@ def Printer.lower : Code M.Instr M.Cond → Nat → List Line × Nat
     let lEnd := labelNum (n + 1)
     let (le, n) := lower e (n + 2)
     let (lt, n) := lower t n
-    ([.text (P.branch c (lThen ++ "f"))] ++ le ++ [.text (P.jump (lEnd ++ "f")), .text (lThen ++ ":")] ++
+    ((P.branch c (lThen ++ "f")).map .text ++ le ++ [.text (P.jump (lEnd ++ "f")), .text (lThen ++ ":")] ++
       lt ++ [.text (lEnd ++ ":")], n)
   | .loop body c, n =>
     let lTop := labelNum n
     let (lb, n) := lower body (n + 1)
-    ([.text (lTop ++ ":")] ++ lb ++ [.text (P.branch c (lTop ++ "b"))], n)
+    ([.text (lTop ++ ":")] ++ lb ++ (P.branch c (lTop ++ "b")).map .text, n)
   | .call name _, n => ([.call name], n)
   | .frame i body j, n =>
     let (lb, n) := lower body n

@@ -31,6 +31,7 @@ VerifiedGarbage/
                     for every variant of its interface under `Variants/`), and
                     writing or checking `src/asm/`
     X86_64/         ISA model, printer, System V ABI target
+    PPC64LE/        ISA model, printer, ELFv2 ABI target (64-bit little-endian PowerPC)
   Spec/         Algorithm specifications and contracts (trusted, must be reviewed)
   Impl/         Implementations: `Prog`s over an ISA model (untrusted)
   Proof/        Proofs and intermediate proof artifacts (untrusted)

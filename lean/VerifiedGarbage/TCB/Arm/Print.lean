@@ -55,7 +55,7 @@ def Cond.name : Cond → String
 
 def printer : Printer isa where
   instr := Instr.asm
-  branch c l := s!"b{c.name} {l}"
+  branch c l := [s!"b{c.name} {l}"]
   jump l := s!"b {l}"
   ret := ["bx lr"]
   call := "bl"

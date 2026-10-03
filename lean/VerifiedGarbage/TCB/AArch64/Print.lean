@@ -158,8 +158,8 @@ def Instr.asm : Instr → List String
 def printer : Printer isa where
   instr := Instr.asm
   branch c l := match c with
-    | .zero sz r => s!"cbz {r.name sz}, {l}"
-    | .nonzero sz r => s!"cbnz {r.name sz}, {l}"
+    | .zero sz r => [s!"cbz {r.name sz}, {l}"]
+    | .nonzero sz r => [s!"cbnz {r.name sz}, {l}"]
   jump l := s!"b {l}"
   ret := ["ret"]
   call := "bl"
