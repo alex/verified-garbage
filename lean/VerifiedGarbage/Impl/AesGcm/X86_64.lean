@@ -457,15 +457,16 @@ def oneCrypt : Prog isa :=
     (crypt c)
 
 /-- The whole blocks decrypted by `oneBlocks`, encrypted again (when the tag
-is wrong): `vg_aes_ctr32` from the first counter block, at the data's start
-(`len - len mod 16` bytes before the data kept). -/
+is wrong): `vg_aes_ctr32` from the first counter block, which `tag`'s call of
+`vg_aes_ctr32` left at the state's start, at the data's start (`len - len mod
+16` bytes before the data kept). -/
 def oneUndo : Prog isa :=
   .seq (.block ([.mov .rax (.mem (at_ .r15 tlenO)), .mov .rcx (.reg .rax), .alu .and .rcx (imm 15),
       .alu .sub .rax (.reg .rcx), .mov .rcx (.mem (at_ .r15 dataO)), .alu .sub .rcx (.reg .rax),
       .shift .shr .rax 4, .mov .r8 (.reg .rax), .alu .test .rax (.reg .rax)]))
     (.ite .e (.block [])
-      (.seq (.block (initState ++ [.mov .rdi (.reg .r13), .mov .rsi (.mem (at_ .r15 roundsO))] ++
-          ptr .rdx .r14 48 ++ ptr .r9 .r15 scrO))
+      (.seq (.block ([.mov .rdi (.reg .r13), .mov .rsi (.mem (at_ .r15 roundsO)), .mov .rdx (.reg .r14)] ++
+          ptr .r9 .r15 scrO))
         (.call c.ctr.name c.ctr.code)))
 
 /-- `vg_aes_gcm_seal`. -/

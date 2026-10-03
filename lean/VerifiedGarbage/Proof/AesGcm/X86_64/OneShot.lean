@@ -605,6 +605,7 @@ theorem oneTag_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {D : Addr} {n N al : Nat}
     WP isa (oneTag v.callees o) s fun s' => Env Ctx (W + BitVec.ofNat 64 16) W SP s' ∧
       Frame (⟨W + BitVec.ofNat 64 o, 16⟩ :: wFrame W SP) s.mem s'.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
       blockAt s'.mem (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 48) = blockAt s.mem (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 48) ∧
+      blockAt s'.mem (W + BitVec.ofNat 64 16) = inc32 (blockAt s.mem (W + BitVec.ofNat 64 16)) ∧
       (Absorbed s.mem (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 16) (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 32) H x →
         bytesAt s'.mem (W + BitVec.ofNat 64 o) 16 =
           toBytes (ghashFrom H (ghash H (blocks (x ++ bytesAt s.mem D n ++
@@ -711,7 +712,7 @@ theorem oneTag_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {D : Addr} {n N al : Nat}
   have hH₅ : blockAt s₅.mem (Ctx + BitVec.ofNat 64 240) = H := by rw [hm₅, hf.hH]
   refine WP.mono (WP.with_rdwr (tag_ok v L ho he₅ hH₅ hR₅ hJ₅)) fun s₆ ⟨ht, hrd₆, hwr₆⟩ =>
     ⟨ht.env, (wFrame_cons g₅).trans (tagFrame_one ht.frame), by rw [hrd₆, hrd₅, hrd₄, hrd₃, hrd₂, hrd₁],
-      by rw [hwr₆, hwr₅, hwr₄, hwr₃, hwr₂, hwr₁], ?_, fun hab => ?_⟩
+      by rw [hwr₆, hwr₅, hwr₄, hwr₃, hwr₂, hwr₁], ?_, ht.j, fun hab => ?_⟩
   · have d48 : ∀ r ∈ tagFrame (W + BitVec.ofNat 64 16) W SP o,
         (⟨W + BitVec.ofNat 64 16 + BitVec.ofNat 64 48, 16⟩ : Region).Disjoint r := by
       intro r hr
