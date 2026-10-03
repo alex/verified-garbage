@@ -31,7 +31,7 @@ theorem x448_ok (s : State) (hs : Proof.X448.x448AArch64.pre s) :
     ∃ t s', Exec isa Impl.X448.AArch64.Fast.x448 s t s' ∧ abiPreserved s s' ∧
       Proof.X448.x448AArch64.post s s' := by
   obtain ⟨t, s', he, h⟩ := correct (Pre.of s hs)
-  exact ⟨t, s', he, ⟨h.1, Exec.sp he, Exec.preservedV he⟩, h.2⟩
+  exact ⟨t, s', he, ⟨h.1, Exec.sp he, h.2.1⟩, h.2.2⟩
 
 theorem x448_ct : ConstantTime isa Proof.X448.x448AArch64.pre Proof.X448.x448AArch64.pub
     Impl.X448.AArch64.Fast.x448 := by
