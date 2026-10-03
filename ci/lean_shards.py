@@ -8,14 +8,18 @@ to rebuild are split into shards that build in parallel on separate runners,
 as many as the work needs: none when there is little (the final job builds
 it), up to `MAX_SHARDS` when everything changed.
 
-`main` saves a manifest next to its build: the hash of every module's source
-and how long each module took to build (from the shards' build logs, kept
+`main` saves a manifest next to its build: the hash of every module's source,
+of the build's inputs, and how long each module took to build (from the shards' build logs, kept
 from earlier builds for the modules this one did not rebuild). A plan
 compares the sources with the manifest's to find the modules to rebuild,
 estimates each from its time, and packs them into shards: a shard builds the
 modules that nothing imports ("sinks") it is given, and so everything they
 import, so the sinks are packed by the time to rebuild their imports, largest
-first, each into the shard it adds the least to. Every module is in exactly
+first, each into the shard it adds the least to. A change to the inputs
+(the toolchain, the dependencies or the lakefile's settings) rebuilds every
+module, but not one that only adds a module to a library or removes one
+(the lakefile's `globs` and `roots`): that rebuilds just the modules it moves
+(and, through their imports, what imports them). Every module is in exactly
 one shard (the first that builds it), so the shards' outputs together are
 the whole build. A plan is only an estimate: whatever the shards leave
 unbuilt, the final job builds.
@@ -46,13 +50,17 @@ import math
 import pathlib
 import re
 import sys
+import tomllib
 
 LEAN = pathlib.Path(__file__).resolve().parent.parent / "lean"
 # The libraries of `lean/lakefile.toml`: `VerifiedGarbage.*` (the root module
 # and every module under it) and `VerifiedGarbageTest.+` (every module under it).
 LIBRARIES = {"VerifiedGarbage": True, "VerifiedGarbageTest": False}
-# Files any change of which rebuilds every module.
+# Files any change of which rebuilds every module (the lakefile's but for
+# which modules each library has: see `lakefile_inputs`).
 INPUTS = ["lakefile.toml", "lean-toolchain", "lake-manifest.json"]
+# The keys of a library in the lakefile that list its modules.
+MODULE_LISTS = ("globs", "roots")
 # A shard per this much estimated build time (in seconds of `lake build`'s
 # times, which a runner's build runs about five of at once), up to
 # `MAX_SHARDS`; with less in all than `MIN_WORK`, no shard.
@@ -78,6 +86,40 @@ def modules() -> dict[str, pathlib.Path]:
 
 def digest(path: pathlib.Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def lakefile_inputs(text: str) -> tuple[str, dict[str, list[str]]]:
+    """The hash of the lakefile but for its libraries' module lists, and
+    each library's entries of those lists (`globs:X`, `roots:X`)."""
+    config = tomllib.loads(text)
+    libraries = {}
+    for lib in config.get("lean_lib", []):
+        libraries[lib["name"]] = sorted(f"{k}:{e}" for k in MODULE_LISTS for e in lib.get(k, []))
+        for k in MODULE_LISTS:
+            lib.pop(k, None)
+    settings = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
+    return settings, libraries
+
+
+def inputs() -> dict:
+    """What the manifest records of the build's inputs."""
+    settings, libraries = lakefile_inputs((LEAN / "lakefile.toml").read_text())
+    files = {f: digest(LEAN / f) for f in INPUTS if f != "lakefile.toml"}
+    return {**files, "lakefile.toml settings": settings, "libraries": libraries}
+
+
+def matches(entry: str, module: str, closure: dict[str, frozenset[str]]) -> bool:
+    """Whether a library's module list entry (`globs:X` or `roots:X`) takes
+    `module`: Lake's `X.*` is X and the modules under it, `X.+` those under
+    it, and a root is a module with everything it imports."""
+    kind, _, pattern = entry.partition(":")
+    if kind == "roots":
+        return module in closure.get(pattern, {pattern})
+    if pattern.endswith(".*"):
+        return module == pattern[:-2] or module.startswith(pattern[:-1])
+    if pattern.endswith(".+"):
+        return module.startswith(pattern[:-1])
+    return module == pattern
 
 
 def imports(mods: dict[str, pathlib.Path]) -> dict[str, list[str]]:
@@ -114,10 +156,15 @@ def plan(manifest: dict) -> dict:
     mods = modules()
     imps = imports(mods)
     closure = closures(imps)
-    inputs = {f: digest(LEAN / f) for f in INPUTS}
+    now = inputs()
+    then = manifest.get("inputs", {})
     sources = manifest.get("sources", {})
-    if manifest.get("inputs") == inputs:
+    if {k: v for k, v in then.items() if k != "libraries"} == {k: v for k, v in now.items() if k != "libraries"}:
         changed = {m for m, f in mods.items() if sources.get(m) != digest(f)}
+        # Modules a library gained or lost.
+        old, new = then.get("libraries", {}), now["libraries"]
+        moved = {(lib, e) for lib in old.keys() | new.keys() for e in set(old.get(lib, [])) ^ set(new.get(lib, []))}
+        changed |= {m for m in mods for _, e in moved if matches(e, m, closure)}
     else:
         changed = set(mods)
     stale = {m for m in mods if closure[m] & changed}
@@ -210,7 +257,7 @@ def main(args: list[str]) -> int:
         print(
             json.dumps(
                 {
-                    "inputs": {f: digest(LEAN / f) for f in INPUTS},
+                    "inputs": inputs(),
                     "sources": {m: digest(f) for m, f in mods.items()},
                     "times": {m: times[m] for m in mods if m in times},
                 },
