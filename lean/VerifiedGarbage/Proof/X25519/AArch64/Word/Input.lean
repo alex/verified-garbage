@@ -50,7 +50,7 @@ theorem decode_ok {base p : Addr} {s : State} (hs : Scratch s base)
   refine WP.mono (loadY_ok s p hp hr) fun a ⟨av,ka⟩ => ?_
   refine WP.mono (store4_ok (hs.of_keeps ka (by decide)) (slot_rangeWith (large := false) 0)) fun t ht => ?_
   subst t
-  refine ⟨⟨fun r hr => ka.gpr r (fun hh => hr (by simp only [clob, List.mem_cons, List.not_mem_nil, or_false] at *; tauto)),
+  refine ⟨⟨fun r hr => ka.gpr r (fun hh => hr (by simp only [clob, List.mem_cons, List.not_mem_nil, or_false] at *; grind)),
     ka.rd,ka.wr,ka.sp,?_,⟩,?_,⟩
   · rw [ka.mem]
     exact (st4_outside _ _ (by decide : offset 0+32<2^64) _ _ _ _).mono (by decide) (by decide)

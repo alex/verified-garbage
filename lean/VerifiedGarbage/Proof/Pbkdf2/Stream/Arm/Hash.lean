@@ -481,7 +481,7 @@ theorem after_frame {s s₂ : State} {rs : List Reg} {ws : List Region}
     rw [popped_gpr hr1, hcs r hr hl, pushed_gpr]
   · rw [popped_mem]
     exact (frame_app (ws' := ws) fP |>.mono fun r hr => by
-        simp only [List.mem_append, List.mem_singleton] at hr ⊢; tauto).trans (frame_app (ws' := [below s]) hf)
+        simp only [List.mem_append, List.mem_singleton] at hr ⊢; grind).trans (frame_app (ws' := [below s]) hf)
 
 theorem upd_frame {s : State} {st d sc : BitVec 32} {len : Nat} (h : UpdArgs hH s st d sc len)
     {Q : State → Prop}

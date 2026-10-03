@@ -53,10 +53,10 @@ theorem cbc_body_correct (d : Spec.Rc2.Direction) (s : State) (hs : (contract d)
     · rw [buf₂]; exact bufFit
     · simp only [Covers, keyR, ivR, dataR, bufR, key₂, iv₂, data₂, buf₂, rd₂, wr₂, hrd, hwr]
       intro a n ⟨r, hr, hc⟩
-      exact ⟨r, by simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto, hc⟩
+      exact ⟨r, by simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; grind, hc⟩
     · simp only [Covers, ivR, dataR, bufR, iv₂, data₂, buf₂, wr₂, hwr]
       intro a n ⟨r, hr, hc⟩
-      exact ⟨r, by simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto, hc⟩
+      exact ⟨r, by simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; grind, hc⟩
     · simpa only [keyR, ivR, key₂, iv₂] using keyIv
     · simpa only [keyR, dataR, key₂, data₂] using keyData
     · simpa only [keyR, bufR, key₂, buf₂] using keyBuf

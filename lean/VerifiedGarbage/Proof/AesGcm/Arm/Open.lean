@@ -287,7 +287,7 @@ theorem open_head {s₀ s₂ : State} (h : onePre 6 s₀) (h2 : SO1 6 s₀ s₂)
     · next hx => exact ⟨fun e => absurd e (by decide), fun e => absurd hx e⟩
     · next hx => exact ⟨fun _ => hx, fun _ => rfl⟩
   refine k s₈ ⟨by rw [h7₈]; exact he₈, hk₈, sv₈, hdat₈, hc₈, hcb₈, ?_, ?_⟩
-  · rw [h7₈, h0₇]; exact if_congr hX rfl rfl
+  · rw [h7₈, h0₇]; exact ite_congr (propext hX) (fun _ => rfl) (fun _ => rfl)
   · rw [hz₈]; exact decide_eq_decide.mpr (hX0.trans (not_congr hX))
 
 theorem open_good {s₀ s₂ : State} (h : onePre 6 s₀) (h2 : SO1 6 s₀ s₂)

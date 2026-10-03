@@ -1,6 +1,5 @@
 import VerifiedGarbage.Proof.Pbkdf2.Stream.X86.Hash
 import Mathlib.Tactic.Set
-import Mathlib.Tactic.Tauto
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.Proof.Framework.OffsetBelow
 import VerifiedGarbage.Proof.Framework.OmegaLit

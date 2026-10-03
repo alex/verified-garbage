@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.X448.X86_64.Basic
-import Mathlib.Tactic.Tauto
 
 /-!
 # X448 on x86-64: carry chains, loads and stores
@@ -526,8 +525,8 @@ theorem mulSteps_ok (X : List Reg) (s₀ : State) :
       rcases hr with rfl | rfl | rfl | rfl <;> exact hX _ (by simp)
     have hk1 : Keeps X s₀ s1 := hk.trans (k1.mono hXs)
     refine WP.mono (mulSteps_ok X s₀ ts lds vs s1 hk1
-      (fun r hr => hX r (by simp only [List.mem_cons] at hr ⊢; tauto)) hcX
-      (by simp only [List.nodup_cons, List.mem_cons, not_or] at hnd ⊢; tauto) (by simpa using hl) hf)
+      (fun r hr => hX r (by simp only [List.mem_cons] at hr ⊢; grind)) hcX
+      (by simp only [List.nodup_cons, List.mem_cons, not_or] at hnd ⊢; grind) (by simpa using hl) hf)
       fun s' ⟨e', k'⟩ => ⟨?_, ?_⟩
     · have c1 : s1.gpr .rcx = s.gpr .rcx := k1.1 _ (by simp [Ne.symm hct])
       have g1 : s'.gpr t = s1.gpr t := k'.1 _ (by simp [hat, hdt, hbt, htt])

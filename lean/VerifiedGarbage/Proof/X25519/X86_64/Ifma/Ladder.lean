@@ -205,7 +205,7 @@ theorem vladder_ok {s₀ : State} {base : Addr} {k : Nat} {u : Fe} (hs : Scr s�
     exact this
   refine ⟨⟨by rw [g₈]; exact hs₆.rdi, by rw [k₈.wr]; exact hs₆.wr, hs.nowrap⟩, fun r hr hb => ?_, ?_, ?_, ?_,
     ?_, ?_, ?_, ?_, ?_⟩
-  · have h1 : r ∉ cregs := fun h => hr (by simp only [cregs, clob, List.mem_cons] at h ⊢; tauto)
+  · have h1 : r ∉ cregs := fun h => hr (by simp only [cregs, clob, List.mem_cons] at h ⊢; grind)
     have h2 : r ≠ .r11 := fun h => hr (by subst h; decide)
     have h3 : r ≠ .rax := fun h => hr (by subst h; decide)
     have h4 : r ∉ [Reg.rax, .rbx, .rcx, .rdx] := by

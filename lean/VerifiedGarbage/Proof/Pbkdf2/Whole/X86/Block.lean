@@ -73,7 +73,7 @@ theorem Inv.keep {k : Nat} {s s' : State} (h : Inv hF s₀ k s) (hrd : s'.rd = s
     (hw : ∀ r ∈ rs, Wks F s₀ r ∨ r = stkR s₀) : Inv hF s₀ k s' := by
   have hl := layout (F := F); have he := end_le hz; have := hz.D
   have hsb : (stkR s₀).Disjoint (scR s₀ F) := hp.b_s
-  refine ⟨h.kr.keep hrd hwr (fun r hr => hg r (by simp only [List.mem_cons] at hr ⊢; tauto)) hf
+  refine ⟨h.kr.keep hrd hwr (fun r hr => hg r (by simp only [List.mem_cons] at hr ⊢; grind)) hf
     (fun r hr => ?_) (fun r hr => ?_), h.st.keep hz hf (fun r hr => ?_), h.k0l, by rw [hg _ (by simp), h.ebx],
     ?_, h.glen, ?_⟩
   · rcases hw r hr with hw | rfl
@@ -113,7 +113,7 @@ theorem Inv.after {k : Nat} {s s' : State} (h : Inv hF s₀ k s) {ws : List Regi
     (hw : ∀ r ∈ ws, Wks F s₀ r) : Inv hF s₀ k s' := by
   have f := ha.frame
   rw [h.kr.stkE] at f
-  refine h.keep hp hz ha.rd ha.wr (fun r hr => ha.cs r (by simp only [List.mem_cons] at hr ⊢; simp [calleeSaved]; tauto))
+  refine h.keep hp hz ha.rd ha.wr (fun r hr => ha.cs r (by simp only [List.mem_cons] at hr ⊢; simp [calleeSaved]; grind))
     f fun r hr => ?_
   rcases List.mem_append.mp hr with hr | hr
   · exact .inl (hw r hr)

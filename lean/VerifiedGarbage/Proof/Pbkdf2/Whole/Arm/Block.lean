@@ -73,7 +73,7 @@ theorem Inv.keep {k : Nat} {s s' : State} (h : Inv hF s₀ k s) (hrd : s'.rd = s
     (hw : ∀ r ∈ rs, Wks F s₀ r ∨ r = stkR s₀) : Inv hF s₀ k s' := by
   have hl := layout (F := F); have he := end_le hz; have := hz.D
   have hsb : (stkR s₀).Disjoint (scR s₀ F) := hp.b_s
-  refine ⟨h.kr.keep hrd hwr hsp (fun r hr => hg r (by simp only [List.mem_cons] at hr ⊢; tauto)) hf
+  refine ⟨h.kr.keep hrd hwr hsp (fun r hr => hg r (by simp only [List.mem_cons] at hr ⊢; grind)) hf
     (fun r hr => ?_) (fun r hr => ?_), h.st.keep hz hf (fun r hr => ?_), h.k0l, by rw [hg _ (by simp), h.r4],
     ?_, h.glen, ?_⟩
   · rcases hw r hr with hw | rfl
