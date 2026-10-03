@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 
 /// The CPU features `vg_aes_siv_init_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_SIV_INIT_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_SIV_INIT_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// The AES-SIV key setup (RFC 5297 §2.6): writes the key context of the `key_len`-byte key `K = K1 ‖ K2` at `key` (the halves of `key_len / 2` bytes) to `*ctx`: the key schedule of `K1` for `Nr = key_len / 8 + 6` rounds (FIPS 197 §5.2, as `vg_aes_expand_key` writes it) in the first `16 * (Nr + 1)` bytes, its CMAC subkeys (NIST SP 800-38B §6.1) in bytes 240–271, and the key schedule of `K2` in the `16 * (Nr + 1)` bytes from byte 272. The other bytes are unspecified. The other `vg_aes_siv_*` functions read it, with `Nr` as their `rounds`.
 ///
@@ -68,7 +68,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_siv_init_aesni(key: *const u8, key_l
 }
 
 /// The CPU features `vg_aes_siv_s2v_start_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_SIV_S2V_START_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_SIV_S2V_START_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// Starts S2V (RFC 5297 §2.4) for an AES-SIV encryption or decryption: with the key context `*ctx` that `vg_aes_siv_init` wrote for `rounds` rounds, writes `D = AES-CMAC(K1, <zero>)` to `*d`. Continue with `vg_aes_siv_s2v_ad` for each component of the associated data (the nonce last, for nonce-based encryption), then `vg_aes_siv_seal` or `vg_aes_siv_open`, with the same key context.
 ///
@@ -106,7 +106,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_siv_s2v_start_aesni(ctx: *const [u64
 }
 
 /// The CPU features `vg_aes_siv_s2v_ad_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_SIV_S2V_AD_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_SIV_S2V_AD_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// Absorbs one component of associated data into S2V (RFC 5297 §2.4's loop): with the key context `*ctx` that `vg_aes_siv_init` wrote for `rounds` rounds, replaces the S2V state `D` in `*d` with `dbl(D) xor AES-CMAC(K1, S)`, where the component `S` is the `len` bytes at `data`. RFC 5297 allows at most 126 components (§7), which the caller must count.
 ///
@@ -217,7 +217,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_siv_s2v_ad_aesni(ctx: *const [u64; 6
 }
 
 /// The CPU features `vg_aes_siv_seal_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_SIV_SEAL_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_SIV_SEAL_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// AES-SIV encryption (RFC 5297 §2.6), after S2V of the associated data: with the key context `*ctx` that `vg_aes_siv_init` wrote for `rounds` rounds and the S2V state `*d` of the associated data (`vg_aes_siv_s2v_start`, then `vg_aes_siv_s2v_ad` of each component), finishes S2V with the `len` bytes of plaintext at `data`, writing the synthetic IV `V` to the first 16 bytes of `*work`, and encrypts the plaintext in place with AES-CTR under `K2` from `V` with bits 31 and 63 cleared. The RFC's output is `V` followed by the encrypted data. The rest of `*work` is working space, unspecified on return.
 ///
@@ -490,7 +490,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_siv_seal_aesni(ctx: *const [u64; 64]
 }
 
 /// The CPU features `vg_aes_siv_open_aesni` requires (`Artifact.features`).
-pub(crate) const VG_AES_SIV_OPEN_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+pub(crate) const VG_AES_SIV_OPEN_AESNI_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "ssse3"]);
 
 /// AES-SIV decryption (RFC 5297 §2.7), after S2V of the associated data: with the key context `*ctx` that `vg_aes_siv_init` wrote for `rounds` rounds, the S2V state `*d` of the associated data (`vg_aes_siv_s2v_start`, then `vg_aes_siv_s2v_ad` of each component) and the received synthetic IV `V` in the first 16 bytes of `*work`, decrypts the `len` bytes of ciphertext at `data` in place with AES-CTR under `K2` from `V` with bits 31 and 63 cleared, finishes S2V with the plaintext, and returns 1 if the result is `V`; otherwise returns 0 and overwrites the `len` bytes at `data` with zeros. The rest of `*work` is working space, unspecified on return. The IVs are compared without a branch.
 ///
@@ -1565,7 +1565,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_siv_open(ctx: *const [u64; 64], roun
 }
 
 /// The CPU features `vg_aes_siv_init_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_SIV_INIT_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_SIV_INIT_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// The AES-SIV key setup (RFC 5297 §2.6): writes the key context of the `key_len`-byte key `K = K1 ‖ K2` at `key` (the halves of `key_len / 2` bytes) to `*ctx`: the key schedule of `K1` for `Nr = key_len / 8 + 6` rounds (FIPS 197 §5.2, as `vg_aes_expand_key` writes it) in the first `16 * (Nr + 1)` bytes, its CMAC subkeys (NIST SP 800-38B §6.1) in bytes 240–271, and the key schedule of `K2` in the `16 * (Nr + 1)` bytes from byte 272. The other bytes are unspecified. The other `vg_aes_siv_*` functions read it, with `Nr` as their `rounds`.
 ///
@@ -1630,7 +1630,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_siv_init_vaes(key: *const u8, key_le
 }
 
 /// The CPU features `vg_aes_siv_s2v_start_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_SIV_S2V_START_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_SIV_S2V_START_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// Starts S2V (RFC 5297 §2.4) for an AES-SIV encryption or decryption: with the key context `*ctx` that `vg_aes_siv_init` wrote for `rounds` rounds, writes `D = AES-CMAC(K1, <zero>)` to `*d`. Continue with `vg_aes_siv_s2v_ad` for each component of the associated data (the nonce last, for nonce-based encryption), then `vg_aes_siv_seal` or `vg_aes_siv_open`, with the same key context.
 ///
@@ -1668,7 +1668,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_siv_s2v_start_vaes(ctx: *const [u64;
 }
 
 /// The CPU features `vg_aes_siv_s2v_ad_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_SIV_S2V_AD_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_SIV_S2V_AD_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// Absorbs one component of associated data into S2V (RFC 5297 §2.4's loop): with the key context `*ctx` that `vg_aes_siv_init` wrote for `rounds` rounds, replaces the S2V state `D` in `*d` with `dbl(D) xor AES-CMAC(K1, S)`, where the component `S` is the `len` bytes at `data`. RFC 5297 allows at most 126 components (§7), which the caller must count.
 ///
@@ -1779,7 +1779,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_siv_s2v_ad_vaes(ctx: *const [u64; 64
 }
 
 /// The CPU features `vg_aes_siv_seal_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_SIV_SEAL_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_SIV_SEAL_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// AES-SIV encryption (RFC 5297 §2.6), after S2V of the associated data: with the key context `*ctx` that `vg_aes_siv_init` wrote for `rounds` rounds and the S2V state `*d` of the associated data (`vg_aes_siv_s2v_start`, then `vg_aes_siv_s2v_ad` of each component), finishes S2V with the `len` bytes of plaintext at `data`, writing the synthetic IV `V` to the first 16 bytes of `*work`, and encrypts the plaintext in place with AES-CTR under `K2` from `V` with bits 31 and 63 cleared. The RFC's output is `V` followed by the encrypted data. The rest of `*work` is working space, unspecified on return.
 ///
@@ -2052,7 +2052,7 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_siv_seal_vaes(ctx: *const [u64; 64],
 }
 
 /// The CPU features `vg_aes_siv_open_vaes` requires (`Artifact.features`).
-pub(crate) const VG_AES_SIV_OPEN_VAES_FEATURES: &[&str] = &["aes", "avx", "avx2", "ssse3", "vaes"];
+pub(crate) const VG_AES_SIV_OPEN_VAES_FEATURES: crate::cpu::Features = crate::cpu::Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"]);
 
 /// AES-SIV decryption (RFC 5297 §2.7), after S2V of the associated data: with the key context `*ctx` that `vg_aes_siv_init` wrote for `rounds` rounds, the S2V state `*d` of the associated data (`vg_aes_siv_s2v_start`, then `vg_aes_siv_s2v_ad` of each component) and the received synthetic IV `V` in the first 16 bytes of `*work`, decrypts the `len` bytes of ciphertext at `data` in place with AES-CTR under `K2` from `V` with bits 31 and 63 cleared, finishes S2V with the plaintext, and returns 1 if the result is `V`; otherwise returns 0 and overwrites the `len` bytes at `data` with zeros. The rest of `*work` is working space, unspecified on return. The IVs are compared without a branch.
 ///
