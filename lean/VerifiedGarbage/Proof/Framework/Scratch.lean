@@ -113,10 +113,125 @@ theorem Sig.bufs_append_array (pb : Nat) (nm : String) (e : Elem) (n : Nat) (x :
       List.length_nil] at h
     simp only [List.cons_append, Sig.bufs]
     rw [Sig.bufs_append_array pb nm e n x ps vs (by omega)]
+  | (_, .slices ..) :: ps, v :: l :: vs, h => by
+    simp only [List.flatMap_cons, Param.words.eq_4, List.length_append, List.length_cons,
+      List.length_nil] at h
+    simp only [List.cons_append, Sig.bufs]
+    exact Sig.bufs_append_array pb nm e n x ps vs (by omega)
   | [], _ :: _, h => by simp at h
   | (_, .int ..) :: _, [], h => by simp [Param.words.eq_1] at h
   | (_, .array ..) :: _, [], h => by simp [Param.words.eq_2] at h
   | (_, .slice ..) :: _, [], h => by simp [Param.words.eq_3] at h
   | (_, .slice ..) :: _, [_], h => by simp [Param.words.eq_3] at h
+  | (_, .slices ..) :: _, [], h => by simp [Param.words.eq_4] at h
+  | (_, .slices ..) :: _, [_], h => by simp [Param.words.eq_4] at h
+
+/-- The lists of slices of the parameters followed by one more array: those
+of the others. -/
+theorem Sig.lists_append_array (pb : Nat) (m : Mem) (nm : String) (e : Elem) (n : Nat) (x : BitVec 64) :
+    ∀ (ps : List (String × Param)) (vs : List (BitVec 64)),
+      vs.length = (ps.flatMap fun p => p.2.words pb).length →
+      Sig.lists pb m (ps ++ [((nm, .array true e n) : String × Param)]) (vs ++ [x]) = Sig.lists pb m ps vs
+  | [], [], _ => rfl
+  | (_, .int ..) :: ps, v :: vs, h => by
+    simp only [List.flatMap_cons, Param.words.eq_1, List.length_append, List.length_cons,
+      List.length_nil] at h
+    simp only [List.cons_append, Sig.lists]
+    exact Sig.lists_append_array pb m nm e n x ps vs (by omega)
+  | (_, .array ..) :: ps, v :: vs, h => by
+    simp only [List.flatMap_cons, Param.words.eq_2, List.length_append, List.length_cons,
+      List.length_nil] at h
+    simp only [List.cons_append, Sig.lists]
+    exact Sig.lists_append_array pb m nm e n x ps vs (by omega)
+  | (_, .slice ..) :: ps, v :: l :: vs, h => by
+    simp only [List.flatMap_cons, Param.words.eq_3, List.length_append, List.length_cons,
+      List.length_nil] at h
+    simp only [List.cons_append, Sig.lists]
+    exact Sig.lists_append_array pb m nm e n x ps vs (by omega)
+  | (_, .slices ..) :: ps, v :: l :: vs, h => by
+    simp only [List.flatMap_cons, Param.words.eq_4, List.length_append, List.length_cons,
+      List.length_nil] at h
+    simp only [List.cons_append, Sig.lists]
+    rw [Sig.lists_append_array pb m nm e n x ps vs (by omega)]
+  | [], _ :: _, h => by simp at h
+  | (_, .int ..) :: _, [], h => by simp [Param.words.eq_1] at h
+  | (_, .array ..) :: _, [], h => by simp [Param.words.eq_2] at h
+  | (_, .slice ..) :: _, [], h => by simp [Param.words.eq_3] at h
+  | (_, .slice ..) :: _, [_], h => by simp [Param.words.eq_3] at h
+  | (_, .slices ..) :: _, [], h => by simp [Param.words.eq_4] at h
+  | (_, .slices ..) :: _, [_], h => by simp [Param.words.eq_4] at h
+
+/-- The descriptors of the parameters followed by one more array: those of
+the others. -/
+theorem Sig.descs_append_array (pb : Nat) (nm : String) (e : Elem) (n : Nat) (x : BitVec 64) :
+    ∀ (ps : List (String × Param)) (vs : List (BitVec 64)),
+      vs.length = (ps.flatMap fun p => p.2.words pb).length →
+      Sig.descs pb (ps ++ [((nm, .array true e n) : String × Param)]) (vs ++ [x]) = Sig.descs pb ps vs
+  | [], [], _ => rfl
+  | (_, .int ..) :: ps, v :: vs, h => by
+    simp only [List.flatMap_cons, Param.words.eq_1, List.length_append, List.length_cons,
+      List.length_nil] at h
+    simp only [List.cons_append, Sig.descs]
+    exact Sig.descs_append_array pb nm e n x ps vs (by omega)
+  | (_, .array ..) :: ps, v :: vs, h => by
+    simp only [List.flatMap_cons, Param.words.eq_2, List.length_append, List.length_cons,
+      List.length_nil] at h
+    simp only [List.cons_append, Sig.descs]
+    exact Sig.descs_append_array pb nm e n x ps vs (by omega)
+  | (_, .slice ..) :: ps, v :: l :: vs, h => by
+    simp only [List.flatMap_cons, Param.words.eq_3, List.length_append, List.length_cons,
+      List.length_nil] at h
+    simp only [List.cons_append, Sig.descs]
+    exact Sig.descs_append_array pb nm e n x ps vs (by omega)
+  | (_, .slices ..) :: ps, v :: l :: vs, h => by
+    simp only [List.flatMap_cons, Param.words.eq_4, List.length_append, List.length_cons,
+      List.length_nil] at h
+    simp only [List.cons_append, Sig.descs]
+    rw [Sig.descs_append_array pb nm e n x ps vs (by omega)]
+  | [], _ :: _, h => by simp at h
+  | (_, .int ..) :: _, [], h => by simp [Param.words.eq_1] at h
+  | (_, .array ..) :: _, [], h => by simp [Param.words.eq_2] at h
+  | (_, .slice ..) :: _, [], h => by simp [Param.words.eq_3] at h
+  | (_, .slice ..) :: _, [_], h => by simp [Param.words.eq_3] at h
+  | (_, .slices ..) :: _, [], h => by simp [Param.words.eq_4] at h
+  | (_, .slices ..) :: _, [_], h => by simp [Param.words.eq_4] at h
+
+/-- No parameter is a list of slices (`Param.slices`), whose memory
+`Sig.contract` reads from the memory on entry: the frame of a stack scratch
+buffer is proved only for signatures without one. -/
+def Sig.noLists (ps : List (String × Param)) : Bool :=
+  ps.all fun p => match p.2 with
+    | .slices .. => false
+    | _ => true
+
+theorem Sig.lists_of_noLists (pb : Nat) (m : Mem) :
+    ∀ (ps : List (String × Param)) (vs : List (BitVec 64)), Sig.noLists ps = true →
+      Sig.lists pb m ps vs = []
+  | [], _, _ => rfl
+  | (_, .int ..) :: ps, _ :: vs, h => Sig.lists_of_noLists pb m ps vs (by simpa [Sig.noLists] using h)
+  | (_, .array ..) :: ps, _ :: vs, h => Sig.lists_of_noLists pb m ps vs (by simpa [Sig.noLists] using h)
+  | (_, .slice ..) :: ps, _ :: _ :: vs, h => Sig.lists_of_noLists pb m ps vs (by simpa [Sig.noLists] using h)
+  | (_, .slices ..) :: _, _, h => by simp [Sig.noLists] at h
+  | (_, .int ..) :: _, [], _ => rfl
+  | (_, .array ..) :: _, [], _ => rfl
+  | (_, .slice ..) :: _, [], _ => rfl
+  | (_, .slice ..) :: _, [_], _ => rfl
+
+theorem Sig.descs_of_noLists (pb : Nat) :
+    ∀ (ps : List (String × Param)) (vs : List (BitVec 64)), Sig.noLists ps = true →
+      Sig.descs pb ps vs = []
+  | [], _, _ => rfl
+  | (_, .int ..) :: ps, _ :: vs, h => Sig.descs_of_noLists pb ps vs (by simpa [Sig.noLists] using h)
+  | (_, .array ..) :: ps, _ :: vs, h => Sig.descs_of_noLists pb ps vs (by simpa [Sig.noLists] using h)
+  | (_, .slice ..) :: ps, _ :: _ :: vs, h => Sig.descs_of_noLists pb ps vs (by simpa [Sig.noLists] using h)
+  | (_, .slices ..) :: _, _, h => by simp [Sig.noLists] at h
+  | (_, .int ..) :: _, [], _ => rfl
+  | (_, .array ..) :: _, [], _ => rfl
+  | (_, .slice ..) :: _, [], _ => rfl
+  | (_, .slice ..) :: _, [_], _ => rfl
+
+theorem Sig.noLists_withScratch {sig : Sig} (nm : String) (e : Elem) (n : Nat)
+    (h : Sig.noLists sig.params = true) : Sig.noLists (sig.withScratch nm e n).params = true := by
+  simpa [Sig.withScratch, Sig.noLists, List.all_append] using h
 
 end VG
