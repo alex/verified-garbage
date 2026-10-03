@@ -58,17 +58,60 @@ structure PInvI (s₀ : State) (R : Poly) (c : Nat) (w : State) : Prop where
   x5 : (w.gpr .x5).toNat = 32 - c
   poly : PolyIs w.mem (fP s₀) (nttInvLayerN R 2 (2 * c))
 
+/-- The coefficients after the pair `c` of blocks of the layer with `len = 2`. -/
+theorem ipair_poly (R : Poly) {c : Nat} (hc : c < 32) : ∀ i < 256, (nttInvLayerN R 2 (2 * (c + 1)))[i]! =
+    if 8 * c ≤ i ∧ i < 8 * c + 4 then
+      (fun e => if e < 2 then (nttInvLayerN R 2 (2 * c))[8 * c + e]! + (nttInvLayerN R 2 (2 * c))[8 * c + e + 2]!
+        else zeta (127 - 2 * c) * ((nttInvLayerN R 2 (2 * c))[8 * c + e]! - (nttInvLayerN R 2 (2 * c))[8 * c + e - 2]!))
+        (i - 8 * c)
+    else if 8 * c + 4 ≤ i ∧ i < 8 * c + 4 + 4 then
+      (fun e => if e < 2 then
+          (nttInvLayerN R 2 (2 * c))[8 * c + 4 + e]! + (nttInvLayerN R 2 (2 * c))[8 * c + 4 + e + 2]!
+        else zeta (126 - 2 * c) *
+          ((nttInvLayerN R 2 (2 * c))[8 * c + 4 + e]! - (nttInvLayerN R 2 (2 * c))[8 * c + 4 + e - 2]!))
+        (i - (8 * c + 4))
+    else (nttInvLayerN R 2 (2 * c))[i]! := by
+  intro i hi
+  set P' := nttInvLayerN R 2 (2 * c)
+  have hn : i < n := by rw [n_eq]; exact hi
+  rw [show 2 * (c + 1) = 2 * c + 1 + 1 by omega, nttInvLayerN_succ, nttInvLayerN_succ,
+    nttInvBlock_get _ (by decide) (by rw [n_eq]; omega) hn,
+    show 256 / 2 - 1 - (2 * c + 1) = 126 - 2 * c by omega,
+    show 2 * 2 * (2 * c + 1) = 8 * c + 4 by omega]
+  have Qg : ∀ x < 256, (nttInvBlock P' 2 (256 / 2 - 1 - 2 * c) (2 * 2 * (2 * c)))[x]! =
+      if 8 * c ≤ x ∧ x < 8 * c + 2 then P'[x]! + P'[x + 2]!
+      else if 8 * c + 2 ≤ x ∧ x < 8 * c + 4 then zeta (127 - 2 * c) * (P'[x]! - P'[x - 2]!)
+      else P'[x]! := fun x hx => by
+    rw [nttInvBlock_get _ (by decide) (by rw [n_eq]; omega) (by rw [n_eq]; exact hx),
+      show 256 / 2 - 1 - 2 * c = 127 - 2 * c by omega, show 2 * 2 * (2 * c) = 8 * c by omega]
+  rcases (by omega : i < 8 * c ∨ (8 * c ≤ i ∧ i < 8 * c + 2) ∨ (8 * c + 2 ≤ i ∧ i < 8 * c + 4) ∨
+      (8 * c + 4 ≤ i ∧ i < 8 * c + 6) ∨ (8 * c + 6 ≤ i ∧ i < 8 * c + 8) ∨ 8 * c + 8 ≤ i) with
+    h | h | h | h | h | h
+  · rw [Qg i hi]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right]
+  · rw [Qg i hi]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
+  · rw [Qg i hi]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
+  · rw [Qg i hi, Qg (i + 2) (by omega)]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
+  · rw [Qg i hi, Qg (i - 2) (by omega)]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
+  · rw [Qg i hi]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right]
+
 theorem ipair_step {s₀ : State} (hp : Pre s₀) {R : Poly} {c : Nat} (hc : c < 32) {w : State}
     (h : PInvI s₀ R c w) :
     WP isa (.block (vPairBody (vibfly .v18) true [.subImm .x .x12 .x12 8])) w fun w' =>
       PInvI s₀ R (c + 1) w' ∧ ((w'.gpr .x5).toNat ≠ 0 ↔ c + 1 ≠ 32) := by
-  show WP isa (.block ([.ldr .x .x17 .x12 0, .subImm .x .x12 .x12 8] ++
-    (.vop (.dup .d2 .v19 .x17) :: .vop (.rev .rev64s .v19 .v19) :: .vop (.perm .zip1 .s4 .v18 .v19 .v19) ::
+  show WP isa (.block (([.ldr .x .x17 .x12 0, .subImm .x .x12 .x12 8] : List Instr) ++
+    ((.vop (.dup .d2 .v19 .x17) :: .vop (.rev .rev64s .v19 .v19) :: .vop (.perm .zip1 .s4 .v18 .v19 .v19) ::
       .ldrq .v5 .x2 0 :: .ldrq .v6 .x2 16 :: .vop (.perm .trn1 .d2 .v0 .v5 .v6) ::
       .vop (.perm .trn2 .d2 .v1 .v5 .v6) ::
-      (vibfly .v18 ++ (.vop (.perm .trn1 .d2 .v5 .v2 .v1) :: .vop (.perm .trn2 .d2 .v6 .v2 .v1) ::
+      (vibfly .v18 ++ ((.vop (.perm .trn1 .d2 .v5 .v2 .v1) :: .vop (.perm .trn2 .d2 .v6 .v2 .v1) ::
         .strq .v5 .x2 0 :: .strq .v6 .x2 16 ::
-        ([.addImm .x .x2 .x2 32, .subImm .x .x5 .x5 1] ++ [])))))) w _
+        (([.addImm .x .x2 .x2 32, .subImm .x .x5 .x5 1] : List Instr) ++ ([] : List Instr))) : List Instr))) :
+      List Instr))) w _
   have hk : 4 * (126 - 2 * c) + 8 ≤ 1024 := by omega
   refine wp_scalar (by decide) (P := fun w₂ => Keep [.x17, .x12] w w₂ ∧ w₂.mem = w.mem ∧
       w₂.gpr .x17 = w.mem.readW (sP s₀ + BitVec.ofNat 64 (4 * (126 - 2 * c))) 64 ∧
@@ -183,34 +226,7 @@ theorem ipair_step {s₀ : State} (hp : Pre s₀) {R : Poly} {c : Nat} (hc : c <
       · rw [l1 3 (by decide), val_mul, val_sub', Nat.mul_comm (zeta _).val]
         dsimp only
         rw [show 126 - 2 * c + 1 - 3 / 2 = 126 - 2 * c by omega]; rfl
-    · have hn : i < n := by rw [n_eq]; exact hi
-      rw [show 2 * (c + 1) = 2 * c + 1 + 1 by omega, nttInvLayerN_succ, nttInvLayerN_succ,
-        nttInvBlock_get _ (by decide) (by rw [n_eq]; omega) hn,
-        show 256 / 2 - 1 - (2 * c + 1) = 126 - 2 * c by omega,
-        show 2 * 2 * (2 * c + 1) = 8 * c + 4 by omega]
-      have Qg : ∀ x < 256, (nttInvBlock P' 2 (256 / 2 - 1 - 2 * c) (2 * 2 * (2 * c)))[x]! =
-          if 8 * c ≤ x ∧ x < 8 * c + 2 then P'[x]! + P'[x + 2]!
-          else if 8 * c + 2 ≤ x ∧ x < 8 * c + 4 then zeta (127 - 2 * c) * (P'[x]! - P'[x - 2]!)
-          else P'[x]! := fun x hx => by
-        rw [nttInvBlock_get _ (by decide) (by rw [n_eq]; omega) (by rw [n_eq]; exact hx),
-          show 256 / 2 - 1 - 2 * c = 127 - 2 * c by omega, show 2 * 2 * (2 * c) = 8 * c by omega]
-      rcases (by omega : i < 8 * c ∨ (8 * c ≤ i ∧ i < 8 * c + 2) ∨ (8 * c + 2 ≤ i ∧ i < 8 * c + 4) ∨
-          (8 * c + 4 ≤ i ∧ i < 8 * c + 6) ∨ (8 * c + 6 ≤ i ∧ i < 8 * c + 8) ∨ 8 * c + 8 ≤ i) with
-        h | h | h | h | h | h
-      · rw [Qg i hi]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right]
-        rfl
-      · rw [Qg i hi]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
-      · rw [Qg i hi]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
-      · rw [Qg i hi, Qg (i + 2) (by omega)]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
-      · rw [Qg i hi, Qg (i - 2) (by omega)]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
-      · rw [Qg i hi]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right]
-        rfl
+    · exact ipair_poly R hc i hi
 
 /-! ## The layers with `len ≥ 4` -/
 
@@ -321,7 +337,7 @@ theorem iblock_step {s₀ : State} (hp : Pre s₀) {P : Poly} {len : Nat} (h4 : 
   have hk1 : 1 ≤ 256 / len - 1 - b := by omega
   refine WP.seq ?_
   show WP isa (.block ([Instr.ldr .w .x17 .x12 0, .subImm .x .x12 .x12 4] ++
-    (.vop (.dup .s4 .v18 .x17) :: ([.add .x .x3 .x2 .x15, mov .x5 .x11] ++ [])))) u _
+    (.vop (.dup .s4 .v18 .x17) :: (([.add .x .x3 .x2 .x15, mov .x5 .x11] : List Instr) ++ [])))) u _
   refine wp_scalar (by decide) (P := fun u₂ => Keep [.x17, .x12] u u₂ ∧ u₂.mem = u.mem ∧
       u₂.gpr .x17 = (u.mem.readW (sP s₀ + BitVec.ofNat 64 (4 * (256 / len - 1 - b))) 32).setWidth 64 ∧
       u₂.gpr .x12 = u.gpr .x12 - BitVec.ofNat 64 4)
@@ -377,13 +393,14 @@ theorem iblock_step {s₀ : State} (hp : Pre s₀) {P : Poly} {len : Nat} (h4 : 
     exact p₅
 
 /-- The layers with `len ≥ 4`: `len = 4 · 2ⁱ`, `32 / 2ⁱ` blocks. -/
-theorem ifacts : ∀ i < 6, 4 ≤ 4 * 2 ^ i ∧ 4 * 2 ^ i % 4 = 0 ∧ 128 / (4 * 2 ^ i) = 32 / 2 ^ i ∧
-    4 * 2 ^ i * (128 / (4 * 2 ^ i)) = 128 ∧ 2 * (128 / (4 * 2 ^ i)) ≤ 128 ∧
-    256 / (4 * 2 ^ i) = 2 * (128 / (4 * 2 ^ i)) ∧ 4 * 2 ^ i / 4 = 2 ^ i ∧
-    256 / (4 * 2 ^ i) - 1 - 128 / (4 * 2 ^ i) = 64 / 2 ^ (i + 1) - 1 ∧ 256 / (4 * 2 ^ i) = 64 / 2 ^ i ∧
-    32 / 2 ^ i / 2 = 32 / 2 ^ (i + 1) ∧ nttInvLens.getD (i + 1) 0 = 4 * 2 ^ i ∧ 0 < 32 / 2 ^ i ∧
-    2 ^ i ≤ 32 := by
-  decide
+theorem ifacts : ∀ i < 6, (4 : Nat) ≤ 4 * 2 ^ i ∧ (4 * 2 ^ i % 4 : Nat) = 0 ∧
+    (128 / (4 * 2 ^ i) : Nat) = 32 / 2 ^ i ∧ (4 * 2 ^ i * (128 / (4 * 2 ^ i)) : Nat) = 128 ∧
+    (2 * (128 / (4 * 2 ^ i)) : Nat) ≤ 128 ∧ (256 / (4 * 2 ^ i) : Nat) = 2 * (128 / (4 * 2 ^ i)) ∧
+    (4 * 2 ^ i / 4 : Nat) = 2 ^ i ∧
+    (256 / (4 * 2 ^ i) - 1 - 128 / (4 * 2 ^ i) : Nat) = 64 / 2 ^ (i + 1) - 1 ∧
+    (256 / (4 * 2 ^ i) : Nat) = 64 / 2 ^ i ∧ (32 / 2 ^ i / 2 : Nat) = 32 / 2 ^ (i + 1) ∧
+    nttInvLens.getD (i + 1) 0 = 4 * 2 ^ i ∧ (0 : Nat) < 32 / 2 ^ i ∧ (2 ^ i : Nat) ≤ 32 := by
+  decide +kernel
 
 /-- After the layer with `len = 2` and `i` more. -/
 structure OInvI (s₀ : State) (i : Nat) (u : State) : Prop where
@@ -417,7 +434,7 @@ theorem ilayer_step {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 6) {u : S
   refine WP.seq (WP.mono (count_loop (n := 128 / (4 * 2 ^ i)) (by rw [f2]; exact f11)
     (LInvI s₀ _ (4 * 2 ^ i) u₃) (fun b hb v hv => iblock_step hp f0 f1 f3 f4 f5 c11 c15 hb hv) l₀)
     fun u₄ h₄ => ?_)
-  show WP isa (.block ([.lsl .x .x11 .x11 1, .lsr .x .x13 .x13 1, .subImm .x .x14 .x14 1] ++ [])) u₄ _
+  show WP isa (.block (([.lsl .x .x11 .x11 1, .lsr .x .x13 .x13 1, .subImm .x .x14 .x14 1] : List Instr) ++ [])) u₄ _
   refine wp_scalar (by decide) (P := fun u₇ => Keep [.x11, .x13, .x14] u₄ u₇ ∧ u₇.mem = u₄.mem ∧
       u₇.gpr .x11 = u₄.gpr .x11 <<< 1 ∧ u₇.gpr .x13 = u₄.gpr .x13 >>> 1 ∧
       u₇.gpr .x14 = u₄.gpr .x14 - BitVec.ofNat 64 1)
@@ -464,7 +481,7 @@ theorem scale_step {s₀ : State} (hp : Pre s₀) {R : Poly} {k : Nat} (hk : k <
       SInv s₀ R (k + 1) u' ∧ ((u'.gpr .x5).toNat ≠ 0 ↔ k + 1 ≠ 64) := by
   have hj : 4 * k + 4 ≤ 256 := by omega
   show WP isa (.block (.ldrq .v1 .x2 0 :: (vmulq .v1 .v18 .v3 ++ (.strq .v1 .x2 0 ::
-    ([.addImm .x .x2 .x2 16, .subImm .x .x5 .x5 1] ++ []))))) u _
+    (([.addImm .x .x2 .x2 16, .subImm .x .x5 .x5 1] : List Instr) ++ []))))) u _
   refine wp_ldrq (a := coeffAddr (fP s₀) (4 * k)) (by decide) (by rw [h.x2, ptr_zero])
     (hp.in16' h.st hj) fun u₁ h₁ => ?_
   have l1 : Lanes (u₁.v .v1) fun e => (R[4 * k + e]!).val := fun e he => by

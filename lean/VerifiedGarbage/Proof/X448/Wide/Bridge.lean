@@ -17,8 +17,7 @@ theorem paired_val (f : Nat → Nat) (n : Nat) :
   | succ n ih =>
     rw [show 2 * (n + 1) = (2 * n + 1) + 1 by omega,
       VG.Proof.X448.valN_succ, VG.Proof.X448.valN_succ, valN_succ, ih, paired,
-      Nat.pow_succ, Nat.pow_mul, radix_pair]
-    ring
+      Nat.pow_succ, Nat.pow_mul, radix_pair, Nat.mul_add, Nat.add_assoc, Nat.mul_assoc]
 
 theorem paired_bound {f : Nat → Nat} (h : ∀ i < 16, f i < VG.Proof.X448.radix) :
     ∀ i < 8, paired f i < radix := by

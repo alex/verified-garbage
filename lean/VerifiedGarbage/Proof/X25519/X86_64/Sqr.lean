@@ -13,13 +13,13 @@ namespace VG.Proof.X25519.X86_64
 open VG VG.X86_64 VG.Impl.X25519.X86_64 VG.Proof.X25519
 
 /-- The square of four words, by the products of their words (with no
-power of two above `2²⁵⁶`, which `ring` would not evaluate). -/
+power of two above `2²⁵⁶`, which would exceed the threshold of exponents Lean evaluates). -/
 theorem sq_words (x y z w : Nat) :
     (x + 2 ^ 64 * y + 2 ^ 128 * z + 2 ^ 192 * w) * (x + 2 ^ 64 * y + 2 ^ 128 * z + 2 ^ 192 * w) =
       x * x + 2 ^ 128 * (y * y) + 2 ^ 256 * (z * z) + 2 ^ 256 * (2 ^ 128 * (w * w)) +
         2 * (2 ^ 64 * (x * y) + 2 ^ 128 * (x * z) + 2 ^ 192 * (x * w) + 2 ^ 192 * (y * z) +
           2 ^ 256 * (y * w) + 2 ^ 256 * (2 ^ 64 * (z * w))) := by
-  ring
+  grind
 
 theorem fe_lt (m : Mem) (base : Addr) (a : Nat) : fe m base a < 2 ^ 256 := by
   simp only [X86_64.fe, val4]

@@ -1,5 +1,124 @@
-import VerifiedGarbage.Proof.Argon2.AArch64.AddressCacheSave
-import VerifiedGarbage.Proof.Argon2.AArch64.AddressGeneration
+import VerifiedGarbage.Proof.Argon2.AArch64.AddressCacheMeta
+import VerifiedGarbage.Proof.Argon2.AArch64.AddressCallsPrepare
+import VerifiedGarbage.Proof.Argon2.AArch64.AddressCalls
+
+/-! Merged from `Proof.Argon2.AArch64.AddressGeneration`. -/
+section
+/-! Complete independent-address generation against the reviewed algorithm. -/
+
+namespace VG.Proof.Argon2.AArch64.AddressCalls
+
+open VG VG.AArch64 VG.Spec.Argon2 VG.Impl.Argon2.AArch64.AddressCalls
+
+theorem calls_sp_ok (p : Params) (pass lane slice counter : Nat) (s : State) (h : Ready s)
+    (zero : blockAt s.mem (off (work s) 7168) = zeroBlock)
+    (input : blockAt s.mem (off (work s) 5120) = Proof.Argon2.addressInput p pass lane slice counter) :
+    WP isa calls s fun t => Generated s t p pass lane slice counter ∧ t.sp = s.sp :=
+  (calls_ok p pass lane slice counter s h zero input).mono (fun _ h => ⟨h, h.sp⟩)
+
+theorem code_ok (p : Params) (pass lane slice counter : Nat) (s : State) (h : Ready s)
+    (reads : ∀ d ∈ [0, 8, 72, 112, 240], InRegions (s.rd ++ s.wr) (off (s.gpr .x19) d) 8)
+    (words : AddressHeader.Words p pass lane slice counter s) :
+    WP isa code s fun t => Generated s t p pass lane slice counter ∧ t.sp = s.sp := by
+  unfold code
+  refine WP.seq ((prepare_ok p pass lane slice counter s h reads words).mono ?_)
+  intro a prepared
+  have zero : blockAt a.mem (off (work a) 7168) = zeroBlock := by
+    rw [prepared.stable.work_eq]; exact prepared.zero
+  have input : blockAt a.mem (off (work a) 5120) = Proof.Argon2.addressInput p pass lane slice counter := by
+    rw [prepared.stable.work_eq]; exact prepared.input
+  refine (calls_sp_ok p pass lane slice counter a prepared.stable.ready zero input).mono ?_
+  rintro t ⟨generated, mx⟩
+  have frame := generated.frame
+  rw [writes, prepared.stable.work_eq, prepared.stable.sp] at frame
+  have firstFrame : Frame (writes s) s.mem a.mem :=
+    prepared.stable.frame.mono (by
+      intro r hr
+      simp only [List.mem_singleton] at hr
+      subst r
+      simp [writes])
+  refine ⟨⟨?_, generated.ready, generated.work.trans prepared.stable.work_eq,
+    fun r hr => (generated.regs r hr).trans (prepared.stable.regs r hr),
+    generated.rd.trans prepared.stable.rd, generated.wr.trans prepared.stable.wr, generated.sp.trans prepared.stable.sp,
+    firstFrame.trans frame⟩, mx.trans prepared.stable.sp⟩
+  have block := generated.block
+  rw [prepared.stable.work_eq] at block
+  exact block
+
+end VG.Proof.Argon2.AArch64.AddressCalls
+end
+
+/-! Merged from `Proof.Argon2.AArch64.AddressCacheSave`. -/
+section
+/-! Save the public cache counter without disturbing scratch or header fields. -/
+
+namespace VG.Proof.Argon2.AArch64.AddressCache
+
+open VG VG.AArch64 VG.Spec.Argon2 VG.Impl.Argon2.AArch64.AddressCache
+
+theorem save_ok (s : State) (hw : InRegions s.wr (off (s.gpr .x19) 8) 8) :
+    WP isa (.block save) s fun t =>
+      t.mem = s.mem.writeW (off (s.gpr .x19) 8) (s.gpr .x8) ∧
+      t.gpr = s.gpr ∧ t.rd = s.rd ∧ t.wr = s.wr ∧ t.sp = s.sp := by
+  simp only [off] at hw
+  apply WP.of_runBlock
+  simp only [save, VG.Impl.Argon2.AArch64.Instructions.store,
+    List.flatten_cons, List.flatten_nil, List.cons_append, List.nil_append,
+    runBlock_cons, runStep_some, runBlock_nil, exec, addr, Size.bytes,
+    show 8 % 8 = 0 ∧ 8 < 4096 * 8 from by decide, hw, and_self,
+    ite_true, State.store, State.read, BitVec.setWidth_eq,
+    Option.bind_some, Option.some.injEq, exists_eq_left']
+  exact ⟨rfl, trivial⟩
+
+structure Saved (s t : State) : Prop where
+  mem : t.mem = s.mem.writeW (off (s.gpr .x19) 8) (s.gpr .x8)
+  regs : t.gpr = s.gpr
+  rd : t.rd = s.rd
+  wr : t.wr = s.wr
+  sp : t.sp = s.sp
+  ready : AddressCalls.Ready t
+  work_eq : AddressCalls.work t = AddressCalls.work s
+  frame : Frame [⟨off (s.gpr .x19) 8, 8⟩] s.mem t.mem
+
+theorem save_ready (s : State) (h : AddressCalls.Ready s)
+    (hw : InRegions s.wr (off (s.gpr .x19) 8) 8) : WP isa (.block save) s (Saved s) := by
+  refine (save_ok s hw).mono ?_
+  rintro t ⟨mem, regs, rd, wr, mx⟩
+  have work' : AddressCalls.work t = AddressCalls.work s := by
+    unfold AddressCalls.work
+    rw [regs, mem, Mem.readW_writeW_sep (Offset.sep _ (by decide) (by decide) (by decide)) (by decide)]
+  have ready : AddressCalls.Ready t := by
+    constructor
+    · rw [rd, wr, regs]; exact h.frameRead
+    · rw [work', wr]; exact h.workWrite
+    · rw [regs, work']; exact h.frameWork
+    · rw [regs, mx]; exact h.frameStack
+    · rw [mx, work']; exact h.stackWork
+  refine ⟨mem, regs, rd, wr, mx, ready, work', ?_⟩
+  rw [mem]
+  exact (Frame.refl _ _).writeW (r := ⟨off (s.gpr .x19) 8, 8⟩) (by simp) _
+    (Region.contains_self _ _)
+
+theorem Saved.read {s t : State} (h : Saved s t) (d : Nat)
+    (hd : d + 8 ≤ 8 ∨ 16 ≤ d) (bound : d + 8 ≤ 272) :
+    t.mem.readW (off (t.gpr .x19) d) 64 = s.mem.readW (off (s.gpr .x19) d) 64 := by
+  rw [h.regs, h.mem]
+  exact Mem.readW_writeW_sep (Offset.sep _ hd (by omega) (by decide)) (by decide)
+
+theorem Saved.words {s t : State} {p : Params} {pass lane slice old counter : Nat}
+    (h : Saved s t) (words : AddressHeader.Words p pass lane slice old s)
+    (value : s.gpr .x8 = BitVec.ofNat 64 counter) :
+    AddressHeader.Words p pass lane slice counter t := by
+  refine ⟨(h.read 0 (by decide) (by decide)).trans words.passWord,
+    ?_, ?_, (h.read 240 (by decide) (by decide)).trans words.blocksWord,
+    (h.read 72 (by decide) (by decide)).trans words.passesWord,
+    (h.read 112 (by decide) (by decide)).trans words.variantWord, ?_⟩
+  · rw [h.regs]; exact words.laneWord
+  · rw [h.regs]; exact words.sliceWord
+  · rw [h.regs, h.mem, Mem.readW_writeW_self64, value]
+
+end VG.Proof.Argon2.AArch64.AddressCache
+end
 
 /-! Regenerate only when the public one-based block counter changes. -/
 

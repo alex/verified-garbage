@@ -355,7 +355,7 @@ theorem temp_wp {i : Nat} {s : State} (hi : WInv s₁ S B kl nk i s) :
     refine ⟨fun t htt => by rw [hrax, eax₃ t htt, ht], fun r hr => (hk r hr).trans (keep₃ r hr),
       hrd.trans rd₃, hwr.trans wr₃, by rw [hm]; exact Frame.refl _ _, ?_⟩
     rw [hm, hi.rc, div_pred_ne h3 hne]
-  refine WP.ite (decide (i % nk = 0)) (by simp only [X86.eval, z₃]; simp) (fun hb => ?_) (fun hb => ?_)
+  refine WP.ite (decide (i % nk = 0)) (by simp only [X86.eval, z₃]; simp [Nat.mul_eq_zero]) (fun hb => ?_) (fun hb => ?_)
   · -- `SUBWORD(ROTWORD(temp)) ⊕ Rcon`.
     have h0 : i % nk = 0 := by simpa using hb
     rw [rotWordStep, WP.block_append_iff (M := isa)]

@@ -22,10 +22,12 @@ open VG.Spec.Sha3 (bytesAt)
 
 /-- Closes the evaluated precondition of a contract from the hypotheses. -/
 macro "cpre" : tactic => `(tactic| (
+  try simp only [State.addr] at *
   and_intros <;> first
-    | assumption
+    | with_reducible assumption
     | (have := State.sp _ |>.isLt; omega)
-    | omega))
+    | omega
+    | assumption))
 
 /-! ## `vg_mldsa_ntt`, `vg_mldsa_inv_ntt` -/
 

@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.X25519.X86.Fold
-import Mathlib.Tactic.Ring
 
 /-!
 # X25519 on x86 (32-bit): the field operations
@@ -17,7 +16,7 @@ open VG VG.X86 VG.Impl.X25519.X86 VG.Spec.X25519
 
 variable {W : Nat}
 
-/-! ## Numbers in any base, for `ring` -/
+/-! ## Numbers in any base, for `grind`'s ring normalization -/
 
 /-- `num` in any base. -/
 def numB (B : Nat) (f : Nat → Nat) : Nat → Nat
@@ -39,14 +38,14 @@ theorem prod_identity (fa fb : Nat → Nat) :
     List.filter_cons, List.filter_nil]
   simp (config := {decide := true}) only [ite_true, ite_false, List.map_cons, List.map_nil,
     List.sum_cons, List.sum_nil]
-  ring
+  grind
 
 theorem num_16 (f : Nat → Nat) : num f 16 = num f 8 + 2 ^ 256 * num (fun k => f (8 + k)) 8 := by
   simp only [num_eq_numB]
   rw [show (2 : Nat) ^ 256 = (2 ^ 32) ^ 8 by rw [← Nat.pow_mul]]
   generalize 2 ^ 32 = B
   simp only [numB]
-  ring
+  grind
 
 /-- The complements of the words. -/
 theorem num_not {f : Nat → Nat} (h : ∀ k < 8, f k < 2 ^ 32) :
@@ -119,7 +118,7 @@ theorem mul_ok {x : BitVec 32} {s : State} (hc : Ctx W x s) {o a b : Nat} (ho : 
     rcases hd with rfl | rfl <;> exact ⟨by omega_using [ha, hb, hi, hki], .inl (by omega_using [ha, hb, hi, hki])⟩
   · have hl : (prodTerms a b k).length ≤ 8 := by
       simp only [prodTerms, List.length_map]
-      exact (List.length_filter_le _ _).trans (by simp)
+      exact Nat.le_trans (List.length_filter_le _ _) (by simp)
     have h1 := colv_le_len (m := s₁.mem) (x := x) (B := 2 ^ 64) (ts := prodTerms a b k) fun t ht => by
       simp only [prodTerms, List.mem_map] at ht
       obtain ⟨i, -, rfl⟩ := ht

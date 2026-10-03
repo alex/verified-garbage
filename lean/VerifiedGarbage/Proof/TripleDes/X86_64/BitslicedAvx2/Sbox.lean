@@ -16,7 +16,7 @@ register.
 namespace VG.Proof.TripleDes.X86_64.BitslicedAvx2
 
 open VG VG.X86_64 VG.X86_64.StraightY VG.Bitslice VG.Impl.TripleDes.X86_64.BitsliceAvx2
-open VG.Proof.TripleDes.X86_64 (inputTable outputTable)
+open VG.Proof.TripleDes (inputTable outputTable)
 
 noncomputable def sboxLiterals : Array (Prog isa) :=
   #[sbox0.lit, sbox1.lit, sbox2.lit, sbox3.lit, sbox4.lit, sbox5.lit, sbox6.lit, sbox7.lit]

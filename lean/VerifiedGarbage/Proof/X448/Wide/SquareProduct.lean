@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.X448.Wide.Product
-import Mathlib.Tactic.IntervalCases
 
 /-! Untrusted: symmetric diagonal accumulation for an eight-limb square. -/
 namespace VG.Proof.X448.Wide
@@ -12,7 +11,10 @@ def sqrSum (f : Nat → Nat) (k : Nat) : Nat → Nat
 theorem sqrSum_eq (f : Nat → Nat) {k : Nat} (hk : k < 16) :
     sqrSum f k 8 = rows f f 8 k := by
   rw [← colSum_eq]
-  interval_cases k <;> simp [sqrSum, colSum] <;> ring
+  obtain rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨
+    k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 ∨ k = 15 := by omega
+  all_goals (simp [sqrSum, colSum] <;> grind)
 
 theorem sqrSum_le {n m : Nat} (hn : n ≤ m) (f : Nat → Nat) (k : Nat) :
     sqrSum f k n ≤ sqrSum f k m := by

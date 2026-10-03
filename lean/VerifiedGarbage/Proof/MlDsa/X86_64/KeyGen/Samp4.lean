@@ -127,7 +127,12 @@ theorem call_ok {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {σ : 
   obtain ⟨A, S', hA, _, hG⟩ := h.ks.ex
   have h15₂ : s₂.gpr .r15 = s.gpr .r15 := hP₂.cs .r15 (by decide)
   rw [h15₂, r15_and (good_01 hG) hr01] at h15
-  refine ⟨h.ks.k1.step hF hp hP₁₃ (hx₃.trans hx₂) (by layk), fun e' => if e' < 4 * g then A e'
+  have ka : k1Chk p [(aP (4 * g), 4096)] = true := k1Chk_rbx (by simp only [oP, VG.Impl.MlKem.X86_64.oSS]; omega)
+    (by simp only [scrLen, Spec.MlDsa.scratchWords, oP]; omega)
+  have kr : k1Chk p [(sc (oR4 p), 8192)] = true := k1Chk_rbx (by simp only [oR4, oP, VG.Impl.MlKem.X86_64.oSS]; omega)
+    (by simp only [scrLen, Spec.MlDsa.scratchWords, oR4, oP]; omega)
+  refine ⟨h.ks.k1.step hF hp hP₁₃ (hx₃.trans hx₂) (k1Chk_append (ws₁ := [_, _]) (k1Chk_append (ws₁ := [_]) ka kr) ka),
+    fun e' => if e' < 4 * g then A e'
     else polyAt s₃.mem (pa s₃ (aP e')), S', fun e' he' => ?_, fun _ h => absurd h (Nat.not_lt_zero _), ?_⟩
   · dsimp only
     by_cases hlt : e' < 4 * g

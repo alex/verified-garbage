@@ -204,7 +204,7 @@ end
 
 theorem correct_scalar (σ : State) (hs : r4K.pre σ) :
     ∃ t s', Exec isa rejNTT4 σ t s' ∧ abiPreserved σ s' ∧ r4K.post σ s' := by
-  have hp := pre_of hs
+  have hp := pre_of (by dsimp only [r4K] at hs; exact hs)
   obtain ⟨t, s', he, hF⟩ := WP.seq (WP.mono (pro_ok hp) fun _ h => scalar_body_ok hp h)
   exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he hF.2, hF.1⟩
 

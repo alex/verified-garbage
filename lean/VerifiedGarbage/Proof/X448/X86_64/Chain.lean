@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.X448.X86_64.Basic
+import Mathlib.Tactic.Tauto
 
 /-!
 # X448 on x86-64: carry chains, loads and stores

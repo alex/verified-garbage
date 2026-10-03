@@ -24,11 +24,12 @@ theorem reduce_arith (L h0 h1 h2 h3 h4 h5 h6 lo hi rax : Nat) (hlo : lo + 2 ^ 32
       (h5 + 2 ^ 64 * h6)))))) + 2 ^ 192 * rax + 2 ^ 256 * h4 + 2 ^ 320 * h5 + 2 ^ 384 * h6 + hi +
       2 ^ 32 * (h4 + 2 ^ 64 * (h5 + 2 ^ 64 * (h6 + 2 ^ 64 * (h0 + 2 ^ 64 * (h1 + 2 ^ 64 *
         (h2 + 2 ^ 64 * lo))))))) % P := by
-  generalize hH : h0 + 2 ^ 64 * (h1 + 2 ^ 64 * (h2 + 2 ^ 64 * (h3 + 2 ^ 64 * (h4 + 2 ^ 64 *
-      (h5 + 2 ^ 64 * h6))))) = H
+  obtain ⟨H, hH⟩ : ∃ H, h0 + 2 ^ 64 * (h1 + 2 ^ 64 * (h2 + 2 ^ 64 * (h3 + 2 ^ 64 * (h4 + 2 ^ 64 *
+      (h5 + 2 ^ 64 * h6))))) = H := ⟨_, rfl⟩
+  rw [hH]
   have hP := P_eq
   have e1 : 2 ^ 448 * H = P * H + (2 ^ 224 + 1) * H := by rw [hP, Nat.add_mul]
-  generalize hK : hi + 2 ^ 32 * h4 + 2 ^ 96 * h5 + 2 ^ 160 * h6 = K
+  obtain ⟨K, hK⟩ : ∃ K, hi + 2 ^ 32 * h4 + 2 ^ 96 * h5 + 2 ^ 160 * h6 = K := ⟨_, rfl⟩
   have e2 : 2 ^ 448 * K = P * K + (2 ^ 224 + 1) * K := by rw [hP, Nat.add_mul]
   have e : L + 2 ^ 448 * H = (L + H + 2 ^ 192 * rax + 2 ^ 256 * h4 + 2 ^ 320 * h5 +
       2 ^ 384 * h6 + hi + 2 ^ 32 * (h4 + 2 ^ 64 * (h5 + 2 ^ 64 * (h6 + 2 ^ 64 * (h0 + 2 ^ 64 *
@@ -103,7 +104,6 @@ theorem word_mid (m : Mem) (base : Addr) (d : Nat) :
       2 ^ 32 * X25519.leNum (Spec.X25519.bytesAt m (off base (e + 4)) 4) := fun e => by
     rw [word, ← X25519.leNum_bytesAt_64, show 8 = 4 + 4 from rfl, X25519.bytesAt_add,
       X25519.leNum_append, X25519.length_bytesAt, off, Offset.add_add]
-    rfl
   have l : ∀ e, X25519.leNum (Spec.X25519.bytesAt m (off base e) 4) < 2 ^ 32 := fun e => by
     have := X25519.leNum_lt (Spec.X25519.bytesAt m (off base e) 4)
     rwa [X25519.length_bytesAt] at this
@@ -145,7 +145,7 @@ theorem rot_arith (lo0 lo1 lo2 lo3 lo4 lo5 lo6 hi0 hi1 hi2 hi3 hi4 hi5 hi6 : Nat
       2 ^ 64 * ((lo2 + 2 ^ 32 * hi2) + 2 ^ 64 * lo3)))))) := by
   rw [show (2 : Nat) ^ 64 = 2 ^ 32 * 2 ^ 32 by decide]
   generalize 2 ^ 32 = C
-  ring
+  grind
 
 /-- The registers the field arithmetic uses. -/
 def clob : List Reg := [.rax, .rcx, .rdx, .rbp, .r8, .r9, .r10, .r11, .r12, .r13, .r14, .r15]
@@ -388,7 +388,8 @@ theorem reduce_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat} (ho : o 
     by rw [← K.2.1]; exact o12⟩
   · show mv s12.mem base o 7 % P = _
     rw [e12, e11, tot, mvH]
-    refine (reduce_arith _ _ _ _ _ _ _ _ _ _ _ ?_ ?_).symm
+    refine Eq.symm (reduce_arith (mv s.mem base ACC 7) (word s.mem base (h 7)).toNat (word s.mem base (h 8)).toNat (word s.mem base (h 9)).toNat (word s.mem base (h 10)).toNat (word s.mem base (h 11)).toNat (word s.mem base (h 12)).toNat (word s.mem base (h 13)).toNat ((word s.mem base (h 10)).toNat % 2 ^ 32) ((word s.mem base (h 10)).toNat / 2 ^ 32) (s5.gpr .rax).toNat
+      ?_ ?_)
     · exact Nat.mod_add_div _ _
     · rw [← d5]; exact a5
 

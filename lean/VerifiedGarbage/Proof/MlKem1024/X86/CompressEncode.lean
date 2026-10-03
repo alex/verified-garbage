@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.Omega
 import VerifiedGarbage.Proof.MlKem1024.X86.Pack
 import VerifiedGarbage.Proof.MlKem.Encode1024
 import VerifiedGarbage.Spec.MlKem.Contract1024
@@ -298,17 +299,13 @@ theorem step5 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 5) {t : Nat} (ht : 
     rcases (show i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 by omega) with rfl | rfl | rfl | rfl <;>
       simp only [Nat.add_zero, Nat.mul_zero, Nat.pow_zero, Nat.div_one, Nat.reduceMul, Nat.reducePow]
     · rw [L, hd, compressEncode5_0 _ ht, c0, c 1 (by decide)]
-      have := l 0; have := l 1; have := l 2; have := l 3; have := l 4; have := l 5
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 0, l 1, l 2, l 3, l 4, l 5])
     · rw [L, hd, compressEncode5_1 _ ht, c 1 (by decide), c 2 (by decide), c 3 (by decide)]
-      have := l 0; have := l 1; have := l 2; have := l 3; have := l 4; have := l 5
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 0, l 1, l 2, l 3, l 4, l 5])
     · rw [L, hd, compressEncode5_2 _ ht, c 3 (by decide), c 4 (by decide)]
-      have := l 0; have := l 1; have := l 2; have := l 3; have := l 4; have := l 5
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 0, l 1, l 2, l 3, l 4, l 5])
     · rw [L, hd, compressEncode5_3 _ ht, c 4 (by decide), c 5 (by decide), c 6 (by decide)]
-      have := l 0; have := l 1; have := l 2; have := l 3; have := l 4; have := l 5
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 0, l 1, l 2, l 3, l 4, l 5])
   refine wp_mov fun s₁₁ o₁₁ e₁₁ => ?_
   refine (h₁₀.of_only o₁₁ (by decide)).st8 hp (k := 0 + 4) (r := .al) (by omega) ?_ fun s₁₂ h₁₂ _ => ?_
   · rw [show (Reg8.al).reg = .eax from rfl, e₁₁, g₁₀.gpr _ (by decide), o₉.gpr _ (by decide), setWidth8_eq, bp₈,
@@ -352,17 +349,13 @@ theorem step11 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 11) {t : Nat} (ht 
     rcases (show i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 by omega) with rfl | rfl | rfl | rfl <;>
       simp only [Nat.add_zero, Nat.mul_zero, Nat.pow_zero, Nat.div_one, Nat.reduceMul, Nat.reducePow]
     · rw [L, hd, compressEncode11_0 _ ht, c0]
-      have := l 0; have := l 1; have := l 2
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 0, l 1, l 2])
     · rw [L, hd, compressEncode11_1 _ ht, c0, c 1 (by decide)]
-      have := l 0; have := l 1; have := l 2
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 0, l 1, l 2])
     · rw [L, hd, compressEncode11_2 _ ht, c 1 (by decide), c 2 (by decide)]
-      have := l 0; have := l 1; have := l 2
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 0, l 1, l 2])
     · rw [L, hd, compressEncode11_3 _ ht, c 2 (by decide)]
-      have := l 0; have := l 1; have := l 2
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 0, l 1, l 2])
   have bp₇ : (s₇.gpr .ebp).toNat = cf 11 (a 2) / 1024 := by
     rw [g₇.gpr _ (by decide), o₆.gpr _ (by decide), bp₅]
   -- Bytes 4–7.
@@ -392,17 +385,13 @@ theorem step11 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 11) {t : Nat} (ht 
       simp only [Nat.add_zero, Nat.mul_zero, Nat.pow_zero, Nat.div_one, Nat.reduceMul, Nat.reducePow,
         Nat.add_assoc, Nat.reduceAdd]
     · rw [L, hd, compressEncode11_4 _ ht, c 2 (by decide), c 3 (by decide)]
-      have := l 2; have := l 3; have := l 4; have := l 5
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 2, l 3, l 4, l 5])
     · rw [L, hd, compressEncode11_5 _ ht, c 3 (by decide), c 4 (by decide)]
-      have := l 2; have := l 3; have := l 4; have := l 5
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 2, l 3, l 4, l 5])
     · rw [L, hd, compressEncode11_6 _ ht, c 4 (by decide), c 5 (by decide)]
-      have := l 2; have := l 3; have := l 4; have := l 5
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 2, l 3, l 4, l 5])
     · rw [L, hd, compressEncode11_7 _ ht, c 5 (by decide)]
-      have := l 2; have := l 3; have := l 4; have := l 5
-      exact ofNat8_eq (by omega)
+      exact ofNat8_eq (by omega_using [l 2, l 3, l 4, l 5])
   -- Bytes 8–10.
   refine ldC_spec hdm 5 _ s₁₄ _ (co h₁₄ 5 (by decide)) fun s₁₅ o₁₅ v₁₅ => ?_
   refine wp_shr (by decide) (by decide) fun s₁₆ o₁₆ e₁₆ => wp_mov fun s₁₇ o₁₇ e₁₇ => ?_
@@ -430,14 +419,11 @@ theorem step11 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 11) {t : Nat} (ht 
     simp only [Nat.add_zero, Nat.mul_zero, Nat.pow_zero, Nat.div_one, Nat.reduceMul, Nat.reducePow,
       Nat.add_assoc, Nat.reduceAdd]
   · rw [L, hd, compressEncode11_8 _ ht, c 5 (by decide), c 6 (by decide)]
-    have := l 5; have := l 6; have := l 7
-    exact ofNat8_eq (by omega)
+    exact ofNat8_eq (by omega_using [l 5, l 6, l 7])
   · rw [L, hd, compressEncode11_9 _ ht, c 6 (by decide), c 7 (by decide)]
-    have := l 5; have := l 6; have := l 7
-    exact ofNat8_eq (by omega)
+    exact ofNat8_eq (by omega_using [l 5, l 6, l 7])
   · rw [L, hd, compressEncode11_10 _ ht, c 7 (by decide)]
-    have := l 5; have := l 6; have := l 7
-    exact ofNat8_eq (by omega)
+    exact ofNat8_eq (by omega_using [l 5, l 6, l 7])
 
 /-! ## The function -/
 

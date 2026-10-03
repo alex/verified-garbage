@@ -126,6 +126,20 @@ theorem seedA_eq (ρ : List Byte) (r s : Nat) :
     seedA ρ r s = ρ ++ [BitVec.ofNat 8 s, BitVec.ofNat 8 r] := by
   simp only [seedA, Proof.MlDsa.KeyGen.integerToBytes_one, List.append_assoc]; rfl
 
+theorem k1_aP {p : Params} (hF : PFacts p) {e : Nat} (he : e < p.k * p.ℓ) : k1Chk p [(aP e, 1024)] = true := by
+  have := hF.k; have := hF.l
+  exact k1Chk_rbx (by simp only [oP, VG.Impl.MlKem.X86_64.oSS]; omega)
+    (by simp only [scrLen, Spec.MlDsa.scratchWords, oP]; omega)
+
+theorem k1_sP {p : Params} (hF : PFacts p) {r : Nat} (hr : r < p.ℓ + p.k) : k1Chk p [(sP p r, 1024)] = true := by
+  have := hF.k; have := hF.l
+  exact k1Chk_rbx (by simp only [oP, VG.Impl.MlKem.X86_64.oSS]; omega)
+    (by simp only [scrLen, Spec.MlDsa.scratchWords, oP]; omega)
+
+theorem k1_ss {p : Params} (hF : PFacts p) : k1Chk p [(sc VG.Impl.MlKem.X86_64.oSS, 2048)] = true := by
+  have := hF.k; have := hF.l
+  exact k1Chk_rbx (Nat.le_refl _) (by simp only [scrLen, Spec.MlDsa.scratchWords, VG.Impl.MlKem.X86_64.oSS]; omega)
+
 theorem expA_ok {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ)
     {e : Nat} (he : e < p.k * p.ℓ) {s : State} (h : KSamp p σ e 0 s) : WP isa (expA P p e) s (KSamp p σ (e + 1) 0) := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
@@ -162,7 +176,9 @@ theorem expA_ok {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {σ : 
   obtain ⟨A, S, hA, _, hG⟩ := h₁.ex
   have h15₂ : s₂.gpr .r15 = s₁.gpr .r15 := hP₂.cs .r15 (by decide)
   rw [h15₂, r15_and (good_01 hG) hr01] at h15
-  refine ⟨h₁.k1.step hF hp hP₁₃ (hx₃.trans hx₂) (by layk), fun e' => if e' = e then polyAt s₃.mem (pa s₃ (aP e))
+  refine ⟨h₁.k1.step hF hp hP₁₃ (hx₃.trans hx₂)
+    (k1Chk_append (ws₁ := [_, _]) (k1Chk_append (ws₁ := [_]) (k1_aP hF he) (k1_ss hF)) (k1_aP hF he)),
+    fun e' => if e' = e then polyAt s₃.mem (pa s₃ (aP e))
     else A e', S, fun e' he' => ?_, fun _ h => absurd h (Nat.not_lt_zero _), ?_⟩
   · dsimp only
     rcases (by omega : e' < e ∨ e' = e) with he' | rfl
@@ -304,7 +320,8 @@ theorem expS_ok {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {σ : 
   obtain ⟨A, S, hA, hS, hG⟩ := h₁.ex
   have h15₂ : s₂.gpr .r15 = s₁.gpr .r15 := hP₂.cs .r15 (by decide)
   rw [h15₂, r15_and (good_01 hG) hr01] at h15
-  have k1 := h₁.k1.step hF hp hP₁₃ (hx₃.trans hx₂) (by layk)
+  have k1 := h₁.k1.step hF hp hP₁₃ (hx₃.trans hx₂)
+    (k1Chk_append (ws₁ := [_, _]) (k1Chk_append (ws₁ := [_]) (k1_sP hF hr) (k1_ss hF)) (k1_sP hF hr))
   have kA : ∀ e' < p.k * p.ℓ, PolyIs s₃.mem (pa s₃ (aP e')) (A e') := fun e' he' =>
     polyIs_frame' L₁ hP₁₃ (by layk) (hA e' he')
   have kS : ∀ r' < r, PolyIs s₃.mem (pa s₃ (sP p r')) (toRq (S r')) ∧ Small p.η (S r') := fun r' hr' =>

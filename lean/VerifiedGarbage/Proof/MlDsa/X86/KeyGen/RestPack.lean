@@ -67,7 +67,12 @@ theorem packS_piece {r : Nat} (hr : r < p.ℓ + p.k) : KP p (KRx p r 0 0) (KRx p
     (eta_params hF) (lenS_eq p) (by layp hF) (Nat.le_of_eq (YK_stk p).symm) (ht := .block []) (by kernel_rfl)
     (fun s₀ s _ ⟨A, S, h, hs⟩ => ⟨h.ctx, hs.1, packIn (eta_le hF) hs (h.small r hr)⟩)
     fun s₀ s s' hp ⟨A, S, h, hs⟩ h' fr out => ⟨A, S, ?_⟩
-  have k := h.keep hp (N := 80) (by omega) (by safeR hF) (fun _ _ => by layp hF) fr h'
+  have hpos : 0 < lenS p := by rcases hF.eta with ⟨_, e⟩ | ⟨_, e⟩ <;> omega
+  have hle : 128 + lenS p * r + lenS p ≤ oT0 p := by
+    simp only [oT0]; rw [Nat.add_assoc, ← Nat.mul_succ]; exact Nat.add_le_add_left (Nat.mul_le_mul_left _ hr) _
+  have hsf : SafeR p r 0 [⟨2, 128 + lenS p * r, lenS p⟩] := SafeR.sk hF (Nat.le_of_lt hr) (Nat.zero_le _) hpos
+    (by omega) (.inr (Nat.le_refl _)) (.inl hle) (by rw [hF.sk]; omega)
+  have k := h.keep hp (N := 80) (by omega) hsf (fun _ _ => by layp hF) fr h'
   refine { k with packs := fun r' hr' => ?_ }
   rcases (by omega : r' < r ∨ r' = r) with hr' | rfl
   · exact k.packs r' hr'
@@ -85,7 +90,11 @@ theorem nttS_piece {j : Nat} (hj : j < p.ℓ) :
     fun s₀ s s' hp ⟨A, S, h⟩ h' fr out => ⟨A, S, ?_⟩
   have hS := h.s1 j hj
   rw [ifn (Nat.lt_irrefl j)] at hS
-  have hs : SafeR p (p.ℓ + p.k) 0 [sB p j, ssB 1024] := by safeR hF
+  have hs : SafeR p (p.ℓ + p.k) 0 [sB p j, ssB 1024] :=
+    (SafeR.sc hF (Nat.le_refl _) (Nat.zero_le _) (by decide) (.inr (by simp only [oACC, oP]; omega))
+      (.inr (.inl (by simp only [oP]; omega))) (by simp only [scrLen, hF.sw, oP]; omega)).append (bs₁ := [_])
+    (SafeR.sc (o := oSS) (l := 1024) hF (Nat.le_refl _) (Nat.zero_le _) (by decide) (.inr (by decide))
+      (.inl (by decide)) (by simp only [scrLen, hF.sw, oSS]; omega))
   exact { ctx := h'
           good := by rw [acc_keep hp (N := 80) (by omega) hs.acc fr]; exact h.good
           small := h.small

@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.X448.X86_64.Chain
-import Mathlib.Tactic.Ring
 
 /-!
 # X448 on x86-64: products by columns
@@ -220,11 +219,11 @@ theorem mv_succ_last (m : Mem) (base : Addr) :
   | o, n + 1 => by
     rw [mv, mv_succ_last m base (o + 8) n, mv, pow64_succ,
       show o + 8 + 8 * n = o + 8 * (n + 1) by omega]
-    ring
+    generalize 2 ^ (64 * n) = Q
+    grind
 
 /-- The columns' values: `Σ_{m<n} 2^(64m) colSum (cols (k + m))`, in Horner
-form, whose only power is `2⁶⁴` (`ring` does not evaluate powers above
-`2²⁵⁶`). -/
+form, whose only power is `2⁶⁴`. -/
 def colsVal (xv yv : Nat → Nat) (cols : Nat → List Term) : Nat → Nat → Nat
   | _, 0 => 0
   | k, n + 1 => colSum xv yv (cols k) + 2 ^ 64 * colsVal xv yv cols (k + 1) n
@@ -236,7 +235,8 @@ theorem colsVal_succ_last (xv yv : Nat → Nat) (cols : Nat → List Term) :
   | k, n + 1 => by
     rw [colsVal, colsVal_succ_last xv yv cols (k + 1) n, colsVal, pow64_succ,
       show k + 1 + n = k + (n + 1) by omega]
-    ring
+    generalize 2 ^ (64 * n) = Q
+    grind
 
 theorem colSum_le (xv yv : Nat → Nat) :
     ∀ ts : List Term, (∀ t ∈ ts, xv t.i < 2 ^ 64 ∧ yv t.j < 2 ^ 64) →
@@ -289,7 +289,7 @@ theorem columns_ok {s₀ : State} {base : Addr} (hs : Scr s₀ base) (x : Nat �
       (fun t ht => hxs t.i (hcn t ht).1) (fun t ht => hy _ (hcn t ht).2) (by omega))
       fun s' ⟨e', g', rd', wr', o'⟩ => ?_
     refine ⟨fun r hr => (g' r hr).trans (g r hr), rd'.trans rd, wr'.trans wr,
-      (o.mono (le_refl _) (by omega)).trans (o'.mono (by omega) (by omega)), ?_, ?_⟩
+      (o.mono (Nat.le_refl _) (by omega)).trans (o'.mono (by omega) (by omega)), ?_, ?_⟩
     · rw [mv_succ_last, o'.mv (d := ACC) (k := n) (by omega) (by simp only [ACC]; omega),
         colsVal_succ_last, Nat.zero_add, pow64_succ, ← cs]
       rw [cs] at e'
@@ -297,9 +297,9 @@ theorem columns_ok {s₀ : State} {base : Addr} (hs : Scr s₀ base) (x : Nat �
       calc mv s.mem base ACC n + Q * (word s'.mem base (ACC + 8 * n)).toNat +
             2 ^ 64 * Q * rv s' (acc (n + 1))
           = mv s.mem base ACC n + Q * ((word s'.mem base (ACC + 8 * n)).toNat +
-              2 ^ 64 * rv s' (acc (n + 1))) := by ring
+              2 ^ 64 * rv s' (acc (n + 1))) := by grind
         _ = mv s.mem base ACC n + Q * rv s (acc n) + Q * colSum (fun i => (xv i).toNat)
-              (fun j => (s₀.gpr (y j)).toNat) (cols n) := by rw [e']; ring
+              (fun j => (s₀.gpr (y j)).toNat) (cols n) := by rw [e']; grind
         _ = _ := by rw [e, cs]
     · omega
 
@@ -322,7 +322,7 @@ theorem mulCols_sum (xv yv : Nat → Nat) : colsVal xv yv mulCol 0 14 = val7 xv 
     List.filter_nil, ite_true, ite_false, List.map_cons, List.map_nil, List.sum_cons, List.sum_nil,
     tv, termK, val7, Nat.reduceAdd, Nat.reduceSub, Nat.one_mul]
   generalize 2 ^ 64 = B
-  ring
+  grind
 
 theorem sqrCols_sum (xv : Nat → Nat) : colsVal xv xv sqrCol 0 14 = val7 xv * val7 xv := by
   simp (config := {decide := true}) only [colsVal, colSum, sqrCol, range7, List.filter_cons,
@@ -330,7 +330,7 @@ theorem sqrCols_sum (xv : Nat → Nat) : colsVal xv xv sqrCol 0 14 = val7 xv * v
     tv, termK, val7, Nat.reduceAdd, Nat.reduceSub, Nat.one_mul, List.append_nil, List.cons_append,
     List.nil_append, Nat.reduceDiv]
   generalize 2 ^ 64 = B
-  ring
+  grind
 
 theorem mv7 (m : Mem) (base : Addr) (o : Nat) :
     mv m base o 7 = val7 fun i => (word m base (o + 8 * i)).toNat := by

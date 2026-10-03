@@ -85,13 +85,19 @@ globs = ["VerifiedGarbage.Spec.Sha1", "VerifiedGarbage.Spec.Sha256",
   "VerifiedGarbage.Spec.Rsa"]
 precompileModules = true
 
-# The evaluator of `sig_eval` (`Proof/Framework/SigEval.lean`), a tactic run
-# on every contract: compiled to a shared library like `NativeSpec`, since the
-# interpreter runs it an order of magnitude slower. It imports only Lean core.
+# The project's tactics, which run in most modules: the evaluator of
+# `sig_eval` (`Proof/Framework/SigEval.lean`), run on every contract, the
+# literal tactics (`materialize_code`, `rw_lit`, `Lit.lean`), run by every
+# `taint_decide` and `lit_decide`, and the `omega` helpers: compiled to a shared
+# library like `NativeSpec`, since the interpreter runs them an order of
+# magnitude slower. They import only Lean core and `NativeTCB`
+# (`ci/check_lean_speed.py` checks that every such module is here).
 [[lean_lib]]
 name = "NativeTactics"
 roots = []
-globs = ["VerifiedGarbage.Proof.Framework.SigEval"]
+globs = ["VerifiedGarbage.Proof.Framework.SigEval", "VerifiedGarbage.Proof.Framework.Lit",
+  "VerifiedGarbage.Proof.Framework.Omega", "VerifiedGarbage.Proof.Framework.OmegaLit",
+  "VerifiedGarbage.Proof.Framework.KernelRfl", "VerifiedGarbage.Proof.Framework.Sig"]
 precompileModules = true
 
 # The trusted base, which imports only Lean core: the code the emitter

@@ -88,6 +88,47 @@ macro "safeC " hF:term:max hnr:term:max : tactic => `(tactic| exact
     have := VG.Proof.MlDsa.X86.Verify.w_rows hr $hnr
     lv $hF⟩)
 
+theorem apart_append {Y : Lay} {b : Buf} {bs₁ bs₂ : List Buf} (h₁ : Y.apart b bs₁ = true)
+    (h₂ : Y.apart b bs₂ = true) : Y.apart b (bs₁ ++ bs₂) = true := by
+  simp only [Lay.apart, List.all_append, Bool.and_eq_true] at *
+  exact ⟨h₁.1, h₁.2, h₂.2⟩
+
+/-- `SafeC` of two lists of buffers, for both. -/
+theorem SafeC.append {p : Params} {nr : Nat} {bs₁ bs₂ : List Buf} (h₁ : SafeC p nr bs₁) (h₂ : SafeC p nr bs₂) :
+    SafeC p nr (bs₁ ++ bs₂) :=
+  ⟨apart_append h₁.h h₂.h, fun r hr s hs => apart_append (h₁.a r hr s hs) (h₂.a r hr s hs),
+    apart_append h₁.acc h₂.acc, fun r hr => apart_append (h₁.w r hr) (h₂.w r hr)⟩
+
+/-- `SafeC` of a buffer of `scratch` below `Â`, apart from the hint, the result and the rows of `w₁`
+so far, proved once for any buffer (`safeC` on a literal list of buffers costs seconds). -/
+theorem SafeC.sc {p : Params} (hF : VFacts p) {nr : Nat} (hnr : nr ≤ p.k) {o l : Nat} (h0 : 0 < l)
+    (h1 : o + l ≤ oACC ∨ oACC + 4 ≤ o) (h2 : o + l ≤ oB ∨ oB + w1Len p * nr ≤ o) (h3 : o + l ≤ oP 0 ∨ oP 8 ≤ o)
+    (h4 : o + l ≤ oP 20) : SafeC p nr [sb o l] := by
+  simp only [oACC, oB, oP] at h1 h2 h3 h4
+  safeC hF hnr
+
+/-- `SafeC` of no buffers. -/
+theorem SafeC.nil {p : Params} (hF : VFacts p) {nr : Nat} (hnr : nr ≤ p.k) : SafeC p nr [] := by
+  safeC hF hnr
+
+theorem SafeC.cons_sc {p : Params} (hF : VFacts p) {nr : Nat} (hnr : nr ≤ p.k) {o l : Nat} {bs : List Buf}
+    (h0 : 0 < l) (h1 : o + l ≤ oACC ∨ oACC + 4 ≤ o) (h2 : o + l ≤ oB ∨ oB + w1Len p * nr ≤ o ∨ oB + 1024 ≤ o)
+    (h3 : o + l ≤ oP 0 ∨ oP 8 ≤ o) (h4 : o + l ≤ oP 20) (h : SafeC p nr bs) : SafeC p nr (sb o l :: bs) := by
+  have : w1Len p * nr ≤ 1024 := by
+    have := Nat.mul_le_mul_left (w1Len p) hnr; rw [Nat.mul_comm (w1Len p) p.k] at this; have := hF.w1; omega
+  exact (SafeC.sc hF hnr h0 h1 (by omega) h3 h4).append (bs₁ := [_]) h
+
+/-- Proves `SafeC` of a list of buffers of `scratch` below `Â` by `SafeC.cons_sc`, with `hnr : nr ≤ p.k`. -/
+macro "safeCs " hF:term:max hnr:term:max : tactic => `(tactic| (
+  repeat' (first
+    | with_reducible exact VG.Proof.MlDsa.X86.Verify.SafeC.nil $hF $hnr
+    | apply VG.Proof.MlDsa.X86.Verify.SafeC.cons_sc $hF $hnr)
+  all_goals (
+    have := ($hF).w1; have := ($hF).k; have := ($hF).l; have := ($hF).ct
+    try simp only [VG.Impl.MlDsa.X86.Verify.oP, VG.Impl.MlDsa.X86.Verify.oB, VG.Impl.MlDsa.X86.Verify.oACC,
+      VG.Impl.MlDsa.X86.Verify.oSS, VG.Impl.MlDsa.X86.Verify.oCT]
+    omega_arith)))
+
 theorem ci_of_sc {p : Params} {s₀ s : State} (h : SC p s₀ s) : CI p s₀ 0 false 0 s := by
   obtain ⟨hh, ehh, hi⟩ := h.vb.hint
   obtain ⟨A, C, hA, hC, hG⟩ := h.ex
@@ -105,7 +146,7 @@ theorem nttZ_piece {j : Nat} (hj : j < p.ℓ) :
     (ht := .block []) (by kernel_rfl)
     (fun _ _ _ ⟨_, _, _, h⟩ => ⟨h.ctx, by have := (h.z j hj).1; exact this⟩)
     fun s₀ s s' hp ⟨hh, A, C, h⟩ h' fr post => by
-      refine ⟨hh, A, C, h.update hp (N := 80) (by omega) (by safeC hF (Nat.zero_le p.k)) fr h' (fun i hi => ?_)
+      refine ⟨hh, A, C, h.update hp (N := 80) (by omega) (by safeCs hF (Nat.zero_le p.k)) fr h' (fun i hi => ?_)
         (keepPolyD hp (stkV (by omega)) (by lv hF) fr h.c)⟩
       rcases (by omega : i < j ∨ i = j ∨ j < i) with hij | rfl | hij
       · have e := keepPolyD hp (stkV (by omega)) (by lv hF) fr (h.z i hi)
@@ -125,7 +166,7 @@ theorem nttC_piece : VP p (CI p · p.ℓ false 0) (CI p · p.ℓ true 0) (nttAt 
     (ht := .block []) (by kernel_rfl)
     (fun _ _ _ ⟨_, _, _, h⟩ => ⟨h.ctx, h.c.1⟩)
     fun s₀ s s' hp ⟨hh, A, C, h⟩ h' fr post => by
-      refine ⟨hh, A, C, h.update hp (N := 80) (by omega) (by safeC hF (Nat.zero_le p.k)) fr h'
+      refine ⟨hh, A, C, h.update hp (N := 80) (by omega) (by safeCs hF (Nat.zero_le p.k)) fr h'
         (fun i hi => keepPolyD hp (stkV (by omega)) (by lv hF) fr (h.z i hi)) ?_⟩
       have e := h.c.2
       simp only [Bool.false_eq_true, ite_false] at e

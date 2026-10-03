@@ -13,6 +13,7 @@ import VerifiedGarbage.Impl.MlDsa.AArch64.Sample.Ball
 import VerifiedGarbage.Impl.MlDsa.AArch64.Sample.ExpandMask
 import VerifiedGarbage.Proof.Sha3.AArch64.Permute
 import VerifiedGarbage.Impl.MlKem.AArch64.Sample
+import VerifiedGarbage.Proof.Sha3.AArch64.Sums
 
 namespace VG.Proof.Sha3.AArch64
 
@@ -151,6 +152,8 @@ theorem keeps_of_check {c : Prog isa} {rs : List Reg}
   have h' := List.all_eq_true.mp (List.all_eq_true.mp h i hi) r hr
   simpa using h'
 
+sponge_taint_summaries ScalarSums Impl.Sha3.AArch64.Callee.scalar
+
 def Permutation.scalar : Permutation where
   callee := .scalar
   features := []
@@ -158,39 +161,39 @@ def Permutation.scalar : Permutation where
   noFrames := permute_noFrames
   absorbOverrideOk := by intro code h; cases h
   absorbOverrideDepth := by intro code h; cases h
-  absorbTaint := ⟨_, by taint_decide⟩
-  padTaint := ⟨_, by taint_decide⟩
-  squeezeTaint := ⟨_, by taint_decide⟩
-  sampleFullTaint := ⟨_, by taint_decide⟩
-  sampleFastTaint := ⟨_, by taint_decide⟩
-  mldsaNttTaint := ⟨_, by taint_decide⟩
-  mldsaBoundedTaint := ⟨_, by taint_decide⟩
-  mldsaBallTaint := ⟨_, by taint_decide⟩
-  mldsaMaskTaint := ⟨_, by taint_decide⟩
-  mlkemKgATaint := ⟨_, by taint_decide⟩
-  mlkemKgCTaint := ⟨_, by taint_decide⟩
-  mlkemEnATaint := ⟨_, by taint_decide⟩
-  mlkemEnCTaint := ⟨_, by taint_decide⟩
-  mlkemDeATaint := ⟨_, by taint_decide⟩
-  mlkemDeCTaint := ⟨_, by taint_decide⟩
-  mlkem1024KgATaint := ⟨_, by taint_decide⟩
-  mlkem1024KgCTaint := ⟨_, by taint_decide⟩
-  mlkem1024EnATaint := ⟨_, by taint_decide⟩
-  mlkem1024EnCTaint := ⟨_, by taint_decide⟩
-  mlkem1024DeATaint := ⟨_, by taint_decide⟩
-  mlkem1024DeCTaint := ⟨_, by taint_decide⟩
+  absorbTaint := Taint.exists_check_of_sumOk_call ScalarSums.absorb (Taint.Mono.le_refl _) rfl
+  padTaint := Taint.exists_check_of_sumOk_call ScalarSums.pad (Taint.Mono.le_refl _) rfl
+  squeezeTaint := Taint.exists_check_of_sumOk_call ScalarSums.squeeze (Taint.Mono.le_refl _) rfl
+  sampleFullTaint := by sponge_taint_decide ScalarSums
+  sampleFastTaint := by sponge_taint_decide ScalarSums
+  mldsaNttTaint := by sponge_taint_decide ScalarSums
+  mldsaBoundedTaint := by sponge_taint_decide ScalarSums
+  mldsaBallTaint := by sponge_taint_decide ScalarSums
+  mldsaMaskTaint := by sponge_taint_decide ScalarSums
+  mlkemKgATaint := by sponge_taint_decide ScalarSums
+  mlkemKgCTaint := by sponge_taint_decide ScalarSums
+  mlkemEnATaint := by sponge_taint_decide ScalarSums
+  mlkemEnCTaint := by sponge_taint_decide ScalarSums
+  mlkemDeATaint := by sponge_taint_decide ScalarSums
+  mlkemDeCTaint := by sponge_taint_decide ScalarSums
+  mlkem1024KgATaint := by sponge_taint_decide ScalarSums
+  mlkem1024KgCTaint := by sponge_taint_decide ScalarSums
+  mlkem1024EnATaint := by sponge_taint_decide ScalarSums
+  mlkem1024EnCTaint := by sponge_taint_decide ScalarSums
+  mlkem1024DeATaint := by sponge_taint_decide ScalarSums
+  mlkem1024DeCTaint := by sponge_taint_decide ScalarSums
 
-  mldsaSeedsTaint := ⟨_, by taint_decide⟩
+  mldsaSeedsTaint := by sponge_taint_decide ScalarSums
   mldsaTrHashTaint := by
     intro p hp
-    rcases hp with rfl | rfl | rfl <;> exact ⟨_, by taint_decide⟩
+    rcases hp with rfl | rfl | rfl <;> exact by sponge_taint_decide ScalarSums
   mldsaVerifyHashTaint := by
     intro p hp
-    rcases hp with rfl | rfl | rfl <;> exact ⟨_, by taint_decide⟩
+    rcases hp with rfl | rfl | rfl <;> exact by sponge_taint_decide ScalarSums
 
-  mldsaSignDecodeTaint := ⟨_, by taint_decide⟩
+  mldsaSignDecodeTaint := by sponge_taint_decide ScalarSums
   mldsaSignCommitTaint := by
     intro p hp
-    rcases hp with rfl | rfl | rfl <;> exact ⟨_, by taint_decide⟩
+    rcases hp with rfl | rfl | rfl <;> exact by sponge_taint_decide ScalarSums
 
 end VG.Proof.Sha3.AArch64

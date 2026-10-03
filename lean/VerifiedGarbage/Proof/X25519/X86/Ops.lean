@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.X25519.X86.Arith
+import Mathlib.Logic.Function.Basic
 
 /-!
 # X25519 on x86 (32-bit): sequences of field operations

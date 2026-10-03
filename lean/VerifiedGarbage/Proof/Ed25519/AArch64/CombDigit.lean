@@ -220,13 +220,11 @@ theorem combDigits_ok {s : State} {base : Addr} (hs : Scr s base) {S j : Nat} (h
   refine WP.mono (combSign_ok f ne f2) fun g ⟨g2, _, kg⟩ => ?_
   refine WP.mono (masksEven_ok _ (mag_lt ne) g2) fun t ⟨tm, tz, kt⟩ => ?_
   refine ⟨fun k h1 h8 => ?_, ?_, tm, tz, ?_⟩
-  · have hk : oddReg k ∉ [Reg.x8, .x1, .x3, .x6, .x7, .x10, .x11, .x23, .x24, .x2, .x9] := by
-      have : ∀ k < 9, oddReg k ∉ [Reg.x8, .x1, .x3, .x6, .x7, .x10, .x11, .x23, .x24, .x2, .x9] := by
-        decide
-      exact this k (by omega)
-    rw [kt.gpr _ (fun h => hk (by simp only [List.mem_cons] at h ⊢; tauto)),
-      kg.gpr _ (fun h => hk (by simp only [List.mem_cons] at h ⊢; tauto)),
-      kf.gpr _ (fun h => hk (by simp only [List.mem_cons] at h ⊢; tauto))]
+  · have hk : ∀ k < 9, oddReg k ∉ [Reg.x8, .x1, .x3, .x6, .x7, .x10, .x11, .x23, .x24] ∧
+        oddReg k ∉ [Reg.x1, .x2, .x3, .x9] ∧ oddReg k ∉ [Reg.x2, .x3] := by
+      decide
+    obtain ⟨ht, hg, hf⟩ := hk k (by omega)
+    rw [kt.gpr _ ht, kg.gpr _ hg, kf.gpr _ hf]
     exact em k h1 h8
   · rw [kt.gpr _ (by decide), kg.gpr _ (by decide), kf.gpr _ (by decide)]
     exact ez

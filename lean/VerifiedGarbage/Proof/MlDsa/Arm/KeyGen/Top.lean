@@ -100,7 +100,13 @@ theorem trHash_ok {p : Params} (hF : PFacts p) {STK : Nat} {σ : State} {A : Nat
   obtain ⟨hin, hq⟩ := trPieces hF hs
   unfold trHash
   refine WP.mono (hashS hs ktrue (rate := 136) (sfx := 0x1f) (by decide) (by decide) (by decide) (by decide)
-    (by simp) hin hq) fun s' ⟨k', o'⟩ => ⟨A, S, R, h.keep hF k' (by krchk hF), ?_⟩
+    (by simp) hin hq) fun s' ⟨k', o'⟩ => ⟨A, S, R, h.keep hF k' ?_, ?_⟩
+  · have := hF.scr
+    exact (KRChk.c0 hF (Nat.le_refl _) (Nat.le_refl _) (.inl (by decide)) (.inl (by decide)) (by omega)).append
+      (W₁ := [_]) ((KRChk.c0 hF (Nat.le_refl _) (Nat.le_refl _) (.inl (by decide)) (.inl (by decide))
+      (by omega)).append (W₁ := [_]) ((KRChk.stk hF (Nat.le_refl _) (Nat.le_refl _)).append (W₁ := [_])
+      (KRChk.c4 (o := 64) (n := 64) hF (Nat.le_refl _) (Nat.le_refl _) (by decide) (.inl (by decide))
+        (.inl (by simp only [oT0]; omega)) (by rw [hF.sk, oT0]; omega))))
   have o₃ : bytesAt s'.mem ((lay p STK σ).A 4 64) 64 = _ := o'
   rw [o₃]
   simp only [List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil, Lay.pb,

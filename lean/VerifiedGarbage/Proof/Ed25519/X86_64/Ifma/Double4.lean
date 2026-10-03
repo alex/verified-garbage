@@ -1,5 +1,428 @@
-import VerifiedGarbage.Proof.Ed25519.X86_64.Ifma.Double
+import VerifiedGarbage.Proof.Ed25519.X86_64.Ifma.Stage
+import VerifiedGarbage.Proof.Ed25519.Group.Double
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointLoop
+
+/-! Merged from `Proof.Ed25519.X86_64.Ifma.Block`. -/
+section
+/-!
+# Ed25519 doublings with AVX512_IFMA: the blocks as facts about states
+
+Each vector block of `Ifma.double4` but X25519's products and carries: the
+limbs it leaves in registers and slots (`lanes`, `slotv`), as numbers, from
+those it starts with, and what it keeps.
+-/
+
+namespace VG.Proof.Ed25519.X86_64.Ifma
+
+open VG VG.X86_64 VG.Impl.Ed25519.X86_64.Ifma
+open VG.Impl.X25519.X86_64.Ifma (KM K19 KB0 KB1 OPL OPV kb ord)
+open VG.Proof.X25519.X86_64.Ifma (Sym T Env Bnds EnvOK symOf symOf_eq limbNat lanes slotv mq CConsts
+  envOK_of envOf envOf_m envOf_v lt64 run_ok SRel.out SRel.keep stores stores_mq stores_outside xi_xr kbv
+  kb_m nat_ok vm)
+open VG.Proof.X25519.X86_64 (Outside)
+open VG.Proof.Poly1305.X86_64.Avx2 (xr qw sel4)
+
+/-- The constants of the doublings: the carries' and differences', and
+`vstore`'s masks. -/
+structure EConsts (m : Mem) (base : Addr) : Prop extends CConsts m base where
+  k13 : ∀ l < 4, (mq m base (EK13 + 8 * l)).toNat = 2 ^ 13 - 1
+  k26 : ∀ l < 4, (mq m base (EK26 + 8 * l)).toNat = 2 ^ 26 - 1
+  k39 : ∀ l < 4, (mq m base (EK39 + 8 * l)).toNat = 2 ^ 39 - 1
+
+/-- The constants are kept by anything that changes only `OPL` and `OPV`. -/
+theorem EConsts.outside {m m' : Mem} {base : Addr} (hk : EConsts m base)
+    (h : Outside base 1024 320 m m') : EConsts m' base := by
+  have w : ∀ d, 1344 ≤ d → d + 8 ≤ 4096 → mq m' base d = mq m base d := fun d h1 h2 => by
+    rw [VG.Proof.X25519.X86_64.Ifma.mq_eq_word, VG.Proof.X25519.X86_64.Ifma.mq_eq_word]
+    exact h.word (by omega) (by omega)
+  refine ⟨⟨fun l hl => ?_, fun l hl => ?_, fun l hl => ?_, fun l hl => ?_⟩, fun l hl => ?_,
+    fun l hl => ?_, fun l hl => ?_⟩
+  · rw [w _ (by simp only [KM]; omega) (by simp only [KM]; omega)]; exact hk.km l hl
+  · rw [w _ (by simp only [K19]; omega) (by simp only [K19]; omega)]; exact hk.k19 l hl
+  · rw [w _ (by simp only [KB0]; omega) (by simp only [KB0]; omega)]; exact hk.kb0 l hl
+  · rw [w _ (by simp only [KB1]; omega) (by simp only [KB1]; omega)]; exact hk.kb1 l hl
+  · rw [w _ (by simp only [EK13]; omega) (by simp only [EK13]; omega)]; exact hk.k13 l hl
+  · rw [w _ (by simp only [EK26]; omega) (by simp only [EK26]; omega)]; exact hk.k26 l hl
+  · rw [w _ (by simp only [EK39]; omega) (by simp only [EK39]; omega)]; exact hk.k39 l hl
+
+/-! ## Loading -/
+
+theorem loadB_env {s : State} (ha : s.gpr .rax = 0x7ffffffffffff) : EnvOK s loadB := by
+  refine ⟨fun r k _ => lt64 _, fun g => ?_, fun d k _ => lt64 _, fun _ _ _ => Nat.zero_le _⟩
+  simp only [loadB]
+  split
+  · subst_vars; rw [ha]; decide
+  · exact lt64 _
+
+theorem stores_const {s₀ : State} {base : Addr} {m : Mem} {st : List (Nat × T)} {d : Nat} {r : Reg}
+    (h : (d, T.bc (.lane0 (.gpr r))) ∈ st) (hs : ∀ x ∈ st, x.1 < 2 ^ 62)
+    (ha : VG.Proof.X25519.X86_64.Ifma.Apart st) {l : Nat} (hl : l < 4) :
+    mq (stores s₀ base st m) base (d + 8 * l) = s₀.gpr r := by
+  rw [stores_mq _ _ _ _ h hl hs ha]; simp only [T.eval, ite_true]
+
+/-- `vload`: the constants, and the limbs of slots 0–3 in the lanes. -/
+theorem vload_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base) (hc : VG.Proof.X25519.X86_64.Ifma.Ctx s)
+    (ha : s.gpr .rax = 0x7ffffffffffff) (hcx : s.gpr .rcx = 19)
+    (hd : s.gpr .rdx = 0x4000000000000000 - 38912) (hb : s.gpr .rbp = 0x4000000000000000 - 2048)
+    (h8 : s.gpr .r8 = 0x1fff) (h9 : s.gpr .r9 = 0x3ffffff) (h10 : s.gpr .r10 = 0x7fffffffff) :
+    WP isa (.block vload) s fun s' => s'.gpr = s.gpr ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
+      Outside base 1664 224 s.mem s'.mem ∧ EConsts s'.mem base ∧
+      ∀ l < 4, ∀ i < 5, lanes s' 0 l i =
+        limbNat (fun k => (mq s.mem base (64 + 32 * l + 8 * k)).toNat) (2 ^ 51 - 1) i ∧
+        lanes s' 0 l i < 2 ^ 52 := by
+  have hE := loadB_env ha
+  have e : Sym.init.run vload = some loadS := symOf_eq _ _
+  refine WP.mono (run_ok hc e) fun s' h => ?_
+  have hmem : s'.mem = stores s base loadS.st s.mem := by rw [h.mem, hs]
+  have cst : ∀ d r l, (d, r) ∈ [(KM, Reg.rax), (K19, .rcx), (KB0, .rdx), (KB1, .rbp), (EK13, .r8),
+      (EK26, .r9), (EK39, .r10)] → l < 4 → (mq s'.mem base (d + 8 * l)).toNat = (s.gpr r).toNat :=
+    fun d r l hd hl => by
+      have t := loadT_const _ hd
+      have hm := loadT_mem d (by simp only [List.mem_cons] at hd ⊢; rcases hd with h | h | h | h | h | h | h | h <;>
+        simp_all)
+      simp only at t
+      rw [t] at hm
+      rw [hmem, stores_const hm loadS_small loadS_apart hl]
+  refine ⟨h.gpr, h.rd, h.wr, ?_, ⟨⟨fun l hl => ?_, fun l hl => ?_, fun l hl => ?_, fun l hl => ?_⟩,
+    fun l hl => ?_, fun l hl => ?_, fun l hl => ?_⟩, fun l hl i hi => ?_⟩
+  · rw [hmem]; exact stores_outside _ _ _ (by decide) _ loadS_range
+  · rw [cst KM .rax l (by decide) hl, ha]; rfl
+  · rw [cst K19 .rcx l (by decide) hl, hcx]; rfl
+  · rw [cst KB0 .rdx l (by decide) hl, hd]; rfl
+  · rw [cst KB1 .rbp l (by decide) hl, hb]; rfl
+  · rw [cst EK13 .r8 l (by decide) hl, h8]; rfl
+  · rw [cst EK26 .r9 l (by decide) hl, h9]; rfl
+  · rw [cst EK39 .r10 l (by decide) hl, h10]; rfl
+  · obtain ⟨o, b⟩ := loadS_ok i hi l hl
+    obtain ⟨e, be⟩ := h.out hE (by omega) hl o
+    simp only [lanes, Nat.zero_add] at e ⊢
+    refine ⟨?_, by omega⟩
+    rw [e, loadS_regs _ i hi l hl]
+    have hw : (fun k => (envOf s).m (64 + 32 * l) k) = fun k => (mq s.mem base (64 + 32 * l + 8 * k)).toNat :=
+      funext fun k => envOf_m hs _ _
+    rw [hw]
+    show limbNat _ (s.gpr .rax).toNat i = _
+    rw [ha]; rfl
+
+/-! ## A doubling -/
+
+/-- What `dblA` leaves: `(X, Y, Z, X)` in `OPL`, `(X, Y, Z, Y)` in `ymm5–ymm9`. -/
+theorem dblA_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base) (hc : VG.Proof.X25519.X86_64.Ifma.Ctx s) :
+    WP isa (.block dblA) s fun s' => s'.gpr = s.gpr ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
+      Outside base OPL 160 s.mem s'.mem ∧
+      (∀ l < 4, ∀ i < 5, slotv s'.mem base OPL l i = lanes s 0 (sel4 (ord 0 1 2 0).toNat l) i ∧
+        lanes s' 5 l i = lanes s 0 (sel4 (ord 0 1 2 1).toNat l) i) ∧
+      (∀ r < 16, (r < 5 ∨ 11 ≤ r) → ∀ l < 4, qw s' (xr r) l = qw s (xr r) l) := by
+  have e : Sym.init.run dblA = some dblAS := symOf_eq _ _
+  refine WP.mono (run_ok hc e) fun s' h => ?_
+  refine ⟨h.gpr, h.rd, h.wr, ?_, fun l hl i hi => ⟨?_, ?_⟩, fun r hr h1 l hl => h.keep hr hl (dblAS_keep r hr h1)⟩
+  · rw [h.mem, hs]
+    exact stores_outside _ _ _ (by decide) _ (by rw [dblAS_st]; decide)
+  · have hm : ∀ i < 5, ((OPL + 32 * i), T.perm (.reg i) (ord 0 1 2 0).toNat) ∈ dblAS.st := by
+      rw [dblAS_st]; decide
+    rw [slotv, h.mem, hs, stores_mq _ _ _ _ (hm i hi) hl (by rw [dblAS_st]; decide)
+      (by rw [dblAS_st]; decide)]
+    simp only [T.eval, lanes, Nat.zero_add]
+  · have := h.reg (xr (5 + i)) l hl
+    rw [xi_xr _ (by omega), dblAS_regs i hi] at this
+    simp only [lanes, Nat.zero_add, this, T.eval]
+
+/-! ## Products, with their limbs' bound -/
+
+theorem mulL_bound : ∀ k < 5, ∀ l < 4, (VG.Proof.X25519.X86_64.Ifma.mulL.reg k).ok
+    (VG.Proof.X25519.X86_64.Ifma.mulB OPL) l = true ∧
+    (VG.Proof.X25519.X86_64.Ifma.mulL.reg k).bnd (VG.Proof.X25519.X86_64.Ifma.mulB OPL) l < prodBound := by
+  decide +kernel
+
+/-- `mul4 OPL`, its limbs below `prodBound`. -/
+theorem mulLB_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base)
+    (hc : VG.Proof.X25519.X86_64.Ifma.Ctx s)
+    (hx : ∀ l < 4, ∀ i < 5, slotv s.mem base OPL l i < 2 ^ 52)
+    (hy : ∀ l < 4, ∀ i < 5, lanes s 5 l i < 2 ^ 52) :
+    WP isa (.block (VG.Impl.X25519.X86_64.Ifma.mul4 OPL)) s fun s' =>
+      VG.Proof.X25519.X86_64.Ifma.MulPost base OPL s s' ∧ ∀ l < 4, ∀ i < 5, lanes s' 0 l i < prodBound := by
+  have hE : EnvOK s (VG.Proof.X25519.X86_64.Ifma.mulB OPL) := by
+    refine envOK_of hs (fun r l hl => ?_) (fun _ => rfl) (fun d l hl => ?_) (fun _ _ _ => Nat.zero_le _)
+    · simp only [VG.Proof.X25519.X86_64.Ifma.mulB]
+      split
+      · have := hy l hl (r - 5) (by omega)
+        simp only [lanes, show 5 + (r - 5) = r by omega] at this
+        omega
+      · exact lt64 _
+    · simp only [VG.Proof.X25519.X86_64.Ifma.mulB]
+      split
+      · rename_i h
+        obtain ⟨i, hi, rfl⟩ : ∃ i < 5, d = OPL + 32 * i :=
+          ⟨(d - OPL) / 32, by simp only [OPL] at h ⊢; omega, by simp only [OPL] at h ⊢; omega⟩
+        have := hx l hl i hi
+        simp only [slotv] at this
+        omega
+      · exact lt64 _
+  have e : Sym.init.run (VG.Impl.X25519.X86_64.Ifma.mul4 OPL) = some VG.Proof.X25519.X86_64.Ifma.mulL :=
+    VG.Proof.X25519.X86_64.Ifma.mulS_eq OPL _
+  refine WP.mono (run_ok hc e) fun s' h => ⟨⟨h.eq, by rw [h.mem, VG.Proof.X25519.X86_64.Ifma.mulL_st]; rfl,
+    fun l hl i hi => ?_, fun r hr h1 h2 l hl =>
+      h.keep hr hl (VG.Proof.X25519.X86_64.Ifma.mulL_keep r hr h1 h2)⟩, fun l hl i hi => ?_⟩
+  · obtain ⟨o, b⟩ := VG.Proof.X25519.X86_64.Ifma.mulL_ok i hi l hl
+    obtain ⟨e, be⟩ := h.out hE (by omega) hl o
+    simp only [lanes, Nat.zero_add] at e ⊢
+    refine ⟨?_, by omega⟩
+    have hf : (fun i => (envOf s).m (OPL + 32 * i) l) = slotv s.mem base OPL l :=
+      funext fun j => by rw [envOf_m hs, slotv]
+    have hg : (fun j => (envOf s).v (5 + j) l) = lanes s 5 l := funext fun j => rfl
+    rw [e, VG.Proof.X25519.X86_64.Ifma.mulL_nat _ _ i hi, hf, hg]
+  · obtain ⟨o, b⟩ := mulL_bound i hi l hl
+    obtain ⟨_, be⟩ := h.out hE (by omega) hl o
+    simp only [lanes, Nat.zero_add] at be ⊢
+    omega
+
+/-- `F`, limb `i`, from `(A, B, C', P)` (`x l i`). -/
+def fv (x : Nat → Nat → Nat) (i : Nat) : Nat := x 2 i + x 2 i + (kbv i + x 0 i - x 1 i)
+
+/-- `(E, G, F, E)`. -/
+def op1 (x : Nat → Nat → Nat) (l i : Nat) : Nat :=
+  match l with
+  | 0 => x 3 i + x 3 i
+  | 1 => kbv i + x 1 i - x 0 i
+  | 2 => fv x i
+  | _ => x 3 i + x 3 i
+
+/-- `(F, H, G, H)`. -/
+def op2 (x : Nat → Nat → Nat) (l i : Nat) : Nat :=
+  match l with
+  | 0 => fv x i
+  | 1 => x 0 i + x 1 i
+  | 2 => kbv i + x 1 i - x 0 i
+  | _ => x 0 i + x 1 i
+
+theorem dblB_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base) (hc : VG.Proof.X25519.X86_64.Ifma.Ctx s)
+    (hk : CConsts s.mem base) (hx : ∀ l < 4, ∀ i < 5, lanes s 0 l i < prodBound) :
+    WP isa (.block dblB) s fun s' => vm s s' = s' ∧ s'.mem = s.mem ∧
+      (∀ l < 4, ∀ i < 5, lanes s' 0 l i = op1 (lanes s 0) l i ∧ lanes s' 0 l i < 2 ^ 63 ∧
+        lanes s' 5 l i = op2 (lanes s 0) l i ∧ lanes s' 5 l i < 2 ^ 63) ∧
+      (∀ r < 16, 14 ≤ r → ∀ l < 4, qw s' (xr r) l = qw s (xr r) l) := by
+  have hE : EnvOK s dblBB := by
+    refine envOK_of hs (fun r l hl => ?_) (fun _ => rfl) (fun d l hl => ?_) (fun d l hl => ?_)
+    · simp only [dblBB]
+      split
+      · have := hx l hl r (by omega); simp only [lanes, Nat.zero_add] at this; omega
+      · exact lt64 _
+    · simp only [dblBB]
+      split
+      · subst_vars; rw [hk.kb0 l hl]
+      · split
+        · subst_vars; rw [hk.kb1 l hl]
+        · exact lt64 _
+    · simp only [dblBB]
+      split
+      · subst_vars; rw [hk.kb0 l hl]
+      · split
+        · subst_vars; rw [hk.kb1 l hl]
+        · exact Nat.zero_le _
+  have e : Sym.init.run dblB = some dblBS := symOf_eq _ _
+  refine WP.mono (run_ok hc e) fun s' h => ?_
+  refine ⟨h.eq, by rw [h.mem, dblBS_st]; rfl, fun l hl i hi => ?_,
+    fun r hr h1 l hl => h.keep hr hl (dblBS_keep r hr h1)⟩
+  obtain ⟨o1, b1, o2, b2⟩ := dblBS_ok i hi l hl
+  obtain ⟨e1, be1⟩ := h.out hE (by omega) hl o1
+  obtain ⟨e2, be2⟩ := h.out hE (by omega) hl o2
+  obtain ⟨n1, n2⟩ := dblBS_nat (envOf s) i hi l hl
+  simp only [lanes, Nat.zero_add] at e1 e2 ⊢
+  refine ⟨?_, by omega, ?_, by omega⟩
+  · rw [e1, n1]
+    rcases VG.X86_64.cases4 hl with rfl | rfl | rfl | rfl <;>
+      simp only [dblOp1, op1, fv, fNat, lanes, Nat.zero_add, envOf_v, envOf_m hs,
+        kb_m hk (show 0 < 4 by decide), kb_m hk (show 1 < 4 by decide)]
+  · rw [e2, n2]
+    rcases VG.X86_64.cases4 hl with rfl | rfl | rfl | rfl <;>
+      simp only [dblOp2, op2, fv, fNat, lanes, Nat.zero_add, envOf_v, envOf_m hs,
+        kb_m hk (show 0 < 4 by decide), kb_m hk (show 1 < 4 by decide)]
+
+/-- What `dblC` leaves: the first operand in `OPV`. -/
+theorem dblC_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base) (hc : VG.Proof.X25519.X86_64.Ifma.Ctx s) :
+    WP isa (.block dblC) s fun s' => vm s s' = s' ∧ Outside base OPV 160 s.mem s'.mem ∧
+      (∀ l < 4, ∀ i < 5, slotv s'.mem base OPV l i = lanes s 0 l i) ∧
+      (∀ r < 16, ∀ l < 4, qw s' (xr r) l = qw s (xr r) l) := by
+  have e : Sym.init.run dblC = some dblCS := symOf_eq _ _
+  refine WP.mono (run_ok hc e) fun s' h => ?_
+  refine ⟨h.eq, ?_, fun l hl i hi => ?_, fun r hr l hl => h.keep hr hl (dblCS_keep r hr)⟩
+  · rw [h.mem, hs]
+    exact stores_outside _ _ _ (by decide) _ (by rw [dblCS_st]; decide)
+  · have hm : ∀ i < 5, ((OPV + 32 * i), T.reg i) ∈ dblCS.st := by
+      rw [dblCS_st]; decide
+    rw [slotv, h.mem, hs, stores_mq _ _ _ _ (hm i hi) hl (by rw [dblCS_st]; decide) (by rw [dblCS_st]; decide)]
+    simp only [T.eval, lanes, Nat.zero_add]
+
+end VG.Proof.Ed25519.X86_64.Ifma
+end
+
+/-! Merged from `Proof.Ed25519.X86_64.Ifma.Double`. -/
+section
+/-!
+# Ed25519 doublings with AVX512_IFMA: a doubling in the lanes
+
+`vdbl` leaves in the lanes of `ymm0–ymm4` the point `dblPoint` of the one
+there, as field elements (`fe5`).
+-/
+
+namespace VG.Proof.Ed25519.X86_64.Ifma
+
+open VG VG.X86_64 VG.Impl.Ed25519.X86_64.Ifma VG.Proof.Ed25519
+open VG.Impl.X25519.X86_64.Ifma (KM K19 KB0 KB1 OPL OPV kb ord mul4 carry)
+open VG.Proof.X25519.X86_64.Ifma (lanes slotv CConsts carryNat fe5 fe5_congr fe5_add fe5_sub fe5_carry
+  fe5_mul carryI_wp carryF_wp mul4_wp mulL mulV mulS_eq mulL_nat mulL_ok mulL_keep mulL_st mulV_nat mulV_ok
+  mulV_keep mulV_st kbv vm vm_gpr vm_rd vm_wr)
+open VG.Proof.X25519.X86_64 (Outside)
+open VG.Proof.Poly1305.X86_64.Avx2 (xr qw sel4 sel4_lt)
+
+/-- The point in the lanes of `ymm0–ymm4`. -/
+def lanePt (s : State) : Spec.Ed25519.Point :=
+  ⟨fe5 (lanes s 0 0), fe5 (lanes s 0 1), fe5 (lanes s 0 2), fe5 (lanes s 0 3)⟩
+
+/-- Limbs below `2⁶¹`, in every lane. -/
+def Small (s : State) : Prop := ∀ l < 4, ∀ i < 5, lanes s 0 l i < 2 ^ 61
+
+theorem kbv_ge (i : Nat) : 2 ^ 61 ≤ kbv i := by
+  simp only [kbv]; split <;> omega
+
+theorem prodBound_le (i : Nat) : prodBound ≤ kbv i := by
+  have := kbv_ge i; simp only [prodBound]; omega
+
+theorem fe_add_sub (a b c : Spec.X25519.Fe) : a + (b - c) = a - (c - b) :=
+  toZ_inj.1 (by rw [toZ_add, toZ_sub, toZ_sub, toZ_sub]; ring)
+
+/-- `(E, G, F, E)` and `(F, H, G, H)` as field elements, from `(A, B, C', P)`. -/
+theorem ops_fe (x : Nat → Nat → Nat) (hx : ∀ l < 4, ∀ i < 5, x l i < prodBound) :
+    fe5 (op1 x 0) = fe5 (x 3) + fe5 (x 3) ∧ fe5 (op1 x 1) = fe5 (x 1) - fe5 (x 0) ∧
+    fe5 (op1 x 2) = fe5 (x 2) + fe5 (x 2) - (fe5 (x 1) - fe5 (x 0)) ∧
+    fe5 (op1 x 3) = fe5 (x 3) + fe5 (x 3) ∧
+    fe5 (op2 x 0) = fe5 (x 2) + fe5 (x 2) - (fe5 (x 1) - fe5 (x 0)) ∧
+    fe5 (op2 x 1) = fe5 (x 0) + fe5 (x 1) ∧ fe5 (op2 x 2) = fe5 (x 1) - fe5 (x 0) ∧
+    fe5 (op2 x 3) = fe5 (x 0) + fe5 (x 1) := by
+  have g : fe5 (fun i => kbv i + x 1 i - x 0 i) = fe5 (x 1) - fe5 (x 0) :=
+    fe5_sub (fun i hi => by have := hx 0 (by decide) i hi; have := prodBound_le i; omega)
+      (fun i hi => by have := hx 0 (by decide) i hi; have := prodBound_le i; omega)
+  have f : fe5 (fv x) = fe5 (x 2) + fe5 (x 2) - (fe5 (x 1) - fe5 (x 0)) := by
+    rw [fe5_add (z := fv x) (x := fun i => x 2 i + x 2 i) (y := fun i => kbv i + x 0 i - x 1 i)
+      (fun i _ => rfl),
+      fe5_add (z := fun i => x 2 i + x 2 i) (x := x 2) (y := x 2) (fun i _ => rfl),
+      fe5_sub (z := fun i => kbv i + x 0 i - x 1 i) (x := x 0) (y := x 1) (fun i hi => by have := hx 1 (by decide) i hi; have := prodBound_le i; omega)
+        (fun i hi => by have := hx 1 (by decide) i hi; have := prodBound_le i; omega), fe_add_sub]
+  have e : fe5 (fun i => x 3 i + x 3 i) = fe5 (x 3) + fe5 (x 3) := fe5_add fun _ _ => rfl
+  have h : fe5 (fun i => x 0 i + x 1 i) = fe5 (x 0) + fe5 (x 1) := fe5_add fun _ _ => rfl
+  exact ⟨e, g, f, e, f, h, g, h⟩
+
+theorem lanes_keep {s t : State} {r : Nat} (hr : r + 5 ≤ 16)
+    (h : ∀ q < 16, r ≤ q → q < r + 5 → ∀ l < 4, qw t (xr q) l = qw s (xr q) l) :
+    ∀ l < 4, ∀ i < 5, lanes t r l i = lanes s r l i := fun l hl i hi => by
+  simp only [lanes]; rw [h (r + i) (by omega) (by omega) (by omega) l hl]
+
+/-- `vdbl`: the lanes doubled, with `T`. -/
+theorem vdbl_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base) (hc : VG.Proof.X25519.X86_64.Ifma.Ctx s)
+    (hk : EConsts s.mem base) (hx : Small s) :
+    WP isa (.block vdbl) s fun s' => s'.gpr = s.gpr ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
+      Outside base 1024 320 s.mem s'.mem ∧ Small s' ∧ lanePt s' = dblPoint (lanePt s) := by
+  have hcc : CConsts s.mem base := hk.toCConsts
+  simp only [vdbl, List.append_assoc]
+  -- the point carried
+  rw [WP.block_append_iff]
+  refine WP.mono (carryI_wp hs hc hcc fun l hl i hi => by have := hx l hl i hi; omega)
+    fun s₁ ⟨v₁, m₁, u₁, _⟩ => ?_
+  have hs₁ : s₁.gpr .rdi = base := by rw [vm_gpr v₁]; exact hs
+  have hc₁ : VG.Proof.X25519.X86_64.Ifma.Ctx s₁ := by
+    intro d hd; rw [vm_gpr v₁, vm_wr v₁]; exact hc d hd
+  have p₁ : ∀ l < 4, fe5 (lanes s₁ 0 l) = fe5 (lanes s 0 l) := fun l hl => by
+    rw [fe5_congr (fun i hi => (u₁ l hl i hi).1), fe5_carry _ (by have := hx l hl 4 (by decide); omega)]
+  -- the first operands
+  rw [WP.block_append_iff]
+  refine WP.mono (dblA_wp hs₁ hc₁) fun s₂ ⟨g₂, rd₂, wr₂, o₂, u₂, k₂⟩ => ?_
+  have hs₂ : s₂.gpr .rdi = base := by rw [g₂]; exact hs₁
+  have hc₂ : VG.Proof.X25519.X86_64.Ifma.Ctx s₂ := by intro d hd; rw [g₂, wr₂]; exact hc₁ d hd
+  -- the first product: `(A, B, C', P)`
+  rw [WP.block_append_iff]
+  refine WP.mono (mulLB_wp hs₂ hc₂
+    (fun l hl i hi => by rw [(u₂ l hl i hi).1]; exact (u₁ _ (sel4_lt _ _) i hi).2)
+    (fun l hl i hi => by rw [(u₂ l hl i hi).2]; exact (u₁ _ (sel4_lt _ _) i hi).2))
+    fun s₄ ⟨⟨v₄, m₄, u₃, _⟩, b₄⟩ => ?_
+  have p₄ : ∀ l < 4, fe5 (lanes s₄ 0 l) =
+      fe5 (lanes s 0 (sel4 (ord 0 1 2 0).toNat l)) * fe5 (lanes s 0 (sel4 (ord 0 1 2 1).toNat l)) :=
+    fun l hl => by
+      rw [fe5_congr (fun i hi => (u₃ l hl i hi).1),
+        fe5_mul (fun i hi => by rw [(u₂ l hl i hi).1]; exact (u₁ _ (sel4_lt _ _) i hi).2)
+          (fun i hi => by rw [(u₂ l hl i hi).2]; exact (u₁ _ (sel4_lt _ _) i hi).2),
+        ← p₁ _ (sel4_lt _ _), ← p₁ _ (sel4_lt _ _)]
+      exact congrArg₂ (· * ·) (fe5_congr fun i hi => (u₂ l hl i hi).1)
+        (fe5_congr fun i hi => (u₂ l hl i hi).2)
+  have hs₄ : s₄.gpr .rdi = base := by rw [vm_gpr v₄]; exact hs₂
+  have hc₄ : VG.Proof.X25519.X86_64.Ifma.Ctx s₄ := by intro d hd; rw [vm_gpr v₄, vm_wr v₄]; exact hc₂ d hd
+  have mo₃ : Outside base 1024 320 s.mem s₄.mem := by
+    rw [m₄, ← m₁]; exact o₂.mono (by decide) (by decide)
+  have hk₄ : EConsts s₄.mem base := hk.outside mo₃
+  -- the second operands
+  rw [WP.block_append_iff]
+  refine WP.mono (dblB_wp hs₄ hc₄ hk₄.toCConsts b₄)
+    fun s₅ ⟨v₅, m₅, u₅, k₅⟩ => ?_
+  have hs₅ : s₅.gpr .rdi = base := by rw [vm_gpr v₅]; exact hs₄
+  have hc₅ : VG.Proof.X25519.X86_64.Ifma.Ctx s₅ := by intro d hd; rw [vm_gpr v₅, vm_wr v₅]; exact hc₄ d hd
+  have hk₅ : EConsts s₅.mem base := by rw [m₅]; exact hk₄
+  rw [WP.block_append_iff]
+  refine WP.mono (carryF_wp hs₅ hc₅ hk₅.toCConsts fun l hl i hi => (u₅ l hl i hi).2.2.2)
+    fun s₆ ⟨v₆, m₆, u₆, k₆⟩ => ?_
+  have hs₆ : s₆.gpr .rdi = base := by rw [vm_gpr v₆]; exact hs₅
+  have hc₆ : VG.Proof.X25519.X86_64.Ifma.Ctx s₆ := by intro d hd; rw [vm_gpr v₆, vm_wr v₆]; exact hc₅ d hd
+  have hk₆ : EConsts s₆.mem base := by rw [m₆]; exact hk₅
+  have l₆ := lanes_keep (r := 0) (s := s₅) (t := s₆) (by decide) fun q hq h1 h2 l hl =>
+    k₆ q hq (by omega) (by omega) l hl
+  rw [WP.block_append_iff]
+  refine WP.mono (carryI_wp hs₆ hc₆ hk₆.toCConsts fun l hl i hi => by
+      rw [l₆ l hl i hi]; exact (u₅ l hl i hi).2.1) fun s₇ ⟨v₇, m₇, u₇, k₇⟩ => ?_
+  have hs₇ : s₇.gpr .rdi = base := by rw [vm_gpr v₇]; exact hs₆
+  have hc₇ : VG.Proof.X25519.X86_64.Ifma.Ctx s₇ := by intro d hd; rw [vm_gpr v₇, vm_wr v₇]; exact hc₆ d hd
+  have l₇ := lanes_keep (r := 5) (s := s₆) (t := s₇) (by decide) fun q hq h1 h2 l hl =>
+    k₇ q hq (by omega) (by omega) l hl
+  -- the first operand to `OPV`
+  rw [WP.block_append_iff]
+  refine WP.mono (dblC_wp hs₇ hc₇) fun s₈ ⟨v₈, o₈, u₈, k₈⟩ => ?_
+  have hs₈ : s₈.gpr .rdi = base := by rw [vm_gpr v₈]; exact hs₇
+  have hc₈ : VG.Proof.X25519.X86_64.Ifma.Ctx s₈ := by intro d hd; rw [vm_gpr v₈, vm_wr v₈]; exact hc₇ d hd
+  have l₈ := lanes_keep (r := 5) (s := s₇) (t := s₈) (by decide) fun q hq _ _ l hl => k₈ q hq l hl
+  -- the second product
+  refine WP.mono (mul4_wp (by decide) (mulS_eq OPV _) (mulV_nat) mulV_ok mulV_keep mulV_st hs₈ hc₈
+    (fun l hl i hi => by rw [u₈ l hl i hi]; exact (u₇ l hl i hi).2)
+    (fun l hl i hi => by rw [l₈ l hl i hi, l₇ l hl i hi]; exact (u₆ l hl i hi).2))
+    fun s₉ ⟨v₉, m₉, u₉, _⟩ => ?_
+  refine ⟨by rw [vm_gpr v₉, vm_gpr v₈, vm_gpr v₇, vm_gpr v₆, vm_gpr v₅, vm_gpr v₄, g₂, vm_gpr v₁],
+    by rw [vm_rd v₉, vm_rd v₈, vm_rd v₇, vm_rd v₆, vm_rd v₅, vm_rd v₄, rd₂, vm_rd v₁],
+    by rw [vm_wr v₉, vm_wr v₈, vm_wr v₇, vm_wr v₆, vm_wr v₅, vm_wr v₄, wr₂, vm_wr v₁], ?_,
+    fun l hl i hi => (u₉ l hl i hi).2, ?_⟩
+  · rw [m₇, m₆, m₅] at o₈
+    rw [m₉]; exact mo₃.trans (o₈.mono (by decide) (by decide))
+  have p₉ : ∀ l < 4, fe5 (lanes s₉ 0 l) = fe5 (op1 (lanes s₄ 0) l) * fe5 (op2 (lanes s₄ 0) l) := fun l hl => by
+    rw [fe5_congr (fun i hi => (u₉ l hl i hi).1),
+      fe5_mul (fun i hi => by rw [u₈ l hl i hi]; exact (u₇ l hl i hi).2)
+        (fun i hi => by rw [l₈ l hl i hi, l₇ l hl i hi]; exact (u₆ l hl i hi).2),
+      fe5_congr (fun i hi => u₈ l hl i hi), fe5_congr (fun i hi => (u₇ l hl i hi).1),
+      fe5_carry _ (by rw [l₆ l hl 4 (by decide)]; have := (u₅ l hl 4 (by decide)).2.1; omega),
+      fe5_congr (fun i hi => (l₆ l hl i hi).trans (u₅ l hl i hi).1),
+      fe5_congr (fun i hi => (l₈ l hl i hi).trans (l₇ l hl i hi)),
+      fe5_congr (fun i hi => (u₆ l hl i hi).1),
+      fe5_carry _ (by have := (u₅ l hl 4 (by decide)).2.2.2; omega),
+      fe5_congr (fun i hi => (u₅ l hl i hi).2.2.1)]
+  obtain ⟨a0, a1, a2, a3, b0, b1, b2, b3⟩ := ops_fe (lanes s₄ 0) b₄
+  have hA : fe5 (lanes s₄ 0 0) = fe5 (lanes s 0 0) * fe5 (lanes s 0 0) := by
+    rw [p₄ 0 (by decide)]; rfl
+  have hB : fe5 (lanes s₄ 0 1) = fe5 (lanes s 0 1) * fe5 (lanes s 0 1) := by
+    rw [p₄ 1 (by decide)]; rfl
+  have hC : fe5 (lanes s₄ 0 2) = fe5 (lanes s 0 2) * fe5 (lanes s 0 2) := by
+    rw [p₄ 2 (by decide)]; rfl
+  have hP : fe5 (lanes s₄ 0 3) = fe5 (lanes s 0 0) * fe5 (lanes s 0 1) := by
+    rw [p₄ 3 (by decide)]; rfl
+  simp only [lanePt, dblPoint]
+  rw [p₉ 0 (by decide), p₉ 1 (by decide), p₉ 2 (by decide), p₉ 3 (by decide), a0, a1, a2, a3, b0, b1, b2, b3,
+    hA, hB, hC, hP]
+
+end VG.Proof.Ed25519.X86_64.Ifma
+end
 
 /-!
 # Ed25519 doublings with AVX512_IFMA: four of them

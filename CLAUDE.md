@@ -242,6 +242,26 @@ Avoid these patterns (each has cost tens of seconds in one proof):
   `foo.lit` and checks `foo.lit_eq` once; then `taint_decide` and
   `lit_decide` (not `decide +kernel`) evaluate the literal, and the
   registration file's `spSafe := Code.all_of_allInstrs (by lit_decide)`.
+  Functions that build code or tables (a register allocator, spec
+  tables) get literals too: `materialize_table f n` (for `f : Nat → α`;
+  `Nat`-valued tables are packed into one number, read by a shift),
+  `materialize_value c` (any value with `ToExpr`). `materialize_code`,
+  `lit_decide` and `taint_decide` unfold the definitions that lead to any
+  constant with a literal and read it, so a generator runs once, in its own
+  `lit_eq`, if every module that evaluates code using it imports the module
+  with its literal (a literal module imports the literal modules of the
+  code it contains). Materializing code checked only once does not pay.
+* **Constant time of many callers of the same function:** prove the
+  callee's taint once as a summary (`taint_summary`, `taint_decide_sum`,
+  `Proof/Framework/TaintSum.lean`) rather than analysing its body in every
+  caller's `taint_decide`; this needs a `Taint.Frame` instance for the ISA's
+  taint domain (so far `AArch64.VectorTaint`, `Framework/AArch64/TaintMono.lean`).
+* **Tactics run compiled:** a module defining tactics, elaborators,
+  simprocs or `MetaM` functions that imports only Lean core and precompiled
+  modules goes in `NativeTactics` (lakefile); the interpreter runs it an
+  order of magnitude slower in every module that uses it
+  (`ci/check_lean_speed.py` checks it). Mathlib tactics run interpreted:
+  keep `tauto` and similar out of hot proofs.
 * **Register reads after writes:** in symbolic execution never unfold
   `State.setReg` (`write`, `setFlags`, `arithFlags`, `setV`): the registers
   become a function that `simp` re-simplifies under a binder at every

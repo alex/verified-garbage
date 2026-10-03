@@ -492,7 +492,7 @@ theorem redo_ok {s : State} (he : Env σ s) :
     WP isa (.block (.mov .rcx (.mem (at_ .rbx 1696)) :: snAbs)) s (I1 σ) := by
   have hin : InRegions (s.rd ++ s.wr) (s.gpr .rbx + BitVec.ofNat 64 1696) 8 := by
     rw [regions hp he, he.rbx]; exact ⟨scrR σ, by simp, contains_offset' (by omega) (by omega)⟩
-  rw [show (.mov .rcx (.mem (at_ .rbx 1696)) :: snAbs : List Instr) = [.mov .rcx (.mem (at_ .rbx 1696))] ++ snAbs
+  rw [show (.mov .rcx (.mem (at_ .rbx 1696)) :: snAbs : List Instr) = ([.mov .rcx (.mem (at_ .rbx 1696))] : List Instr) ++ snAbs
     from rfl, WP.block_append_iff]
   refine WP.mono (WP.keep [.rcx] (Q := fun s' => s'.mem = s.mem ∧
       s'.gpr .rcx = s.mem.readW (s.gpr .rbx + BitVec.ofNat 64 1696) 64) (by xrun [hin]) (by decide))

@@ -76,14 +76,21 @@ abbrev KFin (p : Params) (σ s : State) : Prop :=
 theorem trHash_piece {p : Params} (hF : PFacts p) : Piece p (KRx p (p.ℓ + p.k) p.ℓ p.k) (KFin p) (trHash p) := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   have hc : hashChk (kgB p) (kgW p) [((.r12, 0), p.pkLen)] 136 (.r13, 64) 64 = true := by
-    rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> layk [hF.pk, hF.sk, hlen]
+    layk [hF.pk, hF.sk]
   refine ⟨fun σ s hp ⟨A, S, R, h⟩ => ?_, rel_of (Q := Two p) (RelCT.mono (hash_tr (kgB_bases p) hc (by decide))
     (fun _ _ h => h.lrel) fun _ _ h => h) fun _ _ _ _ p₁ p₂ pub ⟨_, _, _, h₁⟩ ⟨_, _, _, h₂⟩ =>
       kc_two hF p₁ p₂ pub h₁.kc h₂.kc⟩
   have L := h.kc.lay hF hp
   unfold trHash
   refine WP.mono (hash_okM hc (by decide) L) fun s' ⟨⟨hP', ho⟩, hx⟩ => ⟨A, S, R, ?_, ?_⟩
-  · exact h.keep hF hp hP'.b hx (hP'.cs .r15 (by decide)) (by krchk hF)
+  · have hc : KRChk p (p.ℓ + p.k) p.ℓ p.k [(sc 0, 200), (sc 200, 640), ((.r13, 64), 64)] :=
+      (KRChk.rbx hF (Nat.le_refl _) (Nat.le_refl _) (.inl (by decide)) (.inl (by decide))
+        (by simp only [scrLen, Spec.MlDsa.scratchWords]; omega)).append (ws₁ := [_])
+      ((KRChk.rbx hF (Nat.le_refl _) (Nat.le_refl _) (.inl (by decide)) (.inl (by decide))
+        (by simp only [scrLen, Spec.MlDsa.scratchWords]; omega)).append (ws₁ := [_])
+      (KRChk.r13 hF (Nat.le_refl _) (Nat.le_refl _) (by decide) (.inl (by decide))
+        (.inl (by simp only [oT0]; omega)) (by rw [hF.sk, oT0]; omega)))
+    exact h.keep hF hp hP'.b hx (hP'.cs .r15 (by decide)) hc
   · simp only [pieces, List.flatMap_cons, List.flatMap_nil, List.append_nil, pk_bytes hF h] at ho
     rw [hP'.pa (show Reg.r13 ∈ calleeSaved by decide), ho, shake31', ← Proof.MlKem.shake256_eq]
     rfl

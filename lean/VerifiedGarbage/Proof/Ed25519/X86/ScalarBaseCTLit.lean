@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Framework.X86.Lit
 import VerifiedGarbage.Impl.Ed25519.X86.ScalarBase
+import VerifiedGarbage.Proof.Ed25519.X86.PointCTLit
 
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86

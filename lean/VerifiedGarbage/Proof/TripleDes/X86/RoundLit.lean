@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.TripleDes.X86.SboxTable
 import VerifiedGarbage.Impl.TripleDes.X86.Block
 import VerifiedGarbage.Proof.Framework.X86.Lit
 namespace VG.Impl.TripleDes.X86

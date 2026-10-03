@@ -1,6 +1,5 @@
 import VerifiedGarbage.Spec.Aes
 import VerifiedGarbage.Proof.Framework.Bitslice.Table
-import Mathlib.Tactic.IntervalCases
 import Mathlib.Tactic.SplitIfs
 
 /-!
@@ -138,7 +137,9 @@ theorem xtimes_bit (a : Byte) {j : Nat} (hj : j < 8) : (xtimes a).getLsbD j =
     ((if j = 0 then false else a.getLsbD (j - 1)) ^^
       (decide (j = 0 ∨ j = 1 ∨ j = 3 ∨ j = 4) && a.getLsbD 7)) := by
   simp only [xtimes, BitVec.getLsbD_xor, BitVec.getLsbD_shiftLeft, BitVec.msb_eq_getLsbD_last]
-  cases h : a.getLsbD 7 <;> (interval_cases j <;> simp_all)
+  rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 ∨ j = 4 ∨ j = 5 ∨ j = 6 ∨ j = 7) with
+    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+  cases h : a.getLsbD 7 <;> simp_all
 
 /-- The XOR of the bits `(w, t)` (bit `t` of word `w`). -/
 def termsXor (Q : Nat → BitVec 32) (l : List (Nat × Nat)) : Bool :=

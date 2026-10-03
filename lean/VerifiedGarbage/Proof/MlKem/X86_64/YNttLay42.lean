@@ -18,10 +18,10 @@ open VG.Spec.MlKem
 
 /-- The body of the loop of `ylay42`. -/
 abbrev ybody42 (core zeta : List Instr) (dz : BitVec 32) : List Instr :=
-  [.vmovdquLoad .l256 .xmm0 (at_ .rdx 0)] ++ ([.vmovdquLoad .l256 .xmm4 (at_ .rdx 32)] ++ (zeta ++
-    ([.alu .add .r8 (.imm dz)] ++ (toY core ++
-    [.vmovdquStore .l256 (at_ .rdx 0) .xmm0, .vmovdquStore .l256 (at_ .rdx 32) .xmm1, .alu .add .rdx (.imm 64),
-      .alu .sub .rcx (.imm 1)]))))
+  ([.vmovdquLoad .l256 .xmm0 (at_ .rdx 0)] : List Instr) ++ (([.vmovdquLoad .l256 .xmm4 (at_ .rdx 32)] : List Instr) ++ (zeta ++
+    (([.alu .add .r8 (.imm dz)] : List Instr) ++ (toY core ++
+    ([.vmovdquStore .l256 (at_ .rdx 0) .xmm0, .vmovdquStore .l256 (at_ .rdx 32) .xmm1, .alu .add .rdx (.imm 64),
+      .alu .sub .rcx (.imm 1)] : List Instr)))))
 
 /-- An iteration of a layer with `len` = 4 or 2: the 32 words of `G` from `j`,
 in lane `l` the eight from `j + 8l` and the eight from `j + 16 + 8l`, become
@@ -288,10 +288,10 @@ theorem ylay42_loop {bf gath scat zeta : List Instr} {dz : BitVec 32}
         by rw [hb'.mxcsr, og.mxcsr]⟩⟩
   have hT' : TZ u.mem sP z := (by rw [og.mem]; exact hT : TZ w.mem sP z).frame hb'.frame
   have hw' : pR sP ∈ u.wr := by rw [hb'.keep.2.2, og.keep.2.2]; exact hw
-  rw [show [.vmovdquLoad .l256 .xmm0 (at_ .rdx 0), .vmovdquLoad .l256 .xmm4 (at_ .rdx 32)] ++ zeta ++
-      [.alu .add .r8 (.imm dz)] ++ toY (gath ++ bf ++ scat) ++
-      [.vmovdquStore .l256 (at_ .rdx 0) .xmm0, .vmovdquStore .l256 (at_ .rdx 32) .xmm1, .alu .add .rdx (.imm 64)] ++
-      [.alu .sub .rcx (.imm 1)] = ybody42 (gath ++ bf ++ scat) zeta dz by simp [List.append_assoc]]
+  rw [show ([.vmovdquLoad .l256 .xmm0 (at_ .rdx 0), .vmovdquLoad .l256 .xmm4 (at_ .rdx 32)] : List Instr) ++ zeta ++
+      ([.alu .add .r8 (.imm dz)] : List Instr) ++ toY (gath ++ bf ++ scat) ++
+      ([.vmovdquStore .l256 (at_ .rdx 0) .xmm0, .vmovdquStore .l256 (at_ .rdx 32) .xmm1, .alu .add .rdx (.imm 64)] : List Instr) ++
+      ([.alu .sub .rcx (.imm 1)] : List Instr) = ybody42 (gath ++ bf ++ scat) zeta dz by simp [List.append_assoc]]
   refine WP.mono (ystep42 hY (j := 32 * i) (by omega) hb'.consts hdx' hS' hw'
     (fun s' k => hz i hi s' (by rw [k.gpr, h8']) (by rw [k.mem]; exact hT') (by rw [k.wr]; exact hw'))
     (hcore i hi) (hR i hi))

@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.Omega
 import VerifiedGarbage.Impl.Gcm.Arm
 import VerifiedGarbage.Proof.Framework.Arm.Exec
 import VerifiedGarbage.Proof.Framework.Arm.Straight
@@ -196,7 +197,7 @@ theorem beq_16 {j : Nat} (hj : j < 16) :
   · rw [h]; rfl
   · rw [decide_eq_false h, beq_eq_false_iff_ne]
     intro h'
-    bv_omega
+    bv_omega_arith
 
 theorem byte_ok {x h : Block} {y : BitVec 32} {sB : State} (hB : Bytes x y sB) {j : Nat} (hj : j < 16)
     {s : State} (hs : Inner x h y sB j s) :
@@ -217,7 +218,7 @@ theorem byte_ok {x h : Block} {y : BitVec 32} {sB : State} (hB : Bytes x y sB) {
     rw [u₄.other _ h2, u₃.other _ h1, u₂.other _ h1, u₁.other _ h1]
   have xp₄ : s₄.gpr XP = y + BitVec.ofNat 32 (j + 1) := by
     rw [u₄.gpr, u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), hs.xp]
-    bv_omega
+    bv_omega_arith
   have zv₄ : zvOf s₄ = zvOf s := zvOf_eq fun r h1 h2 _ _ => g₄ r h1 h2
   let Inv : Nat → State → Prop := fun t s' =>
     s'.gpr XR = (b.setWidth 32 ^^^ 0xFF) <<< 24 <<< t ∧ zvOf s' = mulSteps x h (8 * j + t) ∧
@@ -242,7 +243,7 @@ theorem byte_ok {x h : Block} {y : BitVec 32} {sB : State} (hB : Bytes x y sB) {
   · obtain ⟨-, hzv, hxp, hyp, hsb, hm, hrd, hwr, hsp⟩ := hI₅
     refine wp_sub (op2_reg _ _) fun s₆ u₆ => wp_cmp (op2_imm (by decide)) fun s₇ f₇ z₇ => WP.block_nil ?_
     have t₆ : s₆.gpr T = BitVec.ofNat 32 (j + 1) := by
-      rw [u₆.gpr, hxp, hyp]; bv_omega
+      rw [u₆.gpr, hxp, hyp]; bv_omega_arith
     have g₇ : ∀ r, r ≠ T → s₇.gpr r = s₅.gpr r := fun r hr => by rw [f₇.gpr, u₆.other _ hr]
     refine ⟨⟨?_, by rw [g₇ _ (by decide)]; exact hxp, by rw [g₇ _ (by decide)]; exact hyp,
       by rw [g₇ _ (by decide)]; exact hsb, by rw [f₇.mem, u₆.mem]; exact hm,

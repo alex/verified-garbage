@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.X448.Arm.Mul
 import VerifiedGarbage.Proof.X448.Arm.AddSub
 import VerifiedGarbage.Proof.X448.Arm.Small
 import VerifiedGarbage.Proof.X448.Arm.Swap
+import Mathlib.Logic.Function.Basic
 
 /-!
 # X448 on ARMv7: the working space as field-element slots

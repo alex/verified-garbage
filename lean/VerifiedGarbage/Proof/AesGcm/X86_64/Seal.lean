@@ -117,7 +117,7 @@ theorem seal_wp (v : GcmImpl) {s : State} (hp : Proof.AesGcm.sealX86_64.pre s) :
   have L := C.lay
   generalize hR : (s.gpr .rsi).toNat = R at *
   have hR' : R = 10 ∨ R = 12 ∨ R = 14 := hR ▸ C.rounds
-  refine WP.seq_assoc (WP.seq (WP.mono (oneStart_ok v (k := 3) le_rfl C hCtx hSP hNp hnl hA hal hD hn hW)
+  refine WP.seq_assoc (WP.seq (WP.mono (oneStart_ok v (k := 3) (Nat.le_refl _) C hCtx hSP hNp hnl hA hal hD hn hW)
     fun s₂ ⟨_, M⟩ => ?_))
   generalize hH : ctxH s.mem Ctx = H at M
   generalize hiv : bytesAt s.mem Np nl = iv at M

@@ -110,7 +110,7 @@ theorem Common.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Common s₀ c
   frame := by rw [hm]; exact h.frame
   saved := by rw [hm]; exact h.saved
   vcs := fun r hr => by rw [hv]; exact h.vcs r hr
-  untouched := fun r hr => (hg r (by cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched])).trans (h.untouched r hr)
+  untouched := fun r hr => (hg r (mem_of_untouched hr)).trans (h.untouched r hr)
 
 /-- A call of the permutation keeps what holds throughout. -/
 theorem Common.after_call {s₀ : State} (hp : Pre s₀) {c : Nat} {s s' : State} (h : Common s₀ c s)
@@ -134,8 +134,7 @@ theorem Common.after_call {s₀ : State} (hp : Pre s₀) {c : Nat} {s s' : State
     · exact ⟨scR s₀, by simp, Region.sub_prefix (by omega)⟩)
   saved := h.saved.permute hp.st_scr hf
   vcs := fun r hr => (hv r hr).trans (h.vcs r hr)
-  untouched := fun r hr => (hcs r (by cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched, preserved])
-    (by cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched])).trans (h.untouched r hr)
+  untouched := fun r hr => (hcs r (mem_of_untouched hr) (ne_of_untouched hr)).trans (h.untouched r hr)
 
 /-- The data is unchanged. -/
 theorem Common.data {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Common s₀ c s) {i : Nat}
@@ -155,8 +154,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block setup) s₀ 
   have hf : Frame [stR s₀, scR s₀] s₀.mem s₁.mem := f₁.mono (by simp)
   refine ⟨⟨Nat.zero_le _, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by rw [hm]; exact hf, by rw [hm]; exact v₁, fun r _ => by
       rw [u₇.vec, u₆.vec, u₅.vec, u₄.vec, u₃.vec, u₂.vec, hv₁], fun r hr => by
-      cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched]
-      all_goals rw [u₇.other _ (by decide),u₆.other _ (by decide),u₅.other _ (by decide),u₄.other _ (by decide),u₃.other _ (by decide),u₂.other _ (by decide),g₁]⟩,
+      rw [u₇.other _ (ne_of_untouched hr),u₆.other _ (ne_of_untouched hr),u₅.other _ (ne_of_untouched hr),u₄.other _ (ne_of_untouched hr),u₃.other _ (ne_of_untouched hr),u₂.other _ (ne_of_untouched hr),g₁]⟩,
     ?_, fun msg ⟨hs, _⟩ => ?_⟩
   · rw [u₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd, u₂.rd, rd₁]
   · rw [u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, wr₁]
@@ -236,8 +234,9 @@ theorem body_byte {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) {
     rw [g .x21 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hI.x21]
   refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, h21, ?_, ?_, ?_, ?_, fun r hr => by
       rw [u₉.vec, u₈.vec, u₇.vec, u₆.vec, g₅.vec, u₄.vec, u₃.vec, u₂.vec, u₁.vec]; exact hI.vcs r hr, fun r hr => by
-      have hne : r ≠ .x9 ∧ r ≠ .x10 ∧ r ≠ .x11 ∧ r ≠ .x23 ∧ r ≠ .x22 ∧ r ≠ .x24 := by
-        cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched]
+      have hne : r ≠ .x9 ∧ r ≠ .x10 ∧ r ≠ .x11 ∧ r ≠ .x23 ∧ r ≠ .x22 ∧ r ≠ .x24 :=
+        ⟨ne_of_untouched hr, ne_of_untouched hr, ne_of_untouched hr, ne_of_untouched hr,
+          ne_of_untouched hr, ne_of_untouched hr⟩
       rw [g r hne.1 hne.2.1 hne.2.2.1 hne.2.2.2.1 hne.2.2.2.2.1 hne.2.2.2.2.2]
       exact hI.untouched r hr⟩, h22, ?_, ?_⟩
   · rw [u₉.rd, u₈.rd, u₇.rd, u₆.rd, g₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd, hI.rd]
@@ -343,8 +342,9 @@ theorem body_word {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c + 8 ≤ len s
     rw [g .x21 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hI.x21]
   refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, h21, ?_, ?_, ?_, ?_, fun r hr => by
       rw [u₉.vec, u₈.vec, u₇.vec, u₆.vec, g₅.vec, u₄.vec, u₃.vec, u₂.vec, u₁.vec]; exact hI.vcs r hr, fun r hr => by
-      have hne : r ≠ .x9 ∧ r ≠ .x10 ∧ r ≠ .x11 ∧ r ≠ .x23 ∧ r ≠ .x22 ∧ r ≠ .x24 := by
-        cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched]
+      have hne : r ≠ .x9 ∧ r ≠ .x10 ∧ r ≠ .x11 ∧ r ≠ .x23 ∧ r ≠ .x22 ∧ r ≠ .x24 :=
+        ⟨ne_of_untouched hr, ne_of_untouched hr, ne_of_untouched hr, ne_of_untouched hr,
+          ne_of_untouched hr, ne_of_untouched hr⟩
       rw [g r hne.1 hne.2.1 hne.2.2.1 hne.2.2.2.1 hne.2.2.2.2.1 hne.2.2.2.2.2]
       exact hI.untouched r hr⟩, h22, ?_, ?_⟩
   · rw [u₉.rd, u₈.rd, u₇.rd, u₆.rd, g₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd, hI.rd]
@@ -500,7 +500,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
     fun s' ⟨ax, sp, m, _, _, hv, other, v⟩ => ⟨fun k hk => ?_, by rw [sp, u₁.sp, hI.sp],
       (fun r hr => by rw [hv, u₁.vec]; exact hI.vcs r hr), ⟨fun msg hm hpm => ?_, ?_⟩, fun r hr => by
         have hne : r ≠ .x0 ∧ ∀ k < 6, r ≠ sv k := by
-          exact ⟨by cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched],untouched_ne_sv r hr⟩
+          exact ⟨ne_of_untouched hr, untouched_ne_sv r hr⟩
         rw [other r hne.2,u₁.other r hne.1]
         exact hI.untouched r hr⟩
   · exact v k hk

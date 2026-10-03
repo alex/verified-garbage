@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.X448.Wide.Limbs
+import Batteries.Logic
 
 /-!
 # Headroom-aware X448 field representation

@@ -98,17 +98,29 @@ def avx2 : Sample4Impl where
 
 end Sample4Impl
 
+open Lean Elab Tactic in
+/-- Fails if the goal mentions the variable `v`: the kernel evaluates only
+code that does not call the implementation `v`, each part once (rather than
+failing on code that does, after evaluating its other parts). -/
+elab "closed_in " v:ident : tactic => withMainContext do
+  let e ← elabTerm v none
+  if (← instantiateMVars (← getMainTarget)).containsFVar e.fvarId! then
+    throwError "the goal mentions {e}"
+
 /-- `ctlOk` of code that calls the implementation `v`: evaluated by the
 kernel but for the calls of `v`. -/
-macro "s4_ctl " v:term : tactic =>
-  `(tactic| repeat' (first | decide +kernel | apply ctlOk_seq | apply ctlOk_ite | (apply ctlOk_call; exact ($v).mxcsr) |
-    exact ($v).prfs_ctl _ _ _ _ | exact ($v).arith.mul.ctl | exact ($v).arith.ntt.ctl |
-    exact ($v).arith.nttInv.ctl | rfl))
+macro "s4_ctl " v:ident : tactic =>
+  `(tactic| repeat' (first | (closed_in $v; decide +kernel) | apply ctlOk_seq | apply ctlOk_ite |
+    (apply ctlOk_call; exact ($v).mxcsr) | exact ($v).prfs_ctl _ _ _ _ | exact ($v).arith.mul.ctl |
+    exact ($v).arith.ntt.ctl | exact ($v).arith.nttInv.ctl | rfl))
+
+/-- Code that does not call the implementation `v` never writes the stack pointer: by evaluation. -/
+macro "s4_sp_closed " v:ident : tactic =>
+  `(tactic| (closed_in $v; exact Code.all_of_allInstrs (by decide +kernel)))
 
 /-- That code that calls the implementation `v` never writes the stack pointer. -/
-macro "s4_sp " v:term : tactic =>
-  `(tactic| repeat' (first | exact Code.all_of_allInstrs (by decide +kernel) | apply all_seq | apply all_ite |
-    (apply all_call; exact ($v).spSafe) | exact ($v).prfs_sp _ _ _ _ | exact ($v).arith.mul.sp |
-    exact ($v).arith.ntt.sp | exact ($v).arith.nttInv.sp | rfl))
+macro "s4_sp " v:ident : tactic =>
+  `(tactic| repeat' (first | s4_sp_closed $v | apply all_seq | apply all_ite | (apply all_call; exact ($v).spSafe) |
+    exact ($v).prfs_sp _ _ _ _ | exact ($v).arith.mul.sp | exact ($v).arith.ntt.sp | exact ($v).arith.nttInv.sp | rfl))
 
 end VG.Proof.MlKem.X86_64

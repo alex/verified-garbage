@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.X448.Wide.TailMul
 import VerifiedGarbage.Proof.X448.AArch64.AddSub
 import VerifiedGarbage.Proof.X448.AArch64.Small
 import VerifiedGarbage.Proof.X448.AArch64.Swap
+import Mathlib.Logic.Function.Basic
 
 /-!
 # X448 on AArch64: the working space as field-element slots

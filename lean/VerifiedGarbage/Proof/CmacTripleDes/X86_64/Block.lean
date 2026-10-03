@@ -81,10 +81,10 @@ theorem roundTail_ok (s : State) :
       execAlu, readSrc, Option.bind_some, gpr_setReg, gpr_arithFlags, ite_false]
     rfl, ?_⟩
   refine ⟨?_, ?_, ?_, ?_, rfl, rfl, rfl⟩
-  · simp [gpr_setReg, gpr_arithFlags]
+  · simp [gpr_setReg]
   · exact gpr_setReg_self _ _ _
   · rw [zf_setReg, zf_arithFlags]; simp
-  · intro r h₁ h₂; simp [gpr_setReg, gpr_arithFlags, h₁, h₂]
+  · intro r h₁ h₂; simp [gpr_setReg, h₁, h₂]
 
 theorem ofNat_sub_one {k : Nat} (hk : 1 ≤ k) (hk' : k < 2 ^ 64) :
     BitVec.ofNat 64 k - 1 = BitVec.ofNat 64 (k - 1) := by
@@ -209,15 +209,15 @@ theorem passTail_ok (s : State) :
       State.setReg32, ite_false, ite_true]
     rfl, ?_⟩
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, rfl, rfl, rfl⟩
-  · simp [gpr_setReg, gpr_arithFlags]
-  · simp [gpr_setReg, gpr_arithFlags]
-  · simp [gpr_setReg, gpr_arithFlags]
-  · simp [gpr_setReg, gpr_arithFlags]
+  · simp [gpr_setReg]
+  · simp [gpr_setReg]
+  · simp [gpr_setReg]
+  · simp [gpr_setReg]
   · simp [gpr_setReg]
   · rw [zf_setReg, zf_arithFlags]; simp
   · intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    simp [gpr_setReg, gpr_arithFlags, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2.1, hr.2.2.2.2.2]
+    simp [gpr_setReg, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2.1, hr.2.2.2.2.2]
 
 /-- After `p` passes, from the block `x`. -/
 structure OInv (s₀ : State) (x : BitVec 64) (p : Nat) (s : State) : Prop where
@@ -284,24 +284,24 @@ def ipG13 (t : Nat) : List Nat := if t < 32 then [ipSrc t] else []
 theorem ip_check :
     check (lanes 64 6) oCfg (linExt 1) ipCode (linEnv [(.rax, 0)])
       (linPost 6 [(.r12, ipG12), (.r13, ipG13)]) = true := by
-  decide +kernel
+  lit_decide
 
 /-- `IP⁻¹(R ‖ L)` into `rax`, from `R` in `r12` (input word 0) and `L` in `r13` (input word 1). -/
 def fpG (j : Nat) : List Nat := if 32 ≤ fpSrc j then [fpSrc j - 32] else [64 + fpSrc j]
 
 theorem fp_check :
     check (lanes 64 7) oCfg (linExt 2) fpCode (linEnv [(.r12, 0), (.r13, 1)]) (linPost 7 [(.rax, fpG)]) = true := by
-  decide +kernel
+  lit_decide
 
 def blockKept : List Reg := [.rbp, .rsp, .r14, .r15]
 
-theorem ip_kept : blockKept.all (fun r => ipCode.all fun i => i.dst != some r) = true := by decide +kernel
+theorem ip_kept : blockKept.all (fun r => ipCode.all fun i => i.dst != some r) = true := by lit_decide
 
-theorem fp_kept : blockKept.all (fun r => fpCode.all fun i => i.dst != some r) = true := by decide +kernel
+theorem fp_kept : blockKept.all (fun r => fpCode.all fun i => i.dst != some r) = true := by lit_decide
 
-theorem ipSrc_lt : ∀ j < 64, ipSrc j < 64 := by decide
+theorem ipSrc_lt : ∀ j < 64, ipSrc j < 64 := by lit_decide
 
-theorem fpSrc_lt : ∀ j < 64, fpSrc j < 64 := by decide
+theorem fpSrc_lt : ∀ j < 64, fpSrc j < 64 := by lit_decide
 
 theorem frame_oCfg {s : State} {m m' : Mem} (h : Frame [slotRegion oCfg s] m m') : m' = m := by
   funext a
@@ -374,7 +374,7 @@ theorem sub504_ok (s : State) :
     rfl, ?_⟩
   refine ⟨?_, fun r hr => ?_, rfl, rfl, rfl⟩
   · rw [gpr_setReg_self]; rfl
-  · simp [gpr_setReg, gpr_arithFlags, hr]
+  · simp [gpr_setReg, hr]
 
 /-- TDEA encryption of the block in `rax` (as a 64-bit integer) with the key
 schedule at `r14`, into `rax`. -/

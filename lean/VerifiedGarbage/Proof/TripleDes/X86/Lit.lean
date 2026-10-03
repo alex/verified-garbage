@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.TripleDes.X86.SboxTable
 import VerifiedGarbage.Impl.TripleDes.X86.Sbox
 import VerifiedGarbage.Impl.TripleDes.X86.Permutation
 import VerifiedGarbage.Proof.Framework.X86.Lit

@@ -39,18 +39,30 @@ def kPost (e : Env (Nat × Nat)) : Bool := (List.range 32).all fun k => e.slot k
 
 theorem roundKeys_check :
     check (lanes 32 6) kCfg (linExt 2) roundKeys (linEnv [(.r0, 0), (.r1, 1)]) kPost = true := by
-  rw [roundKeys_eq]; decide +kernel
+  rw [roundKeys_eq]; lit_decide
 
-theorem rkG_lt : ∀ k < 32, ∀ q < 32, ∀ a ∈ rkG k q, a < 2 ^ 6 := by decide +kernel
+theorem rkG_lt : ∀ k < 32, ∀ q < 32, ∀ a ∈ rkG k q, a < 2 ^ 6 := by lit_decide
 
-theorem rkSrc_lt : ∀ j < 16, ∀ q < 48, rkSrc j q < 64 := by decide +kernel
+theorem rkSrc_lt : ∀ j < 16, ∀ q < 48, rkSrc j q < 64 := by lit_decide
 
 /-- The registers `roundKeys` writes. -/
 def kWrites : List Reg := [.r6, .r7, .r8]
 
-theorem roundKeys_kept : ([.r0, .r1, .r2, .r3, .r4, .r5, .r9, .r10, .r11, .r12, .lr] : List Reg).all
-    (fun r => roundKeys.all fun i => dstOf i != some r) = true := by
-  rw [roundKeys_eq]; decide +kernel
+/-- Every register `roundKeys` writes is one of `kWrites`: checked once
+for every instruction, rather than once for every other register. -/
+theorem roundKeys_writes : roundKeys.all (fun i => (dstOf i).all kWrites.contains) = true := by
+  rw [roundKeys_eq]; lit_decide
+
+theorem roundKeys_kept {r : Reg} (hr : r ∉ kWrites) : roundKeys.all (fun i => dstOf i != some r) = true :=
+  List.all_eq_true.mpr fun i hi => by
+    have h := List.all_eq_true.mp roundKeys_writes i hi
+    cases hd : dstOf i with
+    | none => rfl
+    | some d =>
+      rw [hd, Option.all_some] at h
+      have hd' : d ∈ kWrites := by simpa using h
+      have hne : d ≠ r := fun e => hr (e ▸ hd')
+      simpa using hne
 
 /-- The round keys of the DES key in `r0:r1`, in `[r2 + 8 j]` and `[r2 + 8 j + 4]`. -/
 theorem roundKeys_ok {s : State} (hok : Ok kCfg s) :
@@ -106,7 +118,7 @@ theorem roundKeys_ok {s : State} (hok : Ok kCfg s) :
       simp
     · rw [BitVec.getLsbD_of_ge _ _ (by omega)]
       simp
-  · have h := List.all_eq_true.mp roundKeys_kept r (by revert hr; cases r <;> decide)
+  · have h := roundKeys_kept hr
     simp [h]
 
 end VG.Proof.CmacTripleDes.Arm

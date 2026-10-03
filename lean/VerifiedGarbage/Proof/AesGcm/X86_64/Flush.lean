@@ -68,7 +68,7 @@ theorem bytesAt_writeBytes_prefix (m : Mem) (p : Addr) (xs : List Byte) {n : Nat
   simp only [writeBytes, BitVec.add_assoc, Offset.add_sub_cancel_left, BitVec.toNat_add, BitVec.toNat_ofNat]
   rw [Nat.mod_eq_of_lt (a := xs.length) (by omega), Nat.mod_eq_of_lt (a := i) (by omega),
     Nat.mod_eq_of_lt (by omega)]
-  simp
+  simp [show ¬xs.length + i < xs.length by omega]
 
 /-- Before `flush yo` (or `lens yo`): GHASH has absorbed `x`. -/
 structure FlIn (Ctx St W SP : Addr) (yo : Nat) (H : Block) (x : List Byte) (s : State) : Prop where
@@ -160,7 +160,7 @@ theorem flush_ok {H : Block} {x : List Byte} {s : State} (h : FlIn Ctx St W SP y
     have hT : bytesAt s₃.mem (W + BitVec.ofNat 64 96) 16 =
         bytesAt s.mem (St + BitVec.ofNat 64 32) (x.length % 16) ++ zeros (16 - x.length % 16) := by
       rw [hm₃, bytesAt_writeBytes_prefix _ _ _ (by rw [hlen]; omega) (by decide), hlen, hB₂]
-      congr 1
+      refine congrArg (_ ++ ·) ?_
       have := zeroT_bytes s.mem (W + BitVec.ofNat 64 96)
       rw [← hm₂, show (16 : Nat) = x.length % 16 + (16 - x.length % 16) by omega, bytesAt_add] at this
       have e := congrArg (List.drop (x.length % 16)) this

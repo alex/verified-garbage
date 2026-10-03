@@ -4,7 +4,6 @@ import VerifiedGarbage.Proof.Aes.X86.ExpandKey
 import VerifiedGarbage.Proof.Aes.X86.ExpandKeyCT
 import VerifiedGarbage.Proof.Gcm.X86.Ghash
 import VerifiedGarbage.Proof.Gcm.X86.GhashCT
-import VerifiedGarbage.Proof.Gcm.X86.Pclmul.Ghash
 import VerifiedGarbage.Proof.Aes.X86.VariantProof
 import VerifiedGarbage.Proof.Framework.X86.CallWith
 import VerifiedGarbage.Proof.AesGcm.X86.CT
@@ -93,17 +92,6 @@ def scalar : GhashImpl where
   suffix := ""
   features := []
 
-/-- `vg_ghash_pclmul`. -/
-def pclmul : GhashImpl where
-  fn := ⟨"vg_ghash_pclmul", Impl.Gcm.X86.Pclmul.ghash⟩
-  stack := by lit_decide
-  ok := Proof.Gcm.X86.Pclmul.ghash_correct
-  ct := Proof.Gcm.X86.Pclmul.ghash_ct
-  nosp := NoSp.of_all (by lit_decide)
-  spSafe := Code.all_of_allInstrs (by lit_decide)
-  suffix := "_pclmul"
-  features := ["pclmulqdq", "ssse3"]
-
 end GhashImpl
 
 /-- The implementations a set of AES-GCM functions calls: of
@@ -122,9 +110,6 @@ def callees : Callees :=
 
 /-- What the names of the functions calling them end with. -/
 def suffix : String := v.ctr.suffix ++ v.gh.suffix
-
-/-- The CPU features of the functions calling both. -/
-def features : List String := (v.ctr.features ++ v.gh.features).dedup
 
 end GcmImpl
 

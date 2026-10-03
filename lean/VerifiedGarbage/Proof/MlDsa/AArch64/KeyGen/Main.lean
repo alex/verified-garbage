@@ -96,7 +96,14 @@ theorem trHash_piece {p : Params} (hF : PFacts p) {S' : Nat} (h16 : 16 ≤ S') (
   have L := h.kc.lay hF hp
   unfold trHashWith
   refine WP.mono (shake_ok h16 hSl L (by simp) (trHash_chk hF)) fun s' ⟨hP', x', ho⟩ => ⟨A, S, R, ?_, ?_⟩
-  · exact h.keep hF hp hP' x' (by krchk hF)
+  · have hc : KRChk p (p.ℓ + p.k) p.ℓ p.k [((.x28, 0), 200), ((.x28, 200), 640), ((.x27, 64), 64)] :=
+      (KRChk.x28 hF (Nat.le_refl _) (Nat.le_refl _) (.inl (by decide)) (.inl (by decide))
+        (by rw [hF.scr]; omega)).append (ws₁ := [_])
+      ((KRChk.x28 hF (Nat.le_refl _) (Nat.le_refl _) (.inl (by decide)) (.inl (by decide))
+        (by rw [hF.scr]; omega)).append (ws₁ := [_])
+      (KRChk.x27 hF (Nat.le_refl _) (Nat.le_refl _) (by decide) (.inl (by decide))
+        (.inl (by simp only [oT0]; omega)) (by rw [hF.sk, oT0]; omega)))
+    exact h.keep hF hp hP' x' hc
   · simp only [List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil] at ho
     rw [hP'.pa (show Reg.x27 ∈ keptRegs by decide), ho]
     exact congrArg (Spec.MlDsa.H · 64) (pk_bytes hF h)

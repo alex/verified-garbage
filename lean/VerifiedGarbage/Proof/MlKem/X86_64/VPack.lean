@@ -260,9 +260,9 @@ theorem vscale_ok {sP : Addr} {F : Poly} {s : State} (hc : VConsts s) (hsi : s.g
   have r0 := sp_in (List.mem_append_right v.rd hw') (j := 8 * u) (by omega)
   have w0 := sp_in hw' (j := 8 * u) (by omega)
   rw [show [Instr.movdquLoad .xmm3 (at_ .rdx 0)] ++ vmont .xmm3 .xmm13 .xmm2 ++ vcadd .xmm3 .xmm2 ++
-      [.movdquStore (at_ .rdx 0) .xmm3, .alu .add .rdx (.imm 16)] ++ [.alu .sub .rcx (.imm 1)] =
+      ([.movdquStore (at_ .rdx 0) .xmm3, .alu .add .rdx (.imm 16)] : List Instr) ++ ([.alu .sub .rcx (.imm 1)] : List Instr) =
       [Instr.movdquLoad .xmm3 (at_ .rdx 0)] ++ ((vmont .xmm3 .xmm13 .xmm2 ++ vcadd .xmm3 .xmm2) ++
-        [.movdquStore (at_ .rdx 0) .xmm3, .alu .add .rdx (.imm 16), .alu .sub .rcx (.imm 1)]) by
+        ([.movdquStore (at_ .rdx 0) .xmm3, .alu .add .rdx (.imm 16), .alu .sub .rcx (.imm 1)] : List Instr)) by
       simp [List.append_assoc], WP.block_append_iff]
   vrunm [hdx', r0]
   rw [WP.block_append_iff]

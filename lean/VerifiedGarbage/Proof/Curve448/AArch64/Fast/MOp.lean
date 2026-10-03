@@ -196,7 +196,7 @@ theorem sub_emod' {x p : Nat} {e f : Int} (h : (x : Int) = e % M) (hp : (p : Int
     (hpM : p ≤ M) : (((x + (M - p)) % M : Nat) : Int) = (e - f) % M := by
   rw [Int.natCast_emod, Int.natCast_add, Int.natCast_sub hpM, h, hp, Int.emod_add_emod]
   rw [show e + ((M : Nat) - f % (M : Nat)) = (e - f % (M : Nat)) + (M : Nat) by omega,
-    Int.add_emod_right, Int.sub_emod, Int.emod_emod_of_dvd _ (dvd_refl _), ← Int.sub_emod]
+    Int.add_emod_right, Int.sub_emod, Int.emod_emod_of_dvd _ (Int.dvd_refl _), ← Int.sub_emod]
 
 theorem self_emod {x : Nat} (h : x < M) : (x : Int) = (x : Int) % M := by
   rw [← Int.natCast_emod, Nat.mod_eq_of_lt h]
@@ -371,7 +371,7 @@ theorem mop_ok (hG : Good R accs) (hb8 : b % 8 = 0) (hb : b + 64 ≤ 8192) {s : 
       exact he c hc
     have hP : pair (u.gpr R.t) (u.gpr R.p1) = v x * v y := by rw [uv, tx, ty, hv x hx, hv y hy]
     refine WP.mono (targets_ok hG _ ts hts hP he') fun w ⟨wv, wm, wk⟩ =>
-      ⟨by simpa only [opSem, Nat.cast_mul] using wv, wm.trans (um.trans tm), ?_⟩
+      ⟨by simpa only [opSem, Int.natCast_mul] using wv, wm.trans (um.trans tm), ?_⟩
     refine ((tk.mono ?_).trans (uk.mono ?_)).trans (wk.mono sub)
     · intro r hr; simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl

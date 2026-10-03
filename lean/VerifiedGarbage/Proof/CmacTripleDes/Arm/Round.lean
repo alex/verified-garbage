@@ -1,4 +1,5 @@
-import VerifiedGarbage.Impl.CmacTripleDes.Arm.Round
+import VerifiedGarbage.Proof.CmacTripleDes.Arm.RoundLit
+import VerifiedGarbage.Proof.TripleDes.SboxTables
 import VerifiedGarbage.Proof.CmacTripleDes.Des
 import VerifiedGarbage.Proof.Framework.Arm.Linear
 import VerifiedGarbage.Proof.Framework.Bitslice.Rows
@@ -55,16 +56,16 @@ def inPost (e : Env (Nat × Nat)) : Bool :=
 
 theorem inputs_check :
     check (lanes 32 7) rCfg (linExt 1) inputs (linEnv [(.r8, 0)]) inPost = true := by
-  decide +kernel
+  lit_decide
 
-theorem inG_lt : ∀ t < 12, ∀ p < 32, ∀ a ∈ inG t p, a < 2 ^ 7 := by decide
+theorem inG_lt : ∀ t < 12, ∀ p < 32, ∀ a ∈ inG t p, a < 2 ^ 7 := by lit_decide
 
 /-- The registers the round keeps. -/
 def kept : List Reg := [.r9, .r10, .r11, .r12, .lr]
 
 theorem inputs_kept :
     (.r7 :: .r8 :: kept).all (fun r => inputs.all fun i => dstOf i != some r) = true := by
-  decide +kernel
+  lit_decide
 
 /-- The inputs of `inputs`: `R` and the round key's words. -/
 def inW (s : State) (i : Nat) : BitVec 32 := if i = 0 then s.gpr .r8 else if i = 1 then keyLo s else keyHi s
@@ -105,9 +106,6 @@ def rowIn (t : Nat) : Nat := tableOf (fun a => (a / 32).testBit (t % 6)) 2048
 def sbEnv (h : Nat) : Env Nat :=
   { reg := fun _ => none, slot := fun t => if 6 * h ≤ t ∧ t < 6 * h + 6 then some (rowIn t) else none }
 
-/-- Half `h`'s tree. -/
-abbrev sbCode (h : Nat) : List Instr := mux h 6 0 .r0
-
 theorem sboxes_eq : sboxes = sbCode 0 ++ ([.str .r0 .r10 48] : List Instr) ++ sbCode 1 := rfl
 
 /-- At bit `6 j + off i b` (`i` the box in lane `j` of half `h`), output bit
@@ -116,21 +114,21 @@ def sbPost (h : Nat) (e : Env Nat) : Bool :=
   match e.reg .r0 with
   | some F => (List.range 4).all fun j => (List.range 4).all fun b => (List.range 64).all fun c =>
       F.testBit (32 * c + (6 * j + off (boxOf h j) b)) ==
-        (Spec.TripleDes.sBox (boxOf h j) (BitVec.ofNat 6 c)).getLsbD b
+        (Proof.TripleDes.outputTable (boxOf h j) b).testBit c
   | none => false
 
 /-- The slots half `h` reads: the broadcast inputs up to its own. -/
 def sCfg (h : Nat) : Cfg := { base := .r10, slots := 6 * h + 6, ext := .r9, exts := 0 }
 
 theorem sbox0_check : check (rows 32 6) (sCfg 0) (fun _ => none) (sbCode 0) (sbEnv 0) (sbPost 0) = true := by
-  decide +kernel
+  lit_decide
 
 theorem sbox1_check : check (rows 32 6) (sCfg 1) (fun _ => none) (sbCode 1) (sbEnv 1) (sbPost 1) = true := by
-  decide +kernel
+  lit_decide
 
 theorem sbox_kept (h : Nat) (hh : h < 2) :
     (.r7 :: .r8 :: kept).all (fun r => (sbCode h).all fun i => dstOf i != some r) = true := by
-  rcases (by omega : h = 0 ∨ h = 1) with rfl | rfl <;> decide +kernel
+  rcases (by omega : h = 0 ∨ h = 1) with rfl | rfl <;> lit_decide
 
 /-- The input of the box whose lane of half `h` holds bit `p`, from bit `p`
 of the slots. -/
@@ -158,6 +156,7 @@ theorem sbox_ok {h : Nat} (hh : h < 2) {s : State} (hok : Ok (sCfg h) s) :
       refine ⟨F, hF, fun j hj b hb c hc => ?_⟩
       have := List.all_eq_true.mp (List.all_eq_true.mp (List.all_eq_true.mp hpost j
         (List.mem_range.mpr hj)) b (List.mem_range.mpr hb)) c (List.mem_range.mpr hc)
+      rw [← Proof.TripleDes.testBit_outputTable hc]
       simpa using this
     · cases hpost
   have key : ∀ p < 32, ∃ s', runBlock isa (sbCode h) s = some s' ∧
@@ -213,12 +212,12 @@ def oPost (e : Env (Nat × Nat)) : Bool :=
 def oCfg : Cfg := { base := .r10, slots := 13, ext := .r9, exts := 0 }
 
 theorem output_check : check (lanes 32 7) oCfg (fun _ => none) output oEnv oPost = true := by
-  decide +kernel
+  lit_decide
 
-theorem oG_lt : ∀ p < 32, (∀ a ∈ oG7 p, a < 2 ^ 7) ∧ ∀ a ∈ oG8 p, a < 2 ^ 7 := by decide
+theorem oG_lt : ∀ p < 32, (∀ a ∈ oG7 p, a < 2 ^ 7) ∧ ∀ a ∈ oG8 p, a < 2 ^ 7 := by lit_decide
 
 theorem output_kept : kept.all (fun r => output.all fun i => dstOf i != some r) = true := by
-  decide +kernel
+  lit_decide
 
 /-- The inputs of `output`. -/
 def oW (s : State) (i : Nat) : BitVec 32 :=
@@ -283,7 +282,7 @@ theorem slot_word_sep (b : BitVec 32) {j k : Nat} (h : j ≠ k) (hj : b.toNat + 
   rw [wordAddr_eq b (by omega), wordAddr_eq b (by omega)]
   exact Offset.sep _ (by omega) (by omega) (by omega)
 
-theorem expSrc_lt : ∀ q < 48, expSrc q < 32 := by decide
+theorem expSrc_lt : ∀ q < 48, expSrc q < 32 := by lit_decide
 
 /-- The box inputs that `inputs` broadcasts. -/
 theorem boxIn_eq {s s₁ : State}
@@ -311,7 +310,7 @@ theorem boxIn_eq {s s₁ : State}
       BitVec.getLsbD_setWidth, decide_eq_true (by omega : 24 * h + 6 * j + t - 32 < 16), Bool.true_and]
     rfl
 
-theorem pSrc_lt : ∀ j < 32, pSrc j < 32 := by decide
+theorem pSrc_lt : ∀ j < 32, pSrc j < 32 := by lit_decide
 
 theorem rCfg_s0 {s : State} (hok : Ok rCfg s) : Ok (sCfg 0) s :=
   ⟨fun k hk => hok.slotIn k (by simp only [sCfg, rCfg] at hk ⊢; omega), fun k hk => absurd hk (by simp [sCfg]),

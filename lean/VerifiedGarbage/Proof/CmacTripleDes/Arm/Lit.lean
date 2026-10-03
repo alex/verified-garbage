@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Arm.Lit
 import VerifiedGarbage.Impl.CmacTripleDes.Arm
+import VerifiedGarbage.Proof.CmacTripleDes.Arm.KeysLit
+import VerifiedGarbage.Proof.CmacTripleDes.Arm.RoundLit
 
 /-! # TDEA-CMAC's ARMv7 code as literals, for kernel-evaluated checks -/
 
