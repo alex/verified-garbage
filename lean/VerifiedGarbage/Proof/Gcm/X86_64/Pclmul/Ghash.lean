@@ -531,7 +531,7 @@ end VG.Proof.Gcm.X86_64.Pclmul
 namespace VG.Proof.Gcm.X86_64.Pclmul
 
 open VG VG.X86_64 VG.Proof.Gcm.Poly
-open VG.Impl.Gcm.X86_64.Pclmul (at_ poly prologue body4 body1 epilogue ghash)
+open VG.Impl.Gcm.X86_64.Pclmul (at_ poly prologue body4 body1 epilogue ghashTail ghash)
 open VG.Spec.Gcm (Block blockAt blocksAt ghashFrom mul)
 
 /-! ## Four blocks and one block, in `Q` -/
@@ -960,13 +960,16 @@ theorem test_ok {s₀ : State} (hp : Pre s₀) {i : Nat} {s : State} (hI : Inv s
 
 /-! ## The whole function -/
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa ghash s₀ fun s' => gprPreserved s₀ s' ∧ ghashX86_64.post s₀ s' := by
+/-- The blocks left after `i₀`, four and then one at a time, and `Y` stored:
+what follows the prologue here, and the eight-block loop of
+`vg_ghash_vpclmul`. -/
+theorem tail_ok {s₀ : State} (hp : Pre s₀) {i₀ : Nat} {s₁ : State} (hI₁ : Inv s₀ i₀ s₁)
+    (hcf : s₁.cf = some (decide (nb s₀ - i₀ < 4))) :
+    WP isa ghashTail s₁ fun s' => gprPreserved s₀ s' ∧ ghashX86_64.post s₀ s' := by
   have hn := hp.nb_lt
-  refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨hI₁, hcf⟩ => ?_)
   refine WP.seq (WP.mono (Q := fun s => ∃ i, nb s₀ - i < 4 ∧ Inv s₀ i s) ?_ fun s₂ ⟨i, hi, hI₂⟩ => ?_)
-  · refine WP.ite (decide (nb s₀ < 4)) (by simp only [eval, hcf]) (fun h => ?_) (fun h => ?_)
-    · exact WP.block_nil ⟨0, by simpa using h, hI₁⟩
+  · refine WP.ite (decide (nb s₀ - i₀ < 4)) (by simp only [eval, hcf]) (fun h => ?_) (fun h => ?_)
+    · exact WP.block_nil ⟨i₀, by simpa using h, hI₁⟩
     · let Inv4 : Nat → State → Prop := fun m s => ∃ i, m = nb s₀ - i ∧ i + 4 ≤ nb s₀ ∧ Inv s₀ i s
       have hstep : ∀ m s, Inv4 m s → WP isa (.block body4) s (fun s' =>
           (eval .ae s' = some false ∧ ∃ i, nb s₀ - i < 4 ∧ Inv s₀ i s') ∨
@@ -976,7 +979,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
         by_cases hlt : nb s₀ - (i + 4) < 4
         · exact .inl ⟨by simp only [eval, hcf', hlt, decide_true, Option.map_some, Bool.not_true], i + 4, hlt, hI'⟩
         · exact .inr ⟨by simp only [eval, hcf', hlt, decide_false, Option.map_some, Bool.not_false], nb s₀ - (i + 4), by omega, i + 4, rfl, by omega, hI'⟩
-      exact WP.loop (M := isa) Inv4 hstep (nb s₀) s₁ ⟨0, rfl, by simpa using h, hI₁⟩
+      exact WP.loop (M := isa) Inv4 hstep (nb s₀ - i₀) s₁ ⟨i₀, rfl, by simp at h; omega, hI₁⟩
   refine WP.seq (WP.mono (test_ok hp hI₂) fun s₃ ⟨hI₃, hzf⟩ => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (nb s₀)) ?_ fun s₄ hI₄ => epilogue_ok hp hI₄)
   refine WP.ite (decide (nb s₀ - i = 0)) (by simp only [eval, hzf]) (fun h => ?_) (fun h => ?_)
@@ -994,6 +997,10 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
       · exact .inr ⟨by simp only [eval, hzf', hlast, decide_false, Option.map_some, Bool.not_false], nb s₀ - (i + 1), by omega, i + 1, rfl, by omega, hI'⟩
     have hlt : i < nb s₀ := by have := hI₃.le; simp only [decide_eq_false_iff_not] at h; omega
     exact WP.loop (M := isa) Inv1 hstep (nb s₀ - i) s₃ ⟨i, rfl, hlt, hI₃⟩
+
+theorem correct {s₀ : State} (hp : Pre s₀) :
+    WP isa ghash s₀ fun s' => gprPreserved s₀ s' ∧ ghashX86_64.post s₀ s' :=
+  WP.seq (WP.mono (prologue_ok hp) fun _ ⟨hI₁, hcf⟩ => tail_ok hp hI₁ (by simpa using hcf))
 
 /-- A state satisfying the precondition (with no blocks). -/
 def satState : State where

@@ -264,7 +264,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AES-NI</td>
+<td>✅ AES-NI, VAES, AVX2</td>
 
 <td>✅ AES, PMULL</td>
 
@@ -548,7 +548,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AES-NI, PCLMULQDQ; GHASH with <code>mul</code></td>
+<td>✅ AES-NI, VAES, PCLMULQDQ, VPCLMULQDQ, AVX2; GHASH with <code>mul</code>; 16 blocks at a time with VAES, 8 with VPCLMULQDQ</td>
 
 <td>✅ AES, PMULL</td>
 

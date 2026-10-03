@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Aes.X86_64.Ctr32
 import VerifiedGarbage.Proof.Aes.X86_64.AesNi.Ctr32
+import VerifiedGarbage.Proof.Aes.X86_64.Vaes.Ctr32
 import VerifiedGarbage.Proof.Aes.X86_64.ExpandKey
 import VerifiedGarbage.Proof.Aes.X86_64.AesNi.ExpandKey
 import VerifiedGarbage.Impl.Aes.X86_64.Callee
@@ -124,6 +125,37 @@ def aesni : Ctr32Impl where
   spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := "_aesni"
   features := ["aes", "ssse3"]
+  expand := .aesni
+  expandDepth := by lit_decide
+  expandOk := aesni_expandKey_ok
+  expandCt := aesni_expandKey_ct
+  expandNosp := aesni_expandKey_nosp
+  expandMxcsr := by lit_decide
+  expandSpSafe := Code.all_of_allInstrs (by lit_decide)
+
+theorem vaes_nosp : NoSp Impl.Aes.X86_64.Ctr32.vaes.code := by
+  have : ((instrs Impl.Aes.X86_64.Ctr32.vaes.code).all fun i => !Taint.clobbers i .rsp) = true := by
+    rw [← Code.allInstrs_eq]; lit_decide
+  exact fun i hi => by simpa using List.all_eq_true.mp this i hi
+
+/-- `vg_aes_ctr32_vaes`'s own contract is `vg_aes_ctr32_aesni`'s. -/
+theorem vaes_ct : ConstantTime isa Proof.Aes.ctr32X86_64.pre Proof.Aes.ctr32X86_64.pub
+    Impl.Aes.X86_64.Ctr32.vaes.code :=
+  fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ ⟨a, b, c, d, e, f, _⟩ e₁ e₂ =>
+    Vaes.ctr32_ct s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ ⟨a, b, c, d, e, f⟩ e₁ e₂
+
+/-- The VAES implementation, `vg_aes_ctr32_vaes`. It goes with
+`vg_aes_expand_key_aesni`, which needs no more CPU features. -/
+def vaes : Ctr32Impl where
+  callee := .vaes
+  depth := by lit_decide
+  ok := Vaes.ctr32_correct
+  ct := vaes_ct
+  nosp := vaes_nosp
+  mxcsr := by lit_decide
+  spSafe := Code.all_of_allInstrs (by lit_decide)
+  suffix := "_vaes"
+  features := ["aes", "avx", "avx2", "ssse3", "vaes"]
   expand := .aesni
   expandDepth := by lit_decide
   expandOk := aesni_expandKey_ok

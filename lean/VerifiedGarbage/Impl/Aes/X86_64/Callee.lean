@@ -1,5 +1,6 @@
 import VerifiedGarbage.Impl.Aes.X86_64.Ctr32
 import VerifiedGarbage.Impl.Aes.X86_64.AesNi
+import VerifiedGarbage.Impl.Aes.X86_64.Vaes
 import VerifiedGarbage.Impl.Aes.X86_64.ExpandKey
 
 /-!
@@ -22,6 +23,7 @@ structure Ctr32 where
 
 def Ctr32.scalar : Ctr32 := ⟨"vg_aes_ctr32", ctr32⟩
 def Ctr32.aesni : Ctr32 := ⟨"vg_aes_ctr32_aesni", AesNi.ctr32⟩
+def Ctr32.vaes : Ctr32 := ⟨"vg_aes_ctr32_vaes", Vaes.ctr32⟩
 
 /-- An implementation of `vg_aes_expand_key` to call: its symbol and its code. -/
 structure ExpandKey where

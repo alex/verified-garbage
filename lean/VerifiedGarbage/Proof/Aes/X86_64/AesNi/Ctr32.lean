@@ -218,7 +218,7 @@ the same code for different lists of registers (`blocks_ok`).
 namespace VG.Proof.Aes.X86_64.AesNi
 
 open VG VG.X86_64
-open VG.Impl.Aes.X86_64.AesNi (at_ ctrs xorData aes regs8 body8 body1 ctrLoad ctrStore ctr32)
+open VG.Impl.Aes.X86_64.AesNi (at_ ctrs xorData aes regs8 body8 body1 ctrLoad ctrStore ctrTail ctr32)
 open VG.Proof.Gcm.X86_64 (revMask blockAt_eq blockAt_store)
 open VG.Spec.Gcm (Block blockAt blocksAt inc32 aesWith)
 
@@ -548,13 +548,16 @@ theorem ctrStore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (n
 
 /-! ## The whole function -/
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa ctr32 s₀ fun s' => gprPreserved s₀ s' ∧ ctr32X86_64.post s₀ s' := by
+/-- The blocks left after `c`, eight and then one at a time, and the counter
+stored: what follows `ctrLoad` here, and the sixteen-block loop of
+`vg_aes_ctr32_vaes`. -/
+theorem tail_ok {s₀ : State} (hp : Pre s₀) {c₀ : Nat} {s₁ : State} (hI₁ : Inv s₀ c₀ c₀ s₁)
+    (hcf : s₁.cf = some (decide (nb s₀ - c₀ < 8))) :
+    WP isa ctrTail s₁ fun s' => gprPreserved s₀ s' ∧ ctr32X86_64.post s₀ s' := by
   have hn := nb_lt hp
-  refine WP.seq (WP.mono (ctrLoad_ok hp) fun s₁ ⟨hI₁, hcf⟩ => ?_)
   refine WP.seq (WP.mono (Q := fun s => ∃ c, nb s₀ - c < 8 ∧ Inv s₀ c c s) ?_ fun s₂ ⟨c, hc, hI₂⟩ => ?_)
-  · refine WP.ite (decide (nb s₀ < 8)) (by simp [eval, hcf]) (fun h => ?_) (fun h => ?_)
-    · exact WP.block_nil ⟨0, by simpa using h, hI₁⟩
+  · refine WP.ite (decide (nb s₀ - c₀ < 8)) (by simp [eval, hcf]) (fun h => ?_) (fun h => ?_)
+    · exact WP.block_nil ⟨c₀, by simpa using h, hI₁⟩
     · let I8 : Nat → State → Prop := fun m s => ∃ c, m = nb s₀ - c ∧ c + 8 ≤ nb s₀ ∧ Inv s₀ c c s
       have hstep : ∀ m s, I8 m s → WP isa body8 s (fun s' =>
           (eval .ae s' = some false ∧ ∃ c, nb s₀ - c < 8 ∧ Inv s₀ c c s') ∨
@@ -564,7 +567,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
         by_cases hlt : nb s₀ - (c + 8) < 8
         · exact .inl ⟨by simp [eval, hcf', hlt], c + 8, hlt, hI'⟩
         · exact .inr ⟨by simp [eval, hcf', hlt], nb s₀ - (c + 8), by omega, c + 8, rfl, by omega, hI'⟩
-      exact WP.loop (M := isa) I8 hstep (nb s₀) s₁ ⟨0, rfl, by simpa using h, hI₁⟩
+      exact WP.loop (M := isa) I8 hstep (nb s₀ - c₀) s₁ ⟨c₀, rfl, by simp at h; omega, hI₁⟩
   refine WP.seq (WP.mono (test_ok hp hI₂) fun s₃ ⟨hI₃, hzf⟩ => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (nb s₀) (nb s₀)) ?_ fun s₄ hI₄ => ctrStore_ok hp hI₄)
   refine WP.ite (decide (nb s₀ - c = 0)) (by simp [eval, hzf]) (fun h => ?_) (fun h => ?_)
@@ -582,6 +585,10 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
       · exact .inr ⟨by simp [eval, hzf', hlast], nb s₀ - (c + 1), by omega, c + 1, rfl, by omega, hI'⟩
     have hlt : c < nb s₀ := by have := hI₃.le; simp at h; omega
     exact WP.loop (M := isa) I1 hstep (nb s₀ - c) s₃ ⟨c, rfl, hlt, hI₃⟩
+
+theorem correct {s₀ : State} (hp : Pre s₀) :
+    WP isa ctr32 s₀ fun s' => gprPreserved s₀ s' ∧ ctr32X86_64.post s₀ s' :=
+  WP.seq (WP.mono (ctrLoad_ok hp) fun _ ⟨hI₁, hcf⟩ => tail_ok hp hI₁ (by simpa using hcf))
 
 /-- A state satisfying the precondition (with no blocks). -/
 def satState : State where

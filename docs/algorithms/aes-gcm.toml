@@ -3,4 +3,4 @@ family = "AEADs"
 specs = ["Aes", "Gcm"]
 modules = ["src/aes_gcm.rs"]
 asm = ["aes", "gcm"]
-optimized = { x86_64 = "GHASH with `mul`" }
+optimized = { x86_64 = "GHASH with `mul`; 16 blocks at a time with VAES, 8 with VPCLMULQDQ" }

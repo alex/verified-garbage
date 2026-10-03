@@ -24,7 +24,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-pub(crate) const NAMES: [&str; 17] = [
+pub(crate) const NAMES: [&str; 19] = [
     "ssse3",
     "sha",
     "aes",
@@ -42,28 +42,61 @@ pub(crate) const NAMES: [&str; 17] = [
     "avx512vl",
     "neon",
     "sve2",
+    "vaes",
+    "vpclmulqdq",
 ];
 
 /// The bit of a feature detection does not know, which is never detected.
 const UNKNOWN: u32 = 1 << 31;
+
+/// Whether two names are equal (`==` on strings, which is not `const`).
+#[cfg_attr(
+    not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
+    allow(dead_code)
+)]
+const fn eq(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
 
 /// A set of CPU features.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Features(pub(crate) u32);
 
 impl Features {
-    /// The features named in `names` (a generated `_FEATURES` constant).
+    /// The features named in `names` (a generated `_FEATURES` constant). A
+    /// `const fn`, so that choosing an implementation can compare
+    /// precomputed sets rather than names.
     #[cfg_attr(
         not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
         allow(dead_code)
     )]
-    pub(crate) fn of(names: &[&str]) -> Features {
-        Features(names.iter().fold(0, |acc, n| {
-            acc | NAMES
-                .iter()
-                .position(|m| m == n)
-                .map_or(UNKNOWN, |i| 1 << i)
-        }))
+    pub(crate) const fn of(names: &[&str]) -> Features {
+        let mut acc = 0;
+        let mut i = 0;
+        while i < names.len() {
+            let mut bit = UNKNOWN;
+            let mut j = 0;
+            while j < NAMES.len() {
+                if eq(names[i], NAMES[j]) {
+                    bit = 1 << j;
+                }
+                j += 1;
+            }
+            acc |= bit;
+            i += 1;
+        }
+        Features(acc)
     }
 
     /// The features named in any of `lists`.
@@ -71,12 +104,14 @@ impl Features {
         not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
         allow(dead_code)
     )]
-    pub(crate) fn all(lists: &[&[&str]]) -> Features {
-        Features(
-            lists
-                .iter()
-                .fold(0, |acc, names| acc | Features::of(names).0),
-        )
+    pub(crate) const fn all(lists: &[&[&str]]) -> Features {
+        let mut acc = 0;
+        let mut i = 0;
+        while i < lists.len() {
+            acc |= Features::of(lists[i]).0;
+            i += 1;
+        }
+        Features(acc)
     }
 
     /// Whether every feature of `other` is in `self`.
@@ -139,13 +174,14 @@ fn parse(names: &str) -> Option<u32> {
 /// Asks the CPU (Intel SDM Vol. 2A, CPUID: leaf 1 ECX bit 9 is SSSE3, bit 25
 /// AES, bit 1 PCLMULQDQ, bit 27 OSXSAVE and bit 28 AVX; leaf 7 sub-leaf 0 EBX
 /// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1, bit 8 BMI2, bit 16 AVX512F, bit 19
-/// ADX, bit 21 AVX512_IFMA and bit 31 AVX512VL, and its EAX the highest
-/// sub-leaf; leaf 7 sub-leaf 1 EAX bit 0 is SHA512; AMD reports them in the
-/// same bits). AVX, AVX2 and SHA512 (whose instructions are VEX.256-encoded, so
-/// also need AVX, Intel SDM Vol. 2, "VSHA512RNDS2") also need the operating
-/// system to save the `ymm` registers: XCR0 bits 1 and 2, read with `xgetbv`
-/// only if OSXSAVE says it may be (Intel SDM Vol. 1, §14.3, "Detection of Intel
-/// AVX Instructions"); AVX512F, AVX512_IFMA and AVX512VL (whose instructions
+/// ADX, bit 21 AVX512_IFMA and bit 31 AVX512VL, its ECX bit 9 VAES and bit 10
+/// VPCLMULQDQ, and its EAX the highest sub-leaf; leaf 7 sub-leaf 1 EAX bit 0
+/// is SHA512; AMD reports them in the same bits). AVX, AVX2, SHA512, VAES and
+/// VPCLMULQDQ (whose instructions are VEX.256-encoded, so also need AVX,
+/// Intel SDM Vol. 2, "VSHA512RNDS2", "AESENC" and "PCLMULQDQ") also need the
+/// operating system to save the `ymm` registers: XCR0 bits 1 and 2, read with
+/// `xgetbv` only if OSXSAVE says it may be (Intel SDM Vol. 1, §14.3,
+/// "Detection of Intel AVX Instructions"); AVX512F, AVX512_IFMA and AVX512VL (whose instructions
 /// are EVEX-encoded) also need the opmask and `zmm` state, XCR0 bits 5, 6 and 7
 /// (§15.2, "Detection of AVX-512 Foundation Instructions", and §15.4 for the
 /// other AVX-512 instruction groups).
@@ -171,11 +207,11 @@ fn runtime() -> u32 {
         let ymm = u32::from(xcr0 & 0b110 == 0b110);
         let zmm = u32::from(xcr0 & 0b1110_0110 == 0b1110_0110);
         let avx = (ecx >> 28) & ymm;
-        let (sub, ebx) = if max >= 7 {
+        let (sub, ebx, ecx7) = if max >= 7 {
             let l = __cpuid_count(7, 0);
-            (l.eax, l.ebx)
+            (l.eax, l.ebx, l.ecx)
         } else {
-            (0, 0)
+            (0, 0, 0)
         };
         let eax1 = if max >= 7 && sub >= 1 {
             __cpuid_count(7, 1).eax
@@ -191,6 +227,8 @@ fn runtime() -> u32 {
         let adx = (ebx >> 19) & 1;
         let avx512ifma = (ebx >> 21) & avx & zmm;
         let avx512vl = (ebx >> 31) & avx & zmm;
+        let vaes = (ecx7 >> 9) & avx;
+        let vpclmulqdq = (ecx7 >> 10) & avx;
         ssse3
             | (sha << 1)
             | (aes << 2)
@@ -204,6 +242,8 @@ fn runtime() -> u32 {
             | (adx << 12)
             | (avx512ifma << 13)
             | (avx512vl << 14)
+            | (vaes << 17)
+            | (vpclmulqdq << 18)
     }
 }
 
@@ -309,6 +349,10 @@ mod tests {
         assert_eq!(Features::of(&["sha3"]), Features(1 << 11));
         assert_eq!(Features::of(&["neon"]), Features(1 << 15));
         assert_eq!(Features::of(&["sve2"]), Features(1 << 16));
+        assert_eq!(
+            Features::of(&["vpclmulqdq", "vaes"]),
+            Features((1 << 18) | (1 << 17))
+        );
         assert_eq!(
             Features::all(&[&["sha"], &[], &["ssse3", "sha"]]),
             Features(0b11)

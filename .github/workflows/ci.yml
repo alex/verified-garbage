@@ -524,12 +524,36 @@ jobs:
             os: ubuntu-24.04-arm
             tests: aes_gcm cmac sha1 sha224 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           # AES-GCM's instances for AES's or GHASH's extension alone, which no
-          # runner or chip has without the other, on x86-64 and on x86.
+          # runner or chip has without the other, on x86-64 and on x86; and,
+          # on x86-64, AES-NI's and PCLMULQDQ's together (and AES-CMAC's
+          # AES-NI functions), which a runner with VAES and VPCLMULQDQ never
+          # chooses.
           - chip: native
             cpu-features: aes,ssse3
-            tests: aes_gcm cpu
+            tests: aes_gcm cmac cpu
           - chip: native
             cpu-features: pclmulqdq,ssse3
+            tests: aes_gcm cpu
+          - chip: native
+            cpu-features: aes,pclmulqdq,ssse3
+            tests: aes_gcm cpu
+          # Ice Lake server: VAES and VPCLMULQDQ, for vg_aes_ctr32_vaes,
+          # vg_ghash_vpclmul and the AES-GCM and AES-CMAC instances calling
+          # them; and AES-GCM's with each alone or paired with the other's
+          # 128-bit instruction, which no chip has without the other.
+          - chip: icx
+            tests: aes_gcm cmac cpu
+          - chip: icx
+            cpu-features: aes,avx,avx2,ssse3,vaes
+            tests: aes_gcm cpu
+          - chip: icx
+            cpu-features: avx,avx2,pclmulqdq,ssse3,vpclmulqdq
+            tests: aes_gcm cpu
+          - chip: icx
+            cpu-features: aes,avx,avx2,pclmulqdq,ssse3,vaes
+            tests: aes_gcm cpu
+          - chip: icx
+            cpu-features: aes,avx,avx2,pclmulqdq,ssse3,vpclmulqdq
             tests: aes_gcm cpu
           - chip: native
             arch: x86
@@ -584,7 +608,7 @@ jobs:
           else
             grep -m1 'model name' /proc/cpuinfo
             grep -m1 flags /proc/cpuinfo | tr ' ' '\n' \
-              | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f|sha512|adx|avx512ifma|avx512vl' \
+              | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f|sha512|adx|avx512ifma|avx512vl|vaes|vpclmulqdq' \
               | tr '\n' ' '
           fi
       - name: Download Intel SDE

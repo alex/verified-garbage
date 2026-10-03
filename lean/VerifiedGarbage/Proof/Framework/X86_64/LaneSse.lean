@@ -38,6 +38,10 @@ def laneSseV : VOp → Option (List Instr)
   | .vshift op len d a n =>
     if len ≠ .l256 then none else
     if a = d then some [.xop (.shift op d n)] else some [.xop (.bin .movdqa d a), .xop (.shift op d n)]
+  | .vpclmulqdq len d a b n =>
+    if len ≠ .l256 then none else
+    if a = d then some [.xop (.pclmulqdq d b n)]
+    else if b = d then none else some [.xop (.bin .movdqa d a), .xop (.pclmulqdq d b n)]
   | .vpshufd len d a o => if len ≠ .l256 then none else some [.xop (.pshufd d a o)]
   | .vmovdqa len d a => if len ≠ .l256 then none else some [.xop (.bin .movdqa d a)]
   | _ => none
@@ -105,6 +109,25 @@ theorem laneSse_ok {i : Instr} {ss : List Instr} (h : laneSse i = some ss) (s : 
   all_goals try (simp only [laneSseV, reduceCtorEq] at h)
   case vbin op len d a b =>
     refine ⟨s.setV len d (op.sse.eval (s.lane a 0) (s.lane b 0)) (op.sse.eval (s.lane a 1) (s.lane b 1)),
+      rfl, VKeep.setV .., fun l hl => ?_⟩
+    split at h
+    · cases h
+    rename_i hlen
+    simp only [ne_eq, Decidable.not_not] at hlen
+    subst hlen
+    rw [proj_setV256 _ _ _ _ hl]
+    split at h
+    · subst_vars; cases h
+      simp only [runBlock, exec, XOp.exec, Option.bind_some, State.proj_xmm]
+      rcases lane01 hl with rfl | rfl <;> rfl
+    · split at h
+      · cases h
+      · rename_i h1 h2; cases h
+        simp only [runBlock, exec, XOp.exec, Option.bind_some, State.proj_xmm]
+        rw [RegUpd.xmm_setXmm_self, RegUpd.xmm_setXmm_of_ne _ _ h2, setXmm_setXmm, eval_movdqa]
+        rcases lane01 hl with rfl | rfl <;> rfl
+  case vpclmulqdq len d a b n =>
+    refine ⟨s.setV len d (pclmul (s.lane a 0) (s.lane b 0) n) (pclmul (s.lane a 1) (s.lane b 1) n),
       rfl, VKeep.setV .., fun l hl => ?_⟩
     split at h
     · cases h
