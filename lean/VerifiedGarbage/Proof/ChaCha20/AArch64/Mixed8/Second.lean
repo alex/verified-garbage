@@ -93,9 +93,12 @@ theorem second_ok {s₀ s : State} (hp : CP s₀) (h : Prepared s₀ s 5) :
   apply WP.seq
   exact (spill_ok hp h).mono fun _ h => reload_ok hp h
 
-theorem compute_second_ok {s₀ s : State} (h : Second s₀ s) :
-    WP isa (rounds 5) s fun u => Second s₀ u 5 := by
-  refine (phase_ok h.vec h.scalar h.table).mono fun u ⟨hu,hr,hsp,hut⟩ => ?_
+theorem compute_second_ok {s₀ s : State} (hp : CP s₀) (h : Second s₀ s) :
+    WP isa (phase .x20) s fun u => Second s₀ u 5 := by
+  refine (counted_phase_ok h.vec h.scalar h.table
+    (VG.Proof.ChaCha20.AArch64.not_words_preserved (by decide)) (by decide)
+    (h.x1.trans ((h.keep _ (VG.Proof.ChaCha20.AArch64.not_words_preserved (by decide))
+      (by decide) (by decide) (by decide)).trans hp.x20).symm)).mono fun u ⟨hu,hr,hsp,hut⟩ => ?_
   have he (f : CState → CState) (x : CState) : Nat.repeat f 5 (Nat.repeat f 5 x) = Nat.repeat f 10 x := rfl
   have hv : VG.Proof.ChaCha20.AArch64.Rows6.Holds
       (VG.Proof.ChaCha20.AArch64.Rows6.pack (fun j => Nat.repeat innerBlock 10 (ctr (source s₀) j))) u := by

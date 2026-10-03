@@ -99,8 +99,10 @@ theorem chunk_ok (s : State) (hp : CP s) : WP isa chunk s (Chunked s) := by
   apply WP.seq
   refine (prepare_ok s hp).mono fun a ha => ?_
   apply WP.seq
-  have first : WP isa (rounds 5) a fun b => Prepared s b 5 := by
-    refine (phase_ok ha.vec ha.scalar ha.table).mono fun b ⟨hv,hc,hsp,ht⟩ => ?_
+  have first : WP isa (phase .x26) a fun b => Prepared s b 5 := by
+    refine (counted_phase_ok ha.vec ha.scalar ha.table
+      (VG.Proof.ChaCha20.AArch64.not_words_preserved (by decide)) (by decide)
+      ((ha.keep _ VG.Proof.ChaCha20.AArch64.not_words_x1 (by decide) (by decide)).trans ha.saved.data.symm)).mono fun b ⟨hv,hc,hsp,ht⟩ => ?_
     refine ⟨hv,ht,hc.holds,?_,?_,?_,hc.rd.trans ha.rd,hc.wr.trans ha.wr,hsp.trans ha.sp,?_⟩
     · rw [source,hc.mem,hc.keep _ VG.Proof.ChaCha20.AArch64.not_words_x0]; exact ha.cnt
     · exact ⟨by rw [hc.keep _ (VG.Proof.ChaCha20.AArch64.not_words_preserved (by decide))]; exact ha.saved.len,
@@ -111,7 +113,7 @@ theorem chunk_ok (s : State) (hp : CP s) : WP isa chunk s (Chunked s) := by
   apply WP.seq
   refine (second_ok hp hb).mono fun c hc => ?_
   apply WP.seq
-  refine (compute_second_ok hc).mono fun d hd => ?_
+  refine (compute_second_ok hp hc).mono fun d hd => ?_
   apply WP.seq
   refine (spill2_ok hp hd).mono fun e he => ?_
   apply WP.seq

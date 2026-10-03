@@ -26,8 +26,8 @@
 //! (`vg_chacha20_xor_avx512`), and other CPUs with AVX2 run
 //! `vg_chacha20_apply_avx2`, which XORs eight (`vg_chacha20_xor_avx2`).
 //! On AArch64, CPUs with AdvSIMD (the baseline) run `vg_chacha20_apply_neon`,
-//! which XORs whole blocks with `vg_chacha20_xor_neon`: five independent
-//! blocks at a time, four in AdvSIMD lanes and one in the integer registers,
+//! which XORs whole blocks with `vg_chacha20_xor_neon`: eight independent
+//! blocks at a time, six in AdvSIMD lanes and two in the integer registers,
 //! then two to four more in AdvSIMD lanes if at least two remain, and the
 //! block function for the rest (at most two blocks).
 //! On every target, the keystream of a partial block, which the streaming
@@ -59,8 +59,8 @@ use core::mem::MaybeUninit;
 pub(crate) enum Backend {
     /// Constant-time scalar code, for the target's baseline ISA.
     Scalar,
-    /// Five independent blocks at a time, four in baseline AArch64 AdvSIMD
-    /// lanes and one in the integer registers.
+    /// Eight independent blocks at a time, six in baseline AArch64 AdvSIMD
+    /// lanes and two in the integer registers.
     #[cfg(target_arch = "aarch64")]
     Neon,
     /// AVX2, eight blocks at a time.

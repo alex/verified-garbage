@@ -31,6 +31,12 @@ def rounds : Nat → Prog isa
   | 0 => .block []
   | n + 1 => .seq (rounds n) parallelRound
 
+/-- Keep one phase in the instruction cache; x1 is free until the scalar spill. -/
+def phase (restore : Reg) : Prog isa :=
+  .seq (.block [.movz .x .x1 5 0])
+    (.seq (.loop (.seq parallelRound (.block [.subImm .x .x1 .x1 1])) (.nonzero .x .x1))
+      (.block [.addImm .x .x1 restore 0]))
+
 def prepare : Prog isa := .seq (.block Mixed5.saveArgs)
   (.seq (.block Rows6.setup)
     (.seq (.block (Mixed5.counter 6)) (.block VG.Impl.ChaCha20.AArch64.load)))
@@ -51,8 +57,8 @@ def vectorFinish : Prog isa := .seq (.block Mixed5.restoreArgs)
 
 def finish : Prog isa := .seq vectorFinish (.block ((List.finRange 8).flatMap xorScalarRow))
 
-def chunk : Prog isa := .seq prepare (.seq (rounds 5)
-  (.seq second (.seq (rounds 5) (.seq (spill 64) finish))))
+def chunk : Prog isa := .seq prepare (.seq (phase .x26)
+  (.seq second (.seq (phase .x20) (.seq (spill 64) finish))))
 
 def check : List Instr :=
   [.lsr .x .x5 .x2 6,.subImm .x .x5 .x5 8,.lsr .x .x5 .x5 63]

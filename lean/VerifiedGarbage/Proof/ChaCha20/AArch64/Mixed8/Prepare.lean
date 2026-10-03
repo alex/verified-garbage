@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Mixed5.Args
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Rows6.Setup
-import VerifiedGarbage.Proof.ChaCha20.AArch64.Mixed8.Rounds
+import VerifiedGarbage.Proof.ChaCha20.AArch64.Mixed8.LoopRounds
 
 namespace VG.Proof.ChaCha20.AArch64.Mixed8
 open VG VG.AArch64 VG.Impl.ChaCha20.AArch64.Mixed8
