@@ -20,7 +20,7 @@ local notation "EV" => VG.Proof.X448.AArch64.Weak.E
 
 structure IKeep (base : Addr) (s t : State) : Prop where
   regs : Keeps (.x19 :: fclob) s t
-  mem : Outside2 base 64 2816 ACC 512 s.mem t.mem
+  mem : Outside2 base 64 2816 ACC 1152 s.mem t.mem
 
 theorem IKeep.trans {base : Addr} {s t u : State} (h : IKeep base s t) (h' : IKeep base t u) :
     IKeep base s u := ⟨h.regs.trans h'.regs, h.mem.trans h'.mem⟩
