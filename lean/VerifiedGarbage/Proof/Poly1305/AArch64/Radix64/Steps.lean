@@ -129,12 +129,12 @@ theorem combine_ok (s : State) :
             2 ^ 64 * ((s.gpr .x12).toNat + (s.gpr .x13).toNat)) ∧ Keeps [.x11, .x12] s s' := by
   apply WP.of_runBlock
   simp (config := {decide := true}) only [combine, runBlock_cons, runStep_some, runBlock_nil, exec,
-    State.read, Size.bits, BitVec.setWidth_eq, gpr_addWithCarry, c_addWithCarry,
+    State.read, Size.bits, BitVec.setWidth_eq, gpr_write, gpr_addWithCarry, c_addWithCarry,
     ite_true, ite_false, Bool.toNat_false, Nat.add_zero, BitVec.add_zero,
     Option.some.injEq, exists_eq_left', ofNat_bool]
   refine ⟨add_adc_toNat _ _ _ _, fun r hr => ?_, rfl, rfl, rfl⟩
   simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-  simp only [gpr_addWithCarry, hr.1, hr.2, ite_false]
+  simp only [gpr_write, gpr_addWithCarry, hr.1, hr.2, ite_false]
 
 set_option simprocs false in
 theorem fold_ok (s : State) :

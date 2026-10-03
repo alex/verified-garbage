@@ -22,17 +22,17 @@ def setup : List Instr :=
 def mulTo (lo hi a b : Reg) : List Instr :=
   [.mul .x lo a b, .umulh hi a b]
 
-/-- A product added to a two-word accumulator. -/
+/-- A product added to a two-word accumulator. Its high carry is dead, so ADC avoids writing flags. -/
 def mulAdd (lo hi a b : Reg) : List Instr :=
-  [.mul .x .x13 a b, .umulh .x14 a b, .adds .x lo lo .x13, .adcs .x hi hi .x14]
+  [.mul .x .x13 a b, .umulh .x14 a b, .adds .x lo lo .x13, .adc .x hi hi .x14]
 
 /-- A product known to fit one word added to a two-word accumulator. -/
 def mulAddSmall (lo hi a b : Reg) : List Instr :=
-  [.mul .x .x13 a b, .movz .x .x14 0 0, .adds .x lo lo .x13, .adcs .x hi hi .x14]
+  [.mul .x .x13 a b, .movz .x .x14 0 0, .adds .x lo lo .x13, .adc .x hi hi .x14]
 
 def addBlock (pad : Bool) : List Instr :=
   [.ldr .x .x13 .x1 0, .ldr .x .x14 .x1 8, .movz .x .x15 (if pad then 1 else 0) 0,
-   .adds .x .x4 .x4 .x13, .adcs .x .x5 .x5 .x14, .adcs .x .x6 .x6 .x15]
+   .adds .x .x4 .x4 .x13, .adcs .x .x5 .x5 .x14, .adc .x .x6 .x6 .x15]
 
 def products : List Instr :=
   mulTo .x9 .x10 .x4 .x7 ++ mulAdd .x9 .x10 .x5 .x17 ++
@@ -40,7 +40,7 @@ def products : List Instr :=
   mulAddSmall .x11 .x12 .x6 .x17 ++ [.mul .x .x13 .x6 .x7]
 
 /-- Combine the two wide products and the small product into three words. -/
-def combine : List Instr := [.adds .x .x11 .x11 .x10, .adcs .x .x12 .x12 .x13]
+def combine : List Instr := [.adds .x .x11 .x11 .x10, .adc .x .x12 .x12 .x13]
 
 /-- Fold the high word t into t mod 4 and 5*(t/4). -/
 def fold : List Instr :=
@@ -50,13 +50,13 @@ def fold : List Instr :=
 
 def addLow : List Instr :=
   [.movz .x .x14 0 0, .adds .x .x4 .x4 .x13, .adcs .x .x5 .x5 .x14,
-   .adcs .x .x6 .x6 .x14]
+   .adc .x .x6 .x6 .x14]
 
 def absorb (pad : Bool) : List Instr := addBlock pad ++ products ++ combine ++ fold ++ addLow
 
 def plus5 : List Instr :=
   [.movz .x .x13 5 0, .movz .x .x14 0 0, .adds .x .x9 .x4 .x13,
-   .adcs .x .x10 .x5 .x14, .adcs .x .x11 .x6 .x14]
+   .adcs .x .x10 .x5 .x14, .adc .x .x11 .x6 .x14]
 
 def mask : List Instr :=
   [.lsr .x .x12 .x11 2, .movz .x .x14 0 0, .sub .x .x12 .x14 .x12,
@@ -109,7 +109,7 @@ def lastBlock : Prog isa :=
 
 def addS : List Instr :=
   [.ldr .x .x13 .x0 40, .ldr .x .x14 .x0 48, .adds .x .x4 .x4 .x13,
-   .adcs .x .x5 .x5 .x14]
+   .adc .x .x5 .x5 .x14]
 
 def storeTag : List Instr := [.str .x .x4 .x3 0, .str .x .x5 .x3 8]
 

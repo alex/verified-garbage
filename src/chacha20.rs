@@ -28,8 +28,7 @@
 //! On AArch64, CPUs with AdvSIMD (the baseline) run `vg_chacha20_apply_neon`,
 //! which XORs whole blocks with `vg_chacha20_xor_neon`: eight independent
 //! blocks at a time, six in AdvSIMD lanes and two in the integer registers,
-//! then two to four more in AdvSIMD lanes if at least two remain, and the
-//! block function for the rest (at most two blocks).
+//! then smaller AdvSIMD groups and the scalar block function for the tail.
 //! On every target, the keystream of a partial block, which the streaming
 //! state buffers, comes from the scalar `vg_chacha20_block`.
 
