@@ -1,0 +1,25 @@
+name: ChaCha20 SVE2 mix probe (do not merge)
+
+# Temporary: times the eight-block ChaCha20 kernel's phase loop body with
+# AdvSIMD rotations and with SVE2 XAR, and its vector and scalar halves
+# alone, on arm64 hardware.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Time
+        run: |
+          grep -m1 -E "CPU part" /proc/cpuinfo
+          gcc -O1 -march=armv8.5-a+sve2 -o mix probe/mix.c
+          for i in 1 2 3; do ./mix; done | tee out.txt
+          { echo '```'; cat out.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
