@@ -29,7 +29,7 @@ def kakb (b : Nat) : List Instr :=
       .add .x Mul.R.t Mul.R.t Mul.R.p1, st Mul.R.t (KB + 8 * i)])
 
 theorem mul_split (o a b : Nat) :
-    mul o a b = loadA a ++ consts ++ kakb b ++ columns Mul.R b Mul.L Mul.H Mul.column ++ finish o :=
+    mul o a b = loadA a ++ consts ++ kakb b ++ columns Mul.R b Mul.L Mul.H Mul.column o ++ finish o :=
   rfl
 
 theorem kakb_ok {s : State} {base : Addr} (hs : Scr s base) {b : Nat} (hb : b + 64 ≤ ACC)
@@ -81,8 +81,8 @@ theorem fits_of {f g : Nat → Nat} (hf : ∀ i < 8, f i < Ib) (hg : ∀ i < 8, 
   fits fun k _ => reduced_le (fun i hi => Nat.le_sub_one_of_lt (hf i hi))
     (fun i hi => Nat.le_sub_one_of_lt (hg i hi)) k
 
-theorem stage_limbs {base : Addr} {r : Nat → Nat} {s t : State} (hi : ColInv base r s t 4) :
-    ∀ i < 8, (word t.mem base (STAGE + 8 * i)).toNat =
+theorem stage_limbs {base : Addr} {o : Nat} {r : Nat → Nat} {s t : State} (hi : ColInv base o r s t 4) :
+    ∀ i < 8, (word t.mem base (o + 8 * i)).toNat =
       (if i < 4 then chainLimb r 0 i else chainLimb r 4 (i - 4)) := by
   intro i hi'
   by_cases h : i < 4
@@ -100,7 +100,7 @@ theorem finVal_out (r : Nat → Nat) :
 
 theorem mul_ok {s : State} {base : Addr} (hs : Scr s base) {o a b : Nat}
     (ho : o + 64 ≤ ACC) (ho8 : o % 8 = 0) (ha : a + 64 ≤ ACC) (ha8 : a % 8 = 0)
-    (hb : b + 64 ≤ ACC) (hb8 : b % 8 = 0)
+    (hb : b + 64 ≤ ACC) (hb8 : b % 8 = 0) (hob : o + 64 ≤ b ∨ b + 64 ≤ o)
     (fa : ∀ i < 8, limbs s.mem base a i < Ib) (fb : ∀ i < 8, limbs s.mem base b i < Ib) :
     WP isa (.block (mul o a b)) s fun t =>
       (∀ i < 8, limbs t.mem base o i = prodOut (limbs s.mem base a) (limbs s.mem base b) i) ∧
@@ -108,7 +108,6 @@ theorem mul_ok {s : State} {base : Addr} (hs : Scr s base) {o a b : Nat}
   have hA : ACC = 3584 := rfl
   have hKA : KA = 3584 := rfl
   have hKB : KB = 3616 := rfl
-  have hST : STAGE = 3840 := rfl
   let f := limbs s.mem base a
   let g := limbs s.mem base b
   rw [mul_split, List.append_assoc, List.append_assoc, List.append_assoc, WP.block_append_iff]
@@ -132,9 +131,9 @@ theorem mul_ok {s : State} {base : Addr} (hs : Scr s base) {o a b : Nat}
   have hfit := fits_of fa fb
   let P := fun (t : State) =>
     (∀ i < 8, t.gpr (Mul.A i) = t3.gpr (Mul.A i)) ∧
-    (∀ d, d + 8 ≤ 8192 → (d + 8 ≤ STAGE ∨ STAGE + 64 ≤ d) → word t.mem base d = word t3.mem base d)
+    (∀ d, d + 8 ≤ 8192 → (d + 8 ≤ o ∨ o + 64 ≤ d) → word t.mem base d = word t3.mem base d)
   have hP : ∀ t u, P t → Keeps (colWrites Mul.R [Mul.L, Mul.H, Mul.X, Mul.Y]) t u →
-      Outside base STAGE 64 t.mem u.mem → P u := by
+      Outside base o 64 t.mem u.mem → P u := by
     intro t u ⟨pa, pm⟩ k o
     exact ⟨fun i hi => (k.1 _ (A_colWrites i hi)).trans (pa i hi),
       fun d hd hd' => (o.word hd' hd).trans (pm d hd hd')⟩
@@ -145,7 +144,7 @@ theorem mul_ok {s : State} {base : Addr} (hs : Scr s base) {o a b : Nat}
     have va : ∀ i < 8, srcVal t base b (.reg (Mul.A i)) = f i := fun i hi => by
       simp only [srcVal]; rw [pa i hi, A3 i hi]
     have vb : ∀ j < 8, srcVal t base b (.arg j) = g j := fun j hj => by
-      simp only [srcVal]; rw [pm _ (by omega) (Or.inl (by omega)), g3 j hj]
+      simp only [srcVal]; rw [pm _ (by omega) (by omega), g3 j hj]
     refine mulCol_ok f g (srcVal t base b) ?_ ?_ ?_ e hd
     · intro i j hi hj
       change ((srcVal t base b (.reg (Mul.A i)) : Nat) : Int) * (srcVal t base b (.arg j) : Nat) = _
@@ -158,7 +157,7 @@ theorem mul_ok {s : State} {base : Addr} (hs : Scr s base) {o a b : Nat}
       change ((word t.mem base (KA + 8 * i)).toNat : Int) * ((word t.mem base (KB + 8 * j)).toNat : Int) = _
       have e1 : ∀ i < 8, (t2.gpr (Mul.A i)).toNat = f i := fun i hi => by
         rw [k2.1 _ (A_consts i hi), a1 i hi]
-      rw [pm _ (by omega) (Or.inl (by omega)), pm _ (by omega) (Or.inl (by omega)), ka3 i hi, kb3 j hj,
+      rw [pm _ (by omega) (by omega), pm _ (by omega) (by omega), ka3 i hi, kb3 j hj,
         m2, m1]
       have x1 := sumlt (t2.gpr (Mul.A i)) (t2.gpr (Mul.A (i + 4)))
         (by rw [e1 i (by omega)]; exact fa i (by omega)) (by rw [e1 (i + 4) (by omega)]; exact fa _ (by omega))
@@ -171,7 +170,7 @@ theorem mul_ok {s : State} {base : Addr} (hs : Scr s base) {o a b : Nat}
       rfl
   rw [WP.block_append_iff]
   refine WP.mono (columns_ok mul_good mul_colRegs (by decide) (by decide) (by decide) hb8 (by omega)
-    hfit mul_ops P hP hsem s3 ⟨fun _ _ => rfl, fun _ _ _ => rfl⟩
+    ho8 (by omega) hfit mul_ops P hP hsem s3 ⟨fun _ _ => rfl, fun _ _ _ => rfl⟩
     (by rw [k3.1 _ (by decide)]; exact mk2) (by rw [k3.1 _ (by decide)]; exact z2))
     fun t4 ⟨p4, i4, k4⟩ => ?_
   have hcl := i4.cl (by decide)

@@ -11,8 +11,10 @@ Karatsuba's identity for `φ = 2²²⁴`, `φ² = φ + 1 (mod p)`: with the halv
 `T_{d+4} + U_d + U_{d+4} - S_d`: 48 products (30 for a square), each
 accumulated in a pair of registers. Coefficients `d` and `d + 4` are computed
 together, and their carries pass to `d + 1` and `d + 5` while the next pair
-is accumulated; the last two fold into limbs 0 and 4. The limbs are staged
-and written at the end, so the output may be either operand.
+is accumulated; the last two fold into limbs 0 and 4. Each limb is written to
+the output as its column ends, so the output may be the first operand (whose
+limbs are loaded first) but not the second; a square reads its operand only
+at the start.
 
 Sums and differences are not reduced: their limbs only have to be small
 enough for a multiplication's coefficients to fit in two words.
@@ -21,14 +23,13 @@ enough for a multiplication's coefficients to fit in two words.
 namespace VG.Impl.Curve448.AArch64.Fast
 
 open VG.AArch64
-open VG.Impl.X448.AArch64 (ld st ACC TMP)
+open VG.Impl.X448.AArch64 (ld st ACC)
 
 /-- Working words: the operand sums `a₀ + a₁` and `b₀ + b₁` of a product,
-a square's doubled limbs, and the staged result. -/
+and a square's doubled limbs. -/
 def KA : Nat := ACC
 def KB : Nat := ACC + 32
 def KD : Nat := ACC + 64
-def STAGE : Nat := TMP
 
 /-- A multiplicand: a register, a word of the working space, or limb `k` of
 the second operand (the slot `b` of `MOp.code`). -/
@@ -74,8 +75,8 @@ def Src.reg? (r : Reg) : Src → Reg
   | _ => r
 
 def addPair (d : Acc) (lo hi : Reg) (add : Bool) : List Instr :=
-  if add then [.adds .x d.lo d.lo lo, .adcs .x d.hi d.hi hi]
-  else [.subs .x d.lo d.lo lo, .sbcs .x d.hi d.hi hi]
+  if add then [.adds .x d.lo d.lo lo, .adc .x d.hi d.hi hi]
+  else [.subs .x d.lo d.lo lo, .sbc .x d.hi d.hi hi]
 
 def MOp.code (R : Regs) (b : Nat) : MOp → List Instr
   | .set a x y =>
@@ -190,37 +191,37 @@ def consts : List Instr :=
   [.movz .x MASK 0xffff 0, .movk .x MASK 0xffff 1, .movk .x MASK 0xffff 2,
     .movk .x MASK 0x00ff 3, .movz .x ZERO 0 0]
 
-/-- Add the incoming carry `c` (unless `first`), stage limb `k`, and leave
-the outgoing carry in `c`. -/
-def colEnd (t : Reg) (a : Acc) (c : Reg) (first : Bool) (k : Nat) : List Instr :=
-  (if first then [] else [.adds .x a.lo a.lo c, .adcs .x a.hi a.hi ZERO]) ++
-  [.logic .and .x t a.lo MASK, st t (STAGE + 8 * k), .extr .x c a.hi a.lo 56]
+/-- Add the incoming carry `c` (unless `first`), store limb `k` of the
+result at `o`, and leave the outgoing carry in `c`. -/
+def colEnd (t : Reg) (a : Acc) (c : Reg) (first : Bool) (o k : Nat) : List Instr :=
+  (if first then [] else [.adds .x a.lo a.lo c, .adc .x a.hi a.hi ZERO]) ++
+  [.logic .and .x t a.lo MASK, st t (o + 8 * k), .extr .x c a.hi a.lo 56]
 
 /-- Fold the last carries, `CL` into limb 4 and `CH` into limbs 0 and 4, with
-one more carry into limbs 1 and 5, and write the result. -/
+one more carry into limbs 1 and 5. -/
 def finish (o : Nat) : List Instr :=
-  [ld .x4 STAGE, ld .x5 (STAGE + 8), ld .x6 (STAGE + 32), ld .x7 (STAGE + 40),
+  [ld .x4 o, ld .x5 (o + 8), ld .x6 (o + 32), ld .x7 (o + 40),
     .add .x .x4 .x4 CH, .add .x .x6 .x6 CH, .add .x .x6 .x6 CL,
     .lsr .x .x8 .x4 56, .logic .and .x .x4 .x4 MASK, .add .x .x5 .x5 .x8,
     .lsr .x .x8 .x6 56, .logic .and .x .x6 .x6 MASK, .add .x .x7 .x7 .x8,
-    st .x4 o, st .x5 (o + 8), st .x6 (o + 32), st .x7 (o + 40)] ++
-  [2, 3, 6, 7].flatMap fun i => [ld .x4 (STAGE + 8 * i), st .x4 (o + 8 * i)]
+    st .x4 o, st .x5 (o + 8), st .x6 (o + 32), st .x7 (o + 40)]
 
-def columns (R : Regs) (b : Nat) (L H : Acc) (col : Nat → List MOp) : List Instr :=
+def columns (R : Regs) (b : Nat) (L H : Acc) (col : Nat → List MOp) (o : Nat) : List Instr :=
   (List.range 4).flatMap fun d =>
-    (col d).flatMap (MOp.code R b) ++ colEnd R.t L CL (d == 0) d ++ colEnd R.t H CH (d == 0) (d + 4)
+    (col d).flatMap (MOp.code R b) ++ colEnd R.t L CL (d == 0) o d ++
+      colEnd R.t H CH (d == 0) o (d + 4)
 
 /-- Load the limbs of `a` into `A 0`–`A 7`. -/
 def loadA (a : Nat) : List Instr := (List.range 8).map fun i => ld (Mul.A i) (a + 8 * i)
 
-/-- `[o] := [a] * [b]`. -/
+/-- `[o] := [a] * [b]`, for `o ≠ b`. -/
 def mul (o a b : Nat) : List Instr :=
   loadA a ++ consts ++
   (List.range 4).flatMap (fun i =>
     [.add .x Mul.R.p0 (Mul.A i) (Mul.A (i + 4)), st Mul.R.p0 (KA + 8 * i),
       ld Mul.R.t (b + 8 * i), ld Mul.R.p1 (b + 32 + 8 * i),
       .add .x Mul.R.t Mul.R.t Mul.R.p1, st Mul.R.t (KB + 8 * i)]) ++
-  columns Mul.R b Mul.L Mul.H Mul.column ++ finish o
+  columns Mul.R b Mul.L Mul.H Mul.column o ++ finish o
 
 /-- `[o] := [a] * [a]`. -/
 def sqr (o a : Nat) : List Instr :=
@@ -228,7 +229,7 @@ def sqr (o a : Nat) : List Instr :=
   (List.range 4).map (fun i => .add .x (Sqr.Z i) (Sqr.A i) (Sqr.A (i + 4))) ++
   (List.range 3).flatMap (fun k => (List.range 3).flatMap fun h =>
     [.add .x Sqr.R.t (Sqr.limb h k) (Sqr.limb h k), st Sqr.R.t (KD + 24 * h + 8 * k)]) ++
-  columns Sqr.R a Sqr.L Sqr.H Sqr.column ++ finish o
+  columns Sqr.R a Sqr.L Sqr.H Sqr.column o ++ finish o
 
 /-! ## Sums and differences -/
 

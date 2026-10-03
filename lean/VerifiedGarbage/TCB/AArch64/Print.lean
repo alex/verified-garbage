@@ -110,6 +110,7 @@ def VOp.asm : VOp → String
   | .bcax d n m a => s!"bcax {d.b}, {n.b}, {m.b}, {a.b}"
   | .rax1 d n m => s!"rax1 {d.arr "2d"}, {n.arr "2d"}, {m.arr "2d"}"
   | .xar d n m imm => s!"xar {d.arr "2d"}, {n.arr "2d"}, {m.arr "2d"}, #{imm}"
+  | .xarS d m rot => s!"xar z{d.index}.s, z{d.index}.s, z{m.index}.s, #{rot}"
 
 def LogicOp.name : LogicOp → String
   | .and => "and" | .orr => "orr" | .eor => "eor"

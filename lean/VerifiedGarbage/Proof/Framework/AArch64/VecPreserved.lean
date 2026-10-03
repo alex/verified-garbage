@@ -14,7 +14,7 @@ def VOp.dst : VOp → VReg
   | .sha1 _ d .. | .sha1h d .. | .sha1su0 d .. | .sha1su1 d .. => d
   | .sha256h d .. | .sha256h2 d .. | .sha256su0 d .. | .sha256su1 d .. => d
   | .sha512h d .. | .sha512h2 d .. | .sha512su0 d .. | .sha512su1 d .. => d
-  | .eor3 d .. | .bcax d .. | .rax1 d .. | .xar d .. => d
+  | .eor3 d .. | .bcax d .. | .rax1 d .. | .xar d .. | .xarS d .. => d
 
 /-- The vector register an instruction writes, if any. -/
 def vdstOf : Instr → Option VReg
