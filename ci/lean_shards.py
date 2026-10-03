@@ -42,6 +42,11 @@ unbuilt, the final job builds.
                                         times of TIMES (files of `times`) and,
                                         for the modules they lack, of OLD
                                         (which may be missing)
+  lean_shards.py prune BUILD            delete the outputs under BUILD
+                                        (`lean/.lake/build`) of the project's
+                                        modules whose sources are gone, which
+                                        Lake never deletes, so that the saved
+                                        build does not keep them forever
 """
 
 import hashlib
@@ -217,6 +222,24 @@ def module_of_output(path: str) -> str:
     return ".".join([*parts[:-1], parts[-1].split(".")[0]]) if parts else ""
 
 
+def stale_outputs(build: pathlib.Path) -> list[pathlib.Path]:
+    """The files under `build` that are outputs of a module of the project's
+    libraries that no longer exists. Anything else (outputs of no module, of
+    the executables' roots) is kept."""
+    mods = modules()
+    if not mods:
+        raise SystemExit(f"no modules under {LEAN}")
+    stale = []
+    for f in sorted(build.rglob("*")):
+        rel = f.relative_to(build).as_posix()
+        if not f.is_file() or rel.split("/")[0] not in ("lib", "ir"):
+            continue
+        m = module_of_output(rel)
+        if any(m == lib or m.startswith(f"{lib}.") for lib in LIBRARIES) and m not in mods:
+            stale.append(f)
+    return stale
+
+
 def main(args: list[str]) -> int:
     if len(args) == 3 and args[0] == "plan":
         p = plan(read_json(args[1]))
@@ -264,6 +287,17 @@ def main(args: list[str]) -> int:
                 indent=1,
             )
         )
+        return 0
+    if len(args) == 2 and args[0] == "prune":
+        build = pathlib.Path(args[1])
+        stale = stale_outputs(build)
+        for f in stale:
+            f.unlink()
+        # The directories of modules that are gone, deepest first.
+        for d in sorted((d for d in build.rglob("*") if d.is_dir()), key=lambda d: -len(d.parts)):
+            if not any(d.iterdir()):
+                d.rmdir()
+        print(f"Deleted {len(stale)} outputs of modules that no longer exist.", file=sys.stderr)
         return 0
     print(__doc__, file=sys.stderr)
     return 2
