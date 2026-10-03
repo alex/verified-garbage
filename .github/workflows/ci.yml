@@ -315,6 +315,7 @@ jobs:
       - run: python3 ci/algorithms_table.py --check
       - run: python3 ci/check_arch_gates.py
       - run: python3 ci/check_variants.py
+      - run: python3 ci/check_cpu_feature_runs.py
       - run: python3 -m unittest discover -s ci -p 'test_check_*.py'
       - run: python3 ci/check_mcdt.py
 
@@ -416,17 +417,9 @@ jobs:
           cargo clippy --all-targets --locked --features cpu-features-env
       - run: rustc -vV
       - run: cargo test --locked
-      - name: Test baseline x86 implementations
-        if: ${{ matrix.platform.install-amd64-libc }}
-        env:
-          VG_CPU_FEATURES: none
-        run: cargo test --locked --features cpu-features-env
       - name: Export coverage
         shell: bash
         run: $(command -v python3 || command -v python) ci/export_rust_coverage.py .rust-cov
-      - name: Export baseline x86 coverage
-        if: ${{ matrix.platform.install-amd64-libc }}
-        run: python3 ci/export_rust_coverage.py .rust-cov --features cpu-features-env
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-data-${{ strategy.job-index }}
@@ -495,12 +488,15 @@ jobs:
   # SHA extensions' code tens of times slower than hardware (#274), so the
   # chips that have them (arl, icx, dmr) run only the tests they are there
   # for. A job is one CPU (and userspace); its `runs` are lines of
-  # `<VG_CPU_FEATURES> | <tests>`, each a `cargo test` of the one build,
-  # since `VG_CPU_FEATURES` is read at run time. `VG_CPU_FEATURES`
-  # restricts the CPU's features (`-` for no restriction, `none` for the
-  # baseline ISA), so that each implementation, and each of Ed25519's
-  # combinations of SHA-512 and field multiplication, is chosen somewhere;
-  # the coverage, merged with the rest, checks that every one was.
+  # `<VG_CPU_FEATURES> | <tests>` (`all` for every test), each a `cargo
+  # test` of the one build, since `VG_CPU_FEATURES` is read at run time.
+  # `VG_CPU_FEATURES` restricts the CPU's features (`-` for no restriction,
+  # `none` for the baseline ISA), so that each implementation, and each of
+  # Ed25519's combinations of SHA-512 and field multiplication, is chosen
+  # somewhere; the coverage, merged with the rest, checks that every one
+  # was. These are the only runs that set `VG_CPU_FEATURES`, and a CPU runs
+  # each value of it once (ci/check_cpu_feature_runs.py checks both), so
+  # that no run repeats another's.
   rust-cpu-features:
     strategy:
       fail-fast: false
@@ -517,9 +513,9 @@ jobs:
               aes,ssse3 | aes_gcm cmac cpu
               pclmulqdq,ssse3 | aes_gcm cpu
               aes,pclmulqdq,ssse3 | aes_gcm cpu
-          # x86 feature dispatch, natively in a 32-bit userspace. The baseline
-          # implementations (`none`) are the `rust` job's, which runs every
-          # test with them on x86. AES-GCM's instances for AES's or GHASH's
+          # x86 feature dispatch, natively in a 32-bit userspace, with the
+          # runner's features and every test with the baseline
+          # implementations; and AES-GCM's instances for AES's or GHASH's
           # extension alone, as on x86-64.
           - chip: native
             arch: x86
@@ -529,6 +525,7 @@ jobs:
             install-amd64-libc: true
             runs: |
               - | sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem scrypt x25519 ed25519 cpu
+              none | all
               aes | aes_gcm cpu
               pclmulqdq,ssse3 | aes_gcm cpu
           # AVX-512F, BMI2 and ADX; and BMI2 and ADX without AVX-512F.
@@ -658,8 +655,10 @@ jobs:
             features=$(echo $features) tests=$(echo $tests)
             [ -n "$tests" ] || continue
             [ "$features" = - ] && features=
+            filter=$tests
+            [ "$tests" = all ] && filter=
             echo "::group::VG_CPU_FEATURES=$features: $tests"
-            VG_CPU_FEATURES=$features cargo test --locked --features cpu-features-env -- $tests \
+            VG_CPU_FEATURES=$features cargo test --locked --features cpu-features-env -- $filter \
               || failed+=("VG_CPU_FEATURES=$features: $tests")
             echo "::endgroup::"
           done 3<<< "$RUNS"
