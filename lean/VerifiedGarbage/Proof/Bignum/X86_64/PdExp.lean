@@ -17,6 +17,8 @@ open VG VG.X86_64 VG.Impl.Bignum.X86_64 VG.Impl.Bignum.X86_64.Public VG.Impl.Rsa
 open VG.Impl.Rsa.X86_64.Precomputed
 open VG.Proof.MlKem.X86_64
 
+variable {M : Mont}
+
 /-- What a bit of the exponentiation changes: also whether it started. -/
 def pBitRanges (w : Nat) : List (Nat × Nat) := (8 * sStarted, 8) :: bitRanges w
 
@@ -127,14 +129,14 @@ theorem pBitRanges_hdr (w : Nat) {k : Nat} (hk : k < 32) (h1 : k ≠ sV) (h2 : k
 theorem pSq_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X x E : Nat}
     (hc : ExpCtx t B Z w minv N X) (hZ : slot w 8 ≤ Z) (hw : 2 ≤ w) (hw' : w < 2 ^ 31)
     (hR : Nat.Coprime (2 ^ (64 * w)) N) (hy : YSt t.mem B w N x E) (hz : t.zf = some (decide (E = 0))) :
-    WP isa (.ite .ne (mm aY aY aY) (.block [])) t fun t' => ExpCtx t' B Z w minv N X ∧
+    WP isa (.ite .ne (M.mm aY aY aY) (.block [])) t fun t' => ExpCtx t' B Z w minv N X ∧
       YSt t'.mem B w N x (2 * E) ∧ Arrays B w [aAcc, aTmp, aY] t.mem t'.mem ∧ Keep mmRegs t t' := by
   rcases hy with ⟨h0, hs0⟩ | ⟨h0, hs1, Y, hY, hYN, hYc⟩
   · refine WP.ite false (by simp [eval, hz, h0]) (by simp) (fun _ => WP.block_nil ⟨hc, ?_,
       fun _ _ => rfl, Keep.refl _ _⟩)
     exact .inl ⟨by omega, hs0⟩
   · refine WP.ite true (by simp [eval, hz, h0]) (fun _ => ?_) (by simp)
-    refine WP.mono (mm_ok (o := aY) (a := aY) (b := aY) hc.good hZ hw hw' (by decide) (by decide)
+    refine WP.mono (M.mm_ok (o := aY) (a := aY) (b := aY) hc.good hZ hw hw' (by decide) (by decide)
       (by decide) (by decide) (by decide) (by decide) (by decide) hc.inv
       (by rw [hc.n, hY]; exact hYN)) fun t₂ ⟨hg₂, hlt₂, hmm₂, ha₂, k₂⟩ => ?_
     rw [hc.n] at hlt₂
@@ -147,7 +149,7 @@ theorem pMul_ok {t₃ : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X x 
     (hc₃ : ExpCtx t₃ B Z w minv N X) (hZ : slot w 8 ≤ Z) (hw : 2 ≤ w) (hw' : w < 2 ^ 31)
     (hR : Nat.Coprime (2 ^ (64 * w)) N) (hXN : X < N) (hXc : X % N = x * 2 ^ (64 * w) % N)
     (hy₃ : YSt t₃.mem B w N x (2 * E)) (hz₃ : t₃.zf = some (decide (V / 128 % 2 = 0))) :
-    WP isa (.ite .ne (.seq (.block startedTest) (.ite .ne (mm aY aY aXm) start)) (.block [])) t₃
+    WP isa (.ite .ne (.seq (.block startedTest) (.ite .ne (M.mm aY aY aXm) start)) (.block [])) t₃
       fun t₄ => ExpCtx t₄ B Z w minv N X ∧ YSt t₄.mem B w N x (2 * E + V / 128 % 2) ∧
         Frm B (pBitRanges w) t₃.mem t₄.mem ∧ (∀ k < 32, k ≠ sStarted → word t₄.mem B (8 * k) = word t₃.mem B (8 * k)) ∧
         Keep mmRegs t₃ t₄ := by
@@ -173,7 +175,7 @@ theorem pMul_ok {t₃ : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X x 
         · omega
         · simp only [sStarted, sFn] at hk' ⊢; omega) (by omega), hm₄]
     · refine WP.ite true (by simp [eval, hz₄, h0]) (fun _ => ?_) (by simp)
-      refine WP.mono (mm_ok (o := aY) (a := aY) (b := aXm) hc₄.good hZ hw hw' (by decide) (by decide)
+      refine WP.mono (M.mm_ok (o := aY) (a := aY) (b := aXm) hc₄.good hZ hw hw' (by decide) (by decide)
         (by decide) (by decide) (by decide) (by decide) (by decide) hc₄.inv
         (by rw [hc₄.x, hc₄.n]; exact hXN)) fun t₅ ⟨hg₅, hlt₅, hmm₅, ha₅, k₅⟩ => ?_
       rw [hc₄.n] at hlt₅
@@ -192,7 +194,7 @@ theorem pExpBit_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X x 
     (hy : YSt t.mem B w N x E)
     (hV : word t.mem B (8 * sV) = BitVec.ofNat 64 V) (hV' : V < 2 ^ 62)
     (hb : word t.mem B (8 * sBit) = BitVec.ofNat 64 b) (hb1 : 1 ≤ b) (hb' : b < 2 ^ 31) :
-    WP isa Precomputed.expBit t fun t' => ExpCtx t' B Z w minv N X ∧ YSt t'.mem B w N x (2 * E + V / 128 % 2) ∧
+    WP isa (Precomputed.expBit M.mm) t fun t' => ExpCtx t' B Z w minv N X ∧ YSt t'.mem B w N x (2 * E + V / 128 % 2) ∧
       word t'.mem B (8 * sV) = BitVec.ofNat 64 (V + V) ∧ word t'.mem B (8 * sBit) = BitVec.ofNat 64 (b - 1) ∧
       t'.zf = some (decide (b - 1 = 0)) ∧ Frm B (pBitRanges w) t.mem t'.mem ∧ Keep mmRegs t t' := by
   have hn := hc.good.scr.nowrap
@@ -285,7 +287,7 @@ theorem pBitStep_ok {t s : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X
     (hZ : slot w 8 ≤ Z) (hw : 2 ≤ w) (hw' : w < 2 ^ 31)
     (hR : Nat.Coprime (2 ^ (64 * w)) N) (hXN : X < N) (hXc : X % N = x * 2 ^ (64 * w) % N)
     (hv : v < 256) {j : Nat} (hj : j < 8) (hI : PBitInv t B Z w minv N X x E v j s) :
-    WP isa Precomputed.expBit s fun s' => s'.zf = some (decide (j + 1 = 8)) ∧
+    WP isa (Precomputed.expBit M.mm) s fun s' => s'.zf = some (decide (j + 1 = 8)) ∧
       PBitInv t B Z w minv N X x E v (j + 1) s' := by
   have hp : 2 ^ j ≤ 2 ^ 7 := Nat.pow_le_pow_right (by decide) (by omega)
   refine WP.mono (pExpBit_ok hI.ctx hZ hw hw' hR hXN hXc hI.y hI.v
@@ -304,7 +306,7 @@ theorem pBits_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X x E 
     (hZ : slot w 8 ≤ Z) (hw : 2 ≤ w) (hw' : w < 2 ^ 31)
     (hR : Nat.Coprime (2 ^ (64 * w)) N) (hXN : X < N) (hXc : X % N = x * 2 ^ (64 * w) % N)
     (hv : v < 256) (h0 : PBitInv t B Z w minv N X x E v 0 t) :
-    WP isa (.loop Precomputed.expBit .ne) t (PBitInv t B Z w minv N X x E v 8) :=
+    WP isa (.loop (Precomputed.expBit M.mm) .ne) t (PBitInv t B Z w minv N X x E v 8) :=
   wp_upto (a := 0) (N := 8) (by decide) (PBitInv t B Z w minv N X x E v)
     (fun _ _ hj _ hI => pBitStep_ok hZ hw hw' hR hXN hXc hv hj hI) (fun _ h => h) h0
 
@@ -415,7 +417,7 @@ theorem pByte_ok {t₀ t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X
     (hbytes : ∀ i (h : i < L), t₀.mem (ep + BitVec.ofNat 64 i) = eb[i]'(by omega))
     (hout : ∀ i < L, Z ≤ ofs B (ep + BitVec.ofNat 64 i))
     (hI : PByteInv t₀ B Z w minv N X x ep L eb i t) :
-    WP isa (.seq (.block byteHead) (.seq (.loop Precomputed.expBit .ne) (.block byteNext))) t fun t' =>
+    WP isa (.seq (.block byteHead) (.seq (.loop (Precomputed.expBit M.mm) .ne) (.block byteNext))) t fun t' =>
       t'.zf = some (decide (i + 1 = L)) ∧ PByteInv t₀ B Z w minv N X x ep L eb (i + 1) t' := by
   have hn := hI.ctx.good.scr.nowrap
   have hn' : B.toNat + slot w 8 ≤ 2 ^ 64 := by omega
@@ -514,7 +516,7 @@ theorem pExpLoop_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X x
     (hrd : ∀ i < L, InRegions (t.rd ++ t.wr) (ep + BitVec.ofNat 64 i) 1)
     (hbytes : ∀ i (h : i < L), t.mem (ep + BitVec.ofNat 64 i) = eb[i]'(by omega))
     (hout : ∀ i < L, Z ≤ ofs B (ep + BitVec.ofNat 64 i)) :
-    WP isa Precomputed.expLoop t fun t' => ExpCtx t' B Z w minv N X ∧
+    WP isa (Precomputed.expLoop M.mm) t fun t' => ExpCtx t' B Z w minv N X ∧
       YSt t'.mem B w N x (Spec.Rsa.os2ip eb) ∧ Frm B (pExpRanges w) t.mem t'.mem ∧ Keep mmRegs t t' := by
   unfold Precomputed.expLoop
   refine WP.seq (WP.mono (pExpInit_ok (x := x) (eb := eb) hc hZ he hlen) fun t₁ h₁ => ?_)
@@ -534,7 +536,7 @@ theorem pFinish_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X x 
     (hc : ExpCtx t B Z w minv N X) (hZ : slot w 8 ≤ Z) (hw : 2 ≤ w) (hw' : w < 2 ^ 31)
     (hR : Nat.Coprime (2 ^ (64 * w)) N) (hN1 : 1 < N) (hone : wv t.mem B (slot w aOne) w = 1)
     (hy : YSt t.mem B w N x E) :
-    WP isa finish t fun t' => Good t' B Z w minv ∧ wv t'.mem B (slot w aY) w = x ^ E % N ∧
+    WP isa (finish M.mm) t fun t' => Good t' B Z w minv ∧ wv t'.mem B (slot w aY) w = x ^ E % N ∧
       Frm B (finRanges w) t.mem t'.mem ∧ Keep mmRegs t t' := by
   have hn := hc.good.scr.nowrap
   have hn' : B.toNat + slot w 8 ≤ 2 ^ 64 := by omega
@@ -560,7 +562,7 @@ theorem pFinish_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X x 
     · rw [hm₂, hm₁] at ha
       exact Frm.of_arrays ha (by simp [finRanges])
   · refine WP.ite true (by simp [eval, hz₁, h0]) (fun _ => ?_) (by simp)
-    refine WP.mono (mm_ok (o := aY) (a := aY) (b := aOne) hc₁.good hZ hw hw' (by decide) (by decide)
+    refine WP.mono (M.mm_ok (o := aY) (a := aY) (b := aOne) hc₁.good hZ hw hw' (by decide) (by decide)
       (by decide) (by decide) (by decide) (by decide) (by decide) hc₁.inv
       (by rw [hc₁.n, hm₁, hone]; exact hN1)) fun t' ⟨hg', hlt, hmm, ha, k₂⟩ => ?_
     rw [hc₁.n] at hlt

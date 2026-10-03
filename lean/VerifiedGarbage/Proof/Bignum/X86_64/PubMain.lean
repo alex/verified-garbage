@@ -14,7 +14,7 @@ namespace VG.Proof.Bignum.X86_64
 open VG VG.X86_64 VG.Impl.Bignum.X86_64 VG.Impl.Bignum.X86_64.Public
 open VG.Proof.MlKem.X86_64
 
-theorem main_eq : main = seqs ((loadSteps ++ restSteps) ++ (r2Steps ++ (expSteps ++ outSteps))) := rfl
+theorem main_eq : main = seqs ((loadSteps ++ restSteps) ++ ((r2Steps Mont.base) ++ (expSteps ++ outSteps))) := rfl
 
 /-- What `main` starts from: the working space at `B` (its base in `rdi`),
 the header `entry` leaves (`out`, `m`, its length `k`, `e`, its length `L`,
@@ -126,7 +126,7 @@ theorem main_ok {s : State} {B : Addr} {Z k : Nat} {op np ep ip : Addr} {L : Nat
   have x₁ := Fixed.of_frm f₁ (setupRanges_fixed _)
   have i₁ := InScr.of_frm f₁ (hZs (setupRanges_le _))
   refine wp_seqs_append (by simp [r2Steps]) (by simp [expSteps])
-    (WP.mono (r2_ok so.good hZ (by omega) (by omega) so.n so.inv so.r12 so.r10 hodd hlo)
+    (WP.mono (r2_ok Mont.base so.good hZ (by omega) (by omega) so.n so.inv so.r12 so.r10 hodd hlo)
       fun t₂ ⟨hg₂, hlt₂, hr₂, f₂, k₂⟩ => ?_)
   have x₂ := Fixed.of_frm f₂ (r2Ranges_fixed _)
   have i₂ := InScr.of_frm f₂ (hZs (r2Ranges_le _))

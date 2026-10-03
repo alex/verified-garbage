@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Bignum.X86_64.R2
+import VerifiedGarbage.Proof.Bignum.X86_64.Mont
 
 /-!
 # Multiword arithmetic on x86-64: the exponentiation of `vg_rsa_public`
@@ -13,29 +14,6 @@ namespace VG.Proof.Bignum.X86_64
 
 open VG VG.X86_64 VG.Impl.Bignum.X86_64 VG.Impl.Bignum.X86_64.Public
 open VG.Proof.MlKem.X86_64
-
-/-- The working space at `B`, its base in `rdi`, and the header. -/
-structure Good (t : State) (B : Addr) (Z w : Nat) (minv : BitVec 64) : Prop where
-  scr : Scr t B Z
-  rdi : t.gpr .rdi = B
-  hdr : Hdr t.mem B w minv
-
-/-- `mm o a b` (`montMul` with `m`, the accumulator and the temporary of
-`vg_rsa_public`). -/
-theorem mm_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} (hg : Good t B Z w minv)
-    (hZ : slot w 8 ≤ Z) (hw : 2 ≤ w) (hw' : w < 2 ^ 31) {o a b : Nat} (ho : o < 8) (ha : a < 8) (hb : b < 8)
-    (d1 : o ≠ aAcc) (d2 : o ≠ aTmp) (d3 : a ≠ aAcc) (d4 : b ≠ aAcc)
-    (hinv : ((word t.mem B (slot w aN)).toNat * minv.toNat + 1) % 2 ^ 64 = 0)
-    (hB : wv t.mem B (slot w b) w < wv t.mem B (slot w aN) w) :
-    WP isa (mm o a b) t fun t' =>
-      Good t' B Z w minv ∧ wv t'.mem B (slot w o) w < wv t.mem B (slot w aN) w ∧
-      wv t'.mem B (slot w o) w * 2 ^ (64 * w) % wv t.mem B (slot w aN) w =
-        wv t.mem B (slot w a) w * wv t.mem B (slot w b) w % wv t.mem B (slot w aN) w ∧
-      Arrays B w [aAcc, aTmp, o] t.mem t'.mem ∧ Keep mmRegs t t' :=
-  WP.mono (montMul_ok hg.scr hg.rdi hg.hdr hZ hw hw' (by decide) (by decide) (by decide) ho ha hb (by decide)
-    (by decide) (Ne.symm d1) (Ne.symm d3) (Ne.symm d4) (by decide) (Ne.symm d2) hinv hB)
-    fun t' ⟨h1, h2, h3, k⟩ => ⟨⟨hg.scr.congr k.2.2, (k.gpr (by decide)).trans hg.rdi, h3.hdr hg.hdr⟩,
-      h1, h2, h3, k⟩
 
 theorem bit7 (V : Nat) (hV : V < 2 ^ 64) :
     ((BitVec.ofNat 64 V >>> 7) &&& 1 == 0) = decide (V / 128 % 2 = 0) := by
@@ -118,7 +96,7 @@ theorem expBit_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X x E
   have h8 : 256 ≤ slot w 0 := by unfold slot hdrBytes; omega
   unfold expBit
   -- `Y := Y²`.
-  refine WP.seq (WP.mono (mm_ok (o := aY) (a := aY) (b := aY) hc.good hZ hw hw' (by decide) (by decide)
+  refine WP.seq (WP.mono (Mont.base.mm_ok (o := aY) (a := aY) (b := aY) hc.good hZ hw hw' (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) (by decide) hc.inv (by rw [hY, hc.n]; exact hYN))
     fun t₁ ⟨hg₁, hlt₁, hm₁, ha₁, k₁⟩ => ?_)
   rw [hc.n] at hlt₁
@@ -149,7 +127,7 @@ theorem expBit_ok {t : State} {B : Addr} {Z w : Nat} {minv : BitVec 64} {N X x E
       · rw [hm₂]; exact hlt₁
       · rw [hm₂, hY₁, hbit, Nat.add_zero]
     · refine WP.ite true (by simp [eval, hz₂, hbit]) (fun _ => ?_) (by simp)
-      refine WP.mono (mm_ok (o := aY) (a := aY) (b := aXm) hg₂ hZ hw hw' (by decide) (by decide)
+      refine WP.mono (Mont.base.mm_ok (o := aY) (a := aY) (b := aXm) hg₂ hZ hw hw' (by decide) (by decide)
         (by decide) (by decide) (by decide) (by decide) (by decide) hc₂.inv
         (by rw [hc₂.x, hc₂.n]; exact hXN)) fun t₃ ⟨hg₃, hlt₃, hm₃, ha₃, k₃⟩ => ?_
       rw [hc₂.n] at hlt₃

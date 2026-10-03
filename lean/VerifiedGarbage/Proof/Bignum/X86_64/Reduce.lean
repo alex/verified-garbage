@@ -1,4 +1,8 @@
 import VerifiedGarbage.Proof.Bignum.X86_64.Row
+import Mathlib.Tactic.LinearCombination
+import Mathlib.Tactic.Zify
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Linarith
 
 /-!
 # Multiword arithmetic on x86-64: `acc := (acc + u m) / 2⁶⁴`
