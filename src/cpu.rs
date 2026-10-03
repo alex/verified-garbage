@@ -8,7 +8,10 @@
 //! by asking the operating system with the `cpu-features-env` feature (which
 //! links `std`), and otherwise from the target features the code was
 //! compiled for. Each object that can use such a function chooses its
-//! implementation when it is created, from the features detected.
+//! implementation when it is created, from the features detected. A feature
+//! detection does not know ([`NAMES`]) cannot be checked for:
+//! [`Features::of`] panics on it, so the constants that choose
+//! implementations fail to compile.
 //!
 //! With the `cpu-features-env` Cargo feature, the environment variable
 //! `VG_CPU_FEATURES` restricts the features detected, so that tests and
@@ -46,9 +49,6 @@ pub(crate) const NAMES: [&str; 19] = [
     "vpclmulqdq",
 ];
 
-/// The bit of a feature detection does not know, which is never detected.
-const UNKNOWN: u32 = 1 << 31;
-
 /// Whether two names are equal (`==` on strings, which is not `const`).
 #[cfg_attr(
     not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
@@ -77,6 +77,12 @@ impl Features {
     /// The features named in `names` (a generated `_FEATURES` constant). A
     /// `const fn`, so that choosing an implementation can compare
     /// precomputed sets rather than names.
+    ///
+    /// # Panics
+    ///
+    /// If `names` has a feature not in [`NAMES`], which detection does not
+    /// know. In a constant (`const { Features::of(…) }`), that fails to
+    /// compile, rather than quietly never choosing the code that needs it.
     #[cfg_attr(
         not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
         allow(dead_code)
@@ -85,15 +91,12 @@ impl Features {
         let mut acc = 0;
         let mut i = 0;
         while i < names.len() {
-            let mut bit = UNKNOWN;
             let mut j = 0;
-            while j < NAMES.len() {
-                if eq(names[i], NAMES[j]) {
-                    bit = 1 << j;
-                }
+            while !eq(names[i], NAMES[j]) {
                 j += 1;
+                assert!(j < NAMES.len(), "a CPU feature this library does not know");
             }
-            acc |= bit;
+            acc |= 1 << j;
             i += 1;
         }
         Features(acc)
@@ -344,7 +347,6 @@ mod tests {
             Features::of(&["avx512vl", "avx512ifma"]),
             Features((1 << 14) | (1 << 13))
         );
-        assert_eq!(Features::of(&["avx512bw"]), Features(UNKNOWN));
         assert_eq!(Features::of(&["sha2"]), Features(1 << 10));
         assert_eq!(Features::of(&["sha3"]), Features(1 << 11));
         assert_eq!(Features::of(&["neon"]), Features(1 << 15));
@@ -360,8 +362,9 @@ mod tests {
     }
 
     #[test]
-    fn unknown_is_never_detected() {
-        assert!(!detected().contains(Features(UNKNOWN)));
+    #[should_panic(expected = "a CPU feature this library does not know")]
+    fn of_unknown() {
+        Features::of(&["sha", "avx512bw"]);
     }
 
     /// Detection returns the CPU's features, restricted as
