@@ -984,6 +984,22 @@ yours to keep:
 
 <tr>
 
+<td>Ed448</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>ML-DSA-44</td>
 
 <td>✅</td>
