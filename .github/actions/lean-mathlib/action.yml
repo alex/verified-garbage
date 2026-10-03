@@ -1,0 +1,47 @@
+name: Build Mathlib for the proofs
+description: >
+  After `lean-setup`, fetches the prebuilt files of the modules the proofs
+  import from Mathlib's cache if `lean-setup` did not restore them, checks
+  that all of them are built, and saves them for later runs. It runs Lake
+  in `lean/`, so a job runs it once nothing else writes there (after any
+  background restore of `lean/.lake/build`).
+
+inputs:
+  mods:
+    description: "`lean-setup`'s `mods`."
+    required: true
+  cache-hit:
+    description: "`lean-setup`'s `cache-hit`."
+    required: true
+  cache-key:
+    description: "`lean-setup`'s `cache-key`."
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # `cache get` fetches these modules and what they import, not all of
+    # Mathlib.
+    - name: Fetch the Mathlib build cache for what the proofs import
+      if: ${{ inputs.cache-hit != 'true' }}
+      shell: bash
+      working-directory: lean
+      env:
+        MODS: ${{ inputs.mods }}
+      run: lake exe cache get $MODS
+    # Fail, rather than quietly build part of Mathlib from source, if the
+    # cache left any of them (or what they import) unbuilt.
+    - name: Check Mathlib is built for every import
+      shell: bash
+      working-directory: lean
+      env:
+        MODS: ${{ inputs.mods }}
+      run: lake build --no-build $MODS
+    # Every job that uses this action saves on a miss; one of them wins, and
+    # the others only warn that the key is taken.
+    - name: Save Mathlib and its dependencies
+      if: ${{ inputs.cache-hit != 'true' && github.event_name != 'merge_group' }}
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: lean/.lake/packages
+        key: ${{ inputs.cache-key }}

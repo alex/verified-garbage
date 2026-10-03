@@ -108,8 +108,8 @@ jobs:
           persist-credentials: false
       # The build the plan is for (or, if it has none, the last build `lean`
       # saved): Lake rebuilds only what changed since. Mostly extraction,
-      # into `.lake/build`, which nothing in `lean-setup` touches: it runs
-      # in the background while `lean-setup` installs Lean and Mathlib.
+      # into `.lake/build`: it runs in the background while `lean-setup`,
+      # which runs no Lake command, installs Lean and restores Mathlib.
       - name: Restore this project's build
         id: lean-build
         background: true
@@ -121,7 +121,14 @@ jobs:
             ${{ needs.lean-plan.outputs.build-key }}
             lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
       - uses: ./.github/actions/lean-setup
+        id: lean-setup
       - wait: [lean-build]
+      # Lake, only once nothing else writes to `lean/.lake`.
+      - uses: ./.github/actions/lean-mathlib
+        with:
+          mods: ${{ steps.lean-setup.outputs.mods }}
+          cache-hit: ${{ steps.lean-setup.outputs.cache-hit }}
+          cache-key: ${{ steps.lean-setup.outputs.cache-key }}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: lean-plan
@@ -177,9 +184,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Both restores run in the background while `lean-setup` installs Lean
-      # and Mathlib: they write `.lake/build` and `.lean-manifest`, which it
-      # does not touch.
+      # Both restores run in the background while `lean-setup`, which runs
+      # no Lake command, installs Lean and restores Mathlib.
       - name: Restore this project's build
         id: lean-build
         background: true
@@ -199,7 +205,14 @@ jobs:
           key: lean-manifest-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/lakefile.toml', 'lean/*.lean', 'lean/VerifiedGarbage/**', 'lean/VerifiedGarbageTest/**') }}
           restore-keys: lean-manifest-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
       - uses: ./.github/actions/lean-setup
+        id: lean-setup
       - wait: [lean-build, lean-manifest]
+      # Lake, only once nothing else writes to `lean/.lake`.
+      - uses: ./.github/actions/lean-mathlib
+        with:
+          mods: ${{ steps.lean-setup.outputs.mods }}
+          cache-hit: ${{ steps.lean-setup.outputs.cache-hit }}
+          cache-key: ${{ steps.lean-setup.outputs.cache-key }}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         if: ${{ needs.lean-shard.result == 'success' }}
         with:
