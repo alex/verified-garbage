@@ -1,13 +1,14 @@
 import VerifiedGarbage.Proof.Md5.Arm.Shared
 import VerifiedGarbage.Proof.Md5.Stream
-import VerifiedGarbage.Proof.Framework.Arm.StackScratch
+import VerifiedGarbage.Proof.Framework.Arm.RegScratch
 import VerifiedGarbage.TCB.Axioms
 
-/-! `Verified.stackScratch` on a real function with its scratch argument on
-the stack: MD5's `update` on ARMv7 (its streaming code and its proofs as they
-are) without its scratch argument. `data` and `len` stay on the stack, and the
-wrapper copies them into its frame. The scratch-less signature and contract
-are local to this test. -/
+/-! `Verified.stackScratch` and `Verified.regScratch` on real functions, with
+their code and proofs as they are, without their scratch argument: MD5's
+`update` on ARMv7, whose scratch argument is on the stack (`data` and `len`
+stay on the stack too, and the wrapper copies them into its frame), and MD5's
+`compress`, whose scratch argument is in `r3`. The scratch-less signatures
+and contracts are local to this test. -/
 
 namespace VG.Test.StackScratchArm
 
@@ -69,5 +70,33 @@ theorem update : Verified Arm.target
         Mem.readW, Mem.read] using sat)
 
 #assert_standard_axioms update
+
+/-- `vg_md5_compress` without `scratch`. -/
+def compressSig : Sig where
+  params := [("state", .array true .u32 4), ("blocks", .slice false (.array .u8 64) "n")]
+
+def compressPost : compressSig.Post Arm.abi.ptrBits := fun state blocks n m m' _ =>
+  stateAt m' state = compressBlocks (stateAt m state) m blocks n.toNat
+
+def compressContract (stack : Nat) : Contract Arm.isa :=
+  compressSig.contract Arm.abi (post := compressPost) (stack := stack)
+
+example : Spec.Md5.compressContract Arm.abi =
+    Sig.scratchContract Arm.abi compressSig "scratch" .u64 8 (Curry.const (fun _ => True) _) compressPost
+      false 0 := rfl
+
+/-- A state satisfying `compressContract`'s precondition. -/
+def compressSat : Arm.State := { Proof.Md5.Arm.satState with wr := [⟨0x1000, 16⟩] }
+
+theorem compress : Verified Arm.target
+    (Impl.StackScratch.Arm.withRegScratch 64 .r3 Impl.Md5.Arm.compress) (compressContract (0 + 64)) :=
+  Arm.Verified.regScratch (nm := "scratch") (e := .u64) (n := 8) (stack := 0) (bytes := 64)
+    Proof.Md5.Arm.Shared.compress (by decide) (by decide) (by decide)
+    (by implies_sat [compressContract, compressSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+        Arm.State.addr]
+      [compressSat, Proof.Md5.Arm.satState, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read]
+      using compressSat)
+
+#assert_standard_axioms compress
 
 end VG.Test.StackScratchArm

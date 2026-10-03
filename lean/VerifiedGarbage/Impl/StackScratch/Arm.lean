@@ -9,7 +9,10 @@ argument (also on the stack), without that argument: it allocates a frame of
 `bytes` bytes on the stack and lays out in it what `c` expects to find at and
 above `sp` on entry: a copy of the function's stack arguments, then the
 address of the buffer, which follows a word holding `lr` (the register the
-copy goes through) and fills the rest of the frame.
+copy goes through) and fills the rest of the frame. `withRegScratch bytes r c`
+is the same for a function whose buffer argument is passed in a register `r`
+(and the others in registers too): the buffer is the frame, whose address it
+passes in `r`.
 -/
 
 namespace VG.Impl.StackScratch.Arm
@@ -30,5 +33,10 @@ def setArgs (bytes m : Nat) : List Instr :=
 /-- `c`, with its scratch buffer in a frame of `bytes` bytes on the stack. -/
 def withStackScratch (bytes m : Nat) (c : Prog isa) : Prog isa :=
   .frame (.alloc bytes) (.seq (.block (setArgs bytes m)) c) (.free bytes)
+
+/-- `c`, whose scratch buffer is passed in `r`, with the buffer in a frame of
+`bytes` bytes on the stack, at `sp`. -/
+def withRegScratch (bytes : Nat) (r : Reg) (c : Prog isa) : Prog isa :=
+  .frame (.alloc bytes) (.seq (.block [.addSp r 0]) c) (.free bytes)
 
 end VG.Impl.StackScratch.Arm
