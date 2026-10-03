@@ -1,5 +1,6 @@
 import VerifiedGarbage.Impl.X448.AArch64.Weak
 import VerifiedGarbage.Impl.Curve448.AArch64.Fast
+import VerifiedGarbage.Impl.Curve448.AArch64.Neon
 
 /-!
 # X448: AArch64 implementation with register-resident field arithmetic
@@ -12,7 +13,10 @@ returning.
 
 Each ladder step forms `A, B, C, D` from the unswapped coordinates
 (`butterfly`): the swapped coordinates are not stored, since the step
-overwrites all four.
+overwrites all four. Four of its ten products are two pairs of AdvSIMD
+multiplications (`Impl/Curve448/AArch64/Neon.lean`), each interleaved with
+scalar operations independent of it, so that the vector and the integer
+units run at once. The function saves `v8`–`v15` too.
 -/
 
 namespace VG.Impl.X448.AArch64.Fast
@@ -22,6 +26,9 @@ open VG.Impl.X448.AArch64
 
 /-- Where `x21`–`x28` are saved. -/
 def SAVE : Nat := 3520
+
+/-- Where `v8`–`v15` are saved, past the vector working space. -/
+def VSAVE : Nat := 4736
 
 def saved : Nat → Reg
   | 0 => .x21 | 1 => .x22 | 2 => .x23 | 3 => .x24 | 4 => .x25 | 5 => .x26 | 6 => .x27 | _ => .x28
@@ -48,12 +55,28 @@ def ops : List Op → Prog isa
   | [] => .block []
   | o :: os => .seq (.block o.code) (ops os)
 
-/-- One ladder step after `A, B, C, D`: `T0 = DA + CB`, `T1 = DA - CB`,
-`T2 = AA + a24 E`. -/
-def stepOps : List Op :=
-  [.mul DA D A, .mul CB C B, .mul AA A A, .mul BB B B,
-    .addSub T0 T1 DA CB, .sub E AA BB, .mul T1 T1 T1, .mul X3 T0 T0, .small T2 AA E,
-    .mul Z3 X1 T1, .mul X2 AA BB, .mul Z2 E T2]
+def codeOf (l : List Op) : List Instr := l.flatMap Op.code
+
+/-- Interleave `a` and `b`, keeping each at the same relative progress, `i`
+instructions of `a` (of `n`) and `j` of `b` (of `m`) taken. -/
+def weaveGo (n m : Nat) : Nat → Nat → Nat → List Instr → List Instr → List Instr
+  | 0, _, _, a, b => a ++ b
+  | _ + 1, _, _, [], b => b
+  | _ + 1, _, _, x :: a, [] => x :: a
+  | f + 1, i, j, x :: a, y :: b =>
+    if i * m ≤ j * n then x :: weaveGo n m f (i + 1) j a (y :: b) else y :: weaveGo n m f i (j + 1) (x :: a) b
+
+def weave (a b : List Instr) : List Instr := weaveGo a.length b.length (a.length + b.length) 0 0 a b
+
+/-- `DA = D A` and `CB = C B` in AdvSIMD, beside `AA`, `BB`, `X2 = AA BB`,
+`E = AA - BB` and `T2 = AA + a24 E`. -/
+def stepA : List Instr :=
+  weave (codeOf [.mul AA A A, .mul BB B B, .mul X2 AA BB, .sub E AA BB, .small T2 AA E])
+    (Curve448.AArch64.Neon.mul2 DA D A CB C B)
+
+/-- `Z2 = E T2` and `X3 = T0²` in AdvSIMD, beside `T1²` and `Z3 = X1 T1`. -/
+def stepB : List Instr :=
+  weave (codeOf [.mul T1 T1 T1, .mul Z3 X1 T1]) (Curve448.AArch64.Neon.mul2 Z2 E T2 X3 T0 T0)
 
 /-- Read the scalar bit and form the swap mask in `x6`. -/
 def stepPre : List Instr :=
@@ -62,7 +85,8 @@ def stepPre : List Instr :=
     .movz .x .x6 0 0, .sub .x .x6 .x6 .x5]
 
 def step : Prog isa :=
-  .seq (.block (stepPre ++ Curve448.AArch64.Fast.butterfly X2 Z2 X3 Z3 A B C D)) (ops stepOps)
+  .seq (.block (stepPre ++ Curve448.AArch64.Fast.butterfly X2 Z2 X3 Z3 A B C D)) <|
+    .seq (.block stepA) <| .seq (ops [.addSub T0 T1 DA CB]) (.block stepB)
 
 def ladder : Prog isa :=
   .seq (.block [.movz .x .x19 448 0]) (.loop step (.nonzero .x .x19))
@@ -90,12 +114,14 @@ def invert : Prog isa :=
 
 def save : List Instr := (List.range 8).map fun k => st (saved k) (SAVE + 8 * k)
 def restore : List Instr := (List.range 8).map fun k => ld (saved k) (SAVE + 8 * k)
+def vsave : List Instr := (List.range 8).map fun k => Curve448.AArch64.Neon.stq (8 + k) (VSAVE + 16 * k)
+def vrestore : List Instr := (List.range 8).map fun k => Curve448.AArch64.Neon.ldq (8 + k) (VSAVE + 16 * k)
 
-def setup : List Instr := Weak.setup ++ save
+def setup : List Instr := Weak.setup ++ save ++ vsave
 
 def finish : Prog isa :=
   .block (fmul X2 X2 T7 ++ Curve448.AArch64.toLegacy X2 ++ AArch64.freeze ++
-    (List.range 8).flatMap AArch64.packPair ++ [ld .x19 0, ld .x20 8] ++ restore)
+    (List.range 8).flatMap AArch64.packPair ++ [ld .x19 0, ld .x20 8] ++ restore ++ vrestore)
 
 def x448 : Prog isa :=
   .seq (.block setup) <| .seq AArch64.bits <| .seq (.block [.addImm .x .x1 .x20 0]) <|

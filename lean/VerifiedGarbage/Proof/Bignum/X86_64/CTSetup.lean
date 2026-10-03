@@ -204,32 +204,60 @@ theorem blk7_ok {t : State} {B : Addr} {Z w : Nat} (hs : Scr t B Z) (hdi : t.gpr
     fun j hj => by rw [hhd (sArr j) (by unfold sArr; omega) (by unfold sArr sMask sFn; omega)
       (by unfold sArr sMinv; omega)]; exact hb j hj⟩
 
+/-- The public data of the comparison, `-m⁻¹` and the number 1: the working
+space and `w`. -/
+structure RPub where
+  B : Addr
+  Z : Nat
+  w : Nat
+
+/-- What the comparison, `-m⁻¹` and the number 1 need: the working space, the
+header's `w` and bases, and `m` odd. -/
+def SR (p : RPub) (s : State) : Prop :=
+  Scr s p.B p.Z ∧ s.gpr .rdi = p.B ∧ slot p.w 8 ≤ p.Z ∧ 2 ≤ p.w ∧ p.w < 2 ^ 31 ∧
+    word s.mem p.B (8 * sW) = BitVec.ofNat 64 p.w ∧ (∀ j < 8, word s.mem p.B (8 * sArr j) = off p.B (slot p.w j)) ∧
+    (word s.mem p.B (slot p.w aN)).toNat % 2 = 1
+
+/-- `SR` with the same memory, and `rdi` kept. -/
+theorem SR.mem {p : RPub} {s t : State} (h : SR p s) (hm : t.mem = s.mem) {regs : List Reg} (k : Keep regs s t)
+    (hr : .rdi ∉ regs) : SR p t :=
+  let ⟨hs, hdi, hZ, hw, hw', hW, hb, hodd⟩ := h
+  ⟨hs.congr k.2.2, (k.gpr hr).trans hdi, hZ, hw, hw', hm ▸ hW, hm ▸ hb, hm ▸ hodd⟩
+
 /-- After the comparison's registers. -/
-def S5 (p : SPub) (s : State) : Prop :=
-  S2 p s ∧ s.gpr .r12 = BitVec.ofNat 64 p.w ∧ s.gpr .rbx = off p.B (slot p.w aX) ∧
+def S5 (p : RPub) (s : State) : Prop :=
+  SR p s ∧ s.gpr .r12 = BitVec.ofNat 64 p.w ∧ s.gpr .rbx = off p.B (slot p.w aX) ∧
     s.gpr .r10 = off p.B (slot p.w aN) ∧ s.gpr .rbp = mask false
 
 /-- After the comparison. -/
-def S6 (p : SPub) (s : State) : Prop :=
-  S2 p s ∧ s.gpr .r10 = off p.B (slot p.w aN) ∧ s.gpr .r12 = BitVec.ofNat 64 p.w
+def S6 (p : RPub) (s : State) : Prop :=
+  SR p s ∧ s.gpr .r10 = off p.B (slot p.w aN) ∧ s.gpr .r12 = BitVec.ofNat 64 p.w
 
 /-- After `-m⁻¹`. -/
-def S7 (p : SPub) (s : State) : Prop :=
+def S7 (p : RPub) (s : State) : Prop :=
   ∃ mi : BitVec 64, Hdr s.mem p.B p.w mi ∧ Scr s p.B p.Z ∧ s.gpr .rdi = p.B ∧ slot p.w 8 ≤ p.Z ∧
     s.gpr .r12 = BitVec.ofNat 64 p.w ∧ s.gpr .rcx = BitVec.ofNat 64 0
 
 theorem SH.k1 {p : SPub} {s : State} (h : SH p s) : 2 ≤ p.w := by have := h.2.2.2.1; unfold SPub.w; omega
 
+/-- `S2` gives what the comparison, `-m⁻¹` and the number 1 need. -/
+theorem S2.sr {p : SPub} {s : State} (h : S2 p s) : SR ⟨p.B, p.Z, p.w⟩ s := by
+  obtain ⟨h, hW, hb, hv⟩ := h
+  have hk := h.k1
+  obtain ⟨hs, hdi, hZ, -, hk', -, -, -, -, -, hodd, -⟩ := h
+  refine ⟨hs, hdi, hZ, hk, show p.w < 2 ^ 31 by unfold SPub.w; omega, hW, hb, ?_⟩
+  rw [← wv_mod64 _ _ _ (show 1 ≤ p.w by omega), Nat.mod_mod_of_dvd _ (by decide), hv, hodd]
+
 /-- The comparison, `-m⁻¹` and the number 1 leak the same in runs that agree
 on `m`. -/
-theorem setupRest_ct : RelCT isa (Two S2) (seqs restSteps) fun _ _ => True := by
+theorem setupRest_ct : RelCT isa (Two SR) (seqs restSteps) fun _ _ => True := by
   unfold restSteps
   -- The comparison's registers.
-  refine RelCT.seq (two_piece (Ψ := S5) _ (fun p s₁ s₂ h₁ h₂ => pins_SH p s₁ s₂ h₁.1 h₂.1) (by taint_decide)
-    ?_) ?_
-  · intro p s ⟨h, hW, hb, hv⟩
-    have h' : SH p s := h
-    obtain ⟨hs, hdi, hZ, -⟩ := h'
+  refine RelCT.seq (two_piece (Ψ := S5) [.rdi] (fun p s₁ s₂ h₁ h₂ r hr => by
+    simp only [List.mem_singleton] at hr; subst hr; rw [h₁.2.1, h₂.2.1]) (by taint_decide) ?_) ?_
+  · intro p s h
+    have h' := h
+    obtain ⟨hs, hdi, hZ, -, -, hW, hb, -⟩ := h'
     obtain ⟨g0, g8⟩ := slot0_ge p.w
     refine WP.mono (WP.keep [.r12, .rbx, .r10, .rbp] (Q := fun t => t.gpr .r12 = BitVec.ofNat 64 p.w ∧
         t.gpr .rbx = off p.B (slot p.w aX) ∧ t.gpr .r10 = off p.B (slot p.w aN) ∧ t.gpr .rbp = mask false ∧
@@ -237,8 +265,7 @@ theorem setupRest_ct : RelCT isa (Two S2) (seqs restSteps) fun _ _ => True := by
       xrun [State.ea, hdr, hdi, hdrOff, hs.ld (d := 8 * sW) (by unfold sW; omega),
         hs.ld (d := 8 * sArr aX) (by unfold sArr aX; omega), hs.ld (d := 8 * sArr aN) (by unfold sArr aN; omega),
         hW, hb aX (by decide), hb aN (by decide)]) rfl) fun t ⟨⟨h12, hbx, h10, hbp, hm⟩, k⟩ =>
-      ⟨⟨h.congr (rs := []) (by rw [hm]; exact Frm.refl _ _ _) (by simp) (by simp) k (by decide), hm ▸ hW,
-        hm ▸ hb, hm ▸ hv⟩, h12, hbx, h10, hbp⟩
+      ⟨h.mem hm k (by decide), h12, hbx, h10, hbp⟩
   -- The comparison.
   refine RelCT.seq (two_piece (Ψ := S6) [.rbx, .r10, .r12] (fun p s₁ s₂ h₁ h₂ r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -246,27 +273,21 @@ theorem setupRest_ct : RelCT isa (Two S2) (seqs restSteps) fun _ _ => True := by
     · rw [h₁.2.2.1, h₂.2.2.1]
     · rw [h₁.2.2.2.1, h₂.2.2.2.1]
     · rw [h₁.2.1, h₂.2.1]) (by taint_decide) ?_) ?_
-  · intro p s ⟨⟨h, hW, hb, hv⟩, h12, hbx, h10, hbp⟩
-    have hk := h.k1
-    have h' : SH p s := h
-    obtain ⟨hs, -, hZ, -, hk', -⟩ := h'
-    refine WP.mono (cmpLoop_ok hs hbx h10 h12 hbp (by omega) (by unfold SPub.w; omega)
+  · intro p s ⟨h, h12, hbx, h10, hbp⟩
+    have h' := h
+    obtain ⟨hs, -, hZ, hk, hk', -⟩ := h'
+    refine WP.mono (cmpLoop_ok hs hbx h10 h12 hbp (by omega) hk'
       (by have := slot_le (w := p.w) (show aX < 8 by decide); omega)
       (by have := slot_le (w := p.w) (show aN < 8 by decide); omega)) fun t ⟨_, hm, k⟩ =>
-      ⟨⟨h.congr (rs := []) (by rw [hm]; exact Frm.refl _ _ _) (by simp) (by simp) k (by decide), hm ▸ hW,
-        hm ▸ hb, hm ▸ hv⟩, (k.gpr (by decide)).trans h10, (k.gpr (by decide)).trans h12⟩
+      ⟨h.mem hm k (by decide), (k.gpr (by decide)).trans h10, (k.gpr (by decide)).trans h12⟩
   -- `-m⁻¹`, and the number 1.
   refine RelCT.seq (two_piece (Ψ := S7) [.rdi, .r10] (fun p s₁ s₂ h₁ h₂ r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
-    · rw [h₁.1.1.2.1, h₂.1.1.2.1]
+    · rw [h₁.1.2.1, h₂.1.2.1]
     · rw [h₁.2.1, h₂.2.1]) (by taint_decide) ?_) ?_
-  · intro p s ⟨⟨h, hW, hb, hv⟩, h10, h12⟩
-    have hk := h.k1
-    have h' : SH p s := h
-    obtain ⟨hs, hdi, hZ, -, -, -, -, -, -, -, hodd, -⟩ := h'
-    have hodd₀ : (word s.mem p.B (slot p.w aN)).toNat % 2 = 1 := by
-      rw [← wv_mod64 _ _ _ (show 1 ≤ p.w by omega), Nat.mod_mod_of_dvd _ (by decide), hv, hodd]
+  · intro p s ⟨h, h10, h12⟩
+    obtain ⟨hs, hdi, hZ, hk, -, hW, hb, hodd₀⟩ := h
     exact WP.mono (blk7_ok hs hdi hZ (by omega) hW hb h10 hodd₀) fun t ⟨mi, hH, hs', hdi', hcx, k⟩ =>
       ⟨mi, hH, hs', hdi', hZ, (k.gpr (by decide)).trans h12, hcx⟩
   -- The number 1.
