@@ -17,7 +17,10 @@ namespace VG.Proof.AesSiv.X86_64
 
 open VG VG.X86_64
 open VG.Proof.CmacAes.Stream.X86_64 (UArgs FArgs toNat_add_lt)
-open VG.Proof.CmacAes.X86_64 (CallPre)
+open VG.Proof.CmacAes.X86_64 (CallPre offset_nat zero2)
+open VG.Impl.CmacAes.X86_64 (at_)
+open VG.X86_64.RegUpd
+open VG.Impl.AesSiv.X86_64 (zero16)
 
 /-- The regions of the arguments. -/
 structure Env (s₀ : State) (C D P W : Addr) (R L : Nat) : Prop where
@@ -243,6 +246,67 @@ theorem uargs (h : Env s₀ C D P W R L) {s : State} (hrd : s.rd = s₀.rd) (hwr
   writes := by
     rw [hwr]
     exact Covers.cons (cov_off h.workIn (by simp; omega)) (Covers.cons (cov_off h.workIn (by simp)) Covers.nil)
+
+theorem zero16_ok (h : Env s₀ C D P W R L) {s : State} (h15 : s.gpr .r15 = W) (hwr : s.wr = s₀.wr) {d : Nat}
+    (hd : d + 16 ≤ 2560) :
+    ∃ s', runBlock isa (zero16 .r15 d) s = some s' ∧ s'.mem = zero2 s.mem (W + BitVec.ofNat 64 d) ∧
+      (∀ r, r ≠ .rax → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  have w₀ := h.inW hwr (d := d) (n := 8) (by omega)
+  have w₁ := h.inW hwr (d := d + 8) (n := 8) (by omega)
+  refine ⟨_, by
+    simp (config := {decide := true}) only [zero16, runBlock_cons, runStep_some, runBlock_nil, at_, exec,
+      readSrc32, State.store64, State.ea, State.setReg32, offset_nat, Option.map_some, gpr_setReg, mem_setReg,
+      rd_setReg, wr_setReg, ite_true, ite_false, h15, w₀, w₁]
+    rfl, ?_, ?_, ?_, ?_⟩
+  · simp only [zero2, Offset.add_add]
+  · intro r hr; simp [gpr_setReg, hr]
+  all_goals rfl
+
+
+/-- The arguments of `vg_aes_ctr32` on one block: `K2`'s schedule, the counter
+block at `W + 96`, the keystream block at `W + 80` (zero), and the working
+space at `W + 256`. -/
+theorem cargs (h : Env s₀ C D P W R L) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
+    (hsp : s.gpr .rsp = s₀.gpr .rsp)
+    (rdi : s.gpr .rdi = C + BitVec.ofNat 64 272) (rsi : s.gpr .rsi = BitVec.ofNat 64 R)
+    (rdx : s.gpr .rdx = W + BitVec.ofNat 64 96) (rcx : s.gpr .rcx = W + BitVec.ofNat 64 80) (r8 : s.gpr .r8 = 1)
+    (r9 : s.gpr .r9 = W + BitVec.ofNat 64 256)
+    (hz : Spec.Aes.bytesAt s.mem (W + BitVec.ofNat 64 80) 16 = Spec.Cmac.zeros 16) :
+    CallPre s (C + BitVec.ofNat 64 272) (W + BitVec.ofNat 64 96) (W + BitVec.ofNat 64 80) (W + BitVec.ofNat 64 256)
+      R where
+  rdi := rdi
+  rsi := rsi
+  rdx := rdx
+  rcx := rcx
+  r8 := r8
+  r9 := r9
+  rounds := h.rounds
+  wc := (h.c_w.sub_left (h.sC (by decide))).sub_right (h.sW (by decide))
+  wd := (h.c_w.sub_left (h.sC (by decide))).sub_right (h.sW (by decide))
+  ws := (h.c_w.sub_left (h.sC (by decide))).sub_right (h.sW (by decide))
+  cd := Offset.disjoint W (by omega) (by have := h.wW; omega) (by have := h.wW; omega)
+  cs := Offset.disjoint W (by omega) (by have := h.wW; omega) (by have := h.wW; omega)
+  ds := Offset.disjoint W (by omega) (by have := h.wW; omega) (by have := h.wW; omega)
+  stkW := by rw [hsp]; exact (h.stk_c.sub_right (h.sC (by decide))).sub_left (Offset.sub_below _ (by decide) (by
+    have := h.sp; omega))
+  stkC := by rw [hsp]; exact (h.stk_w.sub_right (h.sW (by decide))).sub_left (Offset.sub_below _ (by decide) (by
+    have := h.sp; omega))
+  stkD := by rw [hsp]; exact (h.stk_w.sub_right (h.sW (by decide))).sub_left (Offset.sub_below _ (by decide) (by
+    have := h.sp; omega))
+  stkS := by rw [hsp]; exact (h.stk_w.sub_right (h.sW (by decide))).sub_left (Offset.sub_below _ (by decide) (by
+    have := h.sp; omega))
+  wrap := by rw [toNat_add_lt W h.wW (show 80 < 2560 by decide)]; have := h.wW; omega
+  reads := by
+    rw [hrd, hwr]
+    refine Covers.append_left (Covers.cons (cov_off h.ctxIn (by simp)) Covers.nil)
+      (Covers.cons (Covers.right (cov_off h.workIn (by simp)))
+        (Covers.cons (Covers.right (cov_off h.workIn (by simp)))
+          (Covers.cons (Covers.right (cov_off h.workIn (by simp))) Covers.nil)))
+  writes := by
+    rw [hwr]
+    exact Covers.cons (cov_off h.workIn (by simp)) (Covers.cons (cov_off h.workIn (by simp))
+      (Covers.cons (cov_off h.workIn (by simp)) Covers.nil))
+  zero := hz
 
 end Env
 

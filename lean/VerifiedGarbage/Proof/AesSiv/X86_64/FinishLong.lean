@@ -294,21 +294,6 @@ theorem longTail_wp (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P
 
 /-! ## The calls -/
 
-theorem zero16_ok (h : Env s₀ C D P W R L) {s : State} (h15 : s.gpr .r15 = W) (hwr : s.wr = s₀.wr) {d : Nat}
-    (hd : d + 16 ≤ 2560) :
-    ∃ s', runBlock isa (zero16 .r15 d) s = some s' ∧ s'.mem = zero2 s.mem (W + BitVec.ofNat 64 d) ∧
-      (∀ r, r ≠ .rax → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
-  have w₀ := h.inW hwr (d := d) (n := 8) (by omega)
-  have w₁ := h.inW hwr (d := d + 8) (n := 8) (by omega)
-  refine ⟨_, by
-    simp (config := {decide := true}) only [zero16, runBlock_cons, runStep_some, runBlock_nil, at_, exec,
-      readSrc32, State.store64, State.ea, State.setReg32, offset_nat, Option.map_some, gpr_setReg, mem_setReg,
-      rd_setReg, wr_setReg, ite_true, ite_false, h15, w₀, w₁]
-    rfl, ?_, ?_, ?_, ?_⟩
-  · simp only [zero2, Offset.add_add]
-  · intro r hr; simp [gpr_setReg, hr]
-  all_goals rfl
-
 /-- The arguments of the update over the `k` blocks of `P`. -/
 theorem m1_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L s) {out : Nat}
     (hout : out = 0 ∨ out = 112) (hL16 : 16 ≤ L)
@@ -321,7 +306,7 @@ theorem m1_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L
       s'.mem = zero2 s.mem (W + BitVec.ofNat 64 out) := by
   have hT := kOf_tail hL16
   have hlt := h.lt
-  obtain ⟨s₁, run₁, m₁, g₁, rd₁, wr₁⟩ := zero16_ok h hr.r15 hr.wr (d := out) (by omega)
+  obtain ⟨s₁, run₁, m₁, g₁, rd₁, wr₁⟩ := h.zero16_ok hr.r15 hr.wr (d := out) (by omega)
   have hr₁ := hr.keep (fun r hr' => g₁ r (by rintro rfl; simp [calleeSaved] at hr')) rd₁ wr₁
   have ha₁ : s₁.mem.readW (W + BitVec.ofNat 64 dbOff) 64 = BitVec.ofNat 64 (16 * kOf L) := by
     rw [m₁, zero2, (frame_store2 _ _ _).readW (w := 64) (Region.contains_self _ _) (fun r hr => by
