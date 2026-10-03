@@ -98,6 +98,21 @@ theorem ctxCiph_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {C : 
   rw [Proof.CmacAes.X86_64.bytesAt_frame hf (p := C + 272)
     (fun r hr => (hd r hr).sub_left (Offset.sub_base C (d := 272) (n := 16 * (R + 1)) (by omega))) (by omega)]
 
+/-- The registers the taint analysis needs public around the calls. -/
+theorem regs_agree {s₀ s₀' a b : State} {C D P W : Addr} {R L : Nat} (hq : s₀.gpr .rsp = s₀'.gpr .rsp) (ha : Regs s₀ C D P W R L a)
+    (hb : Regs s₀' C D P W R L b) :
+    taint.Agree (Taint.ofRegs [.rbx, .rbp, .r12, .r13, .r14, .r15, .rsp]) a b := by
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  · rw [ha.rbx, hb.rbx]
+  · rw [ha.rbp, hb.rbp]
+  · rw [ha.r12, hb.r12]
+  · rw [ha.r13, hb.r13]
+  · rw [ha.r14, hb.r14]
+  · rw [ha.r15, hb.r15]
+  · rw [ha.rsp, hb.rsp, hq]
+
 namespace Env
 
 variable {s₀ : State} {C D P W : Addr} {R L : Nat}

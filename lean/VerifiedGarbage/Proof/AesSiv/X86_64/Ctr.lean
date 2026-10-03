@@ -271,8 +271,8 @@ theorem ctxCiph_length (m : Mem) (C : Addr) (R : Nat) (y : List Byte) : (Spec.Si
 theorem ctr_tail (h : Env s₀ C D P W R L) (hPw : (⟨P, L⟩ : Region) ∈ s₀.wr) {m₀ : Mem} {q x : List Byte} {i : Nat} {s s₃ : State}
     (hi : CInv s₀ C D P W R L m₀ q x i s) (hh : CHead s₀ C D P W R L m₀ q i s s₃) :
     WP isa (.seq xorBytes (.block ctrPost)) s₃ fun s' =>
-      (s'.zf = some true ∧ CDone s₀ C D P W R L m₀ q x s') ∨
-      (s'.zf = some false ∧ CInv s₀ C D P W R L m₀ q x (i + 1) s') := by
+      (L - 16 * i ≤ 16 ∧ s'.zf = some true ∧ CDone s₀ C D P W R L m₀ q x s') ∨
+      (16 < L - 16 * i ∧ s'.zf = some false ∧ CInv s₀ C D P W R L m₀ q x (i + 1) s') := by
   have hwW := h.wW
   have hwP := h.wP
   have hlt := h.lt
@@ -370,7 +370,7 @@ theorem ctr_tail (h : Env s₀ C D P W R L) (hPw : (⟨P, L⟩ : Region) ∈ s�
   by_cases hfin : L - 16 * i ≤ 16
   · left
     have hn' : min 16 (L - 16 * i) = L - 16 * i := Nat.min_eq_right hfin
-    refine ⟨by rw [zf₅, hn']; simp, ⟨by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rbx],
+    refine ⟨hfin, by rw [zf₅, hn']; simp, ⟨by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rbx],
       by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rbp],
       by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.r12],
       by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.r15],
@@ -380,7 +380,7 @@ theorem ctr_tail (h : Env s₀ C D P W R L) (hPw : (⟨P, L⟩ : Region) ∈ s�
     exact ctrPart_all _ (ctxCiph_length m₀ C R) q x (by omega)
   · right
     have hn' : min 16 (L - 16 * i) = 16 := Nat.min_eq_left (by omega)
-    refine ⟨by rw [zf₅, hn']; simp; omega,
+    refine ⟨by omega, by rw [zf₅, hn']; simp; omega,
       ⟨by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rbx],
       by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.rbp],
       by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hh.r12],
@@ -475,7 +475,7 @@ theorem ctr_wp (v : Ctr32Impl) (h : Env s₀ C D P W R L) (hcp : (⟨C, 512⟩ :
         CInv s₀ C D P W R L s.mem q (Spec.Aes.bytesAt s.mem P L) i t) ?_ (L - 16 * 0) s₁ ⟨0, rfl, ?_⟩
     · rintro n t ⟨i, rfl, hi⟩
       refine ctr_head v h hcp hi fun t₃ hh => WP.mono (ctr_tail h hPw hi hh) fun t' ht => ?_
-      rcases ht with ⟨hz, hd⟩ | ⟨hz, hi'⟩
+      rcases ht with ⟨_, hz, hd⟩ | ⟨_, hz, hi'⟩
       · exact Or.inl ⟨by simp [eval, hz], finish hd⟩
       · exact Or.inr ⟨by simp [eval, hz], L - 16 * (i + 1), by have := hi.lt; omega, i + 1, rfl, hi'⟩
     · obtain ⟨hi₀, lo₀, hhi, hlo, hq⟩ := hcnt

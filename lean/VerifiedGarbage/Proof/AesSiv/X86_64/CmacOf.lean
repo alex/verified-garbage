@@ -307,21 +307,6 @@ theorem mid_wp (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R 
   exact WP.of_runBlock ⟨s', run, hr', h.fargs hr'.rd hr'.wr hr'.rsp (by decide)
     (h.srcData (o := 128) (by decide) (by omega)) (chainedLen_rest L) rdi rsi rdx rcx r8 r9⟩
 
-/-- The registers the taint analysis needs public around the calls. -/
-theorem regs_agree {s₀' a b : State} (hq : s₀.gpr .rsp = s₀'.gpr .rsp) (ha : Regs s₀ C D P W R L a)
-    (hb : Regs s₀' C D P W R L b) :
-    taint.Agree (Taint.ofRegs [.rbx, .rbp, .r12, .r13, .r14, .r15, .rsp]) a b := by
-  refine Taint.agree_ofRegs fun r hr => ?_
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
-  · rw [ha.rbx, hb.rbx]
-  · rw [ha.rbp, hb.rbp]
-  · rw [ha.r12, hb.r12]
-  · rw [ha.r13, hb.r13]
-  · rw [ha.r14, hb.r14]
-  · rw [ha.r15, hb.r15]
-  · rw [ha.rsp, hb.rsp, hq]
-
 theorem cmacOf_rel (v : Ctr32Impl) {s₀' : State} (h : Env s₀ C D P W R L) (h' : Env s₀' C D P W R L)
     (hq : s₀.gpr .rsp = s₀'.gpr .rsp) :
     RelCT isa (fun a b => Regs s₀ C D P W R L a ∧ Regs s₀' C D P W R L b) (cmacOf v.callee v.suffix stOff)
