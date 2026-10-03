@@ -5,8 +5,9 @@ import VerifiedGarbage.TCB.X86_64.Sse
 
 **Trusted.** The VEX-encoded (AVX, AVX2, VAES and VPCLMULQDQ) instructions of the x86-64 model
 in `TCB/X86_64/Isa.lean` that write only vector registers, and the EVEX-encoded
-AVX512_IFMA multiply-adds on `xmm` and `ymm` registers (with AVX512VL), which
-write their destination as the VEX-encoded instructions do.
+AVX512_IFMA multiply-adds and AVX-512F rotations and ternary logic on `xmm` and
+`ymm` registers (with AVX512VL), which write their destination as the
+VEX-encoded instructions do.
 -/
 
 namespace VG.X86_64
@@ -87,6 +88,15 @@ inductive VOp
   /-- `vpmadd52huq dst, src1, src2` (`EVEX.256.66.0F38.W1 B5 /r`, likewise):
   the same with the high 52 bits of the 104-bit product. -/
   | vpmadd52huq (len : VLen) (dst src1 src2 : XReg)
+  /-- `vprold dst, src, imm8` (`EVEX.256.66.0F.W0 72 /1 ib`, `EVEX.128` for
+  `.l128`; AVX512F and AVX512VL): each doubleword of `src` rotated left by
+  `imm8` modulo 32. -/
+  | vprold (len : VLen) (dst src : XReg) (count : BitVec 8)
+  /-- `vpternlogd dst, src1, src2, imm8` (`EVEX.256.66.0F3A.W0 25 /r ib`,
+  `EVEX.128` for `.l128`; AVX512F and AVX512VL): each bit of `dst` is the bit
+  of `imm8` that the bits of `dst`, `src1` and `src2` there index (see
+  `ternlog`). -/
+  | vpternlogd (len : VLen) (dst src1 src2 : XReg) (imm : BitVec 8)
   deriving DecidableEq, Repr
 
 /-! ### AVX
@@ -288,6 +298,27 @@ def perm2Lanes (a b : Nat → BitVec 128) (sel : BitVec 8) (j : Nat) : BitVec 12
     let k := (sel.extractLsb' (4 * j) 2).toNat
     if k < 2 then a (k % 2) else b (k % 2)
 
+/-- SDM Vol. 2, "VPROLD/VPROLVD/VPROLQ/VPROLVQ", for one lane:
+`LEFT_ROTATE_DWORDS(SRC, COUNT_SRC) { COUNT := COUNT_SRC modulo 32;
+DEST[31:0] := (SRC << COUNT) | (SRC >> (32 - COUNT)); }` for each
+doubleword. -/
+def rolDwords (x : BitVec 128) (n : BitVec 8) : BitVec 128 :=
+  let r (i : Nat) := (dword x i).rotateLeft (n.toNat % 32)
+  ofDwords (r 0) (r 1) (r 2) (r 3)
+
+/-- SDM Vol. 2, "VPTERNLOGD/VPTERNLOGQ", for one lane, with no write mask
+and a register `SRC2`: `FOR k := 0 TO 31 … DEST[j][k] := imm[(DEST[i+k] <<
+2) + (SRC1[ i+k ] << 1) + SRC2[ i+k ]]` for each doubleword `j` (`i := j *
+32`), so bit `k` of the result is bit `4 a[k] + 2 b[k] + c[k]` of `imm8`,
+for `a = DEST`, `b = SRC1` and `c = SRC2`. Computed bitwise, as the
+disjunction over the `m` whose bit of `imm8` is set of the bits where `(a[k],
+b[k], c[k])` are the bits `(m[2], m[1], m[0])` of `m`. -/
+def ternlog (a b c : BitVec 128) (imm : BitVec 8) : BitVec 128 :=
+  let sel (bit : Bool) (x : BitVec 128) : BitVec 128 := if bit then x else ~~~x
+  (List.range 8).foldl (fun acc m =>
+    if imm.getLsbD m then acc ||| (sel (m.testBit 2) a &&& sel (m.testBit 1) b &&& sel (m.testBit 0) c)
+    else acc) 0
+
 /-- Semantics of an AVX instruction that writes only vector registers. SDM
 Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
 
@@ -318,7 +349,9 @@ Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
 * VSHA512RNDS2, VSHA512MSG1 and VSHA512MSG2: see `sha512Rnds2`,
   `sha512Msg1` and `sha512Msg2` (`DEST[MAXVL-1:256] := 0`).
 * VPMADD52LUQ and VPMADD52HUQ: see `madd52`, each lane (`EVEX.128` and
-  `EVEX.256` versions: `DEST[MAXVL-1:VL] := 0`, as `setV` does). -/
+  `EVEX.256` versions: `DEST[MAXVL-1:VL] := 0`, as `setV` does).
+* VPROLD (`imm8` form) and VPTERNLOGD: see `rolDwords` and `ternlog`, each
+  lane (`EVEX.128` and `EVEX.256` versions: `DEST[MAXVL-1:VL] := 0`). -/
 def VOp.exec : VOp → State → State
   | .vbin op len d a b, s =>
     s.setV len d (op.sse.eval (s.lane a 0) (s.lane b 0)) (op.sse.eval (s.lane a 1) (s.lane b 1))
@@ -371,5 +404,9 @@ def VOp.exec : VOp → State → State
   | .vpmadd52huq len d a b, s =>
     s.setV len d (madd52 true (s.lane d 0) (s.lane a 0) (s.lane b 0))
       (madd52 true (s.lane d 1) (s.lane a 1) (s.lane b 1))
+  | .vprold len d r n, s => s.setV len d (rolDwords (s.lane r 0) n) (rolDwords (s.lane r 1) n)
+  | .vpternlogd len d a b n, s =>
+    s.setV len d (ternlog (s.lane d 0) (s.lane a 0) (s.lane b 0) n)
+      (ternlog (s.lane d 1) (s.lane a 1) (s.lane b 1) n)
 
 end VG.X86_64
