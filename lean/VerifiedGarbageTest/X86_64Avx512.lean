@@ -58,6 +58,26 @@ def bin (op : ZBinOp) : BitVec 512 := run (.zbin op .xmm5 .xmm0 .xmm1)
 #guard bin .vpaddq == 0x1abcff1defdeebbe3403699933f4ccba797b7d7f818385861368be1268be1357104172a3d5063767a280a0e05295607289abcdee812345677edcba9788888888#512
 #guard bin .vpmuludq == 0xefef0a2a5b5c412000269a09cc2799a890908f8c696d727909b7f33f87e99c202885f4736b058f086b83c92086cbc3980091a2b380000000086a1c970b88d780#512
 #guard bin .vpandq == 0x0b0d000df0e0f0c05405aaaa0000cccc8081828384858687001102130440246001020524090a4968c280a0e08296a0b489abcdef000000007edcba9812141210#512
+
+/-! `vpternlogd zmm0, zmm1, zmm2, imm8` (`_mm512_ternarylogic_epi32`, on an
+Intel Xeon with AVX-512F), `zmm2` being `A + B` (quadwords): a selection
+(`0xca`), a parity (`0x96`), a majority (`0xe8`), single minterms (`0x01`,
+`0x80`), `0xd2`, and with the destination also a source. -/
+
+/-- The state with `A + B` in `zmm2`. -/
+def s3 : State := (ZOp.zbin .vpaddq .xmm2 .xmm0 .xmm1).exec s
+
+/-- `zmm0` after `vpternlogd zmm0, zmm1, zmm2, imm8`. -/
+def tern (imm : BitVec 8) : BitVec 512 := ((ZOp.vpternlogd .xmm0 .xmm1 .xmm2 imm).exec s3).zmm .xmm0
+
+#guard s3.zmm .xmm2 == 0x1abcff1defdeebbe3403699933f4ccba797b7d7f818385861368be1268be1357104172a3d5063767a280a0e05295607289abcdee812345677edcba9788888888#512
+#guard tern 0xca == 0x1b1d0f1df1f2f1f07407ebba3334ccdcf1e3d7c78587878713799e132cea3560114357a79d0e5f6fe280a0e0d297e0f689abcdef800000007edcba9f9a9c9a98#512
+#guard tern 0x96 == 0x1e1e001fe1c3e180bffb7ddc0007ff9801030507f9fbfdfe002e07fe0883d9c01e7c1af817f793f0bfffffff1ffd7f78fffffffe00000000fffffff0ece8ece0#512
+#guard tern 0xe8 == 0x0badff0dfefcfafe5405aaab33f0cceef8f9fafb848586871351ba13647c267701036527c90a6d6fc280a0e0c296a0b689abcdef812345677edcba9f12141218#512
+#guard tern 0x01 == 0xe04000e00000040100000000cc0800010604000002000000ec80400093000008e0808000200000000000000020000001000000007edcba980000000001030107#512
+#guard tern 0x80 == 0x0a0c000de0c0e080140128880000cc880001000380818486000002120000004000000020010201608280a0e00294203089abcdee000000007edcba9000000000#512
+#guard tern 0xd2 == 0x1b1d001df1e3f1c0feaffffe0004ffdc81838787cddfefff003906330cc375601f5e1fbc1f5e5b78e3d2e1f09797e5f489abcdef00000000fedcba98fedcba90#512
+#guard ((ZOp.vpternlogd .xmm0 .xmm0 .xmm1 0x96).exec s).zmm .xmm0 == B
 #guard bin .vporq == 0x0fafff0ffefdfafedffdbeef33f3ffeef8f9fafbfcfdfeff1357bbff647deef70f3f6d7fcbfbedffdfffffffcffebfbeffffffff81234567ffffffff76747678#512
 #guard bin .vpandnq == 0x04020f020010003001500000333300007060504030201000134699cc202888800021404380a184871c2d1e0f48681a0a76543210800000000123456700204468#512
 
