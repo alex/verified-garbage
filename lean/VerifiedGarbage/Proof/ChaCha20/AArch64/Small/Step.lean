@@ -40,9 +40,8 @@ theorem next_ok (s : State) (n : Nat) (hn : n ≤ 4)
     BitVec.setWidth_eq,State.store,hout,hi,hb,Option.some.injEq,exists_eq_left']
   refine ⟨trivial,trivial,?_,?_,?_,trivial⟩
   · intro r h1 h2 h4; simp only [h1,h2,h4,ite_false]
-  · have ht := VG.Proof.ChaCha20.AArch64.Xor.stateAt_writeW_counter s.mem (s.gpr .x0)
-      (s.mem.read (s.gpr .x0+BitVec.ofNat 64 48) 4+BitVec.ofNat 32 n)
-    simp only [Mem.writeW,BitVec.setWidth_eq] at ht
+  · have ht := VG.Proof.ChaCha20.AArch64.Xor.stateAt_writeW_ctr s.mem (s.gpr .x0) n
+    simp only [Mem.writeW,Mem.readW,BitVec.setWidth_eq] at ht
     exact ht
   · exact (Frame.refl _ _).write (List.mem_cons_self ..) _
       (Offset.contains_base _ (by decide : 48+4 ≤ 64) (by decide))

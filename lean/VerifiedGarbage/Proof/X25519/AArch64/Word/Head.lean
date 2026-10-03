@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.X25519.AArch64.Word.Memory
+import Mathlib.Tactic.Tauto
 
 /-! Load a scalar bit and turn the old/new swap XOR into a selection mask. -/
 namespace VG.Proof.X25519.AArch64.Word

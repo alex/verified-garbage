@@ -42,11 +42,11 @@ theorem Site.gE {as : List (Reg × Arg)} (hg : glueOk as = true) (hn : (as.map P
 
 /-- A buffer the state may write. -/
 theorem Site.cwE {q : Ptr} {l : Nat} (pq : PtrIn L q l) (wq : ix q.1 ∈ Wb) : Covers [L.R (ix q.1) q.2 l] s.wr :=
-  Site.covW pq.2 (hs.cw _ wq (inB_bounds pq.2).1)
+  Site.covW (w := (ix q.1, q.2, l)) pq.2 (hs.cw _ wq (inB_bounds pq.2).1)
 
 /-- A buffer the state may read. -/
 theorem Site.crE {q : Ptr} {l : Nat} (pq : PtrIn L q l) : Covers [L.R (ix q.1) q.2 l] (s.rd ++ s.wr) :=
-  Site.covR pq.2 (hs.cr _ (by have := (inB_bounds pq.2).2.1; rw [hs.len] at this; exact this) (inB_bounds pq.2).1)
+  Site.covR (w := (ix q.1, q.2, l)) pq.2 (hs.cr _ (by have := (inB_bounds pq.2).2.1; rw [hs.len] at this; exact this) (inB_bounds pq.2).1)
 
 /-- Two regions apart, one of them written. -/
 theorem Site.dE {q q' : Ptr} {l l' : Nat} (hd : sepB L.sizes (tri q l) (tri q' l') = true)

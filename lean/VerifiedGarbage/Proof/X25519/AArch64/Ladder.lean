@@ -203,7 +203,7 @@ theorem ops_ok {b : Addr} {s₀ s : State} {x1 : Fe} {st : Ladder} (h : Inv b s�
     cases hj
     rcases (by omega : n = 0 ∨ n = 1 ∨ n = 2 ∨ n = 3 ∨ n = 4) with rfl | rfl | rfl | rfl | rfl <;>
       refine ⟨rfl, ?_⟩ <;> simp only [Function.update_apply, lvals, ite_true, ite_false,
-        Nat.reduceEqDiff, OfNat.ofNat_ne_zero, zero_ne_one]
+        Nat.reduceEqDiff]
   · cases hj
 
 end VG.Proof.X25519.AArch64

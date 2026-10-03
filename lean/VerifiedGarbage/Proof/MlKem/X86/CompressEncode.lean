@@ -4,7 +4,6 @@ import VerifiedGarbage.Spec.MlKem.Poly
 import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.Framework.Sig
 import VerifiedGarbage.Proof.Framework.Contract
-import Mathlib.Tactic.Tauto
 
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_compress_encode`
@@ -182,7 +181,9 @@ theorem step14 {s₀ : State} (hp : Pre s₀) {d k N : Nat} (hd : dN s₀ = d) (
       _ ≤ 2 ^ 32 := by decide
   have o := o₂.trans o₃
   have g : ∀ r, r ∉ [Reg.eax, .edx, .ebx] → s₃.gpr r = s.gpr r := fun r hr =>
-    o.gpr r (by simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto)
+    o.gpr r (by
+      simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr ⊢
+      simp only [hr, not_false_eq_true, and_self])
   have esi₃ := g .esi (by decide)
   have edi₃ := g .edi (by decide)
   have ecx₃ := g .ecx (by decide)
@@ -244,7 +245,9 @@ theorem step10 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 10) {t : Nat} (ht 
     (by have := Nat.mod_lt (C s₀ (4 * t + 3)) (show 4 > 0 by decide); omega) fun s₄ o₄ v₄ => ?_
   have o := o₃.trans o₄
   have g : ∀ r, r ∉ [Reg.eax, .edx, .ebx, .ebp] → s₄.gpr r = s.gpr r := fun r hr =>
-    o.gpr r (by simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto)
+    o.gpr r (by
+      simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr ⊢
+      simp only [hr, not_false_eq_true, and_self])
   have esi₄ := g .esi (by decide)
   have edi₄ := g .edi (by decide)
   have ecx₄ := g .ecx (by decide)

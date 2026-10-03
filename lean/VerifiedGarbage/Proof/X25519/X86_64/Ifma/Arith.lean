@@ -1,7 +1,5 @@
 import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Mul
 import VerifiedGarbage.Proof.X25519.Field
-import Mathlib.Tactic.LinearCombination
-import Mathlib.Tactic.Zify
 
 /-!
 # X25519 on x86-64 with AVX512_IFMA: the arithmetic of the lanes
@@ -40,6 +38,33 @@ theorem colR_eq (R : Nat) (x y : Nat → Nat) :
       R ^ 4 * colR R x y 4) +
     R ^ 5 * (colR R x y 5 + R * colR R x y 6 + R ^ 2 * colR R x y 7 + R ^ 3 * colR R x y 8 +
       R ^ 4 * colR R x y 9) = lvR R x * lvR R y := by
+  have e : lvR R x * lvR R y =
+      (x 0 * y 0) +
+      R * (x 0 * y 1) +
+      R ^ 2 * (x 0 * y 2) +
+      R ^ 3 * (x 0 * y 3) +
+      R ^ 4 * (x 0 * y 4) +
+      R * (x 1 * y 0) +
+      R ^ 2 * (x 1 * y 1) +
+      R ^ 3 * (x 1 * y 2) +
+      R ^ 4 * (x 1 * y 3) +
+      R ^ 5 * (x 1 * y 4) +
+      R ^ 2 * (x 2 * y 0) +
+      R ^ 3 * (x 2 * y 1) +
+      R ^ 4 * (x 2 * y 2) +
+      R ^ 5 * (x 2 * y 3) +
+      R ^ 6 * (x 2 * y 4) +
+      R ^ 3 * (x 3 * y 0) +
+      R ^ 4 * (x 3 * y 1) +
+      R ^ 5 * (x 3 * y 2) +
+      R ^ 6 * (x 3 * y 3) +
+      R ^ 7 * (x 3 * y 4) +
+      R ^ 4 * (x 4 * y 0) +
+      R ^ 5 * (x 4 * y 1) +
+      R ^ 6 * (x 4 * y 2) +
+      R ^ 7 * (x 4 * y 3) +
+      R ^ 8 * (x 4 * y 4) := by
+    simp only [lvR]; grind
   have h00 := Nat.mod_add_div (x 0 * y 0) (2 * R)
   have h01 := Nat.mod_add_div (x 0 * y 1) (2 * R)
   have h02 := Nat.mod_add_div (x 0 * y 2) (2 * R)
@@ -65,10 +90,61 @@ theorem colR_eq (R : Nat) (x y : Nat → Nat) :
   have h42 := Nat.mod_add_div (x 4 * y 2) (2 * R)
   have h43 := Nat.mod_add_div (x 4 * y 3) (2 * R)
   have h44 := Nat.mod_add_div (x 4 * y 4) (2 * R)
-  simp only [colR, lvR, List.range, List.range.loop, List.foldl]
+  rw [e, ← h00, ← h01, ← h02, ← h03, ← h04, ← h10, ← h11, ← h12, ← h13, ← h14, ← h20, ← h21, ← h22, ← h23, ← h24, ← h30, ← h31, ← h32, ← h33, ← h34, ← h40, ← h41, ← h42, ← h43, ← h44]
+  clear e h00 h01 h02 h03 h04 h10 h11 h12 h13 h14 h20 h21 h22 h23 h24 h30 h31 h32 h33 h34 h40 h41 h42 h43 h44
+  simp only [colR, List.range, List.range.loop, List.foldl]
   simp (config := {decide := true}) only [Nat.zero_add, ite_true, ite_false]
-  zify at *
-  linear_combination R ^ 0 * h00 + R ^ 1 * h01 + R ^ 2 * h02 + R ^ 3 * h03 + R ^ 4 * h04 + R ^ 1 * h10 + R ^ 2 * h11 + R ^ 3 * h12 + R ^ 4 * h13 + R ^ 5 * h14 + R ^ 2 * h20 + R ^ 3 * h21 + R ^ 4 * h22 + R ^ 5 * h23 + R ^ 6 * h24 + R ^ 3 * h30 + R ^ 4 * h31 + R ^ 5 * h32 + R ^ 6 * h33 + R ^ 7 * h34 + R ^ 4 * h40 + R ^ 5 * h41 + R ^ 6 * h42 + R ^ 7 * h43 + R ^ 8 * h44
+  generalize x 0 * y 0 % (2 * R) = l00
+  generalize x 0 * y 0 / (2 * R) = d00
+  generalize x 0 * y 1 % (2 * R) = l01
+  generalize x 0 * y 1 / (2 * R) = d01
+  generalize x 0 * y 2 % (2 * R) = l02
+  generalize x 0 * y 2 / (2 * R) = d02
+  generalize x 0 * y 3 % (2 * R) = l03
+  generalize x 0 * y 3 / (2 * R) = d03
+  generalize x 0 * y 4 % (2 * R) = l04
+  generalize x 0 * y 4 / (2 * R) = d04
+  generalize x 1 * y 0 % (2 * R) = l10
+  generalize x 1 * y 0 / (2 * R) = d10
+  generalize x 1 * y 1 % (2 * R) = l11
+  generalize x 1 * y 1 / (2 * R) = d11
+  generalize x 1 * y 2 % (2 * R) = l12
+  generalize x 1 * y 2 / (2 * R) = d12
+  generalize x 1 * y 3 % (2 * R) = l13
+  generalize x 1 * y 3 / (2 * R) = d13
+  generalize x 1 * y 4 % (2 * R) = l14
+  generalize x 1 * y 4 / (2 * R) = d14
+  generalize x 2 * y 0 % (2 * R) = l20
+  generalize x 2 * y 0 / (2 * R) = d20
+  generalize x 2 * y 1 % (2 * R) = l21
+  generalize x 2 * y 1 / (2 * R) = d21
+  generalize x 2 * y 2 % (2 * R) = l22
+  generalize x 2 * y 2 / (2 * R) = d22
+  generalize x 2 * y 3 % (2 * R) = l23
+  generalize x 2 * y 3 / (2 * R) = d23
+  generalize x 2 * y 4 % (2 * R) = l24
+  generalize x 2 * y 4 / (2 * R) = d24
+  generalize x 3 * y 0 % (2 * R) = l30
+  generalize x 3 * y 0 / (2 * R) = d30
+  generalize x 3 * y 1 % (2 * R) = l31
+  generalize x 3 * y 1 / (2 * R) = d31
+  generalize x 3 * y 2 % (2 * R) = l32
+  generalize x 3 * y 2 / (2 * R) = d32
+  generalize x 3 * y 3 % (2 * R) = l33
+  generalize x 3 * y 3 / (2 * R) = d33
+  generalize x 3 * y 4 % (2 * R) = l34
+  generalize x 3 * y 4 / (2 * R) = d34
+  generalize x 4 * y 0 % (2 * R) = l40
+  generalize x 4 * y 0 / (2 * R) = d40
+  generalize x 4 * y 1 % (2 * R) = l41
+  generalize x 4 * y 1 / (2 * R) = d41
+  generalize x 4 * y 2 % (2 * R) = l42
+  generalize x 4 * y 2 / (2 * R) = d42
+  generalize x 4 * y 3 % (2 * R) = l43
+  generalize x 4 * y 3 / (2 * R) = d43
+  generalize x 4 * y 4 % (2 * R) = l44
+  generalize x 4 * y 4 / (2 * R) = d44
+  grind
 
 theorem accLo_eq (a b : Nat → Nat) (c : Nat) :
     accLo a b c = (List.range 5).foldl (fun acc i =>

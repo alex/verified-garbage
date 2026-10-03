@@ -3,7 +3,6 @@ import VerifiedGarbage.Proof.Aes.AArch64.Variant
 import VerifiedGarbage.Proof.Aes.AArch64.ExpandKey
 import VerifiedGarbage.Proof.Aes.AArch64.Aese.ExpandKey
 import VerifiedGarbage.Proof.Gcm.AArch64.Ghash
-import VerifiedGarbage.Proof.Gcm.AArch64.Pmull.Ghash
 import VerifiedGarbage.Proof.Framework.AArch64.RelCT
 import VerifiedGarbage.Proof.Cmac.Frame
 import VerifiedGarbage.Proof.Gcm.Stream
@@ -58,17 +57,6 @@ def scalar : GhashImpl where
   keepsV := by decide +kernel
   suffix := ""
   features := []
-
-/-- `vg_ghash_aes`, with PMULL (which Rust's `aes` feature stands for, with
-the AES instructions). -/
-def aes : GhashImpl where
-  fn := ⟨"vg_ghash_aes", Impl.Gcm.AArch64.Pmull.ghash⟩
-  noFrames := by decide +kernel
-  ok := Proof.Gcm.AArch64.Pmull.ghash_correct
-  ct := Proof.Gcm.AArch64.Pmull.ghash_ct
-  keepsV := by decide +kernel
-  suffix := "_aes"
-  features := ["aes"]
 
 end GhashImpl
 
@@ -332,8 +320,6 @@ need). -/
 def suffix : String :=
   if v.gh.suffix = v.ctr.suffix then v.ctr.suffix else v.ctr.suffix ++ v.gh.suffix
 
-/-- The CPU features of the AES-GCM functions. -/
-def features : List String := (v.ctr.features ++ v.gh.features).dedup
 
 end GcmImpl
 

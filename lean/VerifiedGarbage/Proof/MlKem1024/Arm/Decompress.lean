@@ -58,14 +58,16 @@ theorem bsum_lt (g : Nat → Byte) (j : Nat) : ∀ n, bsum g j n < 256 ^ n
 
 /-- A byte shifted up by `8m - t` and added to a number of `m` bytes
 shifted down by `t`. -/
-theorem shift_step {A t m : Nat} (b : Byte) (ht : t < 8) (hm : m = 1 ∨ m = 2) (hA : A < 256 ^ m) :
+theorem shift_step {A t m : Nat} (b : Byte) (ht : t < 8) (hm : m = 1 ∨ m = 2) (_hA : A < 256 ^ m) :
     BitVec.ofNat 32 (A / 2 ^ t) + (b.setWidth 32 <<< (8 * m - t)) =
       BitVec.ofNat 32 ((A + b.toNat * 256 ^ m) / 2 ^ t) := by
-  have hb := b.isLt
-  rcases hm with rfl | rfl <;>
-  rcases (by omega : t = 0 ∨ t = 1 ∨ t = 2 ∨ t = 3 ∨ t = 4 ∨ t = 5 ∨ t = 6 ∨ t = 7) with
-    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp only [Nat.reducePow, Nat.reduceMul, Nat.reduceSub, Nat.pow_one] at hA ⊢ <;> bv_omega
+  have h8 : t ≤ 8 * m := by omega
+  have e : (A + b.toNat * 256 ^ m) / 2 ^ t = A / 2 ^ t + b.toNat * 2 ^ (8 * m - t) := by
+    rw [show (256 : Nat) ^ m = 2 ^ t * 2 ^ (8 * m - t) by rw [← Nat.pow_add, Nat.add_sub_cancel' h8, Nat.pow_mul],
+      ← Nat.mul_assoc, Nat.mul_comm b.toNat, Nat.mul_assoc, Nat.add_mul_div_left _ _ (Nat.two_pow_pos t)]
+  apply BitVec.eq_of_toNat_eq
+  rw [e, BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_shiftLeft, BitVec.toNat_setWidth, BitVec.toNat_ofNat,
+    Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b.toNat < 2 ^ 32 by have := b.isLt; omega), ← Nat.add_mod]
 
 /-- Reduced modulo `2ᵈ` by a pair of shifts. -/
 theorem mask_eq {d V : Nat} (hd : d = 5 ∨ d = 11) (hV : V < 2 ^ 32) :

@@ -227,7 +227,7 @@ theorem mul_piece {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulContrac
     sig_post [Spec.MlDsa.mulContract, Spec.MlDsa.mulSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
     simp only [arg_withRegions, a₀, a₁, a₂, List.getElem_cons_zero, List.getElem_cons_succ, Arg.val, m₂] at post
     rw [ent_polyAt he hF, ent_polyAt he hG] at post
-    exact hQ s₀ s s' hp ha h' (fr.mono fun r hr => by simp at hr ⊢; tauto) post
+    exact hQ s₀ s s' hp ha h' (fr.mono fun r hr => by simp at hr ⊢; grind) post
 
 theorem mulAdd_piece {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulAddContract X86.abi stk)
     (hk : chk3 Y ⟨ha, hao, 1024⟩ ⟨fa, fo, 1024⟩ ⟨ga, go, 1024⟩ = true)
@@ -281,7 +281,7 @@ theorem mulAdd_piece {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulAddC
     sig_post [Spec.MlDsa.mulAddContract, Spec.MlDsa.mulSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
     simp only [arg_withRegions, a₀, a₁, a₂, List.getElem_cons_zero, List.getElem_cons_succ, Arg.val, m₂] at post
     rw [ent_polyAt he hH, ent_polyAt he hF, ent_polyAt he hG] at post
-    exact hQ s₀ s s' hp ha h' (fr.mono fun r hr => by simp at hr ⊢; tauto) post
+    exact hQ s₀ s s' hp ha h' (fr.mono fun r hr => by simp at hr ⊢; grind) post
 
 /-- The checks of the buffers of a call with the arguments `t`, `t₁` and `t₀` (both written). -/
 abbrev chkP2 (Y : Lay) (t t1 t0 : Buf) : Bool :=

@@ -306,7 +306,7 @@ theorem frame_zCfg {s : State} {m m' : Mem} (h : Frame [slotRegion zCfg s] m m')
 theorem ip_check :
     check (lanes 32 6) zCfg (linExt 2) ipCode (linEnv [(.r0, 0), (.r1, 1)])
       (linPost 6 [(.r7, ipG7), (.r8, ipG8)]) = true := by
-  decide +kernel
+  lit_decide
 
 /-- `IP⁻¹(R ‖ L)` into `r0` (high word) and `r1` (low word), from `R` in `r7`
 (input word 0) and `L` in `r8` (input word 1). -/
@@ -316,15 +316,15 @@ def fpG1 (t : Nat) : List Nat := if t < 32 then [xAtom (fpSrc t)] else []
 theorem fp_check :
     check (lanes 32 6) zCfg (linExt 2) fpCode (linEnv [(.r7, 0), (.r8, 1)])
       (linPost 6 [(.r0, fpG0), (.r1, fpG1)]) = true := by
-  decide +kernel
+  lit_decide
 
-theorem ip_kept : [Reg.r9, .r10].all (fun r => ipCode.all fun i => dstOf i != some r) = true := by decide +kernel
+theorem ip_kept : [Reg.r9, .r10].all (fun r => ipCode.all fun i => dstOf i != some r) = true := by lit_decide
 
-theorem fp_kept : [Reg.r9, .r10].all (fun r => fpCode.all fun i => dstOf i != some r) = true := by decide +kernel
+theorem fp_kept : [Reg.r9, .r10].all (fun r => fpCode.all fun i => dstOf i != some r) = true := by lit_decide
 
-theorem ipSrc_lt : ∀ j < 64, ipSrc j < 64 := by decide
+theorem ipSrc_lt : ∀ j < 64, ipSrc j < 64 := by lit_decide
 
-theorem fpSrc_lt : ∀ j < 64, fpSrc j < 64 := by decide
+theorem fpSrc_lt : ∀ j < 64, fpSrc j < 64 := by lit_decide
 
 /-- A bit of `hi ‖ lo`. -/
 theorem bit_xAtom (W : Nat → BitVec 32) {b : Nat} (hb : b < 64) :

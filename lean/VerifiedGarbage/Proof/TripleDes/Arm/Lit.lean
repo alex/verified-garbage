@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.TripleDes.Arm.SboxTable
 import VerifiedGarbage.Impl.TripleDes.Arm.Sbox
 import VerifiedGarbage.Impl.TripleDes.Arm.Permutation
 import VerifiedGarbage.Proof.Framework.Arm.Lit

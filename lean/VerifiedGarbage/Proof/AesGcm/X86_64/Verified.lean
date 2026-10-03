@@ -1,3 +1,4 @@
+import Mathlib.Data.List.Dedup
 import VerifiedGarbage.Proof.AesGcm.X86_64.InitCT
 import VerifiedGarbage.Proof.AesGcm.X86_64.StreamInitCT
 import VerifiedGarbage.Proof.AesGcm.X86_64.StreamAadCT
@@ -20,6 +21,10 @@ of a call: the functions called make no calls).
 set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86_64
+
+/-- The CPU features of the functions calling `vg_aes_ctr32` and `vg_ghash`
+(here, not in `Callee.lean`, to keep `List.dedup`'s imports out of the proofs). -/
+def GcmImpl.features (v : GcmImpl) : List String := (v.ctr.features ++ v.gh.features).dedup
 
 open VG VG.X86_64 VG.Impl.AesGcm.X86_64
 

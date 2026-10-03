@@ -5,7 +5,6 @@ import VerifiedGarbage.Proof.X25519.Invert
 namespace VG.Proof.Ed25519
 
 open VG.Spec.X25519 VG.Proof.X25519
-open Fin.CommRing
 
 def rootPower (z : Fe) : Fe :=
   let t0 := z * z                 -- 2
@@ -32,9 +31,8 @@ def rootPower (z : Fe) : Fe :=
   t1 * z                          -- 2^252 - 3
 
 theorem rootPower_eq (z : Fe) : rootPower z = pow z ((P - 5) / 8) := by
-  rw [pow_eq, rootPower]
-  simp only [sqn_eq, ← pow_mul, ← pow_add, ← pow_succ, ← pow_succ', ← pow_two, mul_comm z,
-    ← pow_mul]
-  congr 1
+  rw [pow_pw, ← congrArg rootPower (pw_one z)]
+  simp only [rootPower, pw_mul, sqn_pw]
+  exact congrArg (pw z) (by decide)
 
 end VG.Proof.Ed25519

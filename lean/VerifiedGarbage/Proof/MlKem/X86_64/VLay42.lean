@@ -62,9 +62,9 @@ include hbf hblk
 
 /-- The loads, the zetas and the gathering of the lower and upper halves. -/
 abbrev pre4 (o : BitVec 8) (dz : BitVec 32) : List Instr :=
-  [.movdquLoad .xmm0 (at_ .rdx 0), .movdquLoad .xmm1 (at_ .rdx 16)] ++ vzeta o ++
-    [.alu .add .r8 (.imm dz), xmov .xmm2 .xmm0, xb .punpcklqdq .xmm0 .xmm1, xb .punpckhqdq .xmm2 .xmm1,
-      xmov .xmm1 .xmm2]
+  ([.movdquLoad .xmm0 (at_ .rdx 0), .movdquLoad .xmm1 (at_ .rdx 16)] : List Instr) ++ vzeta o ++
+    ([.alu .add .r8 (.imm dz), xmov .xmm2 .xmm0, xb .punpcklqdq .xmm0 .xmm1, xb .punpckhqdq .xmm2 .xmm1,
+      xmov .xmm1 .xmm2] : List Instr)
 
 /-- The interleaving back, the stores and the counts. -/
 abbrev post4 : List Instr :=
@@ -231,7 +231,7 @@ theorem vlay4_ok {sP : Addr} (k : Nat) (o : BitVec 8) (dz : BitVec 32) (zi kz : 
   have hw' : pR sP ∈ u.wr := by rw [hb'.keep.2.2, og.keep.2.2]; exact hw
   rw [show pre4 o dz ++ bf ++ [xmov .xmm1 .xmm0, xb .punpcklqdq .xmm0 .xmm3, xb .punpckhqdq .xmm1 .xmm3,
       .movdquStore (at_ .rdx 0) .xmm0, .movdquStore (at_ .rdx 16) .xmm1, .alu .add .rdx (.imm 32)] ++
-      [.alu .sub .rcx (.imm 1)] = pre4 o dz ++ (bf ++ post4) by simp [List.append_assoc]]
+      ([.alu .sub .rcx (.imm 1)] : List Instr) = pre4 o dz ++ (bf ++ post4) by simp [List.append_assoc]]
   exact WP.mono (vstep4 hbf hblk hi o dz zi (hk i hi) (hsel i hi) hb'.consts hdx' h8' hS' hT' hw')
     fun u' ⟨hS'', hdx'', h8'', hcx, hzf, hb''⟩ => ⟨⟨hS'', hdx'', by rw [h8'', h8', hstep i hi],
       hb'.trans hb''⟩, hcx, hzf⟩
@@ -241,9 +241,9 @@ theorem vlay4_ok {sP : Addr} (k : Nat) (o : BitVec 8) (dz : BitVec 32) (zi kz : 
 
 /-- The loads, the zetas and the gathering of the pairs. -/
 abbrev pre2 (o : BitVec 8) (dz : BitVec 32) : List Instr :=
-  [.movdquLoad .xmm0 (at_ .rdx 0), .movdquLoad .xmm2 (at_ .rdx 16)] ++ vzeta o ++
-    [.alu .add .r8 (.imm dz), .xop (.pshufd .xmm0 .xmm0 0xD8), .xop (.pshufd .xmm2 .xmm2 0xD8),
-      xmov .xmm1 .xmm0, xb .punpcklqdq .xmm0 .xmm2, xb .punpckhqdq .xmm1 .xmm2]
+  ([.movdquLoad .xmm0 (at_ .rdx 0), .movdquLoad .xmm2 (at_ .rdx 16)] : List Instr) ++ vzeta o ++
+    ([.alu .add .r8 (.imm dz), .xop (.pshufd .xmm0 .xmm0 0xD8), .xop (.pshufd .xmm2 .xmm2 0xD8),
+      xmov .xmm1 .xmm0, xb .punpcklqdq .xmm0 .xmm2, xb .punpckhqdq .xmm1 .xmm2] : List Instr)
 
 /-- The interleaving back, the stores and the counts. -/
 abbrev post2 : List Instr :=
@@ -420,7 +420,7 @@ theorem vlay2_ok {sP : Addr} (k : Nat) (o : BitVec 8) (dz : BitVec 32) (zi kz : 
   have hw' : pR sP ∈ u.wr := by rw [hb'.keep.2.2, og.keep.2.2]; exact hw
   rw [show pre2 o dz ++ bf ++ [xmov .xmm1 .xmm0, xb .punpckldq .xmm0 .xmm3, xb .punpckhdq .xmm1 .xmm3,
       .movdquStore (at_ .rdx 0) .xmm0, .movdquStore (at_ .rdx 16) .xmm1, .alu .add .rdx (.imm 32)] ++
-      [.alu .sub .rcx (.imm 1)] = pre2 o dz ++ (bf ++ post2) by simp [List.append_assoc]]
+      ([.alu .sub .rcx (.imm 1)] : List Instr) = pre2 o dz ++ (bf ++ post2) by simp [List.append_assoc]]
   exact WP.mono (vstep2 hbf hblk hi o dz zi (hk i hi) (hsel i hi) hb'.consts hdx' h8' hS' hT' hw')
     fun u' ⟨hS'', hdx'', h8'', hcx, hzf, hb''⟩ => ⟨⟨hS'', hdx'', by rw [h8'', h8', hstep i hi],
       hb'.trans hb''⟩, hcx, hzf⟩

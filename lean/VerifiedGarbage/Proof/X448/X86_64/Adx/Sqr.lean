@@ -162,7 +162,7 @@ theorem sqRow_ok {t : State} {base : Addr} (hs : Scr t base) {a i : Nat} (ha : S
     have A3 : wv ((List.range (6 - i)).map fun j => word s3.mem base (a + 8 * (i + 1) + 8 * j)) =
         mv t.mem base (a + 8 * (i + 1)) (6 - i) := by rw [m3]; exact wv_range _ _ _ _
     have hb := row_bound (Q := 2 ^ (64 * (6 - i))) (B := 2 ^ 64)
-      (rv_lt t (wins (2 * i + 1) (6 - i)) |>.trans_eq (by rw [wins_length]))
+      (Nat.lt_of_lt_of_eq (rv_lt t (wins (2 * i + 1) (6 - i))) (by rw [wins_length]))
       (word t.mem base (a + 8 * i)).isLt (mv_lt t.mem base (a + 8 * (i + 1)) (6 - i))
     rw [pow64_succ (6 - i)] at e4
     rw [v5]
@@ -184,7 +184,7 @@ theorem sqRow_ok {t : State} {base : Addr} (hs : Scr t base) {a i : Nat} (ha : S
     · rw [rd7, rd6, k5.2.2.1, k4.2.2.1, k3.2.2.1, k2.2.2.1, k1.2.2.1]
     · rw [wr7, wr6, k5.2.2.2, k4.2.2.2, k3.2.2.2, k2.2.2.2, k1.2.2.2]
   · rw [← k5.2.1.trans (k4.2.1.trans m3)]
-    exact (out6.mono (le_refl _) (by simp only [List.length_cons, List.length_nil]; omega)).trans
+    exact (out6.mono (Nat.le_refl _) (by simp only [List.length_cons, List.length_nil]; omega)).trans
       (out7.mono (by simp only [h]; omega)
         (by simp only [h, List.length_cons, List.length_nil]; omega))
 
@@ -203,8 +203,8 @@ def diagR (m : Mem) (base : Addr) : Nat → Nat → Nat
 
 theorem sq_rec_arith {B a X c d : Nat} (h : X * X = 2 * B * c + d) :
     (a + B * X) * (a + B * X) = 2 * B * (a * X + B * B * c) + (a * a + B * B * d) := by
-  calc (a + B * X) * (a + B * X) = a * a + 2 * B * (a * X) + B * B * (X * X) := by ring
-    _ = _ := by rw [h]; ring
+  calc (a + B * X) * (a + B * X) = a * a + 2 * B * (a * X) + B * B * (X * X) := by grind
+    _ = _ := by rw [h]; grind
 
 /-- A square: twice the cross products, a word up, plus the squares. -/
 theorem sq_rec (m : Mem) (base : Addr) : ∀ n d,
@@ -217,8 +217,8 @@ theorem sqRows_arith {M P B w1 w2 R' R aA cr C : Nat} (inv : M + P * (R + (aA + 
     (e : w1 + B * (w2 + B * R') = R + aA) :
     M + P * (w1 + B * w2) + P * B * B * (R' + cr) = C :=
   calc M + P * (w1 + B * w2) + P * B * B * (R' + cr)
-      _ = M + P * ((w1 + B * (w2 + B * R')) + B * B * cr) := by ring
-      _ = C := by rw [e, ← inv]; ring
+      _ = M + P * ((w1 + B * (w2 + B * R')) + B * B * cr) := by grind
+      _ = C := by rw [e, ← inv]; grind
 
 theorem pow_two_succ (n : Nat) : 2 ^ (64 * (2 * (n + 1))) = 2 ^ (64 * (2 * n)) * 2 ^ 64 * 2 ^ 64 := by
   rw [show 64 * (2 * (n + 1)) = 64 * (2 * n) + 64 + 64 by omega, Nat.pow_add, Nat.pow_add]
@@ -243,7 +243,7 @@ theorem sqRows_ok {s : State} {base : Addr} (hs : Scr s base) {a : Nat} (ha : Sl
     intro n t hn ⟨tk, tout, tv⟩
     have ht : Scr t base := hs.of_keepsR tk (by decide)
     refine WP.mono (sqRow_ok ht ha (by omega)) fun t' ⟨e, k', out'⟩ => ⟨tk.trans k', ?_, ?_⟩
-    · exact (tout.mono (le_refl _) (by omega)).trans
+    · exact (tout.mono (Nat.le_refl _) (by omega)).trans
         (out'.mono (by simp only [h]; omega) (by simp only [h]; omega))
     · have m1 : mv t'.mem base (h 1) (2 * n) = mv t.mem base (h 1) (2 * n) :=
         out'.mv (Or.inl (by simp only [h]; omega)) (by simp only [h, ACC]; omega)
@@ -274,6 +274,7 @@ theorem sqRows_ok {s : State} {base : Addr} (hs : Scr s base) {a : Nat} (ha : Sl
         Nat.zero_add]⟩)
     fun t ⟨tk, tout, tv⟩ => ⟨tk, tout, ?_⟩
   have : crossR s.mem base (a + 8 * 6) (7 - 6) = 0 := by simp [crossR, mv]
+  generalize 2 ^ (64 * (2 * 6)) = Q at tv
   rw [this, show wins (2 * 6 + 1) (6 - 6) = [] from rfl, rv, Nat.zero_add, Nat.mul_zero,
     Nat.add_zero] at tv
   exact tv
@@ -299,10 +300,10 @@ theorem dbl_arith {B T0 T1 lo hi dd c o c1 o1 c2 o2 x8 x8' x9 x9' : Nat} (e1 : l
     (e4 : x9 + B * c2 = T1 + T1 + c1) (e5 : x9' + B * o2 = x9 + hi + o1) :
     x8' + B * x9' + B * B * (c2 + o2) = 2 * (T0 + B * T1) + dd + c + o :=
   calc x8' + B * x9' + B * B * (c2 + o2)
-      _ = x8' + B * (x9' + B * o2) + B * B * c2 := by ring
-      _ = (x8' + B * o1) + B * hi + B * (x9 + B * c2) := by rw [e5]; ring
-      _ = (x8 + B * c1) + (lo + B * hi) + o + 2 * B * T1 := by rw [e3, e4]; ring
-      _ = _ := by rw [e2, e1]; ring
+      _ = x8' + B * (x9' + B * o2) + B * B * c2 := by grind
+      _ = (x8' + B * o1) + B * hi + B * (x9 + B * c2) := by rw [e5]; grind
+      _ = (x8 + B * c1) + (lo + B * hi) + o + 2 * B * T1 := by rw [e3, e4]; grind
+      _ = _ := by rw [e2, e1]; grind
 
 /-- A load, the flags unchanged. -/
 theorem ld_ok {s : State} {base : Addr} (hs : Scr s base) {d : Nat} (hd : d + 8 ≤ 8192) (r : Reg) :
@@ -415,7 +416,7 @@ theorem dblRow_ok {t : State} {base : Addr} (hs : Scr t base) {a i : Nat} (ha : 
   · have m8 : s8.mem = t.mem := k8.2.1.trans (k7.2.1.trans (k6.2.1.trans (k5.2.1.trans
       (k4.2.1.trans (k3.2.1.trans (k2.2.1.trans k1.2.1))))))
     rw [← m8]
-    exact (out9.mono (le_refl _) (by omega)).trans
+    exact (out9.mono (Nat.le_refl _) (by omega)).trans
       (out10.mono (by simp only [h]; omega) (by simp only [h]; omega))
 
 theorem dbls_arith {M P B W0 W1 c' o' T0 T1 aa c o X D R : Nat}
@@ -423,8 +424,8 @@ theorem dbls_arith {M P B W0 W1 c' o' T0 T1 aa c o X D R : Nat}
     (e : W0 + B * W1 + B * B * (c' + o') = 2 * (T0 + B * T1) + aa + c + o) :
     M + P * (W0 + B * W1) + P * B * B * (c' + o' + (2 * X + D)) = R :=
   calc M + P * (W0 + B * W1) + P * B * B * (c' + o' + (2 * X + D))
-      _ = M + P * ((W0 + B * W1 + B * B * (c' + o')) + B * B * (2 * X + D)) := by ring
-      _ = R := by rw [e, ← inv]; ring
+      _ = M + P * ((W0 + B * W1 + B * B * (c' + o')) + B * B * (2 * X + D)) := by grind
+      _ = R := by rw [e, ← inv]; grind
 
 /-- The seven steps of doubling and squares: `2 · [h 0] + diagR` in
 `[h 0]`, the carries out. -/
@@ -445,7 +446,7 @@ theorem dbls_ok {u : State} {base : Addr} (hs : Scr u base) {a : Nat} (ha : Slot
     have ht : Scr t base := hs.of_keepsR tk (by decide)
     refine WP.mono (dblRow_ok ht ha hn hc ho) fun t' ⟨c', o', hc', ho', e, k', out'⟩ =>
       ⟨c', o', hc', ho', tk.trans k', ?_, ?_⟩
-    · exact (tout.mono (le_refl _) (by omega)).trans
+    · exact (tout.mono (Nat.le_refl _) (by omega)).trans
         (out'.mono (by simp only [h]; omega) (by simp only [h]; omega))
     · have m1 : mv t'.mem base (h 0) (2 * n) = mv t.mem base (h 0) (2 * n) :=
         out'.mv (Or.inl (by simp only [h]; omega)) (by simp only [h, ACC]; omega)
@@ -480,6 +481,7 @@ theorem dbls_ok {u : State} {base : Addr} (hs : Scr u base) {a : Nat} (ha : Slot
       simp only [Nat.mul_zero, Nat.add_zero, Nat.sub_zero, Nat.pow_zero, Nat.one_mul, mv,
         Bool.toNat_false, Nat.zero_add]⟩)
     fun t ⟨c, o, _, _, tk, tout, tv⟩ => ⟨c, o, tk, tout, ?_⟩
+  generalize 2 ^ (64 * (2 * 7)) = Q at tv ⊢
   rw [show mv u.mem base (h (2 * 7)) 0 = 0 from rfl, show diagR u.mem base (a + 8 * 7) 0 = 0 from rfl,
     Nat.mul_zero, Nat.zero_add, Nat.add_zero] at tv
   exact tv
@@ -572,8 +574,7 @@ theorem sqrX_ok {s : State} {base : Addr} (hs : Scr s base) {o a : Nat} (ho : Sl
     have sq := sq_rec s.mem base 7 a
     rw [show 2 * (2 ^ 64 * crossR s.mem base a 7) = 2 * 2 ^ 64 * crossR s.mem base a 7 from
       (Nat.mul_assoc _ _ _).symm, ← sq] at v6
-    have hlt : mv s.mem base a 7 * mv s.mem base a 7 < 2 ^ (64 * (7 + 7)) :=
-      prod_lt (mv_lt _ _ _ 7) (mv_lt _ _ _ 7)
+    have hlt := prod_lt (mv_lt s.mem base a 7) (mv_lt s.mem base a 7)
     rw [show 7 + 7 = 2 * 7 from rfl] at hlt
     have hP : mv s6.mem base (h 0) (2 * 7) = mv s.mem base a 7 * mv s.mem base a 7 := by
       generalize 2 ^ (64 * (2 * 7)) = Q at v6 hlt

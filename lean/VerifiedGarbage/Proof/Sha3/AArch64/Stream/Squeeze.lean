@@ -113,7 +113,7 @@ theorem Inv.congr {s₀ : State} {i k pos : Nat} {s s' : State} (h : Inv s₀ i 
   frame := by rw [hm]; exact h.frame
   saved := by rw [hm]; exact h.saved
   vcs := fun r hr => by rw [hv]; exact h.vcs r hr
-  untouched := fun r hr => (hg r (by cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched])).trans (h.untouched r hr)
+  untouched := fun r hr => (hg r (mem_of_untouched hr)).trans (h.untouched r hr)
   state := by rw [hm]; exact h.state
   out := by rw [hm]; exact h.out
 
@@ -128,8 +128,7 @@ theorem prologue_ok {s₀ : State} (hp : SPre s₀) : WP isa (.block setup) s₀
   refine ⟨Nat.zero_le _, by simp, hp.pos_le, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
     by rw [hm]; exact hf.mono (by simp), by rw [hm]; exact hv, (fun r _ => by
       rw [u₆.vec, u₅.vec, u₄.vec, u₃.vec, u₂.vec, u₁.vec, hvec]), (fun r hr => by
-      cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched]
-      all_goals rw [u₆.other _ (by decide),u₅.other _ (by decide),u₄.other _ (by decide),u₃.other _ (by decide),u₂.other _ (by decide),u₁.other _ (by decide),hg]), ?_,
+      rw [u₆.other _ (ne_of_untouched hr),u₅.other _ (ne_of_untouched hr),u₄.other _ (ne_of_untouched hr),u₃.other _ (ne_of_untouched hr),u₂.other _ (ne_of_untouched hr),u₁.other _ (ne_of_untouched hr),hg]), ?_,
     fun j hj => absurd hj (Nat.not_lt_zero _)⟩
   · rw [u₆.rd, u₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd, hrd]
   · rw [u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr, hwr]
@@ -175,7 +174,8 @@ theorem permute_ok (v : Permutation) {s₀ : State} (hp : SPre s₀) {i k : Nat}
     · exact hp.o_c.sub_right e512
   refine ⟨hI.i_le, by rw [hI.hi, Nat.mul_succ]; rfl, Nat.zero_le _, rd'.trans (u₁.rd.trans hI.rd),
     wr'.trans (u₁.wr.trans hI.wr), ?_, ?_, ?_, ?_, ?_, ?_, by rw [sp', u₁.sp, hI.sp], ?_, ?_, (fun r hr => by rw [vc' r hr, u₁.vec]; exact hI.vcs r hr), (fun r hr => by
-      have hn : r ∈ preserved ∧ r ≠ .x30 ∧ r ≠ .x22 := by cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched,preserved]
+      have hn : r ∈ preserved ∧ r ≠ .x30 ∧ r ≠ .x22 :=
+        ⟨mem_of_untouched hr, ne_of_untouched hr, ne_of_untouched hr⟩
       rw [cs r hn.1 hn.2.1,u₁.other r hn.2.2]
       exact hI.untouched r hr), ?_,
     fun j hj => ?_⟩
@@ -227,8 +227,8 @@ theorem store_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI
   refine ⟨by omega, by have := hI.hi; omega, by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
     hI.frame.trans (hfw.mono (by simp)), ?_, (fun r hr => by
       rw [u₆.vec, u₅.vec, u₄.vec, g₃.vec, u₂.vec, u₁.vec]; exact hI.vcs r hr), (fun r hr => by
-      cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched]
-      all_goals exact hI.untouched _ (by simp [VG.Proof.Sha3.AArch64.untouched])), ?_, fun j hj => ?_⟩
+      rw [g r (ne_of_untouched hr) (ne_of_untouched hr) (ne_of_untouched hr) (ne_of_untouched hr) (ne_of_untouched hr)]
+      exact hI.untouched r hr), ?_, fun j hj => ?_⟩
   · rw [u₆.rd, u₅.rd, u₄.rd, g₃.rd, u₂.rd, u₁.rd, hI.rd]
   · rw [u₆.wr, u₅.wr, u₄.wr, g₃.wr, u₂.wr, u₁.wr, hI.wr]
   · rw [g .x19 (by decide) (by decide) (by decide) (by decide) (by decide), hI.x19]
@@ -285,8 +285,8 @@ theorem store8_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (h
   refine ⟨by omega, by have := hI.hi; omega, by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
     hI.frame.trans (hfw.mono (by simp)), ?_, (fun r hr => by
       rw [u₆.vec, u₅.vec, u₄.vec, g₃.vec, u₂.vec, u₁.vec]; exact hI.vcs r hr), (fun r hr => by
-      cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched]
-      all_goals exact hI.untouched _ (by simp [VG.Proof.Sha3.AArch64.untouched])), ?_, fun j hj => ?_⟩
+      rw [g r (ne_of_untouched hr) (ne_of_untouched hr) (ne_of_untouched hr) (ne_of_untouched hr) (ne_of_untouched hr)]
+      exact hI.untouched r hr), ?_, fun j hj => ?_⟩
   · rw [u₆.rd, u₅.rd, u₄.rd, g₃.rd, u₂.rd, u₁.rd, hI.rd]
   · rw [u₆.wr, u₅.wr, u₄.wr, g₃.wr, u₂.wr, u₁.wr, hI.wr]
   · rw [g .x19 (by decide) (by decide) (by decide) (by decide) (by decide), hI.x19]
@@ -395,7 +395,7 @@ theorem epilogue_ok {s₀ : State} (hp : SPre s₀) {k pos : Nat} {s : State} (h
     (by rw [u₁.mem]; exact hI.saved))
     fun s' ⟨ax, sp, m, _, _, hv, other, v⟩ => ⟨fun k hk => ?_, by rw [sp, u₁.sp, hI.sp],
       (fun r hr => by rw [hv, u₁.vec]; exact hI.vcs r hr), ⟨?_, ?_, fun d => ?_⟩, (fun r hr => by
-        have hn : r ≠ .x0 := by cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched]
+        have hn : r ≠ .x0 := ne_of_untouched hr
         rw [other r (untouched_ne_sv r hr),u₁.other r hn]
         exact hI.untouched r hr)⟩
   · exact v k hk

@@ -61,7 +61,7 @@ theorem frontIn_of {σ σ₀ τ : State} {n : Nat} (f : OneFacts σ σ₀ n)
 
 theorem seal_ct (v : GcmImpl) : ConstantTime isa sealAArch64.pre sealAArch64.pub («seal» v.callees) := by
   refine ct_of fun σ₁ σ₂ h₁ h₂ hq => ?_
-  obtain ⟨f₁, f₂⟩ := oneFacts (le_refl 1) h₁ h₂ hq
+  obtain ⟨f₁, f₂⟩ := oneFacts (Nat.le_refl 1) h₁ h₂ hq
   obtain ⟨q0, q1, q2, q3, q4, q5, q6, q7, qsp, -⟩ := hq
   have L := f₁.ol.lay
   refine rel_seq (entry_rel f₁.hW f₂.hW f₁.hsp f₂.hsp f₁.perm.w f₂.perm.w qsp

@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.CmacTripleDes.Block
+import VerifiedGarbage.Proof.CmacTripleDes.IndexLit
 
 /-!
 # DES's key schedule, bit by bit
@@ -47,7 +48,7 @@ def ksStep (b : BitVec 28 × BitVec 28 × DesSchedule) (a : Nat) : BitVec 28 × 
   (b.1.rotateLeft (rotations.getD a 0), b.2.1.rotateLeft (rotations.getD a 0),
     b.2.2.set! a (permute pc2 (b.1.rotateLeft (rotations.getD a 0) ++ b.2.1.rotateLeft (rotations.getD a 0))))
 
-theorem pc2_u : ∀ q < 48, 56 - pc2.getD (47 - q) 1 < 56 := by decide
+theorem pc2_u : ∀ q < 48, 56 - pc2.getD (47 - q) 1 < 56 := by decide +kernel
 
 theorem ksFold (c₀ d₀ : BitVec 28) {n : Nat} (hn : n ≤ 16) :
     let st := (List.range n).foldl ksStep (c₀, d₀, Vector.replicate 16 0)
@@ -84,7 +85,7 @@ theorem ksFold (c₀ d₀ : BitVec 28) {n : Nat} (hn : n ≤ 16) :
 theorem keyBit_eq : ∀ j < 16, ∀ q < 48,
     (let u := 56 - pc2.getD (47 - q) 1
      if u < 28 then pc1Src (cIdx (j + 1) u) else pc1Src (28 + cIdx (j + 1) (u - 28))) = rkSrc j q := by
-  decide
+  lit_decide
 
 /-- Bit `q` of round key `j` is bit `rkSrc j q` of the key. -/
 theorem getLsbD_expandDesKey (key : BitVec 64) {j q : Nat} (hj : j < 16) (hq : q < 48) :

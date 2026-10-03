@@ -1,5 +1,14 @@
-import VerifiedGarbage.Proof.Argon2.AArch64.DivideLit
 import VerifiedGarbage.Proof.Argon2.AArch64.HPrime.RelCT
+import VerifiedGarbage.Proof.Framework.AArch64.Lit
+import VerifiedGarbage.Impl.Argon2.AArch64.Divide
+
+/-! Merged from `Proof.Argon2.AArch64.DivideLit`. -/
+section
+/-! Checked literal for unrolled ARM64 reference-index division. -/
+namespace VG
+materialize_code Impl.Argon2.AArch64.Divide.code
+end VG
+end
 
 /-! # Timing of reference-index division on ARM64 -/
 namespace VG.Proof.Argon2.AArch64.Divide

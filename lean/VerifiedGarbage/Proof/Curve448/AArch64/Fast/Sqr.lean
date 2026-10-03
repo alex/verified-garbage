@@ -246,14 +246,14 @@ theorem sqr_ok {s : State} {base : Addr} (hs : Scr s base) {o a : Nat}
       by_cases e : i = j
       · subst e
         simp only [Sqr.src, ite_true, srcVal, pa h hh i hj, L4 h hh i hj]
-        ring
+        grind
       · simp only [Sqr.src, e, ite_false, srcVal, pa h hh j hj, L4 h hh j hj]
         rw [pm _ (by omega) (by omega), D4 h hh i (by omega)]
-        push_cast; ring
+        grind
     refine sqrCol_ok f (srcVal t base a) ?_ ?_ ?_ e hd
     · intro i j hij hj; rw [hv 0 (by decide) i j hij hj]; rfl
     · intro i j hij hj; rw [hv 1 (by decide) i j hij hj]; rfl
-    · intro i j hij hj; rw [hv 2 (by decide) i j hij hj]; simp only [lv]; push_cast; ring
+    · intro i j hij hj; rw [hv 2 (by decide) i j hij hj]; simp only [lv]; grind
   rw [WP.block_append_iff]
   refine WP.mono (columns_ok sqr_good sqr_colRegs (by decide) (by decide) (by decide) ha8 (by omega)
     ho8 (by omega)

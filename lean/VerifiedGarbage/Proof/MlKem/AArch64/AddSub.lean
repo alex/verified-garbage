@@ -108,7 +108,7 @@ theorem map_step {op : List Instr} {F : Nat → Nat → Nat} (hop : VOpSpec op F
     WP isa (.block (vmapBody op)) s fun s' =>
       MapInv F s₀ (k + 1) s' ∧ ((s'.gpr .x10).toNat ≠ 0 ↔ k + 1 ≠ 64) := by
   show WP isa (.block (.ldrq .v0 .x0 0 :: .ldrq .v1 .x1 0 :: (op ++
-    (.strq .v2 .x0 0 :: ([.addImm .x .x0 .x0 16, .addImm .x .x1 .x1 16, .subImm .x .x10 .x10 1] ++
+    (.strq .v2 .x0 0 :: (([.addImm .x .x0 .x0 16, .addImm .x .x1 .x1 16, .subImm .x .x10 .x10 1] : List Instr) ++
       []))))) s _
   have hj : 4 * k + 4 ≤ 256 := by omega
   refine wp_ldrq (a := coeffAddr (fP s₀) (4 * k)) (by decide) (by rw [h.x0, ptr_zero]) ?_
@@ -163,7 +163,7 @@ theorem map_loop {op : List Instr} {F : Nat → Nat → Nat} (hop : VOpSpec op F
     (hp : AccPre s₀) : WP isa (vmapLoop op) s₀ (MapInv F s₀ 64) := by
   refine WP.seq ?_
   show WP isa (.block ([Instr.movz .x .x9 3329 0] ++ (.vop (.dup .s4 .v16 .x9) ::
-    ([.movz .x .x10 64 0] ++ [])))) s₀ _
+    (([.movz .x .x10 64 0] : List Instr) ++ [])))) s₀ _
   refine wp_scalar (by decide) (P := fun s₁ => Keep [.x9] s₀ s₁ ∧ s₁.mem = s₀.mem ∧
       (s₁.gpr .x9).toNat = 3329)
     (wp_movz fun s₁ h₁ e₁ => wp_nil ⟨h₁.keep, h₁.mem, by rw [e₁]; rfl⟩) fun s₁ ⟨k₁, m₁, e9⟩ _ => ?_

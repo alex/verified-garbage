@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.X86.Lit
+import VerifiedGarbage.Proof.Ed25519.X86.PointCTLit
 import VerifiedGarbage.Impl.Ed25519.X86.PointDecode
 
 namespace VG.Proof.Ed25519.X86

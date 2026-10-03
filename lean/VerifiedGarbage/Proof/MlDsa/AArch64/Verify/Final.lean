@@ -98,7 +98,7 @@ theorem hash_vpiece {S : Nat} (h16 : 16 ≤ S) (hSl : S < 2 ^ 64) {p : Params} (
     fun _ _ _ _ p₁ p₂ pub ⟨_, _, _, _, h₁⟩ ⟨_, _, _, _, h₂⟩ => vc_two hF p₁ p₂ pub h₁.vc h₂.vc⟩
   have L := hs.vc.lay hF hp
   refine WP.mono (shake_ok h16 hSl L (by simp) (hash_chk hF)) fun s' ⟨hP', x', ho⟩ => ⟨h, A', c0, q, ?_, ?_⟩
-  · exact hs.keep hF hp hP' (by have := hF.ct.2; scchk hF) x'
+  · exact hs.keep hF hp hP' (by scchks hF (Nat.le_refl _)) x'
   · simp only [List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil] at ho
     rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide), ho, rows_bytes hs]
     refine congrArg (Spec.MlDsa.H · p.ctildeLen) (congrArg (· ++ _) ?_)

@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.X25519.X86_64.Mem
-import Mathlib.Tactic.Ring
 
 /-!
 # X25519 on x86-64: multiplication
@@ -101,7 +100,7 @@ theorem rowR_ok {s : State} {base : Addr} (hs : Scr s base) {a b i : Nat}
     simp only [val4, fe, word, RegUpd.gpr_setReg_of_ne _ _ h04, RegUpd.gpr_setReg_of_ne _ _ h14,
       RegUpd.gpr_setReg_of_ne _ _ h24, RegUpd.gpr_setReg_of_ne _ _ h34, r0_5, r1_5, r2_5]
     have hp : ∀ x y z w v : Nat, v * (x + 2 ^ 64 * y + 2 ^ 128 * z + 2 ^ 192 * w) =
-        v * x + 2 ^ 64 * (v * y) + 2 ^ 128 * (v * z) + 2 ^ 192 * (v * w) := by intros; ring
+        v * x + 2 ^ 64 * (v * y) + 2 ^ 128 * (v * z) + 2 ^ 192 * (v * w) := by intros; grind
     rw [hp]
     omega
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr

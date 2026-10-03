@@ -114,9 +114,9 @@ theorem madds_arith {B Q x1 y1 x y o c o1 c1 Y' R d V WV o' c' : Nat}
     x1 + B * Y' + B * Q * o' + B * (B * Q) * c' =
       x + B * (y + B * R) + o + B * c + d * (V + B * WV) :=
   calc x1 + B * Y' + B * Q * o' + B * (B * Q) * c'
-      _ = x1 + B * (Y' + Q * o' + B * Q * c') := by ring
-      _ = (x1 + B * y1 + B * o1 + B * B * c1) + B * B * R + B * (d * WV) := by rw [e']; ring
-      _ = _ := by rw [e1]; ring
+      _ = x1 + B * (Y' + Q * o' + B * Q * c') := by grind
+      _ = (x1 + B * y1 + B * o1 + B * B * c1) + B * B * R + B * (d * WV) := by rw [e']; grind
+      _ = _ := by rw [e1]; grind
 
 /-- A chain of `madd`s along `x :: rs`, by the stable words `ms`: the carries
 out in OF and CF, at the top register and above it. -/
@@ -228,7 +228,9 @@ theorem rv_append (s : State) : ∀ xs ys : List Reg,
     rv s (xs ++ ys) = rv s xs + 2 ^ (64 * xs.length) * rv s ys
   | [], ys => by simp [rv]
   | x :: xs, ys => by
-    rw [List.cons_append, rv, rv, rv_append s xs ys, List.length_cons, pow64_succ]; ring
+    rw [List.cons_append, rv, rv, rv_append s xs ys, List.length_cons, pow64_succ]
+    generalize 2 ^ (64 * xs.length) = Q
+    grind
 
 theorem stable_scs_mem {X : List Reg} {s : State} {base : Addr} (hs : Scr s base) (hX : .rdi ∉ X) :
     ∀ ds : List Nat, (∀ d ∈ ds, d + 8 ≤ 8192) →
@@ -246,7 +248,7 @@ theorem row_arith {Q B L4 w4 w5 o4 c4 o5 R0 dA : Nat} (hb : R0 + dA < B * Q)
   have e : L4 + Q * w5 + B * Q * o5 + B * Q * c4 = R0 + dA := by
     have := congrArg (Q * ·) e5
     simp only [Nat.mul_add] at this
-    rw [show B * Q * o5 = Q * (B * o5) by ring]
+    rw [show B * Q * o5 = Q * (B * o5) by grind]
     generalize Q * w5 = a1 at *; generalize Q * (B * o5) = a2 at *
     generalize Q * w4 = a3 at *; generalize Q * o4 = a4 at *; generalize B * Q * c4 = a5 at *
     omega
@@ -340,7 +342,7 @@ theorem rowX_ok {t : State} {base : Addr} (hs : Scr t base) {a b i : Nat} (ha : 
     have A3 : wv (([a, a + 8, a + 16, a + 24, a + 32, a + 40, a + 48] : List Nat).map
         fun d => word s3.mem base d) = fe t.mem base a := by rw [m3]; exact wv_words' _ _ _
     have hb := row_bound (Q := 2 ^ (64 * 7)) (B := 2 ^ 64)
-      (rv_lt t (wins i 7) |>.trans_eq (by rw [wins_length]))
+      (Nat.lt_of_lt_of_eq (rv_lt t (wins i 7)) (by rw [wins_length]))
       (word t.mem base (b + 8 * i)).isLt (mv_lt t.mem base a 7)
     rw [pow64_succ 7] at e4
     rw [v5]
@@ -387,9 +389,9 @@ theorem rv_zero (s : State) : ∀ rs : List Reg, (∀ r ∈ rs, s.gpr r = 0) →
 theorem rows_arith {M P B W' R' R bn A MB : Nat} (tv : M + P * R = MB * A)
     (e : W' + B * R' = R + bn * A) : M + P * W' + B * P * R' = (MB + P * bn) * A :=
   calc M + P * W' + B * P * R'
-      _ = M + P * (W' + B * R') := by ring
-      _ = (M + P * R) + P * bn * A := by rw [e]; ring
-      _ = _ := by rw [tv]; ring
+      _ = M + P * (W' + B * R') := by grind
+      _ = (M + P * R) + P * bn * A := by rw [e]; grind
+      _ = _ := by rw [tv]; grind
 
 /-- The rows: `[ACC]` and the last window are `[b] · [a]`. -/
 theorem rowsX_ok {s : State} {base : Addr} (hs : Scr s base) {a b : Nat} (ha : Slot a)
@@ -405,7 +407,7 @@ theorem rowsX_ok {s : State} {base : Addr} (hs : Scr s base) {a b : Nat} (ha : S
     intro n t hn ⟨tk, tout, tv⟩
     have ht : Scr t base := hs.of_keepsR tk (by decide)
     refine WP.mono (rowX_ok ht ha hb hn) fun t' ⟨e, k', out'⟩ => ⟨tk.trans k', ?_, ?_⟩
-    · exact (tout.mono (le_refl _) (by omega)).trans
+    · exact (tout.mono (Nat.le_refl _) (by omega)).trans
         (out'.mono (by simp only [h]; omega) (by simp only [h]; omega))
     · have m1 : mv t'.mem base ACC n = mv t.mem base ACC n :=
         out'.mv (Or.inl (by simp only [h]; omega)) (by simp only [ACC]; omega)
@@ -450,7 +452,7 @@ theorem mulX_ok {s : State} {base : Addr} (hs : Scr s base) {o a b : Nat} (ho : 
   · rw [wr4, wr3, k2.2.2, k1.2.2.2]
   · rw [← k1.2.1]
     have ho' : o + 56 ≤ ACC := ho
-    exact ((out2.mono (le_refl _) (by omega)).right o 56).trans
+    exact ((out2.mono (Nat.le_refl _) (by omega)).right o 56).trans
       (((out3.mono (by simp only [h]; omega) (by rw [wins_length]; simp only [h]; omega)).right
         o 56).trans (out4.left ACC 112))
   · have m1 : s1.mem = s.mem := k1.2.1

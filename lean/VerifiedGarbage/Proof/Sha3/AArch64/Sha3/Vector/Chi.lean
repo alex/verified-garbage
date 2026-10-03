@@ -40,9 +40,9 @@ theorem chi_lanes (σ : Low) (A : Spec.Sha3.State) (hB : BLanes σ A) :
   have b23 := hB 23 (by decide)
   have b24 := hB 24 (by decide)
   simp only [breg, List.getD_cons_succ, List.getD_cons_zero, Nat.reduceMod, Nat.reduceDiv] at b0 b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18 b19 b20 b21 b22 b23 b24
-  intro i hi
-  interval_cases i <;>
-    simp only [runLow, chi, List.foldl_cons, List.foldl_nil, opLow, put, vreg,
+  -- One `simp` for all the lanes, which simplifies `runLow chi σ` once.
+  refine forall_lt_25 ?_
+  simp only [and_self, runLow, chi, List.foldl_cons, List.foldl_nil, opLow, put, vreg,
       List.getD_cons_succ, List.getD_cons_zero, reduceCtorEq, ite_true, ite_false,
       b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24, chiWord, Nat.reduceMod, Nat.reduceDiv, Nat.reduceAdd]
 

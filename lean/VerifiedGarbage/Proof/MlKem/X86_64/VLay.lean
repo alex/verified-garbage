@@ -83,10 +83,10 @@ theorem sel_zero (j : Nat) : sel 0 j = 0 := by simp [sel]
 
 /-- The code of a block of a layer with `len ≥ 8`. -/
 abbrev vblk (bf : List Instr) (len : Nat) (dz : BitVec 32) : Prog isa :=
-  .seq (.block (vzeta 0 ++ [.alu .add .r8 (.imm dz)]))
-    (.seq (rcxLoop (len / 8) ([.movdquLoad .xmm0 (at_ .rdx 0), .movdquLoad .xmm1 (at_ .rdx (2 * len))] ++
-        bf ++ [.movdquStore (at_ .rdx 0) .xmm0, .movdquStore (at_ .rdx (2 * len)) .xmm3,
-          .alu .add .rdx (.imm 16)]))
+  .seq (.block (vzeta 0 ++ ([.alu .add .r8 (.imm dz)] : List Instr)))
+    (.seq (rcxLoop (len / 8) (([.movdquLoad .xmm0 (at_ .rdx 0), .movdquLoad .xmm1 (at_ .rdx (2 * len))] : List Instr) ++
+        bf ++ ([.movdquStore (at_ .rdx 0) .xmm0, .movdquStore (at_ .rdx (2 * len)) .xmm3,
+          .alu .add .rdx (.imm 16)] : List Instr)))
       (.block [.alu .add .rdx (.imm (BitVec.ofNat 32 (2 * len))), .alu .sub .rax (.imm 1)]))
 
 /-- Only the general-purpose registers `rs` (and the flags) changed. -/
@@ -143,9 +143,9 @@ include hbf hblk
 
 /-- The body of the loop over the vectors of a block. -/
 abbrev vbody (bf : List Instr) (len : Nat) : List Instr :=
-  [.movdquLoad .xmm0 (at_ .rdx 0), .movdquLoad .xmm1 (at_ .rdx (2 * len))] ++ bf ++
-    [.movdquStore (at_ .rdx 0) .xmm0, .movdquStore (at_ .rdx (2 * len)) .xmm3, .alu .add .rdx (.imm 16)] ++
-    [.alu .sub .rcx (.imm 1)]
+  ([.movdquLoad .xmm0 (at_ .rdx 0), .movdquLoad .xmm1 (at_ .rdx (2 * len))] : List Instr) ++ bf ++
+    ([.movdquStore (at_ .rdx 0) .xmm0, .movdquStore (at_ .rdx (2 * len)) .xmm3, .alu .add .rdx (.imm 16)] : List Instr) ++
+    ([.alu .sub .rcx (.imm 1)] : List Instr)
 
 theorem vstep {Sp : Addr} {len st u k : Nat} (hl : 0 < len) (hs : st + 2 * len ≤ 256) (hu : 8 * u + 8 ≤ len)
     {G : Poly} {s : State} (hc : VConsts s) (hz : ZLanes (s.xmm .xmm13) (fun _ => zeta k))

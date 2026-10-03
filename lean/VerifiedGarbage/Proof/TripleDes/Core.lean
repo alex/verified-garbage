@@ -4,14 +4,14 @@ namespace VG.Proof.TripleDes
 
 open VG.Spec.TripleDes
 
-theorem ip_bounds : ∀ k < 64, 1 ≤ ip.getD k 1 ∧ ip.getD k 1 ≤ 64 := by decide
-theorem fp_bounds : ∀ k < 64, 1 ≤ fp.getD k 1 ∧ fp.getD k 1 ≤ 64 := by decide
+theorem ip_bounds : ∀ k < 64, 1 ≤ ip.getD k 1 ∧ ip.getD k 1 ≤ 64 := by decide +kernel
+theorem fp_bounds : ∀ k < 64, 1 ≤ fp.getD k 1 ∧ fp.getD k 1 ≤ 64 := by decide +kernel
 
 theorem ip_fp_positions : ∀ j < 64,
-    64 - fp.getD (64 - 1 - (64 - ip.getD (64 - 1 - j) 1)) 1 = j := by decide
+    64 - fp.getD (64 - 1 - (64 - ip.getD (64 - 1 - j) 1)) 1 = j := by decide +kernel
 
 theorem fp_ip_positions : ∀ j < 64,
-    64 - ip.getD (64 - 1 - (64 - fp.getD (64 - 1 - j) 1)) 1 = j := by decide
+    64 - ip.getD (64 - 1 - (64 - fp.getD (64 - 1 - j) 1)) 1 = j := by decide +kernel
 
 theorem ip_fp (x : BitVec 64) : permute ip (permute fp x) = x := by
   apply BitVec.eq_of_getLsbD_eq

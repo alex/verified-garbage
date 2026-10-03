@@ -124,7 +124,7 @@ theorem vconsts_ok (s : State) :
     WP isa (.block vconsts) s fun s' => Keep [.x9, .x10] s s' ∧ s'.mem = s.mem ∧ VConsts s' ∧
       ∀ r, r ≠ .v16 → r ≠ .v17 → s'.v r = s.v r := by
   show WP isa (.block ((.movz .x .x9 3329 0 :: movImm .x10 645083) ++
-    [.vop (.dup .s4 .v16 .x9), .vop (.dup .s4 .v17 .x10)])) s _
+    ([.vop (.dup .s4 .v16 .x9), .vop (.dup .s4 .v17 .x10)] : List Instr))) s _
   refine wp_scalar (by decide) (P := fun s₂ => Keep [.x9, .x10] s s₂ ∧ s₂.mem = s.mem ∧
       (s₂.gpr .x9).toNat = 3329 ∧ (s₂.gpr .x10).toNat = 645083)
     (wp_movz fun s₁ h₁ e₁ => by

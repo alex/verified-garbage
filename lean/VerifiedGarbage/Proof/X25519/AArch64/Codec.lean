@@ -282,19 +282,19 @@ theorem packV_eq {l : Nat → Nat} (hl : Bnd l 17) : ∀ j < 4, packV l j = valN
   have b2 : packV l 2 < 2 ^ 64 := by rw [w2]; omega_using [h7, h8, h9, h10]
   have b3 : packV l 3 < 2 ^ 64 := by rw [w3]; omega_using [h11, h12, h13, h14]
   have e3 : l 3 * 2 ^ 51 = l 3 % 2 ^ 13 * 2 ^ 51 + 2 ^ 64 * (l 3 / 2 ^ 13) := by
-    conv_lhs => rw [← Nat.div_add_mod (l 3) (2 ^ 13)]
-    ring
+    conv => lhs; rw [← Nat.div_add_mod (l 3) (2 ^ 13)]
+    grind
   have e7 : l 7 * 2 ^ 119 = 2 ^ 64 * (l 7 % 2 ^ 9 * 2 ^ 55) + 2 ^ 128 * (l 7 / 2 ^ 9) := by
-    conv_lhs => rw [← Nat.div_add_mod (l 7) (2 ^ 9)]
-    ring
+    conv => lhs; rw [← Nat.div_add_mod (l 7) (2 ^ 9)]
+    grind
   have e11 : l 11 * 2 ^ 187 = 2 ^ 128 * (l 11 % 2 ^ 5 * 2 ^ 59) + 2 ^ 192 * (l 11 / 2 ^ 5) := by
-    conv_lhs => rw [← Nat.div_add_mod (l 11) (2 ^ 5)]
-    ring
+    conv => lhs; rw [← Nat.div_add_mod (l 11) (2 ^ 5)]
+    grind
   have hv : valN l 15 = packV l 0 + 2 ^ 64 * packV l 1 + 2 ^ 128 * packV l 2 + 2 ^ 192 * packV l 3 := by
     rw [w0, w1, w2, w3]
     simp only [valN, Nat.reduceMul, Nat.pow_zero, Nat.mul_one, Nat.zero_add]
     rw [e3, e7, e11]
-    ring
+    grind
   intro j hj
   rw [hv, digits4 b0 b1 b2 b3 j hj]
   rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3) with rfl | rfl | rfl | rfl <;>

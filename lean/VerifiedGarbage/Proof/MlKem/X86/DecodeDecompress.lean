@@ -4,7 +4,6 @@ import VerifiedGarbage.Spec.MlKem.Poly
 import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.Framework.Sig
 import VerifiedGarbage.Proof.Framework.Contract
-import Mathlib.Tactic.Tauto
 
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_decode_decompress`
@@ -181,7 +180,9 @@ theorem step14 {s₀ : State} (hp : Pre s₀) {d k N : Nat} (hd : dN s₀ = d) (
     (fun j hj => by rw [ho₁.wr]; exact (coef_at hp h (j := j) (by omega)).2) fun s₂ o₂ f₂ c₂ => ?_
   have o := (Regs.of_only ho₁).trans o₂
   have g : ∀ r, r ∉ [Reg.ebx, .eax, .edx] → s₂.gpr r = s.gpr r := fun r hr =>
-    o.gpr r (by simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto)
+    o.gpr r (by
+      simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr ⊢
+      simp only [hr, not_false_eq_true, and_self])
   have esi₂ := g .esi (by decide)
   have edi₂ := g .edi (by decide)
   have ecx₂ := g .ecx (by decide)
@@ -303,7 +304,9 @@ theorem step10 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 10) {t : Nat} (ht 
     (by rw [(t₃ 0).1, (t₃ 0).2.2]; exact v0) fun s₄ o₄ w₄ => ?_
   have o₄' := ((o₁.trans o₂).trans o₃).trans o₄
   have g₄ : ∀ r, r ∉ [Reg.eax, .ebx] → s₄.gpr r = s.gpr r := fun r hr =>
-    o₄'.gpr r (by simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto)
+    o₄'.gpr r (by
+      simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr ⊢
+      simp only [hr, not_false_eq_true, and_self])
   refine unpackSteps_spec hdm (p := fA s₀) (i₀ := 4 * t) (B := b0.toNat + 256 * b1.toNat +
       65536 * b2.toNat + 16777216 * b3.toNat) 3 _ s₄ _ (by decide) (by omega) (by rw [w₄]; omega)
     (fun j hj => by
@@ -312,7 +315,9 @@ theorem step10 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 10) {t : Nat} (ht 
     (fun j hj => by rw [o₄'.wr]; exact (coef_at hp h (j := j) (by omega)).2) fun s₅ o₅ f₅ c₅ => ?_
   have o₅' := (Regs.of_only o₄').trans o₅
   have g₅ : ∀ r, r ∉ [Reg.eax, .ebx, .edx] → s₅.gpr r = s.gpr r := fun r hr =>
-    o₅'.gpr r (by simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto)
+    o₅'.gpr r (by
+      simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr ⊢
+      simp only [hr, not_false_eq_true, and_self])
   have esi₅ := g₅ .esi (by decide)
   have edi₅ := g₅ .edi (by decide)
   have ecx₅ := g₅ .ecx (by decide)

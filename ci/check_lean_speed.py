@@ -10,6 +10,12 @@ without building. Exits non-zero on violations.
     which proves the lemmas that step blocks).
   * In the statement of a theorem in `Proof/`, an instruction-list literal
     (`[.op …]`) next to `++` has a type ascription (`([.op …] : List Instr)`).
+  * A module that defines meta code (a tactic or command elaborator, a
+    simproc, or a function in `MetaM`, `TacticM`, ...) and could be compiled
+    (it imports only Lean core and modules of precompiled libraries) is in a
+    precompiled library (`NativeTactics` in the lakefile): otherwise the
+    interpreter runs it, an order of magnitude slower, in every module that
+    uses it.
 """
 
 import pathlib
@@ -29,6 +35,14 @@ UNFOLD = re.compile(r"(?<![\w.])(runBlock|runStep)(?![\w.])")
 PROOF = LEAN / "VerifiedGarbage" / "Proof"
 THEOREM = re.compile(r"^(?:private |protected )?(?:theorem|lemma) ", re.M)
 DOT_LIST = re.compile(r"\[\s*\.")
+META = re.compile(
+    r"^(?:@\[[^\]]*\]\s*)?(?:elab|elab_rules|simproc|dsimproc)\b"
+    r"|^(?:(?:private|protected|partial|unsafe|noncomputable)\s+)*def\s[^\n]*"
+    r"\b(?:CoreM|MetaM|SimpM|TermElabM|TacticM|CommandElabM)\b",
+    re.M,
+)
+IMPORT = re.compile(r"^import\s+([\w.]+)", re.M)
+LIB = re.compile(r"^\[\[lean_lib\]\]\n(.*?)(?=^\[\[|\Z)", re.M | re.S)
 
 
 def line_of(text: str, pos: int) -> int:
@@ -57,12 +71,51 @@ def unascribed_lists(text: str):
         yield i
 
 
+def precompiled_globs(lakefile: str) -> list[str]:
+    """The module globs of the libraries with `precompileModules = true`."""
+    globs = []
+    for m in LIB.finditer(lakefile):
+        block = m.group(1)
+        if re.search(r"^precompileModules\s*=\s*true", block, re.M):
+            g = re.search(r"^globs\s*=\s*\[(.*?)\]", block, re.M | re.S)
+            if g:
+                globs += re.findall(r'"([^"]+)"', g.group(1))
+    return globs
+
+
+def in_globs(module: str, globs: list[str]) -> bool:
+    for g in globs:
+        if g.endswith(".+") and module.startswith(g[:-1]):
+            return True
+        if g.endswith(".*") and (module == g[:-2] or module.startswith(g[:-1])):
+            return True
+        if module == g:
+            return True
+    return False
+
+
+def uncompiled_meta(rel_module: str, text: str, globs: list[str]) -> bool:
+    """Whether the module defines meta code, could be compiled (it imports only
+    Lean core and precompiled modules), and is not."""
+    if not META.search(text) or in_globs(rel_module, globs):
+        return False
+    core = ("Init", "Std", "Lean")
+    return all(i.split(".")[0] in core or in_globs(i, globs) for i in IMPORT.findall(text))
+
+
 def main() -> int:
     errors = []
+    globs = precompiled_globs((LEAN / "lakefile.toml").read_text())
     sources = [f for f in LEAN.rglob("*.lean") if ".lake" not in f.parts]
     for f in sorted(sources):
         text = f.read_text()
         rel = f.relative_to(ROOT)
+        module = ".".join(f.relative_to(LEAN).with_suffix("").parts)
+        if uncompiled_meta(module, text, globs):
+            errors.append(
+                f"{rel}: defines meta code and imports only Lean core and precompiled modules; "
+                "add it to `NativeTactics` in lean/lakefile.toml so that it runs compiled"
+            )
         for m in SET_LIMIT.finditer(text):
             errors.append(f"{rel}:{line_of(text, m.start())}: changes a resource limit; make the proof faster instead")
         for m in BIG_IMPORT.finditer(text):

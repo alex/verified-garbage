@@ -155,7 +155,7 @@ theorem finTag_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {s : State} (he : Env Ctx
     · exact ⟨⟨W + BitVec.ofNat 64 512, 2048⟩, by simp, Offset.sub _ (by decide) (by decide)⟩
     · exact ⟨_, by simp, fun _ h => h⟩
   · rw [ht.out, hc₅, hbx₅, hbp₅]
-    have hw := (hf.abs (hH ▸ ha)).whole_eq (by
+    have hw := (hf.abs ha).whole_eq (by
       simp only [List.length_append, Proof.Gcm.length_zeros]; exact Proof.Gcm.length_pad_mod _)
     rw [hm₅, hw]
 

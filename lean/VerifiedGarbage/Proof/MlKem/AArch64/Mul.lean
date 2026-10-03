@@ -204,14 +204,14 @@ theorem step {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < 32) {s : State} 
   show WP isa (.block (.ldrq .v0 .x1 0 :: .ldrq .v1 .x1 16 :: .ldrq .v4 .x2 0 :: .ldrq .v5 .x2 16 ::
     .ldrq .v18 .x3 0 :: .vop (.perm .uzp1 .s4 .v6 .v0 .v1) :: .vop (.perm .uzp2 .s4 .v7 .v0 .v1) ::
     .vop (.perm .uzp1 .s4 .v19 .v4 .v5) :: .vop (.perm .uzp2 .s4 .v20 .v4 .v5) ::
-    ([.vop (.mul .v21 .v7 .v20), .vop (.sqdmulh .v22 .v21 .v17), .vop (.mls .v21 .v22 .v16),
+    (([.vop (.mul .v21 .v7 .v20), .vop (.sqdmulh .v22 .v21 .v17), .vop (.mls .v21 .v22 .v16),
       .vop (.mul .v23 .v6 .v19), .vop (.mla .v23 .v21 .v18), .vop (.sqdmulh .v22 .v23 .v17),
-      .vop (.mls .v23 .v22 .v16)] ++ vcsub .v23 .v22 ++
-      [.vop (.mul .v24 .v6 .v20), .vop (.mla .v24 .v7 .v19), .vop (.sqdmulh .v22 .v24 .v17),
-      .vop (.mls .v24 .v22 .v16)] ++ vcsub .v24 .v22 ++
-      (.vop (.perm .zip1 .s4 .v0 .v23 .v24) :: .vop (.perm .zip2 .s4 .v1 .v23 .v24) :: .strq .v0 .x0 0 ::
-        .strq .v1 .x0 16 :: ([.addImm .x .x0 .x0 32, .addImm .x .x1 .x1 32, .addImm .x .x2 .x2 32,
-        .addImm .x .x3 .x3 16, .subImm .x .x11 .x11 1] ++ []))))) s _
+      .vop (.mls .v23 .v22 .v16)] : List Instr) ++ vcsub .v23 .v22 ++
+      ([.vop (.mul .v24 .v6 .v20), .vop (.mla .v24 .v7 .v19), .vop (.sqdmulh .v22 .v24 .v17),
+      .vop (.mls .v24 .v22 .v16)] : List Instr) ++ vcsub .v24 .v22 ++
+      (Instr.vop (.perm .zip1 .s4 .v0 .v23 .v24) :: .vop (.perm .zip2 .s4 .v1 .v23 .v24) :: .strq .v0 .x0 0 ::
+        .strq .v1 .x0 16 :: (([.addImm .x .x0 .x0 32, .addImm .x .x1 .x1 32, .addImm .x .x2 .x2 32,
+        .addImm .x .x3 .x3 16, .subImm .x .x11 .x11 1] : List Instr) ++ ([] : List Instr)))))) s _
   have hj : 8 * c + 4 ≤ 256 := by omega
   have hj' : 8 * c + 4 + 4 ≤ 256 := by omega
   have inF : ∀ {j : Nat}, j + 4 ≤ 256 → InRegions (s.rd ++ s.wr) (coeffAddr (fP s₀) j) 16 :=

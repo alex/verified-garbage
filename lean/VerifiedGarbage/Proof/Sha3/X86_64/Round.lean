@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.Lit
 import VerifiedGarbage.Proof.Framework.X86_64.Straight
 import VerifiedGarbage.Proof.Sha3.Compl
 import VerifiedGarbage.Impl.Sha3.X86_64
@@ -182,8 +183,12 @@ theorem round_ok {sR dR : Reg} (hc : check sR dR = true) (hk : keeps sR dR = tru
     exact f₁.trans f₃
   · rw [p₃.other r (by rw [(hk' r hr).2]; decide), p₂.other r (fun h => by subst h; simp [kept] at hr), k₁ r hr]
 
-theorem check₀ : check .rdi .rsi = true := by decide +kernel
-theorem check₁ : check .rsi .rdi = true := by decide +kernel
+deriving instance Lean.ToExpr for Poly
+
+materialize_table specP 30
+
+theorem check₀ : check .rdi .rsi = true := by lit_decide
+theorem check₁ : check .rsi .rdi = true := by lit_decide
 theorem keeps₀ : keeps .rdi .rsi = true := by decide +kernel
 theorem keeps₁ : keeps .rsi .rdi = true := by decide +kernel
 

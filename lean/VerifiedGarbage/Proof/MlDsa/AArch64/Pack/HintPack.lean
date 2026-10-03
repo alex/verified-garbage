@@ -133,6 +133,10 @@ abbrev hpS (s₀ : State) (i : Nat) : Array Byte × Nat :=
 abbrev hpT (s₀ : State) (i j : Nat) : Array Byte × Nat :=
   (List.range j).foldl (hpStep ((hH s₀).getD i noHint)) (hpS s₀ i)
 
+theorem hpT_zero (s₀ : State) (i : Nat) : hpT s₀ i 0 = hpS s₀ i := by
+  simp only [hpT, List.range_zero, List.foldl_nil]
+
+
 theorem hpS_idx (s₀ : State) (i : Nat) : (hpS s₀ i).2 = onesBefore (hH s₀) i 0 := by
   rw [hpS, hpPolys_idx]; exact Nat.zero_add _
 
@@ -262,9 +266,9 @@ theorem poly_ok {i : Nat} (hi : i < hk s₀) {s : State} (hP : HPInv s₀ i s) :
   have k₂ := o₁.trans o₂
   refine WP.seq (WP.mono (count_loop (n := 256) (by decide) (CInv s₀ i)
     (fun j hj s hI => coef_ok hp hi hj hI) (s := s₂) ⟨by rw [k₂.get .x0, hP.x0, Nat.add_zero], by rw [k₂.get .x3, hP.x3],
-      by rw [k₂.get .x5, hP.x5]; rfl, by rw [k₂.get .x6, hP.x6], by rw [o₂.get .x7, e₁]; rfl,
+      by rw [k₂.get .x5, hP.x5, hpT_zero], by rw [k₂.get .x6, hP.x6], by rw [o₂.get .x7, e₁]; rfl,
       by rw [e₂, toNat_imm]; rfl, by rw [k₂.get .x12, hP.x12], by rw [k₂.rd, hP.rd], by rw [k₂.wr, hP.wr],
-      by rw [k₂.sp, hP.sp], by rw [k₂.mem]; exact hP.frame, by rw [k₂.mem, hP.y]; rfl⟩) fun s₃ hI => ?_)
+      by rw [k₂.sp, hP.sp], by rw [k₂.mem]; exact hP.frame, by rw [k₂.mem, hP.y, hpT_zero]⟩) fun s₃ hI => ?_)
   have hidx : (hpT s₀ i 256).2 < 2 ^ 8 := by
     have h1 : onesBefore (hH s₀) i 256 ≤ hintOnes (hH s₀) := onesBefore_n_le (hintAt_length _ _ _) hi
     rw [hpT_idx]; omega

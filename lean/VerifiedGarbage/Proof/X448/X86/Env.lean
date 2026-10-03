@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.X448.X86.Mul
 import VerifiedGarbage.Proof.X448.X86.AddSub
 import VerifiedGarbage.Proof.X448.X86.Small
 import VerifiedGarbage.Proof.X448.X86.Swap
+import Mathlib.Logic.Function.Basic
 
 /-!
 # X448 on x86 (32-bit): the working space as field-element slots

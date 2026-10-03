@@ -89,7 +89,7 @@ theorem storesR_ok {q : Addr} {R : Region} :
     rw [storesR, WP.block_cons_iff]
     have hl : (r :: rs).length = rs.length + 1 := rfl
     let s1 : State := { s with mem := s.mem.writeW (off q o) (s.gpr r) }
-    have hw : InRegions s.wr (off q o) 8 := ⟨R, hR, hc o (le_refl _) (by omega)⟩
+    have hw : InRegions s.wr (off q o) 8 := ⟨R, hR, hc o (Nat.le_refl _) (by omega)⟩
     refine ⟨s1, by simp only [exec, ea_at, hq, State.store64, hw, ite_true]; rfl, ?_⟩
     refine WP.mono (storesR_ok s1 (o + 8) rs hq hR (fun d h₁ h₂ => hc d (by omega) (by omega))
       (by omega)) fun s' ⟨hv, ho', hf, hg, hrd, hwr⟩ => ?_
@@ -99,7 +99,7 @@ theorem storesR_ok {q : Addr} {R : Region} :
     · rw [List.length_cons, mv, hv, rv, ho'.word (by omega) (by omega)]
       simp only [s1, word_writeW_self]
       rw [rv_congr (s := s) (s' := s1) fun _ _ => rfl]
-    · exact (Frame.refl _ _ |>.writeW (List.mem_singleton_self R) _ (hc o (le_refl _) (by omega))).trans hf
+    · exact (Frame.refl _ _ |>.writeW (List.mem_singleton_self R) _ (hc o (Nat.le_refl _) (by omega))).trans hf
 
 /-- The bytes of seven words. -/
 theorem bytesAt_mv (m : Mem) (q : Addr) :

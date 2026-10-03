@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarLit
 import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarMemory
 import VerifiedGarbage.Proof.Ed25519.AArch64.Codec
@@ -19,7 +20,7 @@ def scalarReduceLocal : Contract isa where
 
 theorem scalarReduce_correct {s : State} (hs : scalarReduceLocal.pre s) :
     WP isa scalarReduce s fun t => abiPreserved s t ∧ scalarReduceLocal.post s t := by
-  apply WP.withPreservedV (hc := by decide +kernel)
+  apply WP.withPreservedV (hc := by lit_decide)
   obtain ⟨hr, hw, hd⟩ := hs
   have hws : (⟨s.gpr .x2, 8192⟩ : Region) ∈ s.wr := by rw [hw]; simp
   rw [scalarReduce]

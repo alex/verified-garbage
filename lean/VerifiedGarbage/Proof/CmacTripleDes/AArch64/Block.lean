@@ -323,24 +323,24 @@ def ipG13 (t : Nat) : List Nat := if t < 32 then [ipSrc t] else []
 theorem ip_check :
     check (lanes 64 6) oCfg (linExt 1) ipCode (linEnv [(.x5, 0)])
       (linPost 6 [(.x12, ipG12), (.x13, ipG13)]) = true := by
-  decide +kernel
+  lit_decide
 
 /-- `IP⁻¹(R ‖ L)` into `x5`, from `R` in `x12` (input word 0) and `L` in `x13` (input word 1). -/
 def fpG (j : Nat) : List Nat := if 32 ≤ fpSrc j then [fpSrc j - 32] else [64 + fpSrc j]
 
 theorem fp_check :
     check (lanes 64 7) oCfg (linExt 2) fpCode (linEnv [(.x12, 0), (.x13, 1)]) (linPost 7 [(.x5, fpG)]) = true := by
-  decide +kernel
+  lit_decide
 
 def blockKept : List Reg := [.x1, .x2, .x3, .x4, .x14, .x15]
 
-theorem ip_kept : blockKept.all (fun r => ipCode.all fun i => dstOf i != some r) = true := by decide +kernel
+theorem ip_kept : blockKept.all (fun r => ipCode.all fun i => dstOf i != some r) = true := by lit_decide
 
-theorem fp_kept : blockKept.all (fun r => fpCode.all fun i => dstOf i != some r) = true := by decide +kernel
+theorem fp_kept : blockKept.all (fun r => fpCode.all fun i => dstOf i != some r) = true := by lit_decide
 
-theorem ipSrc_lt : ∀ j < 64, ipSrc j < 64 := by decide
+theorem ipSrc_lt : ∀ j < 64, ipSrc j < 64 := by lit_decide
 
-theorem fpSrc_lt : ∀ j < 64, fpSrc j < 64 := by decide
+theorem fpSrc_lt : ∀ j < 64, fpSrc j < 64 := by lit_decide
 
 theorem frame_oCfg {s : State} {m m' : Mem} (h : Frame [slotRegion oCfg s] m m') : m' = m := by
   funext a

@@ -1,9 +1,283 @@
+import VerifiedGarbage.Proof.Ed25519.AArch64.PointAccumulate
+import VerifiedGarbage.Impl.Ed25519.AArch64.BaseMultiply
+import VerifiedGarbage.Proof.Ed25519.BaseTable
+import VerifiedGarbage.Spec.Ed25519.Contract
+import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulBatch
+import VerifiedGarbage.Impl.Ed25519.AArch64.Verify
+import VerifiedGarbage.Proof.Ed25519.AArch64.DecodeBits
+import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarStep
 import VerifiedGarbage.Impl.Ed25519.AArch64.VerifyWindow
-import VerifiedGarbage.Proof.Ed25519.AArch64.BaseAccumulate
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointLoop
-import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyInputs
-import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyFrame
 import VerifiedGarbage.Proof.Ed25519.Group.Double
+
+/-! Merged from `Proof.Ed25519.AArch64.BaseAccumulate`. -/
+section
+/-! Merged from `Proof.Ed25519.AArch64.PointAccumulateLoop`. -/
+section
+/-! The counter of the descending-bit loops. -/
+
+namespace VG.Proof.Ed25519.AArch64
+
+open VG VG.AArch64 VG.Impl.Ed25519.AArch64
+
+theorem accumulateDec_ok (s : State) (n : Nat)
+    (hc : s.gpr .x19 = BitVec.ofNat 64 (n + 1)) :
+    WP isa (.block [.subImm .x .x19 .x19 1]) s fun t =>
+      t.gpr .x19 = BitVec.ofNat 64 n ∧ Keeps [.x19] s t := by
+  apply WP.of_runBlock
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, read_x,
+    show (1 : Nat) < 4096 from by decide, ite_true, Option.some.injEq, exists_eq_left']
+  refine ⟨?_, ⟨fun r hr => ?_, rfl, rfl, rfl, rfl⟩⟩
+  · rw [RegUpd.gpr_write_self, BitVec.setWidth_eq, hc, BitVec.ofNat_add, BitVec.add_sub_cancel]
+  · exact RegUpd.gpr_write_of_ne _ _ _ (by simpa only [List.mem_singleton] using hr)
+
+theorem CounterKeep.refl (base : Addr) (s : State) : CounterKeep base s s :=
+  ⟨fun _ _ _ => rfl, rfl, rfl, rfl, Outside.refl _ _ _ _⟩
+
+end VG.Proof.Ed25519.AArch64
+end
+
+/-!
+# Adding cached points
+
+The cached addition is the specification's `pointAdd` (`ring`); a table's
+cached point is loaded straight into slots 4–7.
+-/
+
+namespace VG.Proof.Ed25519.AArch64
+
+open VG VG.AArch64 VG.Impl.Ed25519.AArch64
+open Fin.CommRing
+
+def addCachedResult (e : Env) : Spec.Ed25519.Point :=
+  let a := (e 1 - e 0) * e 4
+  let b := (e 1 + e 0) * e 5
+  let c := e 3 * e 6
+  let dd := e 2 * e 7
+  ⟨(b - a) * (dd - c), (dd + c) * (b + a), (dd - c) * (dd + c), (b - a) * (b + a)⟩
+
+theorem pointAddCached_formula (e : Env) :
+    point (evalOps pointAddCachedOps e) 0 1 2 3 = addCachedResult e := rfl
+
+theorem pointAddCached_eval (e : Env) (q : Spec.Ed25519.Point) (hq : point e 4 5 6 7 = cache q) :
+    point (evalOps pointAddCachedOps e) 0 1 2 3 = Spec.Ed25519.pointAdd (point e 0 1 2 3) q := by
+  have h4 : e 4 = q.Y - q.X := congrArg Spec.Ed25519.Point.X hq
+  have h5 : e 5 = q.Y + q.X := congrArg Spec.Ed25519.Point.Y hq
+  have h6 : e 6 = q.T * 2 * Spec.Ed25519.d := congrArg Spec.Ed25519.Point.Z hq
+  have h7 : e 7 = q.Z * 2 := congrArg Spec.Ed25519.Point.T hq
+  rw [pointAddCached_formula]
+  simp only [addCachedResult, point, Spec.Ed25519.pointAdd, h4, h5, h6, h7]
+  congr 1 <;> ring
+
+theorem pointAddCached_high (e : Env) (i : Slot) (hi : 16 ≤ i.val) :
+    evalOps pointAddCachedOps e i = e i :=
+  point_ops_high _ (by decide) e i hi
+
+theorem pointAddCached_ok {s : State} {base : Addr} (hs : Scr s base)
+    (q : Spec.Ed25519.Point) (hq : point (env s.mem base) 4 5 6 7 = cache q) :
+    WP isa (.block pointAddCached) s fun t =>
+      Keep base s t ∧ point (env t.mem base) 0 1 2 3 =
+        Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) q ∧
+      ∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i := by
+  refine WP.mono (fieldCode_ok pointAddCachedOps hs) fun t ⟨hk, hv⟩ => ?_
+  rw [hv]
+  exact ⟨hk, pointAddCached_eval _ q hq, pointAddCached_high _⟩
+
+theorem fromTableQuarterQ_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat}
+    (hp : s.gpr .x8 = off base o) (j : Nat) (hj : j < 4) (ho : o + 128 ≤ 8192) :
+    WP isa (.block (fromTableWords (32 * j) ++ stores (192 + 32 * j) .x4 .x5 .x6 .x7)) s fun t =>
+      env t.mem base ⟨4 + j, by omega⟩ = F s.mem base (o + 32 * j) ∧
+      TableKeep base (192 + 32 * j) 32 s t := by
+  have _hcap : workSize true = 8192 := rfl
+  rw [WP.block_append_iff]
+  refine WP.mono (fromTableWords_ok hs hp (32 * j) (by omega) (by omega)) fun t ⟨hv, hk⟩ => ?_
+  have ht := hs.of_keeps hk (by decide)
+  refine WP.mono (stores_ok ht (by constructor <;> omega) .x4 .x5 .x6 .x7) fun u hu => ?_
+  subst u
+  refine ⟨?_, ⟨hk.gpr, hk.rd, hk.wr, hk.sp, ?_⟩⟩
+  · change F (st4 _ _ _ _ _ _ _) base (64 + 32 * (4 + j)) = _
+    rw [show 64 + 32 * (4 + j) = 192 + 32 * j by omega, F, fe_st4 _ _ (by omega), hv]
+  · rw [hk.mem]; exact st4_outside _ _ (by omega) _ _ _ _
+
+theorem fromTablePrefixQ_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat}
+    (hp : s.gpr .x8 = off base o) (hlo : 768 ≤ o) (ho : o + 128 ≤ 8192)
+    (n : Nat) (hn : n ≤ 4) :
+    WP isa (.block ((List.range n).flatMap fun j =>
+      fromTableWords (32 * j) ++ stores (192 + 32 * j) .x4 .x5 .x6 .x7)) s fun t =>
+      (∀ j (hj : j < n), env t.mem base ⟨4 + j, by omega⟩ = F s.mem base (o + 32 * j)) ∧
+      TableKeep base 192 (32 * n) s t := by
+  induction n generalizing s with
+  | zero =>
+    exact WP.block_nil ⟨fun j hj => by omega,
+      ⟨fun _ _ => rfl, rfl, rfl, rfl, Outside.refl _ _ _ _⟩⟩
+  | succ n ih =>
+    rw [List.range_succ, List.flatMap_append, List.flatMap_cons, List.flatMap_nil,
+      List.append_nil, WP.block_append_iff]
+    refine WP.mono (ih hs hp (by omega)) fun t ⟨hv, hk⟩ => ?_
+    refine WP.mono (fromTableQuarterQ_ok (hk.scratch hs)
+      ((hk.gpr _ (by decide)).trans hp) n (by omega) ho) fun u ⟨hu, ku⟩ => ?_
+    refine ⟨fun j hj => ?_, (hk.mono (by omega) (by omega)).trans
+      (ku.mono (by omega) (by omega))⟩
+    by_cases h : j < n
+    · have he : env u.mem base ⟨4 + j, by omega⟩ = env t.mem base ⟨4 + j, by omega⟩ :=
+        Outside_F ku.mem (by simp only [offset]; omega) (Or.inl (by simp only [offset]; omega))
+      rw [he, hv j h]
+    · have he : j = n := by omega
+      subst j
+      rw [hu, Outside_F hk.mem (by omega) (Or.inr (by omega))]
+
+theorem pointFromTableQ_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat}
+    (hp : s.gpr .x8 = off base o) (hlo : 768 ≤ o) (ho : o + 128 ≤ 8192) :
+    WP isa (.block pointFromTableQ) s fun t =>
+      point (env t.mem base) 4 5 6 7 = tablePoint s.mem base o ∧ TableKeep base 192 128 s t := by
+  refine WP.mono (fromTablePrefixQ_ok hs hp hlo ho 4 (by decide)) fun t ⟨hv, hk⟩ => ?_
+  refine ⟨?_, hk⟩
+  have h0 := hv 0 (by decide)
+  have h1 := hv 1 (by decide)
+  have h2 := hv 2 (by decide)
+  have h3 := hv 3 (by decide)
+  simp only [Nat.mul_zero, Nat.add_zero, Nat.mul_one] at h0 h1
+  change env t.mem base 4 = _ at h0
+  change env t.mem base 5 = _ at h1
+  change env t.mem base 6 = _ at h2
+  change env t.mem base 7 = _ at h3
+  simp only [tablePoint, point, h0, h1, h2, h3]
+
+theorem Keep.of_tableQ {base : Addr} {s t : State}
+    (h : TableKeep base 192 128 s t) : Keep base s t := by
+  refine ⟨fun r hr => h.gpr r (fun hm => hr ?_), h.rd, h.wr, h.sp, h.mem.mono (by decide) (by decide)⟩
+  exact (show ∀ r ∈ [Reg.x4, .x5, .x6, .x7], r ∈ clob by decide) r hm
+
+theorem tableQ_other {base : Addr} {s t : State} (h : TableKeep base 192 128 s t)
+    (i : Slot) (hi : i.val < 4 ∨ 8 ≤ i.val) : env t.mem base i = env s.mem base i := by
+  change F t.mem base (offset i) = F s.mem base (offset i)
+  rcases hi with hi | hi
+  · exact Outside_F h.mem (by simp only [offset]; omega) (Or.inl (by simp only [offset]; omega))
+  · exact Outside_F h.mem (by simp only [offset]; omega) (Or.inr (by simp only [offset]; omega))
+
+end VG.Proof.Ed25519.AArch64
+end
+
+/-! Merged from `Proof.Ed25519.AArch64.VerifyFrame`. -/
+section
+/-! Verification preserves input buffers and its saved pointers. -/
+
+namespace VG.Proof.Ed25519.AArch64
+
+open VG VG.AArch64
+
+
+theorem tableFrame_work {base : Addr} {o n : Nat} {m m' : Mem}
+    (h : TableFrame base o n m m') (ho : o ≤ 64) (hn : 768 ≤ o + n) : Outside base o n m m' :=
+  fun p hp => h p (by omega) hp
+
+theorem outside_bytes {base p : Addr} {o n len : Nat} {m m' : Mem}
+    (h : Outside base o n m m') (hn : o + n ≤ 8192)
+    (hf : ∀ i < len, 8192 ≤ ofs base (off p i)) :
+    Spec.Ed25519.bytesAt m' p len = Spec.Ed25519.bytesAt m p len := by
+  apply List.map_congr_left
+  intro i hi
+  apply h
+  change ofs base (off p i) < o ∨ o + n ≤ ofs base (off p i)
+  have := hf i (List.mem_range.mp hi)
+  omega
+
+theorem PowersKeep.header {base : Addr} {o n d : Nat} {s t : State}
+    (h : PowersKeep base o n s t) (hd : 7936 ≤ d) (hb : d + 8 ≤ 8192) (hn : o + n ≤ 7936) :
+    t.mem.readW (off base d) 64 = s.mem.readW (off base d) 64 :=
+  h.mem.word (by omega) (Or.inr (by omega)) (by omega)
+
+end VG.Proof.Ed25519.AArch64
+end
+
+/-! Merged from `Proof.Ed25519.AArch64.VerifyInputs`. -/
+section
+/-! Reload verification pointers and check the complete unsigned scalar S. -/
+namespace VG.Proof.Ed25519.AArch64
+open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
+
+theorem loadPointer_ok {s : State} {base : Addr} (hs : Scr s base) (r : Reg) (d : Nat)
+    (ha : d % 8 = 0) (hd : d + 8 ≤ 8192) :
+    WP isa (.block [ld r d]) s fun t =>
+      t.gpr r = s.mem.readW (off base d) 64 ∧ Keeps [r] s t := by
+  apply WP.of_runBlock
+  rw [runBlock_cons, load_sc hs ha hd, runStep_some, runBlock_nil]
+  refine ⟨_, rfl, ?_, ⟨fun k hk => ?_, rfl, rfl, rfl, rfl⟩⟩
+  · rw [RegUpd.gpr_write_self, BitVec.setWidth_eq]
+  · exact RegUpd.gpr_write_of_ne _ _ _ (by simpa only [List.mem_singleton] using hk)
+
+theorem add32_ok (s : State) (r : Reg) :
+    WP isa (.block [.addImm .x r r 32]) s fun t => t.gpr r = off (s.gpr r) 32 ∧ Keeps [r] s t := by
+  apply WP.of_runBlock
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, read_x,
+    show (32 : Nat) < 4096 from by decide, ite_true,
+    Option.some.injEq, exists_eq_left']
+  refine ⟨?_, ⟨fun k hk => ?_, rfl, rfl, rfl, rfl⟩⟩
+  · rw [RegUpd.gpr_write_self, BitVec.setWidth_eq]
+  · exact RegUpd.gpr_write_of_ne _ _ _ (by simpa only [List.mem_singleton] using hk)
+
+theorem loadScalarWords_ok (s : State) (p : Addr) (hp : s.gpr .x2 = p)
+    (hr : ∀ d, d + 8 ≤ 32 → InRegions (s.rd ++ s.wr) (off p d) 8) :
+    WP isa (.block loadScalarWords) s fun t =>
+      scalarValue t = Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem p 32) ∧
+      Keeps [.x4, .x5, .x6, .x7] s t := by
+  refine WP.mono (loadWords_ok s .x2 (by decide) (by rw [hp]; exact hr)) fun t ⟨tv, kt⟩ => ?_
+  refine ⟨?_, kt⟩
+  rw [scalarValue, tv, hp, decodeLE_inputWords]
+
+theorem setZeroX10_ok (s : State) :
+    WP isa (.block [.movz .w .x10 0 0]) s fun t => t.gpr .x10 = 0 ∧ Keeps [.x10] s t := by
+  apply WP.of_runBlock
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec,
+    show 16 * 0 < Size.w.bits from by decide, ite_true,
+    Option.some.injEq, exists_eq_left']
+  refine ⟨rfl, ⟨fun k hk => ?_, rfl, rfl, rfl, rfl⟩⟩
+  exact RegUpd.gpr_write_of_ne _ _ _ (by simpa only [List.mem_singleton] using hk)
+
+theorem carryMask_ok (s : State) (hz : s.gpr .x10 = 0) :
+    WP isa (.block [.sbcs .x .x8 .x10 .x10]) s fun t =>
+      (t.gpr .x8 != 0) = !s.c ∧ Keeps [.x8] s t := by
+  apply WP.of_runBlock
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, read_x,
+    Option.some.injEq, exists_eq_left']
+  refine ⟨?_, ⟨fun k hk => ?_, rfl, rfl, rfl, rfl⟩⟩
+  · simp only [RegUpd.gpr_addWithCarry, ite_true, BitVec.setWidth_eq, hz]
+    cases s.c <;> decide
+  · simp only [RegUpd.gpr_addWithCarry,
+      show k ≠ .x8 by simpa only [List.mem_singleton] using hk, ite_false]
+
+theorem verifyScalar_ok {s : State} {base sig : Addr} (hs : Scr s base)
+    (hp : s.mem.readW (off base 7944) 64 = sig)
+    (hr : ∀ d, d + 8 ≤ 32 → InRegions (s.rd ++ s.wr) (off (off sig 32) d) 8) :
+    WP isa (.block verifyScalar) s fun t => Keep base s t ∧ t.mem = s.mem ∧
+      (t.gpr .x8 != 0) = decide (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem (off sig 32) 32) < Spec.Ed25519.L) := by
+  change WP isa (.block (([ld .x2 7944] : List Instr) ++
+    ([.addImm .x .x2 .x2 32] : List Instr) ++ ([.movz .w .x10 0 0] : List Instr) ++
+    loadScalarWords ++ scalarSubtract ++ ([.sbcs .x .x8 .x10 .x10] : List Instr))) s _
+  rw [List.append_assoc, List.append_assoc, List.append_assoc, List.append_assoc, WP.block_append_iff]
+  refine WP.mono (loadPointer_ok hs .x2 7944 (by decide) (by decide)) fun a ⟨ap, ka⟩ => ?_
+  rw [hp] at ap
+  rw [WP.block_append_iff]
+  refine WP.mono (add32_ok a .x2) fun b ⟨bp, kb⟩ => ?_
+  rw [ap] at bp
+  rw [WP.block_append_iff]
+  refine WP.mono (setZeroX10_ok b) fun z ⟨zz, kz⟩ => ?_
+  rw [WP.block_append_iff]
+  refine WP.mono (loadScalarWords_ok z (off sig 32) ((kz.gpr _ (by decide)).trans bp) (by
+    intro d hd; rw [kz.rd, kz.wr, kb.rd, kb.wr, ka.rd, ka.wr]; exact hr d hd)) fun c ⟨cv, kc⟩ => ?_
+  rw [WP.block_append_iff]
+  refine WP.mono (scalarSubtract_ok c ((kc.gpr _ (by decide)).trans zz)) fun d ⟨dc, _, _, kd⟩ => ?_
+  refine WP.mono (carryMask_ok d ((kd.gpr _ (by decide)).trans ((kc.gpr _ (by decide)).trans zz)))
+    fun t ⟨tz, kt⟩ => ?_
+  refine ⟨(((((Keep.of_keeps ka (by decide)).trans (Keep.of_keeps kb (by decide))).trans
+    (Keep.of_keeps kz (by decide))).trans (Keep.of_keeps kc (by decide))).trans
+    (Keep.of_keeps kd (by decide))).trans (Keep.of_keeps kt (by decide)),
+    kt.mem.trans (kd.mem.trans (kc.mem.trans (kz.mem.trans (kb.mem.trans ka.mem)))), ?_⟩
+  rw [tz, dc, cv, kz.mem, kb.mem, ka.mem]
+  simp only [← decide_not, Nat.not_le]
+
+end VG.Proof.Ed25519.AArch64
+end
 
 /-!
 # Verification's windows: doublings, digits and table additions

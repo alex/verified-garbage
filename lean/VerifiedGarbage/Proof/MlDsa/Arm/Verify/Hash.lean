@@ -76,7 +76,8 @@ theorem vhash_ok {p : Params} (hF : VFacts p) {STK : Nat} {σ : State} {A' cc h 
   obtain ⟨hin, hq⟩ := vhPieces hF hs
   refine WP.mono (hashS hs kmu (rate := 136) (sfx := 0x1f) (by decide) (by decide) (by decide) (by decide)
     (by simp) hin hq) fun s' ⟨k', o'⟩ => ⟨A', cc, h, R, hk5.keep hF k' ?_, ?_⟩
-  · rcases hF.ct with e | e | e <;> k5chk hF
+  · have : p.ctildeLen ≤ 64 := by rcases hF.ct with e | e | e <;> omega
+    k5chks hF (Nat.le_refl _)
   · have o₃ : bytesAt s'.mem ((vlay p STK σ).A 0 oCT) p.ctildeLen = _ := o'
     rw [o₃]
     simp only [List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil, Lay.pb,

@@ -26,7 +26,6 @@ theorem leNum_bytesAt_mv (m : Mem) (p : Addr) :
         simp only [off, BitVec.add_assoc, BitVec.ofNat_add],
       leNum_bytesAt_mv m p (o + 8) n]
     simp only [Mem.readW, Nat.reduceDiv, BitVec.setWidth_eq]
-    rfl
 
 theorem decode_mv (m : Mem) (p : Addr) :
     Spec.X448.decodeUCoordinate (Spec.X448.bytesAt m p 56) = mv m p 0 7 := by

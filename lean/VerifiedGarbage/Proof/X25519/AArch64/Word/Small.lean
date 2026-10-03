@@ -73,5 +73,5 @@ theorem mulA24_ok {s : State} {base : Addr} (hs : Scratch s base) (o a : Slot) :
     apply toFe_congr
     exact fold256 _ _
   rw [← ee]
-  exact toFe_mul rfl |>.trans (by simp only [show toFe 121665 = (121665 : Fe) from rfl,env,F]; exact mul_comm _ _)
+  exact toFe_mul rfl |>.trans (by simp only [show toFe 121665 = (121665 : Fe) from rfl,env,F]; exact Fin.mul_comm _ _)
 end VG.Proof.X25519.AArch64.Word

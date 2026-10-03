@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Curve448.AArch64.Fast.MOp
-import Mathlib.Tactic.Ring
 
 /-!
 # Karatsuba's columns are the reduced product's coefficients
@@ -70,7 +69,7 @@ theorem mulCol_ok (e : Env) {d : Nat} (hd : d < 4) :
     simp only [reduced, rows_eq, Nat.reduceAdd, Nat.reduceSub, Nat.reduceLT, Nat.reduceLeDiff,
       and_true, and_false, and_self, ite_true, ite_false, Nat.add_zero,
       Nat.zero_add]
-    constructor <;> push_cast <;> ring
+    constructor <;> (push_cast; simp only [Int.add_mul, Int.mul_add, Int.mul_comm]; omega)
 
 end Mul
 
@@ -99,7 +98,8 @@ theorem sqrCol_ok (e : Env) {d : Nat} (hd : d < 4) :
     simp only [reduced, rows_eq, Nat.reduceAdd, Nat.reduceSub, Nat.reduceLT, Nat.reduceLeDiff,
       and_true, and_false, and_self, ite_true, ite_false, Nat.add_zero,
       Nat.zero_add]
-    constructor <;> push_cast <;> ring
+    constructor <;> (push_cast; simp only [Int.add_mul, Int.mul_add, Int.mul_assoc, Int.mul_comm,
+      Int.mul_left_comm, Int.one_mul]; omega)
 
 end Sqr
 

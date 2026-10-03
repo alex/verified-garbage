@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Framework.X86.Lit
 import VerifiedGarbage.Impl.CmacTripleDes.X86
+import VerifiedGarbage.Proof.CmacTripleDes.X86.KeysLit
+import VerifiedGarbage.Proof.CmacTripleDes.X86.RoundLit
 
 /-! # TDEA-CMAC's x86 code as literals, for kernel-evaluated checks -/
 

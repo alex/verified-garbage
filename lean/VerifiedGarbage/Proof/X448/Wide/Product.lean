@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.X448.Wide.Limbs
+import Batteries.Logic
 
 /-!
 # X448: row multiplication and coefficient reduction
@@ -30,7 +31,9 @@ theorem addRow_val (f g : Nat → Nat) (a : Nat) {i n : Nat} (h : i + n ≤ 16) 
   | zero => simp only [addRow, valN, Nat.mul_zero, Nat.add_zero]
   | succ n ih =>
     rw [addRow, addAt_val _ (by omega), ih (by omega), valN_succ g n, Nat.pow_add]
-    ring
+    generalize radix ^ i = A
+    generalize radix ^ n = B
+    grind
 
 theorem addRow_at (f g : Nat → Nat) (a i n k : Nat) :
     addRow f a g i n k = f k + if i ≤ k ∧ k < i + n then a * g (k - i) else 0 := by
@@ -57,8 +60,7 @@ theorem rows_val (f g : Nat → Nat) {n : Nat} (hn : n ≤ 8) :
   induction n with
   | zero => simp only [rows, valN, Nat.mul_zero, Nat.zero_add, Nat.zero_mul]
   | succ n ih =>
-    rw [rows, addRow_val _ _ _ (by omega), ih (by omega), valN_succ f n]
-    ring
+    rw [rows, addRow_val _ _ _ (by omega), ih (by omega), valN_succ f n, Nat.add_mul]
 
 theorem rows_bound {f g : Nat → Nat} (hf : ∀ i < 8, f i < radix)
     (hg : ∀ i < 8, g i < radix) {n : Nat} (hn : n ≤ 8) (k : Nat) :

@@ -1,4 +1,5 @@
-import VerifiedGarbage.Impl.CmacTripleDes.X86.Round
+import VerifiedGarbage.Proof.CmacTripleDes.X86.RoundLit
+import VerifiedGarbage.Proof.TripleDes.SboxTables
 import VerifiedGarbage.Proof.CmacTripleDes.Des
 import VerifiedGarbage.Proof.Framework.X86.Linear
 import VerifiedGarbage.Proof.Framework.Bitslice.Rows
@@ -59,7 +60,7 @@ def inOuts : List (Nat × (Nat → List Nat)) :=
 theorem inputs_check :
     check (lanes 32 7) rCfg (linExt 1) inputs (linEnv [(slotR, 0), (slotL, 3)]) (linPost rCfg.slots 7 inOuts) =
       true := by
-  decide +kernel
+  lit_decide
 
 /-! ## The S-boxes -/
 
@@ -76,7 +77,7 @@ def sbPost (h : Nat) (e : Env Nat) : Bool :=
   match e.reg .ebx with
   | some F => (List.range 4).all fun j => (List.range 4).all fun b => (List.range 64).all fun c =>
       F.testBit (32 * c + (6 * j + off (boxOf h j) b)) ==
-        (Spec.TripleDes.sBox (boxOf h j) (BitVec.ofNat 6 c)).getLsbD b
+        (Proof.TripleDes.outputTable (boxOf h j) b).testBit c
   | none => false
 
 /-- The slots half `h` uses: the broadcast inputs up to its own, and its
@@ -84,10 +85,10 @@ spare slot. -/
 def sCfg (h : Nat) : Cfg := { base := .ebp, slots := 7 * h + 7, ext := .esi, exts := 0 }
 
 theorem sbox0_check : check (rows 32 6) (sCfg 0) (fun _ => none) (tree 0) (sbEnv 0) (sbPost 0) = true := by
-  decide +kernel
+  lit_decide
 
 theorem sbox1_check : check (rows 32 6) (sCfg 1) (fun _ => none) (tree 1) (sbEnv 1) (sbPost 1) = true := by
-  decide +kernel
+  lit_decide
 
 /-! ## The output -/
 
@@ -107,7 +108,7 @@ def oCfg : Cfg := { base := .ebp, slots := 18, ext := .esi, exts := 0 }
 theorem output_check :
     check (lanes 32 7) oCfg (linExt 0) output (linEnv [(14, 0), (15, 1), (slotL, 2), (slotR, 3)])
       (linPost oCfg.slots 7 oOuts) = true := by
-  decide +kernel
+  lit_decide
 
 /-! ## Machine facts -/
 
@@ -155,7 +156,7 @@ def inW (s : State) (i : Nat) : BitVec 32 :=
 /-- The registers the round keeps. -/
 def kept : List Reg := [.esp, .esi, .ebp]
 
-theorem inputs_kept : kept.all (fun r => inputs.all fun i => i.dst != some r) = true := by decide +kernel
+theorem inputs_kept : kept.all (fun r => inputs.all fun i => i.dst != some r) = true := by lit_decide
 
 theorem slot_bits {x y : BitVec 32} (h : ∀ p < 32, x.getLsbD p = y.getLsbD p) : x = y :=
   BitVec.eq_of_getLsbD_eq fun p hp => h p hp
@@ -194,7 +195,7 @@ theorem inputs_ok {s : State} (hok : Ok rCfg s) :
 /-! ## The S-boxes, on the machine -/
 
 theorem tree_kept (h : Nat) (hh : h < 2) : kept.all (fun r => (tree h).all fun i => i.dst != some r) = true := by
-  rcases (by omega : h = 0 ∨ h = 1) with rfl | rfl <;> decide +kernel
+  rcases (by omega : h = 0 ∨ h = 1) with rfl | rfl <;> lit_decide
 
 /-- The input of the box whose lane of half `h` holds bit `p`, from bit `p`
 of the slots. -/
@@ -222,6 +223,7 @@ theorem sbox_ok {h : Nat} (hh : h < 2) {s : State} (hok : Ok (sCfg h) s) :
       refine ⟨F, hF, fun j hj b hb c hc => ?_⟩
       have := List.all_eq_true.mp (List.all_eq_true.mp (List.all_eq_true.mp hpost j
         (List.mem_range.mpr hj)) b (List.mem_range.mpr hb)) c (List.mem_range.mpr hc)
+      rw [← Proof.TripleDes.testBit_outputTable hc]
       simpa using this
     · cases hpost
   have key : ∀ p < 32, ∃ s', runBlock isa (tree h) s = some s' ∧
@@ -258,7 +260,7 @@ theorem sbox_ok {h : Nat} (hh : h < 2) {s : State} (hok : Ok (sCfg h) s) :
 def oW (s : State) (i : Nat) : BitVec 32 :=
   if i = 0 then slotW s 14 else if i = 1 then slotW s 15 else if i = 2 then slotW s slotL else slotW s slotR
 
-theorem output_kept : kept.all (fun r => output.all fun i => i.dst != some r) = true := by decide +kernel
+theorem output_kept : kept.all (fun r => output.all fun i => i.dst != some r) = true := by lit_decide
 
 theorem output_ok {s : State} (hok : Ok oCfg s) :
     ∃ s', runBlock isa output s = some s' ∧
@@ -284,9 +286,9 @@ theorem output_ok {s : State} (hok : Ok oCfg s) :
 
 /-! ## The round -/
 
-theorem expSrc_lt : ∀ q < 48, expSrc q < 32 := by decide
+theorem expSrc_lt : ∀ q < 48, expSrc q < 32 := by lit_decide
 
-theorem pSrc_lt : ∀ j < 32, pSrc j < 32 := by decide
+theorem pSrc_lt : ∀ j < 32, pSrc j < 32 := by lit_decide
 
 /-- The box inputs that `inputs` broadcasts. -/
 theorem boxIn_eq {s s₁ : State}

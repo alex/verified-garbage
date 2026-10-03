@@ -27,7 +27,6 @@ theorem decodeLE_wide (m : Mem) (base : Addr) :
     rw [Offset.add_add] at h
     exact h
   rw [hb, decodeLE_append, bytesAt_length, decodeLE_words, decodeLE_words]
-  rfl
 
 theorem scratchFrame {base : Addr} {o n : Nat} {m m' : Mem}
     (h : Outside base o n m m') (hn : o + n ≤ 8192) : Frame [⟨base, 8192⟩] m m' := by

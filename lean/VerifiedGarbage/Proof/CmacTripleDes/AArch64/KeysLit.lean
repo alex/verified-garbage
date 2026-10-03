@@ -1,15 +1,18 @@
 import VerifiedGarbage.Proof.Framework.AArch64.Lit
 import VerifiedGarbage.Impl.CmacTripleDes.AArch64.Round
+import VerifiedGarbage.Proof.CmacTripleDes.IndexLit
 
-/-! # The key schedule's code as a literal, for kernel-evaluated checks -/
+/-! # The key schedule's code as a literal, for kernel-evaluated checks
 
-namespace VG.Proof.CmacTripleDes.AArch64
+Evaluated once, here: the checks of `Keys.lean` and the literal of `init`
+(`Lit.lean`), which runs it, read it. -/
 
-open VG.AArch64
+namespace VG
 
-materialize_code keysCode := (Code.block Impl.CmacTripleDes.AArch64.roundKeys : Prog isa)
+materialize_value Impl.CmacTripleDes.AArch64.roundKeys
 
-theorem roundKeys_eq : Impl.CmacTripleDes.AArch64.roundKeys = instrs keysCode.lit :=
-  congrArg instrs keysCode.lit_eq
+theorem Proof.CmacTripleDes.AArch64.roundKeys_eq :
+    Impl.CmacTripleDes.AArch64.roundKeys = Impl.CmacTripleDes.AArch64.roundKeys.lit :=
+  Impl.CmacTripleDes.AArch64.roundKeys.lit_eq
 
-end VG.Proof.CmacTripleDes.AArch64
+end VG

@@ -56,7 +56,7 @@ theorem mulW_row : VP p (CI p · p.ℓ true r)
     (ht := .block []) (by kernel_rfl)
     (fun s₀ s _ ⟨_, _, _, h⟩ => ⟨h.ctx, (h.a r hr 0 (by omega)).1, (h.zh (by omega)).1⟩)
     fun s₀ s s' hp ⟨hh, A, C, h⟩ h' fr out => ⟨hh, A, C, h.keep hp (N := 80) (by omega)
-      (by safeC hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h', ?_⟩
+      (by safeCs hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h', ?_⟩
   rw [(h.a r hr 0 (by omega)).2, (h.zh (by omega)).2] at out
   show PolyIs _ _ (Spec.MlDsa.add Spec.MlDsa.zero _)
   rw [Proof.MlDsa.Verify.add_zero_left]
@@ -71,7 +71,7 @@ theorem mulAddW_row {j : Nat} (hj : j < p.ℓ) :
     (ht := .block []) (by kernel_rfl)
     (fun s₀ s _ ⟨_, _, _, h, hw⟩ => ⟨h.ctx, hw.1, (h.a r hr j hj).1, (h.zh hj).1⟩)
     fun s₀ s s' hp ⟨hh, A, C, h, hw⟩ h' fr out => ⟨hh, A, C, h.keep hp (N := 80) (by omega)
-      (by safeC hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h', ?_⟩
+      (by safeCs hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h', ?_⟩
   rw [hw.2, (h.a r hr j hj).2, (h.zh hj).2] at out
   exact out
 
@@ -82,7 +82,7 @@ theorem t1_row : VP p (RI p r fun _ A _ s₀ m => PolyIs m (Buf.addr s₀ pW) (d
   t1_piece (Y := YV p) hP.unpackT1 0 (32 + 320 * r) vS (oP 16) (by lv hF) (Nat.le_of_eq (YV_stk p).symm)
     (ht := .block []) (by kernel_rfl) (fun _ _ _ ⟨_, _, _, h, _⟩ => h.ctx)
     fun s₀ s s' hp ⟨hh, A, C, h, hw⟩ h' fr out => ⟨hh, A, C, h.keep hp (N := 80) (by omega)
-      (by safeC hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h',
+      (by safeCs hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h',
       keepPolyD hp (stkV (by omega)) (by lv hF) fr hw, by rw [pk_slice hF hp h.ctx (by lv hF)] at out; exact out⟩
 
 theorem nttT_row : VP p (RI p r fun _ A _ s₀ m => PolyIs m (Buf.addr s₀ pW) (dotAcc p (vSig p s₀) A r p.ℓ) ∧
@@ -93,7 +93,7 @@ theorem nttT_row : VP p (RI p r fun _ A _ s₀ m => PolyIs m (Buf.addr s₀ pW) 
   inPlace_piece (Y := YV p) hP.ntt vS (oP 16) vS oSS (by lv hF) (Nat.le_of_eq (YV_stk p).symm)
     (ht := .block []) (by kernel_rfl) (fun _ _ _ ⟨_, _, _, h, _, ht⟩ => ⟨h.ctx, ht.1⟩)
     fun s₀ s s' hp ⟨hh, A, C, h, hw, ht⟩ h' fr out => ⟨hh, A, C, h.keep hp (N := 80) (by omega)
-      (by safeC hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h',
+      (by safeCs hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h',
       keepPolyD hp (stkV (by omega)) (by lv hF) fr hw, by rw [ht.2] at out; exact out⟩
 
 theorem mulT_row : VP p (RI p r fun _ A _ s₀ m => PolyIs m (Buf.addr s₀ pW) (dotAcc p (vSig p s₀) A r p.ℓ) ∧
@@ -104,7 +104,7 @@ theorem mulT_row : VP p (RI p r fun _ A _ s₀ m => PolyIs m (Buf.addr s₀ pW) 
   mul_piece (Y := YV p) _ _ _ _ _ _ hP.mul (by lv hF) (Nat.le_of_eq (YV_stk p).symm)
     (ht := .block []) (by kernel_rfl) (fun _ _ _ ⟨_, _, _, h, _, ht⟩ => ⟨h.ctx, h.ch.1, ht.1⟩)
     fun s₀ s s' hp ⟨hh, A, C, h, hw, ht⟩ h' fr out => ⟨hh, A, C, h.keep hp (N := 80) (by omega)
-      (by safeC hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h',
+      (by safeCs hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h',
       keepPolyD hp (stkV (by omega)) (by lv hF) fr hw, by rw [h.ch.2, ht.2] at out; exact out⟩
 
 theorem sub_row : VP p (RI p r fun _ A C s₀ m => PolyIs m (Buf.addr s₀ pW) (dotAcc p (vSig p s₀) A r p.ℓ) ∧
@@ -115,7 +115,7 @@ theorem sub_row : VP p (RI p r fun _ A C s₀ m => PolyIs m (Buf.addr s₀ pW) (
   acc_piece (Y := YV p) hP.sub _ _ _ _ (by lv hF) (Nat.le_of_eq (YV_stk p).symm)
     (ht := .block []) (by kernel_rfl) (fun _ _ _ ⟨_, _, _, h, hw, ht⟩ => ⟨h.ctx, hw.1, ht.1⟩)
     fun s₀ s s' hp ⟨hh, A, C, h, hw, ht⟩ h' fr out => ⟨hh, A, C, h.keep hp (N := 80) (by omega)
-      (by safeC hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h', by rw [hw.2, ht.2] at out; exact out⟩
+      (by safeCs hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h', by rw [hw.2, ht.2] at out; exact out⟩
 
 theorem inv_rowV : VP p (RI p r fun _ A C s₀ m => PolyIs m (Buf.addr s₀ pW) (Spec.MlDsa.sub
       (dotAcc p (vSig p s₀) A r p.ℓ) (Spec.MlDsa.multiplyNTT (ntt C) (t1Hat (vPk p s₀) r))))
@@ -124,7 +124,7 @@ theorem inv_rowV : VP p (RI p r fun _ A C s₀ m => PolyIs m (Buf.addr s₀ pW) 
   inPlace_piece (Y := YV p) hP.invNtt vS (oP 18) vS oSS (by lv hF) (Nat.le_of_eq (YV_stk p).symm)
     (ht := .block []) (by kernel_rfl) (fun _ _ _ ⟨_, _, _, h, hw⟩ => ⟨h.ctx, hw.1⟩)
     fun s₀ s s' hp ⟨hh, A, C, h, hw⟩ h' fr out => ⟨hh, A, C, h.keep hp (N := 80) (by omega)
-      (by safeC hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h', by rw [hw.2] at out; exact out⟩
+      (by safeCs hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h', by rw [hw.2] at out; exact out⟩
 
 omit hP in
 theorem addr_pB {s₀ : State} (hp : TPre (YV p) s₀) :
@@ -139,7 +139,7 @@ theorem hint_row : VP p (RI p r fun _ A C s₀ m => PolyIs m (Buf.addr s₀ pW) 
   useHint_piece (Y := YV p) hP.useHint vS (oP r) vS (oP 18) p.γ₂ vS (oP 19) hF.g2 (by lv hF)
     (Nat.le_of_eq (YV_stk p).symm) (ht := .block []) (by kernel_rfl) (fun _ _ _ ⟨_, _, _, h, hw⟩ => ⟨h.ctx, hw.1⟩)
     fun s₀ s s' hp ⟨hh, A, C, h, hw⟩ h' fr out => ⟨hh, A, C, h.keep hp (N := 80) (by omega)
-      (by safeC hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h', by
+      (by safeCs hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h', by
         have e := addr_pB hF hr hp
         simp only [pB, sb] at e
         rw [hw.2, e, Proof.MlDsa.Verify.hintAt_row h.hint hr] at out
@@ -157,7 +157,7 @@ theorem pack_row : VP p (RI p r fun h A C s₀ m =>
       simp only [w1Row, Vector.getElem_zipWith]
       exact Proof.MlDsa.Verify.useHint_le hF.g2 _ _⟩)
     fun s₀ s s' hp ⟨hh, A, C, h, hw⟩ h' fr out => ⟨hh, A, C, ?_⟩
-  have hc := h.keep hp (N := 80) (by omega) (by safeC hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h'
+  have hc := h.keep hp (N := 80) (by omega) (by safeCs hF (Nat.le_of_lt hr)) (fun i hi => by lv hF) (by lv hF) fr h'
   refine ⟨hc.ctx, hc.norms, hc.hh, hc.hint, hc.a, hc.z, hc.c, hc.gc, fun r' hr' => ?_⟩
   rcases (by omega : r' < r ∨ r' = r) with hr' | rfl
   · have := w_rows hr' (Nat.le_of_lt hr)

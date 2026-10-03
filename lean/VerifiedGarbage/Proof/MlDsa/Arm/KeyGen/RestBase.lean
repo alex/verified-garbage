@@ -56,9 +56,60 @@ structure KRChk (p : Params) (STK : Nat) (np nj nr : Nat) (W : List (Nat × Nat 
 syntax "krchk " term:max : tactic
 macro_rules
   | `(tactic| krchk $hF) => `(tactic| (
-      rcases ($hF).eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;>
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> intros <;> (try refine ⟨?_, ?_⟩) <;>
-      lsep $hF [kcChk, ($hF).pk, ($hF).sk, hlen]))
+      first
+        | lsep $hF [kcChk, ($hF).pk, ($hF).sk]
+        | rcases ($hF).eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> lsep $hF [kcChk, ($hF).pk, ($hF).sk, hlen]))
+
+theorem sepAll_append {sz : List Nat} {a : Nat × Nat × Nat} {W₁ W₂ : List (Nat × Nat × Nat)}
+    (h₁ : sepAll sz a W₁ = true) (h₂ : sepAll sz a W₂ = true) : sepAll sz a (W₁ ++ W₂) = true := by
+  simp only [sepAll, List.all_append, Bool.and_eq_true] at *
+  exact ⟨h₁, h₂⟩
+
+theorem kcChk_append {p : Params} {STK : Nat} {W₁ W₂ : List (Nat × Nat × Nat)} (h₁ : kcChk p STK W₁ = true)
+    (h₂ : kcChk p STK W₂ = true) : kcChk p STK (W₁ ++ W₂) = true := by
+  simp only [kcChk, Bool.and_eq_true] at *
+  exact ⟨sepAll_append h₁.1 h₂.1, sepAll_append h₁.2 h₂.2⟩
+
+/-- The checks of two pieces of writes, for both. -/
+theorem KRChk.append {p : Params} {STK np nj nr : Nat} {W₁ W₂ : List (Nat × Nat × Nat)}
+    (h₁ : KRChk p STK np nj nr W₁) (h₂ : KRChk p STK np nj nr W₂) : KRChk p STK np nj nr (W₁ ++ W₂) :=
+  ⟨kcChk_append h₁.kc h₂.kc, fun e he => sepAll_append (h₁.aS e he) (h₂.aS e he),
+    fun i hi => sepAll_append (h₁.s2 i hi) (h₂.s2 i hi), fun j hj => sepAll_append (h₁.s1 j hj) (h₂.s1 j hj),
+    sepAll_append h₁.pk0 h₂.pk0, sepAll_append h₁.sk0 h₂.sk0, sepAll_append h₁.sk1 h₂.sk1,
+    fun r hr => sepAll_append (h₁.packs r hr) (h₂.packs r hr),
+    fun i hi => ⟨sepAll_append (h₁.rows i hi).1 (h₂.rows i hi).1, sepAll_append (h₁.rows i hi).2 (h₂.rows i hi).2⟩⟩
+
+/-! The checks of a write to one region, proved once for any region (`krchk` on a
+literal list of writes costs seconds). -/
+
+/-- The stack below the function's frame. -/
+theorem KRChk.stk {p : Params} (hF : PFacts p) {STK np nj nr : Nat} (hnp : np ≤ p.ℓ + p.k) (hnr : nr ≤ p.k) :
+    KRChk p STK np nj nr [(1, 0, STK)] := by
+  krchk hF
+
+/-- A write to `scratch` outside the saved registers and the polynomials. -/
+theorem KRChk.c0 {p : Params} (hF : PFacts p) {STK np nj nr : Nat} (hnp : np ≤ p.ℓ + p.k) (hnr : nr ≤ p.k)
+    {o n : Nat} (h1 : o + n ≤ 840 ∨ 876 ≤ o) (h2 : o + n ≤ oP 0 ∨ oP (p.k * p.ℓ + p.ℓ + p.k) ≤ o)
+    (h3 : o + n ≤ scrLen p) : KRChk p STK np nj nr [(0, o, n)] := by
+  simp only [oP] at h2
+  krchk hF
+
+/-- A write to `pk` after the rows so far. -/
+theorem KRChk.c3 {p : Params} (hF : PFacts p) {STK np nj nr : Nat} (hnp : np ≤ p.ℓ + p.k) (hnr : nr ≤ p.k)
+    {o n : Nat} (h1 : 32 + 320 * nr ≤ o) (h2 : o + n ≤ p.pkLen) : KRChk p STK np nj nr [(3, o, n)] := by
+  rw [hF.pk] at h2
+  krchk hF
+
+/-- A write to `sk` after `ρ` and `K`, outside the entries packed and the rows so far. -/
+theorem KRChk.c4 {p : Params} (hF : PFacts p) {STK np nj nr : Nat} (hnp : np ≤ p.ℓ + p.k) (hnr : nr ≤ p.k)
+    {o n : Nat} (h0 : 64 ≤ o) (hp : o + n ≤ 128 ∨ 128 + lenS p * np ≤ o) (hr : o + n ≤ oT0 p ∨ oT0 p + 416 * nr ≤ o)
+    (h2 : o + n ≤ p.skLen) : KRChk p STK np nj nr [(4, o, n)] := by
+  rw [hF.sk] at h2
+  simp only [oT0] at hr h2
+  rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> rw [hlen] at hp hr h2 <;>
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> intros <;> (try refine ⟨?_, ?_⟩) <;>
+  lsep hF [kcChk, hF.pk, hF.sk, hlen]
 
 theorem KR.keep {p : Params} (hF : PFacts p) {STK : Nat} {σ : State} {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 32}
     {np nj nr : Nat} {s s' : State} (h : KR p STK σ A S R np nj nr s) {W : List (Nat × Nat × Nat)}

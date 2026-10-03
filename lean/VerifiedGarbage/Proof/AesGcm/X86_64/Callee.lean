@@ -2,8 +2,7 @@ import VerifiedGarbage.Proof.AesGcm.X86_64.Loops
 import VerifiedGarbage.Proof.Aes.X86_64.Variant
 import VerifiedGarbage.Proof.Aes.X86_64.ExpandKey
 import VerifiedGarbage.Proof.Aes.X86_64.AesNi.ExpandKey
-import VerifiedGarbage.Proof.Gcm.X86_64.Ghash
-import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Ghash
+import VerifiedGarbage.Proof.Gcm.X86_64.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 
 /-!
@@ -54,34 +53,6 @@ structure KeyImpl where
 
 theorem nosp_of {c : Prog isa} (h : ((instrs c).all fun i => !Taint.clobbers i .rsp) = true) : NoSp c :=
   fun i hi => by simpa using List.all_eq_true.mp h i hi
-
-namespace GhashImpl
-
-/-- `vg_ghash`, in the baseline ISA. -/
-def scalar : GhashImpl where
-  fn := ⟨"vg_ghash", Impl.Gcm.X86_64.ghash⟩
-  depth := by lit_decide
-  ok := Proof.Gcm.X86_64.ghash_correct
-  ct := Proof.Gcm.X86_64.ghash_ct
-  nosp := nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
-  mxcsr := by lit_decide
-  spSafe := Code.all_of_allInstrs (by lit_decide)
-  suffix := ""
-  features := []
-
-/-- `vg_ghash_pclmul`. -/
-def pclmul : GhashImpl where
-  fn := ⟨"vg_ghash_pclmul", Impl.Gcm.X86_64.Pclmul.ghash⟩
-  depth := by lit_decide
-  ok := Proof.Gcm.X86_64.Pclmul.ghash_correct
-  ct := Proof.Gcm.X86_64.Pclmul.ghash_ct
-  nosp := nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
-  mxcsr := by lit_decide
-  spSafe := Code.all_of_allInstrs (by lit_decide)
-  suffix := "_pclmul"
-  features := ["pclmulqdq", "ssse3"]
-
-end GhashImpl
 
 namespace KeyImpl
 
@@ -386,9 +357,6 @@ def callees : Callees := ⟨⟨v.ctr.callee.name, v.ctr.callee.code⟩, v.key.fn
 
 /-- What the names of the functions calling `vg_ghash` end with. -/
 def suffix : String := v.ctr.suffix ++ v.gh.suffix
-
-/-- The CPU features of the functions calling `vg_aes_ctr32` and `vg_ghash`. -/
-def features : List String := (v.ctr.features ++ v.gh.features).dedup
 
 end GcmImpl
 

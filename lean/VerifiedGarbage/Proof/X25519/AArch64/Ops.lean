@@ -251,12 +251,12 @@ theorem macs_ok {b : Addr} {d : Reg} (hd17 : d ≠ .x17) (hd19 : d ≠ .x19) (hd
     · rw [e₂, m₁, e₁, List.map_cons, List.sum_cons, Nat.mod_add_mod, Nat.add_assoc]
     · exact (List.mem_append.mp hr).elim id id
 
-/-- A sum over `List.range` as a `Finset` sum. -/
+/-- A sum over `List.range` as `sumR`. -/
 theorem sum_range_list (t : Nat → Nat) (n : Nat) :
-    ((List.range n).map t).sum = ∑ i ∈ Finset.range n, t i := by
+    ((List.range n).map t).sum = sumR t n := by
   induction n with
   | zero => rfl
-  | succ n ih => rw [List.range_succ, List.map_append, List.sum_append, ih, Finset.sum_range_succ]; simp
+  | succ n ih => rw [List.range_succ, List.map_append, List.sum_append, ih, sumR]; simp
 
 /-- The limbs of the element at `b + o`. -/
 def limbs (m : Mem) (b : Addr) (o : Nat) (i : Nat) : Nat := if i < 15 then wd m b (o + 8 * i) else 0
@@ -313,15 +313,13 @@ theorem col_ok {b : Addr} {s : State} (hs : Sc b s) (h19 : s.gpr .x21 = 19) {a c
     rw [e₃, e₁, colM, lo, hi, loPairs, hiPairs, List.map_map, List.map_map]
     simp only [BitVec.toNat_setWidth, Function.comp_def, sum_range_list,
       show (19 : BitVec 64).toNat = 19 from rfl]
-    have hl : ∀ i ∈ Finset.range (k + 1), wd s.mem b (a + 8 * i) * wd s.mem b (c + 8 * (k - i)) =
+    have hl : ∀ i < k + 1, wd s.mem b (a + 8 * i) * wd s.mem b (c + 8 * (k - i)) =
         limbs s.mem b a i * limbs s.mem b c (k - i) := fun i hi => by
-      have := Finset.mem_range.mp hi
       simp only [limbs, show i < 15 by omega, show k - i < 15 by omega, ite_true]
-    have hh : ∀ j ∈ Finset.range (14 - k), wd s.mem b (a + 8 * (k + 1 + j)) * wd s.mem b (c + 8 * (14 - j)) =
+    have hh : ∀ j < 14 - k, wd s.mem b (a + 8 * (k + 1 + j)) * wd s.mem b (c + 8 * (14 - j)) =
         limbs s.mem b a (k + 1 + j) * limbs s.mem b c (14 - j) := fun j hj => by
-      have := Finset.mem_range.mp hj
       simp only [limbs, show k + 1 + j < 15 by omega, show 14 - j < 15 by omega, ite_true]
-    rw [Finset.sum_congr rfl hl, Finset.sum_congr rfl hh, show (0 : BitVec 16).toNat = 0 from rfl,
+    rw [sumR_congr hl, sumR_congr hh, show (0 : BitVec 16).toNat = 0 from rfl,
       Nat.zero_mod, Nat.zero_add, Nat.zero_add]
   · exact (((kp_wx s _ _).trans k₁).trans (((kp_wx s₁ _ _).trans k₃).trans (kp_wx s₃ _ _))).sub
       (by sub_regs)

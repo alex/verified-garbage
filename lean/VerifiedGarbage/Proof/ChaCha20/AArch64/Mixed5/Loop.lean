@@ -57,9 +57,8 @@ theorem ks_shift (S : CState) {len t k : Nat} (hk : k < len) (ht : 320 * t ≤ k
       have h := (s.gpr .x2).isLt; omega
     rw [he,less5 _ (by have h := (s.gpr .x2).isLt; omega)]
   · intro r h1 h2 h4 h5; simp only [h1,h2,h4,h5,ite_false]
-  · have ht := VG.Proof.ChaCha20.AArch64.Xor.stateAt_writeW_counter s.mem (s.gpr .x0)
-      (s.mem.read (s.gpr .x0 + BitVec.ofNat 64 48) 4 + BitVec.ofNat 32 5)
-    simp only [Mem.writeW,BitVec.setWidth_eq] at ht
+  · have ht := VG.Proof.ChaCha20.AArch64.Xor.stateAt_writeW_ctr s.mem (s.gpr .x0) 5
+    simp only [Mem.writeW,Mem.readW,BitVec.setWidth_eq] at ht
     exact ht
   · exact (Frame.refl _ _).write (List.mem_cons_self ..) _
       (Offset.contains_base _ (by decide : 48 + 4 ≤ 64) (by decide))

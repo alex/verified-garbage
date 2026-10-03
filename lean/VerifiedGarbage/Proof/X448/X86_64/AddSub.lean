@@ -183,11 +183,11 @@ theorem mulSmall_ok {s : State} {base : Addr} (hs : Scr s base) {o a : Nat} (ho 
     rw [RegUpd.gpr_setReg_of_ne _ _ hr]) fun s3 ⟨e3, k3⟩ => ?_
   have hlt := fe_lt s.mem base a
   have hb : (s2.gpr .rbp).toNat < 2 ^ 16 := by
-    have h2 : k.toNat * fe s.mem base a < 2 ^ 448 * 2 ^ 16 := by
-      rw [Nat.mul_comm (2 ^ 448)]; exact Nat.mul_lt_mul'' hk hlt
-    have h1 : 2 ^ 448 * (s2.gpr .rbp).toNat ≤ k.toNat * fe s.mem base a := by
-      generalize k.toNat * fe s.mem base a = X at e2; omega
-    exact Nat.lt_of_mul_lt_mul_left (Nat.lt_of_le_of_lt h1 h2)
+    have h2 := Nat.mul_lt_mul'' hk hlt
+    generalize k.toNat * fe s.mem base a = X at e2 h2
+    generalize (2 : Nat) ^ 448 = Q at e2 h2
+    have h1 : Q * (s2.gpr .rbp).toNat ≤ X := by omega
+    exact Nat.lt_of_mul_lt_mul_left (Nat.lt_of_le_of_lt h1 (Nat.mul_comm (2 ^ 16) Q ▸ h2))
   rw [WP.block_append_iff]
   refine WP.mono (fold2_ok s3 (by rw [e3]; omega)) fun s4 ⟨e4, k4⟩ => ?_
   have hs4 := (hs2.of_keeps k3 (by decide)).of_keeps k4 (by decide)

@@ -57,7 +57,7 @@ theorem decomp_spec {d : Nat} (hd : d ∈ compressWidths) (is : List Instr) (s :
     have hp : 2 ^ (d - 1) ≤ 512 := by
       rcases mem_compressWidths hd with rfl | rfl | rfl <;> decide
     rw [toNat_shr]
-    simp only [BitVec.toNat_add, BitVec.toNat_ofNat, h]
+    rw [BitVec.toNat_add]; simp only [BitVec.toNat_ofNat, h]
     rw [show (3329 : BitVec 32).toNat = 3329 from rfl, Nat.mod_eq_of_lt (a := y * 3329) (by omega), Nat.mod_eq_of_lt (a := 2 ^ (d - 1)) (by omega),
       Nat.mod_eq_of_lt (by omega), dv, q_eq, Nat.mul_comm y]
 

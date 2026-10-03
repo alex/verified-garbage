@@ -13,7 +13,6 @@ namespace VG.Proof.X25519.Arm
 
 open VG VG.Arm VG.Impl.X25519.Arm
 open VG.Spec.X25519 (P Fe)
-open Fin.CommRing
 
 /-! ## The bits of `p - 2` -/
 
@@ -80,7 +79,7 @@ theorem stores_ok {r : Reg} {o n : Nat} (ho : o + 4 * n ≤ 4096) {s : State} (h
 def IQ : List Nat := [Z2, R, X2]
 
 /-- `z^((p - 2) >> n)` in `R`, for `z` at `Z2`. -/
-def invV (v : Nat → Fe) (n : Nat) : Nat → Fe := upd v R (v Z2 ^ ((P - 2) >>> n))
+def invV (v : Nat → Fe) (n : Nat) : Nat → Fe := upd v R (VG.Proof.X25519.pw (v Z2) ((P - 2) >>> n))
 
 /-- The loop invariant of the inversion from `sI`, before the step for the bit
 `n - 1`. -/
@@ -126,10 +125,10 @@ theorem invStep_ok {sI : State} {c : BitVec 32} {v : Nat → Fe} {n : Nat} (hn :
     fun s2 h2 => ?_)
   -- After the square.
   have hsq : ∀ q ∈ IQ, upd (invV v n) R (invV v n R * invV v n R) q =
-      upd v R (v Z2 ^ (2 * ((P - 2) >>> n))) q := by
+      upd v R (VG.Proof.X25519.pw (v Z2) (2 * ((P - 2) >>> n))) q := by
     intro q _
     by_cases hq : q = R
-    · subst hq; rw [upd_self, invV, upd_self, upd_self, two_mul, pow_add]
+    · subst hq; rw [upd_self, invV, upd_self, upd_self, Nat.two_mul, ← VG.Proof.X25519.pw_mul]
     · rw [upd_of_ne _ _ hq, invV, upd_of_ne _ _ hq, upd_of_ne _ _ hq]
   have h2' := h2.congr (qs' := IQ) (by decide) hsq
   refine WP.seq (wp_cmp (op2_imm (by decide)) fun s3 u3 hz3 => WP.block_nil ?_)
@@ -162,14 +161,15 @@ theorem invStep_ok {sI : State} {c : BitVec 32} {v : Nat → Fe} {n : Nat} (hn :
         by_cases hq : q = R
         · subst hq
           rw [upd_self, upd_self, upd_of_ne _ _ (by decide : Z2 ≠ R), invV, upd_self, he, hb,
-            iteF (show ¬ (n - 1 = 4 ∨ n - 1 = 2) by omega), pow_add, pow_one]
+            iteF (show ¬ (n - 1 = 4 ∨ n - 1 = 2) by omega), ← VG.Proof.X25519.pw_mul,
+            VG.Proof.X25519.pw_one]
         · rw [upd_of_ne _ _ hq, upd_of_ne _ _ hq, invV, upd_of_ne _ _ hq]
   · rw [hz5, h4.r10]; exact sub_beq (by omega) (by decide)
 
 theorem invert_ok {c : BitVec 32} {v : Nat → Fe} {s : State} (hc : Ctx b s)
     (hS : SlotsOk s.mem (State.addr b) [Z2, X2] v) (h11 : s.gpr .r11 = c) :
     WP isa Impl.X25519.Arm.invert s fun s' => Stp b s s' ∧ Ctx b s' ∧
-      SlotsOk s'.mem (State.addr b) IQ (upd v R (v Z2 ^ (P - 2))) := by
+      SlotsOk s'.mem (State.addr b) IQ (upd v R (VG.Proof.X25519.pw (v Z2) (P - 2))) := by
   unfold Impl.X25519.Arm.invert
   refine WP.seq ?_
   simp only [one, List.cons_append, List.nil_append]
@@ -217,7 +217,7 @@ theorem invert_ok {c : BitVec 32} {v : Nat → Fe} {s : State} (hc : Ctx b s)
       refine ⟨fun k hk => by rw [e k hk]; exact (hS Z2 (by decide)).1 k hk, ?_⟩
       rw [FS, V, val16_congr e, invV, upd_of_ne _ _ (by decide)]; exact (hS Z2 (by decide)).2
     · refine ⟨fun k hk => by rw [hlimb k hk]; split <;> decide, ?_⟩
-      rw [FS, V, val16_congr hlimb, invV, upd_self, p255, pow_zero]
+      rw [FS, V, val16_congr hlimb, invV, upd_self, p255, VG.Proof.X25519.pw_zero]
       rfl
     · have e := limb_frame (o := X2) hf5 fun r hr k hk => by
         rw [List.mem_singleton.mp hr]; exact Offset.disjoint _ (.inl (by omega)) (by omega) (by omega)

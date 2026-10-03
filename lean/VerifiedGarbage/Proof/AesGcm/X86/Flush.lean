@@ -54,7 +54,7 @@ theorem bytesAt_writeBytes_prefix (m : Mem) (p : Addr) (xs : List Byte) {n : Nat
   simp only [writeBytes, BitVec.add_assoc, Offset.add_sub_cancel_left, BitVec.toNat_add, BitVec.toNat_ofNat]
   rw [Nat.mod_eq_of_lt (a := xs.length) (by omega), Nat.mod_eq_of_lt (a := i) (by omega),
     Nat.mod_eq_of_lt (by omega)]
-  simp
+  simp [show ¬xs.length + i < xs.length by omega]
 
 theorem zeros_eq (n : Nat) : Spec.Cmac.zeros n = zeros n := rfl
 

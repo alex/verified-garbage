@@ -188,7 +188,7 @@ theorem zOne_piece {i : Nat} (hi : i < p.ℓ) : VP p (ZI p · i) (ZI p · (i + 1
     · have : (YV p).apart (pZ j) [sb oACC 4] = true := by lv hF
       exact keepPolyD hp (stkV (by omega)) this fr hzi
   · rw [accV, m', acc_write, accB_YV, ← accV, hz.acc, he, ite_and_ite]
-    exact if_congr normsOk_succ rfl rfl
+    exact ite_congr (propext normsOk_succ) (fun _ => rfl) (fun _ => rfl)
 
 end
 

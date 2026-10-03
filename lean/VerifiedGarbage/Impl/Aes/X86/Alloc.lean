@@ -53,14 +53,12 @@ def src (a : Alloc) (v : Nat) : Src :=
     | some k => .mem (slotAt sb k)
     | none => .imm 0
 
-def usesVar (v : Nat) (g : Gate) : Bool := g.a == v || g.b == v
-
 /-- Whether the variable is used by a later gate or is an output. -/
-def live (rest : List Gate) (outs : List (Nat × Nat)) (v : Nat) : Bool :=
-  outs.any (·.1 == v) || rest.any (usesVar v)
+def live (rest : Rest) (outs : List (Nat × Nat)) (v : Nat) : Bool :=
+  outs.any (·.1 == v) || rest.reads v
 
-/-- How many gates until the variable's next use. -/
-def nextUse (rest : List Gate) (v : Nat) : Nat := (rest.findIdx? (usesVar v)).getD rest.length
+/-- How many gates until the variable's next use (as `2 ^` that, `Rest.nextUse`). -/
+def nextUse (rest : Rest) (v : Nat) : Nat := rest.nextUse v
 
 /-- Forget a dead variable, freeing its register and, if it is a spill slot, its slot. -/
 def kill (a : Alloc) (v : Nat) : Alloc :=
@@ -83,7 +81,7 @@ def evict (a : Alloc) (r : Reg) (v : Nat) : Alloc :=
     | [] => a
 
 /-- A free register, evicting the value used farthest away, but not one of `keep`. -/
-def getReg (a : Alloc) (rest : List Gate) (keep : List Nat) : Alloc × Reg :=
+def getReg (a : Alloc) (rest : Rest) (keep : List Nat) : Alloc × Reg :=
   match a.free with
   | r :: rs => ({ a with free := rs }, r)
   | [] =>
@@ -105,7 +103,7 @@ def opInstrs (op : Op) (d : Reg) (s : Src) : List Instr :=
   | .xnor => [.alu .xor d s, .alu .xor d (.imm (BitVec.allOnes 32))]
 
 /-- Compile one gate, `rest` being the gates after it. -/
-def gate (outs : List (Nat × Nat)) (a : Alloc) (g : Gate) (rest : List Gate) : Alloc :=
+def gate (outs : List (Nat × Nat)) (a : Alloc) (g : Gate) (rest : Rest) : Alloc :=
   let aDead := !live rest outs g.a
   let bDead := !live rest outs g.b
   -- Compute in place into an operand that dies here (every operation is symmetric).
@@ -129,9 +127,9 @@ def gate (outs : List (Nat × Nat)) (a : Alloc) (g : Gate) (rest : List Gate) : 
   a
 
 /-- Compile the gates. -/
-def gates (outs : List (Nat × Nat)) : Alloc → List Gate → Alloc
-  | a, [] => a
-  | a, g :: gs => gates outs (gate sb spill outs a g gs) gs
+def gates (outs : List (Nat × Nat)) : Rest → Alloc → List Gate → Alloc
+  | _, a, [] => a
+  | r, a, g :: gs => gates outs r.tail (gate sb spill outs a g r.tail) gs
 
 /-- Store each output in a register to its slot. -/
 def placeRegs (a : Alloc) : List (Nat × Nat) → Alloc
@@ -156,7 +154,7 @@ def compile (sb : Reg) (gs : List Gate) (ins outs : List (Nat × Nat)) (free : L
     (spill : List Nat) : List Instr :=
   let init : Alloc :=
     { regs := [], slots := ins.map (fun (v, k) => (k, v)), free := free, freeSlots := spill, code := [] }
-  let a := Alloc.gates sb spill outs init gs
+  let a := Alloc.gates sb spill outs (Rest.ofGates gs) init gs
   let a := Alloc.placeRegs sb a outs
   let a := Alloc.placeSlots sb (free.headD .eax) a outs
   a.code.reverse

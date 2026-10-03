@@ -80,9 +80,9 @@ include hblk
 
 /-- The body of the loop over the vectors of a block. -/
 abbrev ybody (bf : List Instr) (len : Nat) : List Instr :=
-  [.vmovdquLoad .l256 .xmm0 (at_ .rdx 0), .vmovdquLoad .l256 .xmm1 (at_ .rdx (2 * len))] ++ toY bf ++
-    [.vmovdquStore .l256 (at_ .rdx 0) .xmm0, .vmovdquStore .l256 (at_ .rdx (2 * len)) .xmm3,
-      .alu .add .rdx (.imm 32)] ++ [.alu .sub .rcx (.imm 1)]
+  ([.vmovdquLoad .l256 .xmm0 (at_ .rdx 0), .vmovdquLoad .l256 .xmm1 (at_ .rdx (2 * len))] : List Instr) ++ toY bf ++
+    ([.vmovdquStore .l256 (at_ .rdx 0) .xmm0, .vmovdquStore .l256 (at_ .rdx (2 * len)) .xmm3,
+      .alu .add .rdx (.imm 32)] : List Instr) ++ ([.alu .sub .rcx (.imm 1)] : List Instr)
 
 theorem ystep {Sp : Addr} {len st u k : Nat} (hl : 16 ≤ len) (hl' : len ≤ 128) (hs : st + 2 * len ≤ 256)
     (hu : 16 * u + 16 ≤ len) {G : Poly} {s : State} (hc : YConsts s)
@@ -166,11 +166,11 @@ theorem ystep {Sp : Addr} {len st u k : Nat} (hl : 16 ≤ len) (hl' : len ≤ 12
 
 /-- The code of a block of a layer with `len ≥ 16`. -/
 abbrev yblk (bf : List Instr) (len : Nat) : Prog isa :=
-  .seq (.block (yzeta1 ++ [.alu .add .r8 (.imm 2)]))
-    (.seq (rcxLoop (len / 16) ([.vmovdquLoad .l256 .xmm0 (at_ .rdx 0),
-        .vmovdquLoad .l256 .xmm1 (at_ .rdx (2 * len))] ++ toY bf ++
-        [.vmovdquStore .l256 (at_ .rdx 0) .xmm0, .vmovdquStore .l256 (at_ .rdx (2 * len)) .xmm3,
-          .alu .add .rdx (.imm 32)]))
+  .seq (.block (yzeta1 ++ ([.alu .add .r8 (.imm 2)] : List Instr)))
+    (.seq (rcxLoop (len / 16) (([.vmovdquLoad .l256 .xmm0 (at_ .rdx 0),
+        .vmovdquLoad .l256 .xmm1 (at_ .rdx (2 * len))] : List Instr) ++ toY bf ++
+        ([.vmovdquStore .l256 (at_ .rdx 0) .xmm0, .vmovdquStore .l256 (at_ .rdx (2 * len)) .xmm3,
+          .alu .add .rdx (.imm 32)] : List Instr)))
       (.block [.alu .add .rdx (.imm (BitVec.ofNat 32 (2 * len))), .alu .sub .rax (.imm 1)]))
 
 theorem yblock_ok {sP : Addr} {len st kz k : Nat} (h16 : 16 ≤ len) (hl16 : len % 16 = 0) (hl : len ≤ 128)
@@ -273,12 +273,12 @@ theorem ylay_ok {sP : Addr} {len t : Nat} (hlen : len ∈ [16, 32, 64, 128]) (zi
 
 /-- The body of the layer with `len = 8`. -/
 abbrev ybody8 (bf : List Instr) : List Instr :=
-  [.vmovdquLoad .l256 .xmm4 (at_ .rdx 0)] ++ ([.vmovdquLoad .l256 .xmm5 (at_ .rdx 32)] ++ (yzeta2 ++
-    ([.alu .add .r8 (.imm 4)] ++ ([.vop (.vperm2i128 .xmm0 .xmm4 .xmm5 0x20)] ++
-    ([.vop (.vperm2i128 .xmm1 .xmm4 .xmm5 0x31)] ++ (toY bf ++ ([.vop (.vperm2i128 .xmm4 .xmm0 .xmm3 0x20)] ++
-    ([.vop (.vperm2i128 .xmm5 .xmm0 .xmm3 0x31)] ++
-    [.vmovdquStore .l256 (at_ .rdx 0) .xmm4, .vmovdquStore .l256 (at_ .rdx 32) .xmm5, .alu .add .rdx (.imm 64),
-      .alu .sub .rcx (.imm 1)]))))))))
+  ([.vmovdquLoad .l256 .xmm4 (at_ .rdx 0)] : List Instr) ++ (([.vmovdquLoad .l256 .xmm5 (at_ .rdx 32)] : List Instr) ++ (yzeta2 ++
+    (([.alu .add .r8 (.imm 4)] : List Instr) ++ (([.vop (.vperm2i128 .xmm0 .xmm4 .xmm5 0x20)] : List Instr) ++
+    (([.vop (.vperm2i128 .xmm1 .xmm4 .xmm5 0x31)] : List Instr) ++ (toY bf ++ (([.vop (.vperm2i128 .xmm4 .xmm0 .xmm3 0x20)] : List Instr) ++
+    (([.vop (.vperm2i128 .xmm5 .xmm0 .xmm3 0x31)] : List Instr) ++
+    ([.vmovdquStore .l256 (at_ .rdx 0) .xmm4, .vmovdquStore .l256 (at_ .rdx 32) .xmm5, .alu .add .rdx (.imm 64),
+      .alu .sub .rcx (.imm 1)] : List Instr)))))))))
 
 theorem ystep8 {sP : Addr} {m t : Nat} (hm : m < 8) (zi : Nat → Nat) {z : Nat → Zq}
     (hz : ∀ c < 16, t + c < 128 ∧ z (t + c) = zeta (zi c)) {F : Poly} {s : State} (hc : YConsts s)
@@ -473,11 +473,11 @@ theorem ylay8_ok {sP : Addr} {t : Nat} (zi : Nat → Nat) {z : Nat → Zq}
         by rw [hb'.mxcsr, og.mxcsr]⟩⟩
   have hT' : TZ u.mem sP z := (by rw [og.mem]; exact hT : TZ w.mem sP z).frame hb'.frame
   have hw' : pR sP ∈ u.wr := by rw [hb'.keep.2.2, og.keep.2.2]; exact hw
-  rw [show [.vmovdquLoad .l256 .xmm4 (at_ .rdx 0), .vmovdquLoad .l256 .xmm5 (at_ .rdx 32)] ++ yzeta2 ++
-      [.alu .add .r8 (.imm 4), .vop (.vperm2i128 .xmm0 .xmm4 .xmm5 0x20), .vop (.vperm2i128 .xmm1 .xmm4 .xmm5 0x31)] ++
-      toY bf ++ [.vop (.vperm2i128 .xmm4 .xmm0 .xmm3 0x20), .vop (.vperm2i128 .xmm5 .xmm0 .xmm3 0x31),
-        .vmovdquStore .l256 (at_ .rdx 0) .xmm4, .vmovdquStore .l256 (at_ .rdx 32) .xmm5, .alu .add .rdx (.imm 64)] ++
-      [.alu .sub .rcx (.imm 1)] = ybody8 bf by simp [List.append_assoc]]
+  rw [show ([.vmovdquLoad .l256 .xmm4 (at_ .rdx 0), .vmovdquLoad .l256 .xmm5 (at_ .rdx 32)] : List Instr) ++ yzeta2 ++
+      ([.alu .add .r8 (.imm 4), .vop (.vperm2i128 .xmm0 .xmm4 .xmm5 0x20), .vop (.vperm2i128 .xmm1 .xmm4 .xmm5 0x31)] : List Instr) ++
+      toY bf ++ ([.vop (.vperm2i128 .xmm4 .xmm0 .xmm3 0x20), .vop (.vperm2i128 .xmm5 .xmm0 .xmm3 0x31),
+        .vmovdquStore .l256 (at_ .rdx 0) .xmm4, .vmovdquStore .l256 (at_ .rdx 32) .xmm5, .alu .add .rdx (.imm 64)] : List Instr) ++
+      ([.alu .sub .rcx (.imm 1)] : List Instr) = ybody8 bf by simp [List.append_assoc]]
   exact WP.mono (ystep8 hbf hY hblk hi zi hz hb'.consts hdx' h8' hS' hT' hw')
     fun u' ⟨hS'', hdx'', h8'', hcx, hzf, hb''⟩ => ⟨⟨hS'', hdx'', h8'', hb'.trans hb''⟩, hcx, hzf⟩
 

@@ -203,10 +203,26 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
 variable {L : Lay} {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : Mem}
 
+/-- Both facts about every instruction of the base-point multiplication that
+the calls need, in one evaluation of its code. -/
+theorem base_instrs : (scalarBase_precomputed fld).allInstrs
+    (fun i => !VG.X86_64.Taint.clobbers i .rsp && !isa.writesSp i) = true := by
+  fld_lit_decide
+
+theorem allInstrs_and {p q : Instr → Bool} {c : Prog isa}
+    (h : c.allInstrs (fun i => p i && q i) = true) :
+    c.allInstrs p = true ∧ c.allInstrs q = true := by
+  simp only [Code.allInstrs_eq, List.all_eq_true, Bool.and_eq_true] at h ⊢
+  exact ⟨fun i hi => (h i hi).1, fun i hi => (h i hi).2⟩
+
 theorem base_nosp : NoSp (scalarBase_precomputed fld) :=
-  Proof.Pbkdf2.Md.X86_64.nosp_of (by fld_lit_decide)
+  Proof.Pbkdf2.Md.X86_64.nosp_of (allInstrs_and base_instrs).1
 
 theorem base_depth : (scalarBase_precomputed fld).depth ≤ 1 := by fld_lit_decide
+
+/-- No instruction of the base-point multiplication writes `rsp`. -/
+theorem base_spSafe : (scalarBase_precomputed fld).all (fun i => !isa.writesSp i) = true :=
+  Code.all_of_allInstrs (allInstrs_and base_instrs).2
 
 abbrev baseRd (L : Lay) : List Region := [⟨L.B + BitVec.ofNat 64 16, 32⟩]
 abbrev baseWr (L : Lay) : List Region := [L.OUT, L.SCR]

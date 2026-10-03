@@ -286,6 +286,17 @@ theorem stateAt_writeW_counter (m : Mem) (p : Addr) (v : BitVec 32) :
   · simp only [h, ite_false]
     exact readW_writeW_out m p v (j := i) (k := 12) hi (by lit_omega) (by lit_omega)
 
+/-- The counter (word 12) of a state in memory. -/
+theorem stateAt_getElem_counter (m : Mem) (p : Addr) :
+    (stateAt m p)[12] = m.readW (p + BitVec.ofNat 64 48) 32 := by
+  simp only [stateAt, Vector.getElem_ofFn]
+
+/-- The state after its counter is advanced by `j` in memory. -/
+theorem stateAt_writeW_ctr (m : Mem) (p : Addr) (j : Nat) :
+    stateAt (m.writeW (p + BitVec.ofNat 64 48)
+      (m.readW (p + BitVec.ofNat 64 48) 32 + BitVec.ofNat 32 j)) p = ctr (stateAt m p) j := by
+  rw [stateAt_writeW_counter, ctr, stateAt_getElem_counter]
+
 /-- A state in memory outside a frame is unchanged. -/
 theorem stateAt_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr}
     (hd : ∀ r ∈ rs, (⟨p, 64⟩ : Region).Disjoint r) : stateAt m' p = stateAt m p := by

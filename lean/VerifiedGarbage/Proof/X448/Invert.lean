@@ -1,6 +1,4 @@
 import VerifiedGarbage.Spec.X448
-import Mathlib.Data.ZMod.Defs
-import Mathlib.Tactic.Ring
 
 /-!
 # X448: the inversion `z^(p-2)` as an addition chain
@@ -13,29 +11,11 @@ factors.
 namespace VG.Proof.X448
 
 open VG.Spec.X448
-open Fin.CommRing
-
-theorem pow_eq (a : Fe) (e : Nat) : pow a e = a ^ e := by
-  induction e using Nat.strongRecOn generalizing a with
-  | _ e ih =>
-    rw [pow]
-    by_cases h0 : e = 0
-    · rw [ite_eq_left h0, h0, pow_zero]
-    · simp only [h0, ite_false]
-      rw [ih (e / 2) (by omega)]
-      conv => rhs; rw [← Nat.div_add_mod e 2]
-      rcases Nat.mod_two_eq_zero_or_one e with h | h <;>
-        simp only [h, ite_true, Nat.one_ne_zero, ite_false] <;> ring
 
 /-- `x` squared `n` times: `x^(2^n)`. -/
 def sqn (x : Fe) : Nat → Fe
   | 0 => x
   | n + 1 => sqn x n * sqn x n
-
-theorem sqn_eq (x : Fe) (n : Nat) : sqn x n = x ^ (2 ^ n) := by
-  induction n with
-  | zero => simp [sqn]
-  | succ n ih => rw [sqn, ih, Nat.pow_succ, pow_mul]; ring
 
 theorem sqn_succ' (x : Fe) (n : Nat) : sqn x (n + 1) = sqn (x * x) n := by
   induction n with
@@ -60,9 +40,42 @@ def invert (z : Fe) : Fe :=
   let t223 := sqn t222 1 * z       -- 2^223 - 1
   sqn t223 225 * (sqn t222 2 * z)
 
+/-- `z^e`, computed on the residue. -/
+def pw (z : Fe) (e : Nat) : Fe := Fin.ofNat P (z.val ^ e)
+
+theorem pw_one (z : Fe) : pw z 1 = z :=
+  Fin.ext (by simp only [pw, Fin.val_ofNat, Nat.pow_one, Nat.mod_eq_of_lt z.isLt])
+
+theorem pw_mul (z : Fe) (a b : Nat) : pw z a * pw z b = pw z (a + b) :=
+  Fin.ext (by simp only [pw, Fin.val_mul, Fin.val_ofNat, Nat.pow_add, ← Nat.mul_mod])
+
+theorem pw_sq (z : Fe) (a : Nat) : pw (z * z) a = pw z (2 * a) :=
+  Fin.ext (by simp only [pw, Fin.val_mul, Fin.val_ofNat, ← Nat.pow_mod, Nat.pow_mul, Nat.pow_two])
+
+theorem sqn_pw (z : Fe) (a n : Nat) : sqn (pw z a) n = pw z (a * 2 ^ n) := by
+  induction n with
+  | zero => rw [sqn, Nat.pow_zero, Nat.mul_one]
+  | succ n ih => rw [sqn, ih, pw_mul, Nat.pow_succ, Nat.mul_two, Nat.mul_add]
+
+theorem pow_pw (a : Fe) (e : Nat) : pow a e = pw a e := by
+  induction e using Nat.strongRecOn generalizing a with
+  | _ e ih =>
+    rw [pow]
+    by_cases h0 : e = 0
+    · rw [ite_eq_left h0, h0]
+      show (1 : Fe) = Fin.ofNat P (a.val ^ 0)
+      rw [Nat.pow_zero]
+      rfl
+    · simp only [h0, ite_false]
+      rw [ih (e / 2) (by omega), pw_sq]
+      by_cases h : e % 2 = 0
+      · rw [ite_eq_left h]; exact congrArg (pw a) (by omega)
+      · rw [ite_eq_right h, ← congrArg (· * _) (pw_one a), pw_mul]
+        exact congrArg (pw a) (by omega)
+
 theorem invert_eq (z : Fe) : invert z = pow z (P - 2) := by
-  rw [pow_eq, invert]
-  simp only [sqn_eq, ← pow_mul, ← pow_add, ← pow_succ]
-  exact congrArg (fun n => z ^ n) (by decide +kernel)
+  rw [pow_pw, ← congrArg invert (pw_one z)]
+  simp only [invert, pw_mul, sqn_pw]
+  exact congrArg (pw z) (by decide +kernel)
 
 end VG.Proof.X448

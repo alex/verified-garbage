@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.TripleDes.SboxTables
 import VerifiedGarbage.Proof.TripleDes.Arm.Lit
 import VerifiedGarbage.Spec.TripleDes
 import VerifiedGarbage.Proof.Framework.Arm.Straight
@@ -22,9 +23,6 @@ noncomputable def sboxLiterals : Array (Prog isa) :=
 noncomputable def sboxLiteral (i : Nat) : Prog isa := sboxLiterals.getD i (.block [])
 
 def sboxCfg : Cfg := { base := .r2, slots := 128, ext := .r2, exts := 0 }
-def inputTable (k : Nat) : Nat := tableOf (fun c => c.testBit k) 64
-def outputTable (i j : Nat) : Nat :=
-  tableOf (fun c => (Spec.TripleDes.sBox i (BitVec.ofNat 6 c)).getLsbD j) 64
 
 def sboxEnv : Env Nat :=
   { reg := fun r => ((List.range 6).find? (fun k => q k == r)).map inputTable,
@@ -36,7 +34,7 @@ def sboxPost (i : Nat) (e : Env Nat) : Bool :=
 theorem sbox_check : ∀ i < 8,
     check (table 32 64) sboxCfg (fun _ => none) (instrs (sboxLiteral i))
       sboxEnv (sboxPost i) = true := by
-  decide +kernel
+  lit_decide
 
 def sboxWrites : List Reg := [.r4, .r5, .r6, .r7, .r8, .r12, .lr]
 

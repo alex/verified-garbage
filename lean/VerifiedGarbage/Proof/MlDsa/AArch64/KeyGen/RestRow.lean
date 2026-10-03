@@ -93,6 +93,37 @@ theorem bp_chk : rwChk kgR (kgW p) (t0P p) 1024 (.x27, oT0 p + 416 * i) 416 = tr
 
 end
 
+/-! ## The checks of the writes of a row, once each -/
+
+theorem chk_poly {p : Params} (hF : PFacts p) {i : Nat} (hi : i < p.k) {j : Nat} (hj : j < 3) :
+    KRChk p (p.ℓ + p.k) p.ℓ i [(sc (oP (p.k * p.ℓ + p.ℓ + p.k + j)), 1024)] := by
+  have := hF.k; have := hF.l; have := hF.kl
+  exact KRChk.x28 hF (by omega) (by omega) (.inr (by simp only [SV, oP]; omega))
+    (.inr (by simp only [oP]; omega)) (by rw [hF.scr]; simp only [oP]; omega)
+
+theorem chk_t {p : Params} (hF : PFacts p) {i : Nat} (hi : i < p.k) : KRChk p (p.ℓ + p.k) p.ℓ i [(tP p, 1024)] := by
+  have := chk_poly hF hi (j := 0) (by decide); rwa [Nat.add_zero] at this
+
+theorem chk_inv {p : Params} (hF : PFacts p) {i : Nat} (hi : i < p.k) :
+    KRChk p (p.ℓ + p.k) p.ℓ i [(tP p, 1024), (sc oSS, 1024)] := by
+  have := hF.k; have := hF.l; have := hF.kl
+  exact (chk_t hF hi).append (ws₁ := [_]) (KRChk.x28 (o := oSS) (n := 1024) hF (by omega)
+    (by omega) (.inr (by decide)) (.inl (by decide)) (by rw [hF.scr]; simp only [oSS]; omega))
+
+theorem chk_p2r {p : Params} (hF : PFacts p) {i : Nat} (hi : i < p.k) :
+    KRChk p (p.ℓ + p.k) p.ℓ i [(t1P p, 1024), (t0P p, 1024)] :=
+  (chk_poly hF hi (j := 1) (by decide)).append (ws₁ := [_]) (chk_poly hF hi (j := 2) (by decide))
+
+theorem chk_sbp {p : Params} (hF : PFacts p) {i : Nat} (hi : i < p.k) :
+    KRChk p (p.ℓ + p.k) p.ℓ i [((.x26, 32 + 320 * i), 320)] :=
+  KRChk.x26 hF (Nat.le_refl _) (Nat.le_of_lt hi) (Nat.le_refl _) (by rw [hF.pk]; omega)
+
+theorem chk_bp {p : Params} (hF : PFacts p) {i : Nat} (hi : i < p.k) :
+    KRChk p (p.ℓ + p.k) p.ℓ i [((.x27, oT0 p + 416 * i), 416)] := by
+  have := hF.k; have := hF.l
+  exact KRChk.x27 hF (Nat.le_refl _) (Nat.le_of_lt hi) (by simp only [oT0]; omega) (.inr (by simp only [oT0]; omega))
+    (.inr (Nat.le_refl _)) (by rw [hF.sk]; omega)
+
 theorem sbpOk_t1 : SbpOk 1023 320 := ⟨by decide, by decide, by decide⟩
 
 theorem bpOk_t0 : BpOk 4095 4096 416 := ⟨by decide, by decide, by decide⟩
@@ -115,7 +146,7 @@ theorem mul_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State
   rw [Nat.add_zero] at hA hc
   have hS := h.polyS (j := 0) (by omega)
   refine WP.mono (mulAt_ok hP.s64 hP.mul L hc hA.1 hS.1) fun s' ⟨hP', x', hb⟩ => ?_
-  refine ⟨h.keep hF hp hP' x' (by krchk hF), ?_⟩
+  refine ⟨h.keep hF hp hP' x' (chk_t hF hi), ?_⟩
   rw [tIs, hP'.pa (show Reg.x28 ∈ keptRegs by decide), Proof.MlDsa.KeyGen.dotK_one, ← hA.2, ← hS.2]
   exact hb
 
@@ -129,7 +160,7 @@ theorem mulAdd_ok {j : Nat} (hj : j < p.ℓ) {A : Nat → Poly} {S : Nat → IPo
   have hA := h.polyA hi hj
   have hS := h.polyS hj
   refine WP.mono (mulAddAt_ok hP.s64 hP.mulAdd L (mul_chk hF hi hj) ht.1 hA.1 hS.1) fun s' ⟨hP', x', hb⟩ => ?_
-  refine ⟨h.keep hF hp hP' x' (by krchk hF), ?_⟩
+  refine ⟨h.keep hF hp hP' x' (chk_t hF hi), ?_⟩
   rw [tIs, hP'.pa (show Reg.x28 ∈ keptRegs by decide), Proof.MlDsa.KeyGen.dotK_succ, ← hA.2, ← hS.2, ← ht.2]
   exact hb
 
@@ -142,7 +173,7 @@ theorem inv_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State
   have L := h.kc.lay hF hp
   unfold invNttAt
   refine WP.mono (ipAt_ok (t := nttInv) hP.s64 hP.invNtt L (inv_chk hF hi) ht.1) fun s' ⟨hP', x', hb⟩ => ?_
-  refine ⟨h.keep hF hp hP' x' (by krchk hF), ?_⟩
+  refine ⟨h.keep hF hp hP' x' (chk_inv hF hi), ?_⟩
   rw [tIs, hP'.pa (show Reg.x28 ∈ keptRegs by decide), ← ht.2]
   exact hb
 
@@ -156,7 +187,7 @@ theorem addS2_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : Sta
   have hS := h.s2 i hi
   unfold addAt
   refine WP.mono (accAt_ok (op := add) hP.s64 hP.add L (add_chk hF hi) ht.1 hS.1) fun s' ⟨hP', x', hb⟩ => ?_
-  refine ⟨h.keep hF hp hP' x' (by krchk hF), ?_⟩
+  refine ⟨h.keep hF hp hP' x' (chk_t hF hi), ?_⟩
   rw [tIs, hP'.pa (show Reg.x28 ∈ keptRegs by decide), Proof.MlDsa.KeyGen.tK, ← hS.2, ← ht.2]
   exact hb
 
@@ -169,7 +200,7 @@ theorem p2r_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State
   dsimp only [tIs] at ht
   have L := h.kc.lay hF hp
   refine WP.mono (p2rAt_ok hP.s64 hP.power2Round L (p2r_chk hF hi) ht.1) fun s' ⟨hP', x', h1, h0⟩ => ?_
-  refine ⟨h.keep hF hp hP' x' (by krchk hF), ?_, ?_⟩
+  refine ⟨h.keep hF hp hP' x' (chk_p2r hF hi), ?_, ?_⟩
   · rw [hP'.pa (p := t1P p) (show Reg.x28 ∈ keptRegs by decide), Proof.MlDsa.KeyGen.t1K, ← ht.2]; exact h1
   · rw [hP'.pa (p := t0P p) (show Reg.x28 ∈ keptRegs by decide), ← ht.2]; exact h0
 
@@ -185,7 +216,7 @@ theorem sbp_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State
   have L := h.kc.lay hF hp
   refine WP.mono (sbpAt_ok hP.s64 hP.simpleBitPack L (sbp_chk hF hi) sbpOk_t1 (t1_bound h1))
     fun s' ⟨hP', x', hb⟩ => ?_
-  refine ⟨h.keep hF hp hP' x' (by krchk hF), L.keepPoly hP' (by lay [hF.pk]) h0, ?_⟩
+  refine ⟨h.keep hF hp hP' x' (chk_sbp hF hi), L.keepPoly hP' (by lay [hF.pk]) h0, ?_⟩
   rw [hP'.pa (show Reg.x26 ∈ keptRegs by decide), hb, h1]
 
 /-- `t₀[i]` to `sk`. -/
@@ -199,7 +230,7 @@ theorem bp_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State}
   have L := h.kc.lay hF hp
   refine WP.mono (bpAt_ok hP.s64 hP.bitPack L (bp_chk hF hi) bpOk_t0 h0.1 (range_t0 h0))
     fun s' ⟨hP', x', hb⟩ => ?_
-  have hk' := h.keep hF hp hP' x' (by krchk hF)
+  have hk' := h.keep hF hp hP' x' (chk_bp hF hi)
   refine ⟨hk'.kc, hk'.x24, hk'.good, hk'.small, hk'.aS, hk'.s2, hk'.s1, hk'.pk0, hk'.sk0, hk'.sk1, hk'.packs,
     fun i' hi' => ?_⟩
   rcases (by omega : i' < i ∨ i' = i) with hi' | rfl

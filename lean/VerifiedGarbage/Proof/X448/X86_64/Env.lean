@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.X448.X86_64.Swap
+import Mathlib.Logic.Function.Basic
 
 /-!
 # X448 on x86-64: the working space as slots

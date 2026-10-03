@@ -83,8 +83,8 @@ theorem save_ok (s : State) {W : BitVec 32} (ha : s.gpr .eax = W) (hw : Covers [
   refine ⟨_, by xrun [saveAt, ha, aW, wIn], ?_, ?_, ?_, ?_, ?_, ?_⟩
   · regs [ha]
   · intro r hr; simp only [gpr_setMem, gpr_setReg_of_ne _ _ hr]
-  · rfl
-  · rfl
+  · simp only [rd_setMem, rd_setReg]
+  · simp only [wr_setMem, wr_setReg]
   · refine ⟨?_, ?_, ?_, ?_⟩ <;> (simp only [slotv_eq]; mems [])
   · have c : ∀ d, 128 ≤ d → d + 4 ≤ 144 →
         (⟨w64 W + BitVec.ofNat 64 128, 16⟩ : Region).Contains (w64 W + BitVec.ofNat 64 d) 4 :=

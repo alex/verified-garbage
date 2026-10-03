@@ -96,4 +96,48 @@ def bottom : List Gate := [
 
 def sbox : List Gate := top ++ middle ++ bottom
 
+/-- Variables below this have their uses packed in `Rest.uses`. -/
+def Rest.packed : Nat := 512
+
+/-- The gates of a circuit from position `j` on (`gs`, of `n`), for the
+register allocators (`X86/Alloc.lean`, …): for a variable `v < Rest.packed`,
+bit `n v + p` of `uses` is set when gate `p` reads `v`. The kernel evaluates
+the allocators, and reads such a variable's next use with a few arithmetic
+operations, which it runs natively, rather than scanning the gates after
+every gate; it scans `gs` for the others (temporaries numbered apart). -/
+structure Rest where
+  uses : Nat
+  n : Nat
+  j : Nat
+  gs : List Gate
+
+/-- All the gates `gs`. -/
+def Rest.ofGates (gs : List Gate) : Rest :=
+  let n := gs.length
+  let bit (v p : Nat) : Nat := if v < Rest.packed then 1 <<< (n * v + p) else 0
+  { uses := gs.zipIdx.foldl (fun u (g, p) => u ||| bit g.a p ||| bit g.b p) 0, n, j := 0, gs }
+
+/-- The gates after the first. -/
+def Rest.tail (r : Rest) : Rest := { r with j := r.j + 1, gs := r.gs.tail }
+
+/-- For `v < Rest.packed`, bit `k` is set when the `k`-th gate reads `v`. -/
+def Rest.usesOf (r : Rest) (v : Nat) : Nat := (r.uses >>> (r.n * v + r.j)) % 2 ^ (r.n - r.j)
+
+/-- Whether gate `g` reads `v`. -/
+def Rest.usesVar (v : Nat) (g : Gate) : Bool := g.a == v || g.b == v
+
+/-- Whether a gate reads `v`. -/
+def Rest.reads (r : Rest) (v : Nat) : Bool :=
+  if v < Rest.packed then r.usesOf v != 0 else r.gs.any (Rest.usesVar v)
+
+/-- `2 ^ k`, `k` the number of gates before one reads `v` (`2 ^ n` if none
+does): ordered as `k` is. -/
+def Rest.nextUse (r : Rest) (v : Nat) : Nat :=
+  if v < Rest.packed then
+    let m := r.usesOf v
+    if m = 0 then 2 ^ r.n else m &&& (m ^^^ (m - 1))
+  else match r.gs.findIdx? (Rest.usesVar v) with
+    | some k => 2 ^ k
+    | none => 2 ^ r.n
+
 end VG.Impl.Aes.Circuit

@@ -1,9 +1,5 @@
 import VerifiedGarbage.Proof.X25519.Field
 import VerifiedGarbage.Proof.Framework.Omega
-import Mathlib.Data.ZMod.Defs
-import Mathlib.Algebra.BigOperators.Ring.Finset
-import Mathlib.Algebra.BigOperators.Group.Finset.Sigma
-import Mathlib.Tactic.Ring
 
 /-!
 # X25519 on AArch64: field elements as fifteen 17-bit limbs
@@ -52,89 +48,124 @@ theorem valN_lt {f : Nat → Nat} {n : Nat} (h : ∀ i < n, f i < 2 ^ 17) : valN
 
 /-! ## Products -/
 
-section
-open Fin.CommRing
-
-/-- `2¹⁷` in the field. -/
-abbrev X : Fe := 2 ^ 17
-
-theorem X_pow_15 : X ^ 15 = 19 := by decide
-
-theorem toFe_eq_cast (x : Nat) : toFe x = (x : Fe) := rfl
-
-theorem cast_valN (f : Nat → Nat) (n : Nat) :
-    ((valN f n : Nat) : Fe) = ∑ i ∈ Finset.range n, (f i : Fe) * X ^ i := by
+theorem valN_mul (c : Nat) (f : Nat → Nat) (n : Nat) : valN (fun i => f i * c) n = c * valN f n := by
   induction n with
-  | zero => simp [valN]
-  | succ n ih => rw [valN, Finset.sum_range_succ, ← ih]; push_cast; rw [pow_mul]
+  | zero => rfl
+  | succ n ih => simp only [valN, ih, Nat.mul_add]; rw [Nat.mul_comm (f n) c, Nat.mul_assoc]
 
-/-- The coefficient of `aᵢ` in column `k`: `b_{k-i}`, or `19 b_{k+15-i}` for a
-product that folds. -/
-def coef (g : Nat → Nat) (k i : Nat) : Nat := if i ≤ k then g (k - i) else 19 * g (k + 15 - i)
+theorem valN_add (f g : Nat → Nat) (n : Nat) : valN (fun i => f i + g i) n = valN f n + valN g n := by
+  induction n with
+  | zero => rfl
+  | succ n ih => simp only [valN, ih, Nat.add_mul]; omega
 
-/-- Multiplying by `2^(17 i)` rotates the limbs, folding the top ones back as
-19 times them. -/
-theorem row (g : Nat → Nat) {i : Nat} (hi : i < 15) :
-    X ^ i * ∑ j ∈ Finset.range 15, (g j : Fe) * X ^ j =
-      ∑ k ∈ Finset.range 15, (coef g k i : Fe) * X ^ k := by
-  induction i with
-  | zero => simp [coef]
-  | succ i ih =>
-    rw [pow_succ, mul_comm (X ^ i) X, mul_assoc, ih (by omega), Finset.mul_sum,
-      Finset.sum_range_succ, Finset.sum_range_succ' _ 14]
-    have h14 : (coef g 14 i : Fe) = g (14 - i) := by
-      simp only [coef, show i ≤ 14 by omega, ite_true]
-    have h0 : (coef g 0 (i + 1) : Fe) = 19 * g (14 - i) := by
-      simp only [coef, show ¬ i + 1 ≤ 0 by omega, ite_false, show 0 + 15 - (i + 1) = 14 - i by omega]
-      push_cast; rfl
-    have hk : ∀ k ∈ Finset.range 14, X * ((coef g k i : Fe) * X ^ k) =
-        (coef g (k + 1) (i + 1) : Fe) * X ^ (k + 1) := by
-      intro k _
-      have : coef g (k + 1) (i + 1) = coef g k i := by
-        simp only [coef]
-        by_cases h : i ≤ k
-        · rw [ite_eq_left (by omega : i + 1 ≤ k + 1), ite_eq_left h, show k + 1 - (i + 1) = k - i by omega]
-        · rw [ite_eq_right (by omega : ¬ i + 1 ≤ k + 1), ite_eq_right h, show k + 1 + 15 - (i + 1) = k + 15 - i by omega]
-      rw [this, pow_succ]; ring
-    rw [Finset.sum_congr rfl hk, h14, h0, show X * ((g (14 - i) : Fe) * X ^ 14) = g (14 - i) * X ^ 15 by
-      ring, X_pow_15]
-    ring
+theorem valN_add_split (h : Nat → Nat) (a : Nat) :
+    ∀ b, valN h (a + b) = valN h a + 2 ^ (17 * a) * valN (fun j => h (a + j)) b
+  | 0 => by rw [Nat.add_zero, valN, Nat.mul_zero, Nat.add_zero]
+  | b + 1 => by
+    rw [← Nat.add_assoc, valN, valN_add_split h a b, valN, show 17 * (a + b) = 17 * a + 17 * b by omega,
+      Nat.pow_add]
+    generalize 2 ^ (17 * a) = A
+    generalize 2 ^ (17 * b) = C
+    grind
+
+theorem valN_zero {h : Nat → Nat} : ∀ {n}, (∀ k < n, h k = 0) → valN h n = 0
+  | 0, _ => rfl
+  | n + 1, hz => by rw [valN, valN_zero fun k hk => hz k (by omega), hz n (by omega), Nat.zero_mul]
+
+/-- `Σ_{i < n} t i`. -/
+def sumR (t : Nat → Nat) : Nat → Nat
+  | 0 => 0
+  | n + 1 => sumR t n + t n
+
+theorem sumR_congr {t u : Nat → Nat} {n : Nat} (h : ∀ i < n, t i = u i) : sumR t n = sumR u n := by
+  induction n with
+  | zero => rfl
+  | succ n ih => rw [sumR, sumR, ih fun i hi => h i (by omega), h n (by omega)]
+
+theorem sumR_zero {t : Nat → Nat} : ∀ {n}, (∀ i < n, t i = 0) → sumR t n = 0
+  | 0, _ => rfl
+  | n + 1, hz => by rw [sumR, sumR_zero fun i hi => hz i (by omega), hz n (by omega)]
+
+theorem sumR_split (t : Nat → Nat) (a : Nat) :
+    ∀ b, sumR t (a + b) = sumR t a + sumR (fun j => t (a + j)) b
+  | 0 => rfl
+  | b + 1 => by rw [← Nat.add_assoc, sumR, sumR_split t a b, sumR, Nat.add_assoc]
 
 /-- The products of column `k` that do not fold. -/
-def lo (f g : Nat → Nat) (k : Nat) : Nat := ∑ i ∈ Finset.range (k + 1), f i * g (k - i)
+def lo (f g : Nat → Nat) (k : Nat) : Nat := sumR (fun i => f i * g (k - i)) (k + 1)
 
 /-- The products `f (k + 1 + j) · g (14 - j)` that fold into column `k`. -/
-def hi (f g : Nat → Nat) (k : Nat) : Nat := ∑ j ∈ Finset.range (14 - k), f (k + 1 + j) * g (14 - j)
+def hi (f g : Nat → Nat) (k : Nat) : Nat := sumR (fun j => f (k + 1 + j) * g (14 - j)) (14 - k)
 
-theorem column (f g : Nat → Nat) {k : Nat} (hk : k < 15) :
-    ∑ i ∈ Finset.range 15, f i * coef g k i = lo f g k + 19 * hi f g k := by
-  rw [show 15 = (k + 1) + (14 - k) by omega, Finset.sum_range_add, lo, hi, Finset.mul_sum]
-  congr 1
-  · refine Finset.sum_congr rfl fun i hi => ?_
-    simp only [coef, show i ≤ k by simp at hi; omega, ite_true]
-  · refine Finset.sum_congr rfl fun j hj => ?_
-    simp only [coef, show ¬ k + 1 + j ≤ k by omega, ite_false]
-    rw [show k + 15 - (k + 1 + j) = 14 - j by omega]
-    ring
+/-- Row `n`'s product in column `k`: `f n · g (k - n)`, if `g` has a limb there. -/
+def term (f g : Nat → Nat) (n k : Nat) : Nat := if n ≤ k ∧ k - n < 15 then f n * g (k - n) else 0
+
+theorem term_eq {f g : Nat → Nat} {n k : Nat} (h : n ≤ k ∧ k - n < 15) :
+    term f g n k = f n * g (k - n) := by
+  simp only [term, h, and_self, ite_true]
+
+theorem term_eq_zero {f g : Nat → Nat} {n k : Nat} (h : ¬ (n ≤ k ∧ k - n < 15)) : term f g n k = 0 := by
+  simp only [term, h, ite_false]
+
+/-- Column `k` of the first `n` rows. -/
+def colsum (f g : Nat → Nat) (n k : Nat) : Nat := sumR (fun i => term f g i k) n
+
+/-- Row `n` is `f n · 2^(17 n) · g`. -/
+theorem row_val (f g : Nat → Nat) {n : Nat} (hn : n ≤ 14) :
+    valN (term f g n) 29 = 2 ^ (17 * n) * (f n * valN g 15) := by
+  have z1 : valN (term f g n) n = 0 := valN_zero fun k hk => term_eq_zero (by omega)
+  have z2 : valN (fun j => term f g n (n + (15 + j))) (14 - n) = 0 :=
+    valN_zero fun k _ => term_eq_zero (by omega)
+  have e3 : valN (fun j => term f g n (n + j)) 15 = f n * valN g 15 := by
+    rw [valN_congr (g := fun j => g j * f n) fun j hj => by
+      rw [term_eq (by omega), Nat.add_sub_cancel_left, Nat.mul_comm], valN_mul]
+  rw [show 29 = n + (15 + (14 - n)) by omega, valN_add_split, valN_add_split (fun j => term f g n (n + j)),
+    z1, z2, e3, Nat.mul_zero, Nat.add_zero, Nat.zero_add]
+
+/-- Product scanning: `f · g` is the sum of its 29 columns. -/
+theorem prod_cols (f g : Nat → Nat) : ∀ n ≤ 15, valN f n * valN g 15 = valN (colsum f g n) 29
+  | 0, _ => by rw [valN, Nat.zero_mul]; exact (valN_zero fun _ _ => rfl).symm
+  | n + 1, hn => by
+    rw [valN, Nat.add_mul, prod_cols f g n (by omega), Nat.mul_comm (f n), Nat.mul_assoc,
+      ← row_val f g (by omega), ← valN_add]
+    rfl
+
+theorem colsum_lo (f g : Nat → Nat) {k : Nat} (hk : k < 15) : colsum f g 15 k = lo f g k := by
+  have e := sumR_split (fun i => term f g i k) (k + 1) (14 - k)
+  rw [show k + 1 + (14 - k) = 15 by omega,
+    sumR_zero (n := 14 - k) (t := fun j => term f g (k + 1 + j) k) fun j _ => term_eq_zero (by omega),
+    Nat.add_zero] at e
+  rw [colsum, e, lo]
+  exact sumR_congr fun i hi => term_eq (by omega)
+
+theorem colsum_hi (f g : Nat → Nat) {k : Nat} (hk : k < 14) :
+    colsum f g 15 (15 + k) = hi f g k := by
+  have e := sumR_split (fun i => term f g i (15 + k)) (k + 1) (14 - k)
+  rw [show k + 1 + (14 - k) = 15 by omega,
+    sumR_zero (n := k + 1) (t := fun i => term f g i (15 + k)) fun i hi => term_eq_zero (by omega),
+    Nat.zero_add] at e
+  rw [colsum, e, hi]
+  refine sumR_congr fun j hj => ?_
+  rw [term_eq (by omega), show 15 + k - (k + 1 + j) = 14 - j by omega]
+
+/-- The columns that do not fold, and `2²⁵⁵` times those that do. -/
+theorem product_eq (f g : Nat → Nat) :
+    valN f 15 * valN g 15 = valN (lo f g) 15 + 2 ^ 255 * valN (hi f g) 15 := by
+  have h15 : valN (hi f g) 15 = valN (hi f g) 14 := by
+    show valN (hi f g) 14 + hi f g 14 * 2 ^ (17 * 14) = _
+    rw [show hi f g 14 = 0 from rfl, Nat.zero_mul, Nat.add_zero]
+  rw [prod_cols f g 15 (Nat.le_refl _), show 29 = 15 + 14 from rfl, valN_add_split,
+    valN_congr fun k hk => colsum_lo f g hk, valN_congr fun k hk => colsum_hi f g hk, h15]
+
+theorem valN_lin (a b : Nat → Nat) (c n : Nat) :
+    valN (fun k => a k + c * b k) n = valN a n + c * valN b n := by
+  rw [valN_add, valN_congr (g := fun k => b k * c) fun k _ => Nat.mul_comm _ _, valN_mul]
 
 /-- The columns of the product of `f` and `g`, folded: a number congruent to
 the product. -/
 theorem product (f g : Nat → Nat) :
-    toFe (valN (fun k => lo f g k + 19 * hi f g k) 15) = toFe (valN f 15) * toFe (valN g 15) := by
-  simp only [toFe_eq_cast, cast_valN]
-  rw [Finset.sum_mul]
-  have e : ∀ i ∈ Finset.range 15, (f i : Fe) * X ^ i * ∑ j ∈ Finset.range 15, (g j : Fe) * X ^ j =
-      ∑ k ∈ Finset.range 15, (f i : Fe) * (coef g k i : Fe) * X ^ k := by
-    intro i hi
-    rw [mul_assoc, row g (by simpa using hi), Finset.mul_sum]
-    refine Finset.sum_congr rfl fun k _ => by ring
-  rw [Finset.sum_congr rfl e, Finset.sum_comm]
-  refine Finset.sum_congr rfl fun k hk => ?_
-  rw [← Finset.sum_mul, ← column f g (by simpa using hk)]
-  push_cast
-  rfl
-
-end
+    toFe (valN (fun k => lo f g k + 19 * hi f g k) 15) = toFe (valN f 15) * toFe (valN g 15) :=
+  toFe_mul (by rw [valN_lin, product_eq, fold255])
 
 /-! ## The product, as the code computes it -/
 
@@ -148,11 +179,10 @@ theorem prod_le {f g : Nat → Nat} (hf : Bnd f 26) (hg : Bnd g 26) {i j : Nat} 
     (hj : j < 15) : f i * g j ≤ 2 ^ 52 :=
   Nat.le_trans (Nat.mul_le_mul (Nat.le_of_lt (hf i hi)) (Nat.le_of_lt (hg j hj))) (by decide)
 
-theorem sum_le {t : Nat → Nat} {c : Nat} : ∀ n, (∀ i < n, t i ≤ c) →
-    ∑ i ∈ Finset.range n, t i ≤ n * c
-  | 0, _ => by simp
+theorem sum_le {t : Nat → Nat} {c : Nat} : ∀ n, (∀ i < n, t i ≤ c) → sumR t n ≤ n * c
+  | 0, _ => Nat.zero_le _
   | n + 1, h => by
-    rw [Finset.sum_range_succ, Nat.succ_mul]
+    rw [sumR, Nat.succ_mul]
     exact Nat.add_le_add (sum_le n fun i hi => h i (by omega)) (h n (by omega))
 
 theorem lo_le {f g : Nat → Nat} (hf : Bnd f 26) (hg : Bnd g 26) {k : Nat} (hk : k < 15) :
@@ -204,8 +234,8 @@ def carryF (f : Nat → Nat) : Nat → Nat := cstep 1 2 (cstep 0 1 (cfold (chain
 theorem valN_two {f g : Nat → Nat} {k n : Nat} (hn : k + 2 ≤ n) (hlo : ∀ i < k, g i = f i)
     (hhi : ∀ i, k + 1 < i → g i = f i) (h : g k + 2 ^ 17 * g (k + 1) = f k + 2 ^ 17 * f (k + 1)) :
     valN g n = valN f n := by
-  induction n, hn using Nat.le_induction with
-  | base =>
+  induction hn with
+  | refl =>
     simp only [valN]
     rw [valN_congr hlo, show 17 * (k + 1) = 17 * k + 17 by omega, Nat.pow_add]
     have e : g k * 2 ^ (17 * k) + g (k + 1) * (2 ^ (17 * k) * 2 ^ 17) =
@@ -215,7 +245,7 @@ theorem valN_two {f g : Nat → Nat} {k n : Nat} (hn : k + 2 ≤ n) (hlo : ∀ i
         (f k + 2 ^ 17 * f (k + 1)) * 2 ^ (17 * k) := by
       rw [Nat.add_mul, Nat.mul_comm (2 ^ 17), Nat.mul_assoc, Nat.mul_comm (2 ^ 17)]
     rw [Nat.add_assoc, e, h, ← e', ← Nat.add_assoc]
-  | succ n hn ih => rw [valN, valN, ih, hhi n (by omega)]
+  | @step n hn ih => rw [valN, valN, ih, hhi n (Nat.lt_of_lt_of_le (Nat.lt_succ_self _) hn)]
 
 theorem cstep_val {f : Nat → Nat} {k : Nat} (hk : k + 2 ≤ 15)
     (h : f (k + 1) + f k / 2 ^ 17 < 2 ^ 64) : valN (cstep k (k + 1) f) 15 = valN f 15 := by
@@ -282,7 +312,7 @@ theorem cfold_val {f : Nat → Nat} (h : f 0 + f 14 / 2 ^ 17 * 19 < 2 ^ 64) :
   rw [toFe_add rfl, toFe_add rfl,
     toFe_congr (by have := fold255 0 (f 14 / 2 ^ 17); rwa [Nat.zero_add, Nat.zero_add] at this :
       2 ^ 255 * (f 14 / 2 ^ 17) % P = 19 * (f 14 / 2 ^ 17) % P)] at e'
-  exact add_right_cancel e'
+  grind
 
 theorem cfold_beyond {f : Nat → Nat} {i : Nat} (hi : 15 ≤ i) : cfold f i = f i := by
   simp only [cfold, show i ≠ 14 by omega, show i ≠ 0 by omega, ite_false]
@@ -359,11 +389,6 @@ def scaleF (f : Nat → Nat) (k : Nat) : Nat := if k < 15 then f k * 121665 % 2 
 
 def mulSmallF (f : Nat → Nat) : Nat → Nat := carryF (scaleF f)
 
-theorem valN_mul (c : Nat) (f : Nat → Nat) (n : Nat) : valN (fun i => f i * c) n = c * valN f n := by
-  induction n with
-  | zero => rfl
-  | succ n ih => simp only [valN, ih, Nat.mul_add]; rw [Nat.mul_comm (f n) c, Nat.mul_assoc]
-
 theorem mulSmallF_spec {f : Nat → Nat} (hf : Bnd f 26) :
     Bnd (mulSmallF f) 18 ∧ toFe (val15 (mulSmallF f)) = a24 * toFe (val15 f) := by
   have hs : ∀ k < 15, scaleF f k = f k * 121665 := fun k hk => by
@@ -379,11 +404,6 @@ theorem mulSmallF_spec {f : Nat → Nat} (hf : Bnd f 26) :
 
 /-- The sum, as `add` computes it. -/
 def addF (f g : Nat → Nat) (k : Nat) : Nat := if k < 15 then (f k + g k) % 2 ^ 64 else 0
-
-theorem valN_add (f g : Nat → Nat) (n : Nat) : valN (fun i => f i + g i) n = valN f n + valN g n := by
-  induction n with
-  | zero => rfl
-  | succ n ih => simp only [valN, ih, Nat.add_mul]; omega
 
 theorem addF_spec {f g : Nat → Nat} {a b : Nat} (hf : Bnd f a) (hg : Bnd g b) (ha : a ≤ 62)
     (hb : b ≤ a) : Bnd (addF f g) (a + 1) ∧ toFe (val15 (addF f g)) = toFe (val15 f) + toFe (val15 g) := by
