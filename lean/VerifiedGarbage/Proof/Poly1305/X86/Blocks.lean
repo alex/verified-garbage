@@ -2193,7 +2193,7 @@ theorem okStep_ok {st : BitVec 32} {blk : Bool} {rs : List Reg} {S : List Nat} {
     rename_i hd
     refine ⟨execMul q s, rfl, ⟨fun r hr => Taint.execMul_gpr q s (fun e => hr (e ▸ hd.1))
       (fun e => hr (e ▸ hd.2)), rfl, rfl, Frame.refl _ _, fun _ _ _ => rfl⟩, fun _ => rfl⟩
-  | bswap | movzx8 | store8 | push | pop | movdquLoad | movdquStore | xop =>
+  | bswap | movzx8 | store8 | push | pop | alloc | free | movdquLoad | movdquStore | xop =>
     simp only [okStep, reduceCtorEq] at h
 
 /-- A block that `okList` accepts runs, whatever the values. -/
