@@ -2,8 +2,9 @@
 //!
 //! Key expansion and ECB encryption/decryption use verified primitives.
 //! Each operation accepts complete eight-byte blocks, including empty input.
-//! On x86-64 with AVX2, ECB runs 256 blocks at a time while that many are
-//! left (`Backend::Avx2`); elsewhere, and for the rest, 64 at a time.
+//! On x86-64 with AVX-512F, ECB runs 512 blocks at a time while that many
+//! are left (`Backend::Avx512`), and with AVX2, 256 (`Backend::Avx2`);
+//! elsewhere, and for the rest, 64 at a time.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -14,8 +15,10 @@
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::triple_des::{
-    VG_TRIPLE_DES_ECB_DECRYPT_AVX2_FEATURES, VG_TRIPLE_DES_ECB_ENCRYPT_AVX2_FEATURES,
-    vg_triple_des_ecb_decrypt_avx2, vg_triple_des_ecb_encrypt_avx2,
+    VG_TRIPLE_DES_ECB_DECRYPT_AVX2_FEATURES, VG_TRIPLE_DES_ECB_DECRYPT_AVX512_FEATURES,
+    VG_TRIPLE_DES_ECB_ENCRYPT_AVX2_FEATURES, VG_TRIPLE_DES_ECB_ENCRYPT_AVX512_FEATURES,
+    vg_triple_des_ecb_decrypt_avx2, vg_triple_des_ecb_decrypt_avx512,
+    vg_triple_des_ecb_encrypt_avx2, vg_triple_des_ecb_encrypt_avx512,
 };
 use crate::arch::triple_des::{
     vg_triple_des_ecb_decrypt, vg_triple_des_ecb_encrypt, vg_triple_des_expand_key,
@@ -31,6 +34,9 @@ pub(crate) enum Backend {
     /// AVX2, 256 blocks at a time.
     #[cfg(target_arch = "x86_64")]
     Avx2,
+    /// AVX-512F, 512 blocks at a time.
+    #[cfg(target_arch = "x86_64")]
+    Avx512,
 }
 
 impl Backend {
@@ -38,6 +44,11 @@ impl Backend {
     #[cfg(target_arch = "x86_64")]
     pub(crate) fn select(f: Features) -> Backend {
         if f.contains(Features::all(&[
+            VG_TRIPLE_DES_ECB_ENCRYPT_AVX512_FEATURES,
+            VG_TRIPLE_DES_ECB_DECRYPT_AVX512_FEATURES,
+        ])) {
+            Backend::Avx512
+        } else if f.contains(Features::all(&[
             VG_TRIPLE_DES_ECB_ENCRYPT_AVX2_FEATURES,
             VG_TRIPLE_DES_ECB_DECRYPT_AVX2_FEATURES,
         ])) {
@@ -117,6 +128,10 @@ impl TripleDesEcb {
             (Backend::Avx2, true) => vg_triple_des_ecb_encrypt_avx2,
             #[cfg(target_arch = "x86_64")]
             (Backend::Avx2, false) => vg_triple_des_ecb_decrypt_avx2,
+            #[cfg(target_arch = "x86_64")]
+            (Backend::Avx512, true) => vg_triple_des_ecb_encrypt_avx512,
+            #[cfg(target_arch = "x86_64")]
+            (Backend::Avx512, false) => vg_triple_des_ecb_decrypt_avx512,
         };
         let mut scratch = [0u64; 128];
         // SAFETY: buffer contains complete eight-byte blocks, including zero
@@ -155,9 +170,19 @@ mod tests {
         #[cfg(target_arch = "x86_64")]
         {
             use crate::arch::triple_des::{
-                VG_TRIPLE_DES_ECB_DECRYPT_AVX2_FEATURES, VG_TRIPLE_DES_ECB_ENCRYPT_AVX2_FEATURES,
+                VG_TRIPLE_DES_ECB_DECRYPT_AVX2_FEATURES, VG_TRIPLE_DES_ECB_DECRYPT_AVX512_FEATURES,
+                VG_TRIPLE_DES_ECB_ENCRYPT_AVX2_FEATURES, VG_TRIPLE_DES_ECB_ENCRYPT_AVX512_FEATURES,
             };
             use crate::cpu::Features;
+            assert_eq!(
+                Backend::select(Features::all(&[
+                    VG_TRIPLE_DES_ECB_ENCRYPT_AVX512_FEATURES,
+                    VG_TRIPLE_DES_ECB_DECRYPT_AVX512_FEATURES,
+                    VG_TRIPLE_DES_ECB_ENCRYPT_AVX2_FEATURES,
+                    VG_TRIPLE_DES_ECB_DECRYPT_AVX2_FEATURES
+                ])),
+                Backend::Avx512
+            );
             assert_eq!(
                 Backend::select(Features::all(&[
                     VG_TRIPLE_DES_ECB_ENCRYPT_AVX2_FEATURES,
