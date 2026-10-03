@@ -513,7 +513,7 @@ jobs:
             # PCLMULQDQ's together (and AES-CMAC's AES-NI functions), which a
             # runner with VAES and VPCLMULQDQ never chooses.
             runs: |
-              - | sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 triple_des_ecb poly1305 mlkem mldsa scrypt x25519 x448 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+              - | sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 triple_des_ecb poly1305 mlkem mldsa scrypt x25519 x448 ed25519 rsa message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
               aes,ssse3 | aes_gcm cmac cpu
               pclmulqdq,ssse3 | aes_gcm cpu
               aes,pclmulqdq,ssse3 | aes_gcm cpu
@@ -536,7 +536,7 @@ jobs:
             arch: x86_64
             runs: |
               - | sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 triple_des_ecb poly1305 mlkem mldsa scrypt x25519 x448 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
-              bmi2,adx | ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+              bmi2,adx | rsa ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           # AVX2, but not AVX-512F or ADX.
           - chip: hsw
             arch: x86_64
