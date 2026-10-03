@@ -179,9 +179,9 @@ theorem negMask (x : BitVec 64) {sb : Nat} (hsb : sb < 2) :
 /-- The mask of `x`'s low bit differing from the sign bit, and the OR of `x`'s words. -/
 theorem signA_ok {s : State} {base : Addr} (hs : Scr s base) {sb : Nat} (hsb : word s.mem base SIGN = BitVec.ofNat 64 sb)
     (hsb2 : sb < 2) :
-    WP isa (.block ([.mov .rcx (.reg .r8), .alu .and .rcx (.imm 1), .mov .rax (.mem (sc SIGN)),
+    WP isa (.block (([.mov .rcx (.reg .r8), .alu .and .rcx (.imm 1), .mov .rax (.mem (sc SIGN)),
       .alu .xor .rcx (.reg .rax), .mov32 .rdx (.imm 0), .alu .sub .rdx (.reg .rcx), .store (sc NEG) .rdx,
-      .mov .rdx (.reg .r8)] ++ (List.range 6).map (fun i => Instr.alu .or .rdx (.reg (w (i + 1)))))) s fun t =>
+      .mov .rdx (.reg .r8)] : List Instr) ++ (List.range 6).map (fun i => Instr.alu .or .rdx (.reg (w (i + 1)))))) s fun t =>
       t.mem = s.mem.writeW (off base NEG)
         (VG.Proof.X448.X86_64.mask (decide ((s.gpr .r8).toNat % 2 ≠ sb))) ∧
       t.gpr .rax = BitVec.ofNat 64 sb ∧

@@ -65,16 +65,16 @@ def vcompare : List FOp := doubleAt 0 1 2 ++ doubleAt 0 1 2 ++ doubleAt 8 9 10 +
 
 /-- The slots after `vcompare` and the first products: `[4]Q` and `[4]R`, `X_Q Z_R` and `X_R Z_Q`. -/
 theorem compare_eval (e : Env) :
-    pt (evalOps (vcompare ++ [.mul 12 0 10, .mul 13 8 2]) e) 0 1 2 =
+    pt (evalOps (vcompare ++ ([.mul 12 0 10, .mul 13 8 2] : List FOp)) e) 0 1 2 =
       Proof.Ed448.double (Proof.Ed448.double (pt e 0 1 2)) ∧
-    pt (evalOps (vcompare ++ [.mul 12 0 10, .mul 13 8 2]) e) 8 9 10 =
+    pt (evalOps (vcompare ++ ([.mul 12 0 10, .mul 13 8 2] : List FOp)) e) 8 9 10 =
       Proof.Ed448.double (Proof.Ed448.double (pt e 8 9 10)) ∧
-    evalOps (vcompare ++ [.mul 12 0 10, .mul 13 8 2]) e 12 =
-      evalOps (vcompare ++ [.mul 12 0 10, .mul 13 8 2]) e 0 *
-        evalOps (vcompare ++ [.mul 12 0 10, .mul 13 8 2]) e 10 ∧
-    evalOps (vcompare ++ [.mul 12 0 10, .mul 13 8 2]) e 13 =
-      evalOps (vcompare ++ [.mul 12 0 10, .mul 13 8 2]) e 8 *
-        evalOps (vcompare ++ [.mul 12 0 10, .mul 13 8 2]) e 2 := by
+    evalOps (vcompare ++ ([.mul 12 0 10, .mul 13 8 2] : List FOp)) e 12 =
+      evalOps (vcompare ++ ([.mul 12 0 10, .mul 13 8 2] : List FOp)) e 0 *
+        evalOps (vcompare ++ ([.mul 12 0 10, .mul 13 8 2] : List FOp)) e 10 ∧
+    evalOps (vcompare ++ ([.mul 12 0 10, .mul 13 8 2] : List FOp)) e 13 =
+      evalOps (vcompare ++ ([.mul 12 0 10, .mul 13 8 2] : List FOp)) e 8 *
+        evalOps (vcompare ++ ([.mul 12 0 10, .mul 13 8 2] : List FOp)) e 2 := by
   rw [evalOps_append]
   have h4 : ∀ (ec : Env) (i : Index), i.val < 3 ∨ (8 ≤ i.val ∧ i.val < 11) →
       evalOps [.mul 12 0 10, .mul 13 8 2] ec i = ec i := fun ec i hi =>
