@@ -12,7 +12,8 @@
     target_arch = "x86_64",
     target_arch = "aarch64",
     target_arch = "arm",
-    target_arch = "x86"
+    target_arch = "x86",
+    all(target_arch = "powerpc64", target_endian = "little")
 ))]
 
 use crate::hashes::HashFunction;
@@ -116,7 +117,8 @@ impl<H: HmacHash> Hmac<H> {
     target_arch = "x86_64",
     target_arch = "aarch64",
     target_arch = "arm",
-    target_arch = "x86"
+    target_arch = "x86",
+    all(target_arch = "powerpc64", target_endian = "little")
 ))]
 #[doc(hidden)]
 #[derive(Clone)]
@@ -129,7 +131,8 @@ pub struct StreamingHmacState<H, const S: usize> {
     target_arch = "x86_64",
     target_arch = "aarch64",
     target_arch = "arm",
-    target_arch = "x86"
+    target_arch = "x86",
+    all(target_arch = "powerpc64", target_endian = "little")
 ))]
 impl<H, const S: usize> Drop for StreamingHmacState<H, S> {
     /// Wipes the outer state, which represents `K₀ ⊕ opad` (the inner hash
@@ -159,7 +162,8 @@ impl<H, const S: usize> Drop for StreamingHmacState<H, S> {
     target_arch = "x86_64",
     target_arch = "aarch64",
     target_arch = "arm",
-    target_arch = "x86"
+    target_arch = "x86",
+    all(target_arch = "powerpc64", target_endian = "little")
 ))]
 macro_rules! streaming_hmac {
     (
@@ -281,7 +285,8 @@ macro_rules! streaming_hmac {
     target_arch = "x86_64",
     target_arch = "aarch64",
     target_arch = "arm",
-    target_arch = "x86"
+    target_arch = "x86",
+    all(target_arch = "powerpc64", target_endian = "little")
 ))]
 use streaming_hmac;
 
