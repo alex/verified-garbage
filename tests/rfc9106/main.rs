@@ -1,7 +1,7 @@
 //! Published RFC 9106 vectors, read from the unmodified RFC, and API boundaries.
 
 #![cfg(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
+    any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"),
     feature = "alloc"
 ))]
 
@@ -149,12 +149,14 @@ fn memory_limit() {
         derive(&p, b"", b"", blocks * 1024, &mut out).unwrap();
         assert_ne!(out, [0xa5; 4]);
     }
-    // The largest matrix, almost 4 TiB, is refused before it is allocated.
+    // The largest matrix, almost 4 TiB, is refused before it is allocated
+    // (on a 32-bit target, its size does not fit in a `usize`).
     let mut out = [0xa5; 4];
     let largest = params(Variant::Argon2id, 1, u32::MAX, 1);
-    let bytes = (u32::MAX as usize & !3) * 1024;
+    let bytes = (u64::from(u32::MAX) & !3) * 1024;
+    let limit = usize::try_from(bytes - 1).unwrap_or(usize::MAX);
     assert_eq!(
-        derive(&largest, b"", b"", bytes - 1, &mut out),
+        derive(&largest, b"", b"", limit, &mut out),
         Err(Error::MemoryLimitExceeded)
     );
     assert_eq!(out, [0xa5; 4]);

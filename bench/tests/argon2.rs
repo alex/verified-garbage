@@ -1,7 +1,7 @@
 //! Differential complete derivations against OpenSSL, including H′ boundaries.
 
 #![cfg(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
+    any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"),
     feature = "openssl-argon2"
 ))]
 
