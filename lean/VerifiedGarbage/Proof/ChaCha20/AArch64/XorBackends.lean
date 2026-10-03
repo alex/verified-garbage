@@ -14,6 +14,7 @@ def scalar : XorImpl where
   ok := Xor.xor_correct BlockImpl.scalar
   ct := Xor.xor_ct BlockImpl.scalar
   noFrames := BlockImpl.scalar.xorNoFrames
+  stitched := false
   sealTaint := ⟨_, by taint_decide⟩
   openTaint := ⟨_, by taint_decide⟩
 
@@ -25,6 +26,7 @@ def neon : XorImpl where
   ok := Mixed8.xor_correct
   ct := Mixed8.xor_ct
   noFrames := Mixed8.xor_noFrames
+  stitched := true
   sealTaint := ⟨_, by taint_decide⟩
   openTaint := ⟨_, by taint_decide⟩
 
