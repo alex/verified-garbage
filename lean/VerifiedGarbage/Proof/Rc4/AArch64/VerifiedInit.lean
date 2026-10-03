@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Rc4.AArch64.Lit
 import VerifiedGarbage.Proof.Rc4.AArch64.Init
+import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Proof.Rc4.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Rc4.Contract
@@ -20,7 +21,7 @@ theorem init_verified : Verified AArch64.target VG.Impl.Rc4.AArch64.init
   refine ⟨?_, ?_, ?_⟩
   · intro s hs
     sig_pre [Spec.Rc4.initContract, Spec.Rc4.initSig, AArch64.abi, AArch64.argRegs] at hs
-    obtain ⟨hrd, hwr, hsep, _⟩ := hs
+    obtain ⟨hrd, hwr, _, _⟩ := hs
     have hp : InRegions s.wr (s.gpr .x2) 258 := by
       refine ⟨⟨s.gpr .x2, 258⟩, ?_, ?_⟩
       · rw [hwr]; exact List.mem_cons_self
@@ -29,11 +30,9 @@ theorem init_verified : Verified AArch64.target VG.Impl.Rc4.AArch64.init
       refine ⟨⟨s.gpr .x0, (s.gpr .x1).toNat⟩, ?_, ?_⟩
       · rw [hrd]; exact List.mem_append_left _ (List.mem_singleton_self _)
       · simp [Region.Contains]
-    have hsep' : Mem.Sep (s.gpr .x0) (s.gpr .x1).toNat (s.gpr .x2) 256 :=
-      hsep.sep (by simp [Region.Contains]) (by simp [Region.Contains])
-    have hw := WP.gprs (rs := preserved) (init_ok s hp hk hsep') (by lit_decide) (by rfl)
-    obtain ⟨tr, t, he, hpost, hregs⟩ := hw
-    refine ⟨tr, t, he, ⟨hregs, Exec.sp he, Exec.preservedV he⟩, ?_⟩
+    have hw := WP.gprs (rs := preserved) (init_ok s hp hk) (by lit_decide) (by rfl)
+    obtain ⟨tr, t, he, ⟨hpost, hv⟩, hregs⟩ := hw
+    refine ⟨tr, t, he, ⟨hregs, Exec.sp he, hv⟩, ?_⟩
     sig_post [Spec.Rc4.initContract, Spec.Rc4.initSig, AArch64.abi, AArch64.argRegs]
     cases hc : Spec.Rc4.init (Spec.Rc4.bytesAt s.mem (s.gpr .x0) (s.gpr .x1).toNat) with
     | ok ctx =>

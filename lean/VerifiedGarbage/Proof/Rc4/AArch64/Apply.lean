@@ -1,92 +1,100 @@
-import VerifiedGarbage.Proof.Rc4.AArch64.ApplyLoop
+import VerifiedGarbage.Proof.Rc4.AArch64.ApplyFinish
+import VerifiedGarbage.TCB.AArch64.Target
+
+/-!
+# The PRGA
+
+`apply_ok`: `vg_rc4_apply` XORs the next `len` keystream bytes into the
+data and leaves the context `len` steps on, preserving the low halves of
+`v8`–`v15`.
+-/
 
 namespace VG.Proof.Rc4.AArch64
-open VG VG.AArch64 VG.Impl.Rc4.AArch64 VG.Spec.Rc4 VG.Proof.Rc4 RegUpd
+open VG VG.AArch64 VG.AArch64.RegUpd VG.Impl.Rc4.AArch64 VG.Spec.Rc4 VG.Proof.Rc4
 
-theorem apply_finish (s : State) (ctx : Context) (d : Addr) (n : Nat) (hn : n < 2 ^ 64)
-    (htable : (contextAt s.mem (s.gpr .x0)).table = ctx.table)
-    (hi : s.gpr .x12 = ctx.i.setWidth 64) (hj : s.gpr .x13 = ctx.j.setWidth 64)
-    (hp : InRegions s.wr (s.gpr .x0) 258)
-    (hs : Mem.Sep d n (s.gpr .x0) 258) :
-    WP isa (.block [.strb .x12 .x0 256, .strb .x13 .x0 257]) s fun t =>
-      contextAt t.mem (s.gpr .x0) = ctx ∧ bytesAt t.mem d n = bytesAt s.mem d n := by
-  have h256 := region_offset _ _ _ 256 1 (by decide) (by decide) hp
-  have h257 := region_offset _ _ _ 257 1 (by decide) (by decide) hp
-  have hc (x : Byte) : ((x.setWidth 64).setWidth 32).setWidth 8 = x := by bv_omega
-  rrun [State.store, h256, h257, hi, hj, hc]
-  constructor
-  · rw [context_finish, htable]
-  · rw [bytes_write_sep _ _ _ _ _ hn (sep_offset_right hs (by decide) (by decide)),
-      bytes_write_sep _ _ _ _ _ hn (sep_offset_right hs (by decide) (by decide))]
+theorem stepN_i (c : Context) (n : Nat) : (stepN c n).i = c.i + BitVec.ofNat 8 n := by
+  induction n with
+  | zero => exact (BitVec.add_zero _).symm
+  | succ n ih =>
+    show (stepN c n).i + 1 = _
+    rw [ih, BitVec.add_assoc]
+    congr 1
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_add, BitVec.toNat_ofNat, show (1 : BitVec 8).toNat = 1 from rfl]
+    omega
 
-theorem apply_start (s : State) (hp : InRegions (s.rd ++ s.wr) (s.gpr .x0) 258) :
-    WP isa (.block [.ldrb .x12 .x0 256, .ldrb .x13 .x0 257, .movz .x .x9 255 0]) s fun t =>
-      t.mem = s.mem ∧ t.rd = s.rd ∧ t.wr = s.wr ∧
-      t.gpr .x0 = s.gpr .x0 ∧ t.gpr .x1 = s.gpr .x1 ∧ t.gpr .x2 = s.gpr .x2 ∧
-      t.gpr .x12 = (contextAt s.mem (s.gpr .x0)).i.setWidth 64 ∧
-      t.gpr .x13 = (contextAt s.mem (s.gpr .x0)).j.setWidth 64 ∧ t.gpr .x9 = 255#64 := by
-  have h256 := region_offset _ _ _ 256 1 (by decide) (by decide) hp
-  have h257 := region_offset _ _ _ 257 1 (by decide) (by decide) hp
-  have hc (x : Byte) : (x.setWidth 32).setWidth 64 = x.setWidth 64 :=
-    BitVec.setWidth_setWidth (by decide)
-  rrun [h256, h257, read_byte, hc, contextAt]
+theorem final_i (i : BitVec 8) (x : BitVec 64) :
+    (i.setWidth 64 + x).setWidth 8 = i + BitVec.ofNat 8 x.toNat := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_setWidth, BitVec.toNat_add, BitVec.toNat_ofNat]
+  have := i.isLt
+  omega
+
+theorem saved_kept : ∀ p ∈ saved true, p.2 ≠ .x1 ∧ p.2 ≠ .x2 ∧ p.2 ≠ .x5 ∧ p.2 ≠ .x6 ∧
+    p.2 ≠ .x7 ∧ p.2 ≠ .x8 := by decide
+
+theorem saved_v : ∀ r ∈ preservedV, r = .v15 ∨ ∃ p ∈ saved true, p.1 = r := by decide
 
 theorem apply_ok (s : State)
     (hp : InRegions s.wr (s.gpr .x0) 258)
-    (hd : InRegions s.wr (s.gpr .x1) (s.gpr .x2).toNat)
+    (hd : (⟨s.gpr .x1, (s.gpr .x2).toNat⟩ : Region) ∈ s.wr)
     (hs : Mem.Sep (s.gpr .x0) 258 (s.gpr .x1) (s.gpr .x2).toNat) :
     WP isa VG.Impl.Rc4.AArch64.apply s fun t =>
       let result := update (contextAt s.mem (s.gpr .x0)) (bytesAt s.mem (s.gpr .x1) (s.gpr .x2).toNat)
-      contextAt t.mem (s.gpr .x0) = result.1 ∧ bytesAt t.mem (s.gpr .x1) (s.gpr .x2).toNat = result.2 := by
-  unfold VG.Impl.Rc4.AArch64.apply
-  refine WP.ite (s.gpr .x2 == 0#64) (by simp only [eval, State.read, BitVec.setWidth_eq]; rfl)
-    (fun hz => ?_) (fun hnz => ?_)
-  · have hz' : s.gpr .x2 = 0#64 := beq_iff_eq.mp hz
-    refine WP.block_nil ?_
-    simp only [hz']
+      (contextAt t.mem (s.gpr .x0) = result.1 ∧
+        bytesAt t.mem (s.gpr .x1) (s.gpr .x2).toNat = result.2) ∧
+      ∀ r ∈ preservedV, (t.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64 := by
+  unfold VG.Impl.Rc4.AArch64.apply applyRest
+  have hN := (s.gpr .x2).isLt
+  have x2 : s.gpr .x2 = BitVec.ofNat 64 (s.gpr .x2).toNat := by
+    rw [BitVec.ofNat_toNat, BitVec.setWidth_eq]
+  apply WP.ite _ (eval_zero' s .x2 x2 hN)
+  · intro hz
+    have h0 : (s.gpr .x2).toNat = 0 := by simpa using hz
+    refine WP.block_nil ⟨?_, fun _ _ => rfl⟩
+    rw [h0]
     exact ⟨rfl, rfl⟩
-  · have hnz' : s.gpr .x2 ≠ 0#64 := beq_eq_false_iff_ne.mp hnz
-    have hn : 0 < (s.gpr .x2).toNat := by
-      by_contra h
-      have hz : (s.gpr .x2).toNat = 0 := by omega
-      exact hnz' (BitVec.eq_of_toNat_eq hz)
-    obtain ⟨n, hnEq⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : (s.gpr .x2).toNat ≠ 0)
-    change (s.gpr .x2).toNat = n + 1 at hnEq
-    have hbound : n + 1 < 2 ^ 64 := by rw [← hnEq]; exact (s.gpr .x2).isLt
-    have hpRead : InRegions (s.rd ++ s.wr) (s.gpr .x0) 258 := by
-      obtain ⟨region, hr, hc⟩ := hp
-      exact ⟨region, List.mem_append_right _ hr, hc⟩
-    refine WP.seq (WP.mono (apply_start s hpRead) fun a ha => ?_)
-    obtain ⟨ham, har, haw, ha0, ha1, ha2, ha12, ha13, ha9⟩ := ha
-    have hpa : InRegions a.wr (a.gpr .x0) 256 := by
-      rw [haw, ha0]
-      have hh := region_offset _ _ _ 0 256 (by decide) (by decide) hp
-      simpa only [BitVec.add_zero] using hh
-    have hda : InRegions a.wr (a.gpr .x1) (n + 1) := by rw [haw, ha1, ← hnEq]; exact hd
-    have hsa : Mem.Sep (a.gpr .x0) 256 (a.gpr .x1) (n + 1) := by
-      rw [ha0, ha1, ← hnEq]
-      exact fun x hx hy => hs x (by omega) hy
-    have htable : (contextAt a.mem (a.gpr .x0)).table = (contextAt s.mem (s.gpr .x0)).table := by rw [ham, ha0]
-    have hlen : a.gpr .x2 = BitVec.ofNat 64 (n + 1) := by
-      rw [ha2, ← hnEq, BitVec.ofNat_toNat, BitVec.setWidth_eq]
-    refine WP.seq (WP.mono (apply_loop n a (contextAt s.mem (s.gpr .x0)) hbound htable ha12 ha13 ha9 hlen hpa hda hsa)
-      fun b hb => ?_)
-    have hpb : InRegions b.wr (b.gpr .x0) 258 := by rw [hb.wr, hb.p, haw, ha0]; exact hp
-    have hsb : Mem.Sep (s.gpr .x1) (n + 1) (b.gpr .x0) 258 := by
-      rw [hb.p, ha0, ← hnEq]
-      exact sep_symm hs
-    have htab : (contextAt b.mem (b.gpr .x0)).table =
-        (update (contextAt s.mem (s.gpr .x0)) (bytesAt a.mem (a.gpr .x1) (n + 1))).1.table := by
-      rw [hb.p]; exact hb.table
-    refine WP.mono (apply_finish b _ (s.gpr .x1) (n + 1) (by omega) htab hb.i hb.j hpb hsb)
-      fun t ht => ?_
-    rw [hb.p, ha0] at ht
-    have hdata := hb.data
-    rw [ha1] at hdata
-    rw [ham, ha1] at ht
-    rw [ham] at hdata
-    dsimp only
-    rw [hnEq]
-    exact ⟨ht.1, ht.2.trans hdata⟩
+  intro hnz
+  have hpos : 0 < (s.gpr .x2).toNat := by simp at hnz; omega
+  refine WP.seq (WP.mono (WP.block_append_iff.mp (applySetup_ok hp)) fun _ h => WP.seq (WP.mono h
+    fun t ⟨hl, t4, t9, tsv, tg, t15, tm, trd, twr, tsp⟩ => ?_))
+  let g := glob s t
+  have hg : DataOk g := ⟨by show _ ∈ t.wr; rw [twr]; exact hd, hN⟩
+  refine WP.seq (WP.mono (loop_ok g hg _ ⟨_, 0, _, base0_mod _, rfl, hpos,
+    by have := sk0_lt (contextAt s.mem (s.gpr .x0)).i; omega, hl⟩) fun u ⟨B, sk, hB, hu⟩ => ?_)
+  have hdN : doneAt g g.N sk 0 = g.N := by simp only [doneAt]; omega
+  have hpr := hu.prga
+  have hdat := hu.data
+  rw [hdN] at hpr hdat
+  have u0 : u.gpr .x0 = s.gpr .x0 := by
+    rw [hu.kept.gpr _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)]
+    exact tg _ (by decide)
+  have hpu : InRegions u.wr (u.gpr .x0) 258 := by rw [hu.kept.wr, u0]; show InRegions t.wr _ _; rw [twr]; exact hp
+  have u9 : u.gpr .x9 = 255#64 := by
+    rw [hu.kept.gpr _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)]; exact t9
+  have u4 : (u.gpr .x4).setWidth 8 = (stepN g.c₀ g.N).i := by
+    rw [hu.kept.gpr _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)]
+    show (t.gpr .x4).setWidth 8 = _
+    rw [t4, final_i, stepN_i]; rfl
+  refine WP.mono (finish_ok hB hu.x8 u9 hpu hpr.table hpr.j u4)
+    fun w ⟨wc, wm, wsv, w15, _, _, _⟩ => ?_
+  refine ⟨⟨?_, ?_⟩, fun r hr => ?_⟩
+  · have wc' : contextAt w.mem (s.gpr .x0) = ⟨(stepN g.c₀ g.N).table, (stepN g.c₀ g.N).i,
+        (stepN g.c₀ g.N).j⟩ := by rw [← u0]; exact wc
+    rw [wc', update_fst, bytes_length]; rfl
+  · refine update_bytes _ _ _ _ _ fun k hk => ?_
+    have hsep : ¬ (s.gpr .x1 + BitVec.ofNat 64 k - u.gpr .x0).toNat < 258 := fun h => by
+      rw [u0] at h
+      refine hs _ h ?_
+      rw [Offset.add_sub_cancel_left, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+      exact hk
+    have hb : u.mem (g.D + BitVec.ofNat 64 k) = g.M₀ (g.D + BitVec.ofNat 64 k) ^^^ ks g.c₀ k :=
+      (hdat.bytes k hk).trans (ite_eq_left hk)
+    rw [wm _ hsep]; exact hb
+  · rcases saved_v r hr with rfl | ⟨p, hp, rfl⟩
+    · rw [w15, hu.vkept _ (by decide) (by decide)]; exact congrArg _ t15
+    · obtain ⟨a1, a2, a5, a6, a7, a8⟩ := saved_kept p hp
+      rw [wsv p hp, hu.kept.gpr _ a1 a2 a5 a6 a7 a8]
+      exact tsv p hp
 
 end VG.Proof.Rc4.AArch64
