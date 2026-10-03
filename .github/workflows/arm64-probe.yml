@@ -1,0 +1,76 @@
+name: arm64 probe (do not merge)
+
+# Temporary: tests and benchmarks the AArch64 ChaCha20-Poly1305 changes of
+# #641 on arm64 hardware, against #641's previous head and OpenSSL.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  BASE: 4b8885fb66966b3e274451c635d95793c5ded1e9
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    env:
+      WYCHEPROOF_ROOT: wycheproof
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: C2SP/wycheproof
+          path: wycheproof
+          persist-credentials: false
+      - run: rustup toolchain install stable --profile minimal
+      - run: cargo test --locked
+      - run: cargo test --locked --features cpu-features-env
+        env:
+          VG_CPU_FEATURES: none
+
+  bench:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        openssl: [system, "3.5.4"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: head
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.BASE }}
+          path: base
+          persist-credentials: false
+      - name: Install OpenSSL headers
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y --no-install-recommends libssl-dev openssl pkg-config
+      - name: Build OpenSSL ${{ matrix.openssl }}
+        if: ${{ matrix.openssl != 'system' }}
+        run: |
+          curl -sSL "https://github.com/openssl/openssl/releases/download/openssl-${{ matrix.openssl }}/openssl-${{ matrix.openssl }}.tar.gz" | tar xz
+          cd "openssl-${{ matrix.openssl }}"
+          ./Configure --prefix="$PWD/../ossl" --libdir=lib no-docs no-tests > /dev/null
+          make -j"$(nproc)" > /dev/null
+          make install_sw > /dev/null
+          echo "OPENSSL_DIR=$PWD/../ossl" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$PWD/../ossl/lib" >> "$GITHUB_ENV"
+      - name: CPU
+        run: |
+          python3 -c 'from pathlib import Path; print(Path("/proc/cpuinfo").read_text().split("\n\n", 1)[0])'
+          lscpu | head -20
+      - run: rustup toolchain install stable --profile minimal
+      - name: Benchmark #641's previous head and this head
+        run: |
+          echo "## OpenSSL ${{ matrix.openssl }}" >> "$GITHUB_STEP_SUMMARY"
+          python3 head/ci/bench_compare.py base head --modules "chacha20poly1305 chacha20 poly1305" \
+            --rounds 5 --threshold 100 --summary "$GITHUB_STEP_SUMMARY"
