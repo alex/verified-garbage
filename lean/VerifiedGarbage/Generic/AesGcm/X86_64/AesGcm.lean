@@ -20,8 +20,16 @@ Each function needs the CPU features of the implementations it calls:
 their `_aesni` or `_pclmul` instances are the baseline code under another
 name, which keeps every instance of a combination callable together).
 
-The stack is 8 bytes for every function: the return address of a call of
-`vg_aes_expand_key`, `vg_aes_ctr32` or `vg_ghash`, which make no calls.
+`seal` and `open` encrypt or decrypt and absorb the whole blocks of the
+data in one call of the instance of `vg_aes_gcm_encrypt_blocks` or
+`vg_aes_gcm_decrypt_blocks` for the same combination, which interleaves the
+two for the implementations that allow it (`GcmImpl.stitch`).
+
+The stack is 8 bytes for every function but `seal` and `open`: the return
+address of a call of `vg_aes_expand_key`, `vg_aes_ctr32` or `vg_ghash`, which
+make no calls. `seal` and `open` need 24: the argument they pass on the
+stack, the return address of their call of `vg_aes_gcm_encrypt_blocks` or
+`vg_aes_gcm_decrypt_blocks`, and that of its calls.
 -/
 
 namespace VG.Generic.AesGcm.X86_64.AesGcm
@@ -33,7 +41,37 @@ def note (v : GcmImpl) : String :=
   "This implementation encrypts with `" ++ v.ctr.callee.name ++ "` (and expands keys with `" ++
     v.key.fn.name ++ "`) and hashes with `" ++ v.gh.fn.name ++ "`."
 
+/-- How an instance of `vg_aes_gcm_encrypt_blocks` or `_decrypt_blocks` works. -/
+def blocksNote (v : GcmImpl) : String :=
+  if v.stitch then
+    "This implementation interleaves the AES rounds of 16 blocks at a time with GHASH's \
+      multiplications of the 16 blocks before them, from the powers of the hash subkey it \
+      computes in `scratch`, and handles the rest with `" ++ v.ctr.callee.name ++ "` and `" ++
+      v.gh.fn.name ++ "`."
+  else
+    "This implementation calls `" ++ v.ctr.callee.name ++ "` and `" ++ v.gh.fn.name ++ "`."
+
 def artifacts (v : GcmImpl) : List Artifact := [
+  { Spec.Gcm.encryptBlocksApi with
+    name := Spec.Gcm.encryptBlocksApi.name ++ v.suffix
+    target := X86_64.target
+    doc := Spec.Gcm.encryptBlocksApi.doc (notes := [blocksNote v])
+    code := v.callees.enc.code
+    contract := Spec.Gcm.encryptBlocksContract X86_64.abi 8
+    stack := 8
+    verified := encryptBlocks_verified v v.stitch
+    spSafe := encryptBlocks_spSafe v v.stitch
+    features := v.features },
+  { Spec.Gcm.decryptBlocksApi with
+    name := Spec.Gcm.decryptBlocksApi.name ++ v.suffix
+    target := X86_64.target
+    doc := Spec.Gcm.decryptBlocksApi.doc (notes := [blocksNote v])
+    code := v.callees.dec.code
+    contract := Spec.Gcm.decryptBlocksContract X86_64.abi 8
+    stack := 8
+    verified := decryptBlocks_verified v v.stitch
+    spSafe := decryptBlocks_spSafe v v.stitch
+    features := v.features },
   { Spec.Gcm.initApi with
     name := Spec.Gcm.initApi.name ++ v.suffix
     target := X86_64.target
@@ -49,8 +87,8 @@ def artifacts (v : GcmImpl) : List Artifact := [
     target := X86_64.target
     doc := Spec.Gcm.sealApi.doc (notes := [note v])
     code := Impl.AesGcm.X86_64.«seal» v.callees
-    contract := Spec.Gcm.sealContract X86_64.abi 8
-    stack := 8
+    contract := Spec.Gcm.sealContract X86_64.abi 24
+    stack := 24
     verified := seal_verified v
     spSafe := seal_spSafe v
     features := v.features },
@@ -59,8 +97,8 @@ def artifacts (v : GcmImpl) : List Artifact := [
     target := X86_64.target
     doc := Spec.Gcm.openApi.doc (notes := [note v])
     code := Impl.AesGcm.X86_64.«open» v.callees
-    contract := Spec.Gcm.openContract X86_64.abi 8
-    stack := 8
+    contract := Spec.Gcm.openContract X86_64.abi 24
+    stack := 24
     verified := open_verified v
     spSafe := open_spSafe v
     features := v.features },
