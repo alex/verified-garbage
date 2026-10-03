@@ -494,118 +494,106 @@ jobs:
   # detection is at compile time, which the `rust` job tests). SDE runs the
   # SHA extensions' code tens of times slower than hardware (#274), so the
   # chips that have them (arl, icx, dmr) run only the tests they are there
-  # for. `cpu-features` restricts a chip's features with `VG_CPU_FEATURES`
-  # (empty for none), so that each implementation, and each of Ed25519's
+  # for. A job is one CPU (and userspace); its `runs` are lines of
+  # `<VG_CPU_FEATURES> | <tests>`, each a `cargo test` of the one build,
+  # since `VG_CPU_FEATURES` is read at run time. `VG_CPU_FEATURES`
+  # restricts the CPU's features (`-` for no restriction, `none` for the
+  # baseline ISA), so that each implementation, and each of Ed25519's
   # combinations of SHA-512 and field multiplication, is chosen somewhere;
   # the coverage, merged with the rest, checks that every one was.
   rust-cpu-features:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64]
-        # skx: AVX-512F, BMI2 and ADX; hsw: AVX2, but not AVX-512F or ADX;
-        # p4p: nothing beyond x86-64's baseline, not even CPUID leaf 7.
-        chip: [native, skx, hsw, p4p]
-        # Ed25519's are `ed25519` and RFC 8032's other two.
-        tests: [sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 triple_des_ecb poly1305 mlkem mldsa scrypt x25519 x448 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
         include:
-          # x86 feature dispatch, natively in a 32-bit userspace, with both
-          # the runner's features and the baseline implementations.
+          - chip: native
+            arch: x86_64
+            # AES-GCM's instances for AES's or GHASH's extension alone, which
+            # no runner or chip has without the other; and AES-NI's and
+            # PCLMULQDQ's together (and AES-CMAC's AES-NI functions), which a
+            # runner with VAES and VPCLMULQDQ never chooses.
+            runs: |
+              - | sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 triple_des_ecb poly1305 mlkem mldsa scrypt x25519 x448 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+              aes,ssse3 | aes_gcm cmac cpu
+              pclmulqdq,ssse3 | aes_gcm cpu
+              aes,pclmulqdq,ssse3 | aes_gcm cpu
+          # x86 feature dispatch, natively in a 32-bit userspace. The baseline
+          # implementations (`none`) are the `rust` job's, which runs every
+          # test with them on x86. AES-GCM's instances for AES's or GHASH's
+          # extension alone, as on x86-64.
           - chip: native
             arch: x86
             container:
               image: rust:slim
               options: --platform linux/386
             install-amd64-libc: true
-            tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem scrypt x25519 ed25519 cpu
-          - chip: native
-            arch: x86
-            cpu-features: none
-            container:
-              image: rust:slim
-              options: --platform linux/386
-            install-amd64-libc: true
-            tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem scrypt x25519 ed25519 cpu
+            runs: |
+              - | sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem scrypt x25519 ed25519 cpu
+              aes | aes_gcm cpu
+              pclmulqdq,ssse3 | aes_gcm cpu
+          # AVX-512F, BMI2 and ADX; and BMI2 and ADX without AVX-512F.
+          - chip: skx
+            arch: x86_64
+            runs: |
+              - | sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 triple_des_ecb poly1305 mlkem mldsa scrypt x25519 x448 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+              bmi2,adx | ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          # AVX2, but not AVX-512F or ADX.
+          - chip: hsw
+            arch: x86_64
+            runs: |
+              - | sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 triple_des_ecb poly1305 mlkem mldsa scrypt x25519 x448 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          # Nothing beyond x86-64's baseline, not even CPUID leaf 7.
+          - chip: p4p
+            arch: x86_64
+            runs: |
+              - | sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 triple_des_ecb poly1305 mlkem mldsa scrypt x25519 x448 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           # Arrow Lake: the SHA512 extension, which no runner has.
           - chip: arl
-            tests: sha384 sha512 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
-          - chip: arl
-            cpu-features: avx,avx2,sha512
-            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
-          - chip: skx
-            cpu-features: bmi2,adx
-            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+            runs: |
+              - | sha384 sha512 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+              avx,avx2,sha512 | ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma
-          # and Ed25519's IFMA variants.
+          # and Ed25519's IFMA variants; and VAES and VPCLMULQDQ, for
+          # vg_aes_ctr32_vaes, vg_ghash_vpclmul and the AES-GCM and AES-CMAC
+          # instances calling them.
           - chip: icx
-            tests: x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+            runs: |
+              - | x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs aes_gcm cmac cpu
+              avx,avx2,bmi2,adx,avx512ifma,avx512vl | ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          # Ice Lake server: AES-GCM's instances with VAES or VPCLMULQDQ alone
+          # or paired with the other's 128-bit instruction, which no chip has
+          # without the other. A job of their own, to keep icx's two in
+          # parallel under SDE.
           - chip: icx
-            cpu-features: avx,avx2,bmi2,adx,avx512ifma,avx512vl
-            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+            part: AES-GCM
+            runs: |
+              aes,avx,avx2,ssse3,vaes | aes_gcm cpu
+              avx,avx2,pclmulqdq,ssse3,vpclmulqdq | aes_gcm cpu
+              aes,avx,avx2,pclmulqdq,ssse3,vaes | aes_gcm cpu
+              aes,avx,avx2,pclmulqdq,ssse3,vpclmulqdq | aes_gcm cpu
           # Diamond Rapids: the SHA512 extension and AVX512_IFMA, for
           # Ed25519's verification with both (vg_ed25519_verify_shani_ifma).
           - chip: dmr
-            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+            runs: |
+              - | ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          # The runner has SVE2, so the unrestricted run tests the `_sve2`
+          # instances; `neon` and `none` test ChaCha20's NEON and scalar ones,
+          # and `sha3` and `none` the SHA-3 prototype and its scalar fallback.
           - chip: native
             arch: aarch64
             os: ubuntu-24.04-arm
-            tests: aes_gcm cmac sha1 sha224 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
-          # AES-GCM's instances for AES's or GHASH's extension alone, which no
-          # runner or chip has without the other, on x86-64 and on x86; and,
-          # on x86-64, AES-NI's and PCLMULQDQ's together (and AES-CMAC's
-          # AES-NI functions), which a runner with VAES and VPCLMULQDQ never
-          # chooses.
-          - chip: native
-            cpu-features: aes,ssse3
-            tests: aes_gcm cmac cpu
-          - chip: native
-            cpu-features: pclmulqdq,ssse3
-            tests: aes_gcm cpu
-          - chip: native
-            cpu-features: aes,pclmulqdq,ssse3
-            tests: aes_gcm cpu
-          # Ice Lake server: VAES and VPCLMULQDQ, for vg_aes_ctr32_vaes,
-          # vg_ghash_vpclmul and the AES-GCM and AES-CMAC instances calling
-          # them; and AES-GCM's with each alone or paired with the other's
-          # 128-bit instruction, which no chip has without the other.
-          - chip: icx
-            tests: aes_gcm cmac cpu
-          - chip: icx
-            cpu-features: aes,avx,avx2,ssse3,vaes
-            tests: aes_gcm cpu
-          - chip: icx
-            cpu-features: avx,avx2,pclmulqdq,ssse3,vpclmulqdq
-            tests: aes_gcm cpu
-          - chip: icx
-            cpu-features: aes,avx,avx2,pclmulqdq,ssse3,vaes
-            tests: aes_gcm cpu
-          - chip: icx
-            cpu-features: aes,avx,avx2,pclmulqdq,ssse3,vpclmulqdq
-            tests: aes_gcm cpu
-          - chip: native
-            arch: x86
-            cpu-features: aes
-            container:
-              image: rust:slim
-              options: --platform linux/386
-            install-amd64-libc: true
-            tests: aes_gcm cpu
-          - chip: native
-            arch: x86
-            cpu-features: pclmulqdq,ssse3
-            container:
-              image: rust:slim
-              options: --platform linux/386
-            install-amd64-libc: true
-            tests: aes_gcm cpu
-    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }}${{ matrix.arch && format(', {0}', matrix.arch) || '' }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
+            runs: |
+              - | aes_gcm cmac sha1 sha224 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+              neon | chacha20
+              sha3 | sha3 shake mlkem mldsa
+              none | chacha20 sha3 shake mlkem mldsa
+    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }}${{ matrix.arch && format(', {0}', matrix.arch) || '' }}${{ matrix.part && format(', {0}', matrix.part) || '' }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     container:
       image: ${{ matrix.container.image || '' }}
       options: ${{ matrix.container.options || '' }}
     env:
       RUSTUP_TOOLCHAIN: stable
-      VG_CPU_FEATURES: ${{ matrix.cpu-features || '' }}
       RUSTFLAGS: -D warnings -Cinstrument-coverage
       LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
       WYCHEPROOF_ROOT: wycheproof
@@ -659,27 +647,26 @@ jobs:
         run: echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER=$RUNNER_TEMP/sde/sde64 -$CHIP --" >> "$GITHUB_ENV"
         env:
           CHIP: ${{ matrix.chip }}
-      # Only the tests of what depends on CPU features.
+      # Only the tests of what depends on CPU features, once per line of
+      # `runs`, each in a log group of its own; every line runs, and the step
+      # fails at the end, naming the lines that failed.
       - name: Test the implementations
-        run: cargo test --locked --features cpu-features-env -- $TESTS
-        env:
-          TESTS: ${{ matrix.tests }}
-      - name: Test scalar ChaCha on ARM64
-        if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
-        run: cargo test --locked --features cpu-features-env -- chacha20
-        env:
-          VG_CPU_FEATURES: none
-      # The runner has SVE2, so the native run tests the `_sve2` instances.
-      - name: Test NEON ChaCha on ARM64
-        if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
-        run: cargo test --locked --features cpu-features-env -- chacha20
-        env:
-          VG_CPU_FEATURES: neon
-      - name: Test the ARM64 SHA-3 prototype and scalar fallback
-        if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
+        shell: bash
         run: |
-          VG_CPU_FEATURES=sha3 cargo test --locked --features cpu-features-env -- sha3 shake mlkem mldsa
-          VG_CPU_FEATURES=none cargo test --locked --features cpu-features-env -- sha3 shake mlkem mldsa
+          failed=()
+          while IFS='|' read -r -u 3 features tests; do
+            features=$(echo $features) tests=$(echo $tests)
+            [ -n "$tests" ] || continue
+            [ "$features" = - ] && features=
+            echo "::group::VG_CPU_FEATURES=$features: $tests"
+            VG_CPU_FEATURES=$features cargo test --locked --features cpu-features-env -- $tests \
+              || failed+=("VG_CPU_FEATURES=$features: $tests")
+            echo "::endgroup::"
+          done 3<<< "$RUNS"
+          for f in "${failed[@]}"; do echo "::error::Failed with $f"; done
+          [ ${#failed[@]} -eq 0 ]
+        env:
+          RUNS: ${{ matrix.runs }}
       - name: Export coverage
         run: python3 ci/export_rust_coverage.py .rust-cov --features cpu-features-env
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
