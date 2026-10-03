@@ -73,11 +73,14 @@ structure Fn where
   code : Prog isa
 
 /-- The implementations called: of `vg_aes_ctr32`, `vg_aes_expand_key` and
-`vg_ghash`. -/
+`vg_ghash`, and the instances of `vg_aes_gcm_encrypt_blocks` and
+`vg_aes_gcm_decrypt_blocks` that call them. -/
 structure Callees where
   ctr : Fn
   key : Fn
   gh : Fn
+  enc : Fn
+  dec : Fn
 
 def at_ (b : Reg) (d : Nat) : MemOp := { base := b, disp := d }
 def imm (n : Nat) : Src := .imm (BitVec.ofNat 32 n)
@@ -411,13 +414,31 @@ def oneAad : Prog isa :=
   (.seq (.block [.mov .rbx (.mem (at_ .r15 alenO)), .alu .and .rbx (imm 15)])
     (flush c 16))))
 
-/-- The data (as ciphertext) absorbed and padded, and the tag into `W + o`. -/
+/-- The whole blocks of the data encrypted (with `f`, `vg_aes_gcm_encrypt_blocks`)
+or decrypted (`vg_aes_gcm_decrypt_blocks`) and absorbed, from the first counter
+block, in one call: the counter at `r14 + 48`, the accumulator at `r14 + 16`
+and `scratch` at `W + 512`, passed on the stack. The data kept then becomes
+what is left, the last `len mod 16` bytes, and `len` itself stays at
+`W + 192`. -/
+def oneBlocks (f : Fn) : Prog isa :=
+  .seq (.block [.mov .rax (.mem (at_ .r15 lenO)), .store (at_ .r15 tlenO) .rax, .shift .shr .rax 4,
+      .alu .test .rax (.reg .rax)])
+    (.ite .e (.block [])
+      (.seq (.block ([.mov .rdi (.reg .r13), .mov .rsi (.mem (at_ .r15 roundsO))] ++ ptr .rdx .r14 48 ++
+          ptr .rcx .r14 16 ++ [.mov .r8 (.mem (at_ .r15 dataO)), .mov .r9 (.reg .rax)] ++ ptr .rax .r15 scrO))
+        (.seq (.frame (.push [.rax]) (.call f.name f.code) (.pop .rax 1))
+          (.block [.mov .rax (.mem (at_ .r15 lenO)), .mov .rcx (.reg .rax), .alu .and .rcx (imm 15),
+            .store (at_ .r15 lenO) .rcx, .alu .sub .rax (.reg .rcx), .alu .add .rax (.mem (at_ .r15 dataO)),
+            .store (at_ .r15 dataO) .rax]))))
+
+/-- The data left (as ciphertext) absorbed and padded, and the tag of all of it
+(`len` at `W + 192`) into `W + o`. -/
 def oneTag (o : Nat) : Prog isa :=
   .seq (.block [.mov .r12 (.mem (at_ .r15 dataO)), .mov .rbp (.mem (at_ .r15 lenO)), .mov32 .rbx (imm 0)])
   (.seq (absorb c 16)
   (.seq (.block [.mov .rbx (.mem (at_ .r15 lenO)), .alu .and .rbx (imm 15)])
   (.seq (flush c 16)
-  (.seq (.block [.mov .rbx (.mem (at_ .r15 alenO)), .mov .rbp (.mem (at_ .r15 lenO))])
+  (.seq (.block [.mov .rbx (.mem (at_ .r15 alenO)), .mov .rbp (.mem (at_ .r15 tlenO))])
     (tag c o)))))
 
 /-- The data encrypted or decrypted, from the first counter block. -/
@@ -425,9 +446,22 @@ def oneCrypt : Prog isa :=
   .seq (.block [.mov .r12 (.mem (at_ .r15 dataO)), .mov .rbp (.mem (at_ .r15 lenO)), .mov32 .rbx (imm 0)])
     (crypt c)
 
+/-- The whole blocks decrypted by `oneBlocks`, encrypted again (when the tag
+is wrong): `vg_aes_ctr32` from the first counter block, at the data's start
+(`len - len mod 16` bytes before the data kept). -/
+def oneUndo : Prog isa :=
+  .seq (.block ([.mov .rax (.mem (at_ .r15 tlenO)), .mov .rcx (.reg .rax), .alu .and .rcx (imm 15),
+      .alu .sub .rax (.reg .rcx), .mov .rcx (.mem (at_ .r15 dataO)), .alu .sub .rcx (.reg .rax),
+      .shift .shr .rax 4, .mov .r8 (.reg .rax), .alu .test .rax (.reg .rax)]))
+    (.ite .e (.block [])
+      (.seq (.block (initState ++ [.mov .rdi (.reg .r13), .mov .rsi (.mem (at_ .r15 roundsO))] ++
+          ptr .rdx .r14 48 ++ ptr .r9 .r15 scrO))
+        (.call c.ctr.name c.ctr.code)))
+
 /-- `vg_aes_gcm_seal`. -/
 def «seal» : Prog isa :=
-  .seq (.block oneEntry) (.seq (oneAad c) (.seq (oneCrypt c) (.seq (oneTag c 0) (.block restore))))
+  .seq (.block oneEntry) (.seq (oneAad c) (.seq (oneBlocks c.enc) (.seq (oneCrypt c) (.seq (oneTag c 0)
+    (.block restore)))))
 
 /-- `vg_aes_gcm_open`, with `tag_len = [rsp + 32]`. -/
 def «open» : Prog isa :=
@@ -435,13 +469,14 @@ def «open» : Prog isa :=
   (.seq tagLenOk
   (.seq (.ite .e (.block [.mov32 .rax (imm 0)])
       (.seq (oneAad c)
+      (.seq (oneBlocks c.dec)
       (.seq (oneTag c uO)
       (.seq (.block [.mov .rbx (.mem (at_ .r15 tlO))])
       (.seq recv
       (.seq (cmp uO)
       (.seq (.block [.store (at_ .r15 auxO) .rax, .alu .test .rax (.reg .rax)])
-      (.seq (.ite .e (.block []) (oneCrypt c))
-        (.block [.mov .rax (.mem (at_ .r15 auxO))])))))))))
+      (.seq (.ite .e (oneUndo c) (oneCrypt c))
+        (.block [.mov .rax (.mem (at_ .r15 auxO))]))))))))))
     (.block restore)))
 
 end VG.Impl.AesGcm.X86_64
