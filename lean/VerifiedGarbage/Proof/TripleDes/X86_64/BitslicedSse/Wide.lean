@@ -1,19 +1,19 @@
-import VerifiedGarbage.Proof.TripleDes.X86_64.BitslicedAvx512.Batch
+import VerifiedGarbage.Proof.TripleDes.X86_64.BitslicedSse.Batch
 import VerifiedGarbage.Proof.TripleDes.X86_64.Bitsliced.Ecb
 
 /-!
-# Batches of 512 blocks
+# Batches of 128 blocks
 
-While at least 512 blocks are left, the AVX-512 code runs a batch on the next
-512 (`wide_ok`): of the `n` blocks, the first `n - n % 512` become their
+While at least 128 blocks are left, the SSE2 code runs a batch on the next
+128 (`wide_ok`): of the `n` blocks, the first `n - n % 128` become their
 encryption or decryption, and `rsi` and `rdx` then point at and count the
-`n % 512` left. `rbx`, the one callee-saved register the batches use, is
+`n % 128` left. `rbx`, the one callee-saved register the batches use, is
 saved in the scratch buffer and restored.
 -/
 
-namespace VG.Proof.TripleDes.X86_64.BitslicedAvx512
+namespace VG.Proof.TripleDes.X86_64.BitslicedSse
 
-open VG VG.X86_64 VG.X86_64.StraightZ VG.X86_64.RegUpd VG.Impl.TripleDes.X86_64.BitsliceAvx512
+open VG VG.X86_64 VG.X86_64.StraightX VG.X86_64.RegUpd VG.Impl.TripleDes.X86_64.BitsliceSse
 open VG.Spec.TripleDes
 open VG.Proof.TripleDes.X86_64.Bitsliced (blockOut wAt wAt_wAt blockAt_frame toNat_ofNat_of_le)
 
@@ -43,11 +43,11 @@ theorem WideEnv.len {s : State} (E : WideEnv s) : 8 * (s.gpr .rdx).toNat < 2 ^ 6
 /-- The registers the batches change, but for `rsi` and `rdx`. -/
 def WideRegs (r : Reg) : Prop := PassRegs r ∧ r ≠ .rsi ∧ r ≠ .rdx
 
-/-- `m` blocks left, a multiple of 512 fewer than `n`, and at least 512. -/
+/-- `m` blocks left, a multiple of 128 fewer than `n`, and at least 128. -/
 structure WideInv (d : Direction) (s₀ : State) (n m : Nat) (s : State) : Prop where
-  ge : 512 ≤ m
+  ge : 128 ≤ m
   le : m ≤ n
-  mod : m % 512 = n % 512
+  mod : m % 128 = n % 128
   rdx : s.gpr .rdx = BitVec.ofNat 64 m
   rsi : s.gpr .rsi = wAt (s₀.gpr .rsi) (n - m)
   gpr : ∀ r, WideRegs r → s.gpr r = s₀.gpr r
@@ -58,14 +58,14 @@ structure WideInv (d : Direction) (s₀ : State) (n m : Nat) (s : State) : Prop 
   frame : Frame [spillR s₀, ⟨s₀.gpr .rsi, 8 * (n - m)⟩] s₀.mem s.mem
 
 structure WideLoopPost (d : Direction) (s₀ : State) (n : Nat) (s : State) : Prop where
-  rdx : s.gpr .rdx = BitVec.ofNat 64 (n % 512)
-  rsi : s.gpr .rsi = wAt (s₀.gpr .rsi) (n - n % 512)
+  rdx : s.gpr .rdx = BitVec.ofNat 64 (n % 128)
+  rsi : s.gpr .rsi = wAt (s₀.gpr .rsi) (n - n % 128)
   gpr : ∀ r, WideRegs r → s.gpr r = s₀.gpr r
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
-  done : ∀ b < n - n % 512, blockAt s.mem (wAt (s₀.gpr .rsi) b) =
+  done : ∀ b < n - n % 128, blockAt s.mem (wAt (s₀.gpr .rsi) b) =
     blockOut (scheduleAt s₀.mem (s₀.gpr .rdi)) d (blockAt s₀.mem (wAt (s₀.gpr .rsi) b))
-  frame : Frame [spillR s₀, ⟨s₀.gpr .rsi, 8 * (n - n % 512)⟩] s₀.mem s.mem
+  frame : Frame [spillR s₀, ⟨s₀.gpr .rsi, 8 * (n - n % 128)⟩] s₀.mem s.mem
 
 theorem WideInv.batchPre {d : Direction} {s₀ : State} {n m : Nat} (E : WideEnv s₀)
     (hn : (s₀.gpr .rdx).toNat = n) {s : State} (h : WideInv d s₀ n m s) : BatchPre s := by
@@ -87,7 +87,7 @@ theorem WideInv.batchPre {d : Direction} {s₀ : State} {n m : Nat} (E : WideEnv
     refine Ok.of_off (off := o + 8 * (n - m)) (by rw [h.wr]; exact hr) ?_ ?_ hrl
     · show s.gpr .rsi = _
       rw [h.rsi, wAt, hb, BitVec.add_assoc, BitVec.ofNat_add_ofNat]
-    · show o + 8 * (n - m) + 64 * 64 ≤ r.len; omega
+    · show o + 8 * (n - m) + 16 * 64 ≤ r.len; omega
   · rw [scr]; exact dataB.sub_left st
   · rw [hdi, h.rd, h.wr]; exact E.keyIn i hi
   · rw [hdi, scr]; exact E.keyBuf.sub_left (Offset.sub_base _ (by omega))
@@ -113,23 +113,23 @@ theorem loop_ok (d : Direction) {s₀ : State} (E : WideEnv s₀) {n : Nat}
   have spl : spillR s = spillR s₀ := by simp only [spillR, hc]
   have hm : (s.gpr .rdx).toNat = m := by rw [h.rdx]; exact toNat_ofNat_of_le hle (by omega)
   -- the memory written so far
-  have frame' : Frame [spillR s₀, ⟨D, 8 * (n - (m - 512))⟩] s₀.mem s'.mem := by
-    have f₁ : Frame [spillR s₀, ⟨D, 8 * (n - (m - 512))⟩] s₀.mem s.mem := h.frame.sub fun r hr => by
+  have frame' : Frame [spillR s₀, ⟨D, 8 * (n - (m - 128))⟩] s₀.mem s'.mem := by
+    have f₁ : Frame [spillR s₀, ⟨D, 8 * (n - (m - 128))⟩] s₀.mem s.mem := h.frame.sub fun r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
       · exact ⟨spillR s₀, List.mem_cons_self, fun _ h => h⟩
-      · exact ⟨⟨D, 8 * (n - (m - 512))⟩, List.mem_cons_of_mem _ List.mem_cons_self,
+      · exact ⟨⟨D, 8 * (n - (m - 128))⟩, List.mem_cons_of_mem _ List.mem_cons_self,
           Region.sub_prefix (by omega)⟩
-    have f₂ : Frame [spillR s₀, ⟨D, 8 * (n - (m - 512))⟩] s.mem s'.mem := q.frame.sub fun r hr => by
+    have f₂ : Frame [spillR s₀, ⟨D, 8 * (n - (m - 128))⟩] s.mem s'.mem := q.frame.sub fun r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
       · exact ⟨spillR s₀, List.mem_cons_self, by rw [spl]; exact fun _ h => h⟩
-      · refine ⟨⟨D, 8 * (n - (m - 512))⟩, List.mem_cons_of_mem _ List.mem_cons_self, ?_⟩
+      · refine ⟨⟨D, 8 * (n - (m - 128))⟩, List.mem_cons_of_mem _ List.mem_cons_self, ?_⟩
         simp only [stateR, h.rsi, wAt]
         exact Offset.sub_base _ (by omega)
     exact f₁.trans f₂
   have dataB : (⟨D, 8 * n⟩ : Region).Disjoint (scratchR s₀) := hn ▸ E.dataBuf
-  have done' : ∀ b < n - (m - 512), blockAt s'.mem (wAt D b) =
+  have done' : ∀ b < n - (m - 128), blockAt s'.mem (wAt D b) =
       blockOut (scheduleAt s₀.mem S) d (blockAt s₀.mem (wAt D b)) := by
     intro b hb
     by_cases hb' : b < n - m
@@ -158,42 +158,42 @@ theorem loop_ok (d : Direction) {s₀ : State} (E : WideEnv s₀) {n : Nat}
           · exact (dataB.sub_left (Offset.sub_base _ (by omega))).sub_right (spill_sub s₀)
           · exact Offset.disjoint_base D (by omega) (by omega)
       rw [hK, hB]
-  have rdx' : s'.gpr .rdx = BitVec.ofNat 64 (m - 512) := by
-    rw [q.rdx, h.rdx, show (512 : BitVec 64) = BitVec.ofNat 64 512 from rfl,
+  have rdx' : s'.gpr .rdx = BitVec.ofNat 64 (m - 128) := by
+    rw [q.rdx, h.rdx, show (128 : BitVec 64) = BitVec.ofNat 64 128 from rfl,
       BitVec.ofNat_sub_ofNat_of_le _ _ (by decide) hge]
-  have rsi' : s'.gpr .rsi = wAt D (n - (m - 512)) := by
-    rw [q.rsi, h.rsi, show (4096 : BitVec 64) = BitVec.ofNat 64 (8 * 512) from rfl, BitVec.add_assoc,
+  have rsi' : s'.gpr .rsi = wAt D (n - (m - 128)) := by
+    rw [q.rsi, h.rsi, show (1024 : BitVec 64) = BitVec.ofNat 64 (8 * 128) from rfl, BitVec.add_assoc,
       BitVec.ofNat_add_ofNat]
     have e : ∀ a b : Nat, a = b → D + BitVec.ofNat 64 a = D + BitVec.ofNat 64 b := fun a b h => by rw [h]
     exact e _ _ (by omega)
   have gpr' : ∀ r, WideRegs r → s'.gpr r = s₀.gpr r := fun r hr =>
     (q.gpr r hr.1 hr.2.1 hr.2.2).trans (g r hr)
-  have cf' : s'.cf = some (decide (m - 512 < 512)) := by
-    rw [q.cf, h.rdx, show (512 : BitVec 64) = BitVec.ofNat 64 512 from rfl,
+  have cf' : s'.cf = some (decide (m - 128 < 128)) := by
+    rw [q.cf, h.rdx, show (128 : BitVec 64) = BitVec.ofNat 64 128 from rfl,
       BitVec.ofNat_sub_ofNat_of_le _ _ (by decide) hge, toNat_ofNat_of_le (n := n) (by omega) (by omega)]
-  by_cases hend : m - 512 < 512
+  by_cases hend : m - 128 < 128
   · left
-    have e : m - 512 = n % 512 := by have := h.mod; omega
+    have e : m - 128 = n % 128 := by have := h.mod; omega
     refine ⟨by show s'.cf.map (!·) = some false; rw [cf']; simp [hend],
       by rw [rdx', e], by rw [rsi', e], gpr', q.rd.trans h.rd, q.wr.trans h.wr,
       by rw [← e]; exact done', by rw [← e]; exact frame'⟩
   · right
-    refine ⟨by show s'.cf.map (!·) = some true; rw [cf']; simp [hend], m - 512, by omega,
+    refine ⟨by show s'.cf.map (!·) = some true; rw [cf']; simp [hend], m - 128, by omega,
       ⟨by omega, by omega, by have := h.mod; omega, rdx', rsi', gpr', q.rd.trans h.rd,
         q.wr.trans h.wr, done', frame'⟩⟩
 
 /-! ## The whole phase -/
 
 structure WidePost (d : Direction) (s s' : State) : Prop where
-  rdx : s'.gpr .rdx = BitVec.ofNat 64 ((s.gpr .rdx).toNat % 512)
-  rsi : s'.gpr .rsi = wAt (s.gpr .rsi) ((s.gpr .rdx).toNat - (s.gpr .rdx).toNat % 512)
+  rdx : s'.gpr .rdx = BitVec.ofNat 64 ((s.gpr .rdx).toNat % 128)
+  rsi : s'.gpr .rsi = wAt (s.gpr .rsi) ((s.gpr .rdx).toNat - (s.gpr .rdx).toNat % 128)
   gpr : ∀ r, WideRegs r → s'.gpr r = s.gpr r
   rbx : s'.gpr .rbx = s.gpr .rbx
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
-  done : ∀ b < (s.gpr .rdx).toNat - (s.gpr .rdx).toNat % 512, blockAt s'.mem (wAt (s.gpr .rsi) b) =
+  done : ∀ b < (s.gpr .rdx).toNat - (s.gpr .rdx).toNat % 128, blockAt s'.mem (wAt (s.gpr .rsi) b) =
     blockOut (scheduleAt s.mem (s.gpr .rdi)) d (blockAt s.mem (wAt (s.gpr .rsi) b))
-  frame : Frame [scratchR s, ⟨s.gpr .rsi, 8 * ((s.gpr .rdx).toNat - (s.gpr .rdx).toNat % 512)⟩]
+  frame : Frame [scratchR s, ⟨s.gpr .rsi, 8 * ((s.gpr .rdx).toNat - (s.gpr .rdx).toNat % 128)⟩]
     s.mem s'.mem
 
 theorem ea_rbxSave (s : State) : s.ea rbxSave = s.gpr .rcx + BitVec.ofNat 64 1016 := rfl
@@ -214,28 +214,28 @@ theorem wide_ok (d : Direction) {s : State} (E : WideEnv s) : WP isa (wide d) s 
   have hl := E.len
   rw [wide]
   apply WP.seq
-  let s₁ := cmpState s .rdx 512
-  refine WP.of_runBlock ⟨s₁, cmp_run s .rdx 512, ?_⟩
-  have cf₁ : isa.eval .b s₁ = some (decide (n < 512)) := by
+  let s₁ := cmpState s .rdx 128
+  refine WP.of_runBlock ⟨s₁, cmp_run s .rdx 128, ?_⟩
+  have cf₁ : isa.eval .b s₁ = some (decide (n < 128)) := by
     show s₁.cf = _
-    simp only [s₁, cmpState, cf_arithFlags, show ((512 : BitVec 32).signExtend 64).toNat = 512 by decide]
+    simp only [s₁, cmpState, cf_arithFlags, show ((128 : BitVec 32).signExtend 64).toNat = 128 by decide]
     rfl
-  apply WP.ite (decide (n < 512)) cf₁
+  apply WP.ite (decide (n < 128)) cf₁
   · intro hlt
-    have hlt' : n < 512 := by simpa using hlt
+    have hlt' : n < 128 := by simpa using hlt
     apply WP.block_nil
-    have e : n % 512 = n := Nat.mod_eq_of_lt hlt'
+    have e : n % 128 = n := Nat.mod_eq_of_lt hlt'
     refine ⟨?_, ?_, fun r _ => by simp [s₁, cmpState], by simp [s₁, cmpState],
       by simp [s₁, cmpState, rd_arithFlags], by simp [s₁, cmpState, wr_arithFlags],
       fun b hb => by simp only [n] at e; omega, ?_⟩
     · simp only [s₁, cmpState, gpr_arithFlags]
-      rw [show (s.gpr .rdx).toNat % 512 = (s.gpr .rdx).toNat from e]; simp
+      rw [show (s.gpr .rdx).toNat % 128 = (s.gpr .rdx).toNat from e]; simp
     · simp only [s₁, cmpState, gpr_arithFlags]
-      rw [show (s.gpr .rdx).toNat - (s.gpr .rdx).toNat % 512 = 0 by simp only [n] at e; omega]
+      rw [show (s.gpr .rdx).toNat - (s.gpr .rdx).toNat % 128 = 0 by simp only [n] at e; omega]
       simp [wAt]
     · simp only [s₁, cmpState, mem_arithFlags]; exact Frame.refl _ _
   · intro hge
-    have hge' : 512 ≤ n := by simp at hge; omega
+    have hge' : 128 ≤ n := by simp at hge; omega
     -- save rbx
     apply WP.seq
     have hst : InRegions s₁.wr (s₁.ea rbxSave) 8 := by
@@ -284,11 +284,11 @@ theorem wide_ok (d : Direction) {s : State} (E : WideEnv s) : WP isa (wide d) s 
       simp only [s₂, ea₂.symm]
       exact Mem.readW_writeW_self _ _ 8 _ (by decide)
     let s₄ := s₃.setReg .rbx (s₃.mem.readW (s₃.ea rbxSave) 64)
-    let s₅ := VOp.vzeroupper.exec s₄
+    let s₅ := s₄
     refine WP.of_runBlock ⟨s₅, by
       rw [runBlock_cons]
       simp only [exec, readSrc, State.load64, hld, ite_true, Option.map_some, runStep_some,
-        runBlock_cons]
+        runBlock_nil]
       rfl, ?_⟩
     have g₅ : ∀ r, r ≠ .rbx → s₅.gpr r = s₃.gpr r := by
       intro r hr; simp [s₅, s₄, gpr_setReg, hr]
@@ -313,11 +313,11 @@ theorem wide_ok (d : Direction) {s : State} (E : WideEnv s) : WP isa (wide d) s 
       rw [hK, hB]
     · have hm : s₅.mem = s₃.mem := by simp [s₅, s₄, mem_setReg]
       rw [hm]
-      have a : Frame [scratchR s, ⟨s.gpr .rsi, 8 * (n - n % 512)⟩] s.mem s₂.mem :=
+      have a : Frame [scratchR s, ⟨s.gpr .rsi, 8 * (n - n % 128)⟩] s.mem s₂.mem :=
         f₂.sub fun r hr => by
           simp only [List.mem_singleton] at hr; subst hr
           exact ⟨scratchR s, List.mem_cons_self, rbx_sub s⟩
-      have b : Frame [scratchR s, ⟨s.gpr .rsi, 8 * (n - n % 512)⟩] s₂.mem s₃.mem :=
+      have b : Frame [scratchR s, ⟨s.gpr .rsi, 8 * (n - n % 128)⟩] s₂.mem s₃.mem :=
         p₃.frame.sub fun r hr => by
           simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
           rcases hr with rfl | rfl
@@ -326,4 +326,4 @@ theorem wide_ok (d : Direction) {s : State} (E : WideEnv s) : WP isa (wide d) s 
           · exact ⟨_, List.mem_cons_of_mem _ List.mem_cons_self, by rw [g₂]; exact fun _ h => h⟩
       exact a.trans b
 
-end VG.Proof.TripleDes.X86_64.BitslicedAvx512
+end VG.Proof.TripleDes.X86_64.BitslicedSse

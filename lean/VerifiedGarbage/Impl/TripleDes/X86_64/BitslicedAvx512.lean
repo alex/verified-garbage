@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.TripleDes.X86_64.Bitsliced
+import VerifiedGarbage.Impl.TripleDes.X86_64.BitslicedAvx2
 import VerifiedGarbage.Impl.TripleDes.X86_64.BitsliceAllocZ
 
 /-!
@@ -7,8 +7,9 @@ import VerifiedGarbage.Impl.TripleDes.X86_64.BitsliceAllocZ
 `vg_triple_des_ecb_{en,de}crypt_avx512(schedule = rdi, data = rsi, n = rdx, scratch = rcx)`.
 
 As `BitslicedAvx2`, but on 512 blocks at a time, in 512-bit words, while at
-least 512 blocks are left; the blocks left after that go through the
-64-block code (`Bitslice.ecb`).
+least 512 blocks are left; the blocks left after that go through the AVX2
+code (`BitsliceAvx2.ecb`: a batch of 256 if that many are left, then the
+SSE2 code).
 
 * The state of 512 blocks (64 words of 64 bytes) is the 4096 bytes of the
   blocks themselves: the 64 bytes at `rsi + 64 i` hold blocks `8i … 8i + 7`,
@@ -141,7 +142,7 @@ def wide (d : Direction) : Prog isa :=
         (.seq (.loop (batch d) .ae)
           (.block [.mov .rbx (.mem rbxSave), .vop .vzeroupper]))))
 
-def ecb (d : Direction) : Prog isa := .seq (wide d) (Bitslice.ecb d)
+def ecb (d : Direction) : Prog isa := .seq (wide d) (BitsliceAvx2.ecb d)
 
 def encrypt : Prog isa := ecb .encrypt
 def decrypt : Prog isa := ecb .decrypt

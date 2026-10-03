@@ -25,11 +25,12 @@ theorem len_lt_of_disjoint {r₁ r₂ : Region} (h : r₁.Disjoint r₂) (h2 : 0
   · simp only [Region.Contains, BitVec.sub_self]; simp; omega
 
 /-- What the batches may assume of the state they start in: the scratch
-buffer and the `n` blocks of data writable, the schedule readable, apart
-from each other. -/
+buffer and the `n` blocks of data writable (at offset `o` of a writable
+region), the schedule readable, apart from each other. -/
 structure WideEnv (s : State) : Prop where
   scratch : scratchR s ∈ s.wr
-  data : (⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩ : Region) ∈ s.wr
+  data : ∃ r ∈ s.wr, ∃ o : Nat, s.gpr .rsi = r.base + BitVec.ofNat 64 o ∧
+    o + 8 * (s.gpr .rdx).toNat ≤ r.len ∧ r.len < 2 ^ 64
   keyIn : ∀ i < 48, InRegions (s.rd ++ s.wr) (s.gpr .rdi + BitVec.ofNat 64 (8 * i)) 8
   dataBuf : (⟨s.gpr .rsi, 8 * (s.gpr .rdx).toNat⟩ : Region).Disjoint (scratchR s)
   keyBuf : (⟨s.gpr .rdi, 384⟩ : Region).Disjoint (scratchR s)
@@ -81,10 +82,12 @@ theorem WideInv.batchPre {d : Direction} {s₀ : State} {n m : Nat} (E : WideEnv
     exact Offset.sub_base _ (by omega)
   have dataB : (⟨s₀.gpr .rsi, 8 * n⟩ : Region).Disjoint (scratchR s₀) := hn ▸ E.dataBuf
   refine ⟨⟨by rw [scr, h.wr]; exact E.scratch, ?_, ?_⟩, fun i hi => ⟨?_, ?_, ?_⟩, ?_⟩
-  · refine Ok.of_off (off := 8 * (n - m)) (by rw [h.wr]; exact hn ▸ E.data) ?_ ?_ ?_
-    · show s.gpr .rsi = _; rw [h.rsi]
-    · show 8 * (n - m) + 32 * 64 ≤ 8 * n; omega
-    · show 8 * n < 2 ^ 64; omega
+  · obtain ⟨r, hr, o, hb, hor, hrl⟩ := E.data
+    rw [hn] at hor
+    refine Ok.of_off (off := o + 8 * (n - m)) (by rw [h.wr]; exact hr) ?_ ?_ hrl
+    · show s.gpr .rsi = _
+      rw [h.rsi, wAt, hb, BitVec.add_assoc, BitVec.ofNat_add_ofNat]
+    · show o + 8 * (n - m) + 32 * 64 ≤ r.len; omega
   · rw [scr]; exact dataB.sub_left st
   · rw [hdi, h.rd, h.wr]; exact E.keyIn i hi
   · rw [hdi, scr]; exact E.keyBuf.sub_left (Offset.sub_base _ (by omega))
