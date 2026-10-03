@@ -39,10 +39,9 @@ open VG.Impl.X448.X86_64 (at_ sc W w loads stores slot Field add sub cswap freez
 
 /-! ## The working space -/
 
-/-- The pointers to the public key, the signature and the challenge. -/
+/-- The pointers to the public key and the signature. -/
 def PPK : Nat := 1664
 def PSIG : Nat := 1672
-def PCH : Nat := 1680
 /-- The accumulated checks: 0 if they all pass. -/
 def BAD : Nat := 1688
 /-- The sign bit of the point being decoded. -/
@@ -163,15 +162,16 @@ def maskAt (o : Nat) : List Instr :=
 /-- `T` swapped into `R` by the mask `rcx`. -/
 def swapT : List Instr := cswap (slot 0) (slot 3) ++ cswap (slot 1) (slot 4) ++ cswap (slot 2) (slot 5)
 
-/-- One bit `t = rbx - 1`, from the top. -/
-def vstep (F : Field) : List Instr :=
-  [.alu .sub .rbx (.imm 1)] ++ fieldCode F (doubleAt 0 1 2) ++ fieldCode F (addAt 8 9) ++
-    maskAt BITS ++ swapT ++ fieldCode F (addAt 6 7) ++ maskAt KBITS ++ swapT ++
-    [.alu .test .rbx (.reg .rbx)]
+/-- One bit `t = rbx - 1`, from the top (in three blocks, each short enough
+for the kernel to check as a literal). -/
+def vstep (F : Field) : Prog isa :=
+  .seq (.block ([.alu .sub .rbx (.imm 1)] ++ fieldCode F (doubleAt 0 1 2))) <|
+  .seq (.block (fieldCode F (addAt 8 9) ++ (maskAt BITS ++ swapT))) <|
+    .block (fieldCode F (addAt 6 7) ++ (maskAt KBITS ++ (swapT ++ [.alu .test .rbx (.reg .rbx)])))
 
 /-- The 456 bits, from 455 down to 0. -/
 def vloop (F : Field) : Prog isa :=
-  .seq (.block [.mov32 .rbx (.imm 456)]) (.loop (.block (vstep F)) .ne)
+  .seq (.block [.mov32 .rbx (.imm 456)]) (.loop (vstep F) .ne)
 
 /-! ## The function -/
 
@@ -187,37 +187,41 @@ def bitsBodyAt (o : Nat) : List Instr :=
 def bitsAt (o : Nat) : Prog isa := .seq (.block [.mov32 .rbx (.imm 0)]) (.loop (.block (bitsBodyAt o)) .ne)
 
 /-- The callee-saved registers saved at the working space `rcx`, the
-pointers, the working space into `rdi`, `BAD = 0`, and the check of `S`. -/
+pointers to `A` and the signature kept in `r8` and `r9`, the working space
+into `rdi`, and the challenge's into `rsi`. -/
 def ventry : List Instr :=
-  saveAt .rcx ++ ([.store (at_ .rcx PPK) .rdi, .store (at_ .rcx PSIG) .rsi, .store (at_ .rcx PCH) .rdx,
-    .mov .rdi (.reg .rcx), .mov32 .rax (.imm 0), .store (sc BAD) .rax, .mov .rsi (.mem (sc PSIG)),
-    .alu .add .rsi (.imm 57)] ++ sCheck)
+  saveAt .rcx ++ [.mov .r8 (.reg .rdi), .mov .r9 (.reg .rsi), .mov .rdi (.reg .rcx), .mov .rsi (.reg .rdx)]
+
+/-- The bits of `k` and `S`, before anything is stored that is read back as
+an address: their stores are at a counter's offset. -/
+def vbits : Prog isa :=
+  .seq (bitsAt KBITS) <| .seq (.block [.mov .rsi (.reg .r9), .alu .add .rsi (.imm 57)]) (bitsAt BITS)
+
+/-- The pointers to `A` and the signature saved, `BAD = 0`, and the check of
+`S` (at `rsi`). -/
+def vstart : List Instr :=
+  [.store (sc PPK) .r8, .store (sc PSIG) .r9, .mov32 .rax (.imm 0), .store (sc BAD) .rax] ++ sCheck
 
 /-- `A` decoded and negated into slots 6–7, with the constants. -/
 def vdecodeA (F : Field) : Prog isa :=
   .seq (.block (consts ++ [.mov .rsi (.mem (sc PPK))])) <| .seq (decode F 6 7) <|
     .block (consts ++ fieldCode F [.sub 6 0 6])
 
-/-- The bits of `S` and `k`. -/
-def vbits : Prog isa :=
-  .seq (.block [.mov .rsi (.mem (sc PSIG)), .alu .add .rsi (.imm 57)]) <| .seq (bitsAt BITS) <|
-    .seq (.block [.mov .rsi (.mem (sc PCH))]) (bitsAt KBITS)
-
-/-- `[4]Q` and `[4]R` compared: `BAD |= 0` exactly when they are the same
-point. -/
-def vcompare : List FOp := doubleAt 0 1 2 ++ doubleAt 0 1 2 ++ doubleAt 8 9 10 ++ doubleAt 8 9 10
-
-/-- The result `eax = (BAD == 0)`, and the callee-saved registers restored. -/
-def vfinish (F : Field) : List Instr :=
-  fieldCode F (vcompare ++ [.mul 12 0 10, .mul 13 8 2]) ++ (eqSlots 12 13 ++
-  (fieldCode F [.mul 12 1 10, .mul 13 9 2] ++ (eqSlots 12 13 ++
-  ([.mov .rdx (.mem (sc BAD))] ++ (isZero ++ ([.mov .rax (.reg .rdx)] ++
-    Impl.X448.X86_64.restore))))))
+/-- `[4]Q` and `[4]R` compared (`BAD |= 0` exactly when they are the same
+point), the result `eax = (BAD == 0)`, and the callee-saved registers
+restored. -/
+def vfinish (F : Field) : Prog isa :=
+  .seq (.block (fieldCode F (doubleAt 0 1 2))) <| .seq (.block (fieldCode F (doubleAt 0 1 2))) <|
+  .seq (.block (fieldCode F (doubleAt 8 9 10))) <| .seq (.block (fieldCode F (doubleAt 8 9 10))) <|
+  .block (fieldCode F [.mul 12 0 10, .mul 13 8 2] ++ (eqSlots 12 13 ++
+    (fieldCode F [.mul 12 1 10, .mul 13 9 2] ++ (eqSlots 12 13 ++
+    ([.mov .rdx (.mem (sc BAD))] ++ (isZero ++ ([.mov .rax (.reg .rdx)] ++
+      Impl.X448.X86_64.restore)))))))
 
 /-- `vg_ed448_verify_equation` with the field multiplications `F`. -/
 def verifyEquationWith (F : Field) : Prog isa :=
-  .seq (.block ventry) <| .seq (vdecodeA F) <| .seq vbits <| .seq (vloop F) <|
-    .seq (.block [.mov .rsi (.mem (sc PSIG))]) <| .seq (decode F 8 9) (.block (vfinish F))
+  .seq (.block ventry) <| .seq vbits <| .seq (.block vstart) <| .seq (vdecodeA F) <| .seq (vloop F) <|
+    .seq (.block [.mov .rsi (.mem (sc PSIG))]) <| .seq (decode F 8 9) (vfinish F)
 
 def verifyEquation : Prog isa := verifyEquationWith Impl.X448.X86_64.baseline
 

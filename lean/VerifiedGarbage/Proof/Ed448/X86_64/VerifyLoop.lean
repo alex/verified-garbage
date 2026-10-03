@@ -109,18 +109,10 @@ theorem vstepEnv_pt (sw₁ sw₂ : Bool) (e : Env) :
 
 variable {fld : Impl.X448.X86_64.Field} (hf : FieldOk fld)
 
-theorem vstep_eq : vstep fld = ([.alu .sub .rbx (.imm 1)] : List Instr) ++ (fieldCode fld (doubleAt 0 1 2) ++
-    (fieldCode fld (addAt 8 9) ++ (maskAt BITS ++ (cswap (slot 0) (slot 3) ++ (cswap (slot 1) (slot 4) ++
-    (cswap (slot 2) (slot 5) ++ (fieldCode fld (addAt 6 7) ++ (maskAt KBITS ++ (cswap (slot 0) (slot 3) ++
-    (cswap (slot 1) (slot 4) ++ (cswap (slot 2) (slot 5) ++
-    ([.alu .test .rbx (.reg .rbx)] : List Instr)))))))))))) := by
-  simp only [vstep, swapT, List.append_assoc]
-
 /-- `T` swapped into `Q` by the mask `rcx`. -/
 theorem swapT_ok {s : State} {base : Addr} (hs : Scr s base) {sw : Bool} (hc : s.gpr .rcx = mask sw) :
-    WP isa (.block (cswap (slot 0) (slot 3) ++ (cswap (slot 1) (slot 4) ++ cswap (slot 2) (slot 5)))) s
-      fun s' => Keep base s s' ∧ E s'.mem base = swapEnv sw (E s.mem base) := by
-  rw [WP.block_append_iff]
+    WP isa (.block swapT) s fun s' => Keep base s s' ∧ E s'.mem base = swapEnv sw (E s.mem base) := by
+  rw [swapT, List.append_assoc, WP.block_append_iff]
   refine WP.mono (cswapE hs 0 3 (by decide) hc) fun s5 ⟨k5, c5, e5⟩ => ?_
   have hs5 := k5.scr hs
   rw [WP.block_append_iff]
@@ -135,17 +127,19 @@ theorem vstep_ok {s : State} {base : Addr} (hs : Scr s base) {t : Nat} (ht : t <
     (hb : s.gpr .rbx = BitVec.ofNat 64 (t + 1)) {b₁ b₂ : Nat} (hb₁ : b₁ < 2) (hb₂ : b₂ < 2)
     (hbit₁ : s.mem (off base (BITS + t)) = BitVec.ofNat 8 b₁)
     (hbit₂ : s.mem (off base (KBITS + t)) = BitVec.ofNat 8 b₂) :
-    WP isa (.block (vstep fld)) s fun s' =>
+    WP isa (vstep fld) s fun s' =>
       s'.gpr .rbx = BitVec.ofNat 64 t ∧ s'.zf = some (decide (t = 0)) ∧
       (∀ r, r ∉ .rbx :: clob → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
       Outside base 64 1584 s.mem s'.mem ∧
       E s'.mem base = vstepEnv (decide (b₁ = 1)) (decide (b₂ = 1)) (E s.mem base) := by
-  rw [vstep_eq, WP.block_append_iff]
+  rw [vstep]
+  apply WP.seq
+  rw [WP.block_append_iff]
   refine WP.mono (dec_ok s hb) fun s1 ⟨b1, g1, m1, rd1, wr1⟩ => ?_
   have hs1 : Scr s1 base := ⟨(g1 _ (by decide)).trans hs.rdi, wr1 ▸ hs.wr, hs.nowrap⟩
-  rw [WP.block_append_iff]
   refine WP.mono (fieldCode_ok hf _ doubleAt_valid0 hs1) fun s2 ⟨k2, e2⟩ => ?_
   have hs2 := k2.scr hs1
+  apply WP.seq
   rw [WP.block_append_iff]
   refine WP.mono (fieldCode_ok hf _ addAt_valid8 hs2) fun s3 ⟨k3, e3⟩ => ?_
   have hs3 := k3.scr hs2
@@ -160,7 +154,6 @@ theorem vstep_ok {s : State} {base : Addr} (hs : Scr s base) {t : Nat} (ht : t <
   rw [WP.block_append_iff]
   refine WP.mono (maskAt_ok hs3 (by simp only [BITS]; omega) b3 hb₁ hbit3) fun s4 ⟨c4, g4, m4, rd4, wr4⟩ => ?_
   have hs4 : Scr s4 base := ⟨(g4 _ (by decide)).trans hs3.rdi, wr4 ▸ hs3.wr, hs3.nowrap⟩
-  rw [← List.append_assoc, ← List.append_assoc, WP.block_append_iff, List.append_assoc]
   refine WP.mono (swapT_ok hs4 c4) fun s5 ⟨k5, e5⟩ => ?_
   have hs5 := k5.scr hs4
   rw [WP.block_append_iff]
@@ -176,7 +169,7 @@ theorem vstep_ok {s : State} {base : Addr} (hs : Scr s base) {t : Nat} (ht : t <
   rw [WP.block_append_iff]
   refine WP.mono (maskAt_ok hs6 (by simp only [KBITS]; omega) b6 hb₂ hbit6) fun s7 ⟨c7, g7, m7, rd7, wr7⟩ => ?_
   have hs7 : Scr s7 base := ⟨(g7 _ (by decide)).trans hs6.rdi, wr7 ▸ hs6.wr, hs6.nowrap⟩
-  rw [← List.append_assoc, ← List.append_assoc, WP.block_append_iff, List.append_assoc]
+  rw [WP.block_append_iff]
   refine WP.mono (swapT_ok hs7 c7) fun s8 ⟨k8, e8⟩ => ?_
   have b8 : s8.gpr .rbx = BitVec.ofNat 64 t := by
     rw [k8.gpr _ (by decide), g7 _ (by decide)]; exact b6
@@ -247,7 +240,7 @@ theorem vloop_ok {s₀ : State} {base : Addr} {S K : Nat} {A : Spec.Ed448.Point}
     (hbs : ∀ t < 456, s₀.mem (off base (BITS + t)) = BitVec.ofNat 8 ((S >>> t) &&& 1))
     (hbk : ∀ t < 456, s₀.mem (off base (KBITS + t)) = BitVec.ofNat 8 ((K >>> t) &&& 1)) :
     ∀ n, ∀ s, 1 ≤ n → n ≤ 456 → VInv base S K A s₀ n s →
-      WP isa (.loop (.block (vstep fld)) .ne) s fun s' => VInv base S K A s₀ 0 s' := by
+      WP isa (.loop (vstep fld) .ne) s fun s' => VInv base S K A s₀ 0 s' := by
   intro n s hn1 hn2 hi
   refine WP.loop (M := isa) (Q := fun s' => VInv base S K A s₀ 0 s')
     (fun m (s : State) => 1 ≤ m ∧ m ≤ 456 ∧ VInv base S K A s₀ m s) ?_ n s ⟨hn1, hn2, hi⟩

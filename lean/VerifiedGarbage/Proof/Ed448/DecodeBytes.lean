@@ -33,7 +33,7 @@ theorem decodeLE_57 (bs : List Byte) (h : bs.length = 57) :
   rw [decodeLE_append]
   simp [decodeLE, List.length_take, h]
 
-theorem decodePoint_eq (bs : List Byte) (h : bs.length = 57) :
+theorem decodePoint_bytes (bs : List Byte) (h : bs.length = 57) :
     Spec.Ed448.decodePoint bs =
       if (bs.getD 56 0).toNat % 128 = 0 ∧ decodeLE (bs.take 56) < Spec.X448.P then
         (Spec.Ed448.recoverX (toFe (decodeLE (bs.take 56))) ((bs.getD 56 0).toNat / 128 == 1)).map

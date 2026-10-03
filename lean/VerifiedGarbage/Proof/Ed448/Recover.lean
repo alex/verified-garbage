@@ -49,7 +49,7 @@ theorem decodePoint_impl (bs : List Byte) (h : bs.length = 57) (y0 b : Nat)
       if (b % 128 = 0 ∧ y0 < P) ∧ v * (x * x) = u ∧ ¬ (x = 0 ∧ b / 128 = 1) then
         some ⟨if (x.val % 2 == 1) == (b / 128 == 1) then x else (x - x) - x, Y, 1⟩
       else none := by
-  rw [decodePoint_eq bs h, hy0, hb, hY, recoverX_eq]
+  rw [decodePoint_bytes bs h, hy0, hb, hY, recoverX_eq]
   dsimp only
   rw [hu, hv, ht, hx]
   have hbool : (decide (x = 0) && (b / 128 == 1)) = true ↔ x = 0 ∧ b / 128 = 1 := by

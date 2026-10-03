@@ -106,7 +106,7 @@ theorem scalarBase_correct {s : State} (hp : scalarBaseLocal.pre s) :
   rw [g₁, hbase] at di₂
   rw [g₁] at r15₂
   have hs₂ : Scr s₂ base := ⟨di₂, by rw [wr₂, wr₁]; exact hws, by omega⟩
-  refine WP.mono (consts_ok hs₂) fun s₃ ⟨p₃, q₃, d₃, o₃, g₃, rd₃, wr₃⟩ => ?_
+  refine WP.mono (consts_ok hs₂) fun s₃ ⟨p₃, q₃, d₃, o₃, g₃, rd₃, wr₃, _⟩ => ?_
   have hs₃ : Scr s₃ base := ⟨(g₃ _ (by decide)).trans di₂, wr₃ ▸ hs₂.wr, hs₂.nowrap⟩
   have rsi₃ : s₃.gpr .rsi = s.gpr .rsi := by
     rw [g₃ _ (by decide), g₂ _ (by decide), g₁]
