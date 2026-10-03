@@ -1,6 +1,5 @@
 import VerifiedGarbage.Proof.AesSiv.X86_64.Common
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
-import VerifiedGarbage.Proof.Cmac.Block
 
 /-!
 # AES-SIV on x86-64: `vg_aes_siv_s2v_start`

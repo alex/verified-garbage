@@ -44,6 +44,28 @@ structure Env (s₀ : State) (C D P W : Addr) (R L : Nat) : Prop where
   wD : D.toNat + 16 ≤ 2 ^ 64
   wP : P.toNat + L ≤ 2 ^ 64
   wW : W.toNat + 2560 ≤ 2 ^ 64
+  lt : L < 2 ^ 64
+
+/-- The registers that hold the arguments while the code runs: the context
+in `rbx`, the rounds in `rbp`, `D` in `r12`, the data in `r13` (`r14` bytes)
+and the working space in `r15`. -/
+structure Regs (s₀ : State) (C D P W : Addr) (R L : Nat) (s : State) : Prop where
+  rbx : s.gpr .rbx = C
+  rbp : s.gpr .rbp = BitVec.ofNat 64 R
+  r12 : s.gpr .r12 = D
+  r13 : s.gpr .r13 = P
+  r14 : s.gpr .r14 = BitVec.ofNat 64 L
+  r15 : s.gpr .r15 = W
+  rsp : s.gpr .rsp = s₀.gpr .rsp
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+
+theorem Regs.keep {s₀ s s' : State} {C D P W : Addr} {R L : Nat} (h : Regs s₀ C D P W R L s)
+    (hs : ∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) :
+    Regs s₀ C D P W R L s' :=
+  ⟨by rw [hs _ (by decide), h.rbx], by rw [hs _ (by decide), h.rbp], by rw [hs _ (by decide), h.r12],
+    by rw [hs _ (by decide), h.r13], by rw [hs _ (by decide), h.r14], by rw [hs _ (by decide), h.r15],
+    by rw [hs _ (by decide), h.rsp], by rw [hrd, h.rd], by rw [hwr, h.wr]⟩
 
 /-- A region at an offset of one of `rs`. -/
 theorem cov_off {rs : List Region} {r : Region} (hr : r ∈ rs) {off n : Nat} (h : off + n ≤ r.len) :
@@ -111,6 +133,11 @@ theorem srcData (h : Env s₀ C D P W R L) {o a n : Nat} (ho : o + 16 ≤ 2560) 
     · have := (P + BitVec.ofNat 64 a).isLt; omega
     · rw [toNat_add_lt P this (by omega)]; omega
   cov := cov_off h.dataIn ha
+
+theorem srcData₀ (h : Env s₀ C D P W R L) {o n : Nat} (ho : o + 16 ≤ 2560) (hn : n ≤ L) :
+    Src s₀ W o P n := by
+  have := h.srcData (o := o) (a := 0) (n := n) ho (by omega)
+  rwa [Proof.CmacAes.X86_64.k0] at this
 
 /-- Bytes of the working space below `W + 256`, apart from the state, as the message. -/
 theorem srcWork (h : Env s₀ C D P W R L) {o t n : Nat} (ho : o + 16 ≤ 256) (ht : t + n ≤ 256)

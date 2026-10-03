@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.AesSiv.X86_64.Call
 import VerifiedGarbage.Proof.CmacAes.Stream.X86_64.Common
 import VerifiedGarbage.Proof.Framework.X86_64.Spill
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
+import VerifiedGarbage.Proof.Cmac.Block
 
 /-!
 # AES-SIV on x86-64: common lemmas
@@ -32,5 +33,13 @@ theorem sx_ofNat {n : Nat} (h : n < 2 ^ 31) :
   rw [BitVec.signExtend_eq_setWidth_of_msb_false hm]
   apply BitVec.eq_of_toNat_eq
   simp [Nat.mod_eq_of_lt (show n < 2 ^ 32 by omega), Nat.mod_eq_of_lt (show n < 2 ^ 64 by omega)]
+
+theorem take_bytesAt (m : Mem) (p : Addr) {a b : Nat} :
+    (Spec.Aes.bytesAt m p (a + b)).take a = Spec.Aes.bytesAt m p a := by
+  rw [Proof.Cmac.Stream.bytesAt_append, List.take_left' (Proof.Cmac.bytesAt_length _ _ _)]
+
+theorem drop_bytesAt (m : Mem) (p : Addr) {a b : Nat} :
+    (Spec.Aes.bytesAt m p (a + b)).drop a = Spec.Aes.bytesAt m (p + BitVec.ofNat 64 a) b := by
+  rw [Proof.Cmac.Stream.bytesAt_append, List.drop_left' (Proof.Cmac.bytesAt_length _ _ _)]
 
 end VG.Proof.AesSiv.X86_64

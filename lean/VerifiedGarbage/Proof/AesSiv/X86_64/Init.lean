@@ -239,14 +239,6 @@ theorem IPre.sargs {s₀ s : State} {Kp Ct S : Addr} {KL : Nat} (hp : IPre s₀ 
 
 /-! ## The key context -/
 
-theorem take_bytesAt (m : Mem) (p : Addr) {a b : Nat} :
-    (Spec.Aes.bytesAt m p (a + b)).take a = Spec.Aes.bytesAt m p a := by
-  rw [Proof.Cmac.Stream.bytesAt_append, List.take_left' (Proof.Cmac.bytesAt_length _ _ _)]
-
-theorem drop_bytesAt (m : Mem) (p : Addr) {a b : Nat} :
-    (Spec.Aes.bytesAt m p (a + b)).drop a = Spec.Aes.bytesAt m (p + BitVec.ofNat 64 a) b := by
-  rw [Proof.Cmac.Stream.bytesAt_append, List.drop_left' (Proof.Cmac.bytesAt_length _ _ _)]
-
 /-- The context `init` leaves is that of the key: the schedule of `K1`, its
 subkeys and the schedule of `K2`, each where the calls left it. -/
 theorem keyRepr_of {m m₀ : Mem} {Ct Kp : Addr} {KL : Nat} (hl : KL = 32 ∨ KL = 48 ∨ KL = 64)
