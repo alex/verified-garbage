@@ -14,6 +14,7 @@ mod chacha20;
 mod chacha20poly1305;
 mod cmac_aes;
 mod ecdh_p256;
+mod ecdsa_p256;
 mod ed25519;
 mod harness;
 mod hmac;

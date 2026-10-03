@@ -154,4 +154,12 @@ theorem flag_unch {base : Addr} {l : List Nat} {m m' : Mem} (hu : Unch base (slW
   · exact Or.inl (by omega)
   · exact Or.inr h
 
+/-- A hash of `8 n` bytes is its number. -/
+theorem hashToInt_eq (hc : CfgOk c) (m : Mem) (q : Addr) :
+    Spec.Ecdsa.hashToInt c.C (Spec.Ecdsa.bytesAt m q (8 * c.n)) =
+      ofBytes (Spec.Ecdsa.bytesAt m q (8 * c.n)) := by
+  have := hc.hash
+  simp only [Spec.Ecdsa.hashToInt, length_bytesAt,
+    show 8 * (8 * c.n) ≤ Spec.Ecdsa.nBits c.C by omega, ite_true]
+
 end VG.Proof.Ecdsa.X86_64

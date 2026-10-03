@@ -17,6 +17,7 @@ mod aes_gcm;
 mod cmac_aes;
 mod cmac_triple_des;
 mod ecdh_p256;
+mod ecdsa_p256;
 mod rc2_cbc;
 mod rsa;
 mod sha1;

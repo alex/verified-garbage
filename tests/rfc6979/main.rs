@@ -4,7 +4,7 @@
 
 #![cfg(target_arch = "x86_64")]
 
-use verified_garbage::ecdsa::{Error, P256, SigningKey};
+use verified_garbage::ecdsa::{Error, P256, SigningKey, VerifyingKey};
 use verified_garbage::hashes::sha256::Sha256;
 
 const TEXT: &str = include_str!("../../vectors/rfc6979/rfc6979.txt");
@@ -78,6 +78,46 @@ fn p256_sha256() {
         assert_eq!(prehashed, Ok(*rs), "{message}");
     }
     assert_eq!(format!("{key:?}"), "SigningKey { .. }");
+}
+
+/// The signatures verify with the public key, and not of another message
+/// or with another key.
+#[test]
+fn p256_verify() {
+    let (_, x, u, signatures) = p256();
+    let key = VerifyingKey::<P256>::from_bytes(&u);
+    assert_eq!(key.to_bytes(), u);
+    let other = SigningKey::<P256>::from_bytes(&add(&x, 1))
+        .public_key()
+        .unwrap();
+    let other = VerifyingKey::<P256>::from_bytes(&other);
+    for (message, rs) in &signatures {
+        assert_eq!(
+            key.verify_sha256(message.as_bytes(), rs),
+            Ok(()),
+            "{message}"
+        );
+        let digest = Sha256::digest(message.as_bytes());
+        assert_eq!(
+            key.clone().verify_sha256_prehashed(&digest, rs),
+            Ok(()),
+            "{message}"
+        );
+        assert_eq!(
+            key.verify_sha256(b"other", rs),
+            Err(Error::InvalidSignature)
+        );
+        assert_eq!(
+            other.verify_sha256(message.as_bytes(), rs),
+            Err(Error::InvalidSignature)
+        );
+    }
+    assert_ne!(key, other);
+    assert!(format!("{key:?}").starts_with("VerifyingKey"));
+    assert_eq!(
+        Error::InvalidSignature.to_string(),
+        "invalid ECDSA signature"
+    );
 }
 
 #[test]
