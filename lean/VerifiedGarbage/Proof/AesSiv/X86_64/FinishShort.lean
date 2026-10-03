@@ -27,8 +27,8 @@ variable {s₀ : State} {C D P W : Addr} {R L : Nat}
 /-! ## The tail -/
 
 theorem shortB1_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L s) :
-    ∃ s₁, runBlock isa (zero16 .r15 tailOff ++ [.mov .rdx (.reg .r15), .alu .add .rdx (imm tailOff),
-        .mov .rcx (.reg .r14)]) s = some s₁ ∧ Regs s₀ C D P W R L s₁ ∧
+    ∃ s₁, runBlock isa (zero16 .r15 tailOff ++ ([.mov .rdx (.reg .r15), .alu .add .rdx (imm tailOff),
+        .mov .rcx (.reg .r14)] : List Instr)) s = some s₁ ∧ Regs s₀ C D P W R L s₁ ∧
       s₁.gpr .rdx = W + BitVec.ofNat 64 32 ∧ s₁.gpr .rcx = BitVec.ofNat 64 L ∧
       s₁.mem = zero2 s.mem (W + BitVec.ofNat 64 32) := by
   have w₀ := h.inW hr.wr (d := 32) (n := 8) (by decide)
@@ -295,17 +295,17 @@ structure FinPost (s₀ : State) (C D P W : Addr) (R L out : Nat) (s s' : State)
 theorem macPre_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L s) {out : Nat}
     (hout : out = 0 ∨ out = 112) :
     ∃ s', runBlock isa (zero16 .r15 out ++
-        [.mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp), .mov .rdx (.reg .r15), .alu .add .rdx (imm out),
+        ([.mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp), .mov .rdx (.reg .r15), .alu .add .rdx (imm out),
          .mov .rcx (.reg .r15), .alu .add .rcx (imm tailOff), .mov32 .r8 (imm 16), .mov .r9 (.reg .r15),
-         .alu .add .r9 (imm csOff)]) s = some s' ∧ Regs s₀ C D P W R L s' ∧
+         .alu .add .r9 (imm csOff)] : List Instr)) s = some s' ∧ Regs s₀ C D P W R L s' ∧
       FArgs s' C (W + BitVec.ofNat 64 out) (W + BitVec.ofNat 64 32) (W + BitVec.ofNat 64 256) 16 R ∧
       s'.mem = zero2 s.mem (W + BitVec.ofNat 64 out) := by
   have w₀ := h.inW hr.wr (d := out) (n := 8) (by omega)
   have w₁ := h.inW hr.wr (d := out + 8) (n := 8) (by omega)
   obtain ⟨s', run, hr', rdi, rsi, rdx, rcx, r8, r9, m⟩ : ∃ s', runBlock isa (zero16 .r15 out ++
-        [.mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp), .mov .rdx (.reg .r15), .alu .add .rdx (imm out),
+        ([.mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp), .mov .rdx (.reg .r15), .alu .add .rdx (imm out),
          .mov .rcx (.reg .r15), .alu .add .rcx (imm tailOff), .mov32 .r8 (imm 16), .mov .r9 (.reg .r15),
-         .alu .add .r9 (imm csOff)]) s = some s' ∧ Regs s₀ C D P W R L s' ∧ s'.gpr .rdi = C ∧
+         .alu .add .r9 (imm csOff)] : List Instr)) s = some s' ∧ Regs s₀ C D P W R L s' ∧ s'.gpr .rdi = C ∧
       s'.gpr .rsi = BitVec.ofNat 64 R ∧ s'.gpr .rdx = W + BitVec.ofNat 64 out ∧
       s'.gpr .rcx = W + BitVec.ofNat 64 32 ∧ s'.gpr .r8 = BitVec.ofNat 64 16 ∧
       s'.gpr .r9 = W + BitVec.ofNat 64 256 ∧ s'.mem = zero2 s.mem (W + BitVec.ofNat 64 out) := by

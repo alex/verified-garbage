@@ -55,7 +55,7 @@ theorem chainedLen_zero : Spec.Cmac.chainedLen 16 0 = 0 := rfl
 /-! ## Before the update -/
 
 theorem cmacA_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L s) :
-    ∃ s', runBlock isa (zero16 .r15 stOff ++ [.mov32 .rcx (.imm 0), .alu .test .r14 (.reg .r14)]) s = some s' ∧
+    ∃ s', runBlock isa (zero16 .r15 stOff ++ ([.mov32 .rcx (.imm 0), .alu .test .r14 (.reg .r14)] : List Instr)) s = some s' ∧
       Regs s₀ C D P W R L s' ∧ s'.gpr .rcx = 0 ∧ s'.zf = some (decide (L = 0)) ∧
       s'.mem = zero2 s.mem (W + BitVec.ofNat 64 128) := by
   have w₀ := h.inW hr.wr (d := 128) (n := 8) (by decide)

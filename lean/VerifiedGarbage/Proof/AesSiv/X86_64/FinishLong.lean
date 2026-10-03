@@ -299,9 +299,9 @@ theorem m1_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L
     (hout : out = 0 ∨ out = 112) (hL16 : 16 ≤ L)
     (ha : s.mem.readW (W + BitVec.ofNat 64 dbOff) 64 = BitVec.ofNat 64 (16 * kOf L)) :
     ∃ s', runBlock isa (zero16 .r15 out ++
-        [.mov .r8 (.mem (at_ .r15 dbOff)), .shift .shr .r8 4, .mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp),
+        ([.mov .r8 (.mem (at_ .r15 dbOff)), .shift .shr .r8 4, .mov .rdi (.reg .rbx), .mov .rsi (.reg .rbp),
          .mov .rdx (.reg .r15), .alu .add .rdx (imm out), .mov .rcx (.reg .r13), .mov .r9 (.reg .r15),
-         .alu .add .r9 (imm csOff)]) s = some s' ∧ Regs s₀ C D P W R L s' ∧
+         .alu .add .r9 (imm csOff)] : List Instr)) s = some s' ∧ Regs s₀ C D P W R L s' ∧
       UArgs s' C (W + BitVec.ofNat 64 out) P (W + BitVec.ofNat 64 256) R (kOf L) ∧
       s'.mem = zero2 s.mem (W + BitVec.ofNat 64 out) := by
   have hT := kOf_tail hL16
