@@ -23,14 +23,29 @@
     target_arch = "x86_64",
     target_arch = "aarch64",
     target_arch = "arm",
-    target_arch = "x86"
+    target_arch = "x86",
+    all(target_arch = "powerpc64", target_endian = "little")
 ))]
 
+#[cfg_attr(
+    all(target_arch = "powerpc64", target_endian = "little", not(test)),
+    expect(
+        dead_code,
+        reason = "PPC64LE has only ChaCha20 yet, which wipes with `zeroize_raw`"
+    )
+)]
 mod sealed {
     pub trait Sealed {}
 }
 
 /// An integer type: the value whose bytes are all zero is 0.
+#[cfg_attr(
+    all(target_arch = "powerpc64", target_endian = "little", not(test)),
+    expect(
+        dead_code,
+        reason = "PPC64LE has only ChaCha20 yet, which wipes with `zeroize_raw`"
+    )
+)]
 pub(crate) trait Int: Copy + sealed::Sealed {}
 
 macro_rules! int {
@@ -45,6 +60,13 @@ int!(u8, u16, u32, u64, i16, i32, i64);
 
 /// Overwrites `x` with zeros using the verified assembly primitive. Its
 /// opaque call prevents the compiler from removing the stores.
+#[cfg_attr(
+    all(target_arch = "powerpc64", target_endian = "little", not(test)),
+    expect(
+        dead_code,
+        reason = "PPC64LE has only ChaCha20 yet, which wipes with `zeroize_raw`"
+    )
+)]
 pub(crate) fn zeroize<T: Int>(x: &mut [T]) {
     // SAFETY: `x` is writable for its entire byte length, cannot wrap, and
     // lies outside the callee’s stack frame. All-zero bytes are valid for T.

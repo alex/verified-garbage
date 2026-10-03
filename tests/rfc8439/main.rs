@@ -13,7 +13,8 @@
     target_arch = "x86_64",
     target_arch = "aarch64",
     target_arch = "arm",
-    target_arch = "x86"
+    target_arch = "x86",
+    all(target_arch = "powerpc64", target_endian = "little")
 ))]
 
 mod chacha20;
@@ -29,7 +30,13 @@ struct Vector(Vec<(&'static str, Vec<u8>)>);
 
 impl Vector {
     /// Whether the vector has a line `label` (with or without colons after
-    /// it).
+    /// it). Only the Poly1305 vectors need it.
+    #[cfg(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "arm",
+        target_arch = "x86"
+    ))]
     fn has(&self, label: &str) -> bool {
         self.0.iter().any(|(l, _)| l.trim_end_matches(':') == label)
     }

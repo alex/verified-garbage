@@ -58,6 +58,8 @@ yours to keep:
 
 <th>x86</th>
 
+<th>PPC64LE</th>
+
 </tr>
 
 <tr>
@@ -73,6 +75,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -90,6 +94,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -105,6 +111,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -122,6 +130,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -137,6 +147,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅ SHA extensions</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -154,6 +166,8 @@ yours to keep:
 
 <td>✅ SHA extensions</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -169,6 +183,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -186,6 +202,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -201,6 +219,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -218,6 +238,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -233,6 +255,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -256,6 +280,8 @@ yours to keep:
 
 <th>x86</th>
 
+<th>PPC64LE</th>
+
 </tr>
 
 <tr>
@@ -271,6 +297,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅ AES-NI</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -288,6 +316,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -303,6 +333,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -320,6 +352,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -333,6 +367,8 @@ yours to keep:
 <td>✅ SHA extensions</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 <td>❌</td>
 
@@ -352,6 +388,8 @@ yours to keep:
 
 <td>✅ SHA extensions</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -367,6 +405,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -384,6 +424,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -399,6 +441,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -416,6 +460,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -431,6 +477,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -454,6 +502,8 @@ yours to keep:
 
 <th>x86</th>
 
+<th>PPC64LE</th>
+
 </tr>
 
 <tr>
@@ -470,6 +520,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -481,6 +533,8 @@ yours to keep:
 <td>✅ AVX-512F, AVX2</td>
 
 <td>✅ NEON</td>
+
+<td>✅</td>
 
 <td>✅</td>
 
@@ -502,6 +556,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -513,6 +569,8 @@ yours to keep:
 <td>❌</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 <td>❌</td>
 
@@ -540,6 +598,8 @@ yours to keep:
 
 <th>x86</th>
 
+<th>PPC64LE</th>
+
 </tr>
 
 <tr>
@@ -556,6 +616,8 @@ yours to keep:
 
 <td>✅ AES-NI, PCLMULQDQ</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -571,6 +633,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -594,6 +658,8 @@ yours to keep:
 
 <th>x86</th>
 
+<th>PPC64LE</th>
+
 </tr>
 
 <tr>
@@ -605,6 +671,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 <td>❌</td>
 
@@ -626,6 +694,8 @@ yours to keep:
 
 <td>❌</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -637,6 +707,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 <td>❌</td>
 
@@ -658,6 +730,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -674,6 +748,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -687,6 +763,8 @@ yours to keep:
 <td>✅ SHA extensions</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 <td>❌</td>
 
@@ -706,6 +784,8 @@ yours to keep:
 
 <td>✅ SHA extensions</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -721,6 +801,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -738,6 +820,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -753,6 +837,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -770,6 +856,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -785,6 +873,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅ SHA extensions</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -808,6 +898,8 @@ yours to keep:
 
 <th>x86</th>
 
+<th>PPC64LE</th>
+
 </tr>
 
 <tr>
@@ -824,6 +916,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -839,6 +933,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -862,6 +958,8 @@ yours to keep:
 
 <th>x86</th>
 
+<th>PPC64LE</th>
+
 </tr>
 
 <tr>
@@ -869,6 +967,8 @@ yours to keep:
 <td>ECDH P-256</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 <td>❌</td>
 
@@ -894,6 +994,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -909,6 +1011,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -932,6 +1036,8 @@ yours to keep:
 
 <th>x86</th>
 
+<th>PPC64LE</th>
+
 </tr>
 
 <tr>
@@ -939,6 +1045,8 @@ yours to keep:
 <td>DSA</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 <td>❌</td>
 
@@ -964,6 +1072,8 @@ yours to keep:
 
 <td>❌</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -979,6 +1089,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -996,6 +1108,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -1012,6 +1126,8 @@ yours to keep:
 
 <td>✅</td>
 
+<td>❌</td>
+
 </tr>
 
 <tr>
@@ -1027,6 +1143,8 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
 
 </tr>
 

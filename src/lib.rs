@@ -27,6 +27,8 @@ mod cpu;
 use asm::aarch64 as arch;
 #[cfg(target_arch = "arm")]
 use asm::arm as arch;
+#[cfg(all(target_arch = "powerpc64", target_endian = "little"))]
+use asm::powerpc64le as arch;
 #[cfg(target_arch = "x86")]
 use asm::x86 as arch;
 #[cfg(target_arch = "x86_64")]
