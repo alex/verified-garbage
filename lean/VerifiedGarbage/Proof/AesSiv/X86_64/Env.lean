@@ -77,6 +77,24 @@ theorem cov_base {rs : List Region} {r : Region} (hr : r ∈ rs) {n : Nat} (h : 
   have := cov_off hr (off := 0) (n := n) (by omega)
   rwa [Proof.CmacAes.X86_64.k0] at this
 
+/-- The PRF and the cipher of a key context outside a frame's regions. -/
+theorem ctxMac_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {C : Addr}
+    (hd : ∀ r ∈ rs, (⟨C, 512⟩ : Region).Disjoint r) {R : Nat} (hR : 16 * (R + 1) ≤ 240) :
+    Spec.Siv.ctxMac m' C R = Spec.Siv.ctxMac m C R := by
+  unfold Spec.Siv.ctxMac Spec.Siv.schedCiph
+  rw [Proof.CmacAes.X86_64.bytesAt_frame hf (fun r hr => (hd r hr).sub_left (Region.sub_prefix (by omega))) (by omega),
+    Proof.CmacAes.X86_64.bytesAt_frame hf (p := C + 240)
+      (fun r hr => (hd r hr).sub_left (Offset.sub_base C (d := 240) (n := 16) (by decide))) (by decide),
+    Proof.CmacAes.X86_64.bytesAt_frame hf (p := C + 256)
+      (fun r hr => (hd r hr).sub_left (Offset.sub_base C (d := 256) (n := 16) (by decide))) (by decide)]
+
+theorem ctxCiph_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {C : Addr}
+    (hd : ∀ r ∈ rs, (⟨C, 512⟩ : Region).Disjoint r) {R : Nat} (hR : 16 * (R + 1) ≤ 240) :
+    Spec.Siv.ctxCiph m' C R = Spec.Siv.ctxCiph m C R := by
+  unfold Spec.Siv.ctxCiph Spec.Siv.schedCiph
+  rw [Proof.CmacAes.X86_64.bytesAt_frame hf (p := C + 272)
+    (fun r hr => (hd r hr).sub_left (Offset.sub_base C (d := 272) (n := 16 * (R + 1)) (by omega))) (by omega)]
+
 namespace Env
 
 variable {s₀ : State} {C D P W : Addr} {R L : Nat}
