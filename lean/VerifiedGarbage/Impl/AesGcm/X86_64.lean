@@ -23,9 +23,13 @@ Every function has a buffer `W` of 2560 bytes (`scratch` or `work`):
   lengths block;
 * `[112, 128)`: the tag `open` computes;
 * `[128, 176)`: our caller's `rbx, rbp, r12–r15`;
-* `[176, 240)`: public values kept across calls (`roundsO`, …);
+* `[176, 240)`: public values kept across calls (`roundsO`, …; `seal` and
+  `open` keep the whole length at `tlenO` and what is left of the data after
+  its whole blocks at `dataO` and `lenO`);
 * `[240, 256)` and `[256, 272)`: the two tags compared, padded with zeros;
-* `[512, 2560)`: the working space of the functions called.
+* `[512, 2560)`: the working space of the functions called, and
+  `[448, 2560)` that of `vg_aes_gcm_encrypt_blocks` and
+  `vg_aes_gcm_decrypt_blocks`.
 
 ## Registers
 
@@ -57,6 +61,11 @@ rounds is kept in `W` (`roundsO`) and loaded before each call of
 * `recv`, `cmp o`: the received tag and the computed one (at `W + o`), each
   of `rbx` bytes, padded with zeros; `eax` is 1 if they are equal and 0 if
   not, without a branch.
+* `oneBlocks f`: `seal` and `open` encrypt or decrypt the whole blocks of the
+  data and absorb them in one call of `f` (`vg_aes_gcm_encrypt_blocks` or
+  `vg_aes_gcm_decrypt_blocks`), which can interleave the two; the pieces
+  above then handle the last bytes. When the tag is wrong, `oneUndo`
+  encrypts the whole blocks `open` decrypted again.
 
 Only the pointers, the lengths, `rounds`, `tag_len` and (for `open`) whether
 the tag is right can affect timing: the branches are on those, and the
@@ -104,6 +113,7 @@ def aadO : Nat := 232
 def vO : Nat := 240
 def rO : Nat := 256
 def scrO : Nat := 512
+def bScrO : Nat := 448
 
 def saved : List (Reg × Nat) :=
   [(.rbx, 128), (.rbp, 136), (.r12, 144), (.r13, 152), (.r14, 160), (.r15, 168)]
@@ -417,7 +427,7 @@ def oneAad : Prog isa :=
 /-- The whole blocks of the data encrypted (with `f`, `vg_aes_gcm_encrypt_blocks`)
 or decrypted (`vg_aes_gcm_decrypt_blocks`) and absorbed, from the first counter
 block, in one call: the counter at `r14 + 48`, the accumulator at `r14 + 16`
-and `scratch` at `W + 512`, passed on the stack. The data kept then becomes
+and `scratch` at `W + 448`, passed on the stack. The data kept then becomes
 what is left, the last `len mod 16` bytes, and `len` itself stays at
 `W + 192`. -/
 def oneBlocks (f : Fn) : Prog isa :=
@@ -425,7 +435,7 @@ def oneBlocks (f : Fn) : Prog isa :=
       .alu .test .rax (.reg .rax)])
     (.ite .e (.block [])
       (.seq (.block ([.mov .rdi (.reg .r13), .mov .rsi (.mem (at_ .r15 roundsO))] ++ ptr .rdx .r14 48 ++
-          ptr .rcx .r14 16 ++ [.mov .r8 (.mem (at_ .r15 dataO)), .mov .r9 (.reg .rax)] ++ ptr .rax .r15 scrO))
+          ptr .rcx .r14 16 ++ [.mov .r8 (.mem (at_ .r15 dataO)), .mov .r9 (.reg .rax)] ++ ptr .rax .r15 bScrO))
         (.seq (.frame (.push [.rax]) (.call f.name f.code) (.pop .rax 1))
           (.block [.mov .rax (.mem (at_ .r15 lenO)), .mov .rcx (.reg .rax), .alu .and .rcx (imm 15),
             .store (at_ .r15 lenO) .rcx, .alu .sub .rax (.reg .rcx), .alu .add .rax (.mem (at_ .r15 dataO)),
