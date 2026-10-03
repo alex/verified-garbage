@@ -93,9 +93,10 @@ theorem rounds_ok {M : Mod} (hn : M.n < 7) {a b m size : Nat}
             rw [Nat.mul_succ, Nat.pow_add, Nat.mul_assoc]
         _ = 2 ^ (64 * k) * regsVal s₁ (wins M.n k) +
             2 ^ (64 * k) * (word s.mem base (a + 8 * k)).toNat * wordsVal s.mem base b M.n +
-            2 ^ (64 * k) * u * m := by rw [eu]; ring
+            2 ^ (64 * k) * u * m := by rw [eu]; simp only [Nat.mul_add, Nat.mul_assoc]
         _ = (wordsVal s.mem base a k + 2 ^ (64 * k) * (word s.mem base (a + 8 * k)).toNat) *
-            wordsVal s.mem base b M.n + (U + 2 ^ (64 * k) * u) * m := by rw [eU]; ring
+            wordsVal s.mem base b M.n + (U + 2 ^ (64 * k) * u) * m := by
+            rw [eU, Nat.add_mul, Nat.add_mul]; omega
         _ = _ := by rw [wordsVal_succ_top]
     · simp only [List.mem_cons] at hq ⊢
       rcases hq with h | h | h | h | h

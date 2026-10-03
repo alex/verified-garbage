@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.X448.AArch64.Fast.StepOps
+import VerifiedGarbage.Proof.X448.AArch64.Fast.Phases
 import VerifiedGarbage.Proof.X448.AArch64.Weak.Iter
 
 /-!
@@ -41,7 +41,7 @@ structure LInv (base : Addr) (k : Nat) (u : Spec.X448.Fe) (s₀ s : State) (n : 
   red : ∀ i : Index, i.val ∈ [0, 1, 2, 3, 4] → Bnd Mb s.mem base (slot i.val)
   regs : Keeps (.x19 :: fclob) s₀ s
   x19 : s.gpr .x19 = BitVec.ofNat 64 n
-  mem : Outside2 base 16 2864 ACC 512 s₀.mem s.mem
+  mem : Outside2 base 16 2864 ACC 1152 s₀.mem s.mem
   x1 : EV s.mem base 0 = u
   x2 : EV s.mem base 1 = (ladderAfter k u n).x2
   z2 : EV s.mem base 2 = (ladderAfter k u n).z2
