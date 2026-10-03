@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Gcm.X86_64.Ghash
 import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Ghash
+import VerifiedGarbage.Proof.Gcm.X86_64.Vpclmul.Ghash
 
 /-! # GHASH on x86-64 -/
 
@@ -29,6 +30,19 @@ def artifacts : List Artifact := [
     contract := Spec.Gcm.ghashContract X86_64.abi
     verified := Proof.Gcm.X86_64.Pclmul.ghash_verified
     features := ["pclmulqdq", "ssse3"]
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Gcm.ghashApi with
+    name := "vg_ghash_vpclmul"
+    target := X86_64.target
+    doc := Spec.Gcm.ghashApi.doc
+      (notes := ["Uses VPCLMULQDQ: with eight blocks or more, eight blocks at a time, two in each \
+        256-bit register, with `H²` to `H⁸` computed on each call and one reduction per eight \
+        blocks; the blocks left go four and then one at a time with PCLMULQDQ, as in \
+        `vg_ghash_pclmul`."])
+    code := Impl.Gcm.X86_64.Vpclmul.ghash
+    contract := Spec.Gcm.ghashContract X86_64.abi
+    verified := Proof.Gcm.X86_64.Vpclmul.ghash_verified
+    features := ["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Gcm.X86_64

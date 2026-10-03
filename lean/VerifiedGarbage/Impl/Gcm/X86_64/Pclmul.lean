@@ -117,10 +117,13 @@ def body1 : List Instr :=
 def epilogue : List Instr :=
   [.xop (.bin .pshufb .xmm2 .xmm0), .movdquStore (at_ .rsi 0) .xmm2]
 
-def ghash : Prog isa :=
-  .seq (.block prologue)
-    (.seq (.ite .b (.block []) (.loop (.block body4) .ae))
-      (.seq (.block [.alu .test .rcx (.reg .rcx)])
-        (.seq (.ite .e (.block []) (.loop (.block body1) .ne)) (.block epilogue))))
+/-- The blocks left, four and then one at a time, after `cmp rcx, 4`, and `Y`
+stored. -/
+def ghashTail : Prog isa :=
+  .seq (.ite .b (.block []) (.loop (.block body4) .ae))
+    (.seq (.block [.alu .test .rcx (.reg .rcx)])
+      (.seq (.ite .e (.block []) (.loop (.block body1) .ne)) (.block epilogue)))
+
+def ghash : Prog isa := .seq (.block prologue) ghashTail
 
 end VG.Impl.Gcm.X86_64.Pclmul

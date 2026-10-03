@@ -14,7 +14,9 @@
 //! CPUs with AES-NI and SSSE3 run the `_aesni` functions instead, which have
 //! the same contracts: the same verified CMAC code, calling
 //! `vg_aes_expand_key_aesni` and `vg_aes_ctr32_aesni` rather than
-//! `vg_aes_expand_key` and `vg_aes_ctr32`. On AArch64, CPUs with the AES
+//! `vg_aes_expand_key` and `vg_aes_ctr32`, and CPUs with VAES and AVX2 too
+//! the `_vaes` functions, calling `vg_aes_ctr32_vaes` (which, for CMAC's
+//! single blocks, runs `vg_aes_ctr32_aesni`'s code). On AArch64, CPUs with the AES
 //! extension run the `_aes` functions, calling `vg_aes_expand_key_aes` and
 //! `vg_aes_ctr32_aes`. Updates longer than 32 bytes use `_aes_cbc`, whose
 //! whole-block chaining keeps the round keys and chaining value in vector
@@ -42,6 +44,12 @@ use crate::arch::cmac_aes::{
     VG_CMAC_AES_INIT_AESNI_FEATURES, vg_cmac_aes_absorb_aesni, vg_cmac_aes_finish_aesni,
     vg_cmac_aes_init_aesni,
 };
+#[cfg(target_arch = "x86_64")]
+use crate::arch::cmac_aes::{
+    VG_CMAC_AES_ABSORB_VAES_FEATURES, VG_CMAC_AES_FINISH_VAES_FEATURES,
+    VG_CMAC_AES_INIT_VAES_FEATURES, vg_cmac_aes_absorb_vaes, vg_cmac_aes_finish_vaes,
+    vg_cmac_aes_init_vaes,
+};
 use crate::arch::cmac_aes::{vg_cmac_aes_absorb, vg_cmac_aes_finish, vg_cmac_aes_init};
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
@@ -55,31 +63,44 @@ const SCRATCH: usize = 288;
 
 /// The best implementation of AES a CPU with the features `f` can run, with
 /// the CMAC functions for it.
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(target_arch = "x86")]
 fn select(f: Features) -> Backend {
-    Backend::select_for(
-        f,
-        &[
-            VG_CMAC_AES_INIT_AESNI_FEATURES,
-            VG_CMAC_AES_ABSORB_AESNI_FEATURES,
-            VG_CMAC_AES_FINISH_AESNI_FEATURES,
-        ],
-    )
+    const AESNI: Features = Features::all(&[
+        VG_CMAC_AES_INIT_AESNI_FEATURES,
+        VG_CMAC_AES_ABSORB_AESNI_FEATURES,
+        VG_CMAC_AES_FINISH_AESNI_FEATURES,
+    ]);
+    Backend::select_for(f, AESNI)
+}
+
+/// The best implementation of AES a CPU with the features `f` can run, with
+/// the CMAC functions for it.
+#[cfg(target_arch = "x86_64")]
+fn select(f: Features) -> Backend {
+    const VAES: Features = Features::all(&[
+        VG_CMAC_AES_INIT_VAES_FEATURES,
+        VG_CMAC_AES_ABSORB_VAES_FEATURES,
+        VG_CMAC_AES_FINISH_VAES_FEATURES,
+    ]);
+    const AESNI: Features = Features::all(&[
+        VG_CMAC_AES_INIT_AESNI_FEATURES,
+        VG_CMAC_AES_ABSORB_AESNI_FEATURES,
+        VG_CMAC_AES_FINISH_AESNI_FEATURES,
+    ]);
+    Backend::select_for(f, VAES, AESNI)
 }
 
 /// The best implementation of AES a CPU with the features `f` can run, with
 /// the CMAC functions for it.
 #[cfg(target_arch = "aarch64")]
 fn select(f: Features) -> Backend {
-    Backend::select_for(
-        f,
-        &[
-            VG_CMAC_AES_INIT_AES_FEATURES,
-            VG_CMAC_AES_ABSORB_AES_FEATURES,
-            VG_CMAC_AES_ABSORB_AES_CBC_FEATURES,
-            VG_CMAC_AES_FINISH_AES_FEATURES,
-        ],
-    )
+    const AES: Features = Features::all(&[
+        VG_CMAC_AES_INIT_AES_FEATURES,
+        VG_CMAC_AES_ABSORB_AES_FEATURES,
+        VG_CMAC_AES_ABSORB_AES_CBC_FEATURES,
+        VG_CMAC_AES_FINISH_AES_FEATURES,
+    ]);
+    Backend::select_for(f, AES)
 }
 
 /// The best implementation a CPU with the features `f` can run: there is
@@ -136,6 +157,8 @@ impl AesCmac {
             Backend::Scalar => vg_cmac_aes_init,
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_cmac_aes_init_aesni,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Vaes => vg_cmac_aes_init_vaes,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => vg_cmac_aes_init_aes,
         };
@@ -168,6 +191,8 @@ impl AesCmac {
             Backend::Scalar => vg_cmac_aes_absorb,
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_cmac_aes_absorb_aesni,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Vaes => vg_cmac_aes_absorb_vaes,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => {
                 if data.len() > 32 {
@@ -210,6 +235,8 @@ impl AesCmac {
             Backend::Scalar => vg_cmac_aes_finish,
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_cmac_aes_finish_aesni,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Vaes => vg_cmac_aes_finish_vaes,
             #[cfg(target_arch = "aarch64")]
             Backend::Aes => vg_cmac_aes_finish_aes,
         };
@@ -353,6 +380,10 @@ mod tests {
         {
             assert_eq!(select(Features::of(&["aes", "ssse3"])), Backend::AesNi);
             assert_eq!(select(Features::of(&["aes"])), Backend::Scalar);
+            assert_eq!(
+                select(Features::of(&["aes", "avx", "avx2", "ssse3", "vaes"])),
+                Backend::Vaes
+            );
         }
         #[cfg(target_arch = "x86")]
         {

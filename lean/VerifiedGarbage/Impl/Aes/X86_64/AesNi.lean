@@ -175,10 +175,13 @@ def ctrLoad : List Instr :=
 def ctrStore : List Instr :=
   [.xop (.bin .pshufb .xmm9 .xmm10), .movdquStore (at_ .rdx 0) .xmm9]
 
-def ctr32 : Prog isa :=
-  .seq (.block ctrLoad)
-    (.seq (.ite .b (.block []) (.loop body8 .ae))
-      (.seq (.block [.alu .test .r8 (.reg .r8)])
-        (.seq (.ite .e (.block []) (.loop body1 .ne)) (.block ctrStore))))
+/-- The blocks left, eight and then one at a time, after `cmp r8, 8`, and the
+counter stored. -/
+def ctrTail : Prog isa :=
+  .seq (.ite .b (.block []) (.loop body8 .ae))
+    (.seq (.block [.alu .test .r8 (.reg .r8)])
+      (.seq (.ite .e (.block []) (.loop body1 .ne)) (.block ctrStore)))
+
+def ctr32 : Prog isa := .seq (.block ctrLoad) ctrTail
 
 end VG.Impl.Aes.X86_64.AesNi
