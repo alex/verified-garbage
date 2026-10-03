@@ -34,7 +34,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State}
     (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
-  | mov | store | alu | shift | bswap | movzx8 | store8 | mul | push | pop =>
+  | mov | store | alu | shift | bswap | movzx8 | store8 | mul | push | pop | alloc | free =>
     simp only [step] at hs
     exact Taint.step_sound ha (Taint.stepK_eq ▸ hs) e₁ e₂
   | movdquLoad d m =>

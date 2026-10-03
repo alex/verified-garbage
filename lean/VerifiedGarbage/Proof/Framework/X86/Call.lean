@@ -20,6 +20,7 @@ namespace VG.X86
 /-- The bytes a frame's push stores. -/
 def frameBytes : Instr → Nat
   | .push rs => 4 * rs.length
+  | .alloc bytes => bytes
   | _ => 0
 
 /-- The bytes below `esp` that the calls and frames of `c`, and of the
@@ -90,13 +91,12 @@ def pushed (rs : List Reg) (s : State) : State :=
 body ends in. -/
 def popped (r : Reg) (k : Nat) (s : State) : State := { popReg s r k with wr := s.wr.tail }
 
-theorem push_some {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) :
-    ∃ rs, i = .push rs ∧ rs ≠ [] ∧ .esp ∉ rs ∧ 4 * rs.length ≤ (s.gpr .esp).toNat ∧
-      s₁ = pushed rs s := by
-  cases i <;> simp only [isa, push, reduceCtorEq] at h
+theorem push_some {rs : List Reg} {s s₁ : State} (h : isa.push (.push rs) s = some s₁) :
+    rs ≠ [] ∧ .esp ∉ rs ∧ 4 * rs.length ≤ (s.gpr .esp).toNat ∧ s₁ = pushed rs s := by
+  simp only [isa, push] at h
   split at h <;> [rename_i hc; cases h]
   cases h
-  exact ⟨_, rfl, hc.1, hc.2.1, hc.2.2, rfl⟩
+  exact ⟨hc.1, hc.2.1, hc.2.2, rfl⟩
 
 theorem push_pushed {rs : List Reg} {s : State} (hne : rs ≠ []) (hrs : .esp ∉ rs)
     (hn : 4 * rs.length ≤ (s.gpr .esp).toNat) : isa.push (.push rs) s = some (pushed rs s) := by
@@ -105,8 +105,8 @@ theorem push_pushed {rs : List Reg} {s : State} (hne : rs ≠ []) (hrs : .esp �
 
 theorem pop_mem {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = some s') : s'.mem = s₂.mem := by
   cases j <;> simp only [isa, pop, reduceCtorEq] at h
-  split at h <;> cases h
-  exact (popReg_rest _ _ _).1
+  case pop => split at h <;> cases h; exact (popReg_rest _ _ _).1
+  case free => split at h <;> cases h; rfl
 
 @[simp] theorem pushed_rd (rs : List Reg) (s : State) : (pushed rs s).rd = s.rd :=
   (pushRegs_eq s rs).1
@@ -166,6 +166,21 @@ theorem arg_callEntry {s : State} {j : Nat} (h₁ : 4 ≤ (s.gpr .esp).toNat)
     rw [Taint.sub_setWidth h₁] at hx'
     exact Offset.disjoint_below_above _ (m := 4) (a := 4 * j) (l := 4) (by omega) x hx' hx
 
+/-- A frame's push takes `frameBytes i` bytes below `esp`, which become the
+head of the writable regions, and stores only within them. -/
+theorem push_frame {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) :
+    s₁.gpr .esp = s.gpr .esp - BitVec.ofNat 32 (frameBytes i) ∧
+      s₁.wr = below (s.gpr .esp) (frameBytes i) :: s.wr ∧ frameBytes i ≤ (s.gpr .esp).toNat ∧
+      Frame [below (s.gpr .esp) (frameBytes i)] s.mem s₁.mem := by
+  cases i <;> simp only [isa, push, reduceCtorEq] at h
+  case push rs =>
+    obtain ⟨-, hrs, hn, rfl⟩ := push_some (rs := rs) (by simpa only [isa, push] using h)
+    exact ⟨pushed_esp rs s, pushed_wr rs s, hn, pushed_frame hrs hn⟩
+  case alloc bytes =>
+    split at h <;> cases h
+    rename_i hc
+    exact ⟨by simp [State.setReg, frameBytes], rfl, hc.2.2.2, Frame.refl _ _⟩
+
 /-- Code that never writes `esp` changes memory only within the regions it
 may write, and within the `stackUse` bytes below `esp` (its calls' return
 addresses and its frames). -/
@@ -219,13 +234,13 @@ theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
       exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _),
         below_inner (k := 4) (Nat.le_refl _) hd⟩
   | @frame i _ b s₀ s₁ s₂ _ _ hp _ hq ih =>
-    obtain ⟨rs, rfl, -, hrs, hn, rfl⟩ := push_some hp
-    simp only [stackUse, frameBytes] at hd ⊢
+    obtain ⟨e₁, w₁, hn, f₀⟩ := push_frame hp
+    simp only [stackUse] at hd ⊢
     rw [pop_mem hq]
     have hc' : NoSp b := fun i hi => hc i (by simp [instrs, hi])
-    have f₁ := ih hc' (by rw [pushed_esp, sub_toNat hn]; omega)
-    rw [pushed_wr, pushed_esp] at f₁
-    refine Frame.trans (fun x hx => pushed_frame hrs hn x fun r hr => ?_) (Frame.sub f₁ fun r hr => ?_)
+    have f₁ := ih hc' (by rw [e₁, sub_toNat hn]; omega)
+    rw [w₁, e₁] at f₁
+    refine Frame.trans (fun x hx => f₀ x fun r hr => ?_) (Frame.sub f₁ fun r hr => ?_)
     · simp only [List.mem_singleton] at hr; subst hr
       exact fun hc => hx _ (List.mem_append_right _ (List.mem_singleton_self _))
         (below_sub (by omega) hd _ hc)
