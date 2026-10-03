@@ -35,7 +35,7 @@ def BEnv (m : Mem) (base : Addr) : Prop := ∀ i : Index, Bnd Ib m base (slot i.
 outside the field slots and the coefficient area. -/
 structure FKeep (base : Addr) (s t : State) : Prop where
   regs : Keeps fclob s t
-  mem : Outside2 base 64 2816 ACC 512 s.mem t.mem
+  mem : Outside2 base 64 2816 ACC 1152 s.mem t.mem
 
 theorem FKeep.refl (base : Addr) (s : State) : FKeep base s s :=
   ⟨Keeps.refl _ _, Outside2.refl _ _ _ _ _ _⟩
@@ -76,9 +76,9 @@ theorem fieldMem_same {base : Addr} {o : Index} {m m' : Mem} (h : FieldMem base 
   exact h.limbs (slot_sep hne) (slot_bound i) (by omega : j < 16)
 
 theorem fieldMem_outside2 {base : Addr} {o : Index} {m m' : Mem} (h : FieldMem base (slot o.val) m m') :
-    Outside2 base 64 2816 ACC 512 m m' := by
+    Outside2 base 64 2816 ACC 1152 m m' := by
   intro p hp hq
-  apply h p _ hq
+  apply h p _ (hq.imp_right fun h => Nat.le_trans (Nat.add_le_add_left (by decide : 512 ≤ 1152) _) h)
   have := o.isLt
   simp only [slot]
   omega
@@ -146,7 +146,7 @@ theorem away_same {base : Addr} {os : List Index} {m m' : Mem}
 
 theorem away_outside2 {base : Addr} {os : List Index} {m m' : Mem}
     (h : ∀ x, Away base (os.map fun i => slot i.val) 64 x → m' x = m x) :
-    Outside2 base 64 2816 ACC 512 m m' := by
+    Outside2 base 64 2816 ACC 1152 m m' := by
   intro p hp _
   apply h p
   intro o ho

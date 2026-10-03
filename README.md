@@ -334,7 +334,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅ SHA extensions</td>
 
 </tr>
 
@@ -510,13 +510,13 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>✅</td>
 
 <td>❌</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -544,6 +544,38 @@ yours to keep:
 
 <tr>
 
+<td>AES-CCM (128-, 192- and 256-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>AES-GCM-SIV (128- and 256-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>AES-GCM (128-, 192- and 256-bit keys)</td>
 
 <td>✅</td>
@@ -555,6 +587,38 @@ yours to keep:
 <td>✅</td>
 
 <td>✅ AES-NI, PCLMULQDQ</td>
+
+</tr>
+
+<tr>
+
+<td>AES-OCB3 (128-, 192- and 256-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>AES-SIV (256-, 384- and 512-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -688,7 +752,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅ SHA extensions</td>
 
 </tr>
 

@@ -1,0 +1,5 @@
+name = "AES-GCM-SIV (128- and 256-bit keys)"
+family = "AEADs"
+specs = ["Aes", "GcmSiv"]
+modules = ["src/aes_gcm_siv.rs"]
+asm = ["aes", "aes_gcm_siv"]

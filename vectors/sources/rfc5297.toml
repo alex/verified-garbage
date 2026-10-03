@@ -1,0 +1,5 @@
+name = "RFC 5297, Synthetic Initialization Vector (SIV) Authenticated Encryption Using AES (test vectors in Appendix A)"
+directories = ["rfc5297"]
+url = "https://www.rfc-editor.org/rfc/rfc5297.txt"
+sha256 = "498a200ee427a67b27d643b3837ac04b1122755d2337b3cbe68de9c52e86a8cd"
+retrieved = 2026-10-03

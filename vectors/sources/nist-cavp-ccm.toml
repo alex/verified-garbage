@@ -1,0 +1,5 @@
+name = "NIST CAVP CCM test vectors (every .rsp file: generation-encryption varying each length, and decryption-verification, for 128-, 192- and 256-bit keys)"
+directories = ["nist-cavp/ccm"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/mac/ccmtestvectors.zip"
+sha256 = "0e3c96761bd8f1a0b4dfe666146c32f7d367a49968375ff091b8da9ecaa673aa"
+retrieved = 2026-10-03

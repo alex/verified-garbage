@@ -126,6 +126,7 @@ structure St₂ (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop extend
     (tmv c.C c.n base s (c.sl RZ)) (mul (kv c s₀) (G c.C))
   acc_lt : sv c base s ACC < c.C.p
   acc : toM c.C.p (2 ^ (64 * c.n)) (sv c base s ACC) = tmv c.C c.n base s (c.sl RZ) ^ (c.C.p - 2)
+  rz_lt : sv c base s RZ < c.C.p
 
 theorem toM_cmont (hc : CfgOk c) (x : Nat) : toM c.C.p (2 ^ (64 * c.n)) (c.mont x) = (x : ZMod c.C.p) :=
   toM_mont (coprime_pow_two hc.p_odd _)
@@ -225,7 +226,8 @@ theorem stage₂ (hc : CfgOk c) {s₀ : State} {base : Addr} {s : State} (hS : S
     by rw [e₆ (by decide) (by decide) (by decide), hS.k],
     by rw [e₆ (by decide) (by decide) (by decide), hS.d],
     by rw [e₆ (by decide) (by decide) (by decide), hS.e],
-    by rw [flag_unch U₆ h7 h0 hn (by decide), flag_unch U₅ h7 h0 hn (by decide), hS.flag], ?_, ?_, lt₆, ?_⟩
+    by rw [flag_unch U₆ h7 h0 hn (by decide), flag_unch U₅ h7 h0 hn (by decide), hS.flag], ?_, ?_, lt₆, ?_,
+    ?_⟩
   · rw [K₆.gpr _ (r14_not_powClob hc.n4), K₅.gpr _ (r14_not_powClob hc.n4), hS.r14]
   · intro t ht
     rw [tbl_unch U₆ h7 hn (j := 2) (by decide) ht (tbl_apart_slW (by decide) 2 t),
@@ -238,6 +240,8 @@ theorem stage₂ (hc : CfgOk c) {s₀ : State} {base : Addr} {s : State} (hS : S
   · show _ = toM _ _ (sv c base s₆ RZ) ^ _
     rw [r₆ (i := RZ) (by decide) (by decide)]
     exact v₆
+  · rw [r₆ (i := RZ) (by decide) (by decide)]
+    exact L₅ (c.sl RZ) (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_singleton_self _)))
 
 /-- After `x`, `r`, the checks and `k^(n-2)`. -/
 structure St₃ (c : Cfg) (s₀ : State) (base : Addr) (s : State) : Prop extends Keep c s₀ base s where
