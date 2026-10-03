@@ -1,11 +1,13 @@
 //! ECDSA over P-256: deterministic signatures with HMAC-SHA-256
-//! (`vg_ecdsa_p256_sha256_sign`, which calls `vg_ecdsa_p256_sign`), and
-//! public keys (`vg_ec_p256_public_key`).
+//! (`vg_ecdsa_p256_sha256_sign`, which calls `vg_ecdsa_p256_sign`), public
+//! keys (`vg_ec_p256_public_key`), and verification
+//! (`vg_ecdsa_p256_verify`).
 
 #![cfg(target_arch = "x86_64")]
 
-use super::{Curve, Error, SigningKey, sealed};
+use super::{Curve, Error, SigningKey, VerifyingKey, sealed};
 use crate::arch::ec_p256::vg_ec_p256_public_key;
+use crate::arch::ecdsa_p256::vg_ecdsa_p256_verify;
 use crate::arch::ecdsa_p256_sha256::{
     vg_ecdsa_p256_sha256_sign, vg_ecdsa_p256_sha256_sign_avx2, vg_ecdsa_p256_sha256_sign_shani,
 };
@@ -20,6 +22,7 @@ impl sealed::Sealed for P256 {}
 
 impl Curve for P256 {
     type PrivateKey = [u8; 32];
+    type PublicKey = [u8; 65];
 }
 
 impl SigningKey<P256> {
@@ -84,6 +87,45 @@ impl SigningKey<P256> {
             Ok(out)
         } else {
             Err(Error::InvalidKey)
+        }
+    }
+}
+
+impl VerifyingKey<P256> {
+    /// Verifies the signature `r ‖ s` (each 32 bytes, most significant
+    /// first) of the SHA-256 hash of `message` (FIPS 186-5 §6.4.2).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidSignature`] if the signature is not valid for this
+    /// key, or the key is not a valid public key.
+    pub fn verify_sha256(&self, message: &[u8], signature: &[u8; 64]) -> Result<(), Error> {
+        self.verify_sha256_prehashed(&Sha256::digest(message), signature)
+    }
+
+    /// Verifies a signature of `digest`, the SHA-256 hash of a message, as
+    /// [`verify_sha256`](Self::verify_sha256) verifies one of the message.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidSignature`] if the signature is not valid for this
+    /// key, or the key is not a valid public key.
+    pub fn verify_sha256_prehashed(
+        &self,
+        digest: &[u8; 32],
+        signature: &[u8; 64],
+    ) -> Result<(), Error> {
+        let mut scratch = [0u64; 1024];
+        // SAFETY: `self.q` is valid for reads of 65 bytes, `digest` of 32,
+        // `signature` of 64 and `scratch` for reads and writes of 8192;
+        // `scratch` is a distinct object from the others, so it overlaps
+        // neither them nor the call's stack frame, and, as Rust objects,
+        // none wraps around the address space.
+        let ok = unsafe { vg_ecdsa_p256_verify(&self.q, digest, signature, &mut scratch) };
+        if ok == 1 {
+            Ok(())
+        } else {
+            Err(Error::InvalidSignature)
         }
     }
 }

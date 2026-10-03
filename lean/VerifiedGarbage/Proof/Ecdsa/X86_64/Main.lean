@@ -207,13 +207,6 @@ def SignPost (c : Cfg) (s₀ s' : State) : Prop :=
   | none => (s'.gpr .rax).setWidth 32 = 0 ∧
       Spec.Ecdsa.bytesAt s'.mem (s₀.gpr .rdi) (16 * c.n) = List.replicate (16 * c.n) 0
 
-theorem hashToInt_eq (hc : CfgOk c) (m : Mem) (q : Addr) :
-    Spec.Ecdsa.hashToInt c.C (Spec.Ecdsa.bytesAt m q (8 * c.n)) =
-      ofBytes (Spec.Ecdsa.bytesAt m q (8 * c.n)) := by
-  have := hc.hash
-  simp only [Spec.Ecdsa.hashToInt, length_bytesAt,
-    show 8 * (8 * c.n) ≤ Spec.Ecdsa.nBits c.C by omega, ite_true]
-
 /-- `s`, its check, and the result. -/
 theorem stage₄ (hc : CfgOk c) (hC : Good c.C) {s₀ : State} (hp : Pre c s₀) {base : Addr} (hb : base = s₀.gpr .r8)
     {s : State} (hS : St₃ c s₀ base s) :
