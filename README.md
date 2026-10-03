@@ -544,6 +544,22 @@ yours to keep:
 
 <tr>
 
+<td>AES-CCM (128-, 192- and 256-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>AES-GCM (128-, 192- and 256-bit keys)</td>
 
 <td>✅</td>
