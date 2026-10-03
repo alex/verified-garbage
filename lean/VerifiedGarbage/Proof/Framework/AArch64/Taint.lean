@@ -40,7 +40,7 @@ def step (τ : T) : Instr → Option T
   | .mul _ d n m | .umulh d n m =>
     some (set τ d (pub τ n && pub τ m))
   -- This register-only domain conservatively treats the carry as secret.
-  | .adcs _ d _ _ | .sbcs _ d _ _ => some (set τ d false)
+  | .adcs _ d _ _ | .sbcs _ d _ _ | .adc _ d _ _ | .sbc _ d _ _ => some (set τ d false)
   | .madd _ d n m a => some (set τ d (pub τ n && pub τ m && pub τ a))
   | .addImm _ d n _ | .subImm _ d n _ | .ror _ d n _ | .lsr _ d n _ | .lsl _ d n _ | .rev32 d n
   | .rev d n => some (set τ d (pub τ n))
@@ -107,6 +107,10 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     simp only [Bool.and_eq_true] at hp
     rw [ha.read hp.1, ha.read hp.2]
   | adcs sz d n m | sbcs sz d n m =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
+    exact ⟨rfl, ha.write sz d (p := false) (by simp)⟩
+  | adc sz d n m | sbc sz d n m =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
     exact ⟨rfl, ha.write sz d (p := false) (by simp)⟩
