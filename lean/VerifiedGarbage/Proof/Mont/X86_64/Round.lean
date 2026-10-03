@@ -144,7 +144,7 @@ theorem round_ok {s : State} {base : Addr} {size : Nat} (hs : Scr s base size) {
   have hl : ((List.range M.n).map (win M.n i)).length = M.n := by simp
   have hm' : m < 2 ^ (64 * M.n) := hm ▸ wordsVal_lt _ _ _ _
   have hP : 2 ^ (64 * M.n) * 2 ^ 128 = 2 ^ (64 * M.n) * 2 ^ 64 * 2 ^ 64 := by
-    rw [Nat.mul_assoc]; rfl
+    rw [Nat.mul_assoc]
   rw [round_eq, WP.block_append_iff]
   refine WP.mono (movRcx_ok hs ha) fun s₁ ⟨c₁, k₁⟩ => ?_
   have hs₁ := hs.of_keeps k₁ (by decide)

@@ -3,8 +3,8 @@ import VerifiedGarbage.TCB.Mem
 /-!
 # AES (FIPS 197)
 
-**Trusted** (as every file in `Spec/`). The block cipher AES (the forward
-cipher only, which is all that GCM uses), transcribed from FIPS 197,
+**Trusted** (as every file in `Spec/`). The block cipher AES, transcribed
+from FIPS 197,
 *Advanced Encryption Standard (AES)* (November 2001, updated May 2023);
 section numbers below refer to it. Keys of 128, 192 and 256 bits are
 covered (`Nk = 4, 6, 8` words, `Nr = Nk + 6` rounds, §5).
@@ -20,7 +20,9 @@ round key into `s[r, c]` (§5.1.4).
 The S-box is defined as §5.1.1 does, by the multiplicative inverse in
 GF(2⁸) followed by an affine transformation, rather than by copying the
 table of Figure 7; the known-answer tests in `VerifiedGarbageTest/Aes.lean`
-check the result.
+check the result. The inverse cipher (§5.3, which OCB's decryption uses)
+inverts the S-box the same way, by the inverse of the affine transformation
+followed by the multiplicative inverse.
 
 The primitives implemented in assembly are the key expansion and GCM's
 counter mode (`Spec/Gcm.lean`); their contracts are in
@@ -167,6 +169,66 @@ def cipher (nr : Nat) (w : List Byte) (input : State) : State :=
 24 or 32 bytes). -/
 def encrypt (key : List Byte) (input : List Byte) : List Byte :=
   (cipher (rounds (key.length / 4)) (expandKey key) (Vector.ofFn fun i => input.getD i 0)).toList
+
+/-! ## The inverse cipher (§5.3) -/
+
+/-- §5.3.1, `INVSHIFTROWS`, the inverse of `SHIFTROWS`:
+`s'[r, c] = s[r, (c − r) mod 4]`. -/
+def invShiftRows (s : State) : State :=
+  Vector.ofFn fun (i : Fin 16) =>
+    let r := i.1 % 4; let c := i.1 / 4
+    s.getD (r + 4 * ((c + 4 - r) % 4)) 0
+
+/-- The inverse of the S-box's affine transformation (§5.1.1):
+`bᵢ = b'₍ᵢ₊₂₎ mod 8 ⊕ b'₍ᵢ₊₅₎ mod 8 ⊕ b'₍ᵢ₊₇₎ mod 8 ⊕ dᵢ`, where `d = {05}`. -/
+def invAffine (b : Byte) : Byte :=
+  let d : Byte := 0x05
+  let bit (i : Nat) : Bool :=
+    b.getLsbD ((i + 2) % 8) ^^ b.getLsbD ((i + 5) % 8) ^^ b.getLsbD ((i + 7) % 8) ^^ d.getLsbD i
+  BitVec.ofNat 8 ((List.range 8).foldl (fun acc i => acc + if bit i then 2 ^ i else 0) 0)
+
+/-- §5.3.2, the inverse of the S-box: the inverse of the affine
+transformation, followed by the multiplicative inverse (with
+`{00} ↦ {00}`). -/
+def invSbox (b : Byte) : Byte := inv (invAffine b)
+
+/-- §5.3.2, `INVSUBBYTES`: the inverse S-box applied to every byte of the
+state. -/
+def invSubBytes (s : State) : State := s.map invSbox
+
+/-- §5.3.3, `INVMIXCOLUMNS`, on each column `c`:
+```
+s'[0, c] = ({0e} • s[0, c]) ⊕ ({0b} • s[1, c]) ⊕ ({0d} • s[2, c]) ⊕ ({09} • s[3, c])
+s'[1, c] = ({09} • s[0, c]) ⊕ ({0e} • s[1, c]) ⊕ ({0b} • s[2, c]) ⊕ ({0d} • s[3, c])
+s'[2, c] = ({0d} • s[0, c]) ⊕ ({09} • s[1, c]) ⊕ ({0e} • s[2, c]) ⊕ ({0b} • s[3, c])
+s'[3, c] = ({0b} • s[0, c]) ⊕ ({0d} • s[1, c]) ⊕ ({09} • s[2, c]) ⊕ ({0e} • s[3, c])
+``` -/
+def invMixColumns (s : State) : State :=
+  Vector.ofFn fun (i : Fin 16) =>
+    let r := i.1 % 4; let c := i.1 / 4
+    let a (k : Nat) : Byte := s.getD ((r + k) % 4 + 4 * c) 0
+    mul 0x0e (a 0) ^^^ mul 0x0b (a 1) ^^^ mul 0x0d (a 2) ^^^ mul 0x09 (a 3)
+
+/-- §5.3, `INVCIPHER(in, Nr, w)` (Algorithm 3), on the key schedule `w`
+given as bytes (the schedule of the forward cipher, `KEYEXPANSION`'s, used
+in the reverse order):
+```
+state ← ADDROUNDKEY(in, w[4·Nr .. 4·Nr + 3])
+for round from Nr − 1 downto 1:
+  state ← INVMIXCOLUMNS(ADDROUNDKEY(INVSUBBYTES(INVSHIFTROWS(state)), w[4·round .. 4·round + 3]))
+state ← ADDROUNDKEY(INVSUBBYTES(INVSHIFTROWS(state)), w[0..3])
+``` -/
+def invCipher (nr : Nat) (w : List Byte) (input : State) : State :=
+  let s := addRoundKey input (roundKey w nr)
+  let s := (List.range (nr - 1)).foldl
+    (fun s j =>
+      invMixColumns (addRoundKey (invSubBytes (invShiftRows s)) (roundKey w (nr - 1 - j)))) s
+  addRoundKey (invSubBytes (invShiftRows s)) (roundKey w 0)
+
+/-- AES decryption of the 16-byte block `input` under the key `key` (16,
+24 or 32 bytes). -/
+def decrypt (key : List Byte) (input : List Byte) : List Byte :=
+  (invCipher (rounds (key.length / 4)) (expandKey key) (Vector.ofFn fun i => input.getD i 0)).toList
 
 /-! ## On memory -/
 

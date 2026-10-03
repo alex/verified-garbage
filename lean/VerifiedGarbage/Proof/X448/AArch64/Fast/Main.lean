@@ -20,6 +20,7 @@ local notation "EV" => VG.Proof.X448.AArch64.Weak.E
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa Impl.X448.AArch64.Fast.x448 s₀ fun s' => (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧
+      (∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64) ∧
       Proof.X448.x448AArch64.post s₀ s' := by
   obtain ⟨base, hbase⟩ : ∃ b, s₀.gpr .x3 = b := ⟨_, rfl⟩
   have hn : base.toNat + 8192 ≤ 2 ^ 64 := hbase ▸ hp.sc_fit
@@ -32,7 +33,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     fun j hj => far (hbase ▸ hp.scalar_sc) hj (by decide)
   rw [Impl.X448.AArch64.Fast.x448]
   refine WP.seq (WP.mono (setup_ok hbase hw₀ hn rfl hr hd)
-    fun s₁ ⟨hs₁, b₁, r₁, savedOut₁, k₁, o₁, sv₁, svx₁, x1₁, x2₁, z2₁, x3₁, z3₁, sw₁⟩ => ?_)
+    fun s₁ ⟨hs₁, b₁, r₁, savedOut₁, k₁, o₁, sv₁, svx₁, x1₁, x2₁, z2₁, x3₁, z3₁, sw₁, svV₁⟩ => ?_)
   have kr : ∀ j < 56, InRegions (s₁.rd ++ s₁.wr) (off (s₀.gpr .x1) j) 1 := fun j hj =>
     ⟨scalarR s₀, by rw [k₁.2.1, hp.rd]; simp, Offset.contains_base _ (by omega) (by omega)⟩
   refine WP.seq (WP.mono (bits_ok hs₁ (k₁.1 _ (by decide)) kr kd)
@@ -44,6 +45,8 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have sv₃ : Saved base s₀.gpr s₃.mem := by rw [m₃]; exact sv₁.outside o₂ (by decide)
   have svx₃ : SavedX base s₀.gpr s₃.mem := by
     rw [m₃]; exact svx₁.outside o₂ (by simp only [BITS, Impl.X448.AArch64.Fast.SAVE]; omega)
+  have svV₃ : SavedV base s₀.v s₃.mem := by
+    rw [m₃]; exact svV₁.outside o₂ (by simp only [BITS, Impl.X448.AArch64.Fast.VSAVE]; omega)
   have l₃ : ∀ i : Index, ∀ j < 8, limbs s₃.mem base (slot i.val) j = limbs s₁.mem base (slot i.val) j := by
     intro i j hj
     rw [m₃]
@@ -78,15 +81,17 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     (by decide)).outside2 k₆.mem (by decide) (by decide)
   have svx₆ := ((svx₃.outside2 L.mem (by decide) (by decide)).outside2 k₅.mem (by decide)
     (by decide)).outside2 k₆.mem (by decide) (by decide)
+  have svV₆ := ((svV₃.outside2 L.mem (by decide) (by decide)).outside2 k₅.mem (by decide)
+    (by decide)).outside2 k₆.mem (by decide) (by decide)
   have out₆ : s₆.gpr .x1 = s₀.gpr .x0 :=
     (k36.1 _ (by decide)).trans (out₃.trans ((g₂ _ (by decide)).trans savedOut₁))
   have k06 := k03.then k36
   have hw₆ : ∀ j < 56, InRegions s₆.wr (off (s₀.gpr .x0) j) 1 := fun j hj =>
     ⟨outR s₀, by rw [k06.2.2, hp.wr]; simp, Offset.contains_base _ (by omega) (by omega)⟩
   refine WP.mono (finish_ok (k₆.scr hs₅) b₆ out₆ hw₆
-    (fun j hj => far_output (hbase ▸ hp.out_sc) hj) sv₆ svx₆) fun s' ⟨rb, x20, rx, kf, fm, result⟩ => ?_
+    (fun j hj => far_output (hbase ▸ hp.out_sc) hj) sv₆ svx₆ svV₆) fun s' ⟨rb, x20, rx, rv, kf, fm, result⟩ => ?_
   have kall := k06.then kf
-  refine ⟨?_, ?_⟩
+  refine ⟨?_, fun r hr => ?_, ?_⟩
   · intro r hr
     simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
@@ -101,6 +106,16 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · exact rx 6 (by decide)
     · exact rx 7 (by decide)
     · exact kall.1 _ (by decide)
+  · simp only [preservedV, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    · exact rv 0 (by decide)
+    · exact rv 1 (by decide)
+    · exact rv 2 (by decide)
+    · exact rv 3 (by decide)
+    · exact rv 4 (by decide)
+    · exact rv 5 (by decide)
+    · exact rv 6 (by decide)
+    · exact rv 7 (by decide)
   · change Spec.X448.bytesAt s'.mem (s₀.gpr .x0) 56 = _
     rw [result, x448_eq]
     apply congrArg Spec.X448.encodeUCoordinate
