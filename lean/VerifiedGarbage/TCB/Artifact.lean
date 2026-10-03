@@ -79,6 +79,12 @@ Only the bits of a public argument's own width are public: a 32-bit argument
 in a 64-bit register leaves the upper half unspecified (whatever the caller
 left there, which may be secret), so two runs need not agree on it.
 
+A list of slices (`Param.slices`) adds read-only memory that depends on the
+memory on entry: its descriptors, and the slices they list (`Sig.lists`),
+which may overlap each other and the other read-only buffers, but no
+writable buffer (a `&[&[T]]` and a `&mut` are distinct Rust objects). What
+its descriptors say is public (`Sig.descs`): two runs agree on their bytes.
+
 `leak`, if given, declares what the function may leak beyond its public
 arguments: a list of numbers computed from the arguments and the memory on
 entry (e.g. the sequence of table indices an algorithm reads, when the
@@ -96,7 +102,8 @@ def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
   { pre s := match A.args widths with
       | none => False
       | some vals =>
-        let bufs := Sig.bufs sig.params (vals s)
+        let bufs := Sig.bufs sig.params (vals s) ++
+          (Sig.lists A.ptrBits (A.mem s) sig.params (vals s)).map fun r => (r, false)
         let all := bufs ++ (A.argArea widths s).map fun (r, w) => (r, w && writeArgs)
         A.wf widths stack s ∧
         A.rd s = (all.filter (!·.2)).map (·.1) ∧ A.wr s = (all.filter (·.2)).map (·.1) ∧
@@ -115,9 +122,11 @@ def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
           | none => A.pub s₁ s₂
           | some f => A.pub s₁ s₂ ∧
             Curry.apply ws f (vals s₁) (A.mem s₁) = Curry.apply ws f (vals s₂) (A.mem s₂)) ∧
-        ∀ i, pubs.getD i false = true →
+        (∀ i, pubs.getD i false = true →
           ((vals s₁).getD i 0).setWidth (widths.getD i 64) =
-            ((vals s₂).getD i 0).setWidth (widths.getD i 64) }
+            ((vals s₂).getD i 0).setWidth (widths.getD i 64)) ∧
+        ∀ r ∈ Sig.descs A.ptrBits sig.params (vals s₁), ∀ i < r.len,
+          A.mem s₁ (r.base + BitVec.ofNat 64 i) = A.mem s₂ (r.base + BitVec.ofNat 64 i) }
 
 /-! ## Documenting the obligations `Sig.contract` implies
 
@@ -130,22 +139,26 @@ calling convention names its argument area and reserved memory
 (`Abi.argAreaDoc`, `Abi.reservedDoc`).
 -/
 
-/-- The buffers of the parameters `ps` by name, and whether each is
-writable: those of `Sig.bufs`, in the same order. -/
+/-- The buffers of the parameters `ps` as the documentation names them, and
+whether each is writable: those of `Sig.bufs`, in the same order, each list
+of slices followed by the slices it lists (`Sig.lists`). -/
 def Sig.bufNames : List (String × Param) → List (String × Bool)
   | [] => []
   | (_, .int ..) :: ps => Sig.bufNames ps
-  | (n, .array w ..) :: ps => (n, w) :: Sig.bufNames ps
-  | (n, .slice w ..) :: ps => (n, w) :: Sig.bufNames ps
+  | (n, .array w ..) :: ps => (s!"`{n}`", w) :: Sig.bufNames ps
+  | (n, .slice w ..) :: ps => (s!"`{n}`", w) :: Sig.bufNames ps
+  | (n, .slices ..) :: ps => (s!"`{n}`", false) :: (s!"the slices `{n}` lists", false) :: Sig.bufNames ps
 
 /-- The size in bytes of the buffer a parameter stands for, as the
 documentation states it: that of `Sig.bufs`, a number for an array and
-`` `len` `` or `` `k * len` `` for a slice of `len` elements of `k` bytes;
+`` `len` `` or `` `k * len` `` for a slice of `len` elements of `k` bytes, and
+`` `2 * size_of::<usize>() * count` `` for the descriptors of a list of `count` slices;
 `none` for an integer. -/
 def Param.sizeDoc : Param → Option String
   | .int .. => none
   | .array _ e n => some s!"{n * e.size}"
   | .slice _ e len => some (if e.size = 1 then s!"`{len}`" else s!"`{e.size} * {len}`")
+  | .slices _ count => some s!"`2 * size_of::<usize>() * {count}`"
 
 /-- The `# Safety` items stating the memory each buffer of `sig` must be
 valid for, in order: the region `Sig.contract` lets the function read
@@ -156,7 +169,11 @@ def Sig.validDoc (sig : Sig) : List String :=
     let access := match p with
       | .array true .. | .slice true .. => "reads and writes"
       | _ => "reads"
-    p.sizeDoc.map fun size => s!"`{n}` must be valid for {access} of {size} bytes."
+    let listed := match p with
+      | .slices e _ => if e.size = 1 then s!", and each slice it lists for reads of its length in \
+          bytes" else s!", and each slice it lists for reads of {e.size} times its length in bytes"
+      | _ => ""
+    p.sizeDoc.map fun size => s!"`{n}` must be valid for {access} of {size} bytes{listed}."
 
 /-- `xs` as an English list joined by `conj`: "a", "a or b", "a, b or c". -/
 def englishList (conj : String) : List String → String
@@ -175,9 +192,9 @@ the address space. -/
 def Sig.layoutDoc {M : ISA} (A : Abi M) (sig : Sig) (writeArgs : Bool) (stack : Nat) :
     List String :=
   let bufs := Sig.bufNames sig.params
-  let all := bufs.map fun b => s!"`{b.1}`"
-  let w := (bufs.filter (·.2)).map fun b => s!"`{b.1}`"
-  let r := (bufs.filter (!·.2)).map fun b => s!"`{b.1}`"
+  let all := bufs.map (·.1)
+  let w := (bufs.filter (·.2)).map (·.1)
+  let r := (bufs.filter (!·.2)).map (·.1)
   let args := A.argAreaDoc ((sig.words A.ptrBits).map (·.bits A.ptrBits))
   let argsWritable := match args with
     | some (_, wr) => wr && writeArgs

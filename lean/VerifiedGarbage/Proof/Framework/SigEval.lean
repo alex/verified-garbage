@@ -205,6 +205,7 @@ end
 the lists it computes with. -/
 def defaultUnfold : List Name :=
   [`VG.Sig.contract, `VG.Sig.words, `VG.Param.words, `VG.Param.pubs, `VG.Sig.bufs,
+    `VG.Sig.lists, `VG.Sig.descs, `VG.Sig.descRegion,
     `VG.Sig.retBits, `VG.ArgWord.bits, `VG.ArgWord.ofRaw, `VG.IntTy.bits, `VG.Elem.size,
     `VG.stackBelow, `VG.Curry.apply, `VG.Curry.const, `VG.Sig.wfPre, ``List.map, ``List.filter,
     ``List.flatMap, ``List.flatten, ``List.append, ``List.zip, ``List.zipWith, ``List.sum,

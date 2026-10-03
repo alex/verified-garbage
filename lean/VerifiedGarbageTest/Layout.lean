@@ -145,6 +145,28 @@ def wide : Sig where
 
 #guard Sig.validDoc none' == []
 
+/-- A list of slices, between a writable buffer and a read-only one. -/
+def lists : Sig where
+  params := [("out", .array true .u8 16), ("parts", .slices .u8 "count"),
+    ("words", .slices .u32 "n"), ("key", .array false .u8 16)]
+
+#guard Sig.validDoc lists == [
+    "`out` must be valid for reads and writes of 16 bytes.",
+    "`parts` must be valid for reads of `2 * size_of::<usize>() * count` bytes, and each slice \
+      it lists for reads of its length in bytes.",
+    "`words` must be valid for reads of `2 * size_of::<usize>() * n` bytes, and each slice it \
+      lists for reads of 4 times its length in bytes.",
+    "`key` must be valid for reads of 16 bytes."]
+
+-- The slices a list lists are buffers of their own: the writable buffer may
+-- not overlap them either.
+#guard Sig.layoutDoc X86_64.abi lists false 0 == [
+    "`out` must not overlap `parts`, the slices `parts` lists, `words`, the slices `words` lists \
+      or `key` (distinct Rust objects never do).",
+    "None of `out`, `parts`, the slices `parts` lists, `words`, the slices `words` lists and \
+      `key` may overlap the return address on the stack, or wrap around the end of the address \
+      space (no Rust object does)."]
+
 /-! ## Rendering: the note goes before `# Safety` -/
 
 def safeDoc : String := "Does things.\n\n# Safety\n\n* `p` must be valid."

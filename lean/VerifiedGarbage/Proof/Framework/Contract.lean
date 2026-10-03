@@ -79,7 +79,7 @@ elab "realize_eqns " ids:ident* : command => liftTermElabM do
     discard <| getEqnsFor? n
     discard <| getUnfoldEqnFor? n (nonRec := true)
 
-realize_eqns Sig.bufs Curry.apply Curry.const Elem.size ArgWord.ofRaw Sig.contract Sig.words
+realize_eqns Sig.bufs Sig.lists Sig.descs Curry.apply Curry.const Elem.size ArgWord.ofRaw Sig.contract Sig.words
   Param.words Param.pubs ArgWord.bits IntTy.bits Sig.retBits stackBelow
 
 /-- Two regions that do not wrap around the end of the address space, one
@@ -125,7 +125,8 @@ def Sig.check {M : ISA} (A : Abi M) (sig : Sig) (writeArgs : Bool) (stack : Nat)
   match A.args widths with
   | none => false
   | some vals =>
-    let bufs := Sig.bufs sig.params (vals s)
+    let bufs := Sig.bufs sig.params (vals s) ++
+      (Sig.lists A.ptrBits (A.mem s) sig.params (vals s)).map fun r => (r, false)
     let all : List (Region × Bool) :=
       bufs ++ (A.argArea widths s).map fun (r, w) => (r, w && writeArgs)
     decide (A.rd s = (all.filter (!·.2)).map (·.1)) &&
