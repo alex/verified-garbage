@@ -7,10 +7,11 @@ import VerifiedGarbage.Spec.Aes
 The NIST CAVP AES known-answer tests for ECB (`GFSbox`, `KeySbox`, `VarKey`
 and `VarTxt`, each for 128-, 192- and 256-bit keys), read from the vendored
 response files under `vectors/nist-cavp/aes/` (see `vectors/sources/`)
-when this file is built and checked against `VG.Spec.Aes.encrypt`, so that a
-transcription error in the spec fails the build. Every `GFSbox` and
-`KeySbox` vector is checked, and the first `VarKey` and `VarTxt` vectors of
-each file. (Evaluating the spec is slow; the Rust tests run the full
+when this file is built and checked against `VG.Spec.Aes.encrypt` (the
+`ENCRYPT` vectors) and `VG.Spec.Aes.decrypt` (the `DECRYPT` vectors), so
+that a transcription error in the spec fails the build. Every `GFSbox` and
+`KeySbox` vector is checked, and the first two `VarKey` and `VarTxt`
+vectors of each file, in each direction. (Evaluating the spec is slow; the Rust tests run the full
 Wycheproof suite against the implementation.)
 -/
 
@@ -88,19 +89,30 @@ run_cmd do
   for kind in ["GFSbox", "KeySbox", "VarKey", "VarTxt"] do
     for bits in [128, 192, 256] do
       let name := s!"ECB{kind}{bits}.rsp"
-      let rs := (records (← readVectors "aes" name)).filter (·.params.any (·.1 == "ENCRYPT"))
-      if rs.isEmpty then throwError "{name}: no ENCRYPT vectors"
-      let rs := if kind == "VarKey" || kind == "VarTxt" then rs.take 2 else rs
-      for r in rs do
-        let v : Except String _ := do
-          pure (← r.bytes "KEY", ← r.bytes "PLAINTEXT", ← r.bytes "CIPHERTEXT")
-        match v with
-        | .error e => throwError "{name}: {e}"
-        | .ok (key, pt, ct) =>
-          unless key.length == bits / 8 do throwError "{name}: a {key.length}-byte key"
-          unless Spec.Aes.encrypt key pt == ct do
-            throwError "{name}, COUNT = {(r.get "COUNT").toOption}: AES encryption is wrong"
-          n := n + 1
-  unless n == 91 do throwError "expected 91 vectors, checked {n}"
+      for dir in ["ENCRYPT", "DECRYPT"] do
+        let rs := (records (← readVectors "aes" name)).filter (·.params.any (·.1 == dir))
+        if rs.isEmpty then throwError "{name}: no {dir} vectors"
+        let rs := if kind == "VarKey" || kind == "VarTxt" then rs.take 2 else rs
+        for r in rs do
+          let v : Except String _ := do
+            pure (← r.bytes "KEY", ← r.bytes "PLAINTEXT", ← r.bytes "CIPHERTEXT")
+          match v with
+          | .error e => throwError "{name}: {e}"
+          | .ok (key, pt, ct) =>
+            unless key.length == bits / 8 do throwError "{name}: a {key.length}-byte key"
+            if dir == "ENCRYPT" then
+              unless Spec.Aes.encrypt key pt == ct do
+                throwError "{name}, COUNT = {(r.get "COUNT").toOption}: AES encryption is wrong"
+            else
+              unless Spec.Aes.decrypt key ct == pt do
+                throwError "{name}, COUNT = {(r.get "COUNT").toOption}: AES decryption is wrong"
+            n := n + 1
+  unless n == 182 do throwError "expected 182 vectors, checked {n}"
+
+-- The inverse S-box inverts the S-box, on every byte.
+run_cmd do
+  for x in List.range 256 do
+    let b : Byte := BitVec.ofNat 8 x
+    unless Spec.Aes.invSbox (Spec.Aes.sbox b) == b do throwError "invSbox (sbox {x}) ≠ {x}"
 
 end VG.Test.Aes
