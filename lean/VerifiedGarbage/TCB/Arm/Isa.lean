@@ -136,7 +136,8 @@ inductive Instr
   | ldrSp (t : Reg) (off : Nat)
   /-- Non-flag-setting `add d, sp, #imm`, with an unrotated 8-bit immediate. -/
   | addSp (d : Reg) (imm : Nat)
-  /-- `sub sp, sp, #bytes`, opening an 8-byte-aligned buffer frame. -/
+  /-- `sub sp, sp, #bytes`, opening an 8-byte-aligned buffer frame (`bytes` an
+  encodable immediate below 4096). -/
   | alloc (bytes : Nat)
   /-- `add sp, sp, #bytes`, releasing that buffer frame. -/
   | free (bytes : Nat)
@@ -348,11 +349,16 @@ and "SUB, SUBS (SP minus immediate)" (pp. 536–537): non-flag-setting
 addition/subtraction from R[13], with the result written to R[d].
 https://documentation-service.arm.com/static/668bf4af69e89f01e39c4cd2
 
-The modeled immediates are below 256, encodable without rotation in A32
-and with T32 modified immediates. All three forms are baseline ARMv7/Thumb-2;
-no optional CPU feature is required. Frame sizes must be positive multiples
-of 8, preserving the ABI's alignment. Allocation cannot underflow and grants
-one contiguous region without initializing memory. Release requires the exact
+The immediates of `addSp` are below 256, encodable without rotation in A32
+and with T32 modified immediates. Those of `alloc` and `free`, the frame's
+size, are below 4096 and A32 modified immediates (`encodable`): T32 encodes
+every such value (`SUBW`/`ADDW`, encoding T3, a 12-bit immediate), so the
+assembler picks an encoding of the same meaning in either instruction set.
+All of these forms are baseline ARMv7/Thumb-2; no optional CPU feature is
+required. Frame sizes must be positive multiples of 8, preserving the ABI's
+alignment, and less than a page, so that an allocation does not move SP past
+a guard page below the stack. Allocation cannot underflow and grants one
+contiguous region without initializing memory. Release requires the exact
 region and unchanged SP and permissions. Neither changes flags or memory.
 -/
 
@@ -364,7 +370,8 @@ order, `MemA[address,4] = R[i]; address = address + 4`; `SP = SP -
 would wrap around the address space. -/
 def push : Instr → State → Option State
   | .alloc bytes, s =>
-    if 0 < bytes ∧ bytes < 256 ∧ bytes % 8 = 0 ∧ bytes ≤ s.sp.toNat then
+    if 0 < bytes ∧ bytes < 4096 ∧ bytes % 8 = 0 ∧ encodable (BitVec.ofNat 32 bytes) ∧
+        bytes ≤ s.sp.toNat then
       let sp := s.sp - BitVec.ofNat 32 bytes
       some { s with sp := sp, wr := ⟨State.addr sp, bytes⟩ :: s.wr }
     else none
@@ -388,7 +395,7 @@ writable regions are those the push left (`s₁`), and the frame, the region
 at their head, has `n` bytes; it removes the frame. -/
 def pop : Instr → State → State → Option State
   | .free bytes, s₁, s₂ =>
-    if 0 < bytes ∧ bytes < 256 ∧ bytes % 8 = 0 ∧
+    if 0 < bytes ∧ bytes < 4096 ∧ bytes % 8 = 0 ∧ encodable (BitVec.ofNat 32 bytes) ∧
         s₂.sp = s₁.sp ∧ s₂.wr = s₁.wr ∧ s₁.wr.head? = some ⟨State.addr s₁.sp, bytes⟩ then
       some { s₂ with sp := s₂.sp + BitVec.ofNat 32 bytes, wr := s₂.wr.tail }
     else none

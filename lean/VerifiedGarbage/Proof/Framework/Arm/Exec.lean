@@ -76,7 +76,7 @@ theorem pop_sp {j : Instr} {s₁ s₂ s' : State} (h : pop j s₁ s₂ = some s'
   cases j <;> simp only [pop, reduceCtorEq] at h
   all_goals split at h <;> cases h
   case pop r n hc => exact ⟨hc.2.2.1, _, hc.2.2.2.2, rfl⟩
-  case free bytes hc => exact ⟨hc.2.2.2.1, _, hc.2.2.2.2.2, rfl⟩
+  case free bytes hc => exact ⟨hc.2.2.2.2.1, _, hc.2.2.2.2.2.2, rfl⟩
 
 /-- `sp` is back where it was after any code: only frames change it. -/
 theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c s t s') :
