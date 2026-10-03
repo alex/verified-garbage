@@ -20,9 +20,21 @@ files changed:
     `bench/tests/<name>.rs`: the modules in its `USES`.
 
 The benchmarks run those that use any of them, and all of them for a module
-none uses (e.g. `cpu`, `lib`, or the generated `src/asm/<arch>/mod.rs`). Any
+none uses (e.g. `lib`, or the generated `src/asm/<arch>/mod.rs`). Any
 other shared change (e.g. executable code in benchmarks' `main.rs`, or a benchmark whose
 `USES` cannot be read) leaves `modules` empty, which runs every benchmark.
+
+A change to `src/cpu.rs` needs, on each architecture, the modules that
+choose among implementations by a feature whose detection changed there:
+the first feature each changed line names (the one it detects, as in
+`let vaes = (ecx7 >> 9) & avx;`), in an item only one architecture (or a
+few) compiles, such as its `runtime()`, or all its features if those lines
+name none. A change to an item every architecture compiles (`Features`,
+`detected()`) needs every module that chooses by a feature, on the
+architectures detecting any; one to its tests, its comments or the names
+appended to `NAMES` needs nothing. Its other code (choosing an
+implementation once, when an object is created) is the same everywhere, so
+measuring it where something is chosen suffices.
 
 An architecture with primitives that choose among implementations by CPU
 feature is benchmarked once with every feature the runner has, and once
@@ -42,6 +54,7 @@ AArch64, SHA-3 uses FEAT_SHA3 only when it is named) depends on which of its
 features each configuration names. All benchmarks run every configuration.
 """
 
+import difflib
 import functools
 import json
 import pathlib
@@ -96,8 +109,10 @@ CPU_FEATURES = {
     "x86": ["aes", "pclmulqdq,ssse3", "none"],
 }
 
+# Changes to this script choose benchmarks but are not measured by any:
+# `ci/test_check_benchmarks.py` tests it.
 SHARED = re.compile(
-    r"src/|bench/|Cargo\.(toml|lock)$|ci/bench_(compare|arches)\.py$"
+    r"src/|bench/|Cargo\.(toml|lock)$|ci/bench_compare\.py$"
     r"|\.github/workflows/bench\.yml$"
 )
 
@@ -122,6 +137,10 @@ RUNTIME = re.compile(r"(#\[cfg\([^\n]*\)\])\nfn runtime\(\) -> u32 \{\n(.*?)\n\}
 LET = re.compile(r"\blet ([a-z0-9_]+) =")
 # Code choosing by what `VG_CPU_FEATURES` names, not only by what it allows.
 OPT_IN = re.compile(r'var\("VG_CPU_FEATURES"\)')
+
+# The first line of an item of `src/cpu.rs`: in column 0, and not a
+# comment, an attribute or the end of an item.
+ITEM_START = re.compile(r"(?!//|#\[|[\s})\]]|$)")
 
 ALL = None
 
@@ -288,6 +307,20 @@ def arches(changed, base=None):
                             need(arch, module)
                     else:
                         need(arch, name)
+        elif path == "src/cpu.rs":
+            changes = cpu_changes(base)
+            for a in PLATFORMS:
+                if changes is None:
+                    needed[a] = ALL
+                    continue
+                if "*" not in changes and a not in changes:
+                    continue
+                modules = cpu_modules(a, ALL if "*" in changes else changes[a], known,
+                                      [base, None] if base else [None])
+                if modules is None:
+                    needed[a] = ALL
+                for module in modules or ():
+                    need(a, module)
         elif asm and asm[1] in PLATFORMS:
             need(asm[1], asm[2])
         elif api:
@@ -313,6 +346,84 @@ def arches(changed, base=None):
     revisions = [base, None] if base else [None]
     return [p for a in PLATFORMS if a in needed
             for p in platforms(a, needed[a], run_requirements(a, needed[a], catalogs, revisions))]
+
+
+def cpu_item(lines, i):
+    """The item of `src/cpu.rs` (as `lines`) line `i` is in: its first line,
+    and its attributes."""
+    while i < len(lines) - 1 and lines[i].startswith("#["):  # The next item's.
+        i += 1
+    while i > 0 and not ITEM_START.match(lines[i]):
+        i -= 1
+    attributes = []
+    j = i - 1
+    while j >= 0 and lines[j].startswith(("#[", "///")):
+        attributes += [lines[j]] if lines[j].startswith("#[") else []
+        j -= 1
+    return lines[i], attributes
+
+
+def cpu_changes(base):
+    """What the change to `src/cpu.rs` since `base` affects: for each
+    architecture whose own detection changed, the first feature each changed
+    line names (ALL if none does); "*" for a change to code every
+    architecture compiles; None if either revision cannot be read."""
+    old, new = read("src/cpu.rs", base) if base else None, read("src/cpu.rs")
+    if old is None or new is None:
+        return None
+    names = [QUOTED.findall(m[1]) if (m := NAMES.search(t)) else [] for t in (old, new)]
+    known = set(names[0]) | set(names[1])
+    sides = [old.splitlines(), new.splitlines()]
+    items = {}
+    matcher = difflib.SequenceMatcher(None, *sides, autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        for side, lo, hi in ((0, i1, i2), (1, j1, j2)):
+            for k in range(lo, hi):
+                code = sides[side][k].split("//")[0].strip()
+                if not code:
+                    continue
+                first, attributes = cpu_item(sides[side], k)
+                cfgs = [a for a in attributes if a.startswith("#[cfg(")]
+                if "#[cfg(test)]" in cfgs:
+                    continue
+                if re.search(r"\bconst NAMES\b", first):
+                    # Names appended change no other feature's bit, and
+                    # choose nothing until something detects them.
+                    a, b = names
+                    if a == b[:len(a)] or b == a[:len(b)]:
+                        continue
+                    arches = "*"
+                else:
+                    arches = frozenset(re.findall(r'target_arch = "([a-z0-9_]+)"', " ".join(cfgs)))
+                    if not arches or any("not(" in c for c in cfgs):
+                        arches = "*"
+                key = (arches, first.strip())
+                # The feature a line detects comes first (`let vaes = … & avx`).
+                named = [n for n in re.findall(r"[a-z0-9_]+", code) if n in known]
+                items.setdefault(key, set()).update(named[:1])
+    changes = {}
+    for (arches, _), features in items.items():
+        for arch in [arches] if arches == "*" else arches:
+            if not features or arches == "*":
+                changes[arch] = ALL
+            elif changes.get(arch, set()) is not ALL:
+                changes.setdefault(arch, set()).update(features)
+    return changes
+
+
+def cpu_modules(arch, changes, known, revisions):
+    """The modules `known` on `arch` that choose by a feature in `changes`
+    (ALL: by any), or None if what they choose by cannot be read."""
+    modules = set()
+    for module in sorted(known):
+        reqs = requirements(arch, {module}, revisions)
+        if reqs is None:
+            return None
+        if any(changes is ALL or {f.rstrip("!") for f in req} & changes for req in reqs):
+            modules.add(module)
+    return modules
 
 
 def run_requirements(arch, modules, catalogs, revisions):

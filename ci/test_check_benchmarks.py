@@ -23,7 +23,19 @@ fn runtime() -> u32 {
 
 #[cfg(target_arch = "aarch64")]
 fn runtime() -> u32 {
-    Features::of(&["sha3"]).0 | Features::of(&["neon"]).0
+    Features::of(&["sha3"]).0
+        | Features::of(&["neon"]).0
+}
+
+impl Features {
+    pub(crate) fn of(names: &[&str]) -> Features {
+        Features(names.len() as u32)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    fn of_names() {}
 }
 """
 
@@ -41,6 +53,7 @@ class Selection(unittest.TestCase):
                         'x448': {'x448'}, 'keccak': {'keccak'}, 'chacha': {'chacha'},
                         'hmac_sha256': {'hmac_sha256', 'sha256'}, 'argon2': {'argon2'},
                         'poly': {'poly'}}
+        self.base_files = {}
         self.files = {
             'src/cpu.rs': CPU,
             'src/asm/x86_64/x448.rs': asm(['bmi2'], ['bmi2', 'adx'], ['aes', 'ssse3', 'sha3']),
@@ -55,7 +68,19 @@ class Selection(unittest.TestCase):
         }
 
     def read(self, path, revision=None, root='.'):
+        if revision and path in self.base_files:
+            return self.base_files[path]
         return self.files.get(path)
+
+    def cpu(self, old, new, base=None):
+        """`src/cpu.rs` changed from `CPU` (or `base`) by replacing `old`."""
+        self.base_files['src/cpu.rs'] = base or CPU
+        self.files['src/cpu.rs'] = (base or CPU).replace(old, new)
+        assert self.files['src/cpu.rs'] != self.base_files['src/cpu.rs']
+        return self.rows(['src/cpu.rs'])
+
+    def modules(self, rows):
+        return {r['arch']: r['modules'] for r in rows}
 
     def rows(self, paths, registered=('triple_des_ecb',)):
         with mock.patch.object(planner, 'bench_catalog', return_value=self.catalog), \
@@ -81,11 +106,48 @@ class Selection(unittest.TestCase):
                          [(a, '') for a in planner.PLATFORMS])
 
     def test_shared_and_unknown_dependencies_preserve_full_suite(self):
-        for path in ['Cargo.lock', 'src/cpu.rs', 'src/unknown.rs']:
+        for path in ['Cargo.lock', 'ci/bench_compare.py', 'src/unknown.rs']:
             with self.subTest(path=path):
                 rows = self.rows([path])
                 self.assertEqual(len(rows), self.full_matrix())
                 self.assertTrue(all(r['modules'] == '' for r in rows))
+
+    def test_planner_changes_need_no_benchmarks(self):
+        self.assertEqual(self.rows(['ci/bench_arches.py']), [])
+
+    def test_cpu_detection_selects_modules_choosing_by_the_features_it_names(self):
+        # The feature a line detects is the first it names, not `bmi2`.
+        rows = self.cpu('let adx = 1;', 'let adx = (ebx >> 19) & bmi2;')
+        self.assertEqual(self.modules(rows), {'x86_64': 'x448'})
+        self.assertEqual(self.configurations(rows, 'x86_64'), ['', 'avx,avx2,bmi1,bmi2', 'none'])
+        rows = self.cpu('Features::of(&["sha3"]).0\n', '(Features::of(&["sha3"]).0 & 1)\n')
+        self.assertEqual(self.modules(rows), {'aarch64': 'keccak'})
+        # A feature no module chooses by needs nothing.
+        self.assertEqual(self.cpu('let aes = 1;', 'let aes = 2;'), [])
+
+    def test_cpu_detection_naming_no_feature_selects_all_of_its_architectures(self):
+        rows = self.cpu('    let ssse3 = 1;', '    let leaf = 7;\n    let ssse3 = 1;')
+        self.assertEqual(self.modules(rows), {'x86_64': 'x448'})
+
+    def test_shared_cpu_code_selects_every_module_choosing_by_features(self):
+        rows = self.cpu('Features(names.len() as u32)', 'Features(names.len() as u32 + 0)')
+        # Not ARMv7 or x86, where nothing chooses.
+        self.assertEqual(self.modules(rows), {'x86_64': 'x448', 'aarch64': 'chacha keccak'})
+        names = '["ssse3", "aes", "bmi2", "adx", "sha3", "neon"]'
+        rows = self.cpu(names, '["aes", "ssse3", "bmi2", "adx", "sha3", "neon"]')
+        self.assertEqual(self.modules(rows), {'x86_64': 'x448', 'aarch64': 'chacha keccak'})
+
+    def test_cpu_tests_comments_and_appended_names_need_nothing(self):
+        self.assertEqual(self.cpu('fn of_names() {}', 'fn of_names() { assert!(true); }'), [])
+        self.assertEqual(self.cpu('impl Features {', '// Sets.\nimpl Features {'), [])
+        self.assertEqual(self.cpu('"sha3", "neon"]', '"sha3", "neon", "vaes"]'), [])
+        self.assertEqual(self.cpu('const NAMES: [&str; 6]', 'const NAMES: [&str; 7]'), [])
+
+    def test_unreadable_cpu_change_runs_every_benchmark(self):
+        self.base_files['src/cpu.rs'] = None
+        rows = self.rows(['src/cpu.rs'])
+        self.assertEqual(len(rows), self.full_matrix())
+        self.assertTrue(all(r['modules'] == '' for r in rows))
 
     def test_configurations_choosing_the_same_implementations_run_once(self):
         rows = self.rows(['src/asm/x86_64/x448.rs'])
