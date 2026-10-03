@@ -85,7 +85,7 @@ globs = ["VerifiedGarbage.Spec.Sha1", "VerifiedGarbage.Spec.Sha256",
   "VerifiedGarbage.Spec.Ocb",
   "VerifiedGarbage.Spec.Cmac", "VerifiedGarbage.Spec.Weierstrass", "VerifiedGarbage.Spec.P256",
   "VerifiedGarbage.Spec.Ecdsa", "VerifiedGarbage.Spec.Dsa", "VerifiedGarbage.Spec.EcKey",
-  "VerifiedGarbage.Spec.Ecdh", "VerifiedGarbage.Spec.Ecdsa.Rfc6979",
+  "VerifiedGarbage.Spec.Ecdh", "VerifiedGarbage.Spec.Ecdsa.Rfc6979", "VerifiedGarbage.Spec.Ecdsa.Verify",
   "VerifiedGarbage.Spec.Rsa", "VerifiedGarbage.Spec.Ed448"]
 precompileModules = true
 
