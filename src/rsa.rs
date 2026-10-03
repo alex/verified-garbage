@@ -1,12 +1,14 @@
 //! The RSA public-key operation: RSAEP (RFC 8017 §5.1.1), which is also the
 //! signature verification primitive RSAVP1 (§5.2.2), without any padding.
 //!
-//! The operation is the verified `vg_rsa_public` (contract
-//! `VG.Spec.Rsa.publicContract`): it checks the modulus and the input,
-//! computes `input^e mod n` by Montgomery multiplication, and writes it out.
-//! Its timing may depend on the public key (`n` and `e`) but not on the
-//! input. This module only checks the lengths and allocates the memory the
-//! operation works in.
+//! A key is made by the verified `vg_rsa_public_precompute` (contract
+//! `VG.Spec.Rsa.publicPrecomputeContract`), which checks the modulus and
+//! computes what Montgomery multiplication needs of it once; the operation is
+//! the verified `vg_rsa_public_precomputed` (contract
+//! `VG.Spec.Rsa.publicPrecomputedContract`), which checks the input, computes
+//! `input^e mod n` by Montgomery multiplication, and writes it out. Their
+//! timing may depend on the public key (`n` and `e`) but not on the input.
+//! This module only checks the lengths and allocates the memory they work in.
 //!
 //! This is a primitive for building padding schemes (OAEP, PSS, PKCS #1
 //! v1.5) on: raw RSA on its own is not a secure encryption or signature
@@ -18,7 +20,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::fmt;
 
-use crate::arch::rsa::vg_rsa_public;
+use crate::arch::rsa::{vg_rsa_public_precompute, vg_rsa_public_precomputed};
 
 /// The shortest modulus, in bytes (512 bits).
 pub const MIN_MODULUS_LEN: usize = 64;
@@ -58,11 +60,19 @@ fn scratch_words(n_len: usize) -> usize {
     16 * n_len
 }
 
-/// An RSA public key `(n, e)`.
+/// The words of a modulus' precomputed values for an `n_len`-byte modulus
+/// (`VG.Spec.Rsa.precomputedWords`).
+fn precomputed_words(n_len: usize) -> usize {
+    2 * n_len.div_ceil(8)
+}
+
+/// An RSA public key `(n, e)`, with the values of `n` that the operation
+/// needs (`VG.Spec.Rsa.publicPrecompute`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PublicKey {
-    n: Vec<u8>,
+    n_len: usize,
     e: Vec<u8>,
+    pre: Vec<u64>,
 }
 
 impl PublicKey {
@@ -70,35 +80,54 @@ impl PublicKey {
     /// big-endian. `n` must be odd, from 512 to 8192 bits long, with no
     /// leading zero byte; `e` must be 1 to `n.len()` bytes long.
     pub fn new(n: &[u8], e: &[u8]) -> Result<Self, Error> {
-        // The checks of `VG.Spec.Rsa.modulusValid`, which `vg_rsa_public`
-        // makes again: these only tell its errors apart.
-        let valid = (MIN_MODULUS_LEN..=MAX_MODULUS_LEN).contains(&n.len())
-            && n[0] != 0
-            && (n.len() > MIN_MODULUS_LEN || n[0] >= 0x80)
-            && n[n.len() - 1] & 1 == 1;
-        if !valid {
+        let k = n.len();
+        if !(MIN_MODULUS_LEN..=MAX_MODULUS_LEN).contains(&k) {
             return Err(Error::InvalidModulus);
         }
-        if e.is_empty() || e.len() > n.len() {
+        if e.is_empty() || e.len() > k {
             return Err(Error::InvalidExponent);
         }
+        let mut pre = vec![0u64; precomputed_words(k)];
+        let mut scratch = vec![0u64; scratch_words(k)];
+        // SAFETY: each pointer is valid for its length (`pre` and `scratch`
+        // for writes), and none overlaps another or wraps around, as they are
+        // distinct Rust allocations; the check above gives
+        // `64 ≤ n_len ≤ 1024`, and `pre_len = 2 ⌈n_len / 8⌉` and
+        // `scratch_len = 16 n_len`.
+        let r = unsafe {
+            vg_rsa_public_precompute(
+                pre.as_mut_ptr(),
+                pre.len(),
+                n.as_ptr(),
+                k,
+                scratch.as_mut_ptr(),
+                scratch.len(),
+            )
+        };
+        // The working space holds only values of the public modulus, so it is
+        // not destroyed. `vg_rsa_public_precompute` refuses a modulus that is
+        // not valid (`VG.Spec.Rsa.modulusValid`).
+        if r != 1 {
+            return Err(Error::InvalidModulus);
+        }
         Ok(PublicKey {
-            n: n.to_vec(),
+            n_len: k,
             e: e.to_vec(),
+            pre,
         })
     }
 
     /// The length of the modulus in bytes, which is that of every input and
     /// output.
     pub fn modulus_len(&self) -> usize {
-        self.n.len()
+        self.n_len
     }
 
     /// RSAEP (RSAVP1): writes `input^e mod n` to `out`, both big-endian and
     /// [`modulus_len`](Self::modulus_len) bytes long. The input must be
     /// less than `n`; on an error `out` is left as zeros.
     pub fn public_op(&self, input: &[u8], out: &mut [u8]) -> Result<(), Error> {
-        let k = self.n.len();
+        let k = self.n_len;
         if input.len() != k || out.len() != k {
             return Err(Error::InvalidLength);
         }
@@ -106,14 +135,16 @@ impl PublicKey {
         // SAFETY: each pointer is valid for its length (`out` for writes,
         // `scratch` too), and none overlaps another or wraps around, as they
         // are distinct Rust allocations; `PublicKey::new` and the check above
-        // give `64 ≤ n_len ≤ 1024`, `out_len = input_len = n_len`,
-        // `1 ≤ e_len ≤ n_len`, and `scratch_len = 16 n_len`.
+        // give `64 ≤ out_len ≤ 1024`, `input_len = out_len`,
+        // `pre_len = 2 ⌈out_len / 8⌉`, `1 ≤ e_len ≤ out_len`, and
+        // `scratch_len = 16 out_len`; and `pre` holds what
+        // `vg_rsa_public_precompute` wrote for the modulus, returning 1.
         let r = unsafe {
-            vg_rsa_public(
+            vg_rsa_public_precomputed(
                 out.as_mut_ptr(),
                 k,
-                self.n.as_ptr(),
-                k,
+                self.pre.as_ptr(),
+                self.pre.len(),
                 self.e.as_ptr(),
                 self.e.len(),
                 input.as_ptr(),
@@ -124,8 +155,8 @@ impl PublicKey {
         };
         // The working space holds powers of the input.
         crate::zeroize::zeroize(&mut scratch);
-        // The modulus is valid (`PublicKey::new`), so a refusal means the
-        // input is not below it.
+        // `pre` holds a valid modulus' values (`PublicKey::new`), so a refusal
+        // means the input is not below it.
         if r == 1 {
             Ok(())
         } else {

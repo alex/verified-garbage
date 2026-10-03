@@ -159,7 +159,7 @@ theorem MRel.sh {p : MPub} {s : State} (h : MRel p s) : SH ⟨p.B, p.Z, p.k, p.n
 /-- The setup leaks the same in runs that agree on `n`. -/
 theorem mainA_ct : RelCT isa (Two MRel) (seqs (loadSteps ++ restSteps)) (Two MA) := by
   refine two_post ((RelCT.seqs_append (by simp [loadSteps]) (by simp [restSteps])
-    (RelCT.seq setupLoad_ct setupRest_ct)).mono (fun _ _ h => two_bind (fun p _ _ h₁ h₂ =>
+    (RelCT.seq setupLoad_ct (two_map (fun p : SPub => (⟨p.B, p.Z, p.w⟩ : RPub)) (fun _ _ h => h.sr) setupRest_ct))).mono (fun _ _ h => two_bind (fun p _ _ h₁ h₂ =>
       ⟨_, h₁.sh, h₂.sh⟩) h) fun _ _ h => h) ?_
   rintro p s ⟨xb, h, hv⟩
   obtain ⟨hodd, -, -⟩ := valid_facts hv h.k1
