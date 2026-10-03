@@ -612,7 +612,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅ AES-NI, VAES, AVX2</td>
 
 <td>❌</td>
 

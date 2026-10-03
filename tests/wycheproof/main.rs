@@ -10,6 +10,7 @@
 //! (but a result, if produced, must be the expected one).
 
 mod aes_gcm;
+mod aes_siv;
 mod chacha20;
 mod chacha20poly1305;
 mod cmac_aes;

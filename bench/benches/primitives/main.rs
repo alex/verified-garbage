@@ -17,6 +17,7 @@ use openssl::pkey::PKey;
 use openssl::sign::Signer;
 
 mod aes_gcm;
+mod aes_siv;
 mod argon2;
 mod blake2b;
 mod blake2s;
@@ -240,6 +241,7 @@ type Bench = (&'static [&'static str], fn(&mut Criterion));
 
 const BENCHES: &[Bench] = &[
     (aes_gcm::USES, aes_gcm::bench),
+    (aes_siv::USES, aes_siv::bench),
     (blake2b::USES, blake2b::bench),
     (blake2s::USES, blake2s::bench),
     (chacha20::USES, chacha20::bench),
