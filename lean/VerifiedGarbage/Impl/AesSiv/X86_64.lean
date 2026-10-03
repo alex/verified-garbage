@@ -230,10 +230,10 @@ def shortTail : Prog isa :=
          .store (at_ .r15 tailOff) .rax, .mov .rax (.mem (at_ .r15 (tailOff + 8))),
          .alu .xor .rax (.mem (at_ .r15 (dbOff + 8))), .store (at_ .r15 (tailOff + 8)) .rax])))
 
-/-- The long case, `L ≥ 16`: `16 k` in `rax`, saved at `r15 + 144`; the
-last `L − 16 k` bytes copied to the tail (the string pointer advanced by
-`16 k` for the copy and back after it); `D` XORed into the last 16 bytes
-of the tail. -/
+/-- The long case, `L ≥ 16`: `16 k` in `rax`, saved at `r15 + 144` and kept
+in `r11`; the last `L − 16 k` bytes copied to the tail (the string pointer
+advanced by `16 k` for the copy and back after it); `D` XORed into the last
+16 bytes of the tail. -/
 def longTail : Prog isa :=
   .seq (.block [.alu .cmp .r14 (imm 17)])
     (.seq (.ite .b (.block [.mov32 .rax (.imm 0)])
@@ -241,10 +241,10 @@ def longTail : Prog isa :=
           .alu .sub .rcx (imm 1), .mov .rax (.reg .rcx), .alu .add .rax (.reg .rax),
           .alu .add .rax (.reg .rax), .alu .add .rax (.reg .rax), .alu .add .rax (.reg .rax)]))
       (.seq (.block [.store (at_ .r15 dbOff) .rax, .alu .add .r13 (.reg .rax), .mov .rcx (.reg .r14),
-          .alu .sub .rcx (.reg .rax), .mov .rdx (.reg .r15), .alu .add .rdx (imm tailOff)])
+          .alu .sub .rcx (.reg .rax), .mov .rdx (.reg .r15), .alu .add .rdx (imm tailOff), .mov .r11 (.reg .rax)])
         (.seq copy
-          (.block [.mov .rax (.mem (at_ .r15 dbOff)), .alu .sub .r13 (.reg .rax), .mov .rcx (.reg .r14),
-            .alu .sub .rcx (.reg .rax), .alu .add .rcx (.reg .r15),
+          (.block [.alu .sub .r13 (.reg .r11), .mov .rcx (.reg .r14),
+            .alu .sub .rcx (.reg .r11), .alu .add .rcx (.reg .r15),
             .mov .rax (.mem (at_ .rcx (tailOff - 16))), .alu .xor .rax (.mem (at_ .r12 0)),
             .store (at_ .rcx (tailOff - 16)) .rax, .mov .rax (.mem (at_ .rcx (tailOff - 8))),
             .alu .xor .rax (.mem (at_ .r12 8)), .store (at_ .rcx (tailOff - 8)) .rax]))))

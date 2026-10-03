@@ -128,10 +128,11 @@ theorem kBranch_wp {s : State} (h14 : s.gpr .r14 = BitVec.ofNat 64 L) (hL16 : 16
 theorem t1_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L s) {a : Nat}
     (hrax : s.gpr .rax = BitVec.ofNat 64 a) (ha : a ≤ L) :
     ∃ s', runBlock isa [.store (at_ .r15 dbOff) .rax, .alu .add .r13 (.reg .rax), .mov .rcx (.reg .r14),
-        .alu .sub .rcx (.reg .rax), .mov .rdx (.reg .r15), .alu .add .rdx (imm tailOff)] s = some s' ∧
+        .alu .sub .rcx (.reg .rax), .mov .rdx (.reg .r15), .alu .add .rdx (imm tailOff), .mov .r11 (.reg .rax)] s =
+        some s' ∧
       s'.gpr .r13 = P + BitVec.ofNat 64 a ∧ s'.gpr .rcx = BitVec.ofNat 64 (L - a) ∧
-      s'.gpr .rdx = W + BitVec.ofNat 64 32 ∧
-      (∀ r, r ≠ .r13 → r ≠ .rcx → r ≠ .rdx → s'.gpr r = s.gpr r) ∧
+      s'.gpr .rdx = W + BitVec.ofNat 64 32 ∧ s'.gpr .r11 = BitVec.ofNat 64 a ∧
+      (∀ r, r ≠ .r13 → r ≠ .rcx → r ≠ .rdx → r ≠ .r11 → s'.gpr r = s.gpr r) ∧
       s'.mem = s.mem.writeW (W + BitVec.ofNat 64 144) (BitVec.ofNat 64 a) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   have w := h.inW hr.wr (d := dbOff) (n := 8) (by decide)
   refine ⟨_, by
@@ -142,25 +143,22 @@ theorem t1_ok (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P W R L
   simp (config := {decide := true}) only [gpr_setReg, gpr_arithFlags, mem_setReg, mem_arithFlags,
     rd_setReg, rd_arithFlags, wr_setReg, wr_arithFlags, ite_true, ite_false, hr.r13, hr.r14, hrax,
     tailOff, sx_ofNat (show 32 < 2 ^ 31 by decide), Offset.ofNat_sub_ofNat ha]
-  refine ⟨trivial, trivial, trivial, fun r h₁ h₂ h₃ => by simp [h₁, h₂, h₃], rfl, trivial⟩
+  refine ⟨trivial, trivial, trivial, trivial, fun r h₁ h₂ h₃ h₄ => by simp [h₁, h₂, h₃, h₄], rfl, trivial⟩
 
-theorem t2a_ok (h : Env s₀ C D P W R L) {s : State} {a : Nat} (ha : a ≤ L)
+theorem t2a_ok {s : State} {a : Nat} (ha : a ≤ L)
     (h13 : s.gpr .r13 = P + BitVec.ofNat 64 a) (h14 : s.gpr .r14 = BitVec.ofNat 64 L) (h15 : s.gpr .r15 = W)
-    (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) (hm : s.mem.readW (W + BitVec.ofNat 64 dbOff) 64 = BitVec.ofNat 64 a) :
-    ∃ s', runBlock isa [.mov .rax (.mem (at_ .r15 dbOff)), .alu .sub .r13 (.reg .rax), .mov .rcx (.reg .r14),
-        .alu .sub .rcx (.reg .rax), .alu .add .rcx (.reg .r15)] s = some s' ∧
+    (h11 : s.gpr .r11 = BitVec.ofNat 64 a) :
+    ∃ s', runBlock isa [.alu .sub .r13 (.reg .r11), .mov .rcx (.reg .r14),
+        .alu .sub .rcx (.reg .r11), .alu .add .rcx (.reg .r15)] s = some s' ∧
       s'.gpr .r13 = P ∧ s'.gpr .rcx = W + BitVec.ofNat 64 (L - a) ∧
-      (∀ r, r ≠ .rax → r ≠ .r13 → r ≠ .rcx → s'.gpr r = s.gpr r) ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
-  have r := h.inRW hrd hwr (d := dbOff) (n := 8) (by decide)
+      (∀ r, r ≠ .r13 → r ≠ .rcx → s'.gpr r = s.gpr r) ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   refine ⟨_, by
-    simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, at_, exec, readSrc,
-      execAlu, State.load64, State.ea, offset_nat, Option.bind_some, Option.map_some, gpr_setReg, gpr_arithFlags,
-      ite_true, ite_false, h15, r]
+    simp only [runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, execAlu, Option.bind_some, Option.map_some]
     rfl, ?_⟩
   simp (config := {decide := true}) only [gpr_setReg, gpr_arithFlags, mem_setReg, mem_arithFlags,
-    rd_setReg, rd_arithFlags, wr_setReg, wr_arithFlags, ite_true, ite_false, h13, h14, hm,
+    rd_setReg, rd_arithFlags, wr_setReg, wr_arithFlags, ite_true, ite_false, h11, h13, h14, h15,
     Offset.ofNat_sub_ofNat ha, BitVec.add_sub_cancel]
-  refine ⟨trivial, BitVec.add_comm _ _, fun r h₁ h₂ h₃ => by simp [h₁, h₂, h₃], trivial⟩
+  refine ⟨trivial, BitVec.add_comm _ _, fun r h₁ h₂ => by simp [h₁, h₂], trivial⟩
 
 /-- `D` XORed into the last block of the `T` tail bytes. -/
 theorem t2b_ok (h : Env s₀ C D P W R L) {s : State} {T : Nat} (hT : 16 ≤ T) (hT32 : T ≤ 32)
@@ -211,7 +209,7 @@ theorem longTail_wp (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P
   have hr₂ : Regs s₀ C D P W R L s₂ := hr.keep (fun r hr' => by
     rw [g₂ r (by rintro rfl; simp [calleeSaved] at hr') (by rintro rfl; simp [calleeSaved] at hr'), g₁])
     (by rw [rd₂, rd₁]) (by rw [wr₂, wr₁])
-  obtain ⟨s₃, run₃, r13₃, rcx₃, rdx₃, g₃, m₃, rd₃, wr₃⟩ := t1_ok h hr₂ rax₂ (by omega)
+  obtain ⟨s₃, run₃, r13₃, rcx₃, rdx₃, r11₃, g₃, m₃, rd₃, wr₃⟩ := t1_ok h hr₂ rax₂ (by omega)
   refine WP.seq (WP.of_runBlock ⟨s₃, run₃, ?_⟩)
   have rd₃' : s₃.rd = s₀.rd := by rw [rd₃, hr₂.rd]
   have wr₃' : s₃.wr = s₀.wr := by rw [wr₃, hr₂.wr]
@@ -221,8 +219,8 @@ theorem longTail_wp (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P
   refine WP.seq (WP.mono (copy_ok s₃ (by omega) r13₃ rdx₃ rcx₃
     (fun i hi => by rw [Offset.add_add]; exact h.inRP rd₃' wr₃' (by omega))
     (fun i hi => by rw [Offset.add_add]; exact h.inW wr₃' (by omega)) dPT) fun s₄ h₄ => ?_)
-  have g₄ (r : Reg) (h₁ : r ≠ .rax) (h₂ : r ≠ .r10) (h₃ : r ≠ .r13) (h₅ : r ≠ .rcx) (h₆ : r ≠ .rdx) :
-      s₄.gpr r = s₂.gpr r := by rw [h₄.other r h₁ h₂, g₃ r h₃ h₅ h₆]
+  have g₄ (r : Reg) (h₁ : r ≠ .rax) (h₂ : r ≠ .r10) (h₃ : r ≠ .r13) (h₅ : r ≠ .rcx) (h₆ : r ≠ .rdx)
+      (h₇ : r ≠ .r11) : s₄.gpr r = s₂.gpr r := by rw [h₄.other r h₁ h₂, g₃ r h₃ h₅ h₆ h₇]
   have hlen : (Spec.Aes.bytesAt s₃.mem (P + BitVec.ofNat 64 (16 * kOf L)) (L - 16 * kOf L)).length =
       L - 16 * kOf L := Proof.Cmac.bytesAt_length _ _ _
   have f₄ : Frame [⟨W + BitVec.ofNat 64 32, 32⟩] s₃.mem s₄.mem := by
@@ -232,43 +230,44 @@ theorem longTail_wp (h : Env s₀ C D P W R L) {s : State} (hr : Regs s₀ C D P
   have f₃ : Frame [⟨W + BitVec.ofNat 64 144, 8⟩] s₂.mem s₃.mem := by
     rw [m₃]; exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (Region.contains_self _ _)
   have a₄ : s₄.mem.readW (W + BitVec.ofNat 64 144) 64 = BitVec.ofNat 64 (16 * kOf L) := by
-    rw [f₄.readW (Region.contains_self _ _) (fun r hr => by
-        simp only [List.mem_singleton] at hr; subst hr; exact Offset.disjoint W (by omega) (by omega) (by omega))
+    rw [f₄.readW (w := 64) (Region.contains_self _ _) (fun r hr => by
+        simp only [List.mem_singleton] at hr; subst hr
+        exact Offset.disjoint W (d := 144) (n := 8) (e := 32) (k := 32) (by omega) (by omega) (by omega))
         (by decide), m₃, Mem.readW_writeW_self64]
-  obtain ⟨s₅, run₅, r13₅, rcx₅, g₅, m₅, rd₅, wr₅⟩ := t2a_ok h (a := 16 * kOf L) (by omega)
+  obtain ⟨s₅, run₅, r13₅, rcx₅, g₅, m₅, rd₅, wr₅⟩ := t2a_ok (P := P) (W := W) (L := L) (a := 16 * kOf L) (by omega)
     (by rw [h₄.other _ (by decide) (by decide), r13₃])
-    (by rw [g₄ _ (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.r14])
-    (by rw [g₄ _ (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.r15])
-    (by rw [h₄.rd, rd₃']) (by rw [h₄.wr, wr₃']) a₄
+    (by rw [g₄ _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.r14])
+    (by rw [g₄ _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.r15])
+    (by rw [h₄.other _ (by decide) (by decide), r11₃])
   obtain ⟨s₆, run₆, m₆, g₆, rd₆, wr₆⟩ := t2b_ok h hT.1 hT.2 rcx₅
-    (by rw [g₅ _ (by decide) (by decide) (by decide), g₄ _ (by decide) (by decide) (by decide) (by decide)
-      (by decide), hr₂.r12]) (by rw [rd₅, h₄.rd, rd₃']) (by rw [wr₅, h₄.wr, wr₃'])
+    (by rw [g₅ _ (by decide) (by decide), g₄ _ (by decide) (by decide) (by decide) (by decide)
+      (by decide) (by decide), hr₂.r12]) (by rw [rd₅, h₄.rd, rd₃']) (by rw [wr₅, h₄.wr, wr₃'])
   refine WP.of_runBlock ⟨s₆, by
-    rw [show ([.mov .rax (.mem (at_ .r15 dbOff)), .alu .sub .r13 (.reg .rax), .mov .rcx (.reg .r14),
-        .alu .sub .rcx (.reg .rax), .alu .add .rcx (.reg .r15),
+    rw [show ([.alu .sub .r13 (.reg .r11), .mov .rcx (.reg .r14),
+        .alu .sub .rcx (.reg .r11), .alu .add .rcx (.reg .r15),
         .mov .rax (.mem (at_ .rcx (tailOff - 16))), .alu .xor .rax (.mem (at_ .r12 0)),
         .store (at_ .rcx (tailOff - 16)) .rax, .mov .rax (.mem (at_ .rcx (tailOff - 8))),
         .alu .xor .rax (.mem (at_ .r12 8)), .store (at_ .rcx (tailOff - 8)) .rax] : List Instr) =
-        [.mov .rax (.mem (at_ .r15 dbOff)), .alu .sub .r13 (.reg .rax), .mov .rcx (.reg .r14),
-        .alu .sub .rcx (.reg .rax), .alu .add .rcx (.reg .r15)] ++
+        [.alu .sub .r13 (.reg .r11), .mov .rcx (.reg .r14),
+        .alu .sub .rcx (.reg .r11), .alu .add .rcx (.reg .r15)] ++
         [.mov .rax (.mem (at_ .rcx (tailOff - 16))), .alu .xor .rax (.mem (at_ .r12 0)),
         .store (at_ .rcx (tailOff - 16)) .rax, .mov .rax (.mem (at_ .rcx (tailOff - 8))),
         .alu .xor .rax (.mem (at_ .r12 8)), .store (at_ .rcx (tailOff - 8)) .rax] from rfl,
       runBlock_append, run₅, Option.bind_some, run₆], ?_⟩
-  have keep (r : Reg) (h₁ : r ≠ .rax) (h₂ : r ≠ .r10) (h₃ : r ≠ .r13) (h₅ : r ≠ .rcx) (h₆ : r ≠ .rdx) :
-      s₆.gpr r = s₂.gpr r := by rw [g₆ r h₁, g₅ r h₁ h₃ h₅, g₄ r h₁ h₂ h₃ h₅ h₆]
+  have keep (r : Reg) (h₁ : r ≠ .rax) (h₂ : r ≠ .r10) (h₃ : r ≠ .r13) (h₅ : r ≠ .rcx) (h₆ : r ≠ .rdx)
+      (h₇ : r ≠ .r11) : s₆.gpr r = s₂.gpr r := by rw [g₆ r h₁, g₅ r h₃ h₅, g₄ r h₁ h₂ h₃ h₅ h₆ h₇]
   have f₆ : Frame [⟨W + BitVec.ofNat 64 32, 32⟩] s₅.mem s₆.mem := by
     rw [m₆]; exact (xor2Mem_frame _ _ _ _).sub fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr
       exact ⟨⟨W + BitVec.ofNat 64 32, 32⟩, List.mem_singleton_self _,
         Offset.sub_base (W + BitVec.ofNat 64 32) (d := L - 16 * kOf L - 16) (n := 16) (k := 32) (by omega)⟩
-  refine ⟨⟨by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.rbx],
-      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.rbp],
-      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.r12],
+  refine ⟨⟨by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.rbx],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.rbp],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.r12],
       by rw [g₆ _ (by decide), r13₅],
-      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.r14],
-      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.r15],
-      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.rsp],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.r14],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.r15],
+      by rw [keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hr₂.rsp],
       by rw [rd₆, rd₅, h₄.rd, rd₃'], by rw [wr₆, wr₅, h₄.wr, wr₃']⟩, ?_, ?_, ?_⟩
   · have e₂ : s₂.mem = s.mem := by rw [m₂, m₁]
     rw [← e₂]
