@@ -64,6 +64,30 @@ structure Pre (c : Cfg) (s : State) : Prop where
   out_fit : (s.gpr .rdi).toNat + 16 * c.n ≤ 2 ^ 64
   sc_fit : (s.gpr .r8).toNat + size ≤ 2 ^ 64
 
+/-- What `setup` needs of its arguments (`Pre` gives it, and so can the
+arguments of other functions that run it): the working space `scratch = r8`
+writable, and `k = rcx`, `d = rsi` and `digest = rdx` (`8 n` bytes each)
+readable and apart from it. -/
+structure SetupPre (c : Cfg) (s : State) : Prop where
+  wr : (⟨s.gpr .r8, size⟩ : Region) ∈ s.wr
+  k_in : ∀ e, e + 8 ≤ 8 * c.n → InRegions (s.rd ++ s.wr) (s.gpr .rcx + BitVec.ofNat 64 e) 8
+  d_in : ∀ e, e + 8 ≤ 8 * c.n → InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 e) 8
+  digest_in : ∀ e, e + 8 ≤ 8 * c.n → InRegions (s.rd ++ s.wr) (s.gpr .rdx + BitVec.ofNat 64 e) 8
+  d_sc : Region.Disjoint ⟨s.gpr .rsi, 8 * c.n⟩ ⟨s.gpr .r8, size⟩
+  digest_sc : Region.Disjoint ⟨s.gpr .rdx, 8 * c.n⟩ ⟨s.gpr .r8, size⟩
+  k_sc : Region.Disjoint ⟨s.gpr .rcx, 8 * c.n⟩ ⟨s.gpr .r8, size⟩
+  sc_fit : (s.gpr .r8).toNat + size ≤ 2 ^ 64
+
+theorem Pre.setup {c : Cfg} {s : State} (hp : Pre c s) (h7 : c.n < 7) : SetupPre c s where
+  wr := by rw [hp.wr]; simp
+  k_in := inRegions_words (by rw [hp.rd]; simp) (by omega)
+  d_in := inRegions_words (by rw [hp.rd]; simp) (by omega)
+  digest_in := inRegions_words (by rw [hp.rd]; simp) (by omega)
+  d_sc := hp.d_sc
+  digest_sc := hp.digest_sc
+  k_sc := hp.k_sc
+  sc_fit := hp.sc_fit
+
 /-- The number in slot `i`. -/
 abbrev sv (c : Cfg) (base : Addr) (s : State) (i : Nat) : Nat := wordsVal s.mem base (c.sl i) c.n
 
