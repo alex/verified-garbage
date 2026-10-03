@@ -1,6 +1,5 @@
 import VerifiedGarbage.Proof.AesGcm.X86_64.Blocks.Mid
-import VerifiedGarbage.Proof.Gcm.X86_64.Stitch.Enc
-import VerifiedGarbage.Proof.Gcm.X86_64.Stitch.Dec
+import VerifiedGarbage.Proof.Gcm.X86_64.Stitch.Spec
 
 /-!
 # AES-GCM on whole blocks, x86-64: the first `16 ⌊n / 16⌋` blocks in one pass
@@ -230,13 +229,13 @@ theorem stitch_ok {piece : Prog isa} {Post : State → State → Prop} {ys : Nat
       hpost s₃ s₄ h9 ga gc g11 rd₃' wr₃' hk₃ hf₃ hP
 
 /-- Encryption: the blocks hashed are those written. -/
-theorem stitchE_ok {s₁ : State} (h11 : s₁.gpr .r11 = S s) (hg : ∀ r, r ≠ .r11 → s₁.gpr r = s.gpr r)
+theorem stitchE_ok (hS : Gcm.X86_64.Stitch.StitchOk) {s₁ : State} (h11 : s₁.gpr .r11 = S s) (hg : ∀ r, r ≠ .r11 → s₁.gpr r = s.gpr r)
     (hk : Kept s 0 s₁.mem) (hf : Frame [kR' s] s.mem s₁.mem) (hrd : s₁.rd = s.rd) (hwr : s₁.wr = s.wr) :
     WP isa (stitchPart Impl.Gcm.X86_64.Stitch.enc) s₁
       (Mid s (n s - n s % 16) 0
         (ctr32 (ciph s) (cb s) (blocksAt s.mem (D s) (n s - n s % 16)))) :=
   stitch_ok hp (ys := fun q => ctr32 (ciph s) (cb s) (blocksAt s.mem (D s) q)) rfl
-    (fun _ h => Gcm.X86_64.Stitch.enc_ok h)
+    (fun _ h => hS.1 _ h)
     (fun s₃ s₄ h9 ga gc g11 rd₃ wr₃ hk₃ hf₃ hP => by
       refine mid_of_post hp h9 ga gc g11 rd₃ wr₃ hk₃ hf₃ hP.data hP.ctr hP.frame hP.gpr hP.rd hP.wr
         fun eH eY _ eD => ?_
@@ -250,13 +249,13 @@ theorem stitchE_ok {s₁ : State} (h11 : s₁.gpr .r11 = S s) (hg : ∀ r, r ≠
     h11 hg hk hf hrd hwr
 
 /-- Decryption: the blocks hashed are those read. -/
-theorem stitchD_ok {s₁ : State} (h11 : s₁.gpr .r11 = S s) (hg : ∀ r, r ≠ .r11 → s₁.gpr r = s.gpr r)
+theorem stitchD_ok (hS : Gcm.X86_64.Stitch.StitchOk) {s₁ : State} (h11 : s₁.gpr .r11 = S s) (hg : ∀ r, r ≠ .r11 → s₁.gpr r = s.gpr r)
     (hk : Kept s 0 s₁.mem) (hf : Frame [kR' s] s.mem s₁.mem) (hrd : s₁.rd = s.rd) (hwr : s₁.wr = s.wr) :
     WP isa (stitchPart Impl.Gcm.X86_64.Stitch.dec) s₁
       (Mid s (n s - n s % 16) 0
         (blocksAt s.mem (D s) (n s - n s % 16))) :=
   stitch_ok hp (ys := fun q => blocksAt s.mem (D s) q) rfl
-    (fun _ h => Gcm.X86_64.Stitch.dec_ok h)
+    (fun _ h => hS.2 _ h)
     (fun s₃ s₄ h9 ga gc g11 rd₃ wr₃ hk₃ hf₃ hP => by
       refine mid_of_post hp h9 ga gc g11 rd₃ wr₃ hk₃ hf₃ hP.data hP.ctr hP.frame hP.gpr hP.rd hP.wr
         fun eH eY eD _ => ?_

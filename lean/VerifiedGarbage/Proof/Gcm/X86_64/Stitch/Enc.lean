@@ -188,17 +188,6 @@ theorem store16_ok (x x' : XReg) (b : Reg) (s : State) (h0 : s.lane .xmm0 0 = re
 
 /-! ## The whole encryption -/
 
-/-- What the encryption leaves: the data encrypted, the counter advanced, `Y`
-continued over the ciphertext, nothing else written but the working space. -/
-structure EPost (s₀ s : State) : Prop where
-  data : blocksAt s.mem (dp s₀) (nb s₀) = Spec.Gcm.ctr32 (ciph s₀) (cb s₀) (blocksAt s₀.mem (dp s₀) (nb s₀))
-  ctr : blockAt s.mem (cp s₀) = Nat.repeat inc32 (nb s₀) (cb s₀)
-  y : blockAt s.mem (yp s₀) = ghashFrom (hk s₀) (y₀ s₀) (blocksAt s.mem (dp s₀) (nb s₀))
-  frame : Frame [cR s₀, yR s₀, dR s₀, pR s₀] s₀.mem s.mem
-  gpr : ∀ r, r ≠ .rax → r ≠ .rdx → r ≠ .r9 → r ≠ .r10 → s.gpr r = s₀.gpr r
-  rd : s.rd = s₀.rd
-  wr : s.wr = s₀.wr
-
 /-- The blocks of the data, after all of them are encrypted. -/
 theorem blocks_ctr32 {s₀ : State} {m : Mem} (hb : ∀ k < nb s₀, blockAt m (bAddr s₀ k) = ctb s₀ k) :
     blocksAt m (dp s₀) (nb s₀) = Spec.Gcm.ctr32 (ciph s₀) (cb s₀) (blocksAt s₀.mem (dp s₀) (nb s₀)) := by

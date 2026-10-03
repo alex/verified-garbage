@@ -36,7 +36,7 @@ theorem decDone_of {q : Nat} {st : State} (M : Mid s q q (blocksAt s.mem (D s) q
 
 end
 
-theorem encrypt_wp (v : GcmImpl) (stitch : Bool) {s : State} (hpre : Proof.AesGcm.blocksPre s) :
+theorem encrypt_wp (v : GcmImpl) (stitch : Bool) (hS : stitch = true → Gcm.X86_64.Stitch.StitchOk) {s : State} (hpre : Proof.AesGcm.blocksPre s) :
     WP isa (encrypt v.callees.ctr v.callees.gh stitch) s (EncDone s) := by
   have hp := BP.of hpre
   refine WP.seq (WP.mono (entry_ok hp) fun s₁ ⟨h11, hg, hk, hf, hrd, hwr⟩ => ?_)
@@ -45,10 +45,10 @@ theorem encrypt_wp (v : GcmImpl) (stitch : Bool) {s : State} (hpre : Proof.AesGc
     tail_calls hp _ _ M (fun _ M' h0 => encDone_of hp M' h0) fun _ M' hlt => encCalls_ok hp v M' hlt
   cases stitch
   · exact WP.seq (WP.block_nil (tl 0 s₁ (mid_entry hp hg hk hf hrd hwr)))
-  · exact WP.seq (WP.seq (WP.mono (stitchE_ok hp h11 hg hk hf hrd hwr) fun st M =>
+  · exact WP.seq (WP.seq (WP.mono (stitchE_ok hp (hS rfl) h11 hg hk hf hrd hwr) fun st M =>
       WP.mono (rest_ok hp rfl M) fun st' M' => tl _ st' M'))
 
-theorem decrypt_wp (v : GcmImpl) (stitch : Bool) {s : State} (hpre : Proof.AesGcm.blocksPre s) :
+theorem decrypt_wp (v : GcmImpl) (stitch : Bool) (hS : stitch = true → Gcm.X86_64.Stitch.StitchOk) {s : State} (hpre : Proof.AesGcm.blocksPre s) :
     WP isa (decrypt v.callees.ctr v.callees.gh stitch) s (DecDone s) := by
   have hp := BP.of hpre
   refine WP.seq (WP.mono (entry_ok hp) fun s₁ ⟨h11, hg, hk, hf, hrd, hwr⟩ => ?_)
@@ -57,7 +57,7 @@ theorem decrypt_wp (v : GcmImpl) (stitch : Bool) {s : State} (hpre : Proof.AesGc
     tail_calls hp _ _ M (fun _ M' h0 => decDone_of hp M' h0) fun _ M' hlt => decCalls_ok hp v M' hlt
   cases stitch
   · exact WP.seq (WP.block_nil (tl 0 s₁ (mid_entry hp hg hk hf hrd hwr)))
-  · exact WP.seq (WP.seq (WP.mono (stitchD_ok hp h11 hg hk hf hrd hwr) fun st M =>
+  · exact WP.seq (WP.seq (WP.mono (stitchD_ok hp (hS rfl) h11 hg hk hf hrd hwr) fun st M =>
       WP.mono (rest_ok hp rfl M) fun st' M' => tl _ st' M'))
 
 end VG.Proof.AesGcm.X86_64.Blocks

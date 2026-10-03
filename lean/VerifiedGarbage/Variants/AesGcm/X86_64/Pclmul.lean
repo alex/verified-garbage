@@ -8,6 +8,6 @@ A variant of `AesGcm` on x86-64 (see `TCB/Emit.lean`): `vg_aes_ctr32` and `vg_ae
 
 namespace VG.Variants.AesGcm.X86_64.Pclmul
 
-def variant : Proof.AesGcm.X86_64.GcmImpl := ⟨.scalar, .scalar, .pclmul⟩
+def variant : Proof.AesGcm.X86_64.GcmImpl := ⟨.scalar, .scalar, .pclmul, false, nofun⟩
 
 end VG.Variants.AesGcm.X86_64.Pclmul

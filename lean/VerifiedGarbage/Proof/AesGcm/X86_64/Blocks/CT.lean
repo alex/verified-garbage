@@ -236,7 +236,7 @@ theorem part_rel (stitch : Bool) (piece : Prog isa) {ys : State → Nat → List
     (hys : ∀ s, ys s 0 = [])
     (hc : ∃ hc, ((taint.check (Taint.ofRegs (.r11 :: args)) (stitchPart piece) hc).map
       fun τ' => (RegSet.ofList [Reg.rsp]).subset τ'.regs && (!false || τ'.flags)) = some true)
-    (hw : ∀ {s : State}, BP s → ∀ {s₁ : State}, EntryPost s s₁ →
+    (hw : stitch = true → ∀ {s : State}, BP s → ∀ {s₁ : State}, EntryPost s s₁ →
       WP isa (stitchPart piece) s₁ (Mid s (n s - n s % 16) 0 (ys s (n s - n s % 16)))) :
     RelCT isa (fun s₁ s₂ => (∀ r ∈ .r11 :: args, s₁.gpr r = s₂.gpr r) ∧ EntryPost s₀ s₁ ∧ EntryPost s₀' s₂)
       (if stitch then .seq (stitchPart piece) (.block rest) else .block [])
@@ -249,7 +249,7 @@ theorem part_rel (stitch : Bool) (piece : Prog isa) {ys : State → Nat → List
     · obtain ⟨-, -, ⟨-, b, c, d, e, f⟩⟩ := h; rw [hys]; exact mid_entry hp' b c d e f
   · have a := rel_wp (P := fun s₁ s₂ => (∀ r ∈ .r11 :: args, s₁.gpr r = s₂.gpr r) ∧ EntryPost s₀ s₁ ∧
         EntryPost s₀' s₂) (rel_regs (.r11 :: args) [.rsp] false (fun _ _ h => h.1) hc) (fun _ _ h => h.2)
-      (fun _ h => hw hp h) (fun _ h => hw hp' h)
+      (fun _ h => hw rfl hp h) (fun _ h => hw rfl hp' h)
     have b := rel_wp (rel_r11 (l₀ := rest) (l := rest.tail) rfl
       (P := fun s₁ s₂ => (∀ r ∈ [Reg.rsp], s₁.gpr r = s₂.gpr r) ∧
         Mid s₀ (n s₀ - n s₀ % 16) 0 (ys s₀ (n s₀ - n s₀ % 16)) s₁ ∧
@@ -262,7 +262,7 @@ theorem part_rel (stitch : Bool) (piece : Prog isa) {ys : State → Nat → List
 
 end
 
-theorem encrypt_ct (v : GcmImpl) (stitch : Bool) :
+theorem encrypt_ct (v : GcmImpl) (stitch : Bool) (hS : stitch = true → Gcm.X86_64.Stitch.StitchOk) :
     ConstantTime isa Proof.AesGcm.encryptBlocksX86_64.pre Proof.AesGcm.encryptBlocksX86_64.pub
       (encrypt v.callees.ctr v.callees.gh stitch) := by
   refine ct_of_rel fun s₀ s₀' h h' hq => ?_
@@ -271,12 +271,12 @@ theorem encrypt_ct (v : GcmImpl) (stitch : Bool) :
   have pb := Pub.of hq
   refine RelCT.seq (entry_rel hp hp' pb) (RelCT.seq (part_rel hp hp' pb stitch Impl.Gcm.X86_64.Stitch.enc
     (ys := fun s q => ctr32 (ciph s) (cb s) (blocksAt s.mem (D s) q)) (fun _ => rfl) stitchE_check
-    fun {_} hp {_} h => by obtain ⟨a, b, c, d, e, f⟩ := h; exact stitchE_ok hp a b c d e f) ?_)
+    fun hs {_} hp {_} h => by obtain ⟨a, b, c, d, e, f⟩ := h; exact stitchE_ok hp (hS hs) a b c d e f) ?_)
   intro s₁ s₂ t₁ t₂ s₁' s₂' ⟨q, M₁, M₂⟩ e₁ e₂
   exact tail_rel hp hp' pb (fun q hq => ctrCall_rel hp hp' pb v.ctr hq) (fun q hq => ghCall_rel hp hp' pb v.gh hq)
     _ _ _ _ _ _ ⟨M₁, M₂⟩ e₁ e₂
 
-theorem decrypt_ct (v : GcmImpl) (stitch : Bool) :
+theorem decrypt_ct (v : GcmImpl) (stitch : Bool) (hS : stitch = true → Gcm.X86_64.Stitch.StitchOk) :
     ConstantTime isa Proof.AesGcm.decryptBlocksX86_64.pre Proof.AesGcm.decryptBlocksX86_64.pub
       (decrypt v.callees.ctr v.callees.gh stitch) := by
   refine ct_of_rel fun s₀ s₀' h h' hq => ?_
@@ -285,7 +285,7 @@ theorem decrypt_ct (v : GcmImpl) (stitch : Bool) :
   have pb := Pub.of hq
   refine RelCT.seq (entry_rel hp hp' pb) (RelCT.seq (part_rel hp hp' pb stitch Impl.Gcm.X86_64.Stitch.dec
     (ys := fun s q => blocksAt s.mem (D s) q) (fun _ => rfl) stitchD_check
-    fun {_} hp {_} h => by obtain ⟨a, b, c, d, e, f⟩ := h; exact stitchD_ok hp a b c d e f) ?_)
+    fun hs {_} hp {_} h => by obtain ⟨a, b, c, d, e, f⟩ := h; exact stitchD_ok hp (hS hs) a b c d e f) ?_)
   intro s₁ s₂ t₁ t₂ s₁' s₂' ⟨q, M₁, M₂⟩ e₁ e₂
   exact tail_rel hp hp' pb (fun q hq => ghCall_rel hp hp' pb v.gh hq) (fun q hq => ctrCall_rel hp hp' pb v.ctr hq)
     _ _ _ _ _ _ ⟨M₁, M₂⟩ e₁ e₂

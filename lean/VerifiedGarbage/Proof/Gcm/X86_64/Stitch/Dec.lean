@@ -151,18 +151,6 @@ theorem dbody_ok {s₀ : State} (hp : SPre s₀) {e : Nat} (he : 16 * (e + 1) �
     exact congrArg (fun y => ghashFrom (hk s₀) y ((List.range 16).map X)) hI.y
   · rw [fcf, hr9, toNat_ofNat_lt (by omega)]
 
-/-- What the decryption leaves: the data decrypted, the counter advanced, `Y`
-continued over the blocks as they were, nothing else written but the working
-space. -/
-structure DPost (s₀ s : State) : Prop where
-  data : blocksAt s.mem (dp s₀) (nb s₀) = Spec.Gcm.ctr32 (ciph s₀) (cb s₀) (blocksAt s₀.mem (dp s₀) (nb s₀))
-  ctr : blockAt s.mem (cp s₀) = Nat.repeat inc32 (nb s₀) (cb s₀)
-  y : blockAt s.mem (yp s₀) = ghashFrom (hk s₀) (y₀ s₀) (blocksAt s₀.mem (dp s₀) (nb s₀))
-  frame : Frame [cR s₀, yR s₀, dR s₀, pR s₀] s₀.mem s.mem
-  gpr : ∀ r, r ≠ .rax → r ≠ .rdx → r ≠ .r9 → r ≠ .r10 → s.gpr r = s₀.gpr r
-  rd : s.rd = s₀.rd
-  wr : s.wr = s₀.wr
-
 theorem dfinal_ok {s₀ : State} (hp : SPre s₀) {e : Nat} (he : nb s₀ = 16 * e) {s : State} (hI : DInv s₀ e s) :
     WP isa (.block (storeCtr ++ storeY)) s (DPost s₀) := by
   have hw := hp.wrap_d
@@ -224,5 +212,8 @@ theorem dec_ok {s₀ : State} (hp : SPre s₀) : WP isa dec s₀ (DPost s₀) :=
         nb s₀ - 16 * (e + 1), by omega, e + 1, rfl, by omega, hI'⟩
   exact WP.seq (WP.mono (WP.loop (M := isa) I hstep (nb s₀) s₁ ⟨0, by simp, by omega, hI₁⟩)
     fun s₂ ⟨e, he, hI₂⟩ => dfinal_ok hp he hI₂)
+
+/-- Both interleaved loops meet their contracts. -/
+theorem stitch_ok : StitchOk := ⟨fun _ hp => enc_ok hp, fun _ hp => dec_ok hp⟩
 
 end VG.Proof.Gcm.X86_64.Stitch

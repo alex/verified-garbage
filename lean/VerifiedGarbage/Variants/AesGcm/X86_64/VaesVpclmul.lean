@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Gcm.X86_64.Stitch.Dec
 import VerifiedGarbage.Proof.AesGcm.X86_64.GhashImpls
 
 /-!
@@ -8,6 +9,6 @@ A variant of `AesGcm` on x86-64 (see `TCB/Emit.lean`): VAES for the cipher (`vg_
 
 namespace VG.Variants.AesGcm.X86_64.VaesVpclmul
 
-def variant : Proof.AesGcm.X86_64.GcmImpl := ⟨.vaes, .aesni, .vpclmul, true⟩
+def variant : Proof.AesGcm.X86_64.GcmImpl := ⟨.vaes, .aesni, .vpclmul, true, fun _ => Proof.Gcm.X86_64.Stitch.stitch_ok⟩
 
 end VG.Variants.AesGcm.X86_64.VaesVpclmul

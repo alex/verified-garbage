@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.AesGcm.X86_64.Loops
 import VerifiedGarbage.Impl.AesGcm.X86_64.Blocks
 import VerifiedGarbage.Spec.Gcm.Contract
+import VerifiedGarbage.Proof.Gcm.X86_64.Stitch.Spec
 import VerifiedGarbage.Proof.Aes.X86_64.Variant
 import VerifiedGarbage.Proof.Aes.X86_64.ExpandKey
 import VerifiedGarbage.Proof.Aes.X86_64.AesNi.ExpandKey
@@ -354,6 +355,9 @@ structure GcmImpl where
   counter mode and GHASH with VAES and VPCLMULQDQ (`Gcm.X86_64.Stitch`), for
   `vg_aes_ctr32_vaes` and `vg_ghash_vpclmul`. -/
   stitch : Bool := false
+  /-- The interleaved loops' proof, which only an instance that uses them
+  supplies (it imports the algebra of `Proof/Gcm/Poly.lean`). -/
+  stitchOk : stitch = true → Gcm.X86_64.Stitch.StitchOk
 
 namespace GcmImpl
 

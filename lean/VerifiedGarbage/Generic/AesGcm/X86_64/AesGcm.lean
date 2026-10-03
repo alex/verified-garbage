@@ -59,7 +59,7 @@ def artifacts (v : GcmImpl) : List Artifact := [
     code := v.callees.enc.code
     contract := Spec.Gcm.encryptBlocksContract X86_64.abi 8
     stack := 8
-    verified := encryptBlocks_verified v v.stitch
+    verified := encryptBlocks_verified v v.stitch v.stitchOk
     spSafe := encryptBlocks_spSafe v v.stitch
     features := v.features },
   { Spec.Gcm.decryptBlocksApi with
@@ -69,7 +69,7 @@ def artifacts (v : GcmImpl) : List Artifact := [
     code := v.callees.dec.code
     contract := Spec.Gcm.decryptBlocksContract X86_64.abi 8
     stack := 8
-    verified := decryptBlocks_verified v v.stitch
+    verified := decryptBlocks_verified v v.stitch v.stitchOk
     spSafe := decryptBlocks_spSafe v v.stitch
     features := v.features },
   { Spec.Gcm.initApi with

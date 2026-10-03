@@ -49,7 +49,7 @@ omit L in
 theorem ob2_ok {R : Nat} {D : Addr} {s : State} (he : Env Ctx (W + BitVec.ofNat 64 16) W SP s)
     (hR : RoundsAt s.mem W R) (hdat : s.mem.readW (W + BitVec.ofNat 64 200) 64 = D) :
     WP isa (.block (([.mov .rdi (.reg .r13), .mov .rsi (.mem (at_ .r15 roundsO))] : List Instr) ++
-      ptr .rdx .r14 48 ++ ptr .rcx .r14 16 ++ [.mov .r8 (.mem (at_ .r15 dataO)), .mov .r9 (.reg .rax)] ++
+      ptr .rdx .r14 48 ++ ptr .rcx .r14 16 ++ ([.mov .r8 (.mem (at_ .r15 dataO)), .mov .r9 (.reg .rax)] : List Instr) ++
       ptr .rax .r15 bScrO)) s fun s₂ => s₂.gpr .rdi = Ctx ∧ s₂.gpr .rsi = BitVec.ofNat 64 R ∧
       s₂.gpr .rdx = W + BitVec.ofNat 64 16 + BitVec.ofNat 64 48 ∧
       s₂.gpr .rcx = W + BitVec.ofNat 64 16 + BitVec.ofNat 64 16 ∧ s₂.gpr .r8 = D ∧ s₂.gpr .r9 = s.gpr .rax ∧

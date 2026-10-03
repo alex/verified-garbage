@@ -211,7 +211,7 @@ theorem blkE_call (v : GcmImpl) {s : State} {K C Y D S : Addr} {R q : Nat} (h : 
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by have := h.w_d; omega)
   have hR : (BitVec.ofNat 64 R).toNat = R := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by rcases h.rounds with h | h | h <;> omega)
-  refine WP.call (k := Proof.AesGcm.encryptBlocksX86_64) (encryptBlocks_correct v v.stitch)
+  refine WP.call (k := Proof.AesGcm.encryptBlocksX86_64) (encryptBlocks_correct v v.stitch v.stitchOk)
     (encryptBlocks_nosp v v.stitch) (by rw [encryptBlocks_depth]; decide)
     (rd := BlkCall.rd s K) (wr := BlkCall.wr C Y D S q) h.pre h.reads h.writes ?_
   intro s' hrd hwr hcs hf _ ⟨s₂, hm₂, _, hpost⟩
@@ -236,7 +236,7 @@ theorem blkD_call (v : GcmImpl) {s : State} {K C Y D S : Addr} {R q : Nat} (h : 
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by have := h.w_d; omega)
   have hR : (BitVec.ofNat 64 R).toNat = R := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by rcases h.rounds with h | h | h <;> omega)
-  refine WP.call (k := Proof.AesGcm.decryptBlocksX86_64) (decryptBlocks_correct v v.stitch)
+  refine WP.call (k := Proof.AesGcm.decryptBlocksX86_64) (decryptBlocks_correct v v.stitch v.stitchOk)
     (decryptBlocks_nosp v v.stitch) (by rw [decryptBlocks_depth]; decide)
     (rd := BlkCall.rd s K) (wr := BlkCall.wr C Y D S q) h.pre h.reads h.writes ?_
   intro s' hrd hwr hcs hf _ ⟨s₂, hm₂, _, hpost⟩
@@ -268,8 +268,8 @@ theorem blkE_rel (v : GcmImpl) {P : State → State → Prop}
     (h : ∀ s₁ s₂, P s₁ s₂ → ∃ K C Y D S : Addr, ∃ R q : Nat,
       BlkCall s₁ K C Y D S R q ∧ BlkCall s₂ K C Y D S R q ∧ s₁.gpr .rsp = s₂.gpr .rsp) :
     RelCT isa P (.call v.callees.enc.name v.callees.enc.code) fun _ _ => True := by
-  refine RelCT.callEx (k := Proof.AesGcm.encryptBlocksX86_64) (encryptBlocks_correct v v.stitch)
-    (Blocks.encrypt_ct v v.stitch) fun s₁ s₂ hp => ?_
+  refine RelCT.callEx (k := Proof.AesGcm.encryptBlocksX86_64) (encryptBlocks_correct v v.stitch v.stitchOk)
+    (Blocks.encrypt_ct v v.stitch v.stitchOk) fun s₁ s₂ hp => ?_
   obtain ⟨K, C, Y, D, S, R, q, h₁, h₂, hsp⟩ := h s₁ s₂ hp
   exact ⟨_, _, _, _, h₁.pre, h₂.pre, blk_pub h₁ h₂ hsp, h₁.reads, h₁.writes, h₂.reads, h₂.writes, hsp⟩
 
@@ -277,8 +277,8 @@ theorem blkD_rel (v : GcmImpl) {P : State → State → Prop}
     (h : ∀ s₁ s₂, P s₁ s₂ → ∃ K C Y D S : Addr, ∃ R q : Nat,
       BlkCall s₁ K C Y D S R q ∧ BlkCall s₂ K C Y D S R q ∧ s₁.gpr .rsp = s₂.gpr .rsp) :
     RelCT isa P (.call v.callees.dec.name v.callees.dec.code) fun _ _ => True := by
-  refine RelCT.callEx (k := Proof.AesGcm.decryptBlocksX86_64) (decryptBlocks_correct v v.stitch)
-    (Blocks.decrypt_ct v v.stitch) fun s₁ s₂ hp => ?_
+  refine RelCT.callEx (k := Proof.AesGcm.decryptBlocksX86_64) (decryptBlocks_correct v v.stitch v.stitchOk)
+    (Blocks.decrypt_ct v v.stitch v.stitchOk) fun s₁ s₂ hp => ?_
   obtain ⟨K, C, Y, D, S, R, q, h₁, h₂, hsp⟩ := h s₁ s₂ hp
   exact ⟨_, _, _, _, h₁.pre, h₂.pre, blk_pub h₁ h₂ hsp, h₁.reads, h₁.writes, h₂.reads, h₂.writes, hsp⟩
 
