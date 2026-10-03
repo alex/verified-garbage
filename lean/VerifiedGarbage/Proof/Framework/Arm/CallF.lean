@@ -162,7 +162,7 @@ theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
       split at hp <;> [rename_i hc; cases hp]
       cases hp
       simp only [armStack] at hd ⊢
-      have hn := hc.2.2.2
+      have hn := hc.2.2.2.2
       have f₁ := ih (by show armStack b ≤ (s₀.sp - BitVec.ofNat 32 bytes).toNat
                         rw [sub_toNat' hn]; omega)
       simp only at f₁

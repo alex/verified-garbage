@@ -176,7 +176,7 @@ theorem pop_eq {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = som
     simp only [dstOf, ne_eq, Option.some.injEq] at hr
     simp [State.setReg, Ne.symm hr]
   case free bytes hc =>
-    exact ⟨hc.2.2.2.2.1, rfl, rfl, fun _ _ => rfl, hc.2.2.2.1, _, hc.2.2.2.2.2, rfl⟩
+    exact ⟨hc.2.2.2.2.2.1, rfl, rfl, fun _ _ => rfl, hc.2.2.2.2.1, _, hc.2.2.2.2.2.2, rfl⟩
 
 theorem push_widen {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) :
     ∃ f, s₁.rd = s.rd ∧ s₁.wr = f :: s.wr ∧ ∀ rd wr,
@@ -198,7 +198,7 @@ theorem pop_widen {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = 
     rfl
   case free bytes hc =>
     simp only [isa, pop, State.withRegions_sp, State.withRegions_wr, hw,
-      hc.1, hc.2.1, hc.2.2.1, hc.2.2.2.1, hc.2.2.2.2.2, and_self, ite_true]
+      hc.1, hc.2.1, hc.2.2.1, hc.2.2.2.1, hc.2.2.2.2.1, hc.2.2.2.2.2.2, and_self, ite_true]
     rfl
 
 /-- The permissions of ARMv7 states, for the inlining theory
