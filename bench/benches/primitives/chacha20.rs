@@ -10,6 +10,20 @@ use crate::{OPENSSL, SIZES, VG};
 
 pub const USES: &[&str] = &["chacha20"];
 
+#[cfg(not(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+)))]
+pub fn bench(_: &mut Criterion) {}
+
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 pub fn bench(c: &mut Criterion) {
     let key = [0x42; 32];
     let nonce = [0x24; 16];

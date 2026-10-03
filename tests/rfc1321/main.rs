@@ -5,6 +5,13 @@
 //! always run. Every vector of the suite is checked, in one call and split
 //! into pieces at every position.
 
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
+
 use verified_garbage::hashes::HashFunction;
 use verified_garbage::hashes::md5::Md5;
 
