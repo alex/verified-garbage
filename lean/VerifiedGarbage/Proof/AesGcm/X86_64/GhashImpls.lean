@@ -1,13 +1,14 @@
 import VerifiedGarbage.Proof.AesGcm.X86_64.Callee
 import VerifiedGarbage.Proof.Gcm.X86_64.Ghash
 import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Ghash
+import VerifiedGarbage.Proof.Gcm.X86_64.Vpclmul.Ghash
 
 /-!
 # AES-GCM on x86-64: the implementations of `vg_ghash`
 
 Untrusted: everything here is checked by Lean. The `GhashImpl`s of
-`vg_ghash` and `vg_ghash_pclmul`, from their proofs, apart from
-`Callee.lean`: only the variants need them, and their proofs import the
+`vg_ghash`, `vg_ghash_pclmul` and `vg_ghash_vpclmul`, from their proofs,
+apart from `Callee.lean`: only the variants need them, and their proofs import the
 algebra of `Proof/Gcm/Poly.lean`, which the rest of the AES-GCM proofs then
 need not import.
 -/
@@ -41,6 +42,18 @@ def pclmul : GhashImpl where
   spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := "_pclmul"
   features := ["pclmulqdq", "ssse3"]
+
+/-- `vg_ghash_vpclmul`. -/
+def vpclmul : GhashImpl where
+  fn := ⟨"vg_ghash_vpclmul", Impl.Gcm.X86_64.Vpclmul.ghash⟩
+  depth := by lit_decide
+  ok := Proof.Gcm.X86_64.Vpclmul.ghash_correct
+  ct := Proof.Gcm.X86_64.Vpclmul.ghash_ct
+  nosp := nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
+  mxcsr := by lit_decide
+  spSafe := Code.all_of_allInstrs (by lit_decide)
+  suffix := "_vpclmul"
+  features := ["avx", "avx2", "pclmulqdq", "ssse3", "vpclmulqdq"]
 
 end GhashImpl
 

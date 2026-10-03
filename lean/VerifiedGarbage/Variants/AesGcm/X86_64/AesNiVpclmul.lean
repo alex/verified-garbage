@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.AesGcm.X86_64.GhashVpclmul
+import VerifiedGarbage.Proof.AesGcm.X86_64.GhashImpls
 
 /-!
 # The functions AES-GCM calls on x86-64: AesNiVpclmul
