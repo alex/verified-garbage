@@ -306,14 +306,10 @@ theorem apply_ct (v : Proof.ChaCha20.AArch64.XorImpl) :
     ConstantTime isa Proof.ChaCha20.applyAArch64.pre Proof.ChaCha20.applyAArch64.pub (apply v.callee) :=
   fun _ _ _ _ _ _ h₁ h₂ hq e₁ e₂ => (apply_rel (Two.of h₁ h₂ hq) v _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
 
-theorem apply_keepsV (v : Proof.ChaCha20.AArch64.XorImpl) : (apply v.callee).allInstrs keepsV = true := by
-  simp only [apply, part2, Code.allInstrs, v.keepsV, Bool.and_true, Bool.true_and]
-  lit_decide
-
 theorem apply_ok (v : Proof.ChaCha20.AArch64.XorImpl) (s : State) (hs : Proof.ChaCha20.applyAArch64.pre s) :
     ∃ t s', Exec isa (apply v.callee) s t s' ∧ abiPreserved s s' ∧ Proof.ChaCha20.applyAArch64.post s s' := by
-  obtain ⟨t, s', he, hf⟩ := apply_correct v (APre.of s hs)
-  exact ⟨t, s', he, ⟨hf.1, Exec.sp he, Exec.preservedV he (apply_keepsV v)⟩, hf.2⟩
+  obtain ⟨t, s', he, hf, hv⟩ := apply_correct v (APre.of s hs)
+  exact ⟨t, s', he, ⟨hf.1, Exec.sp he, hv⟩, hf.2⟩
 
 /-- A state satisfying the precondition of `apply` (with no data). -/
 def applySat : State where

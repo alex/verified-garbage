@@ -72,7 +72,8 @@ PLATFORMS = {
 # each implementation a runner can run is measured (on x86-64, each of
 # Ed25519's combinations of SHA-512 and field multiplication, and, on
 # x86-64 and x86, AES-GCM's `_aesni` and `_pclmul`, which a runner with
-# both extensions never chooses; no runner has the SHA512 extension,
+# both extensions never chooses; on AArch64, ChaCha20's `_neon` instances,
+# which the SVE2 runner never chooses; no runner has the SHA512 extension,
 # whose variants only ci.yml tests, under SDE).
 CPU_FEATURES = {
     "x86_64": [
@@ -84,7 +85,7 @@ CPU_FEATURES = {
         "pclmulqdq,ssse3",
         "none",
     ],
-    "aarch64": ["sha3", "none"],
+    "aarch64": ["neon", "sha3", "none"],
     "x86": ["aes", "pclmulqdq,ssse3", "none"],
 }
 

@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.ChaCha20.AArch64.Mixed5.Schedule
 import VerifiedGarbage.Impl.ChaCha20.AArch64.Mixed5
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Neon4.Rounds
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Block
@@ -34,15 +35,9 @@ theorem parallelRound_ok {vs : Nat → CState} {v : CState} {s : State}
       VG.Proof.ChaCha20.AArch64.Neon4.Holds (fun j => innerBlock (vs j)) u ∧ VG.Proof.ChaCha20.AArch64.Holds (innerBlock v) u ∧
       VG.Proof.ChaCha20.AArch64.RI (innerBlock v) s u ∧ u.sp = s.sp ∧
       u.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table := by
-  apply WP.seq
-  refine (VG.Proof.ChaCha20.AArch64.Neon4.doubleRound_ok hn ht).mono fun a ⟨ha,hsa⟩ => ?_
-  have hca : VG.Proof.ChaCha20.AArch64.Holds v a := by simpa only [VG.Proof.ChaCha20.AArch64.Holds,hsa.gpr] using hc
-  refine (scalar_round_vectors hca).mono fun b ⟨hb,hav,hsp⟩ => ?_
-  refine ⟨?_,hb.holds,?_,hsp.trans hsa.sp,?_⟩
-  · simpa only [VG.Proof.ChaCha20.AArch64.Neon4.Holds,hav] using ha
-  · exact ⟨hb.holds,hb.mem.trans hsa.mem,hb.rd.trans hsa.rd,hb.wr.trans hsa.wr,
-      fun r hr => (hb.keep r hr).trans (congrFun hsa.gpr r)⟩
-  · rw [hav,hsa.v30,ht]
+  refine (Scheduled.ops_ok roundOps Scheduled.roundOps_valid hn ht hc).mono fun u ⟨hu,hr,hsp,hut⟩ => ?_
+  simp only [roundOps, VG.Proof.ChaCha20.AArch64.Neon4.innerBlock_eq] at hu hr
+  exact ⟨hu,hr.holds,hr,hsp,hut⟩
 
 theorem rounds_ok {vs : Nat → CState} {v : CState} {s : State}
     (hn : VG.Proof.ChaCha20.AArch64.Neon4.Holds vs s) (ht : s.v .v30 = VG.Impl.ChaCha20.AArch64.Neon4.rol8Table)

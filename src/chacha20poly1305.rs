@@ -16,8 +16,12 @@
 //! `vg_chacha20_poly1305_seal_avx2` and `vg_chacha20_poly1305_open_avx2`.
 //! On AArch64, CPUs with AdvSIMD (the baseline) run
 //! `vg_chacha20_poly1305_seal_neon` and `vg_chacha20_poly1305_open_neon`,
-//! which XOR the keystream into the data with `vg_chacha20_xor_neon`; like
-//! every variant, they compute the one-time Poly1305 key with the scalar
+//! which absorb each whole 512 bytes into Poly1305 in the integer registers
+//! while the eight-block ChaCha20 kernel computes the keystream, and XOR the
+//! rest with `vg_chacha20_xor_neon`; CPUs with SVE2 run
+//! `vg_chacha20_poly1305_seal_sve2` and `vg_chacha20_poly1305_open_sve2`, the
+//! same with that kernel's SVE2 form (`vg_chacha20_xor_sve2`). Like every
+//! variant, they compute the one-time Poly1305 key with the scalar
 //! `vg_chacha20_block`.
 
 #![cfg(any(
@@ -36,7 +40,8 @@ use crate::arch::chacha20poly1305::{
 use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::chacha20poly1305::{
-    vg_chacha20_poly1305_open_neon, vg_chacha20_poly1305_seal_neon,
+    vg_chacha20_poly1305_open_neon, vg_chacha20_poly1305_open_sve2, vg_chacha20_poly1305_seal_neon,
+    vg_chacha20_poly1305_seal_sve2,
 };
 use crate::chacha20::Backend;
 use crate::cpu::{Features, detected};
@@ -144,6 +149,8 @@ impl ChaCha20Poly1305 {
             Backend::Scalar => vg_chacha20_poly1305_seal,
             #[cfg(target_arch = "aarch64")]
             Backend::Neon => vg_chacha20_poly1305_seal_neon,
+            #[cfg(target_arch = "aarch64")]
+            Backend::Sve2 => vg_chacha20_poly1305_seal_sve2,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => vg_chacha20_poly1305_seal_avx2,
             #[cfg(target_arch = "x86_64")]
@@ -188,6 +195,8 @@ impl ChaCha20Poly1305 {
             Backend::Scalar => vg_chacha20_poly1305_open,
             #[cfg(target_arch = "aarch64")]
             Backend::Neon => vg_chacha20_poly1305_open_neon,
+            #[cfg(target_arch = "aarch64")]
+            Backend::Sve2 => vg_chacha20_poly1305_open_sve2,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => vg_chacha20_poly1305_open_avx2,
             #[cfg(target_arch = "x86_64")]
@@ -360,5 +369,26 @@ mod tests {
             Backend::Scalar
         );
         assert_eq!(select(Features::of(&["avx"])), Backend::Scalar);
+    }
+
+    /// On AArch64, the SVE2 instances need the features of
+    /// `vg_chacha20_xor_sve2`, `open`'s the same as `seal`'s, and `select`
+    /// chooses them with SVE2 (and the NEON ones without).
+    #[cfg(target_arch = "aarch64")]
+    #[test]
+    fn features() {
+        use crate::arch::chacha20::VG_CHACHA20_XOR_SVE2_FEATURES;
+        use crate::arch::chacha20poly1305::{
+            VG_CHACHA20_POLY1305_OPEN_SVE2_FEATURES, VG_CHACHA20_POLY1305_SEAL_SVE2_FEATURES,
+        };
+        use crate::cpu::Features;
+        let sve2 = Features::of(VG_CHACHA20_XOR_SVE2_FEATURES);
+        assert_eq!(Features::of(VG_CHACHA20_POLY1305_SEAL_SVE2_FEATURES), sve2);
+        assert_eq!(Features::of(VG_CHACHA20_POLY1305_OPEN_SVE2_FEATURES), sve2);
+        assert_eq!(
+            select(Features::all(&[&["neon"], VG_CHACHA20_XOR_SVE2_FEATURES])),
+            Backend::Sve2
+        );
+        assert_eq!(select(Features::of(&["neon"])), Backend::Neon);
     }
 }

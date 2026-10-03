@@ -26,10 +26,12 @@
 //! (`vg_chacha20_xor_avx512`), and other CPUs with AVX2 run
 //! `vg_chacha20_apply_avx2`, which XORs eight (`vg_chacha20_xor_avx2`).
 //! On AArch64, CPUs with AdvSIMD (the baseline) run `vg_chacha20_apply_neon`,
-//! which XORs whole blocks with `vg_chacha20_xor_neon`: five independent
-//! blocks at a time, four in AdvSIMD lanes and one in the integer registers,
-//! then two to four more in AdvSIMD lanes if at least two remain, and the
-//! block function for the rest (at most two blocks).
+//! which XORs whole blocks with `vg_chacha20_xor_neon`: eight independent
+//! blocks at a time, six in AdvSIMD lanes and two in the integer registers,
+//! then smaller AdvSIMD groups and the scalar block function for the tail.
+//! CPUs with SVE2 run `vg_chacha20_apply_sve2` instead, the same code with
+//! each XOR and rotation of the AdvSIMD blocks one SVE2 XAR
+//! (`vg_chacha20_xor_sve2`).
 //! On every target, the keystream of a partial block, which the streaming
 //! state buffers, comes from the scalar `vg_chacha20_block`.
 
@@ -40,12 +42,14 @@
     target_arch = "x86"
 ))]
 
-#[cfg(target_arch = "aarch64")]
-use crate::arch::chacha20::vg_chacha20_apply_neon;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::chacha20::{
     VG_CHACHA20_APPLY_AVX2_FEATURES, VG_CHACHA20_APPLY_AVX512_FEATURES, vg_chacha20_apply_avx2,
     vg_chacha20_apply_avx512,
+};
+#[cfg(target_arch = "aarch64")]
+use crate::arch::chacha20::{
+    VG_CHACHA20_APPLY_SVE2_FEATURES, vg_chacha20_apply_neon, vg_chacha20_apply_sve2,
 };
 use crate::arch::chacha20::{vg_chacha20_apply, vg_chacha20_init, vg_chacha20_set_nonce};
 use crate::cpu::{Features, detected};
@@ -59,10 +63,14 @@ use core::mem::MaybeUninit;
 pub(crate) enum Backend {
     /// Constant-time scalar code, for the target's baseline ISA.
     Scalar,
-    /// Five independent blocks at a time, four in baseline AArch64 AdvSIMD
-    /// lanes and one in the integer registers.
+    /// Eight independent blocks at a time, six in baseline AArch64 AdvSIMD
+    /// lanes and two in the integer registers.
     #[cfg(target_arch = "aarch64")]
     Neon,
+    /// The same, with each XOR and rotation of the AdvSIMD blocks one SVE2
+    /// XAR.
+    #[cfg(target_arch = "aarch64")]
+    Sve2,
     /// AVX2, eight blocks at a time.
     #[cfg(target_arch = "x86_64")]
     Avx2,
@@ -73,10 +81,16 @@ pub(crate) enum Backend {
 
 impl Backend {
     /// AdvSIMD is part of our AArch64 baseline. Tracking it also lets
-    /// `VG_CPU_FEATURES=none` exercise the scalar implementation.
+    /// `VG_CPU_FEATURES=none` exercise the scalar implementation. SVE2 is
+    /// not: its instances need `VG_CHACHA20_APPLY_SVE2_FEATURES` (which
+    /// ChaCha20-Poly1305's need too, see its tests).
     #[cfg(target_arch = "aarch64")]
     pub(crate) fn select(f: Features) -> Backend {
-        if f.contains(Features::of(&["neon"])) {
+        if f.contains(Features::of(&["neon"]))
+            && f.contains(Features::of(VG_CHACHA20_APPLY_SVE2_FEATURES))
+        {
+            Backend::Sve2
+        } else if f.contains(Features::of(&["neon"])) {
             Backend::Neon
         } else {
             Backend::Scalar
@@ -186,6 +200,8 @@ impl ChaCha20 {
             Backend::Scalar => vg_chacha20_apply,
             #[cfg(target_arch = "aarch64")]
             Backend::Neon => vg_chacha20_apply_neon,
+            #[cfg(target_arch = "aarch64")]
+            Backend::Sve2 => vg_chacha20_apply_sve2,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => vg_chacha20_apply_avx2,
             #[cfg(target_arch = "x86_64")]
@@ -407,6 +423,11 @@ mod tests {
         {
             use crate::cpu::Features;
             assert_eq!(Backend::select(Features::of(&["neon"])), Backend::Neon);
+            assert_eq!(
+                Backend::select(Features::of(&["neon", "sve2"])),
+                Backend::Sve2
+            );
+            assert_eq!(Backend::select(Features::of(&["sve2"])), Backend::Scalar);
             assert_eq!(Backend::select(Features::of(&[])), Backend::Scalar);
         }
         #[cfg(target_arch = "x86_64")]

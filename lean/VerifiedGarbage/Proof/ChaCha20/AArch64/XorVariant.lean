@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Xor
 import VerifiedGarbage.Impl.ChaCha20Poly1305.AArch64
+import VerifiedGarbage.Impl.ChaCha20Poly1305.AArch64.Stitched
 
 namespace VG.Proof.ChaCha20.AArch64
 
@@ -16,12 +17,14 @@ structure XorImpl where
     ∃ t s', Exec isa callee.code s t s' ∧ abiPreserved s s' ∧ xorAArch64.post s s'
   ct : ConstantTime isa xorAArch64.pre xorAArch64.pub callee.code
   noFrames : callee.code.noFrames = true
-  /-- It leaves the low halves of v8–v15 alone, so its callers keep them. -/
-  keepsV : callee.code.allInstrs keepsV = true
+  /-- Whether ChaCha20-Poly1305 absorbs the data inside the eight-block kernel
+  (`Impl/ChaCha20Poly1305/AArch64/Stitched.lean`), calling the backend for the
+  rest, rather than calling it for all of the data. -/
+  stitched : Bool
   sealTaint : ∃ h, (taint.check (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4])
-    (Impl.ChaCha20Poly1305.AArch64.sealWith callee) h).isSome = true
+    (Impl.ChaCha20Poly1305.AArch64.sealCode callee stitched) h).isSome = true
   openTaint : ∃ h, (taint.check (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4])
-    (Impl.ChaCha20Poly1305.AArch64.openWith callee) h).isSome = true
+    (Impl.ChaCha20Poly1305.AArch64.openCode callee stitched) h).isSome = true
 
 theorem XorImpl.verified (v : XorImpl) :
     Verified AArch64.target v.callee.code (Spec.ChaCha20.xorContract AArch64.abi) :=

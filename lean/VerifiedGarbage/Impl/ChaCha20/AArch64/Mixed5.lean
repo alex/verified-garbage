@@ -5,7 +5,7 @@ import VerifiedGarbage.Impl.ChaCha20.AArch64.Small
 # Five-block ChaCha20 with NEON and integer rounds
 
 Four independent blocks occupy NEON lanes and one uses the integer registers.
-The integer and vector double rounds alternate. x19, x20 and x26 are saved in the
+Integer and vector arithmetic operations alternate. x19, x20 and x26 are saved in the
 existing 320-byte stream scratch space; x20 retains its address while the
 scalar state occupies x2–x17. Public length/data stay in x19/x26. No new stack or CPU feature is required.
 -/
@@ -27,7 +27,23 @@ def counter (n : Nat) (subtract : Bool := false) : List Instr :=
   (if subtract then [.subImm .w .x4 .x4 n] else [.addImm .w .x4 .x4 n]) ++
   [.str .w .x4 .x0 48]
 
-def parallelRound : Prog isa := .seq (.block VG.Impl.ChaCha20.AArch64.Neon4.doubleRound) VG.Impl.ChaCha20.AArch64.doubleRound
+/-- The scalar block follows the same four-quarter schedule as the vector
+blocks, exposing independent dependency chains in both register banks. -/
+def scalarCode : Neon4.Op → List Instr
+  | .add d a b => [.add .w (VG.Impl.ChaCha20.AArch64.wreg d)
+      (VG.Impl.ChaCha20.AArch64.wreg a) (VG.Impl.ChaCha20.AArch64.wreg b)]
+  | .xorRol d a b n =>
+      [.logic .eor .w (VG.Impl.ChaCha20.AArch64.wreg d)
+        (VG.Impl.ChaCha20.AArch64.wreg a) (VG.Impl.ChaCha20.AArch64.wreg b),
+       .ror .w (VG.Impl.ChaCha20.AArch64.wreg d) (VG.Impl.ChaCha20.AArch64.wreg d) (32 - n)]
+
+def scheduled : List Neon4.Op → Prog isa
+  | [] => .block []
+  | op :: ops => .seq (.block op.code) (.seq (.block (scalarCode op)) (scheduled ops))
+
+def roundOps : List Neon4.Op := Neon4.quarters Neon4.cols ++ Neon4.quarters Neon4.diags
+
+def parallelRound : Prog isa := scheduled roundOps
 
 def rounds : Nat → Prog isa
   | 0 => .block []

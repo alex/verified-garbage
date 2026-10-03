@@ -598,13 +598,14 @@ theorem blR_sub (s₀ : State) : Region.Sub (blR s₀) (dR s₀) := Offset.sub_b
 theorem kept_preserved : ∀ r ∈ kept, r ∈ preserved ∧ r ≠ .x30 := by decide
 
 theorem blocks_ok (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s)
-    (hnb : 0 < NB s₀) : WP isa (.seq (.block blocksArgs) (.call v.callee.name v.callee.code)) s (Q2 s₀) := by
+    (hnb : 0 < NB s₀) : WP isa (.seq (.block blocksArgs) (.call v.callee.name v.callee.code)) s (fun u => Q2 s₀ u ∧
+      ∀ r ∈ preservedV, (u.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64) := by
   have hL := L_lt s₀
   have hH := H_le s₀
   have hHNB := HNB_le s₀
   have hT := T_eq s₀
-  refine WP.seq (WP.mono (args_exec h.x21 (h.w hp) (by rw [h.rd, hp.rd])) fun s₁ ⟨m₁, x0₁, x1₁, x3₁, x2₁,
-    x22₁, x23₁, x21₁, k₁, rd₁, wr₁⟩ => ?_)
+  refine WP.seq (WP.mono (WP.preservedV (args_exec h.x21 (h.w hp) (by rw [h.rd, hp.rd]))) fun s₁ ⟨⟨m₁, x0₁, x1₁, x3₁, x2₁,
+    x22₁, x23₁, x21₁, k₁, rd₁, wr₁⟩,v₁⟩ => ?_)
   rw [h.x2, shr_eq (by omega)] at m₁
   rw [h.x2] at x2₁
   rw [h.x22] at x1₁
@@ -630,6 +631,7 @@ theorem blocks_ok (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre
     (by rw [hrd₁, hwr₁, List.nil_append, List.nil_append]; exact Covers.of_sub hcov)
     (by rw [hwr₁]; exact Covers.of_sub hcov) ?_
   intro s₂ k₂ x₂
+  refine ⟨?_,fun r hr => (k₂.vec r hr).trans (v₁ r hr)⟩
   have g : ∀ r ∈ preserved, r ≠ .x30 → s₂.gpr r = s₁.gpr r := k₂.cs
   -- Regions the call does not write.
   have nd : ∀ R : Region, R.Disjoint (cpR s₀) → R.Disjoint (blR s₀) → R.Disjoint (wkR s₀) →
@@ -710,15 +712,20 @@ theorem blocks_ok (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre
       · exact ⟨dR s₀, by simp, blR_sub s₀⟩
       · exact ⟨stR s₀, by simp, wkR_sub s₀⟩
 
-theorem part2_ok (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s) :
-    WP isa (part2 v.callee) s (Q2 s₀) := by
+theorem part2_withV (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre s₀) {s : State} (h : Q1 s₀ s) :
+    WP isa (part2 v.callee) s (fun u => Q2 s₀ u ∧
+      ∀ r ∈ preservedV, (u.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64) := by
   have hL := L_lt s₀
   have hHNB := HNB_le s₀
   refine WP.ite (decide (64 * NB s₀ = 0)) (by
       have e : isa.eval (.zero .x .x2) s = some (s.gpr .x2 == 0) := Proof.ChaCha20.AArch64.Xor.eval_zero s .x2
       rw [e, h.x2, Proof.ChaCha20.AArch64.Xor.ofNat_beq_zero (by omega)])
-    (fun h0 => WP.block_nil (M := isa) (nb_zero_ok h (by simpa using h0)))
+    (fun h0 => WP.block_nil (M := isa) ⟨nb_zero_ok h (by simpa using h0),fun _ _ => rfl⟩)
     (fun h0 => blocks_ok v hp h (by simp at h0; omega))
+
+theorem part2_ok (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre s₀)
+    {s : State} (h : Q1 s₀ s) : WP isa (part2 v.callee) s (Q2 s₀) :=
+  (part2_withV v hp h).mono fun _ h => h.1
 
 /-! ## The last bytes -/
 
@@ -1010,15 +1017,21 @@ theorem apply_eq (x : Impl.ChaCha20.AArch64.XorCallee) : apply x = .seq (.block 
   rfl
 
 theorem apply_correct (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre s₀) :
-    WP isa (apply v.callee) s₀ (Final s₀) := by
+    WP isa (apply v.callee) s₀ (fun u => Final s₀ u ∧
+      ∀ r ∈ preservedV, (u.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64) := by
   rw [apply_eq]
-  refine WP.seq (WP.mono (check_ok hp) fun s h => ?_)
+  refine WP.seq (WP.mono (WP.preservedV (check_ok hp)) fun s ⟨h,v₀⟩ => ?_)
   refine WP.ite (decide (N s₀ < L s₀)) (by
       have e : isa.eval (.zero .x .x11) s = some (s.gpr .x11 == 0) := Proof.ChaCha20.AArch64.Xor.eval_zero s .x11
       rw [e, h.x11]; by_cases hh : L s₀ ≤ N s₀ <;> simp [hh] <;> omega)
-    (fun hlt => fail_ok (by simpa using hlt) h) (fun hge => ?_)
+    (fun hlt => (WP.preservedV (fail_ok (by simpa using hlt) h)).mono
+      fun u ⟨hu,vu⟩ => ⟨hu,fun r hr => (vu r hr).trans (v₀ r hr)⟩) (fun hge => ?_)
   have hle : L s₀ ≤ N s₀ := by simp at hge; omega
-  exact WP.seq (WP.mono (part1_ok hp hle h) fun s₁ h₁ => WP.seq (WP.mono (part2_ok v hp h₁) fun s₂ h₂ =>
-    WP.seq (WP.mono (part3_ok hp h₂) fun s₃ h₃ => finish_ok hp hle h₃)))
+  refine WP.seq (WP.mono (WP.preservedV (part1_ok hp hle h)) fun s₁ ⟨h₁,v₁⟩ => ?_)
+  refine WP.seq (WP.mono (part2_withV v hp h₁) fun s₂ ⟨h₂,v₂⟩ => ?_)
+  refine WP.seq (WP.mono (WP.preservedV (part3_ok hp h₂)) fun s₃ ⟨h₃,v₃⟩ => ?_)
+  exact (WP.preservedV (finish_ok hp hle h₃)).mono fun u ⟨hu,vu⟩ =>
+    ⟨hu,fun r hr => (((vu r hr).trans (v₃ r hr)).trans (v₂ r hr)).trans
+      ((v₁ r hr).trans (v₀ r hr))⟩
 
 end VG.Proof.ChaCha20.AArch64.Stream
