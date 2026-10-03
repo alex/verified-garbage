@@ -24,19 +24,30 @@ def rkG (j q : Nat) : List Nat := if q < 48 then [rkSrc j q] else []
 def kPost (e : Env (Nat × Nat)) : Bool := (List.range 16).all fun j => e.slot j == some (outWord (rkG j))
 
 theorem roundKeys_check : check (lanes 64 6) kCfg (linExt 1) roundKeys (linEnv [(.x5, 0)]) kPost = true := by
-  rw [roundKeys_eq]; decide +kernel
+  rw [roundKeys_eq]; lit_decide
 
-theorem rkG_lt : ∀ j < 16, ∀ q < 64, ∀ a ∈ rkG j q, a < 2 ^ 6 := by decide +kernel
+theorem rkG_lt : ∀ j < 16, ∀ q < 64, ∀ a ∈ rkG j q, a < 2 ^ 6 := by lit_decide
 
-theorem rkSrc_lt : ∀ j < 16, ∀ q < 48, rkSrc j q < 64 := by decide +kernel
+theorem rkSrc_lt : ∀ j < 16, ∀ q < 48, rkSrc j q < 64 := by lit_decide
 
 /-- The registers `roundKeys` writes. -/
 def kWrites : List Reg := [.x6, .x7, .x11]
 
-theorem roundKeys_kept : ([.x0, .x1, .x2, .x3, .x4, .x5, .x8, .x9, .x10, .x12, .x13, .x14, .x15, .x16, .x17,
-    .x19, .x20, .x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28, .x30] : List Reg).all
-    (fun r => roundKeys.all fun i => dstOf i != some r) = true := by
-  rw [roundKeys_eq]; decide +kernel
+/-- Every register `roundKeys` writes is one of `kWrites`: checked once
+for every instruction, rather than once for every other register. -/
+theorem roundKeys_writes : roundKeys.all (fun i => (dstOf i).all kWrites.contains) = true := by
+  rw [roundKeys_eq]; lit_decide
+
+theorem roundKeys_kept {r : Reg} (hr : r ∉ kWrites) : roundKeys.all (fun i => dstOf i != some r) = true :=
+  List.all_eq_true.mpr fun i hi => by
+    have h := List.all_eq_true.mp roundKeys_writes i hi
+    cases hd : dstOf i with
+    | none => rfl
+    | some d =>
+      rw [hd, Option.all_some] at h
+      have hd' : d ∈ kWrites := by simpa using h
+      have hne : d ≠ r := fun e => hr (e ▸ hd')
+      simpa using hne
 
 /-- The round keys of the DES key in `x5`, in `[x2 + 8 j]`. -/
 theorem roundKeys_ok {s : State} (hok : Ok kCfg s) :
@@ -73,7 +84,7 @@ theorem roundKeys_ok {s : State} (hok : Ok kCfg s) :
       simp [xorBits, bitOf, W, hq, Nat.mod_eq_of_lt this]
     · rw [ite_eq_right h48, BitVec.getLsbD_of_ge _ _ (by omega)]
       simp
-  · have h := List.all_eq_true.mp roundKeys_kept r (by revert hr; cases r <;> decide)
+  · have h := roundKeys_kept hr
     simp [h]
 
 end VG.Proof.CmacTripleDes.AArch64

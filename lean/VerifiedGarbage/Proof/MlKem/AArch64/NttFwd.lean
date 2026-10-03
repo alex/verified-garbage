@@ -156,7 +156,7 @@ theorem block_step {s₀ : State} (hp : Pre s₀) {P : Poly} {len : Nat} (h4 : 4
   have hk' : 128 / len + b < 128 := by omega
   refine WP.seq ?_
   show WP isa (.block ([Instr.ldr .w .x17 .x12 0, .addImm .x .x12 .x12 4] ++
-    (.vop (.dup .s4 .v18 .x17) :: ([.add .x .x3 .x2 .x15, mov .x5 .x11] ++ [])))) u _
+    (.vop (.dup .s4 .v18 .x17) :: (([.add .x .x3 .x2 .x15, mov .x5 .x11] : List Instr) ++ [])))) u _
   refine wp_scalar (by decide) (P := fun u₂ => Keep [.x17, .x12] u u₂ ∧ u₂.mem = u.mem ∧
       u₂.gpr .x17 = (u.mem.readW (sP s₀ + BitVec.ofNat 64 (4 * (128 / len + b))) 32).setWidth 64 ∧
       u₂.gpr .x12 = u.gpr .x12 + BitVec.ofNat 64 4)
@@ -218,10 +218,11 @@ theorem foldl_take_succ {α β : Type} (g : α → β → α) (x : α) (L : List
   rfl
 
 /-- The layers with `len ≥ 4`: `len = 128 / 2ⁱ`, `2ⁱ` blocks. -/
-theorem lfacts : ∀ i < 6, 4 ≤ 128 / 2 ^ i ∧ 128 / 2 ^ i % 4 = 0 ∧ 128 / (128 / 2 ^ i) = 2 ^ i ∧
-    128 / 2 ^ i * 2 ^ i = 128 ∧ 2 ^ i ≤ 32 ∧ 32 / 2 ^ i / 2 = 32 / 2 ^ (i + 1) ∧
-    nttLens.getD i 0 = 128 / 2 ^ i ∧ 128 / 2 ^ i / 4 = 32 / 2 ^ i ∧ 128 / 2 ^ i ≤ 128 := by
-  decide
+theorem lfacts : ∀ i < 6, (4 : Nat) ≤ 128 / 2 ^ i ∧ (128 / 2 ^ i % 4 : Nat) = 0 ∧
+    (128 / (128 / 2 ^ i) : Nat) = 2 ^ i ∧ (128 / 2 ^ i * 2 ^ i : Nat) = 128 ∧ (2 ^ i : Nat) ≤ 32 ∧
+    (32 / 2 ^ i / 2 : Nat) = 32 / 2 ^ (i + 1) ∧ nttLens.getD i 0 = 128 / 2 ^ i ∧
+    (128 / 2 ^ i / 4 : Nat) = 32 / 2 ^ i ∧ (128 / 2 ^ i : Nat) ≤ 128 := by
+  decide +kernel
 
 /-- After `i` layers. -/
 structure OInv (s₀ : State) (i : Nat) (u : State) : Prop where
@@ -255,7 +256,7 @@ theorem layer_step {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 6) {u : St
   refine WP.seq (WP.mono (count_loop (n := 128 / (128 / 2 ^ i)) (by rw [f2]; exact Nat.two_pow_pos _)
     (LInv s₀ _ (128 / 2 ^ i) u₃) (fun b hb v hv => block_step hp f0 f1 (by rw [f2]; omega)
       (by rw [f2]; omega) c11 c15 hb hv) l₀) fun u₄ h₄ => ?_)
-  show WP isa (.block ([.lsr .x .x11 .x11 1, .add .x .x13 .x13 .x13, .subImm .x .x14 .x14 1] ++ [])) u₄ _
+  show WP isa (.block (([.lsr .x .x11 .x11 1, .add .x .x13 .x13 .x13, .subImm .x .x14 .x14 1] : List Instr) ++ [])) u₄ _
   refine wp_scalar (by decide) (P := fun u₇ => Keep [.x11, .x13, .x14] u₄ u₇ ∧ u₇.mem = u₄.mem ∧
       u₇.gpr .x11 = u₄.gpr .x11 >>> 1 ∧ u₇.gpr .x13 = u₄.gpr .x13 + u₄.gpr .x13 ∧
       u₇.gpr .x14 = u₄.gpr .x14 - BitVec.ofNat 64 1)
@@ -314,16 +315,59 @@ structure PInv (s₀ : State) (R : Poly) (c : Nat) (w : State) : Prop where
   x5 : (w.gpr .x5).toNat = 32 - c
   poly : PolyIs w.mem (fP s₀) (nttLayerN R 2 (2 * c))
 
+/-- The coefficients after the pair `c` of blocks of the layer with `len = 2`. -/
+theorem pair_poly (R : Poly) {c : Nat} (hc : c < 32) : ∀ i < 256, (nttLayerN R 2 (2 * (c + 1)))[i]! =
+    if 8 * c ≤ i ∧ i < 8 * c + 4 then
+      (fun e => if e < 2 then (nttLayerN R 2 (2 * c))[8 * c + e]! +
+          zeta (64 + 2 * c) * (nttLayerN R 2 (2 * c))[8 * c + e + 2]!
+        else (nttLayerN R 2 (2 * c))[8 * c + e - 2]! - zeta (64 + 2 * c) * (nttLayerN R 2 (2 * c))[8 * c + e]!)
+        (i - 8 * c)
+    else if 8 * c + 4 ≤ i ∧ i < 8 * c + 4 + 4 then
+      (fun e => if e < 2 then (nttLayerN R 2 (2 * c))[8 * c + 4 + e]! +
+          zeta (64 + 2 * c + 1) * (nttLayerN R 2 (2 * c))[8 * c + 4 + e + 2]!
+        else (nttLayerN R 2 (2 * c))[8 * c + 4 + e - 2]! -
+          zeta (64 + 2 * c + 1) * (nttLayerN R 2 (2 * c))[8 * c + 4 + e]!)
+        (i - (8 * c + 4))
+    else (nttLayerN R 2 (2 * c))[i]! := by
+  intro i hi
+  set P' := nttLayerN R 2 (2 * c)
+  have hn : i < n := by rw [n_eq]; exact hi
+  rw [show 2 * (c + 1) = 2 * c + 1 + 1 by omega, nttLayerN_succ, nttLayerN_succ,
+    nttBlock_get _ (by decide) (by rw [n_eq]; omega) hn,
+    show 128 / 2 + (2 * c + 1) = 64 + 2 * c + 1 by omega, show 2 * 2 * (2 * c + 1) = 8 * c + 4 by omega]
+  have Qg : ∀ x < 256, (nttBlock P' 2 (128 / 2 + 2 * c) (2 * 2 * (2 * c)))[x]! =
+      if 8 * c ≤ x ∧ x < 8 * c + 2 then P'[x]! + zeta (64 + 2 * c) * P'[x + 2]!
+      else if 8 * c + 2 ≤ x ∧ x < 8 * c + 4 then P'[x - 2]! - zeta (64 + 2 * c) * P'[x]!
+      else P'[x]! := fun x hx => by
+    rw [nttBlock_get _ (by decide) (by rw [n_eq]; omega) (by rw [n_eq]; exact hx),
+      show 128 / 2 + 2 * c = 64 + 2 * c by omega, show 2 * 2 * (2 * c) = 8 * c by omega]
+  rcases (by omega : i < 8 * c ∨ (8 * c ≤ i ∧ i < 8 * c + 2) ∨ (8 * c + 2 ≤ i ∧ i < 8 * c + 4) ∨
+      (8 * c + 4 ≤ i ∧ i < 8 * c + 6) ∨ (8 * c + 6 ≤ i ∧ i < 8 * c + 8) ∨ 8 * c + 8 ≤ i) with
+    h | h | h | h | h | h
+  · rw [Qg i hi]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right]
+  · rw [Qg i hi]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
+  · rw [Qg i hi]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
+  · rw [Qg i hi, Qg (i + 2) (by omega)]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
+  · rw [Qg i hi, Qg (i - 2) (by omega)]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
+  · rw [Qg i hi]
+    simp (disch := omega) only [ite_eq_left, ite_eq_right]
+
 theorem pair_step {s₀ : State} (hp : Pre s₀) {R : Poly} {c : Nat} (hc : c < 32) {w : State}
     (h : PInv s₀ R c w) :
     WP isa (.block (vPairBody (vbfly .v18) false [.addImm .x .x12 .x12 8])) w fun w' =>
       PInv s₀ R (c + 1) w' ∧ ((w'.gpr .x5).toNat ≠ 0 ↔ c + 1 ≠ 32) := by
-  show WP isa (.block ([.ldr .x .x17 .x12 0, .addImm .x .x12 .x12 8] ++
-    (.vop (.dup .d2 .v19 .x17) :: .vop (.perm .zip1 .s4 .v18 .v19 .v19) :: .ldrq .v5 .x2 0 ::
+  show WP isa (.block (([.ldr .x .x17 .x12 0, .addImm .x .x12 .x12 8] : List Instr) ++
+    ((.vop (.dup .d2 .v19 .x17) :: .vop (.perm .zip1 .s4 .v18 .v19 .v19) :: .ldrq .v5 .x2 0 ::
       .ldrq .v6 .x2 16 :: .vop (.perm .trn1 .d2 .v0 .v5 .v6) :: .vop (.perm .trn2 .d2 .v1 .v5 .v6) ::
-      (vbfly .v18 ++ (.vop (.perm .trn1 .d2 .v5 .v2 .v1) :: .vop (.perm .trn2 .d2 .v6 .v2 .v1) ::
+      (vbfly .v18 ++ ((.vop (.perm .trn1 .d2 .v5 .v2 .v1) :: .vop (.perm .trn2 .d2 .v6 .v2 .v1) ::
         .strq .v5 .x2 0 :: .strq .v6 .x2 16 ::
-        ([.addImm .x .x2 .x2 32, .subImm .x .x5 .x5 1] ++ [])))))) w _
+        (([.addImm .x .x2 .x2 32, .subImm .x .x5 .x5 1] : List Instr) ++ ([] : List Instr))) : List Instr))) :
+      List Instr))) w _
   have hk : 4 * (64 + 2 * c) + 8 ≤ 1024 := by omega
   refine wp_scalar (by decide) (P := fun w₂ => Keep [.x17, .x12] w w₂ ∧ w₂.mem = w.mem ∧
       w₂.gpr .x17 = w.mem.readW (sP s₀ + BitVec.ofNat 64 (4 * (64 + 2 * c))) 64 ∧
@@ -431,33 +475,7 @@ theorem pair_step {s₀ : State} (hp : Pre s₀) {R : Poly} {c : Nat} (hc : c < 
       · rw [l2 3 (by decide), val_add', val_mul, Nat.mul_comm (zeta _).val]
       · rw [l1 2 (by decide), val_sub', val_mul, Nat.mul_comm (zeta _).val]; rfl
       · rw [l1 3 (by decide), val_sub', val_mul, Nat.mul_comm (zeta _).val]; rfl
-    · have hn : i < n := by rw [n_eq]; exact hi
-      rw [show 2 * (c + 1) = 2 * c + 1 + 1 by omega, nttLayerN_succ, nttLayerN_succ,
-        nttBlock_get _ (by decide) (by rw [n_eq]; omega) hn,
-        show 128 / 2 + (2 * c + 1) = 64 + 2 * c + 1 by omega, show 2 * 2 * (2 * c + 1) = 8 * c + 4 by omega]
-      have Qg : ∀ x < 256, (nttBlock P' 2 (128 / 2 + 2 * c) (2 * 2 * (2 * c)))[x]! =
-          if 8 * c ≤ x ∧ x < 8 * c + 2 then P'[x]! + zeta (64 + 2 * c) * P'[x + 2]!
-          else if 8 * c + 2 ≤ x ∧ x < 8 * c + 4 then P'[x - 2]! - zeta (64 + 2 * c) * P'[x]!
-          else P'[x]! := fun x hx => by
-        rw [nttBlock_get _ (by decide) (by rw [n_eq]; omega) (by rw [n_eq]; exact hx),
-          show 128 / 2 + 2 * c = 64 + 2 * c by omega, show 2 * 2 * (2 * c) = 8 * c by omega]
-      rcases (by omega : i < 8 * c ∨ (8 * c ≤ i ∧ i < 8 * c + 2) ∨ (8 * c + 2 ≤ i ∧ i < 8 * c + 4) ∨
-          (8 * c + 4 ≤ i ∧ i < 8 * c + 6) ∨ (8 * c + 6 ≤ i ∧ i < 8 * c + 8) ∨ 8 * c + 8 ≤ i) with
-        h | h | h | h | h | h
-      · rw [Qg i hi]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right]
-        rfl
-      · rw [Qg i hi]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
-      · rw [Qg i hi]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
-      · rw [Qg i hi, Qg (i + 2) (by omega)]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
-      · rw [Qg i hi, Qg (i - 2) (by omega)]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_of_le]
-      · rw [Qg i hi]
-        simp (disch := omega) only [ite_eq_left, ite_eq_right]
-        rfl
+    · exact pair_poly R hc i hi
 
 theorem last_ok {s₀ : State} (hp : Pre s₀) {u : State} (h : OInv s₀ 6 u) :
     WP isa nttLast u fun s' => St s₀ s' ∧

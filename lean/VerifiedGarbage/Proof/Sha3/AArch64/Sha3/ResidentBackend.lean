@@ -12,99 +12,104 @@ def callee : Impl.Sha3.AArch64.Callee :=
     absorbOverride := some (Impl.Sha3.AArch64.Sha3.Vector.Resident.absorb
       VG.Proof.Sha3.AArch64.Sha3.callee) }
 
+sponge_taint_summaries RSums callee from VG.Proof.Sha3.AArch64.Sha3.Sha3Sums
+
 theorem absorbTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
     (Impl.Sha3.AArch64.Stream.absorbWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  -- From the summary of a call of it.
+  Taint.exists_check_of_sumOk_call RSums.absorb (Taint.Mono.le_refl _) rfl
 
 theorem padTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x4])
     (Impl.Sha3.AArch64.Stream.padWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  -- From the summary of a call of it.
+  Taint.exists_check_of_sumOk_call RSums.pad (Taint.Mono.le_refl _) rfl
 
 theorem squeezeTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
     (Impl.Sha3.AArch64.Stream.squeezeWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  -- From the summary of a call of it.
+  Taint.exists_check_of_sumOk_call RSums.squeeze (Taint.Mono.le_refl _) rfl
 
 theorem sampleFullTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2])
     (Impl.MlKem.AArch64.sampleSqueezeWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem sampleFastTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2])
     (Impl.MlKem.AArch64.sampleSqueezeNWith callee 504 (Impl.MlKem.AArch64.sampleRegs 168)) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mldsaNttTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x3, .x4])
     (Impl.MlDsa.AArch64.Sample.spongeWith callee 168 1008) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mldsaBoundedTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x3, .x4])
     (Impl.MlDsa.AArch64.Sample.spongeWith callee 136 544) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mldsaBallTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x3, .x4])
     (Impl.MlDsa.AArch64.Sample.spongeWith callee 136 272) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mldsaMaskTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x3, .x4])
     (Impl.MlDsa.AArch64.Sample.expandMaskTailWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkemKgATaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x3])
     (Impl.MlKem.AArch64.kgAWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkemKgCTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x28])
     (Impl.MlKem.AArch64.kgCWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkemEnATaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x3, .x4])
     (Impl.MlKem.AArch64.enAWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkemEnCTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x28])
     (Impl.MlKem.AArch64.enCWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkemDeATaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x3])
     (Impl.MlKem.AArch64.deAWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkemDeCTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x28])
     (Impl.MlKem.AArch64.deCWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkem1024KgATaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x3])
     (Impl.MlKem1024.AArch64.kgAWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkem1024KgCTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x28])
     (Impl.MlKem1024.AArch64.kgCWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkem1024EnATaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x3, .x4])
     (Impl.MlKem1024.AArch64.enAWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkem1024EnCTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x28])
     (Impl.MlKem1024.AArch64.enCWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkem1024DeATaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x3])
     (Impl.MlKem1024.AArch64.deAWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mlkem1024DeCTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x28])
     (Impl.MlKem1024.AArch64.deCWith callee) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mldsaSeedsTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x28])
     (Impl.MlDsa.AArch64.KeyGen.shake256With callee [⟨.x25, 0, 32⟩, ⟨.x28, 896, 2⟩] [⟨.x28, 1024, 128⟩]) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mldsaTrHashTaint : ∀ p : Spec.MlDsa.Params,
     (p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87) → ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x28])
     (Impl.MlDsa.AArch64.KeyGen.trHashWith callee p) h).isSome = true := by
   intro p hp
-  rcases hp with rfl | rfl | rfl <;> exact ⟨_, by taint_decide⟩
+  rcases hp with rfl | rfl | rfl <;> exact by sponge_taint_decide RSums
 
 theorem mldsaVerifyHashTaint : ∀ p : Spec.MlDsa.Params,
     (p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87) → ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x25, .x26, .x27, .x28])
@@ -112,11 +117,11 @@ theorem mldsaVerifyHashTaint : ∀ p : Spec.MlDsa.Params,
       ⟨.x28, (Impl.MlDsa.AArch64.Verify.bP p).2, p.k * Impl.MlDsa.AArch64.Verify.w1Len p⟩]
       [⟨.x28, 1024, p.ctildeLen⟩]) h).isSome = true := by
   intro p hp
-  rcases hp with rfl | rfl | rfl <;> exact ⟨_, by taint_decide⟩
+  rcases hp with rfl | rfl | rfl <;> exact by sponge_taint_decide RSums
 
 theorem mldsaSignDecodeTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x23, .x25, .x26, .x27, .x28])
     (Impl.MlDsa.AArch64.Sign.shakeAtWith callee [⟨.x25, 32, 32⟩, ⟨.x27, 0, 32⟩, ⟨.x26, 0, 64⟩] ⟨.x28, 960, 64⟩) h).isSome = true :=
-  ⟨_, by taint_decide⟩
+  by sponge_taint_decide RSums
 
 theorem mldsaSignCommitTaint : ∀ p : Spec.MlDsa.Params,
     (p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87) → ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x23, .x25, .x26, .x27, .x28])
@@ -124,7 +129,7 @@ theorem mldsaSignCommitTaint : ∀ p : Spec.MlDsa.Params,
       ⟨.x28, 2048, p.k * Impl.MlDsa.AArch64.Sign.w1Len p⟩]
       ⟨.x28, 1040, Impl.MlDsa.AArch64.Sign.cLen p⟩) h).isSome = true := by
   intro p hp
-  rcases hp with rfl | rfl | rfl <;> exact ⟨_, by taint_decide⟩
+  rcases hp with rfl | rfl | rfl <;> exact by sponge_taint_decide RSums
 
 def backend : Permutation where
   callee := callee

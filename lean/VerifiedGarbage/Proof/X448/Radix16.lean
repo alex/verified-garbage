@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.X448.Field
-import Mathlib.Tactic.Ring
+import Batteries.Tactic.Init
+import Batteries.Logic
 
 /-!
 # X448: radix-2¹⁶ arithmetic
@@ -43,13 +44,13 @@ theorem valN_scale (c : Nat) (f : Nat → Nat) (n : Nat) :
     valN (fun i => c * f i) n = c * valN f n := by
   induction n with
   | zero => simp only [valN, Nat.mul_zero]
-  | succ n ih => rw [valN, valN, ih]; ring
+  | succ n ih => rw [valN, valN, ih, Nat.mul_add, Nat.mul_left_comm (radix ^ n) c]
 
 theorem valN_split (f : Nat → Nat) (a b : Nat) :
     valN f (a + b) = valN f a + radix ^ a * valN (fun i => f (a + i)) b := by
   induction b with
   | zero => simp only [Nat.add_zero, valN, Nat.mul_zero]
-  | succ b ih => rw [Nat.add_succ, valN, valN, ih, Nat.pow_add]; ring
+  | succ b ih => rw [Nat.add_succ, valN, valN, ih, Nat.pow_add, Nat.mul_add, Nat.mul_assoc, Nat.add_assoc]
 
 theorem valN_lt {f : Nat → Nat} {n : Nat} (h : ∀ i < n, f i < radix) :
     valN f n < radix ^ n := by
@@ -129,7 +130,7 @@ theorem folded_val (f : Nat → Nat) :
   simp only [valN, half]
   simp (config := {decide := true}) only [ite_true, ite_false, Nat.mul_zero, Nat.add_zero,
     Nat.zero_add, Nat.pow_zero, Nat.one_mul]
-  ring
+  grind
 
 theorem fold_mod (lo hi : Nat) :
     (lo + full * hi) % P = (lo + (half + 1) * hi) % P := by

@@ -166,7 +166,7 @@ theorem counterSetup_ok {s₀ s : State} (hp : CPre s₀) (hs : Loaded s₀ s)
     rfl
   · simp only [zf_arithFlags, hs.edi]
     apply congrArg some
-    simp only [beq_eq_decide, BitVec.sub_eq_iff_eq_add]
+    simp only [Bool.beq_eq_decide_eq, BitVec.sub_eq_iff_eq_add]
     apply decide_eq_decide.mpr
     constructor
     · intro h; exact congrArg BitVec.toNat h

@@ -1,11 +1,9 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.FieldMemory
-import Mathlib.Data.ZMod.Defs
-import Mathlib.Tactic.Ring
+import Mathlib.Logic.Function.Basic
 
 /-! Compositional field programs and the extended Edwards formulas. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
-open Fin.CommRing
 
 abbrev Env := Slot → Spec.X25519.Fe
 
@@ -162,7 +160,7 @@ theorem addResult_eq (e : Env) (q : Nat) (hq : q + 3 < 22) (hd : e 16 = Spec.Ed2
     addResult e q hq = Spec.Ed25519.pointAdd (point e 0 1 2 3)
       (point e ⟨q, by omega⟩ ⟨q + 1, by omega⟩ ⟨q + 2, by omega⟩ ⟨q + 3, hq⟩) := by
   simp only [addResult, point, Spec.Ed25519.pointAdd, hd]
-  congr 1 <;> ring
+  congr 1 <;> grind
 
 theorem pointAdd_eval (e : Env) (hd : e 16 = Spec.Ed25519.d) :
     point (evalOps pointAddOps e) 0 1 2 3 =

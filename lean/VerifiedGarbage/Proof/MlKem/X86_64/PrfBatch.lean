@@ -658,7 +658,7 @@ and offsets) are the same in every run, and no address or branch depends on
 the data. -/
 theorem batch_tr {P : State → State → Prop} (hP : ∀ x y, P x y → x.gpr .rbx = y.gpr .rbx) (N₀ o wl : Nat)
     {m : Nat} (hm : m ≤ 4) : RelCT isa P (batch N₀ m o wl) fun x y => x.gpr .rbx = y.gpr .rbx := by
-  have hx : ((taint.check (X86_64.Taint.ofRegs [.rbx]) (.block (extract m o wl ++ [.vop .vzeroupper]))
+  have hx : ((taint.check (X86_64.Taint.ofRegs [.rbx]) (.block (extract m o wl ++ ([.vop .vzeroupper] : List Instr)))
       (.block [])).map fun τ' => (RegSet.ofList [Reg.rbx]).subset τ'.regs) = some true := by
     rcases (by omega : m = 0 ∨ m = 1 ∨ m = 2 ∨ m = 3 ∨ m = 4) with rfl | rfl | rfl | rfl | rfl <;> kernel_rfl
   unfold batch

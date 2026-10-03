@@ -45,14 +45,20 @@ theorem store8_eq (s : State) (a : Addr) (x : BitVec 8) :
 theorem op2_imm' {s : State} {n : Nat} (h : encodable (BitVec.ofNat 32 n) = true) :
     (imm n).eval s = some (BitVec.ofNat 32 n) := by simp only [imm, Op2.eval, h, ite_true]
 
+/-- An immediate's encodability, decided by `arun`'s discharger. -/
+theorem encodable_of_decide {v : BitVec 32} (h : encodable v = true) : encodable v = true := h
+
 /-- Runs a block of the instructions the AES-GCM code uses. -/
 macro "arun" "[" ts:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
-  simp (config := {decide := true}) (disch := first | decide | omega) only [runBlock_cons, runStep_some,
+  simp (disch := first | decide | omega) only [runBlock_cons, runStep_some,
     runBlock_nil, exec, Op2.eval, imm, addI, State.load32, store32_eq, State.load8, store8_eq,
     tO, uO, vO, rO, scrO, List.cons_append, List.nil_append, List.append_assoc, Option.map_some,
     gpr_setReg, mem_setReg, rd_setReg, wr_setReg, sp_setReg, z_setReg, c_setReg, gpr_subFlags, mem_subFlags,
     rd_subFlags, wr_subFlags, sp_subFlags, z_subFlags, c_subFlags, sp_store, gpr_store, rd_store, wr_store,
-    mem_store, z_store, c_store, ite_true, ite_false, $ts,*]) <;> try rfl)
+    mem_store, z_store, c_store, ite_true, ite_false, reduceCtorEq, ↓reduceIte, Nat.reduceLT, Nat.reduceLeDiff, Nat.reduceSub,
+    Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceMul, and_self, and_true, true_and, encodable_of_decide,
+    eq_self_iff_true, $ts,*]) <;>
+  try rfl)
 
 /-- A buffer of `n` bytes at the 32-bit pointer `D` that the code may read,
 apart from the state, `W` and the stack below `sp`. -/

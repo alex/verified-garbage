@@ -70,13 +70,10 @@ theorem packS_ok {P : Prims} {S' : Nat} (hP : PrimsOk P S') {p : Params} (hF : P
   unfold packS
   refine WP.mono (bpAt_ok hP.s64 hP.bitPack L (packS_chk hF hr) (bpOk_eta hF) hS.1
     (range_of (eta_le hF) hS (h.small r hr))) fun s' ⟨hP', x', hb⟩ => ?_
-  have hk' := h.keep hF hp hP' x' (by
-    have hkl := hF.kl; have hl := hF.l; have hk := hF.k
-    have hlr : lenS p * r + lenS p ≤ lenS p * (p.ℓ + p.k) := by
-      rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ (by omega)
-    have hlr' : ∀ r' < r, lenS p * r' + lenS p ≤ lenS p * r := fun r' hr' => by
-      rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ (by omega)
-    krchk hF)
+  have hle : 128 + lenS p * r + lenS p ≤ oT0 p := by
+    simp only [oT0]; rw [Nat.add_assoc, ← Nat.mul_succ]; exact Nat.add_le_add_left (Nat.mul_le_mul_left _ hr) _
+  have hk' := h.keep hF hp hP' x' (KRChk.x27 (o := 128 + lenS p * r) (n := lenS p) hF (Nat.le_of_lt hr)
+    (Nat.zero_le _) (by omega) (.inr (Nat.le_refl _)) (.inl hle) (by rw [hF.sk]; omega))
   refine ⟨hk'.kc, hk'.x24, hk'.good, hk'.small, hk'.aS, hk'.s2, hk'.s1, hk'.pk0, hk'.sk0, hk'.sk1,
     fun r' hr' => ?_, hk'.rows⟩
   rcases (by omega : r' < r ∨ r' = r) with hr' | rfl

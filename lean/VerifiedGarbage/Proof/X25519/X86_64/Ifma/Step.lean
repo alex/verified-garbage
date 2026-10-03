@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Part2
+import Mathlib.Tactic.Tauto
 
 /-!
 # X25519 on x86-64 with AVX512_IFMA: the ladder's loop

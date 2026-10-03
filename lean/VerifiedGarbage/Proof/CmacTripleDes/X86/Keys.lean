@@ -40,15 +40,15 @@ def kOuts : List (Nat × (Nat → List Nat)) := (List.range 32).map fun k => (k,
 
 theorem roundKeys_check :
     check (lanes 32 6) kCfg (linExt 0) roundKeys (linEnv []) (linPost kCfg.slots 6 kOuts) = true := by
-  rw [roundKeys_eq]; decide +kernel
+  rw [roundKeys_eq]; lit_decide
 
-theorem rkSrc_lt : ∀ j < 16, ∀ q < 48, rkSrc j q < 64 := by decide +kernel
+theorem rkSrc_lt : ∀ j < 16, ∀ q < 48, rkSrc j q < 64 := by lit_decide
 
 /-- The registers `roundKeys` keeps. -/
 def kKept : List Reg := [.eax, .edx, .esi, .edi, .ebp, .esp]
 
 theorem roundKeys_kept : kKept.all (fun r => roundKeys.all fun i => i.dst != some r) = true := by
-  rw [roundKeys_eq]; decide +kernel
+  rw [roundKeys_eq]; lit_decide
 
 /-- The DES key at `esi`: its high word, then its low word. -/
 abbrev desKey (s : State) : BitVec 64 :=

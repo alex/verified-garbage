@@ -2,6 +2,8 @@ import VerifiedGarbage.Impl.X25519.X86_64.Adx
 import VerifiedGarbage.Proof.Framework.X86_64.Lit
 import VerifiedGarbage.Impl.Ed25519.X86_64.Verify
 import VerifiedGarbage.Impl.Ed25519.X86_64.Ifma
+import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyCTLit
+import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulCTLit
 
 /-! A checked literal for the complete verification program. -/
 

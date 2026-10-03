@@ -47,7 +47,7 @@ theorem comp_spec {d : Nat} (hd : d ∈ compressWidths) (is : List Instr) (s : S
     simp [hr.1, hr.2]
   · simp only [ite_true]
     rw [toNat_and_mask _ _ hd', toNat_shr]
-    simp only [BitVec.toNat_add, BitVec.toNat_ofNat, h]
+    rw [BitVec.toNat_add]; simp only [BitVec.toNat_ofNat, h]
     have hm : cmul d < 2 ^ 32 := by
       rcases mem_compressWidths hd with rfl | rfl | rfl <;> decide
     rw [Nat.mod_eq_of_lt hm, show (262080 : BitVec 32).toNat = compressAdd from rfl, cmul_eq,

@@ -34,7 +34,7 @@ theorem decode_words {x : BitVec 32} {o : Nat} (m : Mem) : ∀ n,
     change leNum (Spec.X25519.bytesAt m (addr x o) (4 * n)) = _ at hn
     rw [hn, num_succ, ← addr_offset (by omega_using [hx])]
     have hp : 256 ^ (4 * n) = (2 ^ 32) ^ n := by
-      rw [Nat.pow_mul]; rfl
+      rw [Nat.pow_mul]
     rw [hp]
 
 theorem scalarInput_bytes {x : BitVec 32} (m : Mem) (hx : x.toNat + 8192 ≤ 2 ^ 32) :

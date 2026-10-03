@@ -15,7 +15,6 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (Scr Outside Op clob F)
-open Fin.CommRing
 
 /-- The field multiplications the code may be emitted with: the baseline's, or BMI2 and
 ADX's. The proofs hold for any multiplications that are correct (`ok`); the constant-time
@@ -155,7 +154,7 @@ theorem addResult_eq (e : Env) (q : Nat) (hq : q + 3 < 22) (hd : e 16 = Spec.Ed2
     addResult e q hq = Spec.Ed25519.pointAdd (point e 0 1 2 3)
       (point e ⟨q, by omega⟩ ⟨q + 1, by omega⟩ ⟨q + 2, by omega⟩ ⟨q + 3, hq⟩) := by
   simp only [addResult, point, Spec.Ed25519.pointAdd, hd]
-  congr 1 <;> ring
+  congr 1 <;> grind
 
 theorem pointAdd_eval (e : Env) (hd : e 16 = Spec.Ed25519.d) :
     point (evalOps pointAddOps e) 0 1 2 3 =

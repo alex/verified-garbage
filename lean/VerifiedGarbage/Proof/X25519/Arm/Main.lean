@@ -13,7 +13,6 @@ namespace VG.Proof.X25519.Arm
 open VG VG.Arm VG.Impl.X25519.Arm
 open VG.Spec.X25519 (P Fe bytesAt)
 open VG.Proof.X25519 (leBytes toFe ladderAfter ladderAfter_swap_le)
-open Fin.CommRing
 
 /-- `vg_x25519(out = r0, scalar = r1, point = r2, scratch = r3)`. -/
 def x25519Arm : Contract Arm.isa where
@@ -168,7 +167,7 @@ theorem x25519_correct {s : State} (hp : XPre s) :
     rw [← VG.Proof.X25519.toFe_val, ← VG.Proof.X25519.encodeUCoordinate_eq]
     change VG.Spec.X25519.encodeUCoordinate (FS s6.mem (State.addr (s.gpr .r3)) X2) = _
     rw [e6]
-    simp only [upd, swapV, ladV, sel, iteT, VG.Proof.X25519.invert_eq, VG.Proof.X25519.pow_eq, cswap_fst,
+    simp only [upd, swapV, ladV, sel, iteT, VG.Proof.X25519.invert_eq, VG.Proof.X25519.pow_pw, cswap_fst,
       uOf, X1, X2, Z2, X3, Z3, R, Nat.reduceEqDiff, ite_false]
 
 end VG.Proof.X25519.Arm

@@ -53,7 +53,7 @@ theorem hash_piece : VP p (CI p · p.ℓ true p.k) (CH p)
     (by show p.ctildeLen < 2 ^ 32; omega) (by taint_decide) (h₁ := .block []) (by kernel_rfl)
     (h₂ := .block []) (by kernel_rfl) (h₃ := .block []) (by kernel_rfl) (h₄ := .block []) (by kernel_rfl)
     (fun _ _ _ ⟨_, _, _, h⟩ => h.ctx) fun s₀ s s' hp ⟨hh, A, C, h⟩ h' fr out => ⟨hh, A, C,
-      h.keep hp (N := 40) (by omega) (by safeC hF (Nat.le_refl p.k)) (fun i hi => by lv hF) (by lv hF) fr h', ?_⟩
+      h.keep hp (N := 40) (by omega) (by safeCs hF (Nat.le_refl p.k)) (fun i hi => by lv hF) (by lv hF) fr h', ?_⟩
   rw [out, sponge_H, Ctx.roBytes hp h.ctx (b := ⟨1, 0, 64⟩) (by lv hF) rfl]
   refine congrArg (fun x => Spec.MlDsa.H (vMu s₀ ++ x) p.ctildeLen) ?_
   have a0 := Buf.addr_eq hp (b := sb oB (p.k * w1Len p)) (by lv hF)

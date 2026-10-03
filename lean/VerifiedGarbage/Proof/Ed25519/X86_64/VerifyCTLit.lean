@@ -1,6 +1,7 @@
 import VerifiedGarbage.Impl.X25519.X86_64.Adx
 import VerifiedGarbage.Proof.Framework.X86_64.Lit
 import VerifiedGarbage.Impl.Ed25519.X86_64.Verify
+import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulCTLit
 
 /-! Checked literals for the verifier's fixed control-flow pieces. -/
 
@@ -40,8 +41,6 @@ materialize_code windowPrepLit :=
   (.seq (.seq (.seq (.block windowSetup) (aTable Impl.X25519.X86_64.baseline)) (.block bTable)) (.block (windowInit Impl.X25519.X86_64.baseline)) : Prog isa)
 materialize_code windowPrepLitAdx :=
   (.seq (.seq (.seq (.block windowSetup) (aTable Impl.X25519.X86_64.adx)) (.block bTable)) (.block (windowInit Impl.X25519.X86_64.adx)) : Prog isa)
-materialize_code double4Lit := (double4 Impl.X25519.X86_64.baseline : Prog isa)
-materialize_code double4AdxLit := (double4 Impl.X25519.X86_64.adx : Prog isa)
 materialize_code addDigitA :=
   (.block (([.alu .sub .rbx (.imm 1)] : List Instr) ++ tableAddr 5376 ++ pointFromTableQ ++ (pointAdd Impl.X25519.X86_64.baseline)) :
     Prog isa)

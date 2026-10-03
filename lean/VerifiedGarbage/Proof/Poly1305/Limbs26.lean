@@ -1,4 +1,5 @@
 import Mathlib.Tactic.Ring
+import VerifiedGarbage.Proof.Framework.Omega
 import VerifiedGarbage.Proof.Poly1305.Spec
 
 /-!
@@ -162,11 +163,30 @@ theorem fin_val {c : Nat → Nat} (h0 : c 0 < 2 ^ 26) (h1 : c 1 < 2 ^ 27) (h2 : 
       fc c 0x3ffffff 2 = f2' c % 2 ^ 26 ∧ fc c 0x3ffffff 3 = f3' c % 2 ^ 26 ∧
       fc c 0x3ffffff 4 = c 4 + f3' c / 2 ^ 26 :=
     ⟨ef 0 (by decide), ef 1 (by decide), ef 2 (by decide), ef 3 (by decide), ef 4 (by decide)⟩
-  have G0 : g0' c 0x3ffffff 5 = c 0 + 5 := by rw [g0', F0]
-  have G1 : g1' c 0x3ffffff 5 = c 1 % 2 ^ 26 + (c 0 + 5) / 2 ^ 26 := by rw [g1', F1, G0]
-  have G2 : g2' c 0x3ffffff 5 = f2' c % 2 ^ 26 + g1' c 0x3ffffff 5 / 2 ^ 26 := by rw [g2', F2]
-  have G3 : g3' c 0x3ffffff 5 = f3' c % 2 ^ 26 + g2' c 0x3ffffff 5 / 2 ^ 26 := by rw [g3', F3]
-  have G4 : g4' c 0x3ffffff 5 = c 4 + f3' c / 2 ^ 26 + g3' c 0x3ffffff 5 / 2 ^ 26 := by rw [g4', F4]
+  have R0 : g0' c 0x3ffffff 5 = fc c 0x3ffffff 0 + 5 := rfl
+  have R1 : g1' c 0x3ffffff 5 = fc c 0x3ffffff 1 + g0' c 0x3ffffff 5 / 2 ^ 26 := rfl
+  have R2 : g2' c 0x3ffffff 5 = fc c 0x3ffffff 2 + g1' c 0x3ffffff 5 / 2 ^ 26 := rfl
+  have R3 : g3' c 0x3ffffff 5 = fc c 0x3ffffff 3 + g2' c 0x3ffffff 5 / 2 ^ 26 := rfl
+  have R4 : g4' c 0x3ffffff 5 = fc c 0x3ffffff 4 + g3' c 0x3ffffff 5 / 2 ^ 26 := rfl
+  -- Bounds, one carry at a time.
+  have bf2 : f2' c < 2 ^ 26 + 2 := by rw [e2]; omega_using [h1, h2]
+  have bf3 : f3' c < 2 ^ 26 + 2 := by rw [e3]; omega_using [h3, bf2]
+  have a0 : fc c 0x3ffffff 0 < 2 ^ 26 := by rw [F0]; exact h0
+  have a1 : fc c 0x3ffffff 1 < 2 ^ 26 := by rw [F1]; omega_using []
+  have a2 : fc c 0x3ffffff 2 < 2 ^ 26 := by rw [F2]; omega_using []
+  have a3 : fc c 0x3ffffff 3 < 2 ^ 26 := by rw [F3]; omega_using []
+  have a4 : fc c 0x3ffffff 4 < 2 ^ 26 + 2 := by rw [F4]; omega_using [h4, bf3]
+  have bg1 : g1' c 0x3ffffff 5 < 2 ^ 26 + 1 := by omega_using [R1, R0, a0, a1]
+  have bg2 : g2' c 0x3ffffff 5 < 2 ^ 26 + 1 := by omega_using [R2, a2, bg1]
+  have bg3 : g3' c 0x3ffffff 5 < 2 ^ 26 + 1 := by omega_using [R3, a3, bg2]
+  have bg4 : g4' c 0x3ffffff 5 < 2 ^ 27 := by omega_using [R4, a4, bg3]
+  -- `val h` carried, and `val h + 5` in the limbs of `g`.
+  have vfc : val (fc c 0x3ffffff) = val c := by
+    rw [val, val, F0, F1, F2, F3, F4]; omega_using [e2, e3]
+  have hg : val (fc c 0x3ffffff) + 5 = g0' c 0x3ffffff 5 % 2 ^ 26 + 2 ^ 26 * (g1' c 0x3ffffff 5 % 2 ^ 26) +
+      2 ^ 52 * (g2' c 0x3ffffff 5 % 2 ^ 26) + 2 ^ 78 * (g3' c 0x3ffffff 5 % 2 ^ 26) +
+      2 ^ 104 * g4' c 0x3ffffff 5 := by
+    rw [val]; omega_using [R0, R1, R2, R3, R4]
   have gl_eq : ∀ i < 5, gl c 0x3ffffff 5 i &&& 0x3ffffff = (if i = 0 then g0' c 0x3ffffff 5
       else if i = 1 then g1' c 0x3ffffff 5 else if i = 2 then g2' c 0x3ffffff 5
       else if i = 3 then g3' c 0x3ffffff 5 else g4' c 0x3ffffff 5) % 2 ^ 26 := by
@@ -176,17 +196,18 @@ theorem fin_val {c : Nat → Nat} (h0 : c 0 < 2 ^ 26) (h1 : c 1 < 2 ^ 27) (h2 : 
   have hs : sel c 0x3ffffff 5 0x7ffffff = g4' c 0x3ffffff 5 / 2 ^ 26 * (2 ^ 27 - 1) := by
     rw [sel, show (0x7ffffff : Nat) % 2 ^ 32 = 2 ^ 27 - 1 by decide]
     congr 1
-    rw [G4, G3, G2, G1, e3, e2]
-    omega
-  have hq : g4' c 0x3ffffff 5 / 2 ^ 26 = 0 ∨ g4' c 0x3ffffff 5 / 2 ^ 26 = 1 := by
-    rw [G4, G3, G2, G1, e3, e2]; omega
+    omega_using [bg4]
+  have hq : g4' c 0x3ffffff 5 / 2 ^ 26 = 0 ∨ g4' c 0x3ffffff 5 / 2 ^ 26 = 1 := by omega_using [bg4]
   have fin_eq : ∀ i < 5, fin c 0x3ffffff 5 0x7ffffff i =
       if g4' c 0x3ffffff 5 / 2 ^ 26 = 0 then fc c 0x3ffffff i else gl c 0x3ffffff 5 i &&& 0x3ffffff := by
     intro i hi
     have hf : fc c 0x3ffffff i < 2 ^ 27 := by
-      rw [ef i hi]
-      rw [e3, e2]
-      split <;> [omega; split <;> [omega; split <;> [omega; split <;> omega]]]
+      rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4) with rfl | rfl | rfl | rfl | rfl
+      · omega_using [a0]
+      · omega_using [a1]
+      · omega_using [a2]
+      · omega_using [a3]
+      · omega_using [a4]
     rw [fin, hs]
     rcases hq with hq | hq <;> rw [hq]
     · simp only [Nat.zero_mul, Nat.sub_zero, Nat.and_zero, Nat.or_zero, ite_true]
@@ -194,40 +215,31 @@ theorem fin_val {c : Nat → Nat} (h0 : c 0 < 2 ^ 26) (h1 : c 1 < 2 ^ 27) (h2 : 
         Nat.and_two_pow_sub_one_eq_mod, Nat.mod_eq_of_lt (Nat.lt_trans hf (by decide))]
     · simp only [Nat.one_mul, and_high_zero hf, Nat.zero_or, show (1 : Nat) ≠ 0 by decide, ite_false]
       rw [Nat.and_two_pow_sub_one_eq_mod, and_mask]
-      omega
-  have H := G4
-  rw [G3, G2, G1, e3, e2] at H
-  rw [e3] at F4 F3
-  rw [e2] at F4 F3 F2
+      omega_using []
   rcases hq with hq | hq
   · have e : ∀ i < 5, fin c 0x3ffffff 5 0x7ffffff i = fc c 0x3ffffff i := fun i hi => by
       rw [fin_eq i hi, ite_eq_left hq]
-    rw [H] at hq
     refine ⟨?_, fun i hi => ?_⟩
-    · rw [val, val, e 0 (by decide), e 1 (by decide), e 2 (by decide), e 3 (by decide), e 4 (by decide),
-        F0, F1, F2, F3, F4, P_eq]
-      omega
+    · have hv : val (fin c 0x3ffffff 5 0x7ffffff) = val (fc c 0x3ffffff) := by
+        unfold val; rw [e 0 (by decide), e 1 (by decide), e 2 (by decide), e 3 (by decide), e 4 (by decide)]
+      rw [hv, ← vfc, Nat.mod_eq_of_lt (by rw [P_eq]; omega_using [hg, hq])]
     · rw [e i hi]
       rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4) with rfl | rfl | rfl | rfl | rfl
-      · rw [F0]; omega
-      · rw [F1]; omega
-      · rw [F2]; omega
-      · rw [F3]; omega
-      · rw [F4]; omega
+      exacts [a0, a1, a2, a3, by omega_using [R4, hq]]
   · have e : ∀ i < 5, fin c 0x3ffffff 5 0x7ffffff i = gl c 0x3ffffff 5 i &&& 0x3ffffff := fun i hi => by
       rw [fin_eq i hi, ite_eq_right (by omega)]
-    rw [H] at hq
     refine ⟨?_, fun i hi => ?_⟩
-    · rw [val, val, e 0 (by decide), e 1 (by decide), e 2 (by decide), e 3 (by decide), e 4 (by decide),
+    · rw [val, e 0 (by decide), e 1 (by decide), e 2 (by decide), e 3 (by decide), e 4 (by decide),
         gl_eq 0 (by decide), gl_eq 1 (by decide), gl_eq 2 (by decide), gl_eq 3 (by decide),
         gl_eq 4 (by decide)]
       simp only [ite_true, ite_false, show (1 : Nat) ≠ 0 by decide, show (2 : Nat) ≠ 0 by decide,
         show (3 : Nat) ≠ 0 by decide, show (4 : Nat) ≠ 0 by decide, show (2 : Nat) ≠ 1 by decide,
         show (3 : Nat) ≠ 1 by decide, show (4 : Nat) ≠ 1 by decide, show (3 : Nat) ≠ 2 by decide,
         show (4 : Nat) ≠ 2 by decide, show (4 : Nat) ≠ 3 by decide]
-      rw [H, G3, G2, G1, G0, e3, e2, P_eq]
-      omega
-    · rw [e i hi, and_mask]; omega
+      rw [← vfc, P_eq]
+      unfold val at hg ⊢
+      omega_using [hg, hq, a0, a1, a2, a3, a4]
+    · rw [e i hi, and_mask]; omega_using []
 
 /-! ## Words -/
 

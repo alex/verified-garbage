@@ -55,9 +55,48 @@ syntax "krchk " term:max : tactic
 macro_rules
   | `(tactic| krchk $hF) => `(tactic| (
       have := ($hF).k; have := ($hF).l; have := ($hF).kl
-      rcases ($hF).eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;>
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> intros <;> (try refine ⟨?_, ?_⟩) <;>
-      layk [($hF).pk, ($hF).sk, hlen]))
+      first
+        | layk [($hF).pk, ($hF).sk]
+        | rcases ($hF).eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> layk [($hF).pk, ($hF).sk, hlen]))
+
+/-- The checks of two pieces of writes, for both. -/
+theorem KRChk.append {p : Params} {np nj nr : Nat} {ws₁ ws₂ : List (Ptr × Nat)} (h₁ : KRChk p np nj nr ws₁)
+    (h₂ : KRChk p np nj nr ws₂) : KRChk p np nj nr (ws₁ ++ ws₂) :=
+  ⟨kcChk_append h₁.kc h₂.kc, fun e he => keepB_append (h₁.aS e he) (h₂.aS e he),
+    fun i hi => keepB_append (h₁.s2 i hi) (h₂.s2 i hi), fun j hj => keepB_append (h₁.s1 j hj) (h₂.s1 j hj),
+    keepB_append h₁.pk0 h₂.pk0, keepB_append h₁.sk0 h₂.sk0, keepB_append h₁.sk1 h₂.sk1,
+    fun r hr => keepB_append (h₁.packs r hr) (h₂.packs r hr),
+    fun i hi => ⟨keepB_append (h₁.rows i hi).1 (h₂.rows i hi).1, keepB_append (h₁.rows i hi).2 (h₂.rows i hi).2⟩⟩
+
+/-! The checks of a write to one region, proved once for any region (`krchk` on a
+literal list of writes costs seconds). -/
+
+/-- A write to `scratch` outside the saved registers and the polynomials. -/
+theorem KRChk.rbx {p : Params} (hF : PFacts p) {np nj nr : Nat} (hnp : np ≤ p.ℓ + p.k) (hnr : nr ≤ p.k) {o n : Nat}
+    (h1 : o + n ≤ VG.Impl.MlKem.X86_64.oSV ∨ VG.Impl.MlKem.X86_64.oSV + 48 ≤ o)
+    (h2 : o + n ≤ oP 0 ∨ oP (p.k * p.ℓ + p.ℓ + p.k) ≤ o) (h3 : o + n ≤ scrLen p) :
+    KRChk p np nj nr [((.rbx, o), n)] := by
+  simp only [VG.Impl.MlKem.X86_64.oSV, oP] at h1 h2
+  simp only [scrLen, Spec.MlDsa.scratchWords] at h3
+  krchk hF
+
+/-- A write to `pk` after the rows so far. -/
+theorem KRChk.r12 {p : Params} (hF : PFacts p) {np nj nr : Nat} (hnp : np ≤ p.ℓ + p.k) (hnr : nr ≤ p.k) {o n : Nat}
+    (h1 : 32 + 320 * nr ≤ o) (h2 : o + n ≤ p.pkLen) : KRChk p np nj nr [((.r12, o), n)] := by
+  rw [hF.pk] at h2
+  krchk hF
+
+/-- A write to `sk` after `ρ` and `K`, outside the entries packed and the rows so far. -/
+theorem KRChk.r13 {p : Params} (hF : PFacts p) {np nj nr : Nat} (hnp : np ≤ p.ℓ + p.k) (hnr : nr ≤ p.k) {o n : Nat}
+    (h0 : 64 ≤ o) (hp : o + n ≤ 128 ∨ 128 + lenS p * np ≤ o) (hr : o + n ≤ oT0 p ∨ oT0 p + 416 * nr ≤ o)
+    (h2 : o + n ≤ p.skLen) : KRChk p np nj nr [((.r13, o), n)] := by
+  rw [hF.sk] at h2
+  simp only [oT0] at hr h2
+  have := hF.k; have := hF.l; have := hF.kl
+  rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> rw [hlen] at hp hr h2 <;>
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> intros <;> (try refine ⟨?_, ?_⟩) <;>
+  layk [hF.pk, hF.sk, hlen]
 
 theorem KR.keep {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ) {A : Nat → Poly} {S : Nat → IPoly}
     {R : BitVec 64} {np nj nr : Nat} {s s' : State} (h : KR p σ A S R np nj nr s) {ws : List (Ptr × Nat)}
@@ -92,10 +131,10 @@ theorem copies_ok {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ
     (by layk [hF.pk, hF.sk])) fun s₁ ⟨⟨hP₁, hb₁⟩, hx₁⟩ => ?_)
   have L₁ := L.post hP₁.b (kgB_bases p)
   refine WP.seq (WP.mono (copy_okM L₁ (dst := (.r13, 0)) (src := sc oHX) (n := 32) (by decide)
-    (by rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> layk [hF.pk, hF.sk, hlen])) fun s₂ ⟨⟨hP₂, hb₂⟩, hx₂⟩ => ?_)
+    (by layk [hF.pk, hF.sk])) fun s₂ ⟨⟨hP₂, hb₂⟩, hx₂⟩ => ?_)
   have L₂ := L₁.post hP₂.b (kgB_bases p)
   refine WP.mono (copy_okM L₂ (dst := (.r13, 32)) (src := sc (oHX + 96)) (n := 32) (by decide)
-    (by rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> layk [hF.pk, hF.sk, hlen])) fun s₃ ⟨⟨hP₃, hb₃⟩, hx₃⟩ => ?_
+    (by layk [hF.pk, hF.sk])) fun s₃ ⟨⟨hP₃, hb₃⟩, hx₃⟩ => ?_
   have hP := PPostB.app (PPostB.app hP₁.b hP₂.b (r13_bases _ _)) hP₃.b (r13_bases _ _)
   have hx : MX s₃ = MX s := hx₃.trans (hx₂.trans hx₁)
   have h15 : s₃.gpr .r15 = s.gpr .r15 := by
@@ -105,13 +144,11 @@ theorem copies_ok {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ
       (∀ e < p.k * p.ℓ, keepB (kgB p) ([((.r12, 0), 32)] ++ [((.r13, 0), 32)] ++ [((.r13, 32), 32)]) (aP e) 1024 = true) ∧
       (∀ r < p.ℓ + p.k, keepB (kgB p) ([((.r12, 0), 32)] ++ [((.r13, 0), 32)] ++ [((.r13, 32), 32)]) (sP p r) 1024
         = true) := by
-    rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;>
-    exact ⟨by layk [hF.pk, hF.sk, hlen], fun _ _ => by layk [hF.pk, hF.sk, hlen],
-      fun _ _ => by layk [hF.pk, hF.sk, hlen]⟩
+    exact ⟨by layk [hF.pk, hF.sk], fun _ _ => by layk [hF.pk, hF.sk], fun _ _ => by layk [hF.pk, hF.sk]⟩
   -- The bytes of `HX`, and `ρ`, `K`.
   have hHX₁ : bytesAt s₁.mem (pa s₁ (sc oHX)) 128 = hxOf p σ := by rw [L.keepBytes hP₁.b (by layk [hF.pk])]; exact h.k1.hx
   have hHX₂ : bytesAt s₂.mem (pa s₂ (sc oHX)) 128 = hxOf p σ := by
-    rw [L₁.keepBytes hP₂.b (by rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> layk [hF.pk, hF.sk, hlen])]; exact hHX₁
+    rw [L₁.keepBytes hP₂.b (by layk [hF.pk, hF.sk])]; exact hHX₁
   have e1 : bytesAt s.mem (pa s (sc oHX)) 32 = rhoOf p σ := by
     rw [rho_eq, ← h.k1.hx, Proof.MlKem.bytesAt_take _ _ (show 32 ≤ 128 by decide)]
   have e1' : bytesAt s₁.mem (pa s₁ (sc oHX)) 32 = rhoOf p σ := by
@@ -123,10 +160,10 @@ theorem copies_ok {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ
     fun i hi => polyIs_frame' L hP (hc.2.2 _ (by omega)) (hS (p.ℓ + i) (by omega)).1,
     fun j hj => by rw [ifn (Nat.not_lt_zero j)]; exact polyIs_frame' L hP (hc.2.2 j (by omega)) (hS j (by omega)).1,
     ?_, ?_, ?_, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩⟩
-  · rw [L₂.keepBytes hP₃.b (by rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> layk [hF.pk, hF.sk, hlen]),
-      L₁.keepBytes hP₂.b (by rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> layk [hF.pk, hF.sk, hlen]),
+  · rw [L₂.keepBytes hP₃.b (by layk [hF.pk, hF.sk]),
+      L₁.keepBytes hP₂.b (by layk [hF.pk, hF.sk]),
       hP₁.pa (by decide), hb₁, e1]
-  · rw [L₂.keepBytes hP₃.b (by rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> layk [hF.pk, hF.sk, hlen]),
+  · rw [L₂.keepBytes hP₃.b (by layk [hF.pk, hF.sk]),
       hP₂.pa (by decide), hb₂, e1']
   · rw [hP₃.pa (by decide), hb₃, e2]
 

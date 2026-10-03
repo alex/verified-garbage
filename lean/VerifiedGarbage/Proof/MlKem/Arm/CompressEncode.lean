@@ -178,8 +178,10 @@ theorem byte_eq {b : Byte} {n : Nat} (h : b.toNat = n % 256) : b = BitVec.ofNat 
 
 theorem bitAt_toNat (w : BitVec 32) {j : Nat} (hj : j < 8) :
     ((w <<< 31) >>> (31 - j)).toNat = w.toNat % 2 * 2 ^ j := by
-  rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 ∨ j = 4 ∨ j = 5 ∨ j = 6 ∨ j = 7) with
-    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> bv_omega
+  rw [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.shiftRight_eq_div_pow,
+    show 2 ^ 32 = 2 * 2 ^ 31 from rfl, Nat.mul_mod_mul_right,
+    show 2 ^ 31 = 2 ^ j * 2 ^ (31 - j) by rw [← Nat.pow_add, Nat.add_sub_cancel' (by omega)], ← Nat.mul_assoc,
+    Nat.mul_div_cancel _ (Nat.two_pow_pos _)]
 
 theorem nib0_toNat (w : BitVec 32) : ((w <<< 28) >>> 28).toNat = w.toNat % 16 := by bv_omega
 

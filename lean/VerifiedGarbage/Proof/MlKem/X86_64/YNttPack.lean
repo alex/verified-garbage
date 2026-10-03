@@ -66,7 +66,7 @@ theorem ypack_ok {fP sP : Addr} {F : Poly} {s : State} (hc : YConsts s) (hF : Po
     ⟨_, hrf', by rw [h9', add_ofNat_zero]; exact Offset.contains_base fP (by omega) (by omega)⟩
   have r1 : InRegions (w.rd ++ w.wr) (w.gpr .r9 + BitVec.ofNat 64 32) 32 :=
     ⟨_, hrf', by rw [h9', a1]; exact Offset.contains_base fP (by omega) (by omega)⟩
-  rw [show ∀ a b c d e f g : Instr, [a, b, c, d, e, f, g] ++ [.alu .sub .rcx (.imm 1)] =
+  rw [show ∀ a b c d e f g : Instr, [a, b, c, d, e, f, g] ++ ([.alu .sub .rcx (.imm 1)] : List Instr) =
       [a] ++ ([b] ++ ([c] ++ ([d] ++ [e, f, g, .alu .sub .rcx (.imm 1)]))) from fun _ _ _ _ _ _ _ => rfl,
     WP.block_append_iff]
   refine WP.mono (yld_ok r0) fun s1 ⟨L0, o1⟩ => ?_
@@ -186,7 +186,7 @@ theorem yunpack_ok {fP sP : Addr} {F : Poly} {s : State} (hc : YConsts s) (hS : 
   have r0 : InRegions (w.rd ++ w.wr) (w.gpr .rdx + BitVec.ofNat 64 0) 32 := by
     rw [hdx', add_ofNat_zero]; exact sp_inY (List.mem_append_right _ (by rw [hk'.2.2]; exact hw)) (by omega)
   have a1 : coeffAddr fP (16 * u) + BitVec.ofNat 64 32 = coeffAddr fP (16 * u + 8) := coeffAddr_off _ _ 8
-  rw [show ∀ a b c d e f g h : Instr, [a, b, c, d, e, f, g, h] ++ [.alu .sub .rcx (.imm 1)] =
+  rw [show ∀ a b c d e f g h : Instr, [a, b, c, d, e, f, g, h] ++ ([.alu .sub .rcx (.imm 1)] : List Instr) =
       [a] ++ ([b] ++ ([c, d] ++ [e, f, g, h, .alu .sub .rcx (.imm 1)])) from fun _ _ _ _ _ _ _ _ => rfl,
     WP.block_append_iff]
   refine WP.mono (yld_ok r0) fun s1 ⟨L0, o1⟩ => ?_
@@ -304,7 +304,7 @@ theorem yscale_ok {sP : Addr} {F : Poly} {s : State} (hc : YConsts s) (hsi : s.g
   have hw' : pR sP ∈ v.wr := by rw [hb.keep.2.2]; exact hw
   have r0 : InRegions (v.rd ++ v.wr) (v.gpr .rdx + BitVec.ofNat 64 0) 32 := by
     rw [hdx', add_ofNat_zero]; exact sp_inY (List.mem_append_right _ hw') (by omega)
-  rw [show ∀ (a : Instr) (b : List Instr) (c d : Instr), [a] ++ b ++ [c, d] ++ [.alu .sub .rcx (.imm 1)] =
+  rw [show ∀ (a : Instr) (b : List Instr) (c d : Instr), [a] ++ b ++ [c, d] ++ ([.alu .sub .rcx (.imm 1)] : List Instr) =
       [a] ++ (b ++ [c, d, .alu .sub .rcx (.imm 1)]) from fun _ _ _ _ => by simp,
     WP.block_append_iff]
   refine WP.mono (yld_ok r0) fun s1 ⟨L1, o1⟩ => ?_

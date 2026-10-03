@@ -1,4 +1,5 @@
-import VerifiedGarbage.Impl.CmacTripleDes.X86_64.Round
+import VerifiedGarbage.Proof.CmacTripleDes.X86_64.RoundLit
+import VerifiedGarbage.Proof.TripleDes.SboxTables
 import VerifiedGarbage.Proof.CmacTripleDes.Des
 import VerifiedGarbage.Proof.Framework.X86_64.Linear
 import VerifiedGarbage.Proof.Framework.Bitslice.Rows
@@ -40,16 +41,16 @@ def inPost (e : Env (Nat × Nat)) : Bool :=
 
 theorem inputs_check :
     check (lanes 64 7) rCfg (linExt 1) inputs (linEnv [(.r13, 0)]) inPost = true := by
-  decide +kernel
+  lit_decide
 
-theorem inG_lt : ∀ t < 6, ∀ p < 64, ∀ a ∈ inG t p, a < 2 ^ 7 := by decide
+theorem inG_lt : ∀ t < 6, ∀ p < 64, ∀ a ∈ inG t p, a < 2 ^ 7 := by lit_decide
 
 /-- The registers the round keeps. -/
 def kept : List Reg := [.rbx, .rbp, .rsp, .r10, .r11, .r14, .r15]
 
 theorem inputs_kept :
     (.r12 :: .r13 :: kept).all (fun r => inputs.all fun i => i.dst != some r) = true := by
-  decide +kernel
+  lit_decide
 
 /-- The inputs of `inputs`: `R` and the round key. -/
 def inW (s : State) (i : Nat) : BitVec 64 := if i = 0 then s.gpr .r13 else keyW s
@@ -91,15 +92,15 @@ def sbEnv : Env Nat := { reg := fun _ => none, slot := fun t => if t < 6 then so
 def sbPost (e : Env Nat) : Bool :=
   match e.reg .rax with
   | some F => (List.range 8).all fun i => (List.range 4).all fun b => (List.range 64).all fun c =>
-      F.testBit (64 * c + (6 * (7 - i) + off i b)) == (Spec.TripleDes.sBox i (BitVec.ofNat 6 c)).getLsbD b
+      F.testBit (64 * c + (6 * (7 - i) + off i b)) == (Proof.TripleDes.outputTable i b).testBit c
   | none => false
 
 theorem sboxes_check : check (rows 64 6) rCfg (fun _ => none) sboxes sbEnv sbPost = true := by
-  decide +kernel
+  lit_decide
 
 theorem sboxes_kept :
     (.r12 :: .r13 :: kept).all (fun r => sboxes.all fun i => i.dst != some r) = true := by
-  decide +kernel
+  lit_decide
 
 /-- The input of the box whose lane holds bit `p`, from bit `p` of the slots. -/
 def boxIn (s : State) (p : Nat) : BitVec 6 := ofBits 6 fun t => (slotW s t).getLsbD p
@@ -119,6 +120,7 @@ theorem sboxes_ok {s : State} (hok : Ok rCfg s) :
       refine ⟨F, hF, fun i hi b hb c hc => ?_⟩
       have := List.all_eq_true.mp (List.all_eq_true.mp (List.all_eq_true.mp hpost i
         (List.mem_range.mpr hi)) b (List.mem_range.mpr hb)) c (List.mem_range.mpr hc)
+      rw [← Proof.TripleDes.testBit_outputTable hc]
       simpa using this
     · cases hpost
   have key : ∀ p < 64, ∃ s', runBlock isa sboxes s = some s' ∧
@@ -163,10 +165,10 @@ def oIns : List (Reg × Nat) := [(.rax, 0), (.r12, 1), (.r13, 2)]
 
 theorem output_check :
     check (lanes 64 8) oCfg (linExt 3) output (linEnv oIns) (linPost 8 [(.r12, oG12), (.r13, oG13)]) = true := by
-  decide +kernel
+  lit_decide
 
 theorem output_kept : kept.all (fun r => output.all fun i => i.dst != some r) = true := by
-  decide +kernel
+  lit_decide
 
 /-- The inputs of `output`. -/
 def oW (s : State) (i : Nat) : BitVec 64 :=
@@ -204,7 +206,7 @@ theorem runBlock_append (a b : List Instr) (s : State) :
     | none => rfl
     | some s' => rw [runStep_some, runStep_some, ih]
 
-theorem expSrc_lt : ∀ q < 48, expSrc q < 32 := by decide
+theorem expSrc_lt : ∀ q < 48, expSrc q < 32 := by lit_decide
 
 /-- The box inputs that `inputs` broadcasts. -/
 theorem boxIn_eq {s s₁ : State}
@@ -225,7 +227,7 @@ theorem boxIn_eq {s s₁ : State}
 
 theorem off_lt : ∀ i < 8, ∀ b < 4, off i b < 4 := by decide
 
-theorem pSrc_lt : ∀ j < 32, pSrc j < 32 := by decide
+theorem pSrc_lt : ∀ j < 32, pSrc j < 32 := by lit_decide
 
 /-- One round: `(L, R) := (R, L ⊕ f(R, K))` on the low 32 bits of `r12` and
 `r13`, with the round key the low 48 bits of `[r14]`. -/

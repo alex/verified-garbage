@@ -182,7 +182,7 @@ theorem vladder_ok {s₀ : State} {base : Addr} {k : Nat} {u : Fe} (hs : Scr s�
         o₁.word (by simp only [SWAP]; omega) (by simp only [SWAP]; omega), hsw]; rfl
     · rw [lan₄ l hl i hi]; have := hk₄.x1 i hi; split <;> [omega; split <;> omega]
     · rw [fe5_congr (fun i hi => lan₄ 0 (by decide) i hi)]; exact fe5_one'
-    · rw [fe5_congr (fun i hi => lan₄ 1 (by decide) i hi)]; simp only [one_ne_zero, false_or,
+    · rw [fe5_congr (fun i hi => lan₄ 1 (by decide) i hi)]; simp only [Nat.one_ne_zero, false_or,
         show (1 : Nat) ≠ 3 by decide, and_false, ite_false]; exact fe5_zero
     · rw [fe5_congr (fun i hi => lan₄ 2 (by decide) i hi)]; simp only [ite_true]; exact fx1
     · rw [fe5_congr (fun i hi => lan₄ 3 (by decide) i hi)]

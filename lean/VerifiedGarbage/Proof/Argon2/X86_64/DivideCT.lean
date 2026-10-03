@@ -1,5 +1,17 @@
-import VerifiedGarbage.Proof.Argon2.X86_64.DivideLit
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
+import VerifiedGarbage.Proof.Framework.X86_64.Lit
+import VerifiedGarbage.Impl.Argon2.X86_64.Divide
+
+/-! Merged from `Proof.Argon2.X86_64.DivideLit`. -/
+section
+/-! A checked literal for the unrolled index-division code. -/
+
+namespace VG
+
+materialize_code Impl.Argon2.X86_64.Divide.code
+
+end VG
+end
 
 /-! # Constant-time index division, including secret numerators -/
 

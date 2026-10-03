@@ -1,8 +1,77 @@
+import VerifiedGarbage.Proof.Ed25519.X86.CommonInput
+import VerifiedGarbage.Proof.Ed25519.X86.CommonFinish
+import VerifiedGarbage.Proof.Ed25519.X86.PointEncodeSign
 import VerifiedGarbage.Impl.Ed25519.X86.ScalarBase
-import VerifiedGarbage.Proof.Ed25519.X86.ScalarBaseContract
 import VerifiedGarbage.Proof.Ed25519.X86.InputBits
 import VerifiedGarbage.Proof.Ed25519.X86.PointMul
-import VerifiedGarbage.Proof.Ed25519.X86.PointEncode
+
+/-! Merged from `Proof.Ed25519.X86.ScalarBaseContract`. -/
+section
+namespace VG.Proof.Ed25519.X86
+open VG VG.X86 VG.Impl.X25519.X86
+
+def scalarBaseLocal : Contract isa where
+  pre s :=
+    let out : Region := ⟨(arg s 0).setWidth 64, 32⟩
+    let input : Region := ⟨(arg s 1).setWidth 64, 32⟩
+    let scratch : Region := ⟨(arg s 2).setWidth 64, 8192⟩
+    let args : Region := ⟨argAddr s 0, 12⟩
+    let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    s.rd = [input, args] ∧ s.wr = [out, scratch] ∧ out.Disjoint scratch ∧
+      input.Disjoint scratch ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
+      ret.Disjoint out ∧ ret.Disjoint scratch ∧ (arg s 0).toNat + 32 ≤ 2 ^ 32 ∧
+      (arg s 1).toNat + 32 ≤ 2 ^ 32 ∧ (arg s 2).toNat + 8192 ≤ 2 ^ 32 ∧
+      (s.gpr .esp).toNat + 16 ≤ 2 ^ 32
+  post s t := Spec.Ed25519.bytesAt t.mem ((arg s 0).setWidth 64) 32 =
+    Spec.Ed25519.scalarBase (Spec.Ed25519.bytesAt s.mem ((arg s 1).setWidth 64) 32)
+  pub s t := s.gpr .esp = t.gpr .esp ∧ arg s 0 = arg t 0 ∧ arg s 1 = arg t 1 ∧ arg s 2 = arg t 2
+
+theorem scalarBase_pre {s : State} (h : scalarBaseLocal.pre s) :
+    ScratchPre s 2 3 ∧ InputPre s 2 1 8 ∧ OutputPre s 2 := by
+  obtain ⟨rd, wr, os, ins, _, ars, ro, rs, ofit, ifit, sfit, spfit⟩ := h
+  refine ⟨⟨by decide, ?_, sfit, ?_, by omega_using [spfit], ars, rs⟩,
+    ⟨?_, ifit, ?_⟩, ⟨?_, ofit, os, ro⟩⟩
+  · rw [wr]; simp
+  · rw [rd]; simp
+  · rw [sub, addr_zero, rd]; simp
+  · rw [sub, addr_zero]; exact ins
+  · rw [wr]; simp
+end VG.Proof.Ed25519.X86
+end
+
+/-! Merged from `Proof.Ed25519.X86.PointEncode`. -/
+section
+/-! Canonical Ed25519 point encoding in scratch slot1. -/
+namespace VG.Proof.Ed25519.X86
+open VG VG.X86 VG.Impl.Ed25519.X86
+
+theorem pointEncode_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
+    WP isa pointEncode s fun t => IKeep x s t ∧
+      fe t.mem x 96 =
+        (env s.mem x 1 * Spec.X25519.pow (env s.mem x 2) (Spec.X25519.P - 2)).val +
+        ((env s.mem x 0 * Spec.X25519.pow (env s.mem x 2) (Spec.X25519.P - 2)).val % 2) * 2 ^ 255 := by
+  refine WP.seq (WP.mono (pointAffine_ok hc) fun a ⟨ka, ax, ay⟩ => ?_)
+  rw [List.append_assoc, List.append_assoc, WP.block_append_iff]
+  refine WP.mono (freezeField_ok (ka.ctx hc) 0) fun b ⟨kb, eb, vb⟩ => ?_
+  rw [WP.block_append_iff]
+  refine WP.mono (pointSign_ok (kb.ctx (ka.ctx hc))) fun c ⟨kc, mc, sc⟩ => ?_
+  rw [WP.block_append_iff]
+  have cc := kc.ctx (kb.ctx (ka.ctx hc))
+  refine WP.mono (freezeField_ok cc 1) fun d ⟨kd, _, vd⟩ => ?_
+  have ds : d.gpr .esi = BitVec.ofNat 32 (((env a.mem x 0).val % 2) * 2 ^ 31) := by
+    change fe b.mem x 64 = _ at vb
+    rw [kd.keep.esi, sc, vb]
+  have dy : fe d.mem x 96 = (env a.mem x 1).val := by
+    rw [mc, eb] at vd
+    exact vd
+  refine WP.mono (encodeSign_ok (kd.ctx cc) ((env a.mem x 0).val % 2) ((env a.mem x 1).val)
+    (by omega) (Nat.lt_trans (env a.mem x 1).isLt (by decide : Spec.X25519.P < 2 ^ 255)) dy ds)
+    fun t ⟨kt, vt⟩ => ?_
+  refine ⟨(((ka.trans (IKeep.of_field kb)).trans kc).trans (IKeep.of_field kd)).trans (IKeep.of_field kt), ?_⟩
+  rw [vt, ax, ay]
+
+end VG.Proof.Ed25519.X86
+end
 
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86

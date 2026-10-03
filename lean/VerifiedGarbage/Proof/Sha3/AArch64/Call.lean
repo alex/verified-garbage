@@ -162,6 +162,16 @@ def untouched : List Reg := [.x25, .x26, .x27, .x28]
 
 theorem untouched_ne_sv : ∀ r ∈ untouched, ∀ k < 6, r ≠ sv k := by decide
 
+/-- A register of `untouched` is not `d`, for any `d` not in it (decided). -/
+theorem ne_of_untouched {r : Reg} (h : r ∈ untouched) {d : Reg}
+    (hd : d ∉ untouched := by decide) : r ≠ d :=
+  fun e => hd (e ▸ h)
+
+/-- A register of `untouched` is in any list that has them all (decided). -/
+theorem mem_of_untouched {r : Reg} (h : r ∈ untouched) {l : List Reg}
+    (hl : ∀ r ∈ untouched, r ∈ l := by decide) : r ∈ l :=
+  hl r h
+
 /-- The callee-saved registers but `x30` are saved or untouched. -/
 theorem preserved_cases : ∀ r ∈ preserved, r ≠ .x30 → (∃ k < 6, sv k = r) ∨ r ∈ untouched := by
   decide

@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.Omega
 import VerifiedGarbage.Proof.MlKem1024.X86.Unpack
 import VerifiedGarbage.Proof.MlKem.Encode1024
 import VerifiedGarbage.Spec.MlKem.Contract1024
@@ -236,33 +237,35 @@ theorem step5 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 5) {t : Nat} (ht : 
     Nat.reducePow] at v₁
   have h₁ := h.of_only o₁ (by decide)
   refine h₁.field hp hd ht (k := 0) (by decide) v₁ (sh := 0) (by decide) ?_ fun s₂ h₂ e₂ => ?_
-  · rw [Nat.add_zero, decodeDecompress5_0 _ hB ht]; refine congrArg (decompress 5) ?_; omega
+  · rw [Nat.add_zero, decodeDecompress5_0 _ hB ht]; refine congrArg (decompress 5) ?_
+    omega_using [l0, l1, l2, l3, l4]
   refine h₂.field hp hd ht (k := 1) (by decide) ((congrArg BitVec.toNat (e₂)).trans v₁) (sh := 5) (by decide) ?_
     fun s₃ h₃ e₃ => ?_
-  · rw [decodeDecompress5_1 _ hB ht]; refine congrArg (decompress 5) ?_; omega
+  · rw [decodeDecompress5_1 _ hB ht]; refine congrArg (decompress 5) ?_; omega_using [l0, l1, l2, l3, l4]
   refine h₃.field hp hd ht (k := 2) (by decide) ((congrArg BitVec.toNat ((e₃).trans e₂)).trans v₁) (sh := 10) (by decide) ?_
     fun s₄ h₄ e₄ => ?_
-  · rw [decodeDecompress5_2 _ hB ht]; refine congrArg (decompress 5) ?_; omega
+  · rw [decodeDecompress5_2 _ hB ht]; refine congrArg (decompress 5) ?_; omega_using [l0, l1, l2, l3, l4]
   refine h₄.field hp hd ht (k := 3) (by decide) ((congrArg BitVec.toNat (((e₄).trans e₃).trans e₂)).trans v₁) (sh := 15) (by decide) ?_
     fun s₅ h₅ e₅ => ?_
-  · rw [decodeDecompress5_3 _ hB ht]; refine congrArg (decompress 5) ?_; omega
+  · rw [decodeDecompress5_3 _ hB ht]; refine congrArg (decompress 5) ?_; omega_using [l0, l1, l2, l3, l4]
   refine h₅.field hp hd ht (k := 4) (by decide) ((congrArg BitVec.toNat ((((e₅).trans e₄).trans e₃).trans e₂)).trans v₁) (sh := 20) (by decide) ?_
     fun s₆ h₆ e₆ => ?_
-  · rw [decodeDecompress5_4 _ hB ht]; refine congrArg (decompress 5) ?_; omega
+  · rw [decodeDecompress5_4 _ hB ht]; refine congrArg (decompress 5) ?_; omega_using [l0, l1, l2, l3, l4]
   refine h₆.field hp hd ht (k := 5) (by decide) ((congrArg BitVec.toNat (((((e₆).trans e₅).trans e₄).trans e₃).trans e₂)).trans v₁) (sh := 25) (by decide) ?_
     fun s₇ h₇ e₇ => ?_
-  · rw [decodeDecompress5_5 _ hB ht]; refine congrArg (decompress 5) ?_; omega
+  · rw [decodeDecompress5_5 _ hB ht]; refine congrArg (decompress 5) ?_; omega_using [l0, l1, l2, l3, l4]
   refine h₇.cross hp hd ht (k := 6) (by decide) ((congrArg BitVec.toNat ((((((e₇).trans e₆).trans e₅).trans e₄).trans e₃).trans e₂)).trans v₁) (sh := 30) (o := 4)
     (e := 3) (m := 2) (by decide) (by decide) (by decide) (by decide) (h₇.byte hp (o := 4) (by omega)) ?_ ?_
     fun s₈ h₈ _ => ?_
-  · simp only [Nat.reducePow]; omega
-  · rw [decodeDecompress5_6 _ hB ht]; refine congrArg (decompress 5) ?_; simp only [Nat.reducePow]; omega
+  · simp only [Nat.reducePow]; omega_using [l0, l1, l2, l3, l4]
+  · rw [decodeDecompress5_6 _ hB ht]; refine congrArg (decompress 5) ?_; simp only [Nat.reducePow]
+    omega_using [l0, l1, l2, l3, l4]
   refine ldW_spec 4 0 (by decide) (fun i => ((B s₀).getD (5 * t + (4 + i)) 0).toNat) _ s₈ _
     (fun i hi => h₈.byte hp (by omega)) fun s₉ o₉ v₉ => ?_
   simp only [pk, Nat.mul_zero, Nat.pow_zero, Nat.mul_one, Nat.zero_add, Nat.add_zero] at v₉
   refine (h₈.of_only o₉ (by decide)).field hp hd ht (k := 7) (by decide) v₉ (sh := 3) (by decide) ?_
     fun s₁₀ h₁₀ _ => next_spec ht h₁₀
-  rw [decodeDecompress5_7 _ hB ht]; refine congrArg (decompress 5) ?_; omega
+  rw [decodeDecompress5_7 _ hB ht]; refine congrArg (decompress 5) ?_; omega_using [l0, l1, l2, l3, l4]
 
 /-! ## `d` = 11: eight coefficients of eleven bytes -/
 
@@ -293,15 +296,18 @@ theorem step11 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 11) {t : Nat} (ht 
     Nat.reducePow] at v₁
   have h₁ := h.of_only o₁ (by decide)
   refine h₁.field hp hd ht (k := 0) (by decide) v₁ (sh := 0) (by decide) ?_ fun s₂ h₂ e₂ => ?_
-  · rw [Nat.add_zero, decodeDecompress11_0 _ hB ht]; refine congrArg (decompress 11) ?_; omega
+  · rw [Nat.add_zero, decodeDecompress11_0 _ hB ht]; refine congrArg (decompress 11) ?_
+    omega_using [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10]
   refine h₂.field hp hd ht (k := 1) (by decide) ((congrArg BitVec.toNat (e₂)).trans v₁) (sh := 11) (by decide) ?_
     fun s₃ h₃ e₃ => ?_
-  · rw [decodeDecompress11_1 _ hB ht]; refine congrArg (decompress 11) ?_; omega
+  · rw [decodeDecompress11_1 _ hB ht]; refine congrArg (decompress 11) ?_
+    omega_using [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10]
   refine h₃.cross hp hd ht (k := 2) (by decide) ((congrArg BitVec.toNat ((e₃).trans e₂)).trans v₁) (sh := 22) (o := 4)
     (e := 1) (m := 10) (by decide) (by decide) (by decide) (by decide) (h₃.byte hp (o := 4) (by omega)) ?_ ?_
     fun s₄ h₄ _ => ?_
-  · simp only [Nat.reducePow]; omega
-  · rw [decodeDecompress11_2 _ hB ht]; refine congrArg (decompress 11) ?_; simp only [Nat.reducePow]; omega
+  · simp only [Nat.reducePow]; omega_using [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10]
+  · rw [decodeDecompress11_2 _ hB ht]; refine congrArg (decompress 11) ?_; simp only [Nat.reducePow]
+    omega_using [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10]
   -- Bytes 4–7.
   refine ldW_spec 4 3 (by decide) (fun i => ((B s₀).getD (11 * t + (4 + i)) 0).toNat) _ s₄ _
     (fun i hi => h₄.byte hp (by omega)) fun s₅ o₅ v₅ => ?_
@@ -309,15 +315,18 @@ theorem step11 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 11) {t : Nat} (ht 
     Nat.reducePow, Nat.reduceAdd] at v₅
   have h₅ := h₄.of_only o₅ (by decide)
   refine h₅.field hp hd ht (k := 3) (by decide) v₅ (sh := 1) (by decide) ?_ fun s₆ h₆ e₆ => ?_
-  · rw [decodeDecompress11_3 _ hB ht]; refine congrArg (decompress 11) ?_; omega
+  · rw [decodeDecompress11_3 _ hB ht]; refine congrArg (decompress 11) ?_
+    omega_using [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10]
   refine h₆.field hp hd ht (k := 4) (by decide) ((congrArg BitVec.toNat (e₆)).trans v₅) (sh := 12) (by decide) ?_
     fun s₇ h₇ e₇ => ?_
-  · rw [decodeDecompress11_4 _ hB ht]; refine congrArg (decompress 11) ?_; omega
+  · rw [decodeDecompress11_4 _ hB ht]; refine congrArg (decompress 11) ?_
+    omega_using [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10]
   refine h₇.cross hp hd ht (k := 5) (by decide) ((congrArg BitVec.toNat ((e₇).trans e₆)).trans v₅) (sh := 23) (o := 8)
     (e := 2) (m := 9) (by decide) (by decide) (by decide) (by decide) (h₇.byte hp (o := 8) (by omega)) ?_ ?_
     fun s₈ h₈ _ => ?_
-  · simp only [Nat.reducePow]; omega
-  · rw [decodeDecompress11_5 _ hB ht]; refine congrArg (decompress 11) ?_; simp only [Nat.reducePow]; omega
+  · simp only [Nat.reducePow]; omega_using [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10]
+  · rw [decodeDecompress11_5 _ hB ht]; refine congrArg (decompress 11) ?_; simp only [Nat.reducePow]
+    omega_using [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10]
   -- Bytes 8–10.
   refine ldW_spec 8 2 (by decide) (fun i => ((B s₀).getD (11 * t + (8 + i)) 0).toNat) _ s₈ _
     (fun i hi => h₈.byte hp (by omega)) fun s₉ o₉ v₉ => ?_
@@ -325,10 +334,12 @@ theorem step11 {s₀ : State} (hp : Pre s₀) (hd : dN s₀ = 11) {t : Nat} (ht 
     Nat.reducePow, Nat.reduceAdd] at v₉
   have h₉ := h₈.of_only o₉ (by decide)
   refine h₉.field hp hd ht (k := 6) (by decide) v₉ (sh := 2) (by decide) ?_ fun s₁₀ h₁₀ e₁₀ => ?_
-  · rw [decodeDecompress11_6 _ hB ht]; refine congrArg (decompress 11) ?_; omega
+  · rw [decodeDecompress11_6 _ hB ht]; refine congrArg (decompress 11) ?_
+    omega_using [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10]
   refine h₁₀.field hp hd ht (k := 7) (by decide) ((congrArg BitVec.toNat (e₁₀)).trans v₉) (sh := 13) (by decide) ?_
     fun s₁₁ h₁₁ _ => next_spec ht h₁₁
-  rw [decodeDecompress11_7 _ hB ht]; refine congrArg (decompress 11) ?_; omega
+  rw [decodeDecompress11_7 _ hB ht]; refine congrArg (decompress 11) ?_
+  omega_using [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10]
 
 /-! ## The function -/
 

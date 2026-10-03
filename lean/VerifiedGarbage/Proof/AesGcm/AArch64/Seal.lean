@@ -93,7 +93,7 @@ theorem finPrep_ok {s : State} {W : Addr} (h19 : s.gpr .x19 = W) (hr : Covers [�
 
 theorem seal_wp (v : GcmImpl) {s : State} (hs : sealAArch64.pre s) :
     WP isa («seal» v.callees) s fun s' => GprAbi s s' ∧ sealAArch64.post s s' := by
-  have ol := oneLay (le_refl 1) hs
+  have ol := oneLay (Nat.le_refl 1) hs
   simp only [sealAArch64]
   obtain ⟨L, perm, hsp, dnW, daW, ddW, dcW, dnd, dad, dcd, wn, wa, wd, hR, nR, aR, dW⟩ := ol
   have h3 := ofNat_toNat' (s.gpr .x3)

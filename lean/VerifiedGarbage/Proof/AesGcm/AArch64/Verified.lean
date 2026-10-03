@@ -1,3 +1,4 @@
+import Mathlib.Data.List.Dedup
 import VerifiedGarbage.Proof.AesGcm.AArch64.Init
 import VerifiedGarbage.Proof.AesGcm.AArch64.InitCT
 import VerifiedGarbage.Proof.AesGcm.AArch64.StreamInitCT
@@ -22,6 +23,10 @@ Untrusted: everything here is checked by Lean. Correctness and constant time
 set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.AArch64
+
+/-- The CPU features of the functions calling `vg_aes_ctr32` and `vg_ghash`
+(here, not in `Callee.lean`, to keep `List.dedup`'s imports out of the proofs). -/
+def GcmImpl.features (v : GcmImpl) : List String := (v.ctr.features ++ v.gh.features).dedup
 
 open VG VG.AArch64 VG.Impl.AesGcm.AArch64
 

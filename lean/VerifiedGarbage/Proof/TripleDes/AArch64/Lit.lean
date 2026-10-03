@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.TripleDes.AArch64.SboxTable
 import VerifiedGarbage.Impl.TripleDes.AArch64.Sbox
 import VerifiedGarbage.Impl.TripleDes.AArch64.Permutation
 import VerifiedGarbage.Proof.Framework.AArch64.Lit

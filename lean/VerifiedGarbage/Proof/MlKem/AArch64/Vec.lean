@@ -103,8 +103,8 @@ theorem write16 (m : Mem) (a : Addr) (w0 w1 w2 w3 : BitVec 32) :
       (((m.writeW a w0).writeW (a + BitVec.ofNat 64 4) w1).writeW (a + BitVec.ofNat 64 8) w2).writeW
         (a + BitVec.ofNat 64 12) w3 := by
   funext x
-  have e : ∀ c : Nat, x - (a + BitVec.ofNat 64 c) = (x - a) - BitVec.ofNat 64 c := fun c => by
-    bv_omega
+  have e : ∀ c : Nat, x - (a + BitVec.ofNat 64 c) = (x - a) - BitVec.ofNat 64 c := fun c =>
+    Offset.sub_add_eq x a _
   simp only [Mem.writeW, Mem.write, e, show 32 / 8 = 4 from rfl]
   generalize x - a = d
   rw [toNat_sub_c d 4 (by omega), toNat_sub_c d 8 (by omega), toNat_sub_c d 12 (by omega)]
@@ -188,74 +188,163 @@ theorem vword_mapWords3 (f : BitVec 32 → BitVec 32 → BitVec 32 → BitVec 32
   rw [vword_ofVWords _ _ _ _ he]
   rcases (show e = 0 ∨ e = 1 ∨ e = 2 ∨ e = 3 by omega) with rfl | rfl | rfl | rfl <;> rfl
 
-/-- Lane lemmas: each lane of each case, bit by bit. -/
-macro "lane_tac" e:ident i:ident : tactic => `(tactic| (
-  (rcases (show $e = 0 ∨ $e = 1 ∨ $e = 2 ∨ $e = 3 by omega) with h | h | h | h) <;> subst h <;>
-    simp +arith [List.range_succ] <;> (repeat rw [BitVec.getLsbD_append]) <;>
-    simp +arith [BitVec.getLsbD_extractLsb'] <;>
-    (try simp [show $i ≤ 63 by omega, show $i ≤ 31 by omega, show $i ≤ 95 by omega]) <;>
-    (try intro) <;> (try omega)))
+private theorem sw32 (w : BitVec 32) : (w.setWidth 128).setWidth 32 = w := by
+  rw [BitVec.setWidth_setWidth_of_le _ (by decide), BitVec.setWidth_eq]
 
-set_option linter.unusedSimpArgs false
+private theorem sw64 (w : BitVec 64) : (w.setWidth 128).setWidth 64 = w := by
+  rw [BitVec.setWidth_setWidth_of_le _ (by decide), BitVec.setWidth_eq]
+
+private theorem itT {α : Sort _} {p : Prop} [Decidable p] (h : p) (a b : α) : (if p then a else b) = a :=
+  ite_eq_left_of_eq_true a b (eq_true h)
+
+private theorem itF {α : Sort _} {p : Prop} [Decidable p] (h : ¬ p) (a b : α) : (if p then a else b) = b :=
+  ite_eq_right_of_eq_false a b (eq_false h)
+
+private theorem ofVWords_congr {a b c d a' b' c' d' : BitVec 32} (ha : a = a') (hb : b = b') (hc : c = c')
+    (hd : d = d') : ofVWords a b c d = ofVWords a' b' c' d' := by subst ha hb hc hd; rfl
+
+private theorem ofVDwords_congr {a b a' b' : BitVec 64} (ha : a = a') (hb : b = b') :
+    ofVDwords a b = ofVDwords a' b' := by subst ha hb; rfl
+
+/-- Word `e` of two doublewords: word `e % 2` of doubleword `e / 2`. -/
+private theorem vword_ofVDwords (a b : BitVec 64) {e : Nat} (he : e < 4) :
+    vword (ofVDwords a b) e = (if e < 2 then a else b).extractLsb' (32 * (e % 2)) 32 := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [vword, ofVDwords, BitVec.getLsbD_extractLsb', hi, decide_true, Bool.true_and,
+    BitVec.getLsbD_append]
+  by_cases h : e < 2
+  · rw [itT h, itT (show 32 * e + i < 64 by omega)]; exact congrArg _ (by omega)
+  · rw [itF h, itF (show ¬ 32 * e + i < 64 by omega)]; exact congrArg _ (by omega)
+
+/-- Word `j` of doubleword `k`: word `2k + j`. -/
+private theorem vdword_word (x : BitVec 128) (k : Nat) {j : Nat} (hj : j < 2) :
+    (vdword x k).extractLsb' (32 * j) 32 = vword x (2 * k + j) := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [vword, vdword, BitVec.getLsbD_extractLsb', hi, decide_true, Bool.true_and,
+    show 32 * j + i < 64 by omega]
+  exact congrArg _ (by omega)
+
+private theorem eval_trn1_d2 (x y : BitVec 128) :
+    VPermOp.eval .trn1 .d2 x y = ofVDwords (vdword x 0) (vdword y 0) := by
+  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, List.length_cons, List.length_nil, Nat.reduceAdd, Nat.reduceDiv]
+  exact ofVDwords_congr (sw64 (vdword x 0)) (sw64 (vdword y 0))
+
+private theorem eval_trn2_d2 (x y : BitVec 128) :
+    VPermOp.eval .trn2 .d2 x y = ofVDwords (vdword x 1) (vdword y 1) := by
+  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, List.length_cons, List.length_nil, Nat.reduceAdd, Nat.reduceDiv]
+  exact ofVDwords_congr (sw64 (vdword x 1)) (sw64 (vdword y 1))
 
 theorem vword_trn1_d2 (x y : BitVec 128) {e : Nat} (he : e < 4) :
     vword (VPermOp.eval .trn1 .d2 x y) e = if e < 2 then vword x e else vword y (e - 2) := by
-  ext i hi
-  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, vdword, ofVDwords, BitVec.getElem_extractLsb']
-  lane_tac e i
+  rw [eval_trn1_d2, vword_ofVDwords _ _ he]
+  by_cases h : e < 2
+  · rw [itT h, itT h, vdword_word _ _ (Nat.mod_lt _ (by decide))]; exact congrArg _ (by omega)
+  · rw [itF h, itF h, vdword_word _ _ (Nat.mod_lt _ (by decide))]; exact congrArg _ (by omega)
 
 theorem vword_trn2_d2 (x y : BitVec 128) {e : Nat} (he : e < 4) :
     vword (VPermOp.eval .trn2 .d2 x y) e = if e < 2 then vword x (e + 2) else vword y e := by
-  ext i hi
-  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, vdword, ofVDwords, BitVec.getElem_extractLsb']
-  lane_tac e i
-
-theorem vword_zip1_s4 (x : BitVec 128) {e : Nat} (he : e < 4) :
-    vword (VPermOp.eval .zip1 .s4 x x) e = vword x (e / 2) := by
-  ext i hi
-  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, ofVWords, BitVec.getElem_extractLsb']
-  lane_tac e i
+  rw [eval_trn2_d2, vword_ofVDwords _ _ he]
+  by_cases h : e < 2
+  · rw [itT h, itT h, vdword_word _ _ (Nat.mod_lt _ (by decide))]; exact congrArg _ (by omega)
+  · rw [itF h, itF h, vdword_word _ _ (Nat.mod_lt _ (by decide))]; exact congrArg _ (by omega)
 
 theorem vword_dup_d2 (g : BitVec 64) {e : Nat} (he : e < 4) :
     vword (ofVDwords g g) e = g.extractLsb' (32 * (e % 2)) 32 := by
-  ext i hi
-  simp only [vword, ofVDwords, BitVec.getElem_extractLsb']
-  lane_tac e i
+  rw [vword_ofVDwords _ _ he]
+  by_cases h : e < 2
+  · rw [itT h]
+  · rw [itF h]
 
-theorem vword_rev64s (x : BitVec 128) {e : Nat} (he : e < 4) :
-    vword (VRevOp.eval .rev64s x) e = vword x (if e % 2 = 0 then e + 1 else e - 1) := by
-  ext i hi
-  simp only [VRevOp.eval, vword, ofVBytes, vbyte, BitVec.getElem_extractLsb']
-  lane_tac e i
-  all_goals (repeat' split) <;> simp_all <;> (congr 1; omega)
+private theorem eval_zip1_s4 (x y : BitVec 128) :
+    VPermOp.eval .zip1 .s4 x y = ofVWords (vword x 0) (vword y 0) (vword x 1) (vword y 1) := by
+  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, List.length_cons, List.length_nil, Nat.reduceAdd, Nat.reduceDiv]
+  exact ofVWords_congr (sw32 (vword x 0)) (sw32 (vword y 0)) (sw32 (vword x 1)) (sw32 (vword y 1))
+
+private theorem eval_zip2_s4 (x y : BitVec 128) :
+    VPermOp.eval .zip2 .s4 x y = ofVWords (vword x 2) (vword y 2) (vword x 3) (vword y 3) := by
+  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, List.length_cons, List.length_nil, Nat.reduceAdd, Nat.reduceDiv]
+  exact ofVWords_congr (sw32 (vword x 2)) (sw32 (vword y 2)) (sw32 (vword x 3)) (sw32 (vword y 3))
+
+private theorem eval_uzp1_s4 (x y : BitVec 128) :
+    VPermOp.eval .uzp1 .s4 x y = ofVWords (vword x 0) (vword x 2) (vword y 0) (vword y 2) := by
+  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, List.length_cons, List.length_nil, Nat.reduceAdd]
+  exact ofVWords_congr (sw32 (vword x 0)) (sw32 (vword x 2)) (sw32 (vword y 0)) (sw32 (vword y 2))
+
+private theorem eval_uzp2_s4 (x y : BitVec 128) :
+    VPermOp.eval .uzp2 .s4 x y = ofVWords (vword x 1) (vword x 3) (vword y 1) (vword y 3) := by
+  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, List.length_cons, List.length_nil, Nat.reduceAdd]
+  exact ofVWords_congr (sw32 (vword x 1)) (sw32 (vword x 3)) (sw32 (vword y 1)) (sw32 (vword y 3))
+
+theorem vword_zip1_s4 (x : BitVec 128) {e : Nat} (he : e < 4) :
+    vword (VPermOp.eval .zip1 .s4 x x) e = vword x (e / 2) := by
+  rw [eval_zip1_s4, vword_ofVWords _ _ _ _ he]
+  rcases (show e = 0 ∨ e = 1 ∨ e = 2 ∨ e = 3 by omega) with rfl | rfl | rfl | rfl <;> rfl
 
 theorem vword_uzp1_s4 (x y : BitVec 128) {e : Nat} (he : e < 4) :
     vword (VPermOp.eval .uzp1 .s4 x y) e = if e < 2 then vword x (2 * e) else vword y (2 * (e - 2)) := by
-  ext i hi
-  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, ofVWords, BitVec.getElem_extractLsb']
-  lane_tac e i
+  rw [eval_uzp1_s4, vword_ofVWords _ _ _ _ he]
+  rcases (show e = 0 ∨ e = 1 ∨ e = 2 ∨ e = 3 by omega) with rfl | rfl | rfl | rfl <;> rfl
 
 theorem vword_uzp2_s4 (x y : BitVec 128) {e : Nat} (he : e < 4) :
     vword (VPermOp.eval .uzp2 .s4 x y) e =
       if e < 2 then vword x (2 * e + 1) else vword y (2 * (e - 2) + 1) := by
-  ext i hi
-  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, ofVWords, BitVec.getElem_extractLsb']
-  lane_tac e i
+  rw [eval_uzp2_s4, vword_ofVWords _ _ _ _ he]
+  rcases (show e = 0 ∨ e = 1 ∨ e = 2 ∨ e = 3 by omega) with rfl | rfl | rfl | rfl <;> rfl
 
 theorem vword_zip1_s4' (x y : BitVec 128) {e : Nat} (he : e < 4) :
     vword (VPermOp.eval .zip1 .s4 x y) e = if e % 2 = 0 then vword x (e / 2) else vword y (e / 2) := by
-  ext i hi
-  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, ofVWords, BitVec.getElem_extractLsb']
-  lane_tac e i
+  rw [eval_zip1_s4, vword_ofVWords _ _ _ _ he]
+  rcases (show e = 0 ∨ e = 1 ∨ e = 2 ∨ e = 3 by omega) with rfl | rfl | rfl | rfl <;> rfl
 
 theorem vword_zip2_s4 (x y : BitVec 128) {e : Nat} (he : e < 4) :
     vword (VPermOp.eval .zip2 .s4 x y) e =
       if e % 2 = 0 then vword x (2 + e / 2) else vword y (2 + e / 2) := by
-  ext i hi
-  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, ofVWords, BitVec.getElem_extractLsb']
-  lane_tac e i
+  rw [eval_zip2_s4, vword_ofVWords _ _ _ _ he]
+  rcases (show e = 0 ∨ e = 1 ∨ e = 2 ∨ e = 3 by omega) with rfl | rfl | rfl | rfl <;> rfl
 
-set_option linter.unusedSimpArgs true
+/-- Bit `r` of block `k` of `x ++ y`, blocks being `n` bits wide. -/
+private theorem getLsbD_append_block {w n : Nat} (x : BitVec w) (y : BitVec n) (k : Nat) {r : Nat}
+    (hr : r < n) :
+    (x ++ y).getLsbD (n * k + r) = if k = 0 then y.getLsbD r else x.getLsbD (n * (k - 1) + r) := by
+  rw [BitVec.getLsbD_append]
+  by_cases hk : k = 0
+  · subst hk; simp [hr]
+  · have h : n ≤ n * k := Nat.le_mul_of_pos_right n (by omega)
+    simp only [hk, show ¬ n * k + r < n by omega, ↓reduceIte]
+    exact congrArg _ (by rw [Nat.mul_sub_one, Nat.sub_add_comm h])
+
+private theorem getLsbD_ofVBytes (f : Nat → BitVec 8) {k r : Nat} (hk : k < 16) (hr : r < 8) :
+    (ofVBytes f).getLsbD (8 * k + r) = (f k).getLsbD r := by
+  simp only [ofVBytes, getLsbD_append_block _ _ _ hr]
+  match k, hk with
+  | 0, _ => ?_
+  | 1, _ => ?_
+  | 2, _ => ?_
+  | 3, _ => ?_
+  | 4, _ => ?_
+  | 5, _ => ?_
+  | 6, _ => ?_
+  | 7, _ => ?_
+  | 8, _ => ?_
+  | 9, _ => ?_
+  | 10, _ => ?_
+  | 11, _ => ?_
+  | 12, _ => ?_
+  | 13, _ => ?_
+  | 14, _ => ?_
+  | 15, _ => ?_
+  | _ + 16, h => exact absurd h (by omega)
+  all_goals
+    simp only [↓reduceIte, Nat.reduceSub, Nat.reduceEqDiff, Nat.mul_zero, Nat.zero_add]
+
+theorem vword_rev64s (x : BitVec 128) {e : Nat} (he : e < 4) :
+    vword (VRevOp.eval .rev64s x) e = vword x (if e % 2 = 0 then e + 1 else e - 1) := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [vword, VRevOp.eval, BitVec.getLsbD_extractLsb', hi, decide_true, Bool.true_and]
+  rw [show 32 * e + i = 8 * (4 * e + i / 8) + i % 8 by omega,
+    getLsbD_ofVBytes _ (by omega) (Nat.mod_lt _ (by decide)), vbyte, BitVec.getLsbD_extractLsb',
+    decide_eq_true (Nat.mod_lt _ (by decide)), Bool.true_and]
+  exact congrArg _ (by split <;> omega)
 
 theorem vword_dup_s4 (w : BitVec 32) {e : Nat} (he : e < 4) : vword (ofVWords w w w w) e = w := by
   rw [vword_ofVWords _ _ _ _ he]
@@ -335,12 +424,19 @@ def writesV : Instr → Bool
 
 theorem exec_v {i : Instr} (hi : writesV i = false) {s s' : State} (h : exec i s = some s') :
     s'.v = s.v := by
-  cases i <;> simp only [writesV, Bool.true_eq_false] at hi <;>
-    simp only [exec] at h <;>
-    (try (obtain ⟨⟩ := h)) <;>
-    (try split at h) <;> (try (obtain ⟨⟩ := h)) <;>
-    simp_all [State.addWithCarry, State.write, State.store, State.load, Option.bind_eq_some_iff] <;>
-    (obtain ⟨_, _, _, rfl⟩ := h; rfl)
+  cases i <;> simp only [writesV, Bool.true_eq_false] at hi
+  all_goals
+    simp only [exec, Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+  all_goals
+    repeat' first
+      | split at h
+      | simp only [Option.map_eq_some_iff] at h
+      | rcases h with ⟨_, _, h⟩
+  all_goals
+    simp_all only [State.store]
+  all_goals
+    repeat' first | split at h | cases h
+  all_goals rfl
 
 /-- Code that writes no vector register keeps them. -/
 theorem WP.keepV : ∀ {is : List Instr} {s : State} {Q : State → Prop},

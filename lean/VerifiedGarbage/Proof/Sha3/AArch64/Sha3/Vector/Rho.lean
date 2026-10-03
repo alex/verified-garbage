@@ -46,12 +46,12 @@ theorem rho_lanes (σ : Low) (A : Spec.Sha3.State) (hA : ALanes σ A) (hD : DLan
   have d3 := hD 3 (by decide)
   have d4 := hD 4 (by decide)
   simp only [dreg, List.getD_cons_succ, List.getD_cons_zero] at d0 d1 d2 d3 d4
-  intro i hi
-  interval_cases i <;>
-    simp only [runLow, rhoPi, List.foldl_cons, List.foldl_nil, opLow, put, breg,
+  -- One `simp` for all the lanes, which simplifies `runLow rhoPi σ` once.
+  refine forall_lt_25 ?_
+  simp only [runLow, rhoPi, List.foldl_cons, List.foldl_nil, opLow, put, breg,
       List.getD_cons_succ, List.getD_cons_zero, reduceCtorEq, ite_true, ite_false,
       a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, d0,d1,d2,d3,d4,
       B, piSrc, rhoOff, rotl, Nat.reduceMod, Nat.reduceDiv, Nat.reduceAdd, Nat.reduceMul,
-      Nat.reduceSub, List.getD_cons_succ, List.getD_cons_zero, reduceCtorEq, ite_true, ite_false]
+      Nat.reduceSub, List.getD_cons_succ, List.getD_cons_zero, reduceCtorEq, ite_true, ite_false, and_self]
 
 end VG.Proof.Sha3.AArch64.Sha3.Vector

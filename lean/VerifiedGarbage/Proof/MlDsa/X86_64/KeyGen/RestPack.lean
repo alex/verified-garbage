@@ -56,6 +56,13 @@ theorem KR.sPoly {p : Params} {σ : State} {A : Nat → Poly} {S : Nat → IPoly
 
 /-! ## `BitPack` of `s₁ ‖ s₂` -/
 
+theorem chk_packS {p : Params} (hF : PFacts p) {r : Nat} (hr : r < p.ℓ + p.k) :
+    KRChk p r 0 0 [((.r13, 128 + lenS p * r), lenS p)] := by
+  have hle : 128 + lenS p * r + lenS p ≤ oT0 p := by
+    simp only [oT0]; rw [Nat.add_assoc, ← Nat.mul_succ]; exact Nat.add_le_add_left (Nat.mul_le_mul_left _ hr) _
+  exact KRChk.r13 hF (Nat.le_of_lt hr) (Nat.zero_le _) (by omega) (.inr (Nat.le_refl _)) (.inl hle)
+    (by rw [hF.sk]; omega)
+
 theorem packS_ok {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ)
     {r : Nat} (hr : r < p.ℓ + p.k) {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State}
     (h : KR p σ A S R r 0 0 s) : WP isa (packS P p r) s (KR p σ A S R (r + 1) 0 0) := by
@@ -69,7 +76,7 @@ theorem packS_ok {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {σ :
     (by lay [hF.pk, hF.sk, hlen]) hP.bitPack S₀ (packIn_of (eta_le hF) hS (h.small r hr)))
     fun s' ⟨hP', hx, hb⟩ => ?_ <;>
   · have hP'' : PPostB s s' [((.r13, 128 + lenS p * r), lenS p)] := hP'.b
-    have hk' := h.keep hF hp hP'' hx (hP'.cs .r15 (by decide)) (by krchk hF)
+    have hk' := h.keep hF hp hP'' hx (hP'.cs .r15 (by decide)) (chk_packS hF hr)
     refine ⟨hk'.kc, hk'.r15, hk'.good, hk'.small, hk'.aS, hk'.s2, hk'.s1, hk'.pk0, hk'.sk0, hk'.sk1,
       fun r' hr' => ?_, hk'.rows⟩
     rcases (by omega : r' < r ∨ r' = r) with hr' | rfl

@@ -79,13 +79,16 @@ macro_rules
         VG.Impl.MlDsa.X86.KeyGen.oT0, decide_eq_true_eq, $ls,*]
       all_goals (and_intros <;> omega_arith)))
 
-/-- `lay`, with the facts of the parameter set `hF : PFacts p`, in each case of `η`. -/
+/-- `lay`, with the facts of the parameter set `hF : PFacts p`: for any `η` if the check does not
+depend on it, and otherwise in each case of `η`. -/
 syntax "layp " term:max (" [" Lean.Parser.Tactic.simpLemma,* "]")? : tactic
 macro_rules
   | `(tactic| layp $hF) => `(tactic| layp $hF [])
   | `(tactic| layp $hF [$ls,*]) => `(tactic| (
       have := ($hF).k; have := ($hF).l; have := ($hF).kl
-      rcases ($hF).eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;>
-        lay [hlen, ($hF).pk, ($hF).sk, ($hF).sw, $ls,*]))
+      first
+        | lay [($hF).pk, ($hF).sk, ($hF).sw, $ls,*]
+        | rcases ($hF).eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;>
+            lay [hlen, ($hF).pk, ($hF).sk, ($hF).sw, $ls,*]))
 
 end VG.Proof.MlDsa.X86.KeyGen

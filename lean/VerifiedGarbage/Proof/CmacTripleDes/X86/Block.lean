@@ -403,7 +403,7 @@ def ipGR (t : Nat) : List Nat := if t < 32 then [xAtom (ipSrc t)] else []
 theorem ip_check :
     check (lanes 32 6) oCfg (linExt 0) ipCode (linEnv [(0, 0), (1, 1)])
       (linPost oCfg.slots 6 [(slotL, ipGL), (slotR, ipGR)]) = true := by
-  decide +kernel
+  lit_decide
 
 /-- `IP⁻¹(R ‖ L)` into slots 0 (high word) and 1 (low word), from `R` in slot
 `L` (input word 0) and `L` in slot `R` (input word 1). -/
@@ -413,15 +413,15 @@ def fpG1 (t : Nat) : List Nat := if t < 32 then [xAtom (fpSrc t)] else []
 theorem fp_check :
     check (lanes 32 6) oCfg (linExt 0) fpCode (linEnv [(slotL, 0), (slotR, 1)])
       (linPost oCfg.slots 6 [(0, fpG0), (1, fpG1)]) = true := by
-  decide +kernel
+  lit_decide
 
-theorem ip_kept : kept.all (fun r => ipCode.all fun i => i.dst != some r) = true := by decide +kernel
+theorem ip_kept : kept.all (fun r => ipCode.all fun i => i.dst != some r) = true := by lit_decide
 
-theorem fp_kept : kept.all (fun r => fpCode.all fun i => i.dst != some r) = true := by decide +kernel
+theorem fp_kept : kept.all (fun r => fpCode.all fun i => i.dst != some r) = true := by lit_decide
 
-theorem ipSrc_lt : ∀ j < 64, ipSrc j < 64 := by decide
+theorem ipSrc_lt : ∀ j < 64, ipSrc j < 64 := by lit_decide
 
-theorem fpSrc_lt : ∀ j < 64, fpSrc j < 64 := by decide
+theorem fpSrc_lt : ∀ j < 64, fpSrc j < 64 := by lit_decide
 
 /-- A bit of `hi ‖ lo`. -/
 theorem bit_xAtom (W : Nat → BitVec 32) {b : Nat} (hb : b < 64) :

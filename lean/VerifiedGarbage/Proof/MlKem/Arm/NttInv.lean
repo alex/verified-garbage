@@ -207,9 +207,9 @@ theorem layers_seven (f : Poly) : (layers f 7).map (· * 3303) = nttInv f := by
   rw [nttInv_eq_layers]; rfl
 
 /-- What the layers' loop counters are. -/
-theorem layer_facts : ∀ ℓ < 7, 2 ≤ 2 ^ (ℓ + 1) ∧ 2 ^ (ℓ + 1) * (64 / 2 ^ ℓ) = 128 ∧ 0 < 64 / 2 ^ ℓ ∧
-    256 / 2 ^ (ℓ + 1) - 1 - 0 = 128 / 2 ^ ℓ - 1 ∧
-    256 / 2 ^ (ℓ + 1) - 1 - 64 / 2 ^ ℓ = 128 / 2 ^ (ℓ + 1) - 1 ∧
+theorem layer_facts : ∀ ℓ < 7, (2 : Nat) ≤ 2 ^ (ℓ + 1) ∧ (2 ^ (ℓ + 1) * (64 / 2 ^ ℓ) : Nat) = 128 ∧
+    (0 : Nat) < 64 / 2 ^ ℓ ∧ (256 / 2 ^ (ℓ + 1) - 1 - 0 : Nat) = 128 / 2 ^ ℓ - 1 ∧
+    (256 / 2 ^ (ℓ + 1) - 1 - 64 / 2 ^ ℓ : Nat) = 128 / 2 ^ (ℓ + 1) - 1 ∧
     BitVec.ofNat 32 (4 * 2 ^ (ℓ + 1)) <<< 1 = BitVec.ofNat 32 (4 * 2 ^ (ℓ + 1 + 1)) ∧
     (BitVec.ofNat 32 (4 * 2 ^ (ℓ + 1 + 1)) - 1024 == 0) = decide (ℓ + 1 = 7) := by
   decide

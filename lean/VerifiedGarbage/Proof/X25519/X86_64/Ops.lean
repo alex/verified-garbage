@@ -78,8 +78,8 @@ theorem row3 (a b : Nat) : row a b 3 = rowR a b 3 .r11 .r12 .r13 .r14 .r15 := ro
 theorem fe_mul_expand (m : Mem) (base : Addr) (a : Nat) (B : Nat) :
     fe m base a * B = (word m base (a + 8 * 0)).toNat * B + 2 ^ 64 * ((word m base (a + 8 * 1)).toNat * B) +
       2 ^ 128 * ((word m base (a + 8 * 2)).toNat * B) + 2 ^ 192 * ((word m base (a + 8 * 3)).toNat * B) := by
-  simp only [X86_64.fe, val4, Nat.mul_zero, Nat.add_zero, Nat.mul_one, Nat.reduceMul]
-  ring
+  simp only [X86_64.fe, val4, Nat.mul_zero, Nat.add_zero, Nat.mul_one, Nat.reduceMul, Nat.add_mul,
+    Nat.mul_assoc]
 
 theorem mul_mod_arith {L H V c AB : Nat} (h₁ : V + 2 ^ 256 * c = L + 38 * H)
     (h₂ : L + 2 ^ 256 * H = AB) : (V + 38 * c) % VG.Spec.X25519.P = AB % VG.Spec.X25519.P := by

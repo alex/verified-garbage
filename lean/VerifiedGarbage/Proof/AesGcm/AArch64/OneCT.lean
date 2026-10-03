@@ -194,6 +194,6 @@ theorem entry_rel {σ₁ σ₂ : State} {W : Addr} (hW₁ : stackArg σ₁ 0 = W
   by_cases h9 : r = .x9
   · subst h9; rw [x9₁, x9₂]
   · rw [g₁ r h9, g₂ r h9]
-    exact hq r (by simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto)
+    exact hq r (by simp only [List.mem_cons, List.not_mem_nil, or_false, h9, false_or] at hr ⊢; exact hr)
 
 end VG.Proof.AesGcm.AArch64

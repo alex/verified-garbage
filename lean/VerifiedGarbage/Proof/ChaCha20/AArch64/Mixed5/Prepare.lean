@@ -53,8 +53,7 @@ structure Prepared (s₀ s : State) (n : Nat := 0) : Prop where
     rw [source,hcg _ (by decide),hcm]
     change stateAt (b.mem.writeW (b.gpr .x0 + BitVec.ofNat 64 48)
       (b.mem.readW (b.gpr .x0 + BitVec.ofNat 64 48) 32 + BitVec.ofNat 32 4)) _ = _
-    rw [VG.Proof.ChaCha20.AArch64.Xor.stateAt_writeW_counter]
-    change ctr (source b) 4 = _
+    rw [VG.Proof.ChaCha20.AArch64.Xor.stateAt_writeW_ctr]
     rw [source,hab.mem,hab.gpr _ (by decide)]
     exact congrArg (fun v => ctr v 4) ha
   have hfc : Frame [sr s] b.mem c.mem := by

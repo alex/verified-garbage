@@ -52,7 +52,8 @@ theorem finish_ok {s₀ s : State} (hp : CP s₀) (h : Spilled s₀ s) :
     rw [source,hbg _ (by decide),hbm]
     change stateAt (a.mem.writeW (a.gpr .x0 + BitVec.ofNat 64 48)
       (a.mem.readW (a.gpr .x0 + BitVec.ofNat 64 48) 32 - BitVec.ofNat 32 4)) _ = _
-    rw [VG.Proof.ChaCha20.AArch64.Xor.stateAt_writeW_counter]
+    rw [VG.Proof.ChaCha20.AArch64.Xor.stateAt_writeW_counter,
+      ← VG.Proof.ChaCha20.AArch64.Xor.stateAt_getElem_counter]
     change (source a).set 12 ((source a)[12] - BitVec.ofNat 32 4) = _
     rw [hcnta,ctr,Vector.getElem_set_self,BitVec.add_sub_cancel,Vector.set_set,
       Vector.set_getElem_self]

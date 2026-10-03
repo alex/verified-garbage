@@ -39,7 +39,8 @@ theorem mv_add (m : Mem) (base : Addr) :
   | o, a + 1, b => by
     rw [show a + 1 + b = (a + b) + 1 by omega, mv, mv, mv_add m base (o + 8) a b, pow64_succ,
       show o + 8 + 8 * a = o + 8 * (a + 1) by omega]
-    ring
+    generalize 2 ^ (64 * a) = Q
+    grind
 
 theorem zeroAcc_ok (s : State) :
     WP isa (.block zeroAcc) s fun s' => rv s' (acc 0) = 0 ∧ Keeps [.r15, .rcx, .rbp] s s' := by
@@ -78,7 +79,9 @@ theorem product_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat} (ho : S
       have := Nat.mul_le_mul_left (2 ^ (64 * (7 + 7))) h
       generalize 2 ^ (64 * (7 + 7)) = Q at *
       omega
-  rw [h0, Nat.mul_zero, Nat.add_zero, mv_add] at hcol
+  generalize 2 ^ (64 * (7 + 7)) = Q at hcol
+  rw [h0, Nat.mul_zero, Nat.add_zero, mv_add, show 64 * 7 = 448 from rfl,
+    show ACC + 8 * 7 = ACC + 56 from rfl] at hcol
   rw [e, ← hcol]
 
 theorem val7_congr {f g : Nat → Nat} (h : ∀ i < 7, f i = g i) : val7 f = val7 g := by
@@ -103,7 +106,7 @@ theorem colsReduce_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat} (ho 
       fe s'.mem base o % P = x * y % P ∧ (∀ r, r ∉ clob → s'.gpr r = s.gpr r) ∧
       s'.rd = s.rd ∧ s'.wr = s.wr ∧ Outside2 base o 56 ACC 112 s.mem s'.mem := by
   rw [WP.block_append_iff, columns]
-  refine WP.mono (columns_ok hs xs w xv cols hx (by decide) hc hw h0 (7 + 7) le_rfl)
+  refine WP.mono (columns_ok hs xs w xv cols hx (by decide) hc hw h0 (7 + 7) (Nat.le_refl _))
     fun s1 ⟨g1, rd1, wr1, o1, e1, _⟩ => ?_
   have hs1 : Scr s1 base := ⟨(g1 _ rdi_colX).trans hs.rdi, wr1 ▸ hs.wr, hs.nowrap⟩
   refine WP.mono (product_ok hs1 ho hxl hyl (by rw [e1]; exact hsum)) fun s2 ⟨e2, g2, rd2, wr2, o2⟩ =>

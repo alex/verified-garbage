@@ -285,8 +285,8 @@ theorem b0_piece (i : Nat) : Piece Pre Pub (fun s₀ s => PI s₀ i s ∧ i < K 
   have hb : WP isa (.block [.mov .ebx (.imm 0)]) s fun s' => s'.gpr .ebx = 0 ∧ s'.mem = s.mem := by hrun
   exact (WP.keep [.ebx] hb (by decide)).mono fun s' ⟨⟨e, m⟩, k⟩ =>
     ⟨h.keep k (by decide) (by rw [m]; exact Frame.refl _ _), hi, by rw [k.gpr (by decide), h.esi]; rfl, by rw [e]; rfl,
-      by rw [k.gpr (by decide), h.eax]; rfl, by rw [k.gpr (by decide), h.edi], by rw [k.gpr (by decide), h.ecx],
-      by rw [k.gpr (by decide), h.ebp], by rw [m, h.y]; rfl⟩
+      by rw [k.gpr (by decide), h.eax, T, hpT_zero], by rw [k.gpr (by decide), h.edi], by rw [k.gpr (by decide), h.ecx],
+      by rw [k.gpr (by decide), h.ebp], by rw [m, h.y, T, hpT_zero]⟩
 
 theorem ne_zero_eq (v : BitVec 32) : (!(v == 0)) = decide (v ≠ 0) := by
   by_cases hv : v = 0 <;> simp [hv, Bool.beq_eq_decide_eq]

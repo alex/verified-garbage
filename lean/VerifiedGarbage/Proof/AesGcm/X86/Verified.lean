@@ -1,3 +1,4 @@
+import Mathlib.Data.List.Dedup
 import VerifiedGarbage.Proof.AesGcm.X86.StreamAad
 import VerifiedGarbage.Proof.AesGcm.X86.StreamInit
 import VerifiedGarbage.Proof.AesGcm.X86.StreamDecrypt
@@ -21,6 +22,10 @@ for `stream_init` and `stream_aad`, which call only `vg_ghash` (five).
 set_option linter.unusedSimpArgs false
 
 namespace VG.Proof.AesGcm.X86
+
+/-- The CPU features of the functions calling both (here, not in
+`Callee.lean`, to keep `List.dedup`'s imports out of the proofs). -/
+def GcmImpl.features (v : GcmImpl) : List String := (v.ctr.features ++ v.gh.features).dedup
 
 variable {vg : GcmImpl}
 

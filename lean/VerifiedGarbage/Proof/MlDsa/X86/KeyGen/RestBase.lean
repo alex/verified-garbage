@@ -49,6 +49,48 @@ structure SafeR (p : Params) (np nr : Nat) (bs : List Buf) : Prop where
 macro "safeR " hF:term:max : tactic => `(tactic| (
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> intros <;> (try refine ⟨?_, ?_⟩) <;> layp $hF))
 
+theorem apart_append {Y : Lay} {b : Buf} {bs₁ bs₂ : List Buf} (h₁ : Y.apart b bs₁ = true)
+    (h₂ : Y.apart b bs₂ = true) : Y.apart b (bs₁ ++ bs₂) = true := by
+  simp only [Lay.apart, List.all_append, Bool.and_eq_true] at *
+  exact ⟨h₁.1, h₁.2, h₂.2⟩
+
+/-- `SafeR` of two lists of buffers, for both. -/
+theorem SafeR.append {p : Params} {np nr : Nat} {bs₁ bs₂ : List Buf} (h₁ : SafeR p np nr bs₁)
+    (h₂ : SafeR p np nr bs₂) : SafeR p np nr (bs₁ ++ bs₂) :=
+  ⟨apart_append h₁.acc h₂.acc, fun e he => apart_append (h₁.aS e he) (h₂.aS e he),
+    fun i hi => apart_append (h₁.s2 i hi) (h₂.s2 i hi), apart_append h₁.pk0 h₂.pk0, apart_append h₁.sk0 h₂.sk0,
+    apart_append h₁.sk1 h₂.sk1, fun r hr => apart_append (h₁.packs r hr) (h₂.packs r hr),
+    fun i hi => ⟨apart_append (h₁.rows i hi).1 (h₂.rows i hi).1, apart_append (h₁.rows i hi).2 (h₂.rows i hi).2⟩⟩
+
+/-! `SafeR` of one buffer, proved once for any buffer (`safeR` on a literal list
+of buffers costs seconds). -/
+
+/-- A buffer of `scratch` apart from the accumulator, `Â` and `s₂`. -/
+theorem SafeR.sc {p : Params} (hF : PFacts p) {np nr : Nat} (hnp : np ≤ p.ℓ + p.k) (hnr : nr ≤ p.k) {o l : Nat}
+    (h0 : 0 < l) (h1 : o + l ≤ oACC ∨ oACC + 4 ≤ o)
+    (h2 : o + l ≤ oP 0 ∨ (oP (p.k * p.ℓ) ≤ o ∧ o + l ≤ oP (p.k * p.ℓ + p.ℓ)) ∨ oP (p.k * p.ℓ + p.ℓ + p.k) ≤ o)
+    (h3 : o + l ≤ scrLen p) : SafeR p np nr [sb o l] := by
+  simp only [oACC, oP] at h1 h2
+  simp only [scrLen, hF.sw] at h3
+  safeR hF
+
+/-- A buffer of `pk` after the rows so far. -/
+theorem SafeR.pk {p : Params} (hF : PFacts p) {np nr : Nat} (hnp : np ≤ p.ℓ + p.k) (hnr : nr ≤ p.k) {o l : Nat}
+    (h0 : 0 < l) (h1 : 32 + 320 * nr ≤ o) (h2 : o + l ≤ p.pkLen) : SafeR p np nr [⟨1, o, l⟩] := by
+  rw [hF.pk] at h2
+  safeR hF
+
+/-- A buffer of `sk` after `ρ` and `K`, apart from the entries packed and the rows so far. -/
+theorem SafeR.sk {p : Params} (hF : PFacts p) {np nr : Nat} (hnp : np ≤ p.ℓ + p.k) (hnr : nr ≤ p.k) {o l : Nat}
+    (h0 : 0 < l) (h1 : 64 ≤ o) (hp : o + l ≤ 128 ∨ 128 + lenS p * np ≤ o) (hr : o + l ≤ oT0 p ∨ oT0 p + 416 * nr ≤ o)
+    (h2 : o + l ≤ p.skLen) : SafeR p np nr [⟨2, o, l⟩] := by
+  rw [hF.sk] at h2
+  simp only [oT0] at hr h2
+  have := hF.k; have := hF.l; have := hF.kl
+  rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;> rw [hlen] at hp hr h2 <;>
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> intros <;> (try refine ⟨?_, ?_⟩) <;>
+  lay [hlen, hF.pk, hF.sk, hF.sw]
+
 theorem KR.keep {p : Params} {A : Nat → Poly} {S : Nat → IPoly} {np nj nr : Nat} {s₀ s s' : State}
     (h : KR p A S np nj nr s₀ s) (hp : TPre (YK p) s₀) {bs : List Buf} {N : Nat} (hN : N + 16 ≤ 96)
     (hs : SafeR p np nr bs) (hs1 : ∀ j < p.ℓ, (YK p).apart (sB p j) bs = true) (fr : Frame (FR s₀ bs N) s.mem s'.mem)

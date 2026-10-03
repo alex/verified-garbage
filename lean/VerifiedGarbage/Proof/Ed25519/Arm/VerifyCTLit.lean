@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Arm.Lit
 import VerifiedGarbage.Impl.Ed25519.Arm.Verify
+import VerifiedGarbage.Proof.Ed25519.Arm.DecodeCTLit
+import VerifiedGarbage.Proof.Ed25519.Arm.ScalarBaseCTLit
 
 /-! Checked code literals for verifier composition. -/
 namespace VG.Proof.Ed25519.Arm

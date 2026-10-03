@@ -19,14 +19,15 @@ open VG.Spec.Aes (bytesAt)
 
 /-- Runs a block of the instructions the AES-GCM code uses. -/
 macro "xrun" "[" ts:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
-  simp (config := {decide := true}) (disch := first | decide | omega) only [imm_eq, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc,
+  simp (disch := first | decide | omega) only [imm_eq, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc,
     readSrc32, execAlu, execAlu32, execShift, State.load64, State.store64, State.load32, State.store32,
     State.load8, State.store8, State.ea, State.setReg32, offset_nat, at_, imm, ptr, stO, tO, uO, roundsO, alenO, tlenO, dataO,
     lenO, auxO, tlO, aadO, vO, rO, scrO, List.cons_append,
     List.nil_append, List.append_assoc, Option.bind_some, Option.map_some, gpr_setReg, gpr_arithFlags,
     gpr_setFlags, mem_setReg, mem_arithFlags, mem_setFlags, rd_setReg, rd_arithFlags, rd_setFlags,
     wr_setReg, wr_arithFlags, wr_setFlags, cf_setReg, cf_arithFlags, zf_setReg, zf_arithFlags,
-    ite_true, ite_false, $ts,*]) <;> try rfl)
+    ite_true, ite_false, reduceCtorEq, ↓reduceIte, Nat.reduceLeDiff, Nat.reduceSub, Nat.reduceEqDiff,
+    Nat.reduceAdd, and_self, and_true, true_and, $ts,*]) <;> try rfl)
 
 /-- A buffer of `n` bytes at `D` that the code may read, apart from the
 context, the state, `W` and the stack below `SP`. -/

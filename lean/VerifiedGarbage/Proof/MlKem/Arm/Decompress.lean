@@ -42,11 +42,11 @@ theorem dec_eq {d : Nat} (hd : d ∈ compressWidths) {y : BitVec 32} {n : Nat} (
 def bit1 (b : Byte) (j : Nat) : BitVec 32 := (b.setWidth 32 <<< (31 - j)) >>> 31
 
 theorem bit1_toNat (b : Byte) {j : Nat} (hj : j < 8) : (bit1 b j).toNat = b.toNat / 2 ^ j % 2 := by
-  have hb := b.isLt
   rw [bit1, BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, setWidth32_toNat, Nat.shiftRight_eq_div_pow,
-    Nat.shiftLeft_eq]
-  rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 ∨ j = 4 ∨ j = 5 ∨ j = 6 ∨ j = 7) with
-    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp only [Nat.reduceSub, Nat.reducePow] <;> omega
+    Nat.shiftLeft_eq,
+    show (2 : Nat) ^ 32 = 2 ^ j * 2 * 2 ^ (31 - j) by rw [← Nat.pow_succ, ← Nat.pow_add]; congr 1; omega,
+    Nat.mul_mod_mul_right, show (2 : Nat) ^ 31 = 2 ^ j * 2 ^ (31 - j) by rw [← Nat.pow_add]; congr 1; omega,
+    Nat.mul_div_mul_right _ _ (Nat.two_pow_pos _), Nat.mod_mul_right_div_self]
 
 /-! ## The loop bodies -/
 
@@ -288,8 +288,19 @@ theorem f10_toNat (g : Nat → Byte) :
   have := (g 2).isLt
   have := (g 3).isLt
   have := (g 4).isLt
+  have sl : ∀ (a : Byte) (s : Nat), 22 ≤ s → s ≤ 32 →
+      ((a.setWidth 32 <<< s) >>> 22).toNat = a.toNat % 2 ^ (32 - s) * 2 ^ (s - 22) := fun a s h1 h2 => by
+    rw [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, setWidth32_toNat, Nat.shiftLeft_eq,
+      Nat.shiftRight_eq_div_pow, show (2 : Nat) ^ 32 = 2 ^ (32 - s) * 2 ^ s by rw [← Nat.pow_add]; congr 1; omega,
+      Nat.mul_mod_mul_right, show (2 : Nat) ^ s = 2 ^ (s - 22) * 2 ^ 22 by rw [← Nat.pow_add]; congr 1; omega,
+      ← Nat.mul_assoc, Nat.mul_div_cancel _ (Nat.two_pow_pos _)]
+  have sr : ∀ (a : Byte) (k : Nat), (a.setWidth 32 >>> k).toNat = a.toNat / 2 ^ k := fun a k => by
+    rw [BitVec.toNat_ushiftRight, setWidth32_toNat, Nat.shiftRight_eq_div_pow]
   simp (config := {decide := true}) only [f10, ite_true, ite_false]
-  refine ⟨?_, ?_, ?_, ?_⟩ <;> bv_omega
+  rw [BitVec.toNat_add, BitVec.toNat_add, BitVec.toNat_add, BitVec.toNat_add, sl _ 30 (by decide) (by decide),
+    sl _ 28 (by decide) (by decide), sl _ 26 (by decide) (by decide), sr, sr, sr, setWidth32_toNat,
+    BitVec.toNat_shiftLeft, setWidth32_toNat, Nat.shiftLeft_eq]
+  refine ⟨?_, ?_, ?_, ?_⟩ <;> omega
 
 theorem step10 {s₀ : State} (hp : Pre s₀) (hd : dd s₀ = 10) {i : Nat} (hi : i < 64) {s : State}
     (h : Inv 5 16 4 64 s₀ i s) :

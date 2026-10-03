@@ -27,7 +27,6 @@ theorem decodeLE_wide (m : Mem) (base : Addr) :
     rw [Offset.add_add] at h
     exact h
   rw [hb, decodeLE_append, bytesAt_length, decodeLE_words, decodeLE_words]
-  rfl
 
 theorem fe_frame {base p : Addr} {m m' : Mem} (hf : Frame [⟨base, 8192⟩] m m')
     (hp : (⟨p, 32⟩ : Region).Disjoint ⟨base, 8192⟩) : fe m' p 0 = fe m p 0 := by

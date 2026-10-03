@@ -40,11 +40,14 @@ def movImm (d : Reg) (v : Nat) : List Instr :=
 that some destination bit `d < n` needs (its source `src d` is bit
 `(d + r) % 32`), the mask of those destination bits. -/
 def groups (src : Nat → Option Nat) (n : Nat) : List (Nat × Nat) :=
+  -- Every rotation's mask at once, in one pass over the bits (the kernel
+  -- evaluates this): rotation `r`'s in bits `[n r, n r + n)` of `ms`.
+  let ms := (List.range n).foldl (fun ms d =>
+    match src d with
+    | some s => ms ||| (2 ^ d) <<< (n * ((s + 32 - d) % 32))
+    | none => ms) 0
   (List.range 32).filterMap fun r =>
-    let m := (List.range n).foldl (fun m d =>
-      match src d with
-      | some s => if (s + 32 - d) % 32 = r then m ||| 2 ^ d else m
-      | none => m) 0
+    let m := (ms >>> (n * r)) % 2 ^ n
     if m = 0 then none else some (r, m)
 
 /-- `src` rotated right by `r`. -/

@@ -53,9 +53,9 @@ theorem seal_rel (v : GcmImpl) {s₀ s₀' : State} (hp : Proof.AesGcm.sealX86_6
   have C' := OneCtx.of hp'
   have L := C.lay
   have hE : ∀ {s : State} (hp : Proof.AesGcm.sealX86_64.pre s), WP isa (.block oneEntry) s (OneIn s 3) := fun hp =>
-    WP.mono (oneEntry_ok le_rfl (OneCtx.of hp) rfl rfl rfl rfl rfl rfl) fun _ E => E.oneIn (OneCtx.of hp)
+    WP.mono (oneEntry_ok (Nat.le_refl _) (OneCtx.of hp) rfl rfl rfl rfl rfl rfl) fun _ E => E.oneIn (OneCtx.of hp)
   have hE₁ := hE hp
-  have hE₂ := WP.mono (hE hp') fun _ h => oneIn_pub le_rfl hq h
+  have hE₂ := WP.mono (hE hp') fun _ h => oneIn_pub (Nat.le_refl _) hq h
   have hw : stackArg s₀ 2 = stackArg s₀' 2 := hq.2.2.2.2.2.2.2 2 (by decide)
   rw [oneEntry, List.append_assoc, List.append_assoc, List.append_assoc] at hE₁ hE₂
   rw [«seal», oneEntry, List.append_assoc, List.append_assoc, List.append_assoc]

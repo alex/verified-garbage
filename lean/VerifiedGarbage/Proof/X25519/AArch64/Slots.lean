@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.X25519.AArch64.Limbwise
+import Mathlib.Logic.Function.Basic
 
 /-!
 # X25519 on AArch64: the field elements in their slots

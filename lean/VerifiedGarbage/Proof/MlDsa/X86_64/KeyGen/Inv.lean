@@ -129,4 +129,38 @@ macro_rules
       VG.Proof.MlKem.X86_64.wrOk, List.range_succ, List.range_zero, List.all_append, List.nil_append,
       List.all_cons, List.all_nil, VG.Impl.MlKem.X86_64.oSV, $ls,*])
 
+
+section
+open VG VG.X86_64 VG.Proof.MlKem.X86_64
+open VG.Impl.MlKem.X86_64 (Ptr sc)
+open VG.Impl.MlDsa.X86_64.KeyGen
+open VG.Spec.MlDsa (Params)
+
+theorem keepB_append {bs : List (Reg × Nat)} {ws₁ ws₂ : List (Ptr × Nat)} {q : Ptr} {l : Nat}
+    (h₁ : keepB bs ws₁ q l = true) (h₂ : keepB bs ws₂ q l = true) : keepB bs (ws₁ ++ ws₂) q l = true := by
+  simp only [keepB, List.all_append, Bool.and_eq_true] at *
+  exact ⟨h₁.1, h₁.2, h₂.2⟩
+
+theorem kcChk_append {p : Params} {ws₁ ws₂ : List (Ptr × Nat)} (h₁ : kcChk p ws₁ = true)
+    (h₂ : kcChk p ws₂ = true) : kcChk p (ws₁ ++ ws₂) = true := by
+  simp only [kcChk, topChk, List.all_append, Bool.and_eq_true, List.all_eq_true] at *
+  exact ⟨⟨fun k hk => keepB_append (h₁.1.1 k hk) (h₂.1.1 k hk), h₁.1.2, h₂.1.2⟩, keepB_append h₁.2 h₂.2⟩
+
+theorem k1Chk_append {p : Params} {ws₁ ws₂ : List (Ptr × Nat)} (h₁ : k1Chk p ws₁ = true)
+    (h₂ : k1Chk p ws₂ = true) : k1Chk p (ws₁ ++ ws₂) = true := by
+  simp only [k1Chk, Bool.and_eq_true] at *
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨a₁, b₁⟩, c₁⟩, d₁⟩, e₁⟩, f₁⟩, g₁⟩, h₁⟩, i₁⟩ := h₁
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨a₂, b₂⟩, c₂⟩, d₂⟩, e₂⟩, f₂⟩, g₂⟩, h₂⟩, i₂⟩ := h₂
+  exact ⟨⟨⟨⟨⟨⟨⟨⟨kcChk_append a₁ a₂, keepB_append b₁ b₂⟩, keepB_append c₁ c₂⟩, keepB_append d₁ d₂⟩,
+    keepB_append e₁ e₂⟩, keepB_append f₁ f₂⟩, keepB_append g₁ g₂⟩, keepB_append h₁ h₂⟩, keepB_append i₁ i₂⟩
+
+/-- `k1Chk` of a write to `scratch` from `oSS` on, proved once for any region. -/
+theorem k1Chk_rbx {p : Params} {o n : Nat} (h1 : VG.Impl.MlKem.X86_64.oSS ≤ o) (h2 : o + n ≤ scrLen p) :
+    k1Chk p [((.rbx, o), n)] = true := by
+  simp only [VG.Impl.MlKem.X86_64.oSS] at h1
+  simp only [scrLen, Spec.MlDsa.scratchWords] at h2
+  layk
+
+end
+
 end VG.Proof.MlDsa.X86_64.KeyGen

@@ -64,6 +64,66 @@ macro_rules
       rcases ($hF).w1l with hw1 | ⟨hw1, _⟩ <;>
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> intros <;> vsep $hF [vcChk, hw1]))
 
+theorem sepAll_append {sz : List Nat} {a : Nat × Nat × Nat} {W₁ W₂ : List (Nat × Nat × Nat)}
+    (h₁ : sepAll sz a W₁ = true) (h₂ : sepAll sz a W₂ = true) : sepAll sz a (W₁ ++ W₂) = true := by
+  simp only [sepAll, List.all_append, Bool.and_eq_true] at *
+  exact ⟨h₁, h₂⟩
+
+theorem vcChk_append {p : Params} {STK : Nat} {W₁ W₂ : List (Nat × Nat × Nat)} (h₁ : vcChk p STK W₁ = true)
+    (h₂ : vcChk p STK W₂ = true) : vcChk p STK (W₁ ++ W₂) = true := by
+  simp only [vcChk, List.all_append, Bool.and_eq_true] at *
+  exact ⟨⟨⟨⟨sepAll_append h₁.1.1.1.1 h₂.1.1.1.1, h₁.1.1.1.2, h₂.1.1.1.2⟩, sepAll_append h₁.1.1.2 h₂.1.1.2⟩,
+    sepAll_append h₁.1.2 h₂.1.2⟩, sepAll_append h₁.2 h₂.2⟩
+
+/-- The checks of two parts of writes, for both. -/
+theorem K5Chk.append {p : Params} {STK nr : Nat} {W₁ W₂ : List (Nat × Nat × Nat)} (h₁ : K5Chk p STK nr W₁)
+    (h₂ : K5Chk p STK nr W₂) : K5Chk p STK nr (W₁ ++ W₂) :=
+  ⟨vcChk_append h₁.vc h₂.vc, sepAll_append h₁.hint h₂.hint,
+    fun r hr s hs => sepAll_append (h₁.a r hr s hs) (h₂.a r hr s hs), fun i hi => sepAll_append (h₁.z i hi) (h₂.z i hi),
+    sepAll_append h₁.c h₂.c, fun r hr => sepAll_append (h₁.rows r hr) (h₂.rows r hr)⟩
+
+/-! `K5Chk` of the writes of a part, from those of each region, each proved once for
+any region (`k5chk` on a literal list of writes costs seconds). -/
+
+theorem K5Chk.nil {p : Params} (_ : VFacts p) {STK nr : Nat} (_ : nr ≤ p.k) : K5Chk p STK nr [] :=
+  ⟨rfl, rfl, fun _ _ _ _ => rfl, fun _ _ => rfl, rfl, fun _ _ => rfl⟩
+
+theorem K5Chk.stk {p : Params} (hF : VFacts p) {STK nr : Nat} (hnr : nr ≤ p.k) : K5Chk p STK nr [(1, 0, STK)] := by
+  k5chk hF
+
+/-- A write to `scratch` apart from what `KC5` holds. -/
+theorem K5Chk.c0 {p : Params} (hF : VFacts p) {STK nr : Nat} (hnr : nr ≤ p.k) {o n : Nat}
+    (h1 : o + n ≤ 840 ∨ 876 ≤ o) (h2 : o + n ≤ oB ∨ oB + w1Len p * nr ≤ o) (h3 : o + n ≤ oP 0 ∨ oP 8 ≤ o)
+    (h4 : o + n ≤ oP 8 ∨ oP 16 ≤ o) (h5 : o + n ≤ oP 20) : K5Chk p STK nr [(0, o, n)] := by
+  simp only [oB, oP] at h2 h3 h4 h5
+  rcases hF.w1l with hw1 | ⟨hw1, _⟩ <;> rw [hw1] at h2 <;>
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> intros <;> vsep hF [vcChk, hw1]
+
+theorem K5Chk.cons_c0 {p : Params} (hF : VFacts p) {STK nr : Nat} (hnr : nr ≤ p.k) {o n : Nat}
+    {W : List (Nat × Nat × Nat)}
+    (h1 : o + n ≤ 840 ∨ 876 ≤ o) (h2 : o + n ≤ oB ∨ oB + w1Len p * nr ≤ o ∨ oB + 1024 ≤ o)
+    (h3 : o + n ≤ oP 0 ∨ oP 8 ≤ o) (h4 : o + n ≤ oP 8 ∨ oP 16 ≤ o) (h5 : o + n ≤ oP 20) (h : K5Chk p STK nr W) :
+    K5Chk p STK nr ((0, o, n) :: W) := by
+  have : w1Len p * nr ≤ 1024 := by
+    have := Nat.mul_le_mul_left (w1Len p) hnr; rw [Nat.mul_comm (w1Len p) p.k] at this; have := hF.w1; omega
+  exact (K5Chk.c0 hF hnr h1 (by omega) h3 h4 h5).append (W₁ := [_]) h
+
+theorem K5Chk.cons_stk {p : Params} (hF : VFacts p) {STK nr : Nat} (hnr : nr ≤ p.k) {W : List (Nat × Nat × Nat)}
+    (h : K5Chk p STK nr W) : K5Chk p STK nr ((1, 0, STK) :: W) :=
+  (K5Chk.stk hF hnr).append (W₁ := [_]) h
+
+/-- Proves a `K5Chk` of writes to `scratch` and the stack, with `hnr : nr ≤ p.k`. -/
+macro "k5chks " hF:term:max hnr:term:max : tactic => `(tactic| (
+  repeat' (first
+    | with_reducible exact VG.Proof.MlDsa.Arm.Verify.K5Chk.nil $hF $hnr
+    | apply VG.Proof.MlDsa.Arm.Verify.K5Chk.cons_stk $hF $hnr
+    | apply VG.Proof.MlDsa.Arm.Verify.K5Chk.cons_c0 $hF $hnr)
+  all_goals (
+    have := ($hF).w1.1; have := ($hF).k; have := ($hF).l
+    try simp only [VG.Impl.MlDsa.Arm.Verify.oP, VG.Impl.MlDsa.Arm.Verify.oB, VG.Impl.MlDsa.Arm.Verify.oSS,
+      VG.Impl.MlDsa.Arm.Verify.oCT]
+    omega_arith)))
+
 theorem KC5.keep {p : Params} (hF : VFacts p) {STK : Nat} {σ : State} {A' : Nat → Nat → Spec.MlDsa.Poly}
     {cc : Spec.MlDsa.Poly} {h : List (Vector Bool Spec.MlDsa.n)} {R : BitVec 32} {nz : Nat} {nc : Bool} {nr : Nat}
     {s s' : State} (hk5 : KC5 p STK σ A' cc h R nz nc nr s) {W : List (Nat × Nat × Nat)}

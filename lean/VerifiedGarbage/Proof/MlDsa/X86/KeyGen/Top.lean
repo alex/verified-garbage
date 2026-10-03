@@ -34,7 +34,14 @@ theorem trHash_piece {p : Params} (hF : PFacts p) : KP p (KRx p (p.ℓ + p.k) p.
     (by rw [YK_stk]; omega) (by show p.pkLen < 2 ^ 32; rw [hF.pk]; omega) (by decide) (by taint_decide) (h₁ := .block [])
     (by kernel_rfl) (h₃ := .block []) (by kernel_rfl) (h₄ := .block []) (by kernel_rfl)
     (fun _ _ _ ⟨_, _, h⟩ => h.ctx) fun s₀ s s' hp ⟨A, S, h⟩ h' fr out => ⟨A, S, ?_, ?_⟩
-  · exact h.keep hp (N := 40) (by omega) (by safeR hF) (fun _ _ => by layp hF) fr h'
+  · have hs : SafeR p (p.ℓ + p.k) p.k [sb 0 200, sb 200 640, ⟨2, 64, 64⟩] :=
+      (SafeR.sc hF (Nat.le_refl _) (Nat.le_refl _) (by decide) (.inl (by decide)) (.inl (by decide))
+        (by simp only [scrLen, hF.sw]; omega)).append (bs₁ := [_])
+      ((SafeR.sc hF (Nat.le_refl _) (Nat.le_refl _) (by decide) (.inl (by decide)) (.inl (by decide))
+        (by simp only [scrLen, hF.sw]; omega)).append (bs₁ := [_])
+      (SafeR.sk hF (Nat.le_refl _) (Nat.le_refl _) (by decide) (by decide) (.inl (by decide))
+        (.inl (by simp only [oT0]; omega)) (by rw [hF.sk, oT0]; omega)))
+    exact h.keep hp (N := 40) (by omega) hs (fun _ _ => by layp hF) fr h'
   · rw [out, sponge_H, keepBytes hp (N := 40) (stkN (by omega)) (b := ⟨1, 0, p.pkLen⟩) (by layp hF) fr]
 
 /-- The body's end: the keys, and `eax` the AND of the samplers' results. -/

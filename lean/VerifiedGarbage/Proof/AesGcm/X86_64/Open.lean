@@ -140,10 +140,18 @@ theorem openCheckA_ok {R t : Nat} {D : Addr} {n al : Nat} {H J : Block} {a : Lis
   have dW16 : ∀ r ∈ (⟨W + BitVec.ofNat 64 112, 16⟩ :: wFrame W SP), (⟨W, 16⟩ : Region).Disjoint r := by
     intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    have e0 : W + BitVec.ofNat 64 0 = W := BitVec.add_zero W
+    have w0 : ∀ d k, 16 ≤ d → d + k ≤ 2560 → (⟨W, 16⟩ : Region).Disjoint ⟨W + BitVec.ofNat 64 d, k⟩ :=
+      fun d k h₁ h₂ => by
+        have h := L.w_w (a := 0) (n := 16) (d := d) (k := k) (.inl h₁) (by decide) h₂
+        rw [e0] at h; exact h
     rcases hr with rfl | rfl | rfl | rfl | rfl
-    all_goals first
-      | exact (L.stk_w (a := 0) (n := 16) (by decide)).symm.sub_left (by simpa using Region.sub_prefix (base := W) (show 16 ≤ 16 by decide))
-      | simpa using L.w_w (a := 0) (n := 16) (.inl (by decide)) (by decide) (by decide)
+    · exact w0 112 16 (by decide) (by decide)
+    · exact w0 16 112 (by decide) (by decide)
+    · exact w0 216 8 (by decide) (by decide)
+    · exact w0 240 2320 (by decide) (by decide)
+    · have h := (L.stk_w (a := 0) (n := 16) (by decide)).symm
+      rw [e0] at h; exact h
   have hW₃ : bytesAt s₃.mem W t = bytesAt s.mem W t := by
     rw [bytesAt_take _ _ h16, bytesAt_take s.mem _ h16, bytesAt_frame f₃ dW16 (by decide)]
   have htl₃ : s₃.mem.readW (W + BitVec.ofNat 64 224) 64 = BitVec.ofNat 64 t := by

@@ -70,7 +70,7 @@ theorem mulW_piece :
   · have ha := hk5.aR hr (j := 0) (by omega)
     have hz := hk5.zR (j := 0) (by omega)
     refine mul_ok hP.mul hk5.vc.site (by omega) (mulW_m hF hr (by omega)) ha.1 hz.1 fun s' k' hb =>
-      ⟨A', cc, h, R, hk5.keep hF k' (by k5chk hF), ?_⟩
+      ⟨A', cc, h, R, hk5.keep hF k' (by k5chks hF (Nat.le_of_lt hr)), ?_⟩
     show PolyIs s'.mem (lpa (vlay p STK σ) pW) _
     rw [show dotAcc p (sgOf p σ) A' r 1 = _ from Proof.MlDsa.Verify.add_zero_left _]
     have e1 : polyAt s.mem (lpa (vlay p STK σ) (pA r 0)) = A' r 0 := ha.2
@@ -97,7 +97,7 @@ theorem mulAddW_piece {j : Nat} (hj : j < p.ℓ) :
   · have ha := hk5.aR hr hj
     have hz := hk5.zR hj
     refine mulAdd_ok hP.mulAdd hk5.vc.site (by omega) (mulW_m hF hr hj) hw.1 ha.1 hz.1 fun s' k' hb =>
-      ⟨A', cc, h, R, hk5.keep hF k' (by k5chk hF), ?_⟩
+      ⟨A', cc, h, R, hk5.keep hF k' (by k5chks hF (Nat.le_of_lt hr)), ?_⟩
     show PolyIs s'.mem (lpa (vlay p STK σ) pW) _
     have e0 : polyAt s.mem (lpa (vlay p STK σ) pW) = dotAcc p (sgOf p σ) A' r j := hw.2
     have e1 : polyAt s.mem (lpa (vlay p STK σ) (pA r j)) = A' r j := ha.2
@@ -147,7 +147,7 @@ theorem t1_piece :
   refine ⟨fun σ s _ ⟨A', cc, h, R, hk5, hw⟩ => ?_, ?_⟩
   · unfold unpackT1At
     refine t1_ok hP.unpackT1 hk5.vc.site (by omega) (t1_m hF hr) fun s' k' hb =>
-      ⟨A', cc, h, R, hk5.keep hF k' (by k5chk hF),
+      ⟨A', cc, h, R, hk5.keep hF k' (by k5chks hF (Nat.le_of_lt hr)),
         polyIs_keepW hk5.vc.site.ok k'.frame (by vsep hF) (by decide) rfl hw, ?_⟩
     have e : bytesAt s.mem (lpa (vlay p STK σ) (.r4, 32 + 320 * r)) 320 =
         ((pkOf p σ).drop (32 + 320 * r)).take 320 := pk_slice hk5.vc (by rw [hF.pk]; omega)
@@ -171,7 +171,7 @@ theorem nttT_piece :
   · obtain ⟨m1, m2, m3⟩ := nttT_m hF (STK := STK) (σ := σ)
     unfold nttAt
     refine ip_ok (t := ntt) hP.ntt hk5.vc.site (by omega) m1 m2 (show ix Reg.r7 ∈ vWb by decide)
-      (show ix Reg.r7 ∈ vWb by decide) m3 ht.1 fun s' k' hb => ⟨A', cc, h, R, hk5.keep hF k' (by k5chk hF),
+      (show ix Reg.r7 ∈ vWb by decide) m3 ht.1 fun s' k' hb => ⟨A', cc, h, R, hk5.keep hF k' (by k5chks hF (Nat.le_of_lt hr)),
         polyIs_keepW hk5.vc.site.ok k'.frame (by vsep hF) (by decide) rfl hw, ?_⟩
     have e : polyAt s.mem (lpa (vlay p STK σ) pT) = t1Raw (pkOf p σ) r := ht.2
     rw [e] at hb
@@ -208,7 +208,7 @@ theorem mulT_piece :
   refine ⟨fun σ s _ ⟨A', cc, h, R, hk5, hw, ht⟩ => ?_, ?_⟩
   · have hc := hk5.cR
     refine mul_ok hP.mul hk5.vc.site (by omega) (mulT_m hF) hc.1 ht.1 fun s' k' hb =>
-      ⟨A', cc, h, R, hk5.keep hF k' (by k5chk hF),
+      ⟨A', cc, h, R, hk5.keep hF k' (by k5chks hF (Nat.le_of_lt hr)),
         polyIs_keepW hk5.vc.site.ok k'.frame (by vsep hF) (by decide) rfl hw, ?_⟩
     have e1 : polyAt s.mem (lpa (vlay p STK σ) pC) = ntt cc := hc.2
     have e2 : polyAt s.mem (lpa (vlay p STK σ) pT) = t1Hat (pkOf p σ) r := ht.2
@@ -238,7 +238,7 @@ theorem subW_piece :
   have hk := hF.k; have hl := hF.l
   refine ⟨fun σ s _ ⟨A', cc, h, R, hk5, hw, ht⟩ => ?_, ?_⟩
   · refine sub_ok hP.sub hk5.vc.site (by omega) (subW_m hF) hw.1 ht.1 fun s' k' hb =>
-      ⟨A', cc, h, R, hk5.keep hF k' (by k5chk hF), ?_⟩
+      ⟨A', cc, h, R, hk5.keep hF k' (by k5chks hF (Nat.le_of_lt hr)), ?_⟩
     have e1 : polyAt s.mem (lpa (vlay p STK σ) pW) = dotAcc p (sgOf p σ) A' r p.ℓ := hw.2
     have e2 : polyAt s.mem (lpa (vlay p STK σ) pT2) = _ := ht.2
     rw [e1, e2] at hb
@@ -270,7 +270,7 @@ theorem invW_piece :
   · obtain ⟨m1, m2, m3⟩ := invW_m hF (STK := STK) (σ := σ)
     unfold invNttAt
     refine ip_ok (t := nttInv) hP.invNtt hk5.vc.site (by omega) m1 m2 (show ix Reg.r7 ∈ vWb by decide)
-      (show ix Reg.r7 ∈ vWb by decide) m3 hw.1 fun s' k' hb => ⟨A', cc, h, R, hk5.keep hF k' (by k5chk hF), ?_⟩
+      (show ix Reg.r7 ∈ vWb by decide) m3 hw.1 fun s' k' hb => ⟨A', cc, h, R, hk5.keep hF k' (by k5chks hF (Nat.le_of_lt hr)), ?_⟩
     have e : polyAt s.mem (lpa (vlay p STK σ) pW) = _ := hw.2
     rw [e] at hb
     exact hb
@@ -314,7 +314,7 @@ theorem uh_piece :
   refine ⟨fun σ s _ ⟨A', cc, h, R, hk5, hw⟩ => ?_, ?_⟩
   · unfold useHintAt
     refine uh_ok hP.useHint hk5.vc.site (by omega) (uh_m hF hr) hw.1 fun s' k' hb =>
-      ⟨A', cc, h, R, hk5.keep hF k' (by k5chk hF), ?_⟩
+      ⟨A', cc, h, R, hk5.keep hF k' (by k5chks hF (Nat.le_of_lt hr)), ?_⟩
     have e : polyAt s.mem (lpa (vlay p STK σ) pW) = _ := hw.2
     rw [e, hint_row hr hk5.hint] at hb
     exact hb
@@ -353,7 +353,10 @@ theorem sbpW_piece :
   · unfold sbpAt
     refine sbp_ok hP.simpleBitPack hk5.vc.site (by omega) (sbpW_m hF hr) (w1_bound hF hw) fun s' k' hb =>
       ⟨A', cc, h, R, ?_⟩
-    have hk' := hk5.keep hF k' (by k5chk hF)
+    have hk' := hk5.keep hF k' (by
+      have : w1Len p * r + w1Len p ≤ p.k * w1Len p := by
+        rw [← Nat.mul_succ, Nat.mul_comm p.k]; exact Nat.mul_le_mul_left _ hr
+      k5chks hF (Nat.le_of_lt hr))
     refine ⟨hk'.vc, hk'.hh, hk'.hint, hk'.a, hk'.z, hk'.c, fun r' hr' => ?_, hk'.r11, hk'.gd⟩
     rcases (by omega : r' < r ∨ r' = r) with hr' | rfl
     · exact hk'.rows r' hr'

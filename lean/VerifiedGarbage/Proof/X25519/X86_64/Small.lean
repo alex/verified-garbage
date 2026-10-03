@@ -77,7 +77,7 @@ theorem smallSteps_ok {s : State} {base : Addr} (hs : Scr s base) {a : Nat} (ha 
   simp only [val4, fe, word, g k5 .r8 (by decide), g k4 .r8 (by decide), g k3 .r8 (by decide),
     g k5 .r9 (by decide), g k4 .r9 (by decide), g k5 .r10 (by decide)]
   have hp : ∀ x y z w v : Nat, v * (x + 2 ^ 64 * y + 2 ^ 128 * z + 2 ^ 192 * w) =
-      v * x + 2 ^ 64 * (v * y) + 2 ^ 128 * (v * z) + 2 ^ 192 * (v * w) := by intros; ring
+      v * x + 2 ^ 64 * (v * y) + 2 ^ 128 * (v * z) + 2 ^ 192 * (v * w) := by intros; grind
   rw [hp]
   omega
 

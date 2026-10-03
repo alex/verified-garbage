@@ -81,7 +81,11 @@ theorem packS_ok {r : Nat} (hr : r < p.ℓ + p.k) {σ : State} {A : Nat → Poly
   unfold packS bitPackAt
   refine bp_ok hP.bitPack hs (by omega) (packS_m hF hr) hSp.1 (small_coeff (eta_le hF) hSp (h.small r hr))
     fun s' k' hb => ?_
-  have hk' := h.keep hF k' (by krchk hF)
+  have hle : 128 + lenS p * r + lenS p ≤ oT0 p := by
+    simp only [oT0]; rw [Nat.add_assoc, ← Nat.mul_succ]; exact Nat.add_le_add_left (Nat.mul_le_mul_left _ hr) _
+  have hk' := h.keep hF k' ((KRChk.c4 (o := 128 + lenS p * r) (n := lenS p) hF (Nat.le_of_lt hr) (Nat.zero_le _)
+    (by omega) (.inr (Nat.le_refl _)) (.inl hle) (by rw [hF.sk]; omega)).append (W₁ := [_])
+    (KRChk.stk hF (Nat.le_of_lt hr) (Nat.zero_le _)))
   refine ⟨hk'.kc, hk'.r11, hk'.good, hk'.small, hk'.aS, hk'.s2, hk'.s1, hk'.pk0, hk'.sk0, hk'.sk1,
     fun r' hr' => ?_, hk'.rows⟩
   rcases (by omega : r' < r ∨ r' = r) with hr' | rfl

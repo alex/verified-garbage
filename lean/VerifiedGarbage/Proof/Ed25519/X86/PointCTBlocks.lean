@@ -10,13 +10,6 @@ theorem pointEncode_ct : RelCT isa (fun s t => s.gpr .edi = t.gpr .edi)
   intro s t h
   exact regsTaint_agree (fun r hr => (List.mem_singleton.mp hr) ▸ h)
 
-theorem accumulate16_ct (x : BitVec 32) : RelCT isa
-    (fun s t => PointCTCtx x s ∧ PointCTCtx x t ∧ s.wr = t.wr ∧ wd s.mem x 28 = wd t.mem x 28)
-    accumulate16 (fun _ _ => True) := by
-  apply VG.RelCT.taint (A := taint) (pointTaint 28) _ (by taint_decide)
-  intro s t h
-  exact pointTaint_agree h.1 h.2.1 h.2.2.1 (by decide) h.2.2.2
-
 def PowersCTPre (x : BitVec 32) (s t : State) : Prop :=
   PointCTCtx x s ∧ PointCTCtx x t ∧ s.wr = t.wr ∧ wd s.mem x 24 = wd t.mem x 24
 
@@ -46,5 +39,10 @@ theorem accumulate16_ct_regs (x : BitVec 32) : RelCT isa
     intro s t h
     exact pointTaint_agree h.1 h.2.1 h.2.2.1 (by decide) h.2.2.2
   exact h.mono (fun _ _ h => h) (fun _ _ h => h .edi (List.mem_singleton_self _))
+
+theorem accumulate16_ct (x : BitVec 32) : RelCT isa
+    (fun s t => PointCTCtx x s ∧ PointCTCtx x t ∧ s.wr = t.wr ∧ wd s.mem x 28 = wd t.mem x 28)
+    accumulate16 (fun _ _ => True) :=
+  (accumulate16_ct_regs x).mono (fun _ _ h => h) (fun _ _ _ => trivial)
 
 end VG.Proof.Ed25519.X86

@@ -50,7 +50,7 @@ theorem cOp_spec {d : Nat} (hd : d ∈ Spec.MlKem1024.compressWidths) (is : List
     simp [hr.1, hr.2]
   · simp only [ite_true]
     rw [toNat_and_mask _ _ hd', toNat_shr]
-    simp only [BitVec.toNat_add, BitVec.toNat_ofNat, h]
+    rw [BitVec.toNat_add]; simp only [BitVec.toNat_ofNat, h]
     have hm : cmul1024 d < 2 ^ 32 := by
       rcases mem_compressWidths1024 hd with rfl | rfl <;> decide
     rw [Nat.mod_eq_of_lt hm, show (261888 : BitVec 32).toNat = compressAdd1024 from rfl, cmul_eq,

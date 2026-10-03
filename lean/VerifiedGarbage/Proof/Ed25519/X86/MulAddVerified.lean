@@ -1,8 +1,200 @@
-import VerifiedGarbage.Proof.Ed25519.X86.MulAddMain
+import VerifiedGarbage.Proof.Ed25519.X86.ScalarContract
+import VerifiedGarbage.Proof.Ed25519.X86.Workspace
+import VerifiedGarbage.Impl.Ed25519.X86.MulAdd
+import VerifiedGarbage.Proof.Ed25519.X86.CommonInput
+import VerifiedGarbage.Proof.Ed25519.X86.ScalarCodec
+import VerifiedGarbage.Proof.Ed25519.X86.ScalarEngine
 import VerifiedGarbage.Proof.Ed25519.X86.MulAddLit
 import VerifiedGarbage.Proof.Ed25519.X86.CommonCT
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.X86.Inline
+
+/-! Merged from `Proof.Ed25519.X86.MulAddMain`. -/
+section
+/-! Merged from `Proof.Ed25519.X86.MulAddContract`. -/
+section
+namespace VG.Proof.Ed25519.X86
+open VG VG.X86
+
+def scalarMulAddLocal : Contract isa where
+  pre s :=
+    let out : Region := ⟨(arg s 0).setWidth 64, 32⟩
+    let r : Region := ⟨(arg s 1).setWidth 64, 32⟩
+    let k : Region := ⟨(arg s 2).setWidth 64, 32⟩
+    let a : Region := ⟨(arg s 3).setWidth 64, 32⟩
+    let scratch : Region := ⟨(arg s 4).setWidth 64, 8192⟩
+    let args : Region := ⟨argAddr s 0, 20⟩
+    let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    s.rd = [r, k, a, args] ∧ s.wr = [out, scratch] ∧ out.Disjoint scratch ∧
+      r.Disjoint scratch ∧ k.Disjoint scratch ∧ a.Disjoint scratch ∧
+      args.Disjoint out ∧ args.Disjoint scratch ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+      (arg s 0).toNat + 32 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 32 ≤ 2 ^ 32 ∧
+      (arg s 2).toNat + 32 ≤ 2 ^ 32 ∧ (arg s 3).toNat + 32 ≤ 2 ^ 32 ∧
+      (arg s 4).toNat + 8192 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
+  post s t := Spec.Ed25519.bytesAt t.mem ((arg s 0).setWidth 64) 32 =
+    Spec.Ed25519.scalarMulAdd (Spec.Ed25519.bytesAt s.mem ((arg s 1).setWidth 64) 32)
+      (Spec.Ed25519.bytesAt s.mem ((arg s 2).setWidth 64) 32)
+      (Spec.Ed25519.bytesAt s.mem ((arg s 3).setWidth 64) 32)
+  pub s t := s.gpr .esp = t.gpr .esp ∧ arg s 0 = arg t 0 ∧ arg s 1 = arg t 1 ∧
+    arg s 2 = arg t 2 ∧ arg s 3 = arg t 3 ∧ arg s 4 = arg t 4
+
+theorem scalarMulAdd_pre {s : State} (h : scalarMulAddLocal.pre s) :
+    ScratchPre s 4 5 ∧ InputPre s 4 2 8 ∧ InputPre s 4 3 8 ∧ InputPre s 4 1 8 ∧ OutputPre s 4 := by
+  obtain ⟨rd, wr, os, rs, ks, ss, _, ars, ro, rsc, ofit, rfit, kfit, afit, sfit, spfit⟩ := h
+  refine ⟨⟨by decide, ?_, sfit, ?_, by omega_using [spfit], ars, rsc⟩,
+    ⟨?_, kfit, ?_⟩, ⟨?_, afit, ?_⟩, ⟨?_, rfit, ?_⟩, ⟨?_, ofit, os, ro⟩⟩
+  · rw [wr]; simp
+  · rw [rd]; simp
+  · rw [sub, addr_zero, rd]; simp
+  · rw [sub, addr_zero]; exact ks
+  · rw [sub, addr_zero, rd]; simp
+  · rw [sub, addr_zero]; exact ss
+  · rw [sub, addr_zero, rd]; simp
+  · rw [sub, addr_zero]; exact rs
+  · rw [wr]; simp
+end VG.Proof.Ed25519.X86
+end
+
+/-! Merged from `Proof.Ed25519.X86.MulAddSetup`. -/
+section
+/-! Merged from `Proof.Ed25519.X86.MulAddWide`. -/
+section
+namespace VG.Proof.Ed25519.X86
+open VG VG.X86 VG.Impl.X25519.X86 VG.Impl.Ed25519.X86
+
+theorem scalarMulTerms_value (m : Mem) (x : BitVec 32) (k : Nat) :
+    colv m x (scalarMulTerms k) = colv m x (prodTerms 256 288 k) +
+      (if k < 8 then wv m x (320 + 4 * k) else 0) := by
+  simp only [scalarMulTerms, colv, List.map_append, List.sum_append]
+  split <;> simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, Nat.add_zero, tval]
+
+theorem num_extend8 (f : Nat → Nat) : num (fun k => if k < 8 then f k else 0) 16 = num f 8 := by
+  rw [num_16]
+  have h0 : num (fun k => if 8 + k < 8 then f (8 + k) else 0) 8 = 0 := by
+    have he : (fun k => if 8 + k < 8 then f (8 + k) else 0) = (fun _ => 0) := by
+      funext k; rw [ite_eq_right (by omega_using [])]
+    rw [he]; rfl
+  rw [h0, Nat.mul_zero, Nat.add_zero]
+  exact num_congr fun k hk => ite_eq_left hk
+
+theorem scalarMulTerms_num (m : Mem) (x : BitVec 32) :
+    num (fun k => colv m x (scalarMulTerms k)) 16 = fe m x 256 * fe m x 288 + fe m x 320 := by
+  simp only [scalarMulTerms_value]
+  rw [num_add, num_extend8]
+  have hp : num (fun k => colv m x (prodTerms 256 288 k)) 16 = fe m x 256 * fe m x 288 := by
+    simp only [colv, prodTerms, List.map_map]
+    exact prod_identity (fun i => wv m x (256 + 4 * i)) (fun i => wv m x (288 + 4 * i))
+  rw [hp]; rfl
+
+theorem scalarMulTerms_bound (m : Mem) (x : BitVec 32) (k : Nat) :
+    colv m x (scalarMulTerms k) < 2 ^ 68 := by
+  rw [scalarMulTerms_value]
+  have hl : (prodTerms 256 288 k).length ≤ 8 := by
+    simp only [prodTerms, List.length_map]
+    exact Nat.le_trans (List.length_filter_le _ _) (by simp)
+  have hp := colv_le_len (m := m) (x := x) (B := 2 ^ 64) (ts := prodTerms 256 288 k) fun t ht => by
+    simp only [prodTerms, List.mem_map] at ht
+    obtain ⟨i, _, rfl⟩ := ht
+    exact wv_mul_le _ _ _ _
+  have hm := Nat.mul_le_mul_right (2 ^ 64) hl
+  have hw := wv_lt m x (320 + 4 * k)
+  split <;> omega_using [hp, hm, hw]
+
+theorem scalarMulTerms_reads {k : Nat} (hk : k < 16) {t : Term} (ht : t ∈ scalarMulTerms k)
+    {d : Nat} (hd : d ∈ treads t) : d + 4 ≤ 4096 ∧ 128 + 4 * k ≤ d := by
+  simp only [scalarMulTerms, List.mem_append] at ht
+  rcases ht with ht | ht
+  · simp only [prodTerms, List.mem_map, List.mem_filter, List.mem_range, Bool.and_eq_true,
+      decide_eq_true_eq] at ht
+    obtain ⟨i, ⟨hi, _, hki⟩, rfl⟩ := ht
+    simp only [treads, List.mem_cons, List.not_mem_nil, or_false] at hd
+    rcases hd with rfl | rfl <;> constructor <;> omega_using [hk, hi, hki]
+  · split at ht
+    · simp only [List.mem_singleton] at ht; subst ht
+      simp only [treads, List.mem_singleton] at hd; subst hd
+      constructor <;> omega_using [hk]
+    · simp only [List.not_mem_nil] at ht
+
+theorem scalarWideMul_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
+    WP isa (.block scalarWideMul) s fun t => Keep s t ∧ Frame [sub x 128 64] s.mem t.mem ∧
+      num (fun k => wv t.mem x (128 + 4 * k)) 16 = fe s.mem x 256 * fe s.mem x 288 + fe s.mem x 320 := by
+  refine WP.block_append (WP.mono zeroAcc_ok fun u ⟨ku, mu, au⟩ => ?_)
+  refine WP.mono (cols_ok (ku.ctx hc) scalarMulTerms 16 (by decide)
+    (fun k hk t ht d hd => let h := scalarMulTerms_reads hk ht hd; ⟨h.1, Or.inr h.2⟩)
+    (fun k _ => scalarMulTerms_bound _ _ k) (by rw [au]; decide)) fun t ⟨kt, ft, et, _⟩ => ?_
+  rw [au, Nat.zero_add, scalarMulTerms_num, mu] at et
+  have hA := fe_lt s.mem x 256
+  have hB := fe_lt s.mem x 288
+  have hC := fe_lt s.mem x 320
+  have hab := Nat.mul_le_mul (Nat.le_pred_of_lt hA) (Nat.le_pred_of_lt hB)
+  change fe s.mem x 256 * fe s.mem x 288 ≤ (2 ^ 256 - 1) * (2 ^ 256 - 1) at hab
+  have hz : acc t = 0 := by
+    change _ + (2 ^ 256 * 2 ^ 256) * acc t = _ at et
+    omega_using [et, hab, hC]
+  rw [hz, Nat.mul_zero, Nat.add_zero] at et
+  rw [mu] at ft
+  exact ⟨ku.trans kt, ft, et⟩
+end VG.Proof.Ed25519.X86
+end
+
+namespace VG.Proof.Ed25519.X86
+open VG VG.X86 VG.Impl.X25519.X86 VG.Impl.Ed25519.X86
+
+theorem copied_fe {s₀ t : State} {p x : BitVec 32} {dst : Nat}
+    (hp : p.toNat + 32 ≤ 2 ^ 32)
+    (hw : ∀ k < 8, wd t.mem x (dst + 4 * k) = wd s₀.mem p (4 * k)) :
+    fe t.mem x dst = Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s₀.mem (p.setWidth 64) 32) := by
+  have ew : fe t.mem x dst = num (fun k => wv s₀.mem p (0 + 4 * k)) 8 :=
+    num_congr fun k hk => by simpa only [Nat.zero_add] using congrArg BitVec.toNat (hw k hk)
+  rw [ew, ← decode_words s₀.mem 8 (by omega_using [hp]), addr_zero]
+
+theorem scalarMulInputs_ok {s₀ s : State} (hp : ScratchPre s₀ 4 5)
+    (hA : InputPre s₀ 4 2 8) (hB : InputPre s₀ 4 3 8) (hC : InputPre s₀ 4 1 8)
+    (hs : Saved s₀ (arg s₀ 4) s) :
+    WP isa (.block scalarMulInputs) s fun t => Saved s₀ (arg s₀ 4) t ∧
+      fe t.mem (arg s₀ 4) 256 = Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s₀.mem ((arg s₀ 2).setWidth 64) 32) ∧
+      fe t.mem (arg s₀ 4) 288 = Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s₀.mem ((arg s₀ 3).setWidth 64) 32) ∧
+      fe t.mem (arg s₀ 4) 320 = Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s₀.mem ((arg s₀ 1).setWidth 64) 32) := by
+  have he : scalarMulInputs =
+      (([.mov .esi (.mem (at_ .esp 12))] : List Instr) ++ copyWords 256 8) ++
+      ((([.mov .esi (.mem (at_ .esp 16))] : List Instr) ++ copyWords 288 8) ++
+      (([.mov .esi (.mem (at_ .esp 8))] : List Instr) ++ copyWords 320 8)) := by
+    simp only [scalarMulInputs, List.append_assoc]
+  rw [he]
+  refine WP.block_append (WP.mono (loadInput_ok hp hA hs (by decide) (dst := 256)
+    (by decide) (by decide) (by decide)) fun u ⟨hu, wu, _⟩ => ?_)
+  refine WP.block_append (WP.mono (loadInput_ok hp hB hu (by decide) (dst := 288)
+    (by decide) (by decide) (by decide)) fun v ⟨hv, wv, fv⟩ => ?_)
+  refine WP.mono (loadInput_ok hp hC hv (by decide) (dst := 320)
+    (by decide) (by decide) (by decide)) fun t ⟨ht, wt, ft⟩ => ?_
+  refine ⟨ht, ?_, ?_, copied_fe hC.fit wt⟩
+  · rw [fe_frame1 ft hp.fit (by decide) (by decide) (Or.inl (by decide)),
+      fe_frame1 fv hp.fit (by decide) (by decide) (Or.inl (by decide))]
+    exact copied_fe hA.fit wu
+  · rw [fe_frame1 ft hp.fit (by decide) (by decide) (Or.inl (by decide))]
+    exact copied_fe hB.fit wv
+end VG.Proof.Ed25519.X86
+end
+
+namespace VG.Proof.Ed25519.X86
+open VG VG.X86 VG.Impl.X25519.X86 VG.Impl.Ed25519.X86
+
+theorem scalarMulAdd_correct {s : State} (h : scalarMulAddLocal.pre s) :
+    WP isa scalarMulAdd s fun t => abiPreserved s t ∧ scalarMulAddLocal.post s t := by
+  obtain ⟨hp, hA, hB, hC, ho⟩ := scalarMulAdd_pre h
+  simp only [scalarMulAdd, List.append_assoc]
+  refine WP.seq (WP.block_append (WP.mono (abiSave_ok hp) fun u hu => ?_))
+  refine WP.block_append (WP.mono (scalarMulInputs_ok hp hA hB hC hu) fun v ⟨hv, evA, evB, evC⟩ => ?_)
+  refine WP.mono (scalarWideMul_ok (hv.ctx hp.fit hp.wr)) fun w ⟨kw, fw, ew⟩ => ?_
+  have hw := hv.of_offset hp.fit (Keep.scalar kw) fw (by decide) (by decide) (by decide)
+  refine WP.seq (WP.mono (scalarEngine_ok (hw.ctx hp.fit hp.wr)) fun z ⟨kz, fz, ez⟩ => ?_)
+  have hz := hw.scalarEngine hp.fit kz fz
+  refine WP.mono (finishWords_ok hp ho hz (src := scalarR) (by decide)) fun t ⟨abi_t, et⟩ => ⟨abi_t, ?_⟩
+  change Spec.Ed25519.bytesAt t.mem ((arg s 0).setWidth 64) 32 = _
+  rw [et, ez, scalarInput_num w.mem hp.fit, ew, evA, evB, evC, Spec.Ed25519.scalarMulAdd]
+  rw [Nat.add_comm]
+end VG.Proof.Ed25519.X86
+end
 
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86

@@ -14,7 +14,7 @@ circuits spill to the scratch buffer (`[rcx + 8k]`, `k < spills`) and leave
 namespace VG.Proof.TripleDes.X86_64.Bitsliced
 
 open VG VG.X86_64 VG.X86_64.Straight VG.Bitslice VG.Impl.TripleDes.X86_64.Bitslice
-open VG.Proof.TripleDes.X86_64 (inputTable outputTable)
+open VG.Proof.TripleDes (inputTable outputTable)
 
 noncomputable def sboxLiterals : Array (Prog isa) :=
   #[sbox0.lit, sbox1.lit, sbox2.lit, sbox3.lit, sbox4.lit, sbox5.lit, sbox6.lit, sbox7.lit]

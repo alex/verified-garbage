@@ -7,7 +7,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.PointAccumulateLoop
 /-!
 # Cached points
 
-The cached addition is the specification's `pointAdd` (`ring`); each constant
+The cached addition is the specification's `pointAdd` (`grind`); each constant
 field of a cached point is four immediate words stored through `rax`.
 -/
 
@@ -15,7 +15,6 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off F Keeps Outside fe_st4 st4_outside)
-open Fin.CommRing
 
 variable {fld : Arith} [EdArith fld]
 
@@ -37,7 +36,7 @@ theorem pointAddCached_eval (e : Env) (q : Spec.Ed25519.Point) (hq : point e 4 5
   have h7 : e 7 = q.Z * 2 := congrArg Spec.Ed25519.Point.T hq
   rw [pointAddCached_formula]
   simp only [addCachedResult, point, Spec.Ed25519.pointAdd, h4, h5, h6, h7]
-  congr 1 <;> ring
+  congr 1 <;> grind
 
 theorem pointAddCached_high (e : Env) (i : Slot) (hi : 16 ≤ i.val) :
     evalOps pointAddCachedOps e i = e i :=
